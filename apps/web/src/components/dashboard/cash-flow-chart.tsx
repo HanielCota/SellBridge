@@ -144,7 +144,7 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
           tickFormatter={(value: string) => formatPointDate(value)}
         />
         <YAxis
-          width={56}
+          width={68}
           tickLine={false}
           axisLine={false}
           tickMargin={8}

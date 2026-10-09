@@ -136,7 +136,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <FilterSelect
         label="Categoria"
         value={search.category}
-        allLabel="Todas as categorias"
+        allLabel="Categorias"
         options={data.categories.map((category) => ({
           value: category.slug,
           label: category.name,
@@ -146,7 +146,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <FilterSelect
         label="Fornecedor"
         value={search.supplier}
-        allLabel="Todos os fornecedores"
+        allLabel="Fornecedores"
         options={data.suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name }))}
         onChange={(supplier) => updateSearch({ supplier })}
       />
