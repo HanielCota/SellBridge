@@ -6,7 +6,7 @@ import { createUnavailableConnector } from "./unavailable-connector.ts";
 export interface ConnectorRegistryConfig {
   appUrl: string;
   mockWebhookSecret: string;
-  mockLatencyMs?: number;
+  mockLatencyMilliseconds?: number;
   mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
 }
 
@@ -24,7 +24,9 @@ export function createConnectorRegistry(config: ConnectorRegistryConfig): Connec
     mock: createMockConnector({
       appUrl: config.appUrl,
       webhookSecret: config.mockWebhookSecret,
-      ...(config.mockLatencyMs === undefined ? {} : { latencyMs: config.mockLatencyMs }),
+      ...(config.mockLatencyMilliseconds === undefined
+        ? {}
+        : { latencyMilliseconds: config.mockLatencyMilliseconds }),
     }),
     mercado_livre: createMercadoLivreConnector({
       clientId: config.mercadoLivre?.clientId,

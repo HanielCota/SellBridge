@@ -2,6 +2,7 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { containsPattern } from "./search-pattern.ts";
 import { organization, ticketAttachments, ticketMessages, tickets, user } from "../schema/index.ts";
 
 type TicketStatus = (typeof tickets.$inferSelect)["status"];
@@ -141,9 +142,7 @@ function ticketFilters(filters: {
     conditions.push(eq(tickets.status, filters.status));
   }
   if (filters.search) {
-    conditions.push(
-      ilike(tickets.subject, `%${filters.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`),
-    );
+    conditions.push(ilike(tickets.subject, containsPattern(filters.search)));
   }
   return conditions;
 }
@@ -181,7 +180,7 @@ export async function listAllTickets(
 ): Promise<Paginated<AdminTicketSummary>> {
   const conditions = ticketFilters(filters);
   if (filters.search) {
-    const term = `%${filters.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const term = containsPattern(filters.search);
     conditions.pop();
     const searchCondition = or(
       ilike(tickets.subject, term),
@@ -222,12 +221,11 @@ export async function listAllTickets(
   return toPaginated(rows, totals.at(0)?.total ?? 0, pagination);
 }
 
-/** Loads a full thread; pass the tenant to scope reseller access, or null for admins. */
-export async function getTicketThread(
+async function findThreadTicket(
   database: Database,
   ticketId: string,
   tenantId: string | null,
-): Promise<TicketThread> {
+): Promise<TicketThread["ticket"]> {
   const [ticket] = await database
     .select({
       id: tickets.id,
@@ -251,7 +249,11 @@ export async function getTicketThread(
   if (!ticket) {
     throw notFoundError("Chamado não encontrado");
   }
-  const messages = await database
+  return ticket;
+}
+
+async function findThreadMessages(database: Database, ticketId: string) {
+  return database
     .select({
       id: ticketMessages.id,
       body: ticketMessages.body,
@@ -261,26 +263,38 @@ export async function getTicketThread(
     })
     .from(ticketMessages)
     .innerJoin(user, eq(user.id, ticketMessages.authorId))
-    .where(eq(ticketMessages.ticketId, ticket.id))
+    .where(eq(ticketMessages.ticketId, ticketId))
     .orderBy(asc(ticketMessages.createdAt));
-  const attachments =
-    messages.length === 0
-      ? []
-      : await database
-          .select({
-            id: ticketAttachments.id,
-            messageId: ticketAttachments.messageId,
-            fileName: ticketAttachments.fileName,
-            mimeType: ticketAttachments.mimeType,
-            sizeBytes: ticketAttachments.sizeBytes,
-          })
-          .from(ticketAttachments)
-          .where(
-            inArray(
-              ticketAttachments.messageId,
-              messages.map((message) => message.id),
-            ),
-          );
+}
+
+async function findMessageAttachments(database: Database, messageIds: readonly string[]) {
+  if (messageIds.length === 0) {
+    return [];
+  }
+  return database
+    .select({
+      id: ticketAttachments.id,
+      messageId: ticketAttachments.messageId,
+      fileName: ticketAttachments.fileName,
+      mimeType: ticketAttachments.mimeType,
+      sizeBytes: ticketAttachments.sizeBytes,
+    })
+    .from(ticketAttachments)
+    .where(inArray(ticketAttachments.messageId, [...messageIds]));
+}
+
+/** Loads a full thread; pass the tenant to scope reseller access, or null for admins. */
+export async function getTicketThread(
+  database: Database,
+  ticketId: string,
+  tenantId: string | null,
+): Promise<TicketThread> {
+  const ticket = await findThreadTicket(database, ticketId, tenantId);
+  const messages = await findThreadMessages(database, ticket.id);
+  const attachments = await findMessageAttachments(
+    database,
+    messages.map((message) => message.id),
+  );
   return {
     ticket,
     messages: messages.map((message) => ({

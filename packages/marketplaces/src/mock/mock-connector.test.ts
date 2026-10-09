@@ -10,7 +10,7 @@ import {
 const connector = createMockConnector({
   appUrl: "http://localhost:3000",
   webhookSecret: "segredo-de-teste",
-  latencyMs: 0,
+  latencyMilliseconds: 0,
   now: () => new Date("2026-01-01T00:00:00Z"),
 });
 

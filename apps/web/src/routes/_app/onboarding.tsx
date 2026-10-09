@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { MapPin } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
+import { optionalParameter } from "@sellbridge/shared/schemas";
 import { TextField } from "@/components/form/form-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { getTenantRegion, updateTenantRegion } from "@/features/region/region.fu
 import { errorMessage } from "@/lib/errors";
 
 const onboardingSearchSchema = z.object({
-  redirect: z.string().startsWith("/").optional().catch(undefined),
+  redirect: optionalParameter(z.string().startsWith("/")),
 });
 
 const cepFormSchema = z.object({
@@ -32,31 +33,10 @@ function maskCep(value: string): string {
   return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
 }
 
+type TenantRegion = Awaited<ReturnType<typeof getTenantRegion>>;
+
 function OnboardingPage() {
   const region = Route.useLoaderData();
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const form = useForm({
-    defaultValues: { cep: region ? formatCep(region.cep) : "" },
-    validators: { onSubmit: cepFormSchema },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      try {
-        await updateTenantRegion({ data: { cep: value.cep } });
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      await router.invalidate();
-      await navigate({ to: search.redirect ?? "/fornecedores" });
-    },
-  });
-
   return (
     <div className="mx-auto w-full max-w-lg py-6">
       <Card>
@@ -80,44 +60,79 @@ function OnboardingPage() {
               </span>
             </p>
           ) : null}
-          {submitError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{submitError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <form
-            noValidate
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void form.handleSubmit();
-            }}
-          >
-            <form.Field name="cep">
-              {(field) => (
-                <TextField
-                  id="cep"
-                  label="CEP"
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  placeholder="00000-000"
-                  value={field.state.value}
-                  errors={field.state.meta.errors}
-                  onBlur={field.handleBlur}
-                  onValueChange={(value) => field.handleChange(maskCep(value))}
-                />
-              )}
-            </form.Field>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Consultando CEP..." : "Salvar região"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </form>
+          <RegionForm region={region} />
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function useRegionForm(region: TenantRegion) {
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const form = useForm({
+    defaultValues: { cep: region ? formatCep(region.cep) : "" },
+    validators: { onSubmit: cepFormSchema },
+    onSubmit: async ({ value }) => {
+      setSubmitError(null);
+      try {
+        await updateTenantRegion({ data: { cep: value.cep } });
+      } catch (error) {
+        setSubmitError(errorMessage(error));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      await router.invalidate();
+      await navigate({ to: search.redirect ?? "/fornecedores" });
+    },
+  });
+  return { form, submitError };
+}
+
+function RegionForm({ region }: { readonly region: TenantRegion }) {
+  const { form, submitError } = useRegionForm(region);
+  return (
+    <>
+      {submitError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{submitError}</AlertDescription>
+        </Alert>
+      ) : null}
+      <form
+        noValidate
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
+        <form.Field name="cep">
+          {(field) => (
+            <TextField
+              id="cep"
+              label="CEP"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              placeholder="00000-000"
+              value={field.state.value}
+              errors={field.state.meta.errors}
+              onBlur={field.handleBlur}
+              onValueChange={(value) => field.handleChange(maskCep(value))}
+            />
+          )}
+        </form.Field>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Consultando CEP..." : "Salvar região"}
+            </Button>
+          )}
+        </form.Subscribe>
+      </form>
+    </>
   );
 }

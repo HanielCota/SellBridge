@@ -61,6 +61,91 @@ async function resolveListings(
  * later deliveries (status changes, retries) only update status, totals and fee.
  * Items whose listing is not ours are kept with zero cost so revenue is never lost.
  */
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type ResolvedListings = Awaited<ReturnType<typeof resolveListings>>;
+
+interface OrderWrite {
+  readonly transaction: Transaction;
+  readonly tenantId: string;
+  readonly storeConnectionId: string;
+  readonly order: IncomingOrder;
+  readonly listingsByExternalId: ResolvedListings;
+}
+
+async function updateExistingOrder(
+  write: OrderWrite,
+  existing: typeof orders.$inferSelect,
+): Promise<UpsertOrderResult> {
+  if (existing.tenantId !== write.tenantId) {
+    throw new Error("Pedido pertence a outro tenant");
+  }
+  await write.transaction
+    .update(orders)
+    .set({
+      status: write.order.status,
+      totalCents: write.order.totalCents,
+      marketplaceFeeCents: write.order.marketplaceFeeCents,
+    })
+    .where(eq(orders.id, existing.id));
+  return { status: "updated", orderId: existing.id };
+}
+
+async function insertOrderItems(write: OrderWrite, orderId: string): Promise<void> {
+  if (write.order.items.length === 0) {
+    return;
+  }
+  await write.transaction.insert(orderItems).values(
+    write.order.items.map((item) => {
+      const listing = write.listingsByExternalId.get(item.externalListingId);
+      return {
+        tenantId: write.tenantId,
+        orderId,
+        listingTargetId: listing?.listingTargetId ?? null,
+        supplierProductId: listing?.supplierProductId ?? null,
+        title: item.title,
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        unitCostCents: listing?.costCents ?? 0,
+      };
+    }),
+  );
+}
+
+async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
+  const { order } = write;
+  const [created] = await write.transaction
+    .insert(orders)
+    .values({
+      tenantId: write.tenantId,
+      storeConnectionId: write.storeConnectionId,
+      externalOrderId: order.externalOrderId,
+      status: order.status,
+      totalCents: order.totalCents,
+      marketplaceFeeCents: order.marketplaceFeeCents,
+      buyerName: order.buyerName,
+      orderedAt: order.orderedAt,
+    })
+    .returning({ id: orders.id });
+  if (!created) {
+    throw new Error("Não foi possível gravar o pedido");
+  }
+  await insertOrderItems(write, created.id);
+  return { status: "created", orderId: created.id };
+}
+
+async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
+  const existing = await write.transaction.query.orders.findFirst({
+    where: and(
+      eq(orders.storeConnectionId, write.storeConnectionId),
+      eq(orders.externalOrderId, write.order.externalOrderId),
+    ),
+  });
+  if (existing) {
+    return updateExistingOrder(write, existing);
+  }
+  return createOrder(write);
+}
+
 export async function upsertMarketplaceOrder(
   database: Database,
   tenantId: string,
@@ -73,60 +158,7 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  return database.transaction(async (transaction) => {
-    const existing = await transaction.query.orders.findFirst({
-      where: and(
-        eq(orders.storeConnectionId, storeConnectionId),
-        eq(orders.externalOrderId, order.externalOrderId),
-      ),
-    });
-    if (existing) {
-      if (existing.tenantId !== tenantId) {
-        throw new Error("Pedido pertence a outro tenant");
-      }
-      await transaction
-        .update(orders)
-        .set({
-          status: order.status,
-          totalCents: order.totalCents,
-          marketplaceFeeCents: order.marketplaceFeeCents,
-        })
-        .where(eq(orders.id, existing.id));
-      return { status: "updated", orderId: existing.id };
-    }
-    const [created] = await transaction
-      .insert(orders)
-      .values({
-        tenantId,
-        storeConnectionId,
-        externalOrderId: order.externalOrderId,
-        status: order.status,
-        totalCents: order.totalCents,
-        marketplaceFeeCents: order.marketplaceFeeCents,
-        buyerName: order.buyerName,
-        orderedAt: order.orderedAt,
-      })
-      .returning({ id: orders.id });
-    if (!created) {
-      throw new Error("Não foi possível gravar o pedido");
-    }
-    if (order.items.length > 0) {
-      await transaction.insert(orderItems).values(
-        order.items.map((item) => {
-          const listing = listingsByExternalId.get(item.externalListingId);
-          return {
-            tenantId,
-            orderId: created.id,
-            listingTargetId: listing?.listingTargetId ?? null,
-            supplierProductId: listing?.supplierProductId ?? null,
-            title: item.title,
-            quantity: item.quantity,
-            unitPriceCents: item.unitPriceCents,
-            unitCostCents: listing?.costCents ?? 0,
-          };
-        }),
-      );
-    }
-    return { status: "created", orderId: created.id };
-  });
+  return database.transaction(async (transaction) =>
+    writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
+  );
 }

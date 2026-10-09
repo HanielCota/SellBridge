@@ -71,13 +71,11 @@ export const getFinancials = createServerFn({ method: "GET" })
     const { period, scope } = buildReportScope(context.tenantId, data);
     const [summary, orders, stores] = await Promise.all([
       getSalesSummary(database, scope),
-      listOrderFinancials(
-        database,
-        scope,
-        { status: data.status, search: data.query },
-        { field: data.sort, direction: data.direction },
-        { page: data.page, pageSize: data.pageSize },
-      ),
+      listOrderFinancials(database, scope, {
+        filters: { status: data.status, search: data.query },
+        sort: { field: data.sort, direction: data.direction },
+        pagination: { page: data.page, pageSize: data.pageSize },
+      }),
       listStoreConnections(database, context.tenantId),
     ]);
     return {

@@ -20,13 +20,13 @@ const cipher = createTokenCipher(environment.TOKEN_ENCRYPTION_KEY);
 const connectors = createConnectorRegistry({
   appUrl: environment.APP_URL,
   mockWebhookSecret: environment.MOCK_WEBHOOK_SECRET,
-  mockLatencyMs: environment.MOCK_LATENCY_MS,
+  mockLatencyMilliseconds: environment.MOCK_LATENCY_MILLISECONDS,
   mercadoLivre: {
     clientId: environment.MERCADO_LIVRE_CLIENT_ID,
     clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
   },
 });
-const storeRateLimiter = createRateLimiter({ tokensPerInterval: 5, intervalMs: 1000 });
+const storeRateLimiter = createRateLimiter({ tokensPerInterval: 5, intervalMilliseconds: 1000 });
 
 const processPublish = createPublishListingProcessor({
   database,

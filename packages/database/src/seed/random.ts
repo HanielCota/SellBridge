@@ -10,11 +10,11 @@ export function createRandom(seed: number) {
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   }
 
-  function int(min: number, max: number): number {
+  function integerBetween(min: number, max: number): number {
     return Math.floor(next() * (max - min + 1)) + min;
   }
 
-  function pick<T>(items: readonly T[]): T {
+  function pick<TItem>(items: readonly TItem[]): TItem {
     const item = items[Math.floor(next() * items.length)];
     if (item === undefined) {
       throw new Error("pick() chamado com lista vazia");
@@ -26,7 +26,7 @@ export function createRandom(seed: number) {
     return next() < probability;
   }
 
-  return { next, int, pick, chance };
+  return { next, integerBetween, pick, chance };
 }
 
 export type Random = ReturnType<typeof createRandom>;

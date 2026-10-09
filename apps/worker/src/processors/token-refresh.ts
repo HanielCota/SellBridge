@@ -20,7 +20,7 @@ export interface TokenRefreshDependencies {
 }
 
 /** Refreshes tokens expiring within this window, before they actually expire. */
-export const REFRESH_WINDOW_MS = 30 * 60 * 1000;
+export const REFRESH_WINDOW_MILLISECONDS = 30 * 60 * 1000;
 
 export interface TokenRefreshSummary {
   refreshed: number;
@@ -69,7 +69,7 @@ export function createTokenRefreshProcessor(dependencies: TokenRefreshDependenci
     const now = dependencies.now?.() ?? new Date();
     const expiring = await findConnectionsExpiringBefore(
       dependencies.database,
-      new Date(now.getTime() + REFRESH_WINDOW_MS),
+      new Date(now.getTime() + REFRESH_WINDOW_MILLISECONDS),
     );
     const summary: TokenRefreshSummary = { refreshed: 0, expired: 0, failed: 0 };
     for (const connection of expiring) {

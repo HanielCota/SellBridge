@@ -27,11 +27,11 @@ export interface MockConnectorConfig {
   appUrl: string;
   webhookSecret: string;
   /** Simulated network latency; set to 0 in tests. */
-  latencyMs?: number;
+  latencyMilliseconds?: number;
   now?: () => Date;
 }
 
-const TOKEN_TTL_MS = 6 * 60 * 60 * 1000;
+const TOKEN_TTL_MILLISECONDS = 6 * 60 * 60 * 1000;
 const MIN_PRICE_CENTS = 500;
 export const MOCK_REVOKED_REFRESH_TOKEN = "mock-refresh-revoked";
 export const MOCK_SIGNATURE_HEADER = "x-mock-signature";
@@ -126,153 +126,190 @@ function assertCredentials(credentials: StoreCredentials): void {
   }
 }
 
+/** Dependencies shared by the module-level simulated marketplace operations. */
+interface MockContext {
+  readonly config: MockConnectorConfig;
+  readonly now: () => Date;
+  readonly latencyMilliseconds: number;
+}
+
+async function simulateLatency(context: MockContext): Promise<void> {
+  if (context.latencyMilliseconds <= 0) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, context.latencyMilliseconds));
+}
+
+function issueTokens(context: MockContext): OAuthTokens {
+  return {
+    accessToken: `mock-access-${randomBytes(12).toString("hex")}`,
+    refreshToken: `mock-refresh-${randomBytes(12).toString("hex")}`,
+    expiresAt: new Date(context.now().getTime() + TOKEN_TTL_MILLISECONDS),
+  };
+}
+
+function authorizationUrl(config: MockConnectorConfig, request: AuthorizationRequest): string {
+  const url = new URL("/oauth/mock/autorizar", config.appUrl);
+  url.searchParams.set("state", request.state);
+  url.searchParams.set("redirect_uri", request.redirectUri);
+  return url.toString();
+}
+
+async function exchangeCode(context: MockContext, exchange: CodeExchange) {
+  await simulateLatency(context);
+  const consent = decodeAuthorizationCode(exchange.code);
+  if (!consent) {
+    throw marketplaceError("Código de autorização inválido", {
+      retryable: false,
+      status: 400,
+    });
+  }
+  return {
+    tokens: issueTokens(context),
+    shop: {
+      externalShopId: stableId("mock-shop", `${consent.shopName}:${consent.nonce}`),
+      shopName: consent.shopName,
+    },
+  };
+}
+
+async function refreshTokens(context: MockContext, refreshToken: string): Promise<OAuthTokens> {
+  await simulateLatency(context);
+  if (refreshToken === MOCK_REVOKED_REFRESH_TOKEN || !refreshToken.startsWith("mock-refresh-")) {
+    throw marketplaceAuthError();
+  }
+  return issueTokens(context);
+}
+
+function assertPublishable(input: PublishProductInput): void {
+  const title = input.title.toLowerCase();
+  if (title.includes("[falha]")) {
+    throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {
+      retryable: false,
+      status: 422,
+    });
+  }
+  if (title.includes("[instavel]")) {
+    throw marketplaceError("Marketplace indisponível no momento", {
+      retryable: true,
+      status: 503,
+    });
+  }
+  if (input.priceCents < MIN_PRICE_CENTS) {
+    throw marketplaceError("Anúncio recusado: o preço mínimo é R$ 5,00", {
+      retryable: false,
+      status: 422,
+    });
+  }
+}
+
+async function publishProduct(
+  context: MockContext,
+  credentials: StoreCredentials,
+  input: PublishProductInput,
+): Promise<PublishedListing> {
+  assertCredentials(credentials);
+  await simulateLatency(context);
+  assertPublishable(input);
+  // Same idempotency key → same listing id, so a retried job never duplicates the ad.
+  const externalId = stableId("MOCK-ITEM", `${credentials.externalShopId}:${input.idempotencyKey}`);
+  return { externalId, externalUrl: `${context.config.appUrl}/oauth/mock/anuncio/${externalId}` };
+}
+
+async function updateStockPrice(
+  context: MockContext,
+  credentials: StoreCredentials,
+  update: StockPriceUpdate,
+): Promise<void> {
+  assertCredentials(credentials);
+  await simulateLatency(context);
+  if (update.priceCents !== undefined && update.priceCents < MIN_PRICE_CENTS) {
+    throw marketplaceError("Preço abaixo do mínimo do marketplace", {
+      retryable: false,
+      status: 422,
+    });
+  }
+}
+
+async function listOrders(
+  context: MockContext,
+  credentials: StoreCredentials,
+): Promise<MarketplaceOrder[]> {
+  assertCredentials(credentials);
+  await simulateLatency(context);
+  return [];
+}
+
+async function fetchOrder(
+  context: MockContext,
+  credentials: StoreCredentials,
+  resource: string,
+): Promise<MarketplaceOrder> {
+  assertCredentials(credentials);
+  await simulateLatency(context);
+  return decodeMockOrderResource(resource);
+}
+
+function parseWebhookBody(rawBody: string): unknown {
+  try {
+    const payload: unknown = JSON.parse(rawBody);
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function hasValidSignature(config: MockConnectorConfig, request: WebhookRequest): boolean {
+  const signature = request.headers.get(MOCK_SIGNATURE_HEADER);
+  if (!signature) {
+    return false;
+  }
+  const expected = Buffer.from(signMockWebhook(request.rawBody, config.webhookSecret), "hex");
+  const received = Buffer.from(signature, "hex");
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+function verifyWebhook(config: MockConnectorConfig, request: WebhookRequest): WebhookVerification {
+  const payload = parseWebhookBody(request.rawBody);
+  if (!request.headers.get(MOCK_SIGNATURE_HEADER)) {
+    return { valid: false, reason: "Assinatura ausente", payload };
+  }
+  if (!hasValidSignature(config, request)) {
+    return { valid: false, reason: "Assinatura inválida", payload };
+  }
+  const parsed = webhookPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { valid: false, reason: "Payload fora do formato esperado", payload };
+  }
+  return {
+    valid: true,
+    event: {
+      externalEventId: parsed.data.id,
+      topic: parsed.data.topic,
+      externalShopId: parsed.data.shopId ?? null,
+      resource: parsed.data.resource ?? null,
+      payload,
+    },
+  };
+}
+
 export function createMockConnector(config: MockConnectorConfig): MarketplaceConnector {
-  const now = config.now ?? (() => new Date());
-  const latencyMs = config.latencyMs ?? 400;
-
-  async function simulateLatency(): Promise<void> {
-    if (latencyMs <= 0) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, latencyMs));
-  }
-
-  function issueTokens(): OAuthTokens {
-    return {
-      accessToken: `mock-access-${randomBytes(12).toString("hex")}`,
-      refreshToken: `mock-refresh-${randomBytes(12).toString("hex")}`,
-      expiresAt: new Date(now().getTime() + TOKEN_TTL_MS),
-    };
-  }
-
+  const context: MockContext = {
+    config,
+    now: config.now ?? (() => new Date()),
+    latencyMilliseconds: config.latencyMilliseconds ?? 400,
+  };
   return {
     id: "mock",
     displayName: "Loja simulada",
     isConfigured: () => true,
-
-    getAuthorizationUrl(request: AuthorizationRequest): string {
-      const url = new URL("/oauth/mock/autorizar", config.appUrl);
-      url.searchParams.set("state", request.state);
-      url.searchParams.set("redirect_uri", request.redirectUri);
-      return url.toString();
-    },
-
-    async exchangeCode(exchange: CodeExchange) {
-      await simulateLatency();
-      const consent = decodeAuthorizationCode(exchange.code);
-      if (!consent) {
-        throw marketplaceError("Código de autorização inválido", {
-          retryable: false,
-          status: 400,
-        });
-      }
-      return {
-        tokens: issueTokens(),
-        shop: {
-          externalShopId: stableId("mock-shop", `${consent.shopName}:${consent.nonce}`),
-          shopName: consent.shopName,
-        },
-      };
-    },
-
-    async refreshTokens(refreshToken: string) {
-      await simulateLatency();
-      if (
-        refreshToken === MOCK_REVOKED_REFRESH_TOKEN ||
-        !refreshToken.startsWith("mock-refresh-")
-      ) {
-        throw marketplaceAuthError();
-      }
-      return issueTokens();
-    },
-
-    async publishProduct(
-      credentials: StoreCredentials,
-      input: PublishProductInput,
-    ): Promise<PublishedListing> {
-      assertCredentials(credentials);
-      await simulateLatency();
-      const title = input.title.toLowerCase();
-      if (title.includes("[falha]")) {
-        throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {
-          retryable: false,
-          status: 422,
-        });
-      }
-      if (title.includes("[instavel]")) {
-        throw marketplaceError("Marketplace indisponível no momento", {
-          retryable: true,
-          status: 503,
-        });
-      }
-      if (input.priceCents < MIN_PRICE_CENTS) {
-        throw marketplaceError("Anúncio recusado: o preço mínimo é R$ 5,00", {
-          retryable: false,
-          status: 422,
-        });
-      }
-      // Same idempotency key → same listing id, so a retried job never duplicates the ad.
-      const externalId = stableId(
-        "MOCK-ITEM",
-        `${credentials.externalShopId}:${input.idempotencyKey}`,
-      );
-      return { externalId, externalUrl: `${config.appUrl}/oauth/mock/anuncio/${externalId}` };
-    },
-
-    async updateStockPrice(credentials: StoreCredentials, update: StockPriceUpdate): Promise<void> {
-      assertCredentials(credentials);
-      await simulateLatency();
-      if (update.priceCents !== undefined && update.priceCents < MIN_PRICE_CENTS) {
-        throw marketplaceError("Preço abaixo do mínimo do marketplace", {
-          retryable: false,
-          status: 422,
-        });
-      }
-    },
-
-    async listOrders(credentials: StoreCredentials) {
-      assertCredentials(credentials);
-      await simulateLatency();
-      return [];
-    },
-
-    async fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder> {
-      assertCredentials(credentials);
-      await simulateLatency();
-      return decodeMockOrderResource(resource);
-    },
-
-    async verifyWebhook(request: WebhookRequest): Promise<WebhookVerification> {
-      const payload: unknown = (() => {
-        try {
-          return JSON.parse(request.rawBody);
-        } catch {
-          return null;
-        }
-      })();
-      const signature = request.headers.get(MOCK_SIGNATURE_HEADER);
-      if (!signature) {
-        return { valid: false, reason: "Assinatura ausente", payload };
-      }
-      const expected = Buffer.from(signMockWebhook(request.rawBody, config.webhookSecret), "hex");
-      const received = Buffer.from(signature, "hex");
-      if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
-        return { valid: false, reason: "Assinatura inválida", payload };
-      }
-      const parsed = webhookPayloadSchema.safeParse(payload);
-      if (!parsed.success) {
-        return { valid: false, reason: "Payload fora do formato esperado", payload };
-      }
-      return {
-        valid: true,
-        event: {
-          externalEventId: parsed.data.id,
-          topic: parsed.data.topic,
-          externalShopId: parsed.data.shopId ?? null,
-          resource: parsed.data.resource ?? null,
-          payload,
-        },
-      };
-    },
+    getAuthorizationUrl: (request) => authorizationUrl(config, request),
+    exchangeCode: async (exchange) => exchangeCode(context, exchange),
+    refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
+    publishProduct: async (credentials, input) => publishProduct(context, credentials, input),
+    updateStockPrice: async (credentials, update) => updateStockPrice(context, credentials, update),
+    listOrders: async (credentials) => listOrders(context, credentials),
+    fetchOrder: async (credentials, resource) => fetchOrder(context, credentials, resource),
+    verifyWebhook: async (request) => verifyWebhook(config, request),
   };
 }

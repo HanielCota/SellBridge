@@ -61,26 +61,36 @@ interface RevenueChartProps {
   bucket: "day" | "week";
 }
 
-export function RevenueChart({ points, bucket }: RevenueChartProps) {
-  const data = points.map((point) => ({
+function toChartData(points: RevenueChartProps["points"]) {
+  return points.map((point) => ({
     date: point.date,
     revenue: point.revenueCents / 100,
     profit: point.profitCents / 100,
   }));
+}
+
+/** Plain render helper (not a component) so recharts receives the `<defs>` element directly. */
+function renderGradientDefinitions() {
+  return (
+    <defs>
+      <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.35} />
+        <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.02} />
+      </linearGradient>
+      <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.35} />
+        <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.02} />
+      </linearGradient>
+    </defs>
+  );
+}
+
+export function RevenueChart({ points, bucket }: RevenueChartProps) {
   return (
     <figure aria-label={`Gráfico de receita e lucro por ${bucket === "week" ? "semana" : "dia"}`}>
       <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
-        <AreaChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
-          <defs>
-            <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.02} />
-            </linearGradient>
-            <linearGradient id="fillProfit" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-profit)" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="var(--color-profit)" stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
+        <AreaChart data={toChartData(points)} margin={{ left: 8, right: 8, top: 8 }}>
+          {renderGradientDefinitions()}
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="date"

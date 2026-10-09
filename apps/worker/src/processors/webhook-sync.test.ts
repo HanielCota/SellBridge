@@ -27,7 +27,7 @@ const cipher = createTokenCipher(randomBytes(32).toString("base64"));
 const connectors = createConnectorRegistry({
   appUrl: "http://localhost:3000",
   mockWebhookSecret: "segredo-de-teste-123",
-  mockLatencyMs: 0,
+  mockLatencyMilliseconds: 0,
 });
 const processWebhook = createWebhookEventProcessor({ database, connectors, cipher });
 

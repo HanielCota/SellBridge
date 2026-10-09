@@ -173,7 +173,7 @@ export async function createOAuthState(
     tenantId: string;
     marketplace: Marketplace;
     codeVerifier: string | null;
-    ttlMs: number;
+    ttlMilliseconds: number;
   },
 ): Promise<void> {
   await database.insert(oauthStates).values({
@@ -181,7 +181,7 @@ export async function createOAuthState(
     tenantId: input.tenantId,
     marketplace: input.marketplace,
     codeVerifier: input.codeVerifier,
-    expiresAt: new Date(Date.now() + input.ttlMs),
+    expiresAt: new Date(Date.now() + input.ttlMilliseconds),
   });
 }
 

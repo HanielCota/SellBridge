@@ -126,7 +126,7 @@ describe("oauth state", () => {
       tenantId: tenantA,
       marketplace: "mock",
       codeVerifier: null,
-      ttlMs: 60_000,
+      ttlMilliseconds: 60_000,
     });
     expect(
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
@@ -144,7 +144,7 @@ describe("oauth state", () => {
       tenantId: tenantA,
       marketplace: "mock",
       codeVerifier: null,
-      ttlMs: 60_000,
+      ttlMilliseconds: 60_000,
     });
     expect(
       await consumeOAuthState(database, {
@@ -159,7 +159,7 @@ describe("oauth state", () => {
       tenantId: tenantA,
       marketplace: "mock",
       codeVerifier: null,
-      ttlMs: -1000,
+      ttlMilliseconds: -1000,
     });
     expect(
       await consumeOAuthState(database, {

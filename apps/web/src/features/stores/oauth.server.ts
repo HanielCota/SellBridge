@@ -14,7 +14,7 @@ import { environment } from "@/lib/server/environment";
 import { connectors, oauthCallbackUrl, tokenCipher } from "@/lib/server/marketplaces";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 
-const STATE_TTL_MS = 10 * 60 * 1000;
+const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
 
 function redirectTo(path: string, params: Record<string, string> = {}): Response {
   const url = new URL(path, environment.APP_URL);
@@ -66,7 +66,7 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     tenantId: session.tenantId,
     marketplace,
     codeVerifier,
-    ttlMs: STATE_TTL_MS,
+    ttlMilliseconds: STATE_TTL_MILLISECONDS,
   });
   const authorizationUrl = connector.getAuthorizationUrl({
     state,

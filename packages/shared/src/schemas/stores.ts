@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const MARKETPLACES = ["mock", "mercado_livre", "shopee", "tiktok_shop"] as const;
 export const marketplaceSchema = z.enum(MARKETPLACES);
@@ -35,9 +36,9 @@ export const createListingSchema = z.object({
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 
 export const listingsSearchSchema = z.object({
-  status: listingStatusSchema.optional().catch(undefined),
-  query: z.string().trim().max(100).optional().catch(undefined),
-  page: z.coerce.number().int().min(1).default(1).catch(1),
-  pageSize: z.coerce.number().int().min(5).max(50).default(10).catch(10),
+  status: optionalParameter(listingStatusSchema),
+  query: optionalParameter(z.string().trim().max(100)),
+  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(10), 10),
 });
 export type ListingsSearch = z.infer<typeof listingsSearchSchema>;

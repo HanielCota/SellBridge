@@ -2,6 +2,7 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { containsPattern } from "./search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -77,24 +78,19 @@ export interface ListingTargetFilters {
   search?: string | undefined;
 }
 
-export async function listListingTargets(
-  database: Database,
-  tenantId: string,
-  filters: ListingTargetFilters,
-  pagination: Pagination,
-): Promise<Paginated<ListingTargetRow> & { hasActive: boolean }> {
+function listingTargetConditions(tenantId: string, filters: ListingTargetFilters): SQL | undefined {
   const conditions: SQL[] = [eq(listingTargets.tenantId, tenantId)];
   if (filters.status) {
     conditions.push(eq(listingTargets.status, filters.status));
   }
   if (filters.search) {
-    conditions.push(
-      ilike(listings.title, `%${filters.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`),
-    );
+    conditions.push(ilike(listings.title, containsPattern(filters.search)));
   }
-  const where = and(...conditions);
+  return and(...conditions);
+}
 
-  const base = database
+function selectListingTargetRows(database: Database) {
+  return database
     .select({
       id: listingTargets.id,
       status: listingTargets.status,
@@ -116,9 +112,29 @@ export async function listListingTargets(
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId));
+}
 
+function countActiveTargets(database: Database, tenantId: string) {
+  return database
+    .select({ total: count() })
+    .from(listingTargets)
+    .where(
+      and(
+        eq(listingTargets.tenantId, tenantId),
+        sql`${listingTargets.status} in ('pending', 'publishing')`,
+      ),
+    );
+}
+
+export async function listListingTargets(
+  database: Database,
+  tenantId: string,
+  filters: ListingTargetFilters,
+  pagination: Pagination,
+): Promise<Paginated<ListingTargetRow> & { hasActive: boolean }> {
+  const where = listingTargetConditions(tenantId, filters);
   const [rows, totals, active] = await Promise.all([
-    base
+    selectListingTargetRows(database)
       .where(where)
       .orderBy(desc(listingTargets.createdAt), desc(listingTargets.id))
       .limit(pagination.pageSize)
@@ -128,15 +144,7 @@ export async function listListingTargets(
       .from(listingTargets)
       .innerJoin(listings, eq(listings.id, listingTargets.listingId))
       .where(where),
-    database
-      .select({ total: count() })
-      .from(listingTargets)
-      .where(
-        and(
-          eq(listingTargets.tenantId, tenantId),
-          sql`${listingTargets.status} in ('pending', 'publishing')`,
-        ),
-      ),
+    countActiveTargets(database, tenantId),
   ]);
   return {
     ...toPaginated(rows, totals.at(0)?.total ?? 0, pagination),

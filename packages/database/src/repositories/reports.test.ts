@@ -249,46 +249,38 @@ describe("order financials list", () => {
   const pagination = { page: 1, pageSize: 2 };
 
   it("sorts by profit and paginates on the server", async () => {
-    const page = await listOrderFinancials(
-      database,
-      scope(),
-      {},
-      { field: "profit", direction: "desc" },
+    const page = await listOrderFinancials(database, scope(), {
+      filters: {},
+      sort: { field: "profit", direction: "desc" },
       pagination,
-    );
+    });
     expect(page.total).toBe(4);
     expect(page.totalPages).toBe(2);
     expect(page.items.map((item) => item.externalOrderId)).toEqual(["A-4", "A-1"]);
   });
 
   it("filters by status and searches by buyer or product", async () => {
-    const returned = await listOrderFinancials(
-      database,
-      scope(),
-      { status: "returned" },
-      { field: "orderedAt", direction: "desc" },
+    const returned = await listOrderFinancials(database, scope(), {
+      filters: { status: "returned" },
+      sort: { field: "orderedAt", direction: "desc" },
       pagination,
-    );
+    });
     expect(returned.items.map((item) => item.externalOrderId)).toEqual(["A-3"]);
     expect(returned.items.at(0)?.returnCents).toBe(8000);
 
-    const byProduct = await listOrderFinancials(
-      database,
-      scope(),
-      { search: "camis" },
-      { field: "orderedAt", direction: "desc" },
+    const byProduct = await listOrderFinancials(database, scope(), {
+      filters: { search: "camis" },
+      sort: { field: "orderedAt", direction: "desc" },
       pagination,
-    );
+    });
     expect(byProduct.items.map((item) => item.externalOrderId)).toEqual(["A-2"]);
   });
 
   it("exports every matching row with the same numbers", async () => {
-    const rows = await exportOrderFinancials(
-      database,
-      scope(),
-      {},
-      { field: "orderedAt", direction: "asc" },
-    );
+    const rows = await exportOrderFinancials(database, scope(), {
+      filters: {},
+      sort: { field: "orderedAt", direction: "asc" },
+    });
     expect(rows.map((row) => row.externalOrderId)).toEqual(["A-1", "A-2", "A-3", "A-4"]);
     expect(rows.reduce((total, row) => total + row.profitCents, 0)).toBe(
       expectedSum("profitCents"),

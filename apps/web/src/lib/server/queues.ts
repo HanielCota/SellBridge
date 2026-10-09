@@ -1,8 +1,8 @@
 import {
-  PUBLISH_BACKOFF_MS,
+  PUBLISH_BACKOFF_MILLISECONDS,
   PUBLISH_JOB_ATTEMPTS,
   QUEUE_NAMES,
-  WEBHOOK_BACKOFF_MS,
+  WEBHOOK_BACKOFF_MILLISECONDS,
   WEBHOOK_JOB_ATTEMPTS,
   type PublishListingJob,
 } from "@sellbridge/shared/queues";
@@ -20,7 +20,7 @@ function getPublishQueue(): Queue {
     connection: { url: environment.REDIS_URL },
     defaultJobOptions: {
       attempts: PUBLISH_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MS },
+      backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },
@@ -45,7 +45,7 @@ function getWebhookQueue(): Queue {
     connection: { url: environment.REDIS_URL },
     defaultJobOptions: {
       attempts: WEBHOOK_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: WEBHOOK_BACKOFF_MS },
+      backoff: { type: "exponential", delay: WEBHOOK_BACKOFF_MILLISECONDS },
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },

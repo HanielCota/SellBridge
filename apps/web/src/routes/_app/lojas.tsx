@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { StoreStatusBadge } from "@/components/data/status-badge";
+import { optionalParameter } from "@sellbridge/shared/schemas";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,14 +21,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { disconnectStoreFn } from "@/features/stores/stores.functions";
+import { disconnectStoreFn, listStores } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 const storesSearchSchema = z.object({
-  conectada: z.string().optional().catch(undefined),
-  erro: z.string().optional().catch(undefined),
+  conectada: optionalParameter(z.string()),
+  erro: optionalParameter(z.string()),
 });
 
 export const Route = createFileRoute("/_app/lojas")({
@@ -112,49 +113,60 @@ function ConnectedStores() {
       <ul className="grid gap-3">
         {query.data.stores.map((store) => (
           <li key={store.id}>
-            <Card className="py-4">
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{store.shopName}</span>
-                    <StoreStatusBadge status={store.status} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {labels.get(store.marketplace) ?? store.marketplace} · conectada em{" "}
-                    {dateFormatter.format(store.connectedAt)}
-                    {store.expiresAt
-                      ? ` · acesso válido até ${dateFormatter.format(store.expiresAt)}`
-                      : ""}
-                  </p>
-                  {store.lastError ? (
-                    <p className="text-xs text-destructive">{store.lastError}</p>
-                  ) : null}
-                </div>
-                <div className="flex gap-2">
-                  {store.status === "connected" ? null : (
-                    <Button asChild size="sm">
-                      <a href={`/api/oauth/${store.marketplace}/start`}>
-                        <Plug aria-hidden="true" />
-                        Reconectar
-                      </a>
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPendingDisconnect({ id: store.id, name: store.shopName })}
-                  >
-                    <Unplug aria-hidden="true" />
-                    Desconectar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <StoreCard
+              store={store}
+              marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
+              onDisconnect={() => setPendingDisconnect({ id: store.id, name: store.shopName })}
+            />
           </li>
         ))}
       </ul>
       <DisconnectDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
     </section>
+  );
+}
+
+type ConnectedStore = Awaited<ReturnType<typeof listStores>>["stores"][number];
+
+function StoreCard({
+  store,
+  marketplaceLabel,
+  onDisconnect,
+}: {
+  readonly store: ConnectedStore;
+  readonly marketplaceLabel: string;
+  readonly onDisconnect: () => void;
+}) {
+  return (
+    <Card className="py-4">
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">{store.shopName}</span>
+            <StoreStatusBadge status={store.status} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {marketplaceLabel} · conectada em {dateFormatter.format(store.connectedAt)}
+            {store.expiresAt ? ` · acesso válido até ${dateFormatter.format(store.expiresAt)}` : ""}
+          </p>
+          {store.lastError ? <p className="text-xs text-destructive">{store.lastError}</p> : null}
+        </div>
+        <div className="flex gap-2">
+          {store.status === "connected" ? null : (
+            <Button asChild size="sm">
+              <a href={`/api/oauth/${store.marketplace}/start`}>
+                <Plug aria-hidden="true" />
+                Reconectar
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onDisconnect}>
+            <Unplug aria-hidden="true" />
+            Desconectar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

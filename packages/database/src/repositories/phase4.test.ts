@@ -204,7 +204,7 @@ describe("webhook events", () => {
       marketplace: "mock" as const,
       externalEventId,
       topic: "orders",
-      rawPayload: { a: 1 },
+      rawPayload: { sample: 1 },
       signatureValid: true,
     };
     const first = await recordWebhookEvent(database, input);

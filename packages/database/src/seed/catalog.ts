@@ -18,10 +18,10 @@ function buildProducts(
 ) {
   const products = [];
   for (const [templateIndex, template] of templates.entries()) {
-    const variantCount = random.int(1, 3);
+    const variantCount = random.integerBetween(1, 3);
     for (let variant = 0; variant < variantCount; variant += 1) {
       const color = random.pick(VARIANTS);
-      const costCents = random.int(template.cost[0], template.cost[1]);
+      const costCents = random.integerBetween(template.cost[0], template.cost[1]);
       const markup = 1.6 + random.next() * 0.9;
       const sku = `S${String(supplierIndex + 1).padStart(2, "0")}-${String(templateIndex + 1).padStart(2, "0")}${variant}`;
       products.push({
@@ -30,7 +30,7 @@ function buildProducts(
         description: `${template.title} na cor ${color.toLowerCase()}. Produto a pronta entrega, enviado direto pelo fornecedor para o seu cliente.`,
         costCents,
         suggestedPriceCents: roundToNinety(costCents * markup),
-        stock: random.chance(0.12) ? 0 : random.int(3, 240),
+        stock: random.chance(0.12) ? 0 : random.integerBetween(3, 240),
         categoryId: categoryIds.get(template.category) ?? null,
         imageUrls: [`https://picsum.photos/seed/sellbridge-${sku}/600/600`],
       });

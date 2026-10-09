@@ -7,6 +7,7 @@ import {
   orderStatusSchema,
   type FinancialSearch,
   type FinancialSortKey,
+  type Paginated,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -194,11 +195,17 @@ const columns = columnHelper.columns([
 ]);
 
 function FinancialPage() {
-  const search = Route.useSearch();
-  const updateSearch = useFinancialNavigation();
-  const query = useQuery(financialsQueryOptions(search));
+  return (
+    <>
+      <FinancialHeader />
+      <FinancialContent />
+    </>
+  );
+}
 
-  const header = (
+function FinancialHeader() {
+  const search = Route.useSearch();
+  return (
     <PageHeader
       title="Financeiro"
       description="Lucro, comissões, devoluções e reembolsos por pedido e por período."
@@ -212,31 +219,28 @@ function FinancialPage() {
       }
     />
   );
+}
+
+function FinancialContent() {
+  const search = Route.useSearch();
+  const updateSearch = useFinancialNavigation();
+  const query = useQuery(financialsQueryOptions(search));
 
   if (query.isPending) {
     return (
-      <>
-        {header}
-        <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-96 rounded-xl" />
-        </div>
-      </>
+      <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
     );
   }
   if (query.isError) {
-    return (
-      <>
-        {header}
-        <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
-      </>
-    );
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
   const { summary, orders, stores, period } = query.data;
   return (
     <>
-      {header}
       <PeriodFilters
         search={search}
         stores={stores}
@@ -246,28 +250,43 @@ function FinancialPage() {
       />
       <SummaryCards summary={summary} />
       <OrderFilters />
-      {orders.items.length === 0 ? (
-        <FinancialEmptyState
-          hasFilters={search.query !== undefined || search.status !== undefined}
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={orders.items}
-          getRowId={(row) => row.id}
-          caption="Financeiro por pedido"
-          footer={
-            <PaginationBar
-              page={orders.page}
-              totalPages={orders.totalPages}
-              total={orders.total}
-              itemLabel="pedidos"
-              onPageChange={(page) => updateSearch({ page })}
-            />
-          }
-        />
-      )}
+      <FinancialOrders
+        orders={orders}
+        hasFilters={search.query !== undefined || search.status !== undefined}
+        onPageChange={(page) => updateSearch({ page })}
+      />
     </>
+  );
+}
+
+function FinancialOrders({
+  orders,
+  hasFilters,
+  onPageChange,
+}: {
+  readonly orders: Paginated<OrderFinancialRow>;
+  readonly hasFilters: boolean;
+  readonly onPageChange: (page: number) => void;
+}) {
+  if (orders.items.length === 0) {
+    return <FinancialEmptyState hasFilters={hasFilters} />;
+  }
+  return (
+    <DataTable
+      columns={columns}
+      data={orders.items}
+      getRowId={(row) => row.id}
+      caption="Financeiro por pedido"
+      footer={
+        <PaginationBar
+          page={orders.page}
+          totalPages={orders.totalPages}
+          total={orders.total}
+          itemLabel="pedidos"
+          onPageChange={onPageChange}
+        />
+      }
+    />
   );
 }
 

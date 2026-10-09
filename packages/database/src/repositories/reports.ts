@@ -378,13 +378,18 @@ function orderBy(sort: FinancialSort): SQL {
   return sql`order by ${FINANCIAL_SORT_SQL[sort.field]} ${direction}, ordered_at desc, id`;
 }
 
+export interface FinancialListQuery {
+  readonly filters: FinancialFilters;
+  readonly sort: FinancialSort;
+  readonly pagination: Pagination;
+}
+
 export async function listOrderFinancials(
   database: Database,
   scope: ReportScope,
-  filters: FinancialFilters,
-  sort: FinancialSort,
-  pagination: Pagination,
+  query: FinancialListQuery,
 ): Promise<Paginated<OrderFinancialRow>> {
+  const { filters, sort, pagination } = query;
   const cte = orderFinanceCte(scope, financialConditions(filters));
   const [rows, totals] = await Promise.all([
     database.execute(sql`
@@ -404,13 +409,18 @@ export async function listOrderFinancials(
 }
 
 /** All matching rows for CSV export, capped to protect the server. */
+export interface FinancialExportQuery {
+  readonly filters: FinancialFilters;
+  readonly sort: FinancialSort;
+  readonly maxRows?: number;
+}
+
 export async function exportOrderFinancials(
   database: Database,
   scope: ReportScope,
-  filters: FinancialFilters,
-  sort: FinancialSort,
-  maxRows = 20_000,
+  query: FinancialExportQuery,
 ): Promise<OrderFinancialRow[]> {
+  const { filters, sort, maxRows = 20_000 } = query;
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope, financialConditions(filters))}
     select * from order_profit

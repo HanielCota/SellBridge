@@ -4,7 +4,7 @@ import { environment } from "./environment.ts";
 export const connectors = createConnectorRegistry({
   appUrl: environment.APP_URL,
   mockWebhookSecret: environment.MOCK_WEBHOOK_SECRET,
-  mockLatencyMs: 0,
+  mockLatencyMilliseconds: 0,
   mercadoLivre: {
     clientId: environment.MERCADO_LIVRE_CLIENT_ID,
     clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET,
