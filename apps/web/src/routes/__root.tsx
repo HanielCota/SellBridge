@@ -53,7 +53,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="min-h-svh bg-background font-sans text-foreground antialiased">
         <TooltipProvider>{children}</TooltipProvider>
-        <Toaster richColors position="top-right" />
+        <Toaster />
 
         <Scripts />
       </body>

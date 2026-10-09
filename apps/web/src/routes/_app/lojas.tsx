@@ -1,17 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LinkBreakIcon, PlugIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { StoreStatusBadge } from "@/components/data/status-badge";
 import { optionalParameter } from "@sellbridge/shared/schemas";
-import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AddStore } from "@/components/stores/add-store";
+import { StoreCard } from "@/components/stores/store-card";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { disconnectStoreFn, listStores } from "@/features/stores/stores.functions";
+import { disconnectStoreFn, type MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -34,11 +32,9 @@ const storesSearchSchema = z.object({
 export const Route = createFileRoute("/_app/lojas")({
   validateSearch: storesSearchSchema,
   loader: ({ context }) => prefetchOnServer(context.queryClient, storesQueryOptions()),
-  head: () => ({ meta: [{ title: "Lojas conectadas | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Lojas | SellBridge" }] }),
   component: StoresPage,
 });
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 function useOAuthResultToast() {
   const search = Route.useSearch();
@@ -65,108 +61,115 @@ function useOAuthResultToast() {
 
 function StoresPage() {
   useOAuthResultToast();
+  const query = useQuery(storesQueryOptions());
+  const hasStores = query.isSuccess && query.data.stores.length > 0;
   return (
     <>
       <PageHeader
-        title="Lojas conectadas"
-        description="Conecte suas lojas nos marketplaces para publicar produtos e receber pedidos."
+        title="Lojas"
+        description="Suas lojas nos marketplaces, com o que cada uma vendeu nos últimos 30 dias."
+        actions={
+          hasStores ? (
+            <Button asChild>
+              <a href="#adicionar-loja">
+                <PlusIcon aria-hidden="true" />
+                Conectar loja
+              </a>
+            </Button>
+          ) : null
+        }
       />
-      <ConnectedStores />
-      <MarketplaceOptions />
+      <StoresContent />
     </>
   );
 }
 
-function ConnectedStores() {
+const ONBOARDING_STEPS = [
+  { title: "Conecte", text: "Autorize o SellBridge na sua conta do marketplace." },
+  { title: "Publique", text: "Escolha produtos dos fornecedores e envie para a loja." },
+  { title: "Venda", text: "Pedidos, estoque e preço sincronizam sozinhos." },
+] as const;
+
+function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
+  return (
+    <section
+      aria-labelledby="first-store"
+      className="grid gap-8 rounded-3xl bg-card p-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:p-8"
+    >
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">Nenhuma loja conectada</p>
+          <h2 id="first-store" className="text-3xl leading-tight font-semibold tracking-[-0.03em]">
+            Conecte sua primeira loja
+          </h2>
+        </div>
+        <ol className="space-y-4">
+          {ONBOARDING_STEPS.map((step, index) => (
+            <li key={step.title} className="flex gap-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand">
+                {index + 1}
+              </span>
+              <p className="text-sm">
+                <span className="font-medium">{step.title}.</span>{" "}
+                <span className="text-muted-foreground">{step.text}</span>
+              </p>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <AddStore marketplaces={marketplaces} />
+    </section>
+  );
+}
+
+function StoresContent() {
   const query = useQuery(storesQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; name: string } | null>(
     null,
   );
-
   if (query.isPending) {
     return (
-      <div className="grid gap-3" aria-busy="true" aria-label="Carregando lojas">
-        <Skeleton className="h-20 rounded-xl" />
-        <Skeleton className="h-20 rounded-xl" />
+      <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="Carregando lojas">
+        <Skeleton className="h-64 rounded-3xl" />
+        <Skeleton className="h-64 rounded-3xl" />
       </div>
     );
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  if (query.data.stores.length === 0) {
-    return (
-      <EmptyState
-        icon={StorefrontIcon}
-        title="Nenhuma loja conectada"
-        description="Conecte sua primeira loja abaixo para começar a publicar produtos."
-      />
-    );
+  const { stores, marketplaces } = query.data;
+  if (stores.length === 0) {
+    return <FirstStoreOnboarding marketplaces={marketplaces} />;
   }
-
-  const labels = new Map(query.data.marketplaces.map((option) => [option.id, option.label]));
+  const labels = new Map(marketplaces.map((option) => [option.id, option.label]));
   return (
-    <section aria-labelledby="connected-stores" className="space-y-3">
-      <h2 id="connected-stores" className="text-sm font-medium text-muted-foreground">
-        Suas lojas
-      </h2>
-      <ul className="grid gap-3">
-        {query.data.stores.map((store) => (
-          <li key={store.id}>
-            <StoreCard
-              store={store}
-              marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-              onDisconnect={() => setPendingDisconnect({ id: store.id, name: store.shopName })}
-            />
-          </li>
-        ))}
-      </ul>
+    <>
+      <section aria-label="Suas lojas">
+        <ul className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {stores.map((store) => (
+            <li key={store.id}>
+              <StoreCard
+                store={store}
+                marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
+                onDisconnect={() => setPendingDisconnect({ id: store.id, name: store.shopName })}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section
+        id="adicionar-loja"
+        aria-labelledby="add-store"
+        className="max-w-3xl scroll-mt-28 space-y-4 pt-4"
+      >
+        <h2 id="add-store" className="text-lg font-semibold tracking-[-0.02em]">
+          Adicionar loja
+        </h2>
+        <AddStore marketplaces={marketplaces} />
+      </section>
       <DisconnectDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
-    </section>
-  );
-}
-
-type ConnectedStore = Awaited<ReturnType<typeof listStores>>["stores"][number];
-
-function StoreCard({
-  store,
-  marketplaceLabel,
-  onDisconnect,
-}: {
-  readonly store: ConnectedStore;
-  readonly marketplaceLabel: string;
-  readonly onDisconnect: () => void;
-}) {
-  return (
-    <Card className="py-4">
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{store.shopName}</span>
-            <StoreStatusBadge status={store.status} />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {marketplaceLabel} · conectada em {dateFormatter.format(store.connectedAt)}
-            {store.expiresAt ? ` · acesso válido até ${dateFormatter.format(store.expiresAt)}` : ""}
-          </p>
-          {store.lastError ? <p className="text-xs text-destructive">{store.lastError}</p> : null}
-        </div>
-        <div className="flex gap-2">
-          {store.status === "connected" ? null : (
-            <Button asChild size="sm">
-              <a href={`/api/oauth/${store.marketplace}/start`}>
-                <PlugIcon aria-hidden="true" />
-                Reconectar
-              </a>
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={onDisconnect}>
-            <LinkBreakIcon aria-hidden="true" />
-            Desconectar
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    </>
   );
 }
 
@@ -217,49 +220,5 @@ function DisconnectDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function MarketplaceOptions() {
-  const query = useQuery(storesQueryOptions());
-  if (!query.isSuccess) {
-    return null;
-  }
-  return (
-    <section aria-labelledby="connect-new" className="space-y-3">
-      <h2 id="connect-new" className="text-sm font-medium text-muted-foreground">
-        Conectar nova loja
-      </h2>
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {query.data.marketplaces.map((option) => (
-          <li key={option.id}>
-            <Card className="h-full">
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base">{option.label}</CardTitle>
-                  {option.available ? null : <Badge variant="secondary">Em breve</Badge>}
-                </div>
-                <CardDescription>
-                  {option.id === "mock"
-                    ? "Marketplace simulado para testar o fluxo completo sem uma conta real."
-                    : `Conecte sua loja ${option.label} via autorização oficial.`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="mt-auto">
-                {option.available ? (
-                  <Button asChild className="w-full">
-                    <a href={`/api/oauth/${option.id}/start`}>Conectar {option.label}</a>
-                  </Button>
-                ) : (
-                  <Button className="w-full" disabled>
-                    Indisponível
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
