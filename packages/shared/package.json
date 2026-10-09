@@ -13,6 +13,7 @@
     "./env-node": "./src/env-node.ts",
     "./logger": "./src/logger.ts",
     "./queues": "./src/queues.ts",
+    "./finance": "./src/finance.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {
