@@ -13,3 +13,4 @@ test-results/
 !.env.example
 .DS_Store
 uploads/
+.claude/
