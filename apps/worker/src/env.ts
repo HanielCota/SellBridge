@@ -14,6 +14,8 @@ const workerEnvSchema = z.object({
   }),
   MOCK_WEBHOOK_SECRET: z.string().min(16).default("mock-webhook-secret-dev-only"),
   MOCK_LATENCY_MS: z.coerce.number().int().min(0).default(800),
+  MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
+  MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
   /** When set, exposes GET /health on this port (container probes, E2E readiness). */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),

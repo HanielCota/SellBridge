@@ -5,6 +5,7 @@ import {
   markTargetFailed,
   markTargetPublished,
   markTargetPublishing,
+  markTargetSynced,
   type TargetForPublishing,
 } from "@sellbridge/db/repositories";
 import {
@@ -114,6 +115,10 @@ export function createPublishListingProcessor(deps: PublishDependencies) {
         },
       );
       await markTargetPublished(deps.db, listingTargetId, result);
+      await markTargetSynced(deps.db, listingTargetId, {
+        stock: row.product.stock,
+        priceCents: row.listing.priceCents,
+      });
       logger.info("listing.published", {
         tenantId,
         listingTargetId,
