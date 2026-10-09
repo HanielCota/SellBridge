@@ -5,7 +5,8 @@ async function onboardInBeloHorizonte(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
   await page.getByLabel("CEP").fill("30130010");
   await page.getByRole("button", { name: "Salvar região" }).click();
-  await expect(page).toHaveURL(/\/fornecedores/);
+  // Next setup step: connect a store.
+  await expect(page).toHaveURL(/\/lojas/);
 }
 
 async function connectMockStore(page: Page, shopName: string) {
@@ -159,7 +160,8 @@ test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) 
   await expect(
     page.getByText("Conecte uma loja antes de publicar").filter({ visible: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Conectar loja" }).click();
+  // The setup strip above also links to stores; this is the form's own link.
+  await page.getByRole("link", { name: "Conectar loja" }).last().click();
   await expect(page).toHaveURL(/\/lojas/);
 });
 

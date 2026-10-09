@@ -3,9 +3,8 @@ import {
   periodSearchSchema,
   type PeriodSearch,
 } from "@sellbridge/shared/schemas";
-import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
 import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
@@ -14,8 +13,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
@@ -98,7 +96,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
     return (
       <>
         <DashboardHero stats={null} />
-        <OnboardingChecklist onboarding={onboarding} />
+        <SetupGuide progress={onboarding} />
       </>
     );
   }
@@ -131,82 +129,6 @@ function DashboardContent({ data }: { data: DashboardData }) {
         <AttentionPanel stores={data.stores} />
       </div>
     </>
-  );
-}
-
-const ONBOARDING_STEPS = [
-  {
-    key: "hasRegion",
-    title: "Informe sua região",
-    description: "Seu CEP define quais fornecedores entregam para você.",
-    to: "/onboarding",
-    cta: "Informar CEP",
-  },
-  {
-    key: "hasStore",
-    title: "Conecte uma loja",
-    description: "Conecte sua loja no Mercado Livre, Shopee ou TikTok Shop.",
-    to: "/lojas",
-    cta: "Conectar loja",
-  },
-  {
-    key: "hasPublishedListing",
-    title: "Publique seu primeiro produto",
-    description: "Escolha um produto de um fornecedor e publique nas suas lojas.",
-    to: "/fornecedores",
-    cta: "Ver fornecedores",
-  },
-] as const;
-
-function OnboardingChecklist({ onboarding }: { onboarding: DashboardData["onboarding"] }) {
-  const nextStep = ONBOARDING_STEPS.find((step) => !onboarding[step.key]);
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Primeiros passos</CardTitle>
-        <CardDescription>
-          Complete os passos abaixo. Assim que as vendas chegarem, seus indicadores aparecem aqui.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ol className="space-y-4">
-          {ONBOARDING_STEPS.map((step) => {
-            const done = onboarding[step.key];
-            const isNext = nextStep?.key === step.key;
-            return (
-              <li key={step.key} className="flex items-start gap-3">
-                {done ? (
-                  <CheckCircleIcon
-                    className="mt-0.5 size-5 text-emerald-600"
-                    aria-label="Concluído"
-                  />
-                ) : (
-                  <CircleIcon
-                    className="mt-0.5 size-5 text-muted-foreground"
-                    aria-label="Pendente"
-                  />
-                )}
-                <div className="flex-1 space-y-1">
-                  <p
-                    className={
-                      done ? "font-medium text-muted-foreground line-through" : "font-medium"
-                    }
-                  >
-                    {step.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{step.description}</p>
-                </div>
-                {isNext ? (
-                  <Button asChild size="sm">
-                    <Link to={step.to}>{step.cta}</Link>
-                  </Button>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      </CardContent>
-    </Card>
   );
 }
 

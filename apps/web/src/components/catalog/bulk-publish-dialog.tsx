@@ -1,7 +1,7 @@
 import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { priceForRule, type PriceRule } from "@sellbridge/shared/schemas";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -184,6 +184,7 @@ function NoStores() {
 
 function useBulkPublish(onDone: () => void) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: {
       productIds: string[];
@@ -196,6 +197,7 @@ function useBulkPublish(onDone: () => void) {
         `${published} ${published === 1 ? "produto enviado" : "produtos enviados"} para publicação${skippedNote}`,
       );
       onDone();
+      await queryClient.invalidateQueries({ queryKey: ["setup-progress"] });
       await navigate({ to: "/publicacoes" });
     },
     onError: (error) => toast.error(errorMessage(error)),

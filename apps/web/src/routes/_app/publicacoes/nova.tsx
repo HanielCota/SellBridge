@@ -126,6 +126,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       });
       toast.success(successMessage(created.targetIds.length));
       await queryClient.invalidateQueries({ queryKey: ["listings"] });
+      await queryClient.invalidateQueries({ queryKey: ["setup-progress"] });
       await navigate({ to: "/publicacoes" });
     } catch (error) {
       setSubmitError(errorMessage(error));

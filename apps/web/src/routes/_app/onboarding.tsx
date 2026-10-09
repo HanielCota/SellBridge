@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getTenantRegion, updateTenantRegion } from "@/features/region/region.functions";
+import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 
 const onboardingSearchSchema = z.object({
@@ -85,7 +86,11 @@ function useRegionForm(region: TenantRegion) {
       }
       await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       await router.invalidate();
-      await navigate({ to: search.redirect ?? "/fornecedores" });
+      const progress = await queryClient.fetchQuery({
+        ...setupProgressQueryOptions(),
+        staleTime: 0,
+      });
+      await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
     },
   });
   return { form, submitError };

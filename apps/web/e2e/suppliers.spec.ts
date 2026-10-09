@@ -16,7 +16,9 @@ test.describe("onboarding de região", () => {
     await expect(page.getByLabel("CEP")).toHaveValue("30130-010");
     await page.getByRole("button", { name: "Salvar região" }).click();
 
-    await expect(page).toHaveURL(/\/fornecedores/);
+    // After the region the guide sends to the next step (stores); suppliers follow the region.
+    await expect(page).toHaveURL(/\/lojas/);
+    await gotoHydrated(page, "/fornecedores");
     await expect(page.getByRole("link", { name: /Belo Horizonte - MG/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toHaveCount(0);
@@ -32,7 +34,8 @@ test.describe("onboarding de região", () => {
     await signUp(page, "Revendedor Manaus");
     await page.getByLabel("CEP").fill("69005010");
     await page.getByRole("button", { name: "Salvar região" }).click();
-    await expect(page).toHaveURL(/\/fornecedores/);
+    await expect(page).toHaveURL(/\/lojas/);
+    await gotoHydrated(page, "/fornecedores");
     await expect(page.getByText("Ainda não há fornecedores atendendo a sua região.")).toBeVisible();
   });
 });

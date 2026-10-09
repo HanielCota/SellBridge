@@ -34,7 +34,9 @@ test.describe("dashboard", () => {
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");
-    await expect(page.getByText("Primeiros passos").filter({ visible: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Informar CEP" })).toBeVisible();
   });
 });
