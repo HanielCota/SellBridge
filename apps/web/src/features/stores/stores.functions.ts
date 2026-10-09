@@ -1,4 +1,9 @@
-import { disconnectStore, listStoreConnections } from "@sellbridge/database/repositories";
+import {
+  disconnectStore,
+  EMPTY_STORE_ACTIVITY,
+  getStoreActivity,
+  listStoreConnections,
+} from "@sellbridge/database/repositories";
 import {
   encodeMockAuthorizationCode,
   MARKETPLACE_LABELS,
@@ -23,7 +28,16 @@ const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_s
 export const listStores = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    const stores = await listStoreConnections(database, context.tenantId);
+    const connections = await listStoreConnections(database, context.tenantId);
+    const activity = await getStoreActivity(
+      database,
+      context.tenantId,
+      connections.map((store) => store.id),
+    );
+    const stores = connections.map((store) => ({
+      ...store,
+      activity: activity.get(store.id) ?? EMPTY_STORE_ACTIVITY,
+    }));
     const marketplaces: MarketplaceOption[] = MARKETPLACE_ORDER.map((id) => ({
       id,
       label: MARKETPLACE_LABELS[id],

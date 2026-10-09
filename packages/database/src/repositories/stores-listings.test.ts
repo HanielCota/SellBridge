@@ -17,6 +17,7 @@ import {
   listStoreConnections,
   upsertStoreConnection,
 } from "./stores.ts";
+import { getStoreActivity } from "./store-activity.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -236,5 +237,29 @@ describe("listings are tenant-scoped", () => {
         [],
       ),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
+describe("store activity", () => {
+  it("counts live and failed listings per store, scoped to the tenant", async () => {
+    const created = await createListingWithTargets(
+      database,
+      tenantA,
+      { supplierProductId: productId, title: "Atividade", description: "", priceCents: 2500 },
+      [storeA],
+    );
+    const [targetId = ""] = created.targetIds;
+    await database
+      .update(listingTargets)
+      .set({ status: "published" })
+      .where(eq(listingTargets.id, targetId));
+    const activity = await getStoreActivity(database, tenantA, [storeA, storeB]);
+    expect(activity.get(storeA)?.liveListings).toBeGreaterThanOrEqual(1);
+    expect(activity.get(storeB)).toEqual({
+      liveListings: 0,
+      failedListings: 0,
+      orders: 0,
+      revenueCents: 0,
+    });
   });
 });
