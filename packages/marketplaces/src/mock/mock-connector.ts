@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MarketplaceAuthError, MarketplaceError } from "../errors.ts";
 import type {
   AuthorizationRequest,
+  MarketplaceOrder,
   CodeExchange,
   MarketplaceConnector,
   OAuthTokens,
@@ -39,6 +40,52 @@ const consentPayloadSchema = z.object({
   shopName: z.string().trim().min(1).max(80),
   nonce: z.string().min(8),
 });
+
+const mockOrderSchema = z.object({
+  externalOrderId: z.string().min(1),
+  status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled", "returned"]),
+  totalCents: z.number().int().nonnegative(),
+  marketplaceFeeCents: z.number().int().nonnegative(),
+  buyerName: z.string().nullable(),
+  orderedAt: z.string(),
+  items: z
+    .array(
+      z.object({
+        externalListingId: z.string().min(1),
+        title: z.string().min(1),
+        quantity: z.number().int().positive(),
+        unitPriceCents: z.number().int().nonnegative(),
+      }),
+    )
+    .min(1),
+});
+
+export type MockOrder = z.infer<typeof mockOrderSchema>;
+
+/** The simulated marketplace encodes the whole order in the webhook resource. */
+export function encodeMockOrderResource(order: MockOrder): string {
+  return `mock-order.${Buffer.from(JSON.stringify(order)).toString("base64url")}`;
+}
+
+function decodeMockOrderResource(resource: string): MarketplaceOrder {
+  if (!resource.startsWith("mock-order.")) {
+    throw new MarketplaceError("Recurso de pedido inválido", { retryable: false });
+  }
+  const json: unknown = (() => {
+    try {
+      return JSON.parse(
+        Buffer.from(resource.slice("mock-order.".length), "base64url").toString("utf8"),
+      );
+    } catch {
+      return null;
+    }
+  })();
+  const parsed = mockOrderSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new MarketplaceError("Pedido simulado em formato inválido", { retryable: false });
+  }
+  return { ...parsed.data, orderedAt: new Date(parsed.data.orderedAt) };
+}
 
 const webhookPayloadSchema = z.object({
   id: z.string().min(1),
@@ -187,6 +234,12 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
       assertCredentials(credentials);
       await simulateLatency();
       return [];
+    },
+
+    async fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder> {
+      assertCredentials(credentials);
+      await simulateLatency();
+      return decodeMockOrderResource(resource);
     },
 
     async verifyWebhook(request: WebhookRequest): Promise<WebhookVerification> {

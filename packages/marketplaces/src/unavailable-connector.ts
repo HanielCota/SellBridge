@@ -22,6 +22,7 @@ export function createUnavailableConnector(
     publishProduct: async () => notImplemented("Publicação"),
     updateStockPrice: async () => notImplemented("Atualização de estoque e preço"),
     listOrders: async () => notImplemented("Listagem de pedidos"),
+    fetchOrder: async () => notImplemented("Consulta de pedido"),
     verifyWebhook: async (): Promise<WebhookVerification> => ({
       valid: false,
       reason: `Webhooks de ${displayName} ainda não são suportados`,

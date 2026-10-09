@@ -6,7 +6,13 @@ export * from "./registry.ts";
 export {
   createMockConnector,
   encodeMockAuthorizationCode,
+  encodeMockOrderResource,
+  type MockOrder,
   MOCK_REVOKED_REFRESH_TOKEN,
   MOCK_SIGNATURE_HEADER,
   signMockWebhook,
 } from "./mock/mock-connector.ts";
+export {
+  createMercadoLivreConnector,
+  mapMercadoLivreOrder,
+} from "./mercado-livre/mercado-livre-connector.ts";

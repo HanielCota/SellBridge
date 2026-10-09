@@ -107,5 +107,7 @@ export interface MarketplaceConnector {
   ): Promise<PublishedListing>;
   updateStockPrice(credentials: StoreCredentials, update: StockPriceUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrder[]>;
+  /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
+  fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;
   verifyWebhook(request: WebhookRequest): Promise<WebhookVerification>;
 }

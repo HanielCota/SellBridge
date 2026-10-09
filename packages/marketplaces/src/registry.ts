@@ -1,3 +1,4 @@
+import { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
 import { createMockConnector } from "./mock/mock-connector.ts";
 import type { MarketplaceConnector, MarketplaceId } from "./types.ts";
 import { createUnavailableConnector } from "./unavailable-connector.ts";
@@ -6,6 +7,7 @@ export interface ConnectorRegistryConfig {
   appUrl: string;
   mockWebhookSecret: string;
   mockLatencyMs?: number;
+  mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
 }
 
 export type ConnectorRegistry = Record<MarketplaceId, MarketplaceConnector>;
@@ -24,8 +26,10 @@ export function createConnectorRegistry(config: ConnectorRegistryConfig): Connec
       webhookSecret: config.mockWebhookSecret,
       ...(config.mockLatencyMs === undefined ? {} : { latencyMs: config.mockLatencyMs }),
     }),
-    // TODO(fase-4): conector real do Mercado Livre atrás desta mesma interface.
-    mercado_livre: createUnavailableConnector("mercado_livre", MARKETPLACE_LABELS.mercado_livre),
+    mercado_livre: createMercadoLivreConnector({
+      clientId: config.mercadoLivre?.clientId,
+      clientSecret: config.mercadoLivre?.clientSecret,
+    }),
     // TODO: conectores reais da Shopee e do TikTok Shop depois do Mercado Livre.
     shopee: createUnavailableConnector("shopee", MARKETPLACE_LABELS.shopee),
     tiktok_shop: createUnavailableConnector("tiktok_shop", MARKETPLACE_LABELS.tiktok_shop),
