@@ -95,3 +95,22 @@ test.describe("financeiro", () => {
     expect(response.status()).toBe(401);
   });
 });
+
+test.describe("avisos", () => {
+  test("o sino lista vendas recentes e zera os não lidos ao abrir", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
+  });
+
+  test("conta nova não tem avisos", async ({ page }) => {
+    await signUp(page, "Revendedor Sem Avisos");
+    await gotoHydrated(page, "/onboarding");
+    await page.getByRole("button", { name: "Avisos" }).click();
+    await expect(page.getByText(/Nada novo por aqui/)).toBeVisible();
+  });
+});

@@ -19,6 +19,7 @@ import {
   type NavItem,
 } from "./nav-items";
 import { AvatarButton } from "@/components/profile/avatar-button";
+import { NotificationBell } from "./notification-bell";
 import { roleLabel, UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
@@ -188,7 +189,8 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
             />
           ))}
         </nav>
-        <div className="justify-self-end">
+        <div className="flex items-center gap-2 justify-self-end">
+          <NotificationBell />
           <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
         </div>
       </div>
