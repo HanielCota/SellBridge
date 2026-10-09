@@ -1,0 +1,33 @@
+{
+  "name": "@sellbridge/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "generate": "node --env-file-if-exists=../../.env node_modules/drizzle-kit/bin.cjs generate",
+    "migrate": "node --env-file-if-exists=../../.env --import tsx src/migrate.ts",
+    "seed": "node --env-file-if-exists=../../.env --import tsx src/seed/index.ts",
+    "studio": "node --env-file-if-exists=../../.env node_modules/drizzle-kit/bin.cjs studio",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@sellbridge/shared": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@sellbridge/config": "workspace:*",
+    "@types/node": "^26.6.4",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
