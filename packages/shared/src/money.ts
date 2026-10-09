@@ -1,4 +1,4 @@
-import { ValidationError } from "./errors.ts";
+import { validationError } from "./errors.ts";
 
 /** Amount of money in integer cents (BRL). Never use floats for money. */
 export type Cents = number;
@@ -7,7 +7,7 @@ const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currenc
 
 export function assertCents(value: number): Cents {
   if (!Number.isSafeInteger(value)) {
-    throw new ValidationError("Valor monetário deve ser um inteiro em centavos");
+    throw validationError("Valor monetário deve ser um inteiro em centavos");
   }
   return value;
 }
@@ -41,7 +41,7 @@ export function sumCents(values: readonly Cents[]): Cents {
 
 export function multiplyCents(cents: Cents, quantity: number): Cents {
   if (!Number.isSafeInteger(quantity)) {
-    throw new ValidationError("Quantidade deve ser um número inteiro");
+    throw validationError("Quantidade deve ser um número inteiro");
   }
   return assertCents(cents) * quantity;
 }
@@ -49,7 +49,7 @@ export function multiplyCents(cents: Cents, quantity: number): Cents {
 /** Applies a percentage expressed in basis points (1% = 100 bps), rounding half up. */
 export function percentOfCents(cents: Cents, basisPoints: number): Cents {
   if (!Number.isSafeInteger(basisPoints)) {
-    throw new ValidationError("Percentual deve ser informado em basis points inteiros");
+    throw validationError("Percentual deve ser informado em basis points inteiros");
   }
   return Math.round((assertCents(cents) * basisPoints) / 10_000);
 }

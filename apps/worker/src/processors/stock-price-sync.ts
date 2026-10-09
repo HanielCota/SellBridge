@@ -6,8 +6,8 @@ import {
   type TargetNeedingSync,
 } from "@sellbridge/db/repositories";
 import {
-  MarketplaceAuthError,
   type ConnectorRegistry,
+  isMarketplaceAuthError,
   type TokenCipher,
 } from "@sellbridge/marketplaces";
 import { logger } from "@sellbridge/shared/logger";
@@ -46,7 +46,7 @@ async function syncOne(
     });
     return true;
   } catch (error) {
-    if (error instanceof MarketplaceAuthError) {
+    if (isMarketplaceAuthError(error)) {
       await markStoreStatus(deps.db, target.store.id, "expired", error.userMessage);
     }
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });

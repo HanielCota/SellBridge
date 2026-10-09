@@ -4,7 +4,7 @@ import {
   MARKETPLACE_LABELS,
   type MarketplaceId,
 } from "@sellbridge/marketplaces";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -59,7 +59,7 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (data.redirectUri !== oauthCallbackUrl("mock")) {
-      throw new ValidationError("Endereço de retorno não autorizado");
+      throw validationError("Endereço de retorno não autorizado");
     }
     const url = new URL(data.redirectUri);
     url.searchParams.set("code", encodeMockAuthorizationCode(data.shopName));

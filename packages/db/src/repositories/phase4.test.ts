@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { ConflictError, NotFoundError } from "@sellbridge/shared/errors";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -123,8 +122,12 @@ describe("support tickets", () => {
     const attachmentId = thread.messages[0]?.attachments[0]?.id ?? "";
     expect(attachmentId).not.toBe("");
 
-    await expect(getTicketThread(db, ticketId, tenantB)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(getAttachment(db, attachmentId, tenantB)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(getTicketThread(db, ticketId, tenantB)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(getAttachment(db, attachmentId, tenantB)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     expect((await getAttachment(db, attachmentId, null)).fileName).toBe("1.pdf");
     expect((await listTenantTickets(db, tenantB, {}, { page: 1, pageSize: 10 })).total).toBe(0);
     await expect(
@@ -136,7 +139,7 @@ describe("support tickets", () => {
         body: "tentativa de outro tenant",
         attachments: [],
       }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("moves status between answered, open and closed", async () => {
@@ -181,7 +184,7 @@ describe("support tickets", () => {
         body: "Resposta tardia.",
         attachments: [],
       }),
-    ).rejects.toBeInstanceOf(ConflictError);
+    ).rejects.toMatchObject({ code: "CONFLICT" });
 
     const adminList = await listAllTickets(db, { search: "repasse" }, { page: 1, pageSize: 10 });
     expect(adminList.items.map((item) => item.id)).toContain(ticketId);

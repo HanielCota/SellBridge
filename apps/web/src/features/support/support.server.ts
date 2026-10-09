@@ -1,5 +1,5 @@
 import { addTicketMessage, createTicket, getAttachment } from "@sellbridge/db/repositories";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createTicketSchema, replyTicketSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
@@ -15,7 +15,7 @@ const idSchema = z.uuid();
 function parseId(value: string | undefined, label: string): string {
   const parsed = idSchema.safeParse(value);
   if (!parsed.success) {
-    throw new ValidationError(`${label} inválido`);
+    throw validationError(`${label} inválido`);
   }
   return parsed.data;
 }
@@ -34,7 +34,7 @@ export function handleCreateTicket(request: Request) {
       body: textField(formData, "body"),
     });
     if (!input.success) {
-      throw new ValidationError(firstIssue(input.error));
+      throw validationError(firstIssue(input.error));
     }
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
@@ -54,7 +54,7 @@ async function readReply(request: Request, tenantId: string) {
   const formData = await request.formData();
   const input = replyTicketSchema.safeParse({ body: textField(formData, "body") });
   if (!input.success) {
-    throw new ValidationError(firstIssue(input.error));
+    throw validationError(firstIssue(input.error));
   }
   const files = await validateAttachments(formData);
   const attachments = await storeAttachments(fileStorage, tenantId, files);

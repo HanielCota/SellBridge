@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -29,7 +29,7 @@ export async function createListingWithTargets(
   storeConnectionIds: readonly string[],
 ): Promise<CreatedListing> {
   if (storeConnectionIds.length === 0) {
-    throw new ConflictError("Escolha ao menos uma loja de destino");
+    throw conflictError("Escolha ao menos uma loja de destino");
   }
   return db.transaction(async (tx) => {
     const [listing] = await tx
@@ -37,7 +37,7 @@ export async function createListingWithTargets(
       .values({ ...input, tenantId })
       .returning({ id: listings.id });
     if (!listing) {
-      throw new ConflictError("Não foi possível criar o anúncio");
+      throw conflictError("Não foi possível criar o anúncio");
     }
     const targets = await tx
       .insert(listingTargets)
@@ -170,7 +170,7 @@ export async function getTargetForPublishing(
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)))
     .limit(1);
   if (!row) {
-    throw new NotFoundError("Publicação não encontrada");
+    throw notFoundError("Publicação não encontrada");
   }
   return row;
 }
@@ -219,10 +219,10 @@ export async function resetTargetForRetry(
     where: and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)),
   });
   if (!target) {
-    throw new NotFoundError("Publicação não encontrada");
+    throw notFoundError("Publicação não encontrada");
   }
   if (target.status !== "error") {
-    throw new ConflictError("Só é possível reprocessar publicações com erro");
+    throw conflictError("Só é possível reprocessar publicações com erro");
   }
   await db
     .update(listingTargets)

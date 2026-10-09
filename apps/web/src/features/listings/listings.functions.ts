@@ -13,7 +13,7 @@ import {
   MOCK_SIGNATURE_HEADER,
   signMockWebhook,
 } from "@sellbridge/marketplaces";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
@@ -43,12 +43,12 @@ export const createListing = createServerFn({ method: "POST" })
     const region = await requireTenantRegion(context.tenantId);
     const product = await getCatalogProductForRegion(db, region, data.supplierProductId);
     if (data.priceCents <= product.costCents) {
-      throw new ValidationError("O preço de venda precisa ser maior que o custo do fornecedor");
+      throw validationError("O preço de venda precisa ser maior que o custo do fornecedor");
     }
     const uniqueStoreIds = [...new Set(data.storeConnectionIds)];
     const stores = await findConnectedStores(db, context.tenantId, uniqueStoreIds);
     if (stores.length !== uniqueStoreIds.length) {
-      throw new ValidationError("Uma ou mais lojas escolhidas não estão conectadas");
+      throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
     }
     const created = await createListingWithTargets(
       db,
@@ -109,10 +109,10 @@ export const simulateMockSale = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const row = await getTargetForPublishing(db, context.tenantId, data.listingTargetId);
     if (row.store.marketplace !== "mock") {
-      throw new ValidationError("Só é possível simular vendas em lojas simuladas");
+      throw validationError("Só é possível simular vendas em lojas simuladas");
     }
     if (row.target.status !== "published" || !row.target.externalId) {
-      throw new ValidationError("O anúncio precisa estar publicado para simular uma venda");
+      throw validationError("O anúncio precisa estar publicado para simular uma venda");
     }
     const priceCents = row.listing.priceCents;
     const resource = encodeMockOrderResource({
@@ -146,7 +146,7 @@ export const simulateMockSale = createServerFn({ method: "POST" })
       body: rawBody,
     });
     if (!response.ok) {
-      throw new ValidationError("O marketplace simulado não conseguiu enviar a venda");
+      throw validationError("O marketplace simulado não conseguiu enviar a venda");
     }
     logger.info("listing.mock_sale_simulated", {
       tenantId: context.tenantId,

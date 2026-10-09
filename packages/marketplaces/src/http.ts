@@ -1,4 +1,4 @@
-import { MarketplaceError } from "./errors.ts";
+import { marketplaceError } from "./errors.ts";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -61,7 +61,7 @@ export async function fetchWithRetry(
     const isLastAttempt = attempt >= options.retries;
     const response = await fetchImpl(url, init).catch((error: unknown) => {
       if (isLastAttempt) {
-        throw new MarketplaceError("Falha de rede ao falar com o marketplace", {
+        throw marketplaceError("Falha de rede ao falar com o marketplace", {
           retryable: true,
           cause: error,
         });

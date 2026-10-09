@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/db/repositories";
 import { stateSchema, type ResolvedAddress } from "@sellbridge/shared/cep";
 import { CEP_FAILURE_MESSAGES, lookupCep } from "@sellbridge/shared/cep-providers";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { updateRegionSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
@@ -43,7 +43,7 @@ async function resolveCep(cep: string): Promise<ResolvedAddress> {
   const result = await lookupCep(cep);
   if (!result.ok) {
     logger.warn("cep.lookup_failed", { cep, reason: result.reason });
-    throw new ValidationError(CEP_FAILURE_MESSAGES[result.reason]);
+    throw validationError(CEP_FAILURE_MESSAGES[result.reason]);
   }
   await saveCachedCep(db, result.address, result.provider, result.payload);
   return result.address;

@@ -1,4 +1,4 @@
-import { ForbiddenError, UnauthorizedError } from "@sellbridge/shared/errors";
+import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { auth } from "./auth.ts";
 import { findFirstOrganizationId } from "./membership.ts";
@@ -17,7 +17,7 @@ export interface TenantSession {
 export async function requireTenantSession(headers: Headers): Promise<TenantSession> {
   const session = await auth.api.getSession({ headers });
   if (!session) {
-    throw new UnauthorizedError();
+    throw unauthorizedError();
   }
   const base = { userId: session.user.id, role: session.user.role ?? "user" };
   const activeId = session.session.activeOrganizationId;
@@ -26,7 +26,7 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   }
   const organizationId = await findFirstOrganizationId(session.user.id);
   if (!organizationId) {
-    throw new ForbiddenError("Sua conta não possui uma organização ativa");
+    throw forbiddenError("Sua conta não possui uma organização ativa");
   }
   await auth.api
     .setActiveOrganization({ headers, body: { organizationId } })
@@ -39,10 +39,10 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
 export async function requireAdminSession(headers: Headers): Promise<{ userId: string }> {
   const session = await auth.api.getSession({ headers });
   if (!session) {
-    throw new UnauthorizedError();
+    throw unauthorizedError();
   }
   if (session.user.role !== "admin") {
-    throw new ForbiddenError();
+    throw forbiddenError();
   }
   return { userId: session.user.id };
 }

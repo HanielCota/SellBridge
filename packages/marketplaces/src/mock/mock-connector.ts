@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { MarketplaceAuthError, MarketplaceError } from "../errors.ts";
+import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import type {
   AuthorizationRequest,
   MarketplaceOrder,
@@ -69,7 +69,7 @@ export function encodeMockOrderResource(order: MockOrder): string {
 
 function decodeMockOrderResource(resource: string): MarketplaceOrder {
   if (!resource.startsWith("mock-order.")) {
-    throw new MarketplaceError("Recurso de pedido inválido", { retryable: false });
+    throw marketplaceError("Recurso de pedido inválido", { retryable: false });
   }
   const json: unknown = (() => {
     try {
@@ -82,7 +82,7 @@ function decodeMockOrderResource(resource: string): MarketplaceOrder {
   })();
   const parsed = mockOrderSchema.safeParse(json);
   if (!parsed.success) {
-    throw new MarketplaceError("Pedido simulado em formato inválido", { retryable: false });
+    throw marketplaceError("Pedido simulado em formato inválido", { retryable: false });
   }
   return { ...parsed.data, orderedAt: new Date(parsed.data.orderedAt) };
 }
@@ -122,7 +122,7 @@ export function signMockWebhook(rawBody: string, secret: string): string {
 
 function assertCredentials(credentials: StoreCredentials): void {
   if (!credentials.accessToken.startsWith("mock-access-")) {
-    throw new MarketplaceAuthError();
+    throw marketplaceAuthError();
   }
 }
 
@@ -161,7 +161,7 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
       await simulateLatency();
       const consent = decodeAuthorizationCode(exchange.code);
       if (!consent) {
-        throw new MarketplaceError("Código de autorização inválido", {
+        throw marketplaceError("Código de autorização inválido", {
           retryable: false,
           status: 400,
         });
@@ -181,7 +181,7 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
         refreshToken === MOCK_REVOKED_REFRESH_TOKEN ||
         !refreshToken.startsWith("mock-refresh-")
       ) {
-        throw new MarketplaceAuthError();
+        throw marketplaceAuthError();
       }
       return issueTokens();
     },
@@ -194,19 +194,19 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
       await simulateLatency();
       const title = input.title.toLowerCase();
       if (title.includes("[falha]")) {
-        throw new MarketplaceError("Anúncio recusado: o título contém termos não permitidos", {
+        throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {
           retryable: false,
           status: 422,
         });
       }
       if (title.includes("[instavel]")) {
-        throw new MarketplaceError("Marketplace indisponível no momento", {
+        throw marketplaceError("Marketplace indisponível no momento", {
           retryable: true,
           status: 503,
         });
       }
       if (input.priceCents < MIN_PRICE_CENTS) {
-        throw new MarketplaceError("Anúncio recusado: o preço mínimo é R$ 5,00", {
+        throw marketplaceError("Anúncio recusado: o preço mínimo é R$ 5,00", {
           retryable: false,
           status: 422,
         });
@@ -223,7 +223,7 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
       assertCredentials(credentials);
       await simulateLatency();
       if (update.priceCents !== undefined && update.priceCents < MIN_PRICE_CENTS) {
-        throw new MarketplaceError("Preço abaixo do mínimo do marketplace", {
+        throw marketplaceError("Preço abaixo do mínimo do marketplace", {
           retryable: false,
           status: 422,
         });

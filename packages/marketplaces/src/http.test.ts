@@ -55,7 +55,7 @@ describe("fetchWithRetry", () => {
     });
     await expect(
       fetchWithRetry(fetchImpl, "https://x", {}, { ...noSleep, retries: 1 }),
-    ).rejects.toMatchObject({ retryable: true });
+    ).rejects.toMatchObject({ details: { retryable: true } });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

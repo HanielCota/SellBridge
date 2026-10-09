@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { env } from "./env.ts";
 
 /**
@@ -18,7 +18,7 @@ export function createLocalFileStorage(rootDirectory: string): FileStorage {
   function pathFor(key: string): string {
     const target = resolve(root, key);
     if (!target.startsWith(`${root}${sep}`)) {
-      throw new ValidationError("Caminho de arquivo inválido");
+      throw validationError("Caminho de arquivo inválido");
     }
     return target;
   }

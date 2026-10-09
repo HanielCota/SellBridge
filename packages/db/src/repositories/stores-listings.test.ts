@@ -1,4 +1,3 @@
-import { ConflictError, NotFoundError } from "@sellbridge/shared/errors";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listingTargets, supplierProducts, suppliers } from "../schema/index.ts";
@@ -87,8 +86,10 @@ describe("store connections are tenant-scoped", () => {
   });
 
   it("does not load or disconnect another tenant's store", async () => {
-    await expect(getStoreConnection(db, tenantA, storeB)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(disconnectStore(db, tenantA, storeB)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(getStoreConnection(db, tenantA, storeB)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(disconnectStore(db, tenantA, storeB)).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await getStoreConnection(db, tenantB, storeB)).status).toBe("connected");
   });
 
@@ -200,9 +201,13 @@ describe("listings are tenant-scoped", () => {
     if (!targetId) {
       throw new Error("destino não criado");
     }
-    await expect(resetTargetForRetry(db, tenantA, targetId)).rejects.toBeInstanceOf(ConflictError);
+    await expect(resetTargetForRetry(db, tenantA, targetId)).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
     await markTargetFailed(db, targetId, "Falhou", { final: true });
-    await expect(resetTargetForRetry(db, tenantB, targetId)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(resetTargetForRetry(db, tenantB, targetId)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await resetTargetForRetry(db, tenantA, targetId);
     const row = await db.query.listingTargets.findFirst({ where: eq(listingTargets.id, targetId) });
     expect(row).toMatchObject({ status: "pending", errorReason: null });
@@ -221,6 +226,6 @@ describe("listings are tenant-scoped", () => {
         },
         [],
       ),
-    ).rejects.toBeInstanceOf(ConflictError);
+    ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });

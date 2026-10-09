@@ -1,4 +1,4 @@
-import { MarketplaceNotImplementedError } from "./errors.ts";
+import { marketplaceNotImplementedError } from "./errors.ts";
 import type { MarketplaceConnector, MarketplaceId, WebhookVerification } from "./types.ts";
 
 /**
@@ -10,7 +10,7 @@ export function createUnavailableConnector(
   displayName: string,
 ): MarketplaceConnector {
   function notImplemented(operation: string): never {
-    throw new MarketplaceNotImplementedError(operation, displayName);
+    throw marketplaceNotImplementedError(operation, displayName);
   }
   return {
     id,

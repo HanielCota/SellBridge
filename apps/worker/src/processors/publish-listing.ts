@@ -9,12 +9,12 @@ import {
   type TargetForPublishing,
 } from "@sellbridge/db/repositories";
 import {
-  isMarketplaceError,
-  MarketplaceAuthError,
   type ConnectorRegistry,
+  isMarketplaceAuthError,
+  isRetryableError,
   type TokenCipher,
 } from "@sellbridge/marketplaces";
-import { isAppError, NotFoundError } from "@sellbridge/shared/errors";
+import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
@@ -43,19 +43,11 @@ function failureReason(error: unknown): string {
   return "Erro inesperado ao publicar. Tente reprocessar.";
 }
 
-function isRetryable(error: unknown): boolean {
-  if (isMarketplaceError(error)) {
-    return error.retryable;
-  }
-  // Unknown errors (bugs, DB blips) get the benefit of the doubt and are retried.
-  return true;
-}
-
 async function loadTarget(deps: PublishDependencies, tenantId: string, targetId: string) {
   try {
     return await getTargetForPublishing(deps.db, tenantId, targetId);
   } catch (error) {
-    if (error instanceof NotFoundError) {
+    if (hasErrorCode(error, "NOT_FOUND")) {
       throw new UnrecoverableError(`Publicação ${targetId} não encontrada para o tenant`);
     }
     throw error;
@@ -127,10 +119,10 @@ export function createPublishListingProcessor(deps: PublishDependencies) {
       return "published";
     } catch (error) {
       const reason = failureReason(error);
-      if (error instanceof MarketplaceAuthError) {
+      if (isMarketplaceAuthError(error)) {
         await markStoreStatus(deps.db, row.store.id, "expired", reason);
       }
-      const isFinal = !isRetryable(error) || job.attemptsMade + 1 >= job.maxAttempts;
+      const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
       await markTargetFailed(deps.db, listingTargetId, reason, { final: isFinal });
       logger.warn("listing.publish_failed", { tenantId, listingTargetId, reason, isFinal, error });
       if (isFinal) {

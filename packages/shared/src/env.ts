@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { ConfigurationError } from "./errors.ts";
+import { configurationError } from "./errors.ts";
 
 /**
  * Validates environment variables against a Zod schema at startup.
@@ -16,5 +16,5 @@ export function parseEnv<TSchema extends z.ZodType>(
   const details = parsed.error.issues
     .map((issue) => `  - ${issue.path.join(".") || "(raiz)"}: ${issue.message}`)
     .join("\n");
-  throw new ConfigurationError(`Variáveis de ambiente inválidas:\n${details}`);
+  throw configurationError(`Variáveis de ambiente inválidas:\n${details}`);
 }

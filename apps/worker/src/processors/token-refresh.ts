@@ -5,8 +5,8 @@ import {
   updateStoreTokens,
 } from "@sellbridge/db/repositories";
 import {
-  MarketplaceAuthError,
   type ConnectorRegistry,
+  isMarketplaceAuthError,
   type TokenCipher,
 } from "@sellbridge/marketplaces";
 import { isAppError } from "@sellbridge/shared/errors";
@@ -53,7 +53,7 @@ async function refreshOne(
     const message = isAppError(error) ? error.userMessage : "Falha ao renovar o acesso da loja";
     const alreadyExpired =
       connection.expiresAt !== null && connection.expiresAt.getTime() <= now.getTime();
-    if (error instanceof MarketplaceAuthError || alreadyExpired) {
+    if (isMarketplaceAuthError(error) || alreadyExpired) {
       await markStoreStatus(deps.db, connection.id, "expired", message);
       logger.warn("store.token_expired", { storeConnectionId: connection.id, error });
       return "expired";

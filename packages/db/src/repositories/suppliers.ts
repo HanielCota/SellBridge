@@ -1,4 +1,4 @@
-import { NotFoundError } from "@sellbridge/shared/errors";
+import { notFoundError } from "@sellbridge/shared/errors";
 import {
   toPaginated,
   type Paginated,
@@ -124,7 +124,7 @@ export async function getSupplierForRegion(
     .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), coversRegion(region)))
     .limit(1);
   if (!supplier) {
-    throw new NotFoundError("Fornecedor não encontrado na sua região");
+    throw notFoundError("Fornecedor não encontrado na sua região");
   }
   return supplier;
 }
@@ -274,7 +274,7 @@ export async function getCatalogProductForRegion(
     )
     .limit(1);
   if (!row) {
-    throw new NotFoundError("Produto não encontrado na sua região");
+    throw notFoundError("Produto não encontrado na sua região");
   }
   return { ...row, imageUrl: row.imageUrls.at(0) ?? null };
 }

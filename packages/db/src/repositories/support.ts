@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -54,14 +54,14 @@ export async function createTicket(
       .values({ tenantId: input.tenantId, createdById: input.userId, subject: input.subject })
       .returning({ id: tickets.id });
     if (!ticket) {
-      throw new ConflictError("Não foi possível abrir o chamado");
+      throw conflictError("Não foi possível abrir o chamado");
     }
     const [message] = await tx
       .insert(ticketMessages)
       .values({ ticketId: ticket.id, authorId: input.userId, isAdmin: false, body: input.body })
       .returning({ id: ticketMessages.id });
     if (!message) {
-      throw new ConflictError("Não foi possível registrar a mensagem");
+      throw conflictError("Não foi possível registrar a mensagem");
     }
     if (input.attachments.length > 0) {
       await tx.insert(ticketAttachments).values(
@@ -98,10 +98,10 @@ export async function addTicketMessage(
         : and(eq(tickets.id, input.ticketId), eq(tickets.tenantId, input.tenantId)),
   });
   if (!ticket) {
-    throw new NotFoundError("Chamado não encontrado");
+    throw notFoundError("Chamado não encontrado");
   }
   if (ticket.status === "closed" && input.isAdmin) {
-    throw new ConflictError("Reabra o chamado antes de responder");
+    throw conflictError("Reabra o chamado antes de responder");
   }
   await db.transaction(async (tx) => {
     const [message] = await tx
@@ -114,7 +114,7 @@ export async function addTicketMessage(
       })
       .returning({ id: ticketMessages.id });
     if (!message) {
-      throw new ConflictError("Não foi possível registrar a mensagem");
+      throw conflictError("Não foi possível registrar a mensagem");
     }
     if (input.attachments.length > 0) {
       await tx.insert(ticketAttachments).values(
@@ -249,7 +249,7 @@ export async function getTicketThread(
     )
     .limit(1);
   if (!ticket) {
-    throw new NotFoundError("Chamado não encontrado");
+    throw notFoundError("Chamado não encontrado");
   }
   const messages = await db
     .select({
@@ -303,7 +303,7 @@ export async function setTicketStatus(
     .where(eq(tickets.id, ticketId))
     .returning({ id: tickets.id });
   if (!row) {
-    throw new NotFoundError("Chamado não encontrado");
+    throw notFoundError("Chamado não encontrado");
   }
 }
 
@@ -326,7 +326,7 @@ export async function getAttachment(db: Database, attachmentId: string, tenantId
     )
     .limit(1);
   if (!row) {
-    throw new NotFoundError("Anexo não encontrado");
+    throw notFoundError("Anexo não encontrado");
   }
   return row;
 }

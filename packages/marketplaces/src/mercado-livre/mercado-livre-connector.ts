@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import type { AppError } from "@sellbridge/shared/errors";
 import { z } from "zod";
-import { MarketplaceAuthError, MarketplaceError } from "../errors.ts";
+import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, type FetchLike, type RetryOptions } from "../http.ts";
 import type {
   AuthorizationRequest,
@@ -125,17 +126,17 @@ export function mapMercadoLivreOrder(raw: z.infer<typeof orderSchema>): Marketpl
   };
 }
 
-async function readError(response: Response): Promise<MarketplaceError> {
+async function readError(response: Response): Promise<AppError> {
   const body = errorBodySchema.safeParse(await response.json().catch(() => null));
   const detail = body.success ? (body.data.message ?? body.data.error ?? "") : "";
   if (response.status === 401 || (body.success && body.data.error === "invalid_grant")) {
-    return new MarketplaceAuthError();
+    return marketplaceAuthError();
   }
   const retryable = response.status === 429 || response.status >= 500;
   const message = detail
     ? `Mercado Livre recusou a operação: ${detail}`
     : `Mercado Livre respondeu com erro ${response.status}`;
-  return new MarketplaceError(message, { retryable, status: response.status });
+  return marketplaceError(message, { retryable, status: response.status });
 }
 
 export function createMercadoLivreConnector(config: MercadoLivreConfig): MarketplaceConnector {
@@ -144,7 +145,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
 
   function credentials(): { clientId: string; clientSecret: string } {
     if (!config.clientId || !config.clientSecret) {
-      throw new MarketplaceError("Integração com o Mercado Livre não configurada", {
+      throw marketplaceError("Integração com o Mercado Livre não configurada", {
         retryable: false,
       });
     }
@@ -174,7 +175,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     }
     const parsed = schema.safeParse(await response.json().catch(() => null));
     if (!parsed.success) {
-      throw new MarketplaceError("Resposta inesperada do Mercado Livre", { retryable: false });
+      throw marketplaceError("Resposta inesperada do Mercado Livre", { retryable: false });
     }
     return parsed.data;
   }
@@ -205,7 +206,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     );
     const [first] = predictions;
     if (!first) {
-      throw new MarketplaceError(
+      throw marketplaceError(
         "O Mercado Livre não sugeriu uma categoria para este título. Ajuste o título e reprocesse.",
         { retryable: false },
       );
@@ -343,7 +344,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     async fetchOrder(store: StoreCredentials, resource: string): Promise<MarketplaceOrder> {
       const match = /^\/?orders\/(\d+)$/.exec(resource);
       if (!match?.[1]) {
-        throw new MarketplaceError(`Recurso de pedido inválido: ${resource}`, { retryable: false });
+        throw marketplaceError(`Recurso de pedido inválido: ${resource}`, { retryable: false });
       }
       return fetchOrderByPath(`/orders/${match[1]}`, store.accessToken);
     },

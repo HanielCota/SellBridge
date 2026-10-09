@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, inArray, isNotNull, lt, ne } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { oauthStates, storeConnections } from "../schema/index.ts";
@@ -51,7 +51,7 @@ export async function getStoreConnection(
     where: and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.id, storeConnectionId)),
   });
   if (!row) {
-    throw new NotFoundError("Loja não encontrada");
+    throw notFoundError("Loja não encontrada");
   }
   return row;
 }
@@ -106,7 +106,7 @@ export async function upsertStoreConnection(
     })
     .returning(summaryColumns);
   if (!row) {
-    throw new ConflictError("Não foi possível salvar a conexão da loja");
+    throw conflictError("Não foi possível salvar a conexão da loja");
   }
   return row;
 }
@@ -122,7 +122,7 @@ export async function disconnectStore(
     .where(and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.id, storeConnectionId)))
     .returning({ id: storeConnections.id });
   if (!row) {
-    throw new NotFoundError("Loja não encontrada");
+    throw notFoundError("Loja não encontrada");
   }
 }
 

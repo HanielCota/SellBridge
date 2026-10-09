@@ -1,4 +1,3 @@
-import { NotFoundError } from "@sellbridge/shared/errors";
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
@@ -114,13 +113,13 @@ describe("supplier visibility by region", () => {
   it("throws NotFoundError for a supplier outside the region", async () => {
     await expect(
       getSupplierForRegion(db, { state: TEST_STATE, city: "Interior" }, ids.otherState),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("throws NotFoundError for a product whose supplier does not serve the region", async () => {
     await expect(
       getCatalogProductForRegion(db, { state: TEST_STATE, city: "Interior" }, hiddenProductId),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
     const visible = await getCatalogProductForRegion(
       db,
       { state: TEST_STATE, city: "Interior" },

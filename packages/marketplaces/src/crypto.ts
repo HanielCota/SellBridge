@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { ConfigurationError, ValidationError } from "@sellbridge/shared/errors";
+import { configurationError, validationError } from "@sellbridge/shared/errors";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
@@ -9,7 +9,7 @@ const VERSION = "v1";
 function parseKey(base64Key: string): Buffer {
   const key = Buffer.from(base64Key, "base64");
   if (key.length !== 32) {
-    throw new ConfigurationError("TOKEN_ENCRYPTION_KEY deve ter 32 bytes em base64");
+    throw configurationError("TOKEN_ENCRYPTION_KEY deve ter 32 bytes em base64");
   }
   return key;
 }
@@ -39,7 +39,7 @@ export function createTokenCipher(base64Key: string): TokenCipher {
   function decrypt(ciphertext: string): string {
     const [version, ivPart, tagPart, dataPart] = ciphertext.split(".");
     if (version !== VERSION || !ivPart || !tagPart || dataPart === undefined) {
-      throw new ValidationError("Token criptografado em formato inválido");
+      throw validationError("Token criptografado em formato inválido");
     }
     try {
       const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivPart, "base64url"), {
@@ -51,7 +51,7 @@ export function createTokenCipher(base64Key: string): TokenCipher {
         decipher.final(),
       ]).toString("utf8");
     } catch (error) {
-      throw new ValidationError("Não foi possível descriptografar o token", [String(error)]);
+      throw validationError("Não foi possível descriptografar o token", [String(error)]);
     }
   }
 
