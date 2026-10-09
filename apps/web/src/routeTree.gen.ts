@@ -13,8 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
+import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
+import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +39,16 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppFornecedoresRouteRoute = AppFornecedoresRouteRouteImport.update({
+  id: '/fornecedores',
+  path: '/fornecedores',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppOnboardingRoute = AppOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AuthCadastroRoute = AuthCadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
@@ -45,6 +59,17 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppFornecedoresRouteRoute,
+} as any)
+const AppFornecedoresSupplierIdRoute =
+  AppFornecedoresSupplierIdRouteImport.update({
+    id: '/$supplierId',
+    path: '/$supplierId',
+    getParentRoute: () => AppFornecedoresRouteRoute,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -53,42 +78,74 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
+  '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
   '/login': typeof AuthLoginRoute
+  '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/fornecedores/': typeof AppFornecedoresIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
+  '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
   '/login': typeof AuthLoginRoute
+  '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/fornecedores': typeof AppFornecedoresIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/_app/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/onboarding': typeof AppOnboardingRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/login': typeof AuthLoginRoute
+  '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/cadastro' | '/login' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/fornecedores'
+    | '/dashboard'
+    | '/onboarding'
+    | '/cadastro'
+    | '/login'
+    | '/fornecedores/$supplierId'
+    | '/api/auth/$'
+    | '/fornecedores/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/cadastro' | '/login' | '/api/auth/$'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/onboarding'
+    | '/cadastro'
+    | '/login'
+    | '/fornecedores/$supplierId'
+    | '/api/auth/$'
+    | '/fornecedores'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/_auth'
+    | '/_app/fornecedores'
     | '/_app/dashboard'
+    | '/_app/onboarding'
     | '/_auth/cadastro'
     | '/_auth/login'
+    | '/_app/fornecedores/$supplierId'
     | '/api/auth/$'
+    | '/_app/fornecedores/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -128,6 +185,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/fornecedores': {
+      id: '/_app/fornecedores'
+      path: '/fornecedores'
+      fullPath: '/fornecedores'
+      preLoaderRoute: typeof AppFornecedoresRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/onboarding': {
+      id: '/_app/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_auth/cadastro': {
       id: '/_auth/cadastro'
       path: '/cadastro'
@@ -142,6 +213,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_app/fornecedores/': {
+      id: '/_app/fornecedores/'
+      path: '/'
+      fullPath: '/fornecedores/'
+      preLoaderRoute: typeof AppFornecedoresIndexRouteImport
+      parentRoute: typeof AppFornecedoresRouteRoute
+    }
+    '/_app/fornecedores/$supplierId': {
+      id: '/_app/fornecedores/$supplierId'
+      path: '/$supplierId'
+      fullPath: '/fornecedores/$supplierId'
+      preLoaderRoute: typeof AppFornecedoresSupplierIdRouteImport
+      parentRoute: typeof AppFornecedoresRouteRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -152,12 +237,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppFornecedoresRouteRouteChildren {
+  AppFornecedoresSupplierIdRoute: typeof AppFornecedoresSupplierIdRoute
+  AppFornecedoresIndexRoute: typeof AppFornecedoresIndexRoute
+}
+
+const AppFornecedoresRouteRouteChildren: AppFornecedoresRouteRouteChildren = {
+  AppFornecedoresSupplierIdRoute: AppFornecedoresSupplierIdRoute,
+  AppFornecedoresIndexRoute: AppFornecedoresIndexRoute,
+}
+
+const AppFornecedoresRouteRouteWithChildren =
+  AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren)
+
 interface AppRouteRouteChildren {
+  AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppFornecedoresRouteRoute: AppFornecedoresRouteRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
+  AppOnboardingRoute: AppOnboardingRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

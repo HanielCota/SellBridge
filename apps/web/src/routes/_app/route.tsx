@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { getAppSession } from "@/features/auth/session.functions";
 
@@ -24,7 +23,7 @@ function AppLayout() {
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
           <SidebarTrigger aria-label="Alternar menu lateral" />
-          <Separator orientation="vertical" className="h-4" />
+          <span className="h-4 w-px bg-border" aria-hidden="true" />
           <div className="ml-auto">
             <ThemeToggle />
           </div>

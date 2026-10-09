@@ -3,9 +3,9 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { asc, eq } from "drizzle-orm";
 import { db } from "./db.ts";
 import { env } from "./env.ts";
+import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
 
 function slugify(value: string): string {
@@ -16,17 +16,6 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
   return base.length > 0 ? base : "loja";
-}
-
-async function findFirstOrganizationId(userId: string): Promise<string | null> {
-  const membership = await db.query.member.findFirst({
-    where: eq(schema.member.userId, userId),
-    orderBy: asc(schema.member.createdAt),
-  });
-  if (!membership) {
-    return null;
-  }
-  return membership.organizationId;
 }
 
 export const auth = betterAuth({

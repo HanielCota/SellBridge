@@ -43,7 +43,7 @@ function SignUpPage() {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
-      await navigate({ to: "/dashboard" });
+      await navigate({ to: "/onboarding" });
     },
   });
 

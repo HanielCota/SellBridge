@@ -1,9 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoHydrated } from "./helpers";
-
-function uniqueEmail(): string {
-  return `e2e-${Date.now()}-${Math.floor(Math.random() * 10_000)}@sellbridge.test`;
-}
+import { gotoHydrated, uniqueEmail } from "./helpers";
 
 test("redireciona visitante sem sessão para o login", async ({ page }) => {
   await page.goto("/dashboard");
