@@ -3,6 +3,7 @@ import { formatCents } from "@sellbridge/shared/money";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { cn } from "cn";
 import type { ReactNode } from "react";
+import { OFF_SCALE_PERCENT } from "@/features/reports/dashboard-insights";
 import type { MetricPoint } from "@/features/reports/dashboard-metrics";
 import { CountFigure, MoneyFigure, ProgressRing } from "./figures";
 
@@ -44,6 +45,10 @@ function changeLabel(current: number, previous: number): { value: number; text: 
   }
   const ratio = current / previous;
   const percent = Math.round((ratio - 1) * 100);
+  if (percent >= OFF_SCALE_PERCENT) {
+    // Almost no sales before: a percentage like +16841% means nothing and overflows the ring.
+    return { value: 1, text: ">10×" };
+  }
   return { value: ratio, text: `${percent > 0 ? "+" : ""}${percent}%` };
 }
 
