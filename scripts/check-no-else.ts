@@ -55,16 +55,19 @@ async function main(): Promise<void> {
     const source = await readFile(file, "utf8");
     for (const violation of findElseKeywords(source)) {
       violationCount += 1;
-      console.error(
-        `${relative(".", file)}:${violation.line}:${violation.column}  uso de "else" proibido`,
+      process.stderr.write(
+        `${relative(".", file)}:${violation.line}:${violation.column}  uso de "else" proibido\n`,
       );
     }
   }
   if (violationCount > 0) {
-    console.error(`\n${violationCount} ocorrência(s) de "else" encontradas. Use early return.`);
-    process.exit(1);
+    process.stderr.write(
+      `\n${violationCount} ocorrência(s) de "else" encontradas. Use early return.\n`,
+    );
+    process.exitCode = 1;
+    return;
   }
-  console.log(`check:no-else ok (${files.length} arquivos verificados)`);
+  process.stdout.write(`check:no-else ok (${files.length} arquivos verificados)\n`);
 }
 
 await main();

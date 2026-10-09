@@ -14,14 +14,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
 
-const CEP_CACHE_TTL_MS = 30 * 86_400_000;
+const CEP_CACHE_TTL_MILLISECONDS = 30 * 86_400_000;
 
 async function resolveFromCache(cep: string): Promise<ResolvedAddress | null> {
   const cached = await findCachedCep(database, cep);
   if (!cached) {
     return null;
   }
-  const isFresh = Date.now() - cached.fetchedAt.getTime() < CEP_CACHE_TTL_MS;
+  const isFresh = Date.now() - cached.fetchedAt.getTime() < CEP_CACHE_TTL_MILLISECONDS;
   const state = stateSchema.safeParse(cached.state);
   if (!isFresh || !state.success) {
     return null;
@@ -42,7 +42,7 @@ async function resolveCep(cep: string): Promise<ResolvedAddress> {
   }
   const result = await lookupCep(cep);
   if (!result.ok) {
-    logger.warn("cep.lookup_failed", { cep, reason: result.reason });
+    logger.warn("cep.lookup_failed", { reason: result.reason });
     throw validationError(CEP_FAILURE_MESSAGES[result.reason]);
   }
   await saveCachedCep(database, result.address, result.provider, result.payload);

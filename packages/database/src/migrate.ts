@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
 import { createDatabase } from "./client.ts";
@@ -11,4 +12,4 @@ const database = createDatabase(databaseUrl, { maxConnections: 1 });
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 await migrate(database, { migrationsFolder });
 await database.$client.end();
-console.log("Migrations aplicadas");
+logger.info("database.migrations_applied");
