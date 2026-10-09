@@ -26,8 +26,9 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   await expect(page.getByRole("heading", { name: "Cliente Renomeado" })).toBeVisible();
 
   await page.getByRole("button", { name: "Entrar como cliente" }).click();
+  // Impersonation reloads the document; the banner is server-rendered before React owns it.
   await expect(page.getByText("Você está usando a conta de")).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForHydration(page);
   await page.getByRole("button", { name: "Voltar ao admin" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
 });
