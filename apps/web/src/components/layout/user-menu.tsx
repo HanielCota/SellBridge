@@ -3,14 +3,16 @@ import {
   MapPinIcon,
   MoonIcon,
   QuestionIcon,
+  ShieldCheckIcon,
   SignOutIcon,
   SunIcon,
 } from "@phosphor-icons/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useTheme } from "@/components/theme/theme-provider";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -18,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
 
 const ROLE_LABELS: Record<string, string> = { admin: "Administrador", user: "Revendedor" };
@@ -57,8 +60,46 @@ function ThemeMenuItem() {
   );
 }
 
+/** Shows or hides the admin tools in the interface; only offered to admin accounts. */
+function AdminModeItem({ enabled }: { enabled: boolean }) {
+  const router = useRouter();
+  const navigate = useNavigate();
+  const isOnAdminPage = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/admin"),
+  });
+  async function toggle(next: boolean) {
+    try {
+      await setAdminMode({ data: { enabled: next } });
+    } catch {
+      toast.error("Não foi possível alterar o modo administrador.");
+      return;
+    }
+    toast.success(next ? "Modo administrador ativado" : "Modo administrador desativado");
+    if (!next && isOnAdminPage) {
+      await navigate({ to: "/dashboard" });
+    }
+    await router.invalidate();
+  }
+  return (
+    <DropdownMenuCheckboxItem
+      checked={enabled}
+      onCheckedChange={(checked) => void toggle(checked)}
+      onSelect={(event) => event.preventDefault()}
+    >
+      <ShieldCheckIcon aria-hidden="true" />
+      Modo administrador
+    </DropdownMenuCheckboxItem>
+  );
+}
+
+interface UserMenuProps {
+  user: SessionUser;
+  supportReplies: number;
+  adminMode: boolean;
+}
+
 /** Round settings button: account details and the settings that are rarely used. */
-export function UserMenu({ user, supportReplies }: { user: SessionUser; supportReplies: number }) {
+export function UserMenu({ user, supportReplies, adminMode }: UserMenuProps) {
   const signOut = useSignOut();
   return (
     <DropdownMenu>
@@ -98,6 +139,7 @@ export function UserMenu({ user, supportReplies }: { user: SessionUser; supportR
           </Link>
         </DropdownMenuItem>
         <ThemeMenuItem />
+        {user.role === "admin" ? <AdminModeItem enabled={adminMode} /> : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <SignOutIcon aria-hidden="true" />

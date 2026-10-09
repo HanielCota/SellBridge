@@ -19,7 +19,7 @@ function AppLayout() {
   return (
     <div className="min-h-svh bg-background">
       {session.impersonatedBy ? <ImpersonationBanner customerName={session.user.name} /> : null}
-      <TopNav user={session.user} />
+      <TopNav user={session.user} adminMode={session.adminMode} />
       <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-2 pb-12 md:px-8">
         <Outlet />
       </main>

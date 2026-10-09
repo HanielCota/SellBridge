@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/admin")({
   beforeLoad: ({ context }) => {
-    if (context.session.user.role !== "admin") {
+    if (!context.session.adminMode) {
       throw redirect({ to: "/dashboard" });
     }
   },

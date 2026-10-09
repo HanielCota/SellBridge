@@ -38,3 +38,15 @@ export async function signUp(page: Page, name: string): Promise<string> {
   await expect(page).not.toHaveURL(/\/cadastro/);
   return email;
 }
+
+/** Turns on admin mode from the profile menu (admins only; it is off by default). */
+export async function enableAdminMode(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Menu do usuário" }).click();
+  const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
+  if ((await toggle.getAttribute("aria-checked")) !== "true") {
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("link", { name: "Clientes" })).toBeVisible();
+}

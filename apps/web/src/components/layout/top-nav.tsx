@@ -116,9 +116,17 @@ function MobileNav({
   );
 }
 
-function AccountChip({ user, supportReplies }: { user: SessionUser; supportReplies: number }) {
+function AccountChip({
+  user,
+  supportReplies,
+  adminMode,
+}: {
+  user: SessionUser;
+  supportReplies: number;
+  adminMode: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3 rounded-full bg-card p-1.5 sm:pr-1.5 sm:pl-1.5">
+    <div className="flex items-center gap-3 rounded-full bg-card p-1.5">
       <span
         aria-hidden="true"
         className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-primary-foreground"
@@ -127,19 +135,25 @@ function AccountChip({ user, supportReplies }: { user: SessionUser; supportRepli
       </span>
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
-        <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
+        {adminMode ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-brand">
+            <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
+            Modo admin ativo
+          </span>
+        ) : (
+          <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
+        )}
       </span>
-      <UserMenu user={user} supportReplies={supportReplies} />
+      <UserMenu user={user} supportReplies={supportReplies} adminMode={adminMode} />
     </div>
   );
 }
 
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
-export function TopNav({ user }: { user: SessionUser }) {
+export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: boolean }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const isAdmin = user.role === "admin";
-  const { counts, supportReplies } = useNavCounts(isAdmin);
-  const items = isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
+  const { counts, supportReplies } = useNavCounts(adminMode);
+  const items = adminMode ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
   return (
     <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
       {/* Equal side columns keep the tab capsule centred on the page, whatever the side widths. */}
@@ -168,7 +182,7 @@ export function TopNav({ user }: { user: SessionUser }) {
           ))}
         </nav>
         <div className="justify-self-end">
-          <AccountChip user={user} supportReplies={supportReplies} />
+          <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
         </div>
       </div>
     </header>
