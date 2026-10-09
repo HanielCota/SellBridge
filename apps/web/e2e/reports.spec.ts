@@ -114,3 +114,20 @@ test.describe("avisos", () => {
     await expect(page.getByText(/Nada novo por aqui/)).toBeVisible();
   });
 });
+
+test.describe("busca global", () => {
+  test("Ctrl+K encontra um pedido e leva até ele no financeiro", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.keyboard.press("Control+k");
+    const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
+    await expect(input).toBeVisible();
+    await input.fill("financeiro");
+    await expect(page.getByRole("option", { name: /Financeiro/ })).toBeVisible();
+    await input.fill("MOCK-ORD-0000");
+    const order = page.getByRole("option", { name: /^MOCK-ORD-0000/ }).first();
+    await expect(order).toBeVisible();
+    await order.click();
+    await expect(page).toHaveURL(/\/financeiro\?query=MOCK-ORD-0000/);
+  });
+});

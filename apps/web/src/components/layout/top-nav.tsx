@@ -19,6 +19,7 @@ import {
   type NavItem,
 } from "./nav-items";
 import { AvatarButton } from "@/components/profile/avatar-button";
+import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { roleLabel, UserMenu } from "./user-menu";
 
@@ -190,6 +191,7 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
           ))}
         </nav>
         <div className="flex items-center gap-2 justify-self-end">
+          <CommandPalette />
           <NotificationBell />
           <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
         </div>

@@ -93,7 +93,7 @@ function ForgotPasswordPage() {
       <p className="text-center text-[15px] text-muted-foreground">
         <Link
           to="/login"
-          className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-text"
+          className="font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
         >
           Voltar para o login
         </Link>

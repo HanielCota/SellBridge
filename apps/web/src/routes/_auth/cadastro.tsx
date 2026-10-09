@@ -154,7 +154,7 @@ function SignUpPage() {
         Já tem conta?{" "}
         <Link
           to="/login"
-          className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-text"
+          className="font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
         >
           Entrar
         </Link>

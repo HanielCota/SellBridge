@@ -46,7 +46,7 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
         <p className="truncate text-xs text-muted-foreground">{product.supplierName}</p>
-        <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
+        <h2 className="line-clamp-2 text-sm font-medium">{product.title}</h2>
       </div>
       <PriceLines product={product} />
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">

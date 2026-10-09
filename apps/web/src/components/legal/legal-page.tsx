@@ -23,10 +23,7 @@ export function LegalPage({ title, updatedAt, intro, sections, footer }: LegalPa
         <Link to="/" aria-label="SellBridge — início">
           <BrandLogo className="text-xl" iconClassName="size-8" />
         </Link>
-        <Link
-          to="/cadastro"
-          className="text-[15px] font-medium text-brand-strong dark:text-brand-text"
-        >
+        <Link to="/cadastro" className="text-[15px] font-medium text-brand-text">
           Criar conta
         </Link>
       </header>
