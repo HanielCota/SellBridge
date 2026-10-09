@@ -1,13 +1,48 @@
 import { FlaskIcon } from "@phosphor-icons/react";
 import { cn } from "cn";
+import type { ReactNode } from "react";
+import {
+  MERCADO_LIVRE_PATH,
+  MERCADO_LIVRE_TRANSFORM,
+  MERCADO_LIVRE_VIEWBOX,
+  SHOPEE_PATH,
+  TIKTOK_PATH,
+} from "./marketplace-logo-paths";
 
-/** Monogram tiles in each marketplace's color, so stores are told apart at a glance. */
-const MARKS: Record<string, { text: string; className: string }> = {
-  mercado_livre: { text: "ML", className: "bg-[#ffe600] text-[#2d3277]" },
-  shopee: { text: "S", className: "bg-[#ee4d2d] text-white" },
-  tiktok_shop: { text: "TT", className: "bg-[#111111] text-white ring-1 ring-white/15" },
+function MercadoLivreLogo() {
+  return (
+    <svg viewBox={MERCADO_LIVRE_VIEWBOX} className="w-[78%]" aria-hidden="true">
+      <path d={MERCADO_LIVRE_PATH} transform={MERCADO_LIVRE_TRANSFORM} fill="#2d3277" />
+    </svg>
+  );
+}
+
+function ShopeeLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[52%]" aria-hidden="true">
+      <path d={SHOPEE_PATH} fill="#ffffff" />
+    </svg>
+  );
+}
+
+/** TikTok's note with its cyan and red offsets, like the original mark. */
+function TikTokLogo() {
+  return (
+    <svg viewBox="-1 -1 26 26" className="size-[54%]" aria-hidden="true">
+      <path d={TIKTOK_PATH} fill="#25f4ee" transform="translate(-0.7,-0.7)" />
+      <path d={TIKTOK_PATH} fill="#fe2c55" transform="translate(0.7,0.7)" />
+      <path d={TIKTOK_PATH} fill="#ffffff" />
+    </svg>
+  );
+}
+
+const MARKS: Record<string, { logo: ReactNode; className: string }> = {
+  mercado_livre: { logo: <MercadoLivreLogo />, className: "bg-[#ffe600]" },
+  shopee: { logo: <ShopeeLogo />, className: "bg-[#ee4d2d]" },
+  tiktok_shop: { logo: <TikTokLogo />, className: "bg-black ring-1 ring-white/10" },
 };
 
+/** The marketplace's logo on its brand color, so stores are told apart at a glance. */
 export function MarketplaceMark({
   marketplace,
   className,
@@ -20,12 +55,12 @@ export function MarketplaceMark({
     <span
       aria-hidden="true"
       className={cn(
-        "flex size-11 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold tracking-[-0.02em]",
+        "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
         mark?.className ?? "bg-brand/15 text-brand",
         className,
       )}
     >
-      {mark ? mark.text : <FlaskIcon className="size-5" />}
+      {mark ? mark.logo : <FlaskIcon className="size-[45%]" />}
     </span>
   );
 }

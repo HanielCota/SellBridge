@@ -43,10 +43,7 @@ function ComingSoon({ options }: { options: MarketplaceOption[] }) {
             key={option.id}
             className="flex items-center gap-2.5 rounded-full bg-muted/40 py-1.5 pr-4 pl-1.5 text-sm text-muted-foreground"
           >
-            <MarketplaceMark
-              marketplace={option.id}
-              className="size-7 rounded-full text-[10px] opacity-70"
-            />
+            <MarketplaceMark marketplace={option.id} className="size-8 rounded-full" />
             {option.label}
           </li>
         ))}

@@ -1,20 +1,14 @@
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { FlaskIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, FlaskIcon, MegaphoneIcon, ReceiptIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { z } from "zod";
 import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { BrandIcon } from "@/components/brand/brand-logo";
+import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { getAppSession } from "@/features/auth/session.functions";
 import { approveMockAuthorization } from "@/features/stores/stores.functions";
 import { errorMessage } from "@/lib/errors";
@@ -41,9 +35,21 @@ const shopFormSchema = z.object({
 });
 
 const REQUESTED_PERMISSIONS = [
-  "Publicar e editar anúncios",
-  "Atualizar estoque e preço",
-  "Ler pedidos e vendas",
+  {
+    icon: MegaphoneIcon,
+    title: "Publicar e editar anúncios",
+    text: "Criar anúncios com os produtos dos fornecedores que você escolher.",
+  },
+  {
+    icon: ArrowsClockwiseIcon,
+    title: "Atualizar estoque e preço",
+    text: "Manter o anúncio igual ao estoque do fornecedor e ao seu preço.",
+  },
+  {
+    icon: ReceiptIcon,
+    title: "Ler pedidos e vendas",
+    text: "Trazer cada venda para o seu financeiro.",
+  },
 ] as const;
 
 type ConsentSearch = z.infer<typeof consentSearchSchema>;
@@ -79,29 +85,42 @@ function useConsentForm(search: ConsentSearch) {
 
 function ConsentHeader() {
   return (
-    <CardHeader>
-      <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-        <FlaskIcon className="size-4" aria-hidden="true" />
-        Marketplace simulado
+    <header className="space-y-6 text-center">
+      <div className="flex items-center justify-center gap-3" aria-hidden="true">
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-muted">
+          <BrandIcon className="size-7" />
+        </span>
+        <span className="flex gap-1">
+          <span className="size-1 rounded-full bg-muted-foreground/40" />
+          <span className="size-1 rounded-full bg-muted-foreground/60" />
+          <span className="size-1 rounded-full bg-muted-foreground/40" />
+        </span>
+        <MarketplaceMark marketplace="mock" className="size-14 rounded-2xl" />
       </div>
-      <CardTitle>
-        <h1>Autorizar o SellBridge</h1>
-      </CardTitle>
-      <CardDescription>
-        O SellBridge quer publicar anúncios e ler pedidos da sua loja. Esta tela simula o
-        consentimento de um marketplace real.
-      </CardDescription>
-    </CardHeader>
+      <div className="space-y-2">
+        <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+          <FlaskIcon className="size-3.5" aria-hidden="true" />
+          Marketplace simulado · ambiente de teste
+        </p>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Autorizar o SellBridge</h1>
+        <p className="text-sm text-muted-foreground">
+          O SellBridge vai poder fazer o seguinte na sua loja:
+        </p>
+      </div>
+    </header>
   );
 }
 
 function PermissionList() {
   return (
-    <ul className="space-y-2 text-sm">
+    <ul className="divide-y divide-border rounded-2xl bg-muted/50">
       {REQUESTED_PERMISSIONS.map((permission) => (
-        <li key={permission} className="flex items-center gap-2">
-          <ShieldCheckIcon className="size-4 text-primary" aria-hidden="true" />
-          {permission}
+        <li key={permission.title} className="flex gap-3 p-4">
+          <permission.icon className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">{permission.title}</p>
+            <p className="text-xs text-muted-foreground">{permission.text}</p>
+          </div>
         </li>
       ))}
     </ul>
@@ -112,35 +131,43 @@ function ConsentForm({ search }: { search: ConsentSearch }) {
   const { form, submitError } = useConsentForm(search);
 
   return (
-    <form noValidate onSubmit={submitHandler(() => form.handleSubmit())}>
-      <CardContent className="space-y-4">
-        <PermissionList />
-        <FormErrorAlert message={submitError} />
-        <form.Field name="shopName">
-          {(field) => (
-            <TextField
-              id="shopName"
-              label="Nome da loja"
-              placeholder="Ex.: Loja da Ana"
-              {...fieldBindings(field)}
-            />
-          )}
-        </form.Field>
-      </CardContent>
-      <CardFooter className="mt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => denyAuthorization(search)}>
-          Cancelar
-        </Button>
+    <form noValidate onSubmit={submitHandler(() => form.handleSubmit())} className="space-y-6">
+      <PermissionList />
+      <FormErrorAlert message={submitError} />
+      <form.Field name="shopName">
+        {(field) => (
+          <TextField
+            id="shopName"
+            label="Nome da loja"
+            placeholder="Ex.: Loja da Ana"
+            {...fieldBindings(field)}
+          />
+        )}
+      </form.Field>
+      <div className="space-y-2">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <PendingSubmitButton
               isPending={isSubmitting}
               idleLabel="Autorizar acesso"
               pendingLabel="Autorizando..."
+              className="h-11 w-full text-[15px]"
             />
           )}
         </form.Subscribe>
-      </CardFooter>
+        <Button
+          type="button"
+          variant="ghost"
+          size="lg"
+          className="w-full"
+          onClick={() => denyAuthorization(search)}
+        >
+          Cancelar
+        </Button>
+      </div>
+      <p className="text-center text-xs text-muted-foreground">
+        Você pode desconectar a loja quando quiser, na página Lojas.
+      </p>
     </form>
   );
 }
@@ -149,11 +176,11 @@ function MockConsentPage() {
   const search = Route.useSearch();
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
+    <main className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md space-y-8 rounded-3xl bg-card p-6 shadow-2xl shadow-black/30 sm:p-8">
         <ConsentHeader />
         <ConsentForm search={search} />
-      </Card>
+      </div>
     </main>
   );
 }
