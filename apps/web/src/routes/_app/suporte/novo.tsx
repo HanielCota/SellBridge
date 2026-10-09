@@ -2,7 +2,7 @@ import { createTicketSchema } from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -71,7 +71,7 @@ function BackToSupportLink() {
   return (
     <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
       <Link to="/suporte">
-        <ArrowLeft aria-hidden="true" />
+        <ArrowLeftIcon aria-hidden="true" />
         Suporte
       </Link>
     </Button>

@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Inbox, Search } from "lucide-react";
+import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -84,6 +84,33 @@ const columns = columnHelper.columns([
   }),
 ]);
 
+function TicketStatusFilter({
+  value,
+  onChange,
+}: {
+  value: TicketsSearch["status"];
+  onChange: (status: TicketsSearch["status"]) => void;
+}) {
+  return (
+    <Select
+      value={value ?? ALL_STATUSES}
+      onValueChange={(next) => onChange(TICKET_STATUSES.find((status) => status === next))}
+    >
+      <SelectTrigger className="sm:w-56" aria-label="Filtrar chamados por status">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
+        {TICKET_STATUSES.map((status) => (
+          <SelectItem key={status} value={status}>
+            {TICKET_STATUS_LABELS[status]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function AdminTicketsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -111,7 +138,7 @@ function AdminTicketsPage() {
       <PageHeader title="Chamados" description="Todos os chamados dos revendedores." />
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <Search
+          <MagnifyingGlassIcon
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
@@ -123,24 +150,7 @@ function AdminTicketsPage() {
             onChange={(event) => setTerm(event.target.value)}
           />
         </div>
-        <Select
-          value={search.status ?? ALL_STATUSES}
-          onValueChange={(value) =>
-            updateSearch({ status: TICKET_STATUSES.find((status) => status === value) })
-          }
-        >
-          <SelectTrigger className="sm:w-56" aria-label="Filtrar chamados por status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
-            {TICKET_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {TICKET_STATUS_LABELS[status]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TicketStatusFilter value={search.status} onChange={(status) => updateSearch({ status })} />
       </div>
       <AdminTicketsTable query={query} onPageChange={(page) => updateSearch({ page })} />
     </>
@@ -163,7 +173,7 @@ function AdminTicketsTable({
   if (query.data.items.length === 0) {
     return (
       <EmptyState
-        icon={Inbox}
+        icon={TrayIcon}
         title="Nenhum chamado"
         description="Nenhum chamado corresponde aos filtros."
       />

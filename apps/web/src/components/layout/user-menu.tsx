@@ -1,6 +1,7 @@
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { DotsThreeIcon, MapPinIcon, MoonIcon, SignOutIcon, SunIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { useTheme } from "@/components/theme/theme-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -22,39 +23,74 @@ function initials(name: string): string {
   return result.length > 0 ? result : "?";
 }
 
-export function UserMenu({ user }: { user: SessionUser }) {
-  const navigate = useNavigate();
+function ThemeMenuItem() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <DropdownMenuItem onSelect={toggleTheme}>
+      {isDark ? <SunIcon aria-hidden="true" /> : <MoonIcon aria-hidden="true" />}
+      {isDark ? "Usar tema claro" : "Usar tema escuro"}
+    </DropdownMenuItem>
+  );
+}
 
-  async function handleSignOut() {
+function useSignOut() {
+  const navigate = useNavigate();
+  return async function signOut() {
     const result = await authClient.signOut();
     if (result.error) {
       toast.error("Não foi possível sair. Tente novamente.");
       return;
     }
     await navigate({ to: "/login" });
-  }
+  };
+}
 
+/** Account row at the bottom of the sidebar; settings that are rarely used live in its menu. */
+export function UserMenu({ user }: { user: SessionUser }) {
+  const signOut = useSignOut();
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" aria-label="Menu do usuário">
-              <Avatar className="size-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">{initials(user.name)}</AvatarFallback>
+            <SidebarMenuButton
+              size="lg"
+              aria-label="Menu do usuário"
+              className="[&_svg]:text-muted-foreground"
+            >
+              <Avatar className="size-8 rounded-full">
+                <AvatarFallback className="rounded-full bg-brand/15 text-xs font-semibold text-brand-strong dark:text-brand">
+                  {initials(user.name)}
+                </AvatarFallback>
               </Avatar>
-              <span className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+              <span className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-sm font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </span>
-              <ChevronsUpDown className="ml-auto size-4" aria-hidden="true" />
+              <DotsThreeIcon className="ml-auto" aria-hidden="true" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+          >
+            <DropdownMenuLabel className="font-normal">
+              <span className="block truncate text-sm font-medium">{user.name}</span>
+              <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void handleSignOut()}>
-              <LogOut aria-hidden="true" />
+            <DropdownMenuItem asChild>
+              <Link to="/onboarding">
+                <MapPinIcon aria-hidden="true" />
+                Minha região
+              </Link>
+            </DropdownMenuItem>
+            <ThemeMenuItem />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void signOut()}>
+              <SignOutIcon aria-hidden="true" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>

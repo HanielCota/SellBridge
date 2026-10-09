@@ -2,7 +2,7 @@ import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Store } from "lucide-react";
+import { ArrowLeftIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -53,7 +53,7 @@ function NewListingPage() {
     <>
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
-          <ArrowLeft aria-hidden="true" />
+          <ArrowLeftIcon aria-hidden="true" />
           {product.supplierName}
         </Link>
       </Button>
@@ -63,7 +63,7 @@ function NewListingPage() {
       />
       {stores.length === 0 ? (
         <EmptyState
-          icon={Store}
+          icon={StorefrontIcon}
           title="Conecte uma loja antes de publicar"
           description="Você ainda não tem lojas conectadas. Conecte uma loja para publicar este produto."
           action={
@@ -288,7 +288,11 @@ function StoreSelection({
     <fieldset className="grid gap-2">
       <legend className="mb-2 text-sm font-medium">Lojas de destino</legend>
       {stores.map((store) => (
-        <div key={store.id} className="flex items-center gap-2">
+        <Label
+          key={store.id}
+          htmlFor={`store-${store.id}`}
+          className="flex cursor-pointer items-center gap-3 rounded-xl border border-field-border bg-field px-4 py-3 font-normal transition-colors has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand"
+        >
           <Checkbox
             id={`store-${store.id}`}
             checked={selectedIds.includes(store.id)}
@@ -300,10 +304,8 @@ function StoreSelection({
               )
             }
           />
-          <Label htmlFor={`store-${store.id}`} className="font-normal">
-            {store.shopName}
-          </Label>
-        </div>
+          {store.shopName}
+        </Label>
       ))}
       {message ? <p className="text-sm text-destructive">{message}</p> : null}
     </fieldset>

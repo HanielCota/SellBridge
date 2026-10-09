@@ -11,7 +11,7 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
 
   await gotoHydrated(reseller, "/suporte");
   await expect(reseller.getByText("Você ainda não abriu chamados")).toBeVisible();
-  await reseller.getByRole("link", { name: "Novo chamado" }).click();
+  await reseller.getByRole("link", { name: "Abrir chamado" }).click();
   await reseller.waitForLoadState("networkidle");
 
   await reseller.getByRole("button", { name: "Abrir chamado" }).click();

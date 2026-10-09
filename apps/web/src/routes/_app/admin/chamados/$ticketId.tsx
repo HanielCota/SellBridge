@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Lock, LockOpen } from "lucide-react";
+import { ArrowLeftIcon, LockIcon, LockOpenIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -50,7 +50,7 @@ function AdminTicketPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
         <Link to="/admin/chamados">
-          <ArrowLeft aria-hidden="true" />
+          <ArrowLeftIcon aria-hidden="true" />
           Chamados
         </Link>
       </Button>
@@ -68,7 +68,7 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{ticket.subject}</h1>
           <TicketStatusBadge status={ticket.status} />
         </div>
         <p className="text-sm text-muted-foreground">
@@ -80,7 +80,7 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
         disabled={statusMutation.isPending}
         onClick={() => statusMutation.mutate(isClosed ? "open" : "closed")}
       >
-        {isClosed ? <LockOpen aria-hidden="true" /> : <Lock aria-hidden="true" />}
+        {isClosed ? <LockOpenIcon aria-hidden="true" /> : <LockIcon aria-hidden="true" />}
         {isClosed ? "Reabrir chamado" : "Encerrar chamado"}
       </Button>
     </div>

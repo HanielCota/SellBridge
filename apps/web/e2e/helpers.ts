@@ -18,7 +18,7 @@ export const ADMIN_USER = {
 export async function signIn(page: Page, credentials: { email: string; password: string }) {
   await gotoHydrated(page, "/login");
   await page.getByLabel("E-mail").fill(credentials.email);
-  await page.getByLabel("Senha").fill(credentials.password);
+  await page.getByLabel("Senha", { exact: true }).fill(credentials.password);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }
@@ -33,7 +33,6 @@ export async function signUp(page: Page, name: string): Promise<string> {
   await page.getByLabel("Nome").fill(name);
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
-  await page.getByLabel("Confirmar senha").fill("senha-segura-123");
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
   return email;

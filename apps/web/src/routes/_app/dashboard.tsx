@@ -1,25 +1,22 @@
-import { formatCents } from "@sellbridge/shared/money";
 import { periodSearchSchema, type PeriodSearch } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  CheckCircle2,
-  Circle,
-  DollarSign,
-  PiggyBank,
-  Receipt,
-  ShoppingBag,
-  TrendingUp,
-} from "lucide-react";
+import { cn } from "cn";
+import { CheckCircleIcon, CircleIcon, TrendUpIcon } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
-import { PageHeader } from "@/components/layout/page-header";
-import { KpiCard } from "@/components/reports/kpi-card";
 import { PeriodFilters } from "@/components/reports/period-filters";
-import { RevenueChart } from "@/components/reports/revenue-chart";
+import { AttentionPanel } from "@/components/reports/attention-panel";
+import { Briefing } from "@/components/reports/briefing";
+import { MetricsRibbon } from "@/components/reports/metrics-ribbon";
+import { MoneyFlow } from "@/components/reports/money-flow";
+import { RhythmChart } from "@/components/reports/rhythm-chart";
+import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { bestPoint } from "@/features/reports/dashboard-insights";
+import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -29,7 +26,7 @@ export const Route = createFileRoute("/_app/dashboard")({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
     prefetchOnServer(context.queryClient, dashboardQueryOptions(search)),
-  head: () => ({ meta: [{ title: "Dashboard | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Visão geral | SellBridge" }] }),
   component: DashboardPage,
 });
 
@@ -40,198 +37,144 @@ function useDashboardQuery() {
   return useQuery(dashboardQueryOptions(search));
 }
 
-function DashboardPage() {
-  const { session } = Route.useRouteContext();
+function DashboardHeader({ data }: { data: DashboardData | undefined }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const query = useDashboardQuery();
-
   function updateSearch(patch: Partial<PeriodSearch>) {
     void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
   }
-
-  const header = (
-    <PageHeader
-      title={`Olá, ${session.user.name.split(" ")[0] ?? session.user.name}`}
-      description="Acompanhe vendas, lucro e o desempenho das suas lojas."
-    />
+  return (
+    <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Visão geral</h1>
+        <p className="text-sm text-muted-foreground">
+          {data
+            ? `${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`
+            : "Carregando período…"}
+        </p>
+      </div>
+      {data ? (
+        <PeriodFilters
+          search={search}
+          stores={data.stores}
+          resolvedFrom={data.period.fromDate}
+          resolvedTo={data.period.toDate}
+          onChange={updateSearch}
+        />
+      ) : null}
+    </header>
   );
+}
 
-  if (query.isPending) {
-    return (
-      <>
-        {header}
-        <DashboardSkeleton />
-      </>
-    );
-  }
+function DashboardPage() {
+  const query = useDashboardQuery();
   if (query.isError) {
     return (
       <>
-        {header}
+        <DashboardHeader data={undefined} />
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
       </>
     );
   }
-
-  const data = query.data;
+  if (query.isPending) {
+    return (
+      <>
+        <DashboardHeader data={undefined} />
+        <DashboardSkeleton />
+      </>
+    );
+  }
   return (
     <>
-      {header}
-      <PeriodFilters
-        search={search}
-        stores={data.stores}
-        resolvedFrom={data.period.fromDate}
-        resolvedTo={data.period.toDate}
-        onChange={updateSearch}
-      />
-      <DashboardContent data={data} />
+      <DashboardHeader data={query.data} />
+      <div
+        aria-busy={query.isPlaceholderData}
+        className={cn("transition-opacity", query.isPlaceholderData && "opacity-60")}
+      >
+        <DashboardContent data={query.data} />
+      </div>
     </>
   );
 }
 
-function DashboardContent({ data }: { data: DashboardData }) {
-  const { onboarding } = data;
-  const onboardingComplete =
-    onboarding.hasRegion && onboarding.hasStore && onboarding.hasPublishedListing;
-  if (!onboardingComplete && data.summary.orders === 0 && data.summary.cancelledOrders === 0) {
-    return <OnboardingChecklist onboarding={onboarding} />;
+const PRESET_PHRASES: Record<string, { period: string; comparison: string }> = {
+  "7d": { period: "nos últimos 7 dias", comparison: "nos 7 dias anteriores" },
+  "30d": { period: "nos últimos 30 dias", comparison: "nos 30 dias anteriores" },
+  "90d": { period: "nos últimos 90 dias", comparison: "nos 90 dias anteriores" },
+  "180d": { period: "nos últimos 6 meses", comparison: "nos 6 meses anteriores" },
+};
+
+function periodPhrases(preset: string) {
+  return (
+    PRESET_PHRASES[preset] ?? {
+      period: "no período escolhido",
+      comparison: "no período anterior de mesmo tamanho",
+    }
+  );
+}
+
+function SalesInsights({ data }: { data: DashboardData }) {
+  const { summary, previous } = data;
+  if (summary.orders === 0) {
+    return (
+      <section className="rounded-2xl border bg-card">
+        <EmptyState
+          icon={TrendUpIcon}
+          title="Nenhuma venda neste período"
+          description="Escolha outro período ou outra loja para ver o ritmo e para onde vai o dinheiro."
+        />
+      </section>
+    );
   }
   return (
-    <div className="space-y-6">
-      <KpiGrid data={data} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Evolução de receita e lucro</CardTitle>
-          <CardDescription>
-            {data.period.bucket === "week" ? "Por semana" : "Por dia"} · comparado ao período
-            anterior de mesmo tamanho nos indicadores acima
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {data.summary.orders === 0 ? (
-            <EmptyState
-              icon={TrendingUp}
-              title="Nenhuma venda neste período"
-              description="Escolha outro período ou outra loja para ver a evolução."
-            />
-          ) : (
-            <RevenueChart points={data.timeseries} bucket={data.period.bucket} />
-          )}
-        </CardContent>
-      </Card>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <StoreBreakdownCard data={data} />
-        <TopProductsCard data={data} />
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <RhythmChart
+        points={data.timeseries}
+        bucket={data.period.bucket}
+        previousTotals={{
+          profit: previous.profitCents,
+          revenue: previous.revenueCents,
+          orders: previous.orders,
+        }}
+      />
+      <MoneyFlow summary={summary} />
+    </div>
+  );
+}
+
+function DashboardContent({ data }: { data: DashboardData }) {
+  const search = Route.useSearch();
+  const { onboarding, summary, previous } = data;
+  const onboardingComplete =
+    onboarding.hasRegion && onboarding.hasStore && onboarding.hasPublishedListing;
+  if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
+    return <OnboardingChecklist onboarding={onboarding} />;
+  }
+  const phrases = periodPhrases(search.period);
+  return (
+    <div className="space-y-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <Briefing
+          summary={summary}
+          previous={previous}
+          periodPhrase={phrases.period}
+          comparisonPhrase={phrases.comparison}
+          bestDay={bestPoint(data.timeseries, (point) => point.profitCents)}
+          bucket={data.period.bucket}
+        />
+        <AttentionPanel stores={data.stores} />
+      </div>
+      <MetricsRibbon summary={summary} previous={previous} />
+      <SalesInsights data={data} />
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-2">
+          <StoreBreakdown stores={data.byStore} />
+        </div>
+        <div className="lg:col-span-3">
+          <TopProducts products={data.topProducts} />
+        </div>
       </div>
     </div>
-  );
-}
-
-function KpiGrid({ data }: { data: DashboardData }) {
-  const { summary, previous } = data;
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <KpiCard
-        label="Vendas"
-        icon={ShoppingBag}
-        value={summary.orders.toLocaleString("pt-BR")}
-        current={summary.orders}
-        previous={previous.orders}
-        hint={
-          summary.cancelledOrders > 0
-            ? `${summary.cancelledOrders} canceladas/devolvidas`
-            : undefined
-        }
-      />
-      <KpiCard
-        label="Receita"
-        icon={DollarSign}
-        value={formatCents(summary.revenueCents)}
-        current={summary.revenueCents}
-        previous={previous.revenueCents}
-      />
-      <KpiCard
-        label="Lucro"
-        icon={PiggyBank}
-        value={formatCents(summary.profitCents)}
-        current={summary.profitCents}
-        previous={previous.profitCents}
-      />
-      <KpiCard
-        label="Ticket médio"
-        icon={Receipt}
-        value={summary.averageTicketCents === null ? "—" : formatCents(summary.averageTicketCents)}
-        current={summary.averageTicketCents ?? 0}
-        previous={previous.averageTicketCents}
-      />
-    </div>
-  );
-}
-
-function StoreBreakdownCard({ data }: { data: DashboardData }) {
-  const maxRevenue = Math.max(1, ...data.byStore.map((store) => store.revenueCents));
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Vendas por loja</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.byStore.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma venda no período.</p>
-        ) : (
-          <ul className="space-y-4">
-            {data.byStore.map((store) => (
-              <li key={store.storeConnectionId} className="space-y-1.5">
-                <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="truncate font-medium">{store.storeName}</span>
-                  <span className="tabular-nums">{formatCents(store.revenueCents)}</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-sky-600 dark:bg-sky-400"
-                    style={{ width: `${Math.round((store.revenueCents / maxRevenue) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {store.orders} vendas · lucro {formatCents(store.profitCents)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TopProductsCard({ data }: { data: DashboardData }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Produtos mais vendidos</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.topProducts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma venda no período.</p>
-        ) : (
-          <ol className="divide-y">
-            {data.topProducts.map((product, index) => (
-              <li key={product.title} className="flex items-center gap-3 py-2.5 text-sm">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{product.title}</span>
-                <span className="shrink-0 text-muted-foreground">{product.units} un.</span>
-                <span className="w-24 shrink-0 text-right tabular-nums">
-                  {formatCents(product.revenueCents)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -277,9 +220,15 @@ function OnboardingChecklist({ onboarding }: { onboarding: DashboardData["onboar
             return (
               <li key={step.key} className="flex items-start gap-3">
                 {done ? (
-                  <CheckCircle2 className="mt-0.5 size-5 text-emerald-600" aria-label="Concluído" />
+                  <CheckCircleIcon
+                    className="mt-0.5 size-5 text-emerald-600"
+                    aria-label="Concluído"
+                  />
                 ) : (
-                  <Circle className="mt-0.5 size-5 text-muted-foreground" aria-label="Pendente" />
+                  <CircleIcon
+                    className="mt-0.5 size-5 text-muted-foreground"
+                    aria-label="Pendente"
+                  />
                 )}
                 <div className="flex-1 space-y-1">
                   <p
@@ -307,14 +256,20 @@ function OnboardingChecklist({ onboarding }: { onboarding: DashboardData["onboar
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando dashboard">
-      <Skeleton className="h-10 w-full max-w-md" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-28 rounded-xl" />
-        ))}
+    <div className="space-y-4" aria-busy="true" aria-label="Carregando visão geral">
+      <Skeleton className="h-9 w-full max-w-lg rounded-lg" />
+      <div className="rounded-2xl border bg-card">
+        <div className="grid grid-cols-2 border-b lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="space-y-2 px-5 py-4">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-7 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="m-5 h-64 rounded-lg sm:h-72" />
       </div>
-      <Skeleton className="h-80 rounded-xl" />
     </div>
   );
 }

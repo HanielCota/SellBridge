@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -36,12 +36,12 @@ function TicketPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
         <Link to="/suporte">
-          <ArrowLeft aria-hidden="true" />
+          <ArrowLeftIcon aria-hidden="true" />
           Suporte
         </Link>
       </Button>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">{ticket.subject}</h1>
         <TicketStatusBadge status={ticket.status} />
       </div>
       <TicketThread messages={messages} />

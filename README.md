@@ -30,6 +30,11 @@ O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar. Os logs 
 
 As senhas vêm de `SEED_DEMO_PASSWORD` e `SEED_ADMIN_PASSWORD` no `.env` (os valores acima são os do `.env.example`); os testes E2E usam as mesmas variáveis. `pnpm database:seed -- --reset` limpa os dados de domínio e recria tudo.
 
+### Redefinição de senha e login com Google
+
+- **E-mail:** a redefinição de senha envia o link por e-mail via [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Sem a chave, em desenvolvimento o e-mail, com o link, aparece no log do servidor (`email.development_preview`). Em produção ele não é enviado sem a chave.
+- **Google:** crie um OAuth Client no Google Cloud com o redirect `{BETTER_AUTH_URL}/api/auth/callback/google` e preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Sem as duas variáveis, o botão "Continuar com Google" não aparece.
+
 ### Mercado Livre
 
 Crie um aplicativo em developers.mercadolivre.com.br, configure o redirect `{APP_URL}/api/oauth/mercado_livre/callback` e a URL de notificações `{APP_URL}/api/webhooks/mercado_livre` (tópico `orders_v2`), e preencha `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CLIENT_SECRET`. Sem essas variáveis, a opção aparece como "Em breve". Referência dos endpoints usados: [docs/marketplaces/mercado-livre.md](docs/marketplaces/mercado-livre.md).

@@ -32,7 +32,8 @@ function buildProducts(
         suggestedPriceCents: roundToNinety(costCents * markup),
         stock: random.chance(0.12) ? 0 : random.integerBetween(3, 240),
         categoryId: categoryIds.get(template.category) ?? null,
-        imageUrls: [`https://picsum.photos/seed/sellbridge-${sku}/600/600`],
+        // Sem foto: o app mostra a cor da variante e o ícone da categoria em vez de uma imagem aleatória.
+        imageUrls: [],
       });
     }
   }

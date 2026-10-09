@@ -1,48 +1,50 @@
 import {
   LISTING_STATUS_LABELS,
+  ORDER_STATUS_LABELS,
+  orderStatusSchema,
   STORE_STATUS_LABELS,
   type ListingStatus,
+  type OrderStatus,
   type StoreStatus,
 } from "@sellbridge/shared/schemas";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { type StatusTone, ToneStatus } from "./tone-status";
 
-type Tone = "success" | "warning" | "danger" | "info" | "muted";
-
-const TONE_CLASSES: Record<Tone, string> = {
-  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  danger: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
-  info: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  muted: "border-border bg-muted text-muted-foreground",
-};
-
-const STORE_TONES: Record<StoreStatus, Tone> = {
+const STORE_TONES: Record<StoreStatus, StatusTone> = {
   connected: "success",
   expired: "warning",
   error: "danger",
   disconnected: "muted",
 };
 
-const LISTING_TONES: Record<ListingStatus, Tone> = {
+const LISTING_TONES: Record<ListingStatus, StatusTone> = {
   pending: "info",
   publishing: "info",
   published: "success",
   error: "danger",
 };
 
-function ToneBadge({ tone, label }: { tone: Tone; label: string }) {
-  return (
-    <Badge variant="outline" className={cn("font-medium", TONE_CLASSES[tone])}>
-      {label}
-    </Badge>
-  );
-}
-
 export function StoreStatusBadge({ status }: { status: StoreStatus }) {
-  return <ToneBadge tone={STORE_TONES[status]} label={STORE_STATUS_LABELS[status]} />;
+  return <ToneStatus tone={STORE_TONES[status]} label={STORE_STATUS_LABELS[status]} />;
 }
 
 export function ListingStatusBadge({ status }: { status: ListingStatus }) {
-  return <ToneBadge tone={LISTING_TONES[status]} label={LISTING_STATUS_LABELS[status]} />;
+  return <ToneStatus tone={LISTING_TONES[status]} label={LISTING_STATUS_LABELS[status]} />;
+}
+
+const ORDER_TONES: Record<OrderStatus, StatusTone> = {
+  pending: "warning",
+  paid: "info",
+  shipped: "info",
+  delivered: "success",
+  cancelled: "muted",
+  returned: "danger",
+};
+
+/** Accepts the raw status string from the database; unknown values show as-is in gray. */
+export function OrderStatusBadge({ status }: { status: string }) {
+  const parsed = orderStatusSchema.safeParse(status);
+  if (!parsed.success) {
+    return <ToneStatus tone="muted" label={status} />;
+  }
+  return <ToneStatus tone={ORDER_TONES[parsed.data]} label={ORDER_STATUS_LABELS[parsed.data]} />;
 }

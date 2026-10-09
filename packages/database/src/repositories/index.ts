@@ -6,3 +6,4 @@ export * from "./reports.ts";
 export * from "./webhooks.ts";
 export * from "./orders.ts";
 export * from "./support.ts";
+export * from "./customers.ts";

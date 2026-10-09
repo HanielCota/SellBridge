@@ -59,7 +59,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       timeseries,
       byStore,
       topProducts,
-      stores: stores.map((store) => ({ id: store.id, name: store.shopName })),
+      stores: stores.map((store) => ({ id: store.id, name: store.shopName, status: store.status })),
       onboarding,
     };
   });

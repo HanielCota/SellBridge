@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { FlaskConical, ShieldCheck } from "lucide-react";
+import { FlaskIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { z } from "zod";
 import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
@@ -81,7 +81,7 @@ function ConsentHeader() {
   return (
     <CardHeader>
       <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-        <FlaskConical className="size-4" aria-hidden="true" />
+        <FlaskIcon className="size-4" aria-hidden="true" />
         Marketplace simulado
       </div>
       <CardTitle>
@@ -100,7 +100,7 @@ function PermissionList() {
     <ul className="space-y-2 text-sm">
       {REQUESTED_PERMISSIONS.map((permission) => (
         <li key={permission} className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+          <ShieldCheckIcon className="size-4 text-primary" aria-hidden="true" />
           {permission}
         </li>
       ))}

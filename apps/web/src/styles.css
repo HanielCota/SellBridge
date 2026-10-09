@@ -1,13 +1,22 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/manrope";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-sans: "Manrope Variable", "Manrope", sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-ink: var(--brand-ink);
+  --color-surface-grouped: var(--surface-grouped);
+  --color-field: var(--field);
+  --color-field-border: var(--field-border);
+  --color-chart-brand: var(--chart-brand);
+  --color-brand-wordmark: var(--brand-wordmark);
+  --color-brand-wordmark-inverse: var(--brand-wordmark-inverse);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,71 +58,89 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  /* Superfícies estilo "grouped" (Cinza claro da marca) usadas no login e no cadastro. */
+  --surface-grouped: oklch(0.97 0.002 260);
+  --field: oklch(1 0 0);
+  --field-border: oklch(0 0 0 / 12%);
+  /* Cor de série única dos gráficos, validada contra a superfície de cada modo. */
+  --chart-brand: oklch(0.62 0.16 152);
+  /* Marca SellBridge: verde principal, verde profundo e preto/chumbo. */
+  --brand: oklch(0.78 0.18 155);
+  --brand-strong: oklch(0.62 0.16 152);
+  --brand-ink: oklch(0.2 0.015 250);
+  --brand-wordmark: #008a58;
+  --brand-wordmark-inverse: #00dc8a;
+  --background: oklch(0.97 0.002 260);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --primary: oklch(0.74 0.19 153);
+  --primary-foreground: var(--brand-ink);
+  --secondary: oklch(0.94 0.003 260);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.945 0.003 260);
+  --muted-foreground: oklch(0.52 0.008 260);
+  --accent: oklch(0.945 0.003 260);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0 0 0 / 8%);
+  --input: oklch(0 0 0 / 12%);
+  --ring: oklch(0.74 0.19 153);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.985 0.0015 260);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-primary: oklch(0.74 0.19 153);
+  --sidebar-primary-foreground: var(--brand-ink);
+  --sidebar-accent: oklch(0.94 0.004 260);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-border: oklch(0 0 0 / 8%);
   --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  /* Modo escuro em grafite (cinza-azulado), não preto sólido. */
+  --surface-grouped: oklch(0.25 0.006 255);
+  --field: oklch(0.3 0.007 255);
+  --field-border: oklch(1 0 0 / 12%);
+  --chart-brand: oklch(0.66 0.16 155);
+  --brand-wordmark: #00dc8a;
+  --background: oklch(0.25 0.006 255);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.29 0.007 255);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.29 0.007 255);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary: oklch(0.78 0.18 155);
+  --primary-foreground: var(--brand-ink);
+  --secondary: oklch(0.34 0.008 255);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.34 0.008 255);
+  --muted-foreground: oklch(0.75 0.006 255);
+  --accent: oklch(0.34 0.008 255);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.78 0.18 155);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.22 0.006 255);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-primary: oklch(0.78 0.18 155);
+  --sidebar-primary-foreground: var(--brand-ink);
+  --sidebar-accent: oklch(0.29 0.008 255);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.556 0 0);
 }
 
