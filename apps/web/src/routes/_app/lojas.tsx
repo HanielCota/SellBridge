@@ -106,7 +106,7 @@ function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOptio
         <ol className="space-y-4">
           {ONBOARDING_STEPS.map((step, index) => (
             <li key={step.title} className="flex gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand-text">
                 {index + 1}
               </span>
               <p className="text-sm">
@@ -161,7 +161,7 @@ function StoresContent() {
       <section
         id="adicionar-loja"
         aria-labelledby="add-store"
-        className="max-w-3xl scroll-mt-28 space-y-4 pt-4"
+        className="scroll-mt-28 space-y-4 pt-4 lg:w-[calc(50%-0.5rem)]"
       >
         <h2 id="add-store" className="text-lg font-semibold tracking-[-0.02em]">
           Adicionar loja

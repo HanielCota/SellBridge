@@ -11,6 +11,7 @@
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-text: var(--brand-text);
   --color-surface-grouped: var(--surface-grouped);
   --color-field: var(--field);
   --color-field-border: var(--field-border);
@@ -68,6 +69,8 @@
   --brand: oklch(0.78 0.18 155);
   --brand-strong: oklch(0.62 0.16 152);
   --brand-ink: oklch(0.2 0.015 250);
+  /* Brand green for text: dark enough to read on white. */
+  --brand-text: oklch(0.5 0.13 152);
   --brand-wordmark: #008a58;
   --brand-wordmark-inverse: #00dc8a;
   --background: oklch(0.97 0.002 260);
@@ -108,6 +111,7 @@
   /* Tema padrão: preto-grafite com destaque verde-menta. */
   --brand: oklch(0.87 0.16 152);
   --brand-strong: oklch(0.8 0.17 152);
+  --brand-text: oklch(0.87 0.16 152);
   --surface-grouped: oklch(0.165 0.003 260);
   --field: oklch(0.245 0.004 260);
   --field-border: oklch(1 0 0 / 8%);

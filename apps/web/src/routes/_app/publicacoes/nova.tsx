@@ -320,13 +320,13 @@ function ListingSidebar({
   readonly product: ListingProduct;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 lg:sticky lg:top-24 lg:self-start">
       <form.Subscribe selector={(state) => state.values.price}>
         {(price) => <ProfitCard priceCents={parseBrlToCents(price)} product={product} />}
       </form.Subscribe>
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Enviando..." : "Publicar"}
           </Button>
         )}
@@ -349,7 +349,7 @@ function ProfitCard({
         <CardTitle className="text-base">Estimativa por venda</CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dl className="grid grid-cols-2 gap-x-0 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Preço de venda</dt>
           <dd className="text-right">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
           <dt className="text-muted-foreground">Custo do fornecedor</dt>

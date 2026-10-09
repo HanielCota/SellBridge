@@ -66,7 +66,13 @@ export function CustomerRegionForm({ userId, region }: RegionFormProps) {
             onValueChange={(value) => setCep(maskCep(value))}
           />
         </div>
-        <Button type="submit" className="sm:mt-6.5" disabled={save.isPending}>
+        <Button
+          type="submit"
+          className="sm:mt-6.5"
+          disabled={
+            save.isPending || normalizeCep(cep) === (region ? normalizeCep(region.cep) : null)
+          }
+        >
           {save.isPending ? "Consultando CEP..." : "Salvar região"}
         </Button>
       </form>

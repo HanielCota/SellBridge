@@ -89,6 +89,29 @@ function StockCell({ stock }: { stock: number }) {
   );
 }
 
+/** A product as a card on phones: what it is, its price and where it is live. */
+function MobileListingRow({ row }: { row: ListingOverviewRow }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <ListingThumb imageUrl={row.imageUrl} categorySlug={row.categorySlug} />
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm font-medium">{row.title}</p>
+          <p className="text-xs text-muted-foreground">
+            {row.unitsSold} {row.unitsSold === 1 ? "venda" : "vendas"} em 30 dias · estoque{" "}
+            {row.stock}
+          </p>
+        </div>
+        <PriceCell row={row} />
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <StoreStatuses stores={row.stores} />
+        <ListingActions row={row} />
+      </div>
+    </div>
+  );
+}
+
 function RightHeader({ label }: { label: string }) {
   return <span className="block text-right">{label}</span>;
 }
@@ -357,6 +380,7 @@ function ListingsDataTable({ data }: { data: ListingsPageData }) {
         data={data.items}
         getRowId={(row) => row.listingId}
         caption="Publicações e status de envio"
+        renderMobileRow={(row) => <MobileListingRow row={row} />}
         footer={
           <PaginationBar
             page={data.page}

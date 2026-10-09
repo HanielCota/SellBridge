@@ -12,7 +12,7 @@ function ProfilePage() {
   const { session } = Route.useRouteContext();
   const { user } = session;
   return (
-    <div className="mx-auto w-full max-w-lg space-y-6 py-4">
+    <div className="w-full max-w-2xl space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-[-0.02em]">Meu perfil</h1>
         <p className="text-sm text-muted-foreground">Sua foto aparece no topo do app.</p>

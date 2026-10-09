@@ -55,7 +55,7 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
           <Link
             to="/publicacoes/nova"
             search={{ productId: product.id }}
-            className="text-xs font-medium text-brand hover:underline"
+            className="text-xs font-medium text-brand-text hover:underline"
           >
             Publicar
           </Link>
@@ -99,7 +99,7 @@ export function CatalogProductCard({
       ) : null}
       {product.published ? (
         <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium backdrop-blur">
-          <CheckCircleIcon className="size-3.5 text-brand" weight="fill" aria-hidden="true" />
+          <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
           Publicado
         </span>
       ) : null}

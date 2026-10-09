@@ -116,7 +116,7 @@ function PermissionList() {
     <ul className="divide-y divide-border rounded-2xl bg-muted/50">
       {REQUESTED_PERMISSIONS.map((permission) => (
         <li key={permission.title} className="flex gap-3 p-4">
-          <permission.icon className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
+          <permission.icon className="mt-0.5 size-5 shrink-0 text-brand-text" aria-hidden="true" />
           <div className="space-y-0.5">
             <p className="text-sm font-medium">{permission.title}</p>
             <p className="text-xs text-muted-foreground">{permission.text}</p>

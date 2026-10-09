@@ -139,7 +139,7 @@ export function UserMenu({ user, supportReplies, adminMode }: UserMenuProps) {
             <QuestionIcon aria-hidden="true" />
             Ajuda e suporte
             {supportReplies > 0 ? (
-              <span className="ml-auto rounded-full bg-brand/15 px-2 text-xs font-medium text-brand">
+              <span className="ml-auto rounded-full bg-brand/15 px-2 text-xs font-medium text-brand-text">
                 {supportReplies}
               </span>
             ) : null}

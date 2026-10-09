@@ -96,7 +96,7 @@ function ResetPasswordPage() {
       <p className="text-center text-[15px] text-muted-foreground">
         <Link
           to={token ? "/login" : "/esqueci-senha"}
-          className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand"
+          className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-text"
         >
           {token ? "Voltar para o login" : "Pedir um novo link"}
         </Link>

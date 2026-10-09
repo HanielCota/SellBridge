@@ -111,11 +111,11 @@ function ActivityStrip({ detail }: { detail: CustomerDetail }) {
     { label: "Chamados abertos", value: String(detail.openTickets) },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-y-5 border-y py-5 sm:grid-cols-3 xl:grid-cols-6 xl:divide-x">
+    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {items.map((item) => (
-        <div key={item.label} className="space-y-1 pr-4 xl:px-5 xl:first:pl-0">
-          <dt className="text-[13px] text-muted-foreground">{item.label}</dt>
-          <dd className="text-xl font-semibold tracking-[-0.02em]">{item.value}</dd>
+        <div key={item.label} className="space-y-2 rounded-3xl bg-card p-4">
+          <dt className="text-xs text-muted-foreground">{item.label}</dt>
+          <dd className="text-2xl font-semibold tracking-[-0.02em] tabular-nums">{item.value}</dd>
         </div>
       ))}
     </dl>

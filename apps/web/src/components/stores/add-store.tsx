@@ -15,7 +15,7 @@ function AvailableOption({ option }: { option: MarketplaceOption }) {
       <a
         href={`/api/oauth/${option.id}/start`}
         aria-label={`Conectar ${option.label}`}
-        className="group flex items-center gap-4 rounded-3xl bg-muted/60 p-4 transition-colors hover:bg-muted focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none"
+        className="group flex items-center gap-4 rounded-3xl bg-card p-4 ring-1 ring-border transition-colors hover:bg-muted dark:bg-muted/60 dark:ring-0 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none"
       >
         <MarketplaceMark marketplace={option.id} />
         <span className="min-w-0 flex-1">
@@ -41,7 +41,7 @@ function ComingSoon({ options }: { options: MarketplaceOption[] }) {
         {options.map((option) => (
           <li
             key={option.id}
-            className="flex items-center gap-2.5 rounded-full bg-muted/40 py-1.5 pr-4 pl-1.5 text-sm text-muted-foreground"
+            className="flex items-center gap-2.5 rounded-full bg-card py-1.5 pr-4 pl-1.5 text-sm text-muted-foreground ring-1 ring-border dark:bg-muted/40 dark:ring-0"
           >
             <MarketplaceMark marketplace={option.id} className="size-8 rounded-full" />
             {option.label}

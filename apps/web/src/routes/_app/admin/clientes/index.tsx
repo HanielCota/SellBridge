@@ -6,6 +6,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MagnifyingGlassIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
+import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -27,11 +28,6 @@ export const Route = createFileRoute("/_app/admin/clientes/")({
     prefetchOnServer(context.queryClient, customersQueryOptions(search)),
   head: () => ({ meta: [{ title: "Clientes (admin) | SellBridge" }] }),
   component: CustomersPage,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeZone: "America/Sao_Paulo",
 });
 
 const columnHelper = createServerColumnHelper<CustomerSummary>();
@@ -97,11 +93,31 @@ const columns = columnHelper.columns([
   }),
   columnHelper.accessor("createdAt", {
     header: "Cadastro",
-    cell: (info) => (
-      <span className="text-muted-foreground">{dateFormatter.format(info.getValue())}</span>
-    ),
+    cell: (info) => <SmartDate date={info.getValue()} className="text-muted-foreground" />,
   }),
 ]);
+
+function MobileCustomerRow({ row }: { row: CustomerSummary }) {
+  return (
+    <Link to="/admin/clientes/$userId" params={{ userId: row.id }} className="block space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{row.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+        </div>
+        <ToneStatus
+          tone={row.banned ? "danger" : "success"}
+          label={row.banned ? "Bloqueado" : "Ativo"}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {row.city ? `${row.city} - ${row.state ?? ""}` : "Sem região"} · {row.connectedStores}{" "}
+        {row.connectedStores === 1 ? "loja" : "lojas"} · {formatCents(row.recentRevenueCents)} em 30
+        dias
+      </p>
+    </Link>
+  );
+}
 
 function useSearchTerm(search: CustomersSearch) {
   const navigate = useNavigate({ from: Route.fullPath });
@@ -182,6 +198,7 @@ function CustomersTable({
       data={query.data.items}
       getRowId={(row) => row.id}
       caption="Clientes da plataforma"
+      renderMobileRow={(row) => <MobileCustomerRow row={row} />}
       footer={
         <PaginationBar
           page={query.data.page}

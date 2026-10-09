@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LifebuoyIcon, PlusIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
+import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -38,12 +39,6 @@ export const Route = createFileRoute("/_app/suporte/")({
   component: SupportPage,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Sao_Paulo",
-});
-
 const columnHelper = createServerColumnHelper<TicketSummary>();
 const columns = columnHelper.columns([
   columnHelper.accessor("subject", {
@@ -65,12 +60,22 @@ const columns = columnHelper.columns([
   columnHelper.accessor("updatedAt", {
     header: "Última atualização",
     cell: (info) => (
-      <span className="whitespace-nowrap text-muted-foreground">
-        {dateFormatter.format(info.getValue())}
-      </span>
+      <SmartDate date={info.getValue()} className="whitespace-nowrap text-muted-foreground" />
     ),
   }),
 ]);
+
+function MobileTicketRow({ row }: { row: TicketSummary }) {
+  return (
+    <Link to="/suporte/$ticketId" params={{ ticketId: row.id }} className="block space-y-1.5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 font-medium">{row.subject}</p>
+        <TicketStatusBadge status={row.status} />
+      </div>
+      <SmartDate date={row.updatedAt} className="text-xs text-muted-foreground" />
+    </Link>
+  );
+}
 
 function SupportHeader({ showNewTicket = true }: { showNewTicket?: boolean }) {
   return (
@@ -170,6 +175,7 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
       data={tickets.items}
       getRowId={(row) => row.id}
       caption="Seus chamados de suporte"
+      renderMobileRow={(row) => <MobileTicketRow row={row} />}
       footer={
         <PaginationBar
           page={tickets.page}
@@ -213,7 +219,7 @@ function SupportPage() {
   const isEmpty = query.data.items.length === 0;
   return (
     <>
-      <SupportHeader showNewTicket={!isEmpty || isFiltered} />
+      <SupportHeader />
       {isEmpty && !isFiltered ? null : (
         <StatusFilter
           status={search.status}

@@ -54,7 +54,7 @@ function StoreStatusLine({ store }: { store: ListingStoreStatus }) {
 /** Status of one product in every store it was sent to. */
 export function StoreStatuses({ stores }: { stores: ListingStoreStatus[] }) {
   return (
-    <ul className="min-w-56 space-y-2">
+    <ul className="min-w-0 space-y-2 md:min-w-56">
       {stores.map((store) => (
         <StoreStatusLine key={store.id} store={store} />
       ))}

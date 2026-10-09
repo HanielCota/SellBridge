@@ -69,7 +69,7 @@ function NavTab({
               "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
               item.badge === "failedListings"
                 ? "bg-destructive/15 text-destructive"
-                : "bg-brand/20 text-brand",
+                : "bg-brand/20 text-brand-text",
             )}
           >
             {count}
@@ -117,6 +117,9 @@ function MobileNav({
   );
 }
 
+/** Pages reached from the account menu; the account chip shows as "you are here" on them. */
+const ACCOUNT_PATHS = ["/perfil", "/onboarding", "/suporte"];
+
 function AccountChip({
   user,
   supportReplies,
@@ -126,13 +129,21 @@ function AccountChip({
   supportReplies: number;
   adminMode: boolean;
 }) {
+  const isOnAccountPage = useRouterState({
+    select: (state) => ACCOUNT_PATHS.some((path) => isActivePath(state.location.pathname, path)),
+  });
   return (
-    <div className="flex items-center gap-3 rounded-full bg-card p-1.5">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-full bg-card p-1.5",
+        isOnAccountPage && "ring-1 ring-brand/60",
+      )}
+    >
       <AvatarButton name={user.name} image={user.image} />
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-brand">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-brand-text">
             <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
             Modo admin ativo
           </span>

@@ -57,7 +57,7 @@ export function MarketplaceMark({
       aria-hidden="true"
       className={cn(
         "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
-        mark?.className ?? "bg-brand/15 text-brand",
+        mark?.className ?? "bg-brand/15 text-brand-text",
         className,
       )}
     >

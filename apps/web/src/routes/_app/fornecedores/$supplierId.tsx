@@ -16,7 +16,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ProductVisual } from "@/components/catalog/product-visual";
 import { ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,7 +97,7 @@ function CatalogFilters({
   const updateSearch = useCatalogSearchUpdate();
 
   return (
-    <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_auto]">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_auto]">
       <CatalogSearchInput />
       <CategorySelect categories={categories} />
       <CostRangeInputs
@@ -299,7 +298,7 @@ function CatalogResults() {
 
   return (
     <div className="space-y-4" aria-busy={query.isFetching}>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {products.items.map((product) => (
           <li key={product.id}>
             <ProductCard product={product} />
@@ -322,12 +321,12 @@ type CatalogProduct = Awaited<ReturnType<typeof getSupplierCatalog>>["products"]
 function ProductCard({ product }: { readonly product: CatalogProduct }) {
   const isInStock = product.stock > 0;
   return (
-    <Card className="h-full gap-0 overflow-hidden py-0">
+    <article className="flex h-full flex-col overflow-hidden rounded-3xl bg-card">
       <ProductVisual
         imageUrl={product.imageUrl}
         title={product.title}
         categoryName={product.categoryName}
-        className="aspect-[4/3]"
+        className="aspect-[16/10]"
       />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="space-y-1">
@@ -357,14 +356,14 @@ function ProductCard({ product }: { readonly product: CatalogProduct }) {
           ) : null}
         </div>
       </div>
-    </Card>
+    </article>
   );
 }
 
 function ProductGridSkeleton() {
   return (
     <div
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
       aria-busy="true"
       aria-label="Carregando produtos"
     >
