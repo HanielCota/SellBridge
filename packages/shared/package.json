@@ -1,0 +1,29 @@
+{
+  "name": "@sellbridge/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./money": "./src/money.ts",
+    "./cep": "./src/cep.ts",
+    "./errors": "./src/errors.ts",
+    "./env": "./src/env.ts",
+    "./env-node": "./src/env-node.ts",
+    "./logger": "./src/logger.ts",
+    "./schemas": "./src/schemas/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@sellbridge/config": "workspace:*",
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
