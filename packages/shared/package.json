@@ -12,6 +12,7 @@
     "./env": "./src/env.ts",
     "./env-node": "./src/env-node.ts",
     "./logger": "./src/logger.ts",
+    "./queues": "./src/queues.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {
