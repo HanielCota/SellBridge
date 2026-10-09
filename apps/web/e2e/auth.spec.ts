@@ -25,7 +25,7 @@ test("cadastra, sai e entra novamente", async ({ page }) => {
   await expect(page).not.toHaveURL(/\/cadastro/);
 
   await gotoHydrated(page, "/dashboard");
-  await expect(page.getByRole("heading", { name: /Olá, Revendedora Teste/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Olá, Revendedora/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Menu do usuário" }).click();
   await page.getByRole("menuitem", { name: "Sair" }).click();

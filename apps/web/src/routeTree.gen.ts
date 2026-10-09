@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
@@ -23,6 +24,7 @@ import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/for
 import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
 import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoes/nova'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
 import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
@@ -43,6 +45,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppFornecedoresRouteRoute = AppFornecedoresRouteRouteImport.update({
@@ -96,6 +103,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFinanceiroExportarRoute = ApiFinanceiroExportarRouteImport.update({
+  id: '/api/financeiro/exportar',
+  path: '/api/financeiro/exportar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthMockAutorizarRoute = OauthMockAutorizarRouteImport.update({
   id: '/oauth/mock/autorizar',
   path: '/oauth/mock/autorizar',
@@ -118,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
+  '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -125,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
   '/publicacoes/': typeof AppPublicacoesIndexRoute
@@ -134,6 +148,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
+  '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
@@ -141,6 +156,7 @@ export interface FileRoutesByTo {
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
   '/publicacoes': typeof AppPublicacoesIndexRoute
@@ -154,6 +170,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_app/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
@@ -161,6 +178,7 @@ export interface FileRoutesById {
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
   '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
@@ -173,6 +191,7 @@ export interface FileRouteTypes {
     | '/'
     | '/fornecedores'
     | '/dashboard'
+    | '/financeiro'
     | '/lojas'
     | '/onboarding'
     | '/cadastro'
@@ -180,6 +199,7 @@ export interface FileRouteTypes {
     | '/fornecedores/$supplierId'
     | '/publicacoes/nova'
     | '/api/auth/$'
+    | '/api/financeiro/exportar'
     | '/oauth/mock/autorizar'
     | '/fornecedores/'
     | '/publicacoes/'
@@ -189,6 +209,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/financeiro'
     | '/lojas'
     | '/onboarding'
     | '/cadastro'
@@ -196,6 +217,7 @@ export interface FileRouteTypes {
     | '/fornecedores/$supplierId'
     | '/publicacoes/nova'
     | '/api/auth/$'
+    | '/api/financeiro/exportar'
     | '/oauth/mock/autorizar'
     | '/fornecedores'
     | '/publicacoes'
@@ -208,6 +230,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/fornecedores'
     | '/_app/dashboard'
+    | '/_app/financeiro'
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_auth/cadastro'
@@ -215,6 +238,7 @@ export interface FileRouteTypes {
     | '/_app/fornecedores/$supplierId'
     | '/_app/publicacoes/nova'
     | '/api/auth/$'
+    | '/api/financeiro/exportar'
     | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
     | '/_app/publicacoes/'
@@ -227,6 +251,7 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
@@ -260,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/financeiro': {
+      id: '/_app/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof AppFinanceiroRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/fornecedores': {
@@ -332,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/financeiro/exportar': {
+      id: '/api/financeiro/exportar'
+      path: '/api/financeiro/exportar'
+      fullPath: '/api/financeiro/exportar'
+      preLoaderRoute: typeof ApiFinanceiroExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/mock/autorizar': {
       id: '/oauth/mock/autorizar'
       path: '/oauth/mock/autorizar'
@@ -372,6 +411,7 @@ const AppFornecedoresRouteRouteWithChildren =
 interface AppRouteRouteChildren {
   AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
+  AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
@@ -381,6 +421,7 @@ interface AppRouteRouteChildren {
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFornecedoresRouteRoute: AppFornecedoresRouteRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
+  AppFinanceiroRoute: AppFinanceiroRoute,
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
@@ -410,6 +451,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   OauthMockAutorizarRoute: OauthMockAutorizarRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
