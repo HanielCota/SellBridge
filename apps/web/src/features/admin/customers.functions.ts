@@ -56,14 +56,14 @@ function assertNotSelf(adminId: string, userId: string, action: string): void {
 
 export const adminListCustomers = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .inputValidator(customersSearchSchema)
+  .validator(customersSearchSchema)
   .handler(async ({ data }) =>
     listCustomers(database, { search: data.query }, { page: data.page, pageSize: data.pageSize }),
   );
 
 export const adminGetCustomer = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .inputValidator(customerIdSchema)
+  .validator(customerIdSchema)
   .handler(async ({ data }) => {
     const customer = await requireCustomer(data.userId);
     if (!customer.tenantId) {
@@ -95,7 +95,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
 
 export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(updateCustomerProfileSchema)
+  .validator(updateCustomerProfileSchema)
   .handler(async ({ context, data }) => {
     await requireCustomer(data.userId);
     const email = data.email.toLowerCase();
@@ -117,7 +117,7 @@ export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
 
 export const adminSetCustomerRole = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(setCustomerRoleSchema)
+  .validator(setCustomerRoleSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "alterar o papel de");
     await requireCustomer(data.userId);
@@ -147,7 +147,7 @@ async function applyBan(data: { userId: string; banned: boolean; reason?: string
 
 export const adminSetCustomerBan = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(setCustomerBanSchema)
+  .validator(setCustomerBanSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "bloquear");
     await requireCustomer(data.userId);
@@ -162,7 +162,7 @@ export const adminSetCustomerBan = createServerFn({ method: "POST" })
 
 export const adminRevokeCustomerSessions = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(customerIdSchema)
+  .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
     await requireCustomer(data.userId);
     await auth.api.revokeUserSessions({
@@ -178,7 +178,7 @@ export const adminRevokeCustomerSessions = createServerFn({ method: "POST" })
 
 export const adminSendCustomerPasswordReset = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(customerIdSchema)
+  .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
     const customer = await requireCustomer(data.userId);
     await auth.api.requestPasswordReset({
@@ -193,7 +193,7 @@ export const adminSendCustomerPasswordReset = createServerFn({ method: "POST" })
 
 export const adminUpdateCustomerRegion = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(updateCustomerRegionSchema)
+  .validator(updateCustomerRegionSchema)
   .handler(async ({ context, data }) => {
     const tenantId = await requireCustomerTenant(data.userId);
     const address = await resolveCep(data.cep);
@@ -208,7 +208,7 @@ export const adminUpdateCustomerRegion = createServerFn({ method: "POST" })
 
 export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(disconnectCustomerStoreSchema)
+  .validator(disconnectCustomerStoreSchema)
   .handler(async ({ context, data }) => {
     const tenantId = await requireCustomerTenant(data.userId);
     await disconnectStore(database, tenantId, data.storeConnectionId);

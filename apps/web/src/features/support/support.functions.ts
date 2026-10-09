@@ -13,7 +13,7 @@ import { adminMiddleware, tenantMiddleware } from "@/lib/server/middleware";
 
 export const listMyTickets = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(ticketsSearchSchema)
+  .validator(ticketsSearchSchema)
   .handler(async ({ context, data }) =>
     listTenantTickets(
       database,
@@ -25,12 +25,12 @@ export const listMyTickets = createServerFn({ method: "GET" })
 
 export const getMyTicket = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ ticketId: z.uuid() }))
+  .validator(z.object({ ticketId: z.uuid() }))
   .handler(async ({ context, data }) => getTicketThread(database, data.ticketId, context.tenantId));
 
 export const adminListTickets = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .inputValidator(ticketsSearchSchema)
+  .validator(ticketsSearchSchema)
   .handler(async ({ data }) =>
     listAllTickets(
       database,
@@ -41,12 +41,12 @@ export const adminListTickets = createServerFn({ method: "GET" })
 
 export const adminGetTicket = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .inputValidator(z.object({ ticketId: z.uuid() }))
+  .validator(z.object({ ticketId: z.uuid() }))
   .handler(async ({ data }) => getTicketThread(database, data.ticketId, null));
 
 export const adminSetTicketStatus = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(z.object({ ticketId: z.uuid(), status: ticketStatusSchema }))
+  .validator(z.object({ ticketId: z.uuid(), status: ticketStatusSchema }))
   .handler(async ({ context, data }) => {
     await setTicketStatus(database, data.ticketId, data.status);
     logger.info("support.status_changed", {

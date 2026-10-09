@@ -59,7 +59,7 @@ export const getSignInOptions = createServerFn({ method: "GET" }).handler(
 
 export const setAdminMode = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .inputValidator(z.object({ enabled: z.boolean() }))
+  .validator(z.object({ enabled: z.boolean() }))
   .handler(async ({ data }) => {
     setCookie(ADMIN_MODE_COOKIE, data.enabled ? "on" : "off", {
       path: "/",

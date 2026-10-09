@@ -19,6 +19,8 @@ pnpm database:seed
 pnpm dev                      # web em http://localhost:3000 + worker (filas)
 ```
 
+Postgres 18 e Redis 8 rodam via Docker Compose. Quem já tinha o banco local do Postgres 17 (volume `pgdata`) precisa migrar os dados, porque o 18 usa um volume novo (`postgres-data`): faça `pg_dump -Fc` com o contêiner antigo, rode `pnpm services:up` e restaure com `pg_restore --no-owner`. O volume antigo continua intacto até você removê-lo.
+
 O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar. Os logs são JSON estruturado; `LOG_LEVEL` define o nível mínimo (`debug`, `info`, `warn`, `error`).
 
 ### Contas de demonstração (criadas pelo seed)

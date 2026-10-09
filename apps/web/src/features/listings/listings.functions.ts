@@ -26,7 +26,7 @@ import { requireTenantRegion } from "@/lib/server/region";
 
 export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ productId: z.uuid() }))
+  .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const [product, stores] = await Promise.all([
@@ -38,7 +38,7 @@ export const getNewListingData = createServerFn({ method: "GET" })
 
 export const createListing = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(createListingSchema)
+  .validator(createListingSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const product = await getCatalogProductForRegion(database, region, data.supplierProductId);
@@ -74,7 +74,7 @@ export const createListing = createServerFn({ method: "POST" })
 
 export const listListings = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(listingsSearchSchema)
+  .validator(listingsSearchSchema)
   .handler(async ({ context, data }) => {
     return listListingTargets(
       database,
@@ -86,7 +86,7 @@ export const listListings = createServerFn({ method: "GET" })
 
 export const retryListingTarget = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ listingTargetId: z.uuid() }))
+  .validator(z.object({ listingTargetId: z.uuid() }))
   .handler(async ({ context, data }) => {
     await resetTargetForRetry(database, context.tenantId, data.listingTargetId);
     await enqueuePublishJobs([
@@ -105,7 +105,7 @@ export const retryListingTarget = createServerFn({ method: "POST" })
  */
 export const simulateMockSale = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ listingTargetId: z.uuid() }))
+  .validator(z.object({ listingTargetId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const row = await getTargetForPublishing(database, context.tenantId, data.listingTargetId);
     if (row.store.marketplace !== "mock") {
