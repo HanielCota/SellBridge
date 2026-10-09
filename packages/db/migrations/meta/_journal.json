@@ -8,6 +8,13 @@
       "when": 1791505432418,
       "tag": "0000_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791506139343,
+      "tag": "0001_domain",
+      "breakpoints": true
     }
   ]
 }
