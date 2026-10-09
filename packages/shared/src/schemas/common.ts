@@ -7,15 +7,19 @@ export const paginationSchema = z.object({
 
 export type Pagination = z.infer<typeof paginationSchema>;
 
-export interface Paginated<T> {
-  items: T[];
+export interface Paginated<TItem> {
+  items: TItem[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
 }
 
-export function toPaginated<T>(items: T[], total: number, pagination: Pagination): Paginated<T> {
+export function toPaginated<TItem>(
+  items: TItem[],
+  total: number,
+  pagination: Pagination,
+): Paginated<TItem> {
   return {
     items,
     total,

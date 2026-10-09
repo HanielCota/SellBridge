@@ -47,7 +47,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
 
     await page.getByLabel("Buscar fornecedor").fill("franca");
-    await expect(page).toHaveURL(/q=franca/);
+    await expect(page).toHaveURL(/query=franca/);
     await expect(
       page.getByRole("link", { name: "Franca Calçados Direto da Fábrica" }),
     ).toBeVisible();
@@ -71,7 +71,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByText("Esgotado")).toHaveCount(0);
 
     await page.getByLabel("Buscar produto").fill("vestido");
-    await expect(page).toHaveURL(/q=vestido/);
+    await expect(page).toHaveURL(/query=vestido/);
     await expect(page.getByRole("heading", { level: 3 }).first()).toContainText("Vestido");
   });
 

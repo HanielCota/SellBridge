@@ -38,7 +38,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm check:no-else
       - run: pnpm typecheck
-      - run: pnpm db:migrate
+      - run: pnpm database:migrate
       - run: pnpm test
 
   e2e:
@@ -65,8 +65,6 @@ jobs:
       REDIS_URL: redis://localhost:6379
       APP_URL: http://localhost:3000
       BETTER_AUTH_URL: http://localhost:3000
-      BETTER_AUTH_SECRET: ci-only-secret-with-at-least-32-characters
-      TOKEN_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       ADMIN_EMAILS: admin@sellbridge.local
     steps:
       - uses: actions/checkout@v5
@@ -76,8 +74,17 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm db:migrate
-      - run: pnpm db:seed
+      - name: Generate ephemeral secrets
+        run: |
+          {
+            echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)"
+            echo "TOKEN_ENCRYPTION_KEY=$(openssl rand -base64 32)"
+            echo "MOCK_WEBHOOK_SECRET=$(openssl rand -hex 32)"
+            echo "SEED_DEMO_PASSWORD=$(openssl rand -hex 12)"
+            echo "SEED_ADMIN_PASSWORD=$(openssl rand -hex 12)"
+          } >> "$GITHUB_ENV"
+      - run: pnpm database:migrate
+      - run: pnpm database:seed
       - run: pnpm --filter @sellbridge/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4

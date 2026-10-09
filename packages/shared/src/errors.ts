@@ -4,70 +4,40 @@ export type AppErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "CONFLICT"
-  | "CONNECTION"
   | "EXTERNAL_PROVIDER"
+  | "EXTERNAL_PROVIDER_AUTH"
   | "CONFIGURATION";
 
+/** Extra, optional information attached to an error (composition instead of subclasses). */
+export interface AppErrorDetails {
+  /** Whether trying the same operation again can succeed (rate limit, timeout, 5xx). */
+  readonly retryable?: boolean;
+  /** HTTP status returned by an external provider, when there was one. */
+  readonly status?: number | null;
+  /** Field-level validation problems. */
+  readonly issues?: readonly string[];
+}
+
+/**
+ * The only error class of the application. Kinds of errors are expressed by `code`
+ * and `details` (composition), not by subclasses. Extending the built-in `Error` is
+ * required so that stack traces and `throw` semantics keep working.
+ */
 export class AppError extends Error {
   readonly code: AppErrorCode;
   readonly userMessage: string;
+  readonly details: AppErrorDetails;
 
-  constructor(code: AppErrorCode, userMessage: string, options?: { cause?: unknown }) {
-    super(userMessage, options);
-    this.name = new.target.name;
+  constructor(
+    code: AppErrorCode,
+    userMessage: string,
+    options: { details?: AppErrorDetails; cause?: unknown } = {},
+  ) {
+    super(userMessage, { cause: options.cause });
+    this.name = "AppError";
     this.code = code;
     this.userMessage = userMessage;
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(message: string) {
-    super("NOT_FOUND", message);
-  }
-}
-
-export class ValidationError extends AppError {
-  readonly issues: readonly string[];
-
-  constructor(message: string, issues: readonly string[] = []) {
-    super("VALIDATION", message);
-    this.issues = issues;
-  }
-}
-
-export class UnauthorizedError extends AppError {
-  constructor(message = "Você precisa estar autenticado") {
-    super("UNAUTHORIZED", message);
-  }
-}
-
-export class ForbiddenError extends AppError {
-  constructor(message = "Você não tem permissão para esta ação") {
-    super("FORBIDDEN", message);
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string) {
-    super("CONFLICT", message);
-  }
-}
-
-export class ConnectionError extends AppError {
-  constructor(message: string) {
-    super("CONNECTION", message);
-  }
-}
-
-export class ExternalProviderError extends AppError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super("EXTERNAL_PROVIDER", message, options);
-  }
-}
-
-export class ConfigurationError extends AppError {
-  constructor(message: string) {
-    super("CONFIGURATION", message);
+    this.details = options.details ?? {};
   }
 }
 
@@ -75,13 +45,41 @@ export function isAppError(value: unknown): value is AppError {
   return value instanceof AppError;
 }
 
-export type Result<T, E extends AppError = AppError> =
-  { ok: true; value: T } | { ok: false; error: E };
+export function hasErrorCode(value: unknown, code: AppErrorCode): value is AppError {
+  return isAppError(value) && value.code === code;
+}
 
-export function ok<T>(value: T): Result<T, never> {
+export function notFoundError(message: string): AppError {
+  return new AppError("NOT_FOUND", message);
+}
+
+export function validationError(message: string, issues: readonly string[] = []): AppError {
+  return new AppError("VALIDATION", message, { details: { issues } });
+}
+
+export function unauthorizedError(message = "Você precisa estar autenticado"): AppError {
+  return new AppError("UNAUTHORIZED", message);
+}
+
+export function forbiddenError(message = "Você não tem permissão para esta ação"): AppError {
+  return new AppError("FORBIDDEN", message);
+}
+
+export function conflictError(message: string): AppError {
+  return new AppError("CONFLICT", message);
+}
+
+export function configurationError(message: string): AppError {
+  return new AppError("CONFIGURATION", message);
+}
+
+export type Result<TValue, TError extends AppError = AppError> =
+  { readonly ok: true; readonly value: TValue } | { readonly ok: false; readonly error: TError };
+
+export function success<TValue>(value: TValue): Result<TValue, never> {
   return { ok: true, value };
 }
 
-export function err<E extends AppError>(error: E): Result<never, E> {
+export function failure<TError extends AppError>(error: TError): Result<never, TError> {
   return { ok: false, error };
 }

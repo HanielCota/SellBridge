@@ -38,6 +38,8 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await signIn(admin, ADMIN_USER);
   await gotoHydrated(admin, "/admin/chamados");
   await admin.getByLabel("Buscar chamados").fill(subject);
+  // Waits for the debounced search navigation so it cannot undo the click below.
+  await expect(admin).toHaveURL(/query=/);
   await admin.getByRole("link", { name: subject }).click();
   await expect(admin.getByText(/^Revendedor Suporte · e2e-/)).toBeVisible();
   await admin.waitForLoadState("networkidle");

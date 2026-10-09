@@ -3,8 +3,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { FlaskConical, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
+import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
+import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { TextField } from "@/components/form/form-field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,8 +40,22 @@ const shopFormSchema = z.object({
   shopName: z.string().trim().min(3, "Informe o nome da loja"),
 });
 
-function MockConsentPage() {
-  const search = Route.useSearch();
+const REQUESTED_PERMISSIONS = [
+  "Publicar e editar anúncios",
+  "Atualizar estoque e preço",
+  "Ler pedidos e vendas",
+] as const;
+
+type ConsentSearch = z.infer<typeof consentSearchSchema>;
+
+function denyAuthorization(search: ConsentSearch) {
+  const url = new URL(search.redirect_uri);
+  url.searchParams.set("error", "access_denied");
+  url.searchParams.set("state", search.state);
+  window.location.assign(url.toString());
+}
+
+function useConsentForm(search: ConsentSearch) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
@@ -59,81 +74,85 @@ function MockConsentPage() {
     },
   });
 
-  function deny() {
-    const url = new URL(search.redirect_uri);
-    url.searchParams.set("error", "access_denied");
-    url.searchParams.set("state", search.state);
-    window.location.assign(url.toString());
-  }
+  return { form, submitError };
+}
+
+function ConsentHeader() {
+  return (
+    <CardHeader>
+      <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+        <FlaskConical className="size-4" aria-hidden="true" />
+        Marketplace simulado
+      </div>
+      <CardTitle>
+        <h1>Autorizar o SellBridge</h1>
+      </CardTitle>
+      <CardDescription>
+        O SellBridge quer publicar anúncios e ler pedidos da sua loja. Esta tela simula o
+        consentimento de um marketplace real.
+      </CardDescription>
+    </CardHeader>
+  );
+}
+
+function PermissionList() {
+  return (
+    <ul className="space-y-2 text-sm">
+      {REQUESTED_PERMISSIONS.map((permission) => (
+        <li key={permission} className="flex items-center gap-2">
+          <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+          {permission}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ConsentForm({ search }: { search: ConsentSearch }) {
+  const { form, submitError } = useConsentForm(search);
+
+  return (
+    <form noValidate onSubmit={submitHandler(() => form.handleSubmit())}>
+      <CardContent className="space-y-4">
+        <PermissionList />
+        <FormErrorAlert message={submitError} />
+        <form.Field name="shopName">
+          {(field) => (
+            <TextField
+              id="shopName"
+              label="Nome da loja"
+              placeholder="Ex.: Loja da Ana"
+              {...fieldBindings(field)}
+            />
+          )}
+        </form.Field>
+      </CardContent>
+      <CardFooter className="mt-4 flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={() => denyAuthorization(search)}>
+          Cancelar
+        </Button>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <PendingSubmitButton
+              isPending={isSubmitting}
+              idleLabel="Autorizar acesso"
+              pendingLabel="Autorizando..."
+            />
+          )}
+        </form.Subscribe>
+      </CardFooter>
+    </form>
+  );
+}
+
+function MockConsentPage() {
+  const search = Route.useSearch();
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <FlaskConical className="size-4" aria-hidden="true" />
-            Marketplace simulado
-          </div>
-          <CardTitle>
-            <h1>Autorizar o SellBridge</h1>
-          </CardTitle>
-          <CardDescription>
-            O SellBridge quer publicar anúncios e ler pedidos da sua loja. Esta tela simula o
-            consentimento de um marketplace real.
-          </CardDescription>
-        </CardHeader>
-        <form
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          <CardContent className="space-y-4">
-            <ul className="space-y-2 text-sm">
-              {[
-                "Publicar e editar anúncios",
-                "Atualizar estoque e preço",
-                "Ler pedidos e vendas",
-              ].map((permission) => (
-                <li key={permission} className="flex items-center gap-2">
-                  <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
-                  {permission}
-                </li>
-              ))}
-            </ul>
-            {submitError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{submitError}</AlertDescription>
-              </Alert>
-            ) : null}
-            <form.Field name="shopName">
-              {(field) => (
-                <TextField
-                  id="shopName"
-                  label="Nome da loja"
-                  placeholder="Ex.: Loja da Ana"
-                  value={field.state.value}
-                  errors={field.state.meta.errors}
-                  onBlur={field.handleBlur}
-                  onValueChange={field.handleChange}
-                />
-              )}
-            </form.Field>
-          </CardContent>
-          <CardFooter className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={deny}>
-              Cancelar
-            </Button>
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(isSubmitting) => (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Autorizando..." : "Autorizar acesso"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </CardFooter>
-        </form>
+        <ConsentHeader />
+        <ConsentForm search={search} />
       </Card>
     </main>
   );

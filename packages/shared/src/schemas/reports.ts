@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const PERIOD_PRESETS = ["7d", "30d", "90d", "180d", "custom"] as const;
 export const periodPresetSchema = z.enum(PERIOD_PRESETS);
@@ -22,10 +23,10 @@ const PRESET_DAYS: Record<Exclude<PeriodPreset, "custom">, number> = {
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data no formato AAAA-MM-DD");
 
 export const periodSearchSchema = z.object({
-  period: periodPresetSchema.default("30d").catch("30d"),
-  from: isoDateSchema.optional().catch(undefined),
-  to: isoDateSchema.optional().catch(undefined),
-  store: z.uuid().optional().catch(undefined),
+  period: withFallback(periodPresetSchema.default("30d"), "30d"),
+  from: optionalParameter(isoDateSchema),
+  to: optionalParameter(isoDateSchema),
+  store: optionalParameter(z.uuid()),
 });
 export type PeriodSearch = z.infer<typeof periodSearchSchema>;
 
@@ -45,15 +46,15 @@ export interface ResolvedPeriod {
   toDate: string;
 }
 
-const DAY_MS = 86_400_000;
+const DAY_MILLISECONDS = 86_400_000;
 const MAX_CUSTOM_DAYS = 366;
 /** Brazil (America/Sao_Paulo) has had no DST since 2019: a fixed UTC−3 offset. */
-const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000;
+const BRAZIL_OFFSET_MILLISECONDS = 3 * 60 * 60 * 1000;
 export const REPORT_TIME_ZONE = "America/Sao_Paulo";
 
 /** Calendar date (YYYY-MM-DD) in Brazil time for an instant. */
 function toIsoDate(date: Date): string {
-  return new Date(date.getTime() - BRAZIL_OFFSET_MS).toISOString().slice(0, 10);
+  return new Date(date.getTime() - BRAZIL_OFFSET_MILLISECONDS).toISOString().slice(0, 10);
 }
 
 /** Midnight in Brazil time of the given calendar date, or null when invalid. */
@@ -62,7 +63,7 @@ function parseIsoDate(value: string): Date | null {
   if (Number.isNaN(utcMidnight.getTime()) || utcMidnight.toISOString().slice(0, 10) !== value) {
     return null;
   }
-  return new Date(utcMidnight.getTime() + BRAZIL_OFFSET_MS);
+  return new Date(utcMidnight.getTime() + BRAZIL_OFFSET_MILLISECONDS);
 }
 
 function startOfBrazilDay(date: Date): Date {
@@ -74,8 +75,8 @@ function startOfBrazilDay(date: Date): Date {
 }
 
 function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
-  const to = new Date(firstDay.getTime() + days * DAY_MS);
-  const previousFrom = new Date(firstDay.getTime() - days * DAY_MS);
+  const to = new Date(firstDay.getTime() + days * DAY_MILLISECONDS);
+  const previousFrom = new Date(firstDay.getTime() - days * DAY_MILLISECONDS);
   return {
     from: firstDay,
     to,
@@ -84,7 +85,7 @@ function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
     days,
     bucket: days > 45 ? "week" : "day",
     fromDate: toIsoDate(firstDay),
-    toDate: toIsoDate(new Date(to.getTime() - DAY_MS)),
+    toDate: toIsoDate(new Date(to.getTime() - DAY_MILLISECONDS)),
   };
 }
 
@@ -97,7 +98,7 @@ function resolveCustom(from: string | undefined, to: string | undefined): Resolv
   if (!start || !end || end.getTime() < start.getTime()) {
     return null;
   }
-  const days = Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
+  const days = Math.round((end.getTime() - start.getTime()) / DAY_MILLISECONDS) + 1;
   if (days > MAX_CUSTOM_DAYS) {
     return null;
   }
@@ -122,7 +123,7 @@ export function resolvePeriod(
   }
   const days = PRESET_DAYS[search.period];
   const today = startOfBrazilDay(now);
-  return buildPeriod(new Date(today.getTime() - (days - 1) * DAY_MS), days);
+  return buildPeriod(new Date(today.getTime() - (days - 1) * DAY_MILLISECONDS), days);
 }
 
 export const ORDER_STATUSES = [
@@ -150,11 +151,11 @@ export const financialSortSchema = z.enum(FINANCIAL_SORTS);
 export type FinancialSortKey = z.infer<typeof financialSortSchema>;
 
 export const financialSearchSchema = periodSearchSchema.extend({
-  status: orderStatusSchema.optional().catch(undefined),
-  q: z.string().trim().max(100).optional().catch(undefined),
-  sort: financialSortSchema.default("orderedAt").catch("orderedAt"),
-  dir: z.enum(["asc", "desc"]).default("desc").catch("desc"),
-  page: z.coerce.number().int().min(1).default(1).catch(1),
-  pageSize: z.coerce.number().int().min(10).max(100).default(20).catch(20),
+  status: optionalParameter(orderStatusSchema),
+  query: optionalParameter(z.string().trim().max(100)),
+  sort: withFallback(financialSortSchema.default("orderedAt"), "orderedAt"),
+  direction: withFallback(z.enum(["asc", "desc"]).default("desc"), "desc"),
+  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(20), 20),
 });
 export type FinancialSearch = z.infer<typeof financialSearchSchema>;

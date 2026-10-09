@@ -42,7 +42,7 @@ test.describe("financeiro", () => {
 
     await page.getByRole("button", { name: "Ordenar por lucro" }).click();
     await expect(page).toHaveURL(/sort=profit/);
-    await expect(page).toHaveURL(/dir=desc/);
+    await expect(page).toHaveURL(/direction=desc/);
 
     await page.getByRole("button", { name: "Próxima" }).click();
     await expect(page).toHaveURL(/page=2/);

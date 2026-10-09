@@ -1,10 +1,10 @@
-import { addTicketMessage, createTicket, getAttachment } from "@sellbridge/db/repositories";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { addTicketMessage, createTicket, getAttachment } from "@sellbridge/database/repositories";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createTicketSchema, replyTicketSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 import { requireAdminSession, requireTenantSession } from "@/lib/server/tenant-session";
@@ -15,7 +15,7 @@ const idSchema = z.uuid();
 function parseId(value: string | undefined, label: string): string {
   const parsed = idSchema.safeParse(value);
   if (!parsed.success) {
-    throw new ValidationError(`${label} inválido`);
+    throw validationError(`${label} inválido`);
   }
   return parsed.data;
 }
@@ -34,11 +34,11 @@ export function handleCreateTicket(request: Request) {
       body: textField(formData, "body"),
     });
     if (!input.success) {
-      throw new ValidationError(firstIssue(input.error));
+      throw validationError(firstIssue(input.error));
     }
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
-    const { ticketId } = await createTicket(db, {
+    const { ticketId } = await createTicket(database, {
       tenantId: session.tenantId,
       userId: session.userId,
       subject: input.data.subject,
@@ -54,7 +54,7 @@ async function readReply(request: Request, tenantId: string) {
   const formData = await request.formData();
   const input = replyTicketSchema.safeParse({ body: textField(formData, "body") });
   if (!input.success) {
-    throw new ValidationError(firstIssue(input.error));
+    throw validationError(firstIssue(input.error));
   }
   const files = await validateAttachments(formData);
   const attachments = await storeAttachments(fileStorage, tenantId, files);
@@ -67,7 +67,7 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
     const session = await requireTenantSession(request.headers);
     const ticketId = parseId(ticketIdParam, "Chamado");
     const reply = await readReply(request, session.tenantId);
-    await addTicketMessage(db, {
+    await addTicketMessage(database, {
       ticketId,
       tenantId: session.tenantId,
       authorId: session.userId,
@@ -84,7 +84,7 @@ export function handleAdminReply(request: Request, ticketIdParam: string | undef
     const admin = await requireAdminSession(request.headers);
     const ticketId = parseId(ticketIdParam, "Chamado");
     const reply = await readReply(request, "admin");
-    await addTicketMessage(db, {
+    await addTicketMessage(database, {
       ticketId,
       tenantId: null,
       authorId: admin.userId,
@@ -106,7 +106,7 @@ export function handleDownloadAttachment(request: Request, attachmentIdParam: st
     }
     const scope =
       session.user.role === "admin" ? null : (await requireTenantSession(request.headers)).tenantId;
-    const attachment = await getAttachment(db, attachmentId, scope);
+    const attachment = await getAttachment(database, attachmentId, scope);
     const bytes = await fileStorage.get(attachment.storageKey);
     if (!bytes) {
       return jsonResponse(404, { error: "Arquivo não encontrado no armazenamento" });

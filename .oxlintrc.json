@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "vitest"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "vitest", "promise"],
   "options": {
     "typeAware": true
   },
@@ -9,7 +9,12 @@
     "suspicious": "error"
   },
   "rules": {
-    "eslint/no-else-return": ["error", { "allowElseIf": false }],
+    "eslint/no-else-return": [
+      "error",
+      {
+        "allowElseIf": false
+      }
+    ],
     "eslint/no-lonely-if": "error",
     "eslint/no-negated-condition": "error",
     "typescript/no-non-null-assertion": "error",
@@ -20,7 +25,51 @@
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",
     "react/react-in-jsx-scope": "off",
-    "import/no-unassigned-import": "off"
+    "import/no-unassigned-import": "off",
+    "eslint/max-depth": [
+      "error",
+      {
+        "max": 3
+      }
+    ],
+    "eslint/max-lines-per-function": [
+      "error",
+      {
+        "max": 60,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "eslint/max-params": [
+      "error",
+      {
+        "max": 4
+      }
+    ],
+    "eslint/max-nested-callbacks": [
+      "error",
+      {
+        "max": 3
+      }
+    ],
+    "eslint/prefer-const": "error",
+    "eslint/no-param-reassign": [
+      "error",
+      {
+        "props": true
+      }
+    ],
+    "eslint/id-length": [
+      "error",
+      {
+        "min": 2,
+        "exceptions": ["_"]
+      }
+    ],
+    "eslint/no-empty": "error",
+    "eslint/no-console": "error",
+    "promise/prefer-await-to-then": "error",
+    "promise/prefer-await-to-callbacks": "error"
   },
   "ignorePatterns": [
     "**/node_modules/**",
@@ -29,5 +78,20 @@
     "**/routeTree.gen.ts",
     "**/migrations/**",
     "**/components/ui/**"
+  ],
+  "overrides": [
+    {
+      "files": ["packages/shared/src/schemas/fallback.ts"],
+      "rules": {
+        "promise/prefer-await-to-then": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "apps/web/e2e/**"],
+      "rules": {
+        "eslint/max-lines-per-function": "off",
+        "eslint/max-nested-callbacks": "off"
+      }
+    }
   ]
 }

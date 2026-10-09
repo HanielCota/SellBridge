@@ -36,11 +36,11 @@ function sumAdjustments(input: OrderFinanceInput, type: "refund" | "return" | "c
  *   revenue − supplier cost − marketplace fee − refunds + supplier commissions − platform fee
  * Cancelled and returned orders contribute no revenue, cost or fee (the product goes back
  * to the supplier); the returned amount is reported separately for visibility.
- * The SQL in packages/db/src/repositories/reports.ts mirrors this function.
+ * The SQL in packages/database/src/repositories/reports.ts mirrors this function.
  */
 export function computeOrderFinance(
   input: OrderFinanceInput,
-  platformFeeBps: number,
+  platformFeeBasisPoints: number,
 ): OrderFinance {
   const counted = !NON_REVENUE_STATUSES.includes(input.status);
   const revenueCents = counted ? input.totalCents : 0;
@@ -51,7 +51,7 @@ export function computeOrderFinance(
   const refundCents = sumAdjustments(input, "refund");
   const returnCents = sumAdjustments(input, "return");
   const commissionCents = sumAdjustments(input, "commission");
-  const platformFeeCents = percentOfCents(revenueCents, platformFeeBps);
+  const platformFeeCents = percentOfCents(revenueCents, platformFeeBasisPoints);
   const profitCents =
     revenueCents - costCents - feeCents - refundCents + commissionCents - platformFeeCents;
   return {

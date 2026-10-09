@@ -1,13 +1,13 @@
 import {
-  PUBLISH_BACKOFF_MS,
+  PUBLISH_BACKOFF_MILLISECONDS,
   PUBLISH_JOB_ATTEMPTS,
   QUEUE_NAMES,
-  WEBHOOK_BACKOFF_MS,
+  WEBHOOK_BACKOFF_MILLISECONDS,
   WEBHOOK_JOB_ATTEMPTS,
   type PublishListingJob,
 } from "@sellbridge/shared/queues";
 import { Queue } from "bullmq";
-import { env } from "./env.ts";
+import { environment } from "./environment.ts";
 
 let publishQueue: Queue | null = null;
 
@@ -17,10 +17,10 @@ function getPublishQueue(): Queue {
     return publishQueue;
   }
   publishQueue = new Queue(QUEUE_NAMES.publishListing, {
-    connection: { url: env.REDIS_URL },
+    connection: { url: environment.REDIS_URL },
     defaultJobOptions: {
       attempts: PUBLISH_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MS },
+      backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },
@@ -42,10 +42,10 @@ function getWebhookQueue(): Queue {
     return webhookQueue;
   }
   webhookQueue = new Queue(QUEUE_NAMES.webhookEvents, {
-    connection: { url: env.REDIS_URL },
+    connection: { url: environment.REDIS_URL },
     defaultJobOptions: {
       attempts: WEBHOOK_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: WEBHOOK_BACKOFF_MS },
+      backoff: { type: "exponential", delay: WEBHOOK_BACKOFF_MILLISECONDS },
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },

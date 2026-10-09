@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const TICKET_STATUSES = ["open", "answered", "closed"] as const;
 export const ticketStatusSchema = z.enum(TICKET_STATUSES);
@@ -40,9 +41,9 @@ export const createTicketSchema = z.object({
 export const replyTicketSchema = z.object({ body: ticketBodySchema });
 
 export const ticketsSearchSchema = z.object({
-  status: ticketStatusSchema.optional().catch(undefined),
-  q: z.string().trim().max(100).optional().catch(undefined),
-  page: z.coerce.number().int().min(1).default(1).catch(1),
-  pageSize: z.coerce.number().int().min(5).max(50).default(10).catch(10),
+  status: optionalParameter(ticketStatusSchema),
+  query: optionalParameter(z.string().trim().max(100)),
+  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(10), 10),
 });
 export type TicketsSearch = z.infer<typeof ticketsSearchSchema>;

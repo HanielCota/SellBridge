@@ -1,4 +1,4 @@
-import type { OrderFinancialRow } from "@sellbridge/db/repositories";
+import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { describe, expect, it } from "vitest";
 import { buildFinancialCsv, centsToCsv, textCell } from "./csv";
 

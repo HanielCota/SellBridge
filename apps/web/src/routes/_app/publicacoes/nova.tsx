@@ -26,8 +26,8 @@ import { prefetchOnServer } from "@/lib/prefetch";
 export const Route = createFileRoute("/_app/publicacoes/nova")({
   validateSearch: z.object({ productId: z.uuid() }),
   loaderDeps: ({ search }) => ({ productId: search.productId }),
-  loader: ({ context, deps }) =>
-    prefetchOnServer(context.queryClient, newListingQueryOptions(deps.productId)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, newListingQueryOptions(search.productId)),
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
@@ -92,10 +92,45 @@ function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
-function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
+type ListingProduct = NewListingData["product"];
+type ListingStore = NewListingData["stores"][number];
+type ListingFormValues = z.infer<typeof listingFormSchema>;
+
+function successMessage(targetCount: number): string {
+  return targetCount > 1
+    ? `Publicação enviada para ${targetCount} lojas`
+    : "Publicação enviada para a fila";
+}
+
+function useListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function submit(value: ListingFormValues) {
+    setSubmitError(null);
+    const priceCents = parseBrlToCents(value.price);
+    if (priceCents === null) {
+      setSubmitError("Informe um preço válido");
+      return;
+    }
+    try {
+      const created = await createListing({
+        data: {
+          supplierProductId: product.id,
+          title: value.title,
+          description: value.description,
+          priceCents,
+          storeConnectionIds: value.storeConnectionIds,
+        },
+      });
+      toast.success(successMessage(created.targetIds.length));
+      await queryClient.invalidateQueries({ queryKey: ["listings"] });
+      await navigate({ to: "/publicacoes" });
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    }
+  }
 
   const form = useForm({
     defaultValues: {
@@ -105,36 +140,15 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
       storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : ([] as string[]),
     },
     validators: { onSubmit: listingFormSchema },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      const priceCents = parseBrlToCents(value.price);
-      if (priceCents === null) {
-        setSubmitError("Informe um preço válido");
-        return;
-      }
-      try {
-        const created = await createListing({
-          data: {
-            supplierProductId: product.id,
-            title: value.title,
-            description: value.description,
-            priceCents,
-            storeConnectionIds: value.storeConnectionIds,
-          },
-        });
-        toast.success(
-          created.targetIds.length > 1
-            ? `Publicação enviada para ${created.targetIds.length} lojas`
-            : "Publicação enviada para a fila",
-        );
-        await queryClient.invalidateQueries({ queryKey: ["listings"] });
-        await navigate({ to: "/publicacoes" });
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-      }
-    },
+    onSubmit: ({ value }) => submit(value),
   });
+  return { form, submitError };
+}
 
+type ListingFormApi = ReturnType<typeof useListingForm>["form"];
+
+function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
+  const { form, submitError } = useListingForm({ product, stores });
   return (
     <form
       noValidate
@@ -144,112 +158,178 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
         void form.handleSubmit();
       }}
     >
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Anúncio</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          {submitError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{submitError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <form.Field name="title">
-            {(field) => (
-              <TextField
-                id="title"
-                label="Título"
-                value={field.state.value}
-                errors={field.state.meta.errors}
-                onBlur={field.handleBlur}
-                onValueChange={field.handleChange}
-              />
-            )}
-          </form.Field>
-          <form.Field name="description">
-            {(field) => {
-              const message = firstErrorMessage(field.state.meta.errors);
-              return (
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    rows={6}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={message ? true : undefined}
-                    aria-describedby={message ? "description-error" : undefined}
-                  />
-                  {message ? (
-                    <p id="description-error" className="text-sm text-destructive">
-                      {message}
-                    </p>
-                  ) : null}
-                </div>
-              );
-            }}
-          </form.Field>
-          <form.Field name="price">
-            {(field) => (
-              <TextField
-                id="price"
-                label="Preço de venda (R$)"
-                inputMode="decimal"
-                value={field.state.value}
-                errors={field.state.meta.errors}
-                onBlur={field.handleBlur}
-                onValueChange={field.handleChange}
-              />
-            )}
-          </form.Field>
-          <form.Field name="storeConnectionIds">
-            {(field) => {
-              const message = firstErrorMessage(field.state.meta.errors);
-              return (
-                <fieldset className="grid gap-2">
-                  <legend className="mb-2 text-sm font-medium">Lojas de destino</legend>
-                  {stores.map((store) => {
-                    const checked = field.state.value.includes(store.id);
-                    return (
-                      <div key={store.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`store-${store.id}`}
-                          checked={checked}
-                          onCheckedChange={(next) =>
-                            field.handleChange(
-                              next === true
-                                ? [...field.state.value, store.id]
-                                : field.state.value.filter((id) => id !== store.id),
-                            )
-                          }
-                        />
-                        <Label htmlFor={`store-${store.id}`} className="font-normal">
-                          {store.shopName}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                  {message ? <p className="text-sm text-destructive">{message}</p> : null}
-                </fieldset>
-              );
-            }}
-          </form.Field>
-        </CardContent>
-      </Card>
-      <div className="space-y-4">
-        <form.Subscribe selector={(state) => state.values.price}>
-          {(price) => <ProfitCard priceCents={parseBrlToCents(price)} product={product} />}
-        </form.Subscribe>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando..." : "Publicar"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </div>
+      <ListingFieldsCard form={form} stores={stores} submitError={submitError} />
+      <ListingSidebar form={form} product={product} />
     </form>
+  );
+}
+
+function ListingFieldsCard({
+  form,
+  stores,
+  submitError,
+}: {
+  readonly form: ListingFormApi;
+  readonly stores: readonly ListingStore[];
+  readonly submitError: string | null;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Anúncio</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {submitError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        ) : null}
+        <ListingTextFields form={form} />
+        <form.Field name="storeConnectionIds">
+          {(field) => (
+            <StoreSelection
+              stores={stores}
+              selectedIds={field.state.value}
+              errors={field.state.meta.errors}
+              onChange={field.handleChange}
+            />
+          )}
+        </form.Field>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ListingTextFields({ form }: { readonly form: ListingFormApi }) {
+  return (
+    <>
+      <form.Field name="title">
+        {(field) => (
+          <TextField
+            id="title"
+            label="Título"
+            value={field.state.value}
+            errors={field.state.meta.errors}
+            onBlur={field.handleBlur}
+            onValueChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+      <form.Field name="description">
+        {(field) => (
+          <DescriptionField
+            value={field.state.value}
+            errors={field.state.meta.errors}
+            onBlur={field.handleBlur}
+            onValueChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+      <form.Field name="price">
+        {(field) => (
+          <TextField
+            id="price"
+            label="Preço de venda (R$)"
+            inputMode="decimal"
+            value={field.state.value}
+            errors={field.state.meta.errors}
+            onBlur={field.handleBlur}
+            onValueChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+    </>
+  );
+}
+
+interface FieldControlProps<TValue> {
+  readonly value: TValue;
+  readonly errors: readonly unknown[];
+  readonly onBlur: () => void;
+  readonly onValueChange: (value: TValue) => void;
+}
+
+function DescriptionField({ value, errors, onBlur, onValueChange }: FieldControlProps<string>) {
+  const message = firstErrorMessage(errors);
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor="description">Descrição</Label>
+      <Textarea
+        id="description"
+        rows={6}
+        value={value}
+        onBlur={onBlur}
+        onChange={(event) => onValueChange(event.target.value)}
+        aria-invalid={message ? true : undefined}
+        aria-describedby={message ? "description-error" : undefined}
+      />
+      {message ? (
+        <p id="description-error" className="text-sm text-destructive">
+          {message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function StoreSelection({
+  stores,
+  selectedIds,
+  errors,
+  onChange,
+}: {
+  readonly stores: readonly ListingStore[];
+  readonly selectedIds: readonly string[];
+  readonly errors: readonly unknown[];
+  readonly onChange: (storeConnectionIds: string[]) => void;
+}) {
+  const message = firstErrorMessage(errors);
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="mb-2 text-sm font-medium">Lojas de destino</legend>
+      {stores.map((store) => (
+        <div key={store.id} className="flex items-center gap-2">
+          <Checkbox
+            id={`store-${store.id}`}
+            checked={selectedIds.includes(store.id)}
+            onCheckedChange={(next) =>
+              onChange(
+                next === true
+                  ? [...selectedIds, store.id]
+                  : selectedIds.filter((id) => id !== store.id),
+              )
+            }
+          />
+          <Label htmlFor={`store-${store.id}`} className="font-normal">
+            {store.shopName}
+          </Label>
+        </div>
+      ))}
+      {message ? <p className="text-sm text-destructive">{message}</p> : null}
+    </fieldset>
+  );
+}
+
+function ListingSidebar({
+  form,
+  product,
+}: {
+  readonly form: ListingFormApi;
+  readonly product: ListingProduct;
+}) {
+  return (
+    <div className="space-y-4">
+      <form.Subscribe selector={(state) => state.values.price}>
+        {(price) => <ProfitCard priceCents={parseBrlToCents(price)} product={product} />}
+      </form.Subscribe>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Enviando..." : "Publicar"}
+          </Button>
+        )}
+      </form.Subscribe>
+    </div>
   );
 }
 

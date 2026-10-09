@@ -42,7 +42,7 @@ Commits direto na `main` (pedido do usuário).
 - **pnpm 12.** Scripts de build de dependências ficam bloqueados por padrão; liberados explicitamente em `allowBuilds` no `pnpm-workspace.yaml` (`esbuild`, `lefthook`).
 - **Drizzle 0.45 (estável)** em vez do 1.0 RC que a documentação atual sugere. Migraremos quando o 1.0 sair do RC.
 - **Validador das server functions:** a versão instalada do TanStack Start usa `.inputValidator()` (a página "build from scratch" ainda mostra `.validator()`). Seguimos os tipos instalados.
-- **`.env` único na raiz**, carregado por `loadRootEnv()` (`process.loadEnvFile`) no web e no worker, e por `node --env-file-if-exists` nos scripts do `packages/db`.
+- **`.env` único na raiz**, carregado por `loadRootEnvironmentFile()` (`process.loadEnvFile`) no web e no worker, e por `node --env-file-if-exists` nos scripts do `packages/database`.
 
 ## 2026-10-08 — Papel de admin
 
@@ -54,7 +54,7 @@ Plugin `admin` do Better Auth. O e-mail listado em `ADMIN_EMAILS` recebe `role =
 
 ## 2026-10-08 — Taxa da plataforma
 
-No MVP vem de `PLATFORM_FEE_BPS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
+No MVP vem de `PLATFORM_FEE_BASIS_POINTS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
 
 ## 2026-10-08 — shadcn/ui
 
@@ -83,7 +83,7 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 - **Filtro de preço do catálogo** usa o custo do fornecedor (valor de atacado), em centavos na URL.
 - **Loaders sem bloqueio:** os loaders aguardam os dados só no SSR (`prefetchOnServer`). Nas navegações do cliente, a URL muda na hora e o componente mostra seu próprio carregamento (`keepPreviousData`), em vez de travar a mudança de filtro.
 - **Sessão sem organização ativa:** a sessão do cadastro pode nascer antes da organização. O `tenantMiddleware` cai para a primeira organização do usuário e a grava como ativa.
-- **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm db:seed` é idempotente; `pnpm db:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
+- **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm database:seed` é idempotente; `pnpm database:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
 - **Lojas da conta demo** usam o marketplace `mock`, porque não há tokens reais.
 - **Testes de integração do banco** rodam contra o Postgres real (`fileParallelism: false`). O CI sobe o Postgres no job de checagens.
 
@@ -122,3 +122,18 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 - **Suporte**: anexos via `FileStorage` (disco local em `UPLOADS_DIR` no desenvolvimento), até 3 arquivos de 5 MB, tipo verificado pelo conteúdo (magic bytes de PNG, JPG, WEBP e PDF), nome sanitizado, chave sem dados do usuário e proteção contra path traversal. Download só pelo tenant dono ou admin, com `x-content-type-options: nosniff`. Resposta do revendedor reabre o chamado; resposta do admin marca "Respondido"; admin precisa reabrir um chamado encerrado para responder.
 - **Uploads multipart** usam rotas HTTP (`/api/suporte/...`) em vez de server functions, com erros devolvidos como JSON `{ error }` e status HTTP derivado do código do `AppError`.
 - **Seed**: as lojas simuladas da conta demo recebem tokens mock criptografados com `TOKEN_ENCRYPTION_KEY`, para que webhooks e sincronização funcionem também nelas.
+
+## 2026-10-09 — Padrões de código estritos
+
+Aplicados os princípios descritos em [architecture.md](architecture.md) e reforçados pelo Oxlint: `max-lines-per-function` (60), `max-params` (4), `max-depth` (3), `max-nested-callbacks` (3), `id-length` (mínimo 2), `no-param-reassign`, `prefer-const`, `no-console`, `no-empty` e o plugin `promise` (`prefer-await-to-then`, `prefer-await-to-callbacks`).
+
+- **Erros por composição:** as subclasses (`NotFoundError`, `MarketplaceError`...) viraram um único `AppError` com `code` e `details`, criado por fábricas. `instanceof` deu lugar a `hasErrorCode`/`isMarketplaceError`; a retentativa lê `details.retryable`.
+- **Nomes:** `packages/db` virou `packages/database`; `env`, `db`, `deps`, `tx`, `ms`, `q`, `dir`, `fetchImpl` e `*Bps` foram escritos por extenso. `PLATFORM_FEE_BPS` virou `PLATFORM_FEE_BASIS_POINTS` (e `MOCK_LATENCY_MS` virou `MOCK_LATENCY_MILLISECONDS`); definir um nome antigo faz a inicialização falhar com a indicação do novo, em vez de ser ignorado em silêncio e os scripts `db:*` viraram `database:*` (`db:up` virou `services:up`). Ficam como estão os nomes impostos por APIs externas (`q` do Mercado Livre, `deps` do TanStack Router, `env` do Playwright) e as colunas `*_enc` já migradas.
+- **"Sempre async":** interpretado como "todo I/O é `async`/`await`, sem cadeias `.then()/.catch()`". Funções puras continuam síncronas.
+- **Overrides do lint:** só por arquivo (o `.catch()` do Zod em `schemas/fallback.ts` e o tamanho dos blocos de teste). Nenhum comentário de desativação.
+- **Logger:** escreve em `process.stdout`/`stderr`, respeita `LOG_LEVEL` (sem diferenciar maiúsculas) e mascara chaves sensíveis.
+- **Segredos fora do código:** `MOCK_WEBHOOK_SECRET` deixou de ter padrão e é opcional: sem ele a loja simulada aparece como não configurada (produção só com marketplaces reais sobe normalmente); as senhas do seed vêm de `SEED_DEMO_PASSWORD`/`SEED_ADMIN_PASSWORD`, também lidas pelos testes E2E; o CI gera segredos efêmeros por execução.
+
+## 2026-10-09 — Build scripts de dependências
+
+O pnpm 12 falha o `install` quando um pacote tem script de build não aprovado. Ficam liberados só `esbuild` e `lefthook`; o `msgpackr-extract` (acelerador nativo opcional do `msgpackr`, usado pelo BullMQ) fica explicitamente negado em `allowBuilds`: o fallback em JavaScript puro atende o volume do MVP e evita compilar código nativo no install.

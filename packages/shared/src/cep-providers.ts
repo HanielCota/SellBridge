@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { normalizeCep, stateSchema, type ResolvedAddress } from "./cep.ts";
+import { readJsonBody } from "./http-body.ts";
+import { logger } from "./logger.ts";
 
 export type CepLookupFailure = "INVALID_CEP" | "NOT_FOUND" | "PROVIDER_UNAVAILABLE";
 
@@ -45,28 +47,32 @@ const viaCepSuccessSchema = z.object({
 const viaCepErrorSchema = z.object({ erro: z.union([z.literal(true), z.literal("true")]) });
 
 async function fetchJson(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   url: string,
-  timeoutMs: number,
+  timeoutMilliseconds: number,
 ): Promise<{ status: number; body: unknown } | null> {
   try {
-    const response = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
-    const body: unknown = await response.json().catch(() => null);
+    const response = await fetchImplementation(url, {
+      signal: AbortSignal.timeout(timeoutMilliseconds),
+    });
+    const body = await readJsonBody(response);
     return { status: response.status, body };
-  } catch {
+  } catch (error) {
+    // Network failure or timeout: the caller falls back to the next provider.
+    logger.warn("cep.provider_unavailable", { provider: new URL(url).host, error });
     return null;
   }
 }
 
 async function queryBrasilApi(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   cep: string,
-  timeoutMs: number,
+  timeoutMilliseconds: number,
 ): Promise<ProviderOutcome> {
   const result = await fetchJson(
-    fetchImpl,
+    fetchImplementation,
     `https://brasilapi.com.br/api/cep/v2/${cep}`,
-    timeoutMs,
+    timeoutMilliseconds,
   );
   if (!result) {
     return { kind: "unavailable" };
@@ -92,11 +98,15 @@ async function queryBrasilApi(
 }
 
 async function queryViaCep(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   cep: string,
-  timeoutMs: number,
+  timeoutMilliseconds: number,
 ): Promise<ProviderOutcome> {
-  const result = await fetchJson(fetchImpl, `https://viacep.com.br/ws/${cep}/json/`, timeoutMs);
+  const result = await fetchJson(
+    fetchImplementation,
+    `https://viacep.com.br/ws/${cep}/json/`,
+    timeoutMilliseconds,
+  );
   if (!result) {
     return { kind: "unavailable" };
   }
@@ -119,8 +129,8 @@ async function queryViaCep(
 }
 
 export interface CepLookupOptions {
-  fetchImpl?: FetchLike;
-  timeoutMs?: number;
+  fetchImplementation?: FetchLike;
+  timeoutMilliseconds?: number;
 }
 
 /** Resolves a CEP with BrasilAPI first and ViaCEP as fallback. */
@@ -132,14 +142,14 @@ export async function lookupCep(
   if (!cep) {
     return { ok: false, reason: "INVALID_CEP" };
   }
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const timeoutMs = options.timeoutMs ?? 5000;
+  const fetchImplementation = options.fetchImplementation ?? fetch;
+  const timeoutMilliseconds = options.timeoutMilliseconds ?? 5000;
 
-  const primary = await queryBrasilApi(fetchImpl, cep, timeoutMs);
+  const primary = await queryBrasilApi(fetchImplementation, cep, timeoutMilliseconds);
   if (primary.kind === "found") {
     return { ok: true, address: primary.address, provider: "brasilapi", payload: primary.payload };
   }
-  const fallback = await queryViaCep(fetchImpl, cep, timeoutMs);
+  const fallback = await queryViaCep(fetchImplementation, cep, timeoutMilliseconds);
   if (fallback.kind === "found") {
     return { ok: true, address: fallback.address, provider: "viacep", payload: fallback.payload };
   }

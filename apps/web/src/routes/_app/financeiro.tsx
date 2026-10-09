@@ -1,4 +1,4 @@
-import type { OrderFinancialRow, SalesSummary } from "@sellbridge/db/repositories";
+import type { OrderFinancialRow, SalesSummary } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import {
   financialSearchSchema,
@@ -7,6 +7,7 @@ import {
   orderStatusSchema,
   type FinancialSearch,
   type FinancialSortKey,
+  type Paginated,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -41,8 +42,8 @@ const ALL_STATUSES = "__all__";
 export const Route = createFileRoute("/_app/financeiro")({
   validateSearch: financialSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) =>
-    prefetchOnServer(context.queryClient, financialsQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, financialsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Financeiro | SellBridge" }] }),
   component: FinancialPage,
 });
@@ -91,7 +92,7 @@ function SortableHeader({
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
   const isActive = search.sort === field;
-  const nextDirection = isActive && search.dir === "desc" ? "asc" : "desc";
+  const nextDirection = isActive && search.direction === "desc" ? "asc" : "desc";
   return (
     <button
       type="button"
@@ -99,11 +100,11 @@ function SortableHeader({
         "inline-flex items-center gap-1 font-medium hover:text-foreground",
         align === "right" && "ml-auto",
       )}
-      aria-label={`Ordenar por ${label.toLowerCase()}${sortStateLabel(isActive, search.dir)}`}
-      onClick={() => updateSearch({ sort: field, dir: nextDirection })}
+      aria-label={`Ordenar por ${label.toLowerCase()}${sortStateLabel(isActive, search.direction)}`}
+      onClick={() => updateSearch({ sort: field, direction: nextDirection })}
     >
       {label}
-      <SortIcon isActive={isActive} direction={search.dir} />
+      <SortIcon isActive={isActive} direction={search.direction} />
     </button>
   );
 }
@@ -194,11 +195,17 @@ const columns = columnHelper.columns([
 ]);
 
 function FinancialPage() {
-  const search = Route.useSearch();
-  const updateSearch = useFinancialNavigation();
-  const query = useQuery(financialsQueryOptions(search));
+  return (
+    <>
+      <FinancialHeader />
+      <FinancialContent />
+    </>
+  );
+}
 
-  const header = (
+function FinancialHeader() {
+  const search = Route.useSearch();
+  return (
     <PageHeader
       title="Financeiro"
       description="Lucro, comissões, devoluções e reembolsos por pedido e por período."
@@ -212,31 +219,28 @@ function FinancialPage() {
       }
     />
   );
+}
+
+function FinancialContent() {
+  const search = Route.useSearch();
+  const updateSearch = useFinancialNavigation();
+  const query = useQuery(financialsQueryOptions(search));
 
   if (query.isPending) {
     return (
-      <>
-        {header}
-        <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-96 rounded-xl" />
-        </div>
-      </>
+      <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
     );
   }
   if (query.isError) {
-    return (
-      <>
-        {header}
-        <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
-      </>
-    );
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
   const { summary, orders, stores, period } = query.data;
   return (
     <>
-      {header}
       <PeriodFilters
         search={search}
         stores={stores}
@@ -246,26 +250,43 @@ function FinancialPage() {
       />
       <SummaryCards summary={summary} />
       <OrderFilters />
-      {orders.items.length === 0 ? (
-        <FinancialEmptyState hasFilters={search.q !== undefined || search.status !== undefined} />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={orders.items}
-          getRowId={(row) => row.id}
-          caption="Financeiro por pedido"
-          footer={
-            <PaginationBar
-              page={orders.page}
-              totalPages={orders.totalPages}
-              total={orders.total}
-              itemLabel="pedidos"
-              onPageChange={(page) => updateSearch({ page })}
-            />
-          }
-        />
-      )}
+      <FinancialOrders
+        orders={orders}
+        hasFilters={search.query !== undefined || search.status !== undefined}
+        onPageChange={(page) => updateSearch({ page })}
+      />
     </>
+  );
+}
+
+function FinancialOrders({
+  orders,
+  hasFilters,
+  onPageChange,
+}: {
+  readonly orders: Paginated<OrderFinancialRow>;
+  readonly hasFilters: boolean;
+  readonly onPageChange: (page: number) => void;
+}) {
+  if (orders.items.length === 0) {
+    return <FinancialEmptyState hasFilters={hasFilters} />;
+  }
+  return (
+    <DataTable
+      columns={columns}
+      data={orders.items}
+      getRowId={(row) => row.id}
+      caption="Financeiro por pedido"
+      footer={
+        <PaginationBar
+          page={orders.page}
+          totalPages={orders.totalPages}
+          total={orders.total}
+          itemLabel="pedidos"
+          onPageChange={onPageChange}
+        />
+      }
+    />
   );
 }
 
@@ -309,16 +330,16 @@ function SummaryCards({ summary }: { summary: SalesSummary }) {
 function OrderFilters() {
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    updateSearch({ q });
-  }, [debouncedTerm, search.q, updateSearch]);
+    updateSearch({ query: nextQuery });
+  }, [debouncedTerm, search.query, updateSearch]);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">

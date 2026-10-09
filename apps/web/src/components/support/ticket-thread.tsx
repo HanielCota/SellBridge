@@ -1,4 +1,4 @@
-import type { TicketThread as TicketThreadData } from "@sellbridge/db/repositories";
+import type { TicketThread as TicketThreadData } from "@sellbridge/database/repositories";
 import { FileText, Headset, User } from "lucide-react";
 import { formatBytes } from "@/components/support/attachment-input";
 import { cn } from "@/lib/utils";

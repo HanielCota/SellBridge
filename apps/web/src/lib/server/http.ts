@@ -1,4 +1,4 @@
-import { isAppError, type AppErrorCode } from "@sellbridge/shared/errors";
+import { type AppErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 
 const STATUS_BY_CODE: Record<AppErrorCode, number> = {
@@ -7,8 +7,8 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   CONFLICT: 409,
-  CONNECTION: 409,
   EXTERNAL_PROVIDER: 502,
+  EXTERNAL_PROVIDER_AUTH: 502,
   CONFIGURATION: 500,
 };
 

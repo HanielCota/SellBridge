@@ -2,9 +2,9 @@ import { signUpSchema } from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
+import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { TextField } from "@/components/form/form-field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/_auth/cadastro")({
@@ -25,7 +25,7 @@ function signUpErrorMessage(code: string | undefined): string {
   return SIGN_UP_ERRORS[code] ?? "Não foi possível criar sua conta. Tente novamente.";
 }
 
-function SignUpPage() {
+function useSignUpForm() {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -47,36 +47,19 @@ function SignUpPage() {
     },
   });
 
+  return { form, submitError };
+}
+
+function SignUpForm() {
+  const { form, submitError } = useSignUpForm();
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Criar conta</h1>
-        <p className="text-sm text-muted-foreground">Comece a vender em poucos minutos.</p>
-      </div>
-      {submitError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      ) : null}
-      <form
-        noValidate
-        className="grid gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
+    <>
+      <FormErrorAlert message={submitError} />
+      <form noValidate className="grid gap-4" onSubmit={submitHandler(() => form.handleSubmit())}>
         <form.Field name="name">
           {(field) => (
-            <TextField
-              id="name"
-              label="Nome"
-              autoComplete="name"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
-            />
+            <TextField id="name" label="Nome" autoComplete="name" {...fieldBindings(field)} />
           )}
         </form.Field>
         <form.Field name="email">
@@ -86,10 +69,7 @@ function SignUpPage() {
               label="E-mail"
               type="email"
               autoComplete="email"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              {...fieldBindings(field)}
             />
           )}
         </form.Field>
@@ -100,10 +80,7 @@ function SignUpPage() {
               label="Senha"
               type="password"
               autoComplete="new-password"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              {...fieldBindings(field)}
             />
           )}
         </form.Field>
@@ -114,21 +91,32 @@ function SignUpPage() {
               label="Confirmar senha"
               type="password"
               autoComplete="new-password"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              {...fieldBindings(field)}
             />
           )}
         </form.Field>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Criando conta..." : "Criar conta"}
-            </Button>
+            <PendingSubmitButton
+              isPending={isSubmitting}
+              idleLabel="Criar conta"
+              pendingLabel="Criando conta..."
+            />
           )}
         </form.Subscribe>
       </form>
+    </>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold">Criar conta</h1>
+        <p className="text-sm text-muted-foreground">Comece a vender em poucos minutos.</p>
+      </div>
+      <SignUpForm />
       <p className="text-center text-sm text-muted-foreground">
         Já tem conta?{" "}
         <Link

@@ -27,8 +27,8 @@ export type WebhookEventJob = z.infer<typeof webhookEventJobSchema>;
 
 /** Publishing retries: 5 attempts with exponential backoff starting at 5 s. */
 export const PUBLISH_JOB_ATTEMPTS = 5;
-export const PUBLISH_BACKOFF_MS = 5_000;
+export const PUBLISH_BACKOFF_MILLISECONDS = 5_000;
 
 /** Webhook processing: marketplaces expect a quick 200, the real work is retried here. */
 export const WEBHOOK_JOB_ATTEMPTS = 5;
-export const WEBHOOK_BACKOFF_MS = 3_000;
+export const WEBHOOK_BACKOFF_MILLISECONDS = 3_000;

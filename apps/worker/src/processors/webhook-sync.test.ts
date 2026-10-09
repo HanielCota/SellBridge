@@ -1,35 +1,35 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { createDatabase, schema } from "@sellbridge/db";
+import { createDatabase, schema } from "@sellbridge/database";
 import {
   createListingWithTargets,
   markTargetPublished,
   recordWebhookEvent,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import {
   createConnectorRegistry,
   createTokenCipher,
   encodeMockAuthorizationCode,
   encodeMockOrderResource,
 } from "@sellbridge/marketplaces";
-import { loadRootEnv } from "@sellbridge/shared/env-node";
+import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createStockPriceSyncProcessor } from "./stock-price-sync.ts";
 import { createWebhookEventProcessor } from "./webhook-event.ts";
 
-loadRootEnv();
+loadRootEnvironmentFile();
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL é obrigatória para os testes do worker");
 }
-const db = createDatabase(databaseUrl, { maxConnections: 2 });
+const database = createDatabase(databaseUrl, { maxConnections: 2 });
 const cipher = createTokenCipher(randomBytes(32).toString("base64"));
 const connectors = createConnectorRegistry({
   appUrl: "http://localhost:3000",
   mockWebhookSecret: "segredo-de-teste-123",
-  mockLatencyMs: 0,
+  mockLatencyMilliseconds: 0,
 });
-const processWebhook = createWebhookEventProcessor({ db, connectors, cipher });
+const processWebhook = createWebhookEventProcessor({ database, connectors, cipher });
 
 const tenantId = randomUUID();
 let supplierId = "";
@@ -39,7 +39,7 @@ let targetId = "";
 const eventIds: string[] = [];
 
 async function recordEvent(payload: Record<string, unknown>, topic = "orders"): Promise<string> {
-  const result = await recordWebhookEvent(db, {
+  const result = await recordWebhookEvent(database, {
     marketplace: "mock",
     externalEventId: randomUUID(),
     topic,
@@ -58,13 +58,13 @@ function job(webhookEventId: string) {
 }
 
 beforeAll(async () => {
-  await db.insert(schema.organization).values({
+  await database.insert(schema.organization).values({
     id: tenantId,
     name: "Tenant webhook",
     slug: `wh-${tenantId}`,
     createdAt: new Date(),
   });
-  const [supplier] = await db
+  const [supplier] = await database
     .insert(schema.suppliers)
     .values({ name: "Fornecedor webhook", niche: "Teste", state: "ZZ", city: "X" })
     .returning();
@@ -72,7 +72,7 @@ beforeAll(async () => {
     throw new Error("fornecedor");
   }
   supplierId = supplier.id;
-  const [product] = await db
+  const [product] = await database
     .insert(schema.supplierProducts)
     .values({
       supplierId,
@@ -91,7 +91,7 @@ beforeAll(async () => {
     redirectUri: "http://localhost:3000/cb",
   });
   shopId = shop.externalShopId;
-  const [store] = await db
+  const [store] = await database
     .insert(schema.storeConnections)
     .values({
       tenantId,
@@ -107,7 +107,7 @@ beforeAll(async () => {
   }
   storeId = store.id;
   const created = await createListingWithTargets(
-    db,
+    database,
     tenantId,
     {
       supplierProductId: product.id,
@@ -118,14 +118,14 @@ beforeAll(async () => {
     [storeId],
   );
   targetId = created.targetIds[0] ?? "";
-  await markTargetPublished(db, targetId, { externalId: "MOCK-ITEM-WH", externalUrl: null });
+  await markTargetPublished(database, targetId, { externalId: "MOCK-ITEM-WH", externalUrl: null });
 });
 
 afterAll(async () => {
-  await db.delete(schema.webhookEvents).where(inArray(schema.webhookEvents.id, eventIds));
-  await db.delete(schema.organization).where(eq(schema.organization.id, tenantId));
-  await db.delete(schema.suppliers).where(eq(schema.suppliers.id, supplierId));
-  await db.$client.end();
+  await database.delete(schema.webhookEvents).where(inArray(schema.webhookEvents.id, eventIds));
+  await database.delete(schema.organization).where(eq(schema.organization.id, tenantId));
+  await database.delete(schema.suppliers).where(eq(schema.suppliers.id, supplierId));
+  await database.$client.end();
 });
 
 const orderResource = () =>
@@ -152,7 +152,7 @@ describe("webhook-event processor", () => {
     expect(await processWebhook(job(eventId))).toBe("order_created");
     expect(await processWebhook(job(eventId))).toBe("already_processed");
 
-    const rows = await db
+    const rows = await database
       .select({ cost: schema.orderItems.unitCostCents, target: schema.orderItems.listingTargetId })
       .from(schema.orderItems)
       .where(eq(schema.orderItems.tenantId, tenantId));
@@ -173,7 +173,7 @@ describe("webhook-event processor", () => {
     await expect(processWebhook(job(eventId))).rejects.toThrow(
       "Pedido simulado em formato inválido",
     );
-    const row = await db.query.webhookEvents.findFirst({
+    const row = await database.query.webhookEvents.findFirst({
       where: eq(schema.webhookEvents.id, eventId),
     });
     expect(row).toMatchObject({ processedAt: null, error: "Pedido simulado em formato inválido" });
@@ -183,14 +183,14 @@ describe("webhook-event processor", () => {
 describe("stock-price-sync processor", () => {
   it("pushes changed stock and price and marks the target as synced", async () => {
     const sync = createStockPriceSyncProcessor({
-      db,
+      database,
       connectors,
       cipher,
       acquireRateLimit: async () => {},
     });
     const summary = await sync();
     expect(summary.synced).toBeGreaterThanOrEqual(1);
-    const row = await db.query.listingTargets.findFirst({
+    const row = await database.query.listingTargets.findFirst({
       where: eq(schema.listingTargets.id, targetId),
     });
     expect(row).toMatchObject({ syncedStock: 5, syncedPriceCents: 4990 });

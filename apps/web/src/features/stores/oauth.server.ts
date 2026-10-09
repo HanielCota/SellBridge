@@ -3,21 +3,21 @@ import {
   consumeOAuthState,
   createOAuthState,
   upsertStoreConnection,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import { isMarketplaceError, type MarketplaceId } from "@sellbridge/marketplaces";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
-import { db } from "@/lib/server/db";
-import { env } from "@/lib/server/env";
+import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { connectors, oauthCallbackUrl, tokenCipher } from "@/lib/server/marketplaces";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 
-const STATE_TTL_MS = 10 * 60 * 1000;
+const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
 
 function redirectTo(path: string, params: Record<string, string> = {}): Response {
-  const url = new URL(path, env.APP_URL);
+  const url = new URL(path, environment.APP_URL);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -61,12 +61,12 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   const state = randomBytes(24).toString("base64url");
   // PKCE verifier (RFC 7636): ignored by marketplaces that do not use it.
   const codeVerifier = randomBytes(48).toString("base64url");
-  await createOAuthState(db, {
+  await createOAuthState(database, {
     state,
     tenantId: session.tenantId,
     marketplace,
     codeVerifier,
-    ttlMs: STATE_TTL_MS,
+    ttlMilliseconds: STATE_TTL_MILLISECONDS,
   });
   const authorizationUrl = connector.getAuthorizationUrl({
     state,
@@ -100,7 +100,7 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
   if ("error" in query.data) {
     return storesPageWithError("A conexão foi cancelada no marketplace");
   }
-  const stateRecord = await consumeOAuthState(db, {
+  const stateRecord = await consumeOAuthState(database, {
     state: query.data.state,
     tenantId: session.tenantId,
     marketplace,
@@ -115,7 +115,7 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
       redirectUri: oauthCallbackUrl(marketplace),
       codeVerifier: stateRecord.codeVerifier ?? undefined,
     });
-    const store = await upsertStoreConnection(db, {
+    const store = await upsertStoreConnection(database, {
       tenantId: session.tenantId,
       marketplace,
       externalShopId: shop.externalShopId,

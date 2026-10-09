@@ -1,4 +1,5 @@
 export * from "./common.ts";
+export * from "./fallback.ts";
 export * from "./auth.ts";
 export * from "./catalog.ts";
 export * from "./region.ts";

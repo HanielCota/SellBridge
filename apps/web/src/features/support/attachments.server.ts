@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { NewAttachment } from "@sellbridge/db/repositories";
-import { ValidationError } from "@sellbridge/shared/errors";
+import type { NewAttachment } from "@sellbridge/database/repositories";
+import { validationError } from "@sellbridge/shared/errors";
 import { detectAttachmentType, sanitizeFileName } from "@sellbridge/shared/file-signature";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@sellbridge/shared/schemas";
 import type { FileStorage } from "@/lib/server/storage";
@@ -22,17 +22,17 @@ function filesFrom(formData: FormData): File[] {
 export async function validateAttachments(formData: FormData): Promise<ValidatedFile[]> {
   const files = filesFrom(formData);
   if (files.length > MAX_ATTACHMENTS) {
-    throw new ValidationError(`Envie no máximo ${MAX_ATTACHMENTS} anexos`);
+    throw validationError(`Envie no máximo ${MAX_ATTACHMENTS} anexos`);
   }
   const validated: ValidatedFile[] = [];
   for (const file of files) {
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      throw new ValidationError(`"${file.name}" excede o limite de 5 MB`);
+      throw validationError(`"${file.name}" excede o limite de 5 MB`);
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mimeType = detectAttachmentType(bytes);
     if (!mimeType) {
-      throw new ValidationError(`"${file.name}" não é um formato aceito (PNG, JPG, WEBP ou PDF)`);
+      throw validationError(`"${file.name}" não é um formato aceito (PNG, JPG, WEBP ou PDF)`);
     }
     validated.push({
       bytes,

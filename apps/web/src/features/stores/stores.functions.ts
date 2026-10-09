@@ -1,14 +1,14 @@
-import { disconnectStore, listStoreConnections } from "@sellbridge/db/repositories";
+import { disconnectStore, listStoreConnections } from "@sellbridge/database/repositories";
 import {
   encodeMockAuthorizationCode,
   MARKETPLACE_LABELS,
   type MarketplaceId,
 } from "@sellbridge/marketplaces";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { connectors, oauthCallbackUrl } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
 
@@ -23,7 +23,7 @@ const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_s
 export const listStores = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    const stores = await listStoreConnections(db, context.tenantId);
+    const stores = await listStoreConnections(database, context.tenantId);
     const marketplaces: MarketplaceOption[] = MARKETPLACE_ORDER.map((id) => ({
       id,
       label: MARKETPLACE_LABELS[id],
@@ -36,7 +36,7 @@ export const disconnectStoreFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .inputValidator(z.object({ storeConnectionId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    await disconnectStore(db, context.tenantId, data.storeConnectionId);
+    await disconnectStore(database, context.tenantId, data.storeConnectionId);
     logger.info("store.disconnected", {
       tenantId: context.tenantId,
       storeConnectionId: data.storeConnectionId,
@@ -59,7 +59,7 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (data.redirectUri !== oauthCallbackUrl("mock")) {
-      throw new ValidationError("Endereço de retorno não autorizado");
+      throw validationError("Endereço de retorno não autorizado");
     }
     const url = new URL(data.redirectUri);
     url.searchParams.set("code", encodeMockAuthorizationCode(data.shopName));

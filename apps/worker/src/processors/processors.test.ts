@@ -1,33 +1,33 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { createDatabase, schema } from "@sellbridge/db";
-import { createListingWithTargets } from "@sellbridge/db/repositories";
+import { createDatabase, schema } from "@sellbridge/database";
+import { createListingWithTargets } from "@sellbridge/database/repositories";
 import {
   createConnectorRegistry,
   createTokenCipher,
   encodeMockAuthorizationCode,
   MOCK_REVOKED_REFRESH_TOKEN,
 } from "@sellbridge/marketplaces";
-import { loadRootEnv } from "@sellbridge/shared/env-node";
+import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPublishListingProcessor } from "./publish-listing.ts";
 import { createTokenRefreshProcessor } from "./token-refresh.ts";
 
-loadRootEnv();
+loadRootEnvironmentFile();
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL é obrigatória para os testes do worker");
 }
-const db = createDatabase(databaseUrl, { maxConnections: 2 });
+const database = createDatabase(databaseUrl, { maxConnections: 2 });
 const cipher = createTokenCipher(randomBytes(32).toString("base64"));
 const connectors = createConnectorRegistry({
   appUrl: "http://localhost:3000",
   mockWebhookSecret: "segredo-de-teste-123",
-  mockLatencyMs: 0,
+  mockLatencyMilliseconds: 0,
 });
 const processPublish = createPublishListingProcessor({
-  db,
+  database,
   connectors,
   cipher,
   acquireRateLimit: async () => {},
@@ -44,7 +44,7 @@ async function createStore(tenantId: string, status: "connected" | "disconnected
     code: encodeMockAuthorizationCode(`Loja ${status}`),
     redirectUri: "http://localhost:3000/cb",
   });
-  const [store] = await db
+  const [store] = await database
     .insert(schema.storeConnections)
     .values({
       tenantId,
@@ -69,7 +69,7 @@ async function createTarget(title: string, storeId = connectedStoreId) {
     throw new Error("tenant ausente");
   }
   const created = await createListingWithTargets(
-    db,
+    database,
     tenantId,
     {
       supplierProductId: productId,
@@ -87,7 +87,7 @@ async function createTarget(title: string, storeId = connectedStoreId) {
 }
 
 async function targetRow(targetId: string) {
-  const row = await db.query.listingTargets.findFirst({
+  const row = await database.query.listingTargets.findFirst({
     where: eq(schema.listingTargets.id, targetId),
   });
   if (!row) {
@@ -97,7 +97,7 @@ async function targetRow(targetId: string) {
 }
 
 beforeAll(async () => {
-  await db.insert(schema.organization).values(
+  await database.insert(schema.organization).values(
     tenantIds.map((id) => ({
       id,
       name: "Tenant worker",
@@ -105,7 +105,7 @@ beforeAll(async () => {
       createdAt: new Date(),
     })),
   );
-  const [supplier] = await db
+  const [supplier] = await database
     .insert(schema.suppliers)
     .values({ name: "Fornecedor worker", niche: "Teste", state: "ZZ", city: "Teste" })
     .returning();
@@ -113,7 +113,7 @@ beforeAll(async () => {
     throw new Error("fornecedor não criado");
   }
   supplierId = supplier.id;
-  const [product] = await db
+  const [product] = await database
     .insert(schema.supplierProducts)
     .values({
       supplierId,
@@ -137,9 +137,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(schema.organization).where(inArray(schema.organization.id, tenantIds));
-  await db.delete(schema.suppliers).where(eq(schema.suppliers.id, supplierId));
-  await db.$client.end();
+  await database.delete(schema.organization).where(inArray(schema.organization.id, tenantIds));
+  await database.delete(schema.suppliers).where(eq(schema.suppliers.id, supplierId));
+  await database.$client.end();
 });
 
 describe("publish-listing processor", () => {
@@ -225,27 +225,27 @@ describe("token-refresh processor", () => {
     }
     const soon = new Date(Date.now() + 60_000);
     const healthy = await createStore(tenantId, "connected");
-    await db
+    await database
       .update(schema.storeConnections)
       .set({ expiresAt: soon })
       .where(eq(schema.storeConnections.id, healthy.id));
     const revoked = await createStore(tenantId, "connected");
-    await db
+    await database
       .update(schema.storeConnections)
       .set({ expiresAt: soon, refreshTokenEnc: cipher.encrypt(MOCK_REVOKED_REFRESH_TOKEN) })
       .where(eq(schema.storeConnections.id, revoked.id));
 
-    const summary = await createTokenRefreshProcessor({ db, connectors, cipher })();
+    const summary = await createTokenRefreshProcessor({ database, connectors, cipher })();
     expect(summary.refreshed).toBeGreaterThanOrEqual(1);
     expect(summary.expired).toBeGreaterThanOrEqual(1);
 
-    const refreshedRow = await db.query.storeConnections.findFirst({
+    const refreshedRow = await database.query.storeConnections.findFirst({
       where: eq(schema.storeConnections.id, healthy.id),
     });
     expect(refreshedRow?.status).toBe("connected");
     expect(refreshedRow?.expiresAt?.getTime()).toBeGreaterThan(soon.getTime());
 
-    const revokedRow = await db.query.storeConnections.findFirst({
+    const revokedRow = await database.query.storeConnections.findFirst({
       where: eq(schema.storeConnections.id, revoked.id),
     });
     expect(revokedRow?.status).toBe("expired");

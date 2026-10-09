@@ -35,34 +35,16 @@ export function PeriodFilters({
 }: PeriodFiltersProps) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-      <div className="grid gap-1.5">
-        <Label htmlFor="period">Período</Label>
-        <Select
-          value={search.period}
-          onValueChange={(value) => {
-            const period = PERIOD_PRESETS.find((preset) => preset === value);
-            if (!period) {
-              return;
-            }
-            onChange(
-              period === "custom"
-                ? { period, from: resolvedFrom, to: resolvedTo }
-                : { period, from: undefined, to: undefined },
-            );
-          }}
-        >
-          <SelectTrigger id="period" className="w-full lg:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_PRESETS.map((preset: PeriodPreset) => (
-              <SelectItem key={preset} value={preset}>
-                {PERIOD_LABELS[preset]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <PeriodSelect
+        period={search.period}
+        onPeriodChange={(period) =>
+          onChange(
+            period === "custom"
+              ? { period, from: resolvedFrom, to: resolvedTo }
+              : { period, from: undefined, to: undefined },
+          )
+        }
+      />
       {search.period === "custom" ? (
         <CustomRange
           key={`${resolvedFrom}-${resolvedTo}`}
@@ -71,25 +53,77 @@ export function PeriodFilters({
           onApply={(from, to) => onChange({ period: "custom", from, to })}
         />
       ) : null}
-      <div className="grid gap-1.5">
-        <Label htmlFor="store">Loja</Label>
-        <Select
-          value={search.store ?? ALL_STORES}
-          onValueChange={(value) => onChange({ store: value === ALL_STORES ? undefined : value })}
-        >
-          <SelectTrigger id="store" className="w-full lg:w-60">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_STORES}>Todas as lojas</SelectItem>
-            {stores.map((store) => (
-              <SelectItem key={store.id} value={store.id}>
-                {store.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <StoreSelect
+        store={search.store}
+        stores={stores}
+        onStoreChange={(store) => onChange({ store })}
+      />
+    </div>
+  );
+}
+
+function PeriodSelect({
+  period,
+  onPeriodChange,
+}: {
+  period: PeriodSearch["period"];
+  onPeriodChange: (period: PeriodPreset) => void;
+}) {
+  function handleValueChange(value: string) {
+    const selected = PERIOD_PRESETS.find((preset) => preset === value);
+    if (!selected) {
+      return;
+    }
+    onPeriodChange(selected);
+  }
+
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor="period">Período</Label>
+      <Select value={period} onValueChange={handleValueChange}>
+        <SelectTrigger id="period" className="w-full lg:w-48">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PERIOD_PRESETS.map((preset: PeriodPreset) => (
+            <SelectItem key={preset} value={preset}>
+              {PERIOD_LABELS[preset]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function StoreSelect({
+  store,
+  stores,
+  onStoreChange,
+}: {
+  store: PeriodSearch["store"];
+  stores: PeriodFiltersProps["stores"];
+  onStoreChange: (store: string | undefined) => void;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor="store">Loja</Label>
+      <Select
+        value={store ?? ALL_STORES}
+        onValueChange={(value) => onStoreChange(value === ALL_STORES ? undefined : value)}
+      >
+        <SelectTrigger id="store" className="w-full lg:w-60">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_STORES}>Todas as lojas</SelectItem>
+          {stores.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

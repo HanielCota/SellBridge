@@ -9,12 +9,13 @@
     "./cep": "./src/cep.ts",
     "./cep-providers": "./src/cep-providers.ts",
     "./errors": "./src/errors.ts",
-    "./env": "./src/env.ts",
-    "./env-node": "./src/env-node.ts",
+    "./environment": "./src/environment.ts",
+    "./environment-file": "./src/environment-file.ts",
     "./logger": "./src/logger.ts",
     "./queues": "./src/queues.ts",
     "./finance": "./src/finance.ts",
     "./file-signature": "./src/file-signature.ts",
+    "./http-body": "./src/http-body.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {

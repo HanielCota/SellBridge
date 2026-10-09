@@ -4,3 +4,5 @@ packages:
 allowBuilds:
   esbuild: true
   lefthook: true
+  # Optional native accelerator for BullMQ's msgpackr; the pure JS fallback is enough.
+  msgpackr-extract: false

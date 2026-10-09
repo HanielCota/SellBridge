@@ -27,7 +27,8 @@ import { prefetchOnServer } from "@/lib/prefetch";
 export const Route = createFileRoute("/_app/dashboard")({
   validateSearch: periodSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => prefetchOnServer(context.queryClient, dashboardQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, dashboardQueryOptions(search)),
   head: () => ({ meta: [{ title: "Dashboard | SellBridge" }] }),
   component: DashboardPage,
 });

@@ -3,9 +3,9 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
+import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { TextField } from "@/components/form/form-field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 const loginSearchSchema = z.object({
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_auth/login")({
   component: LoginPage,
 });
 
-function LoginPage() {
+function useLoginForm() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -37,25 +37,16 @@ function LoginPage() {
     },
   });
 
+  return { form, submitError };
+}
+
+function LoginForm() {
+  const { form, submitError } = useLoginForm();
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Entrar</h1>
-        <p className="text-sm text-muted-foreground">Acesse seu painel de vendas.</p>
-      </div>
-      {submitError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      ) : null}
-      <form
-        noValidate
-        className="grid gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
+    <>
+      <FormErrorAlert message={submitError} />
+      <form noValidate className="grid gap-4" onSubmit={submitHandler(() => form.handleSubmit())}>
         <form.Field name="email">
           {(field) => (
             <TextField
@@ -63,10 +54,7 @@ function LoginPage() {
               label="E-mail"
               type="email"
               autoComplete="email"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              {...fieldBindings(field)}
             />
           )}
         </form.Field>
@@ -77,21 +65,32 @@ function LoginPage() {
               label="Senha"
               type="password"
               autoComplete="current-password"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
+              {...fieldBindings(field)}
             />
           )}
         </form.Field>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Entrando..." : "Entrar"}
-            </Button>
+            <PendingSubmitButton
+              isPending={isSubmitting}
+              idleLabel="Entrar"
+              pendingLabel="Entrando..."
+            />
           )}
         </form.Subscribe>
       </form>
+    </>
+  );
+}
+
+function LoginPage() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold">Entrar</h1>
+        <p className="text-sm text-muted-foreground">Acesse seu painel de vendas.</p>
+      </div>
+      <LoginForm />
       <p className="text-center text-sm text-muted-foreground">
         Ainda não tem conta?{" "}
         <Link

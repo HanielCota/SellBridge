@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { MarketplaceAuthError, MarketplaceError } from "../errors.ts";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 
 interface Recorded {
@@ -37,7 +36,7 @@ function requestBody(body: RequestInit["body"]): string | null {
 
 function fakeApi(routes: Record<string, Responder>) {
   const calls: Recorded[] = [];
-  const fetchImpl = vi.fn<typeof fetch>(async (input, init) => {
+  const fetchImplementation = vi.fn<typeof fetch>(async (input, init) => {
     const url = requestUrl(input);
     const headers = new Headers(init?.headers);
     const body = requestBody(init?.body);
@@ -58,7 +57,7 @@ function fakeApi(routes: Record<string, Responder>) {
     }
     return responder(request);
   });
-  return { fetchImpl, calls };
+  return { fetchImplementation, calls };
 }
 
 const API = "https://api.mercadolibre.com";
@@ -71,7 +70,7 @@ function connector(routes: Record<string, Responder>) {
     ml: createMercadoLivreConnector({
       clientId: "123456",
       clientSecret: "segredo",
-      fetchImpl: api.fetchImpl,
+      fetchImplementation: api.fetchImplementation,
       retry: { sleep: async () => {}, random: () => 0 },
       now: () => fixedNow,
     }),
@@ -142,7 +141,9 @@ describe("OAuth", () => {
     const { ml } = connector({
       [`POST ${API}/oauth/token`]: () => json(400, { error: "invalid_grant", message: "expired" }),
     });
-    await expect(ml.refreshTokens("TG-old")).rejects.toBeInstanceOf(MarketplaceAuthError);
+    await expect(ml.refreshTokens("TG-old")).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER_AUTH",
+    });
   });
 
   it("returns the rotated refresh token", async () => {
@@ -197,7 +198,9 @@ describe("publishing", () => {
     const { ml } = connector({
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, []),
     });
-    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({ retryable: false });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: { retryable: false },
+    });
   });
 
   it("surfaces validation messages as permanent errors", async () => {
@@ -206,28 +209,29 @@ describe("publishing", () => {
       [`POST ${API}/items`]: () => json(400, { message: "attribute BRAND is required" }),
     });
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
-      retryable: false,
+      details: { retryable: false },
       message: "Mercado Livre recusou a operação: attribute BRAND is required",
     });
   });
 
   it("marks rate limiting as retryable after the HTTP retries run out", async () => {
-    const { ml, fetchImpl } = connector({
+    const { ml, fetchImplementation } = connector({
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () =>
         json(429, { error: "local_rate_limited" }),
     });
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
-      retryable: true,
-      status: 429,
+      details: { retryable: true, status: 429 },
     });
-    expect(fetchImpl.mock.calls.length).toBeGreaterThan(1);
+    expect(fetchImplementation.mock.calls.length).toBeGreaterThan(1);
   });
 
   it("treats 401 as revoked access", async () => {
     const { ml } = connector({
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(401, {}),
     });
-    await expect(ml.publishProduct(store, product)).rejects.toBeInstanceOf(MarketplaceAuthError);
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER_AUTH",
+    });
   });
 
   it("updates price and stock with PUT and skips empty updates", async () => {
@@ -267,7 +271,9 @@ describe("orders", () => {
 
   it("rejects unknown resources and unexpected payloads", async () => {
     const { ml } = connector({ [`GET ${API}/orders/1`]: () => json(200, { id: 1 }) });
-    await expect(ml.fetchOrder(store, "/items/MLB1")).rejects.toBeInstanceOf(MarketplaceError);
+    await expect(ml.fetchOrder(store, "/items/MLB1")).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER",
+    });
     await expect(ml.fetchOrder(store, "/orders/1")).rejects.toMatchObject({
       message: "Resposta inesperada do Mercado Livre",
     });

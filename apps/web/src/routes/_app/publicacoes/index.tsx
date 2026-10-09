@@ -1,4 +1,4 @@
-import type { ListingTargetRow } from "@sellbridge/db/repositories";
+import type { ListingTargetRow } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import {
   LISTING_STATUS_LABELS,
@@ -38,7 +38,8 @@ const ALL_STATUSES = "__all__";
 export const Route = createFileRoute("/_app/publicacoes/")({
   validateSearch: listingsSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => prefetchOnServer(context.queryClient, listingsQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Publicações | SellBridge" }] }),
   component: ListingsPage,
 });
@@ -185,7 +186,7 @@ function ListingsPage() {
 function ListingsFilters() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
 
   function updateSearch(patch: Partial<ListingsSearch>) {
@@ -193,12 +194,15 @@ function ListingsFilters() {
   }
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    void navigate({ search: (previous) => ({ ...previous, q, page: 1 }), replace: true });
-  }, [debouncedTerm, navigate, search.q]);
+    void navigate({
+      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
+      replace: true,
+    });
+  }, [debouncedTerm, navigate, search.query]);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
@@ -250,7 +254,7 @@ function ListingsTable() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
   if (query.data.items.length === 0) {
-    const isFiltered = search.q !== undefined || search.status !== undefined;
+    const isFiltered = search.query !== undefined || search.status !== undefined;
     return (
       <EmptyState
         icon={Megaphone}

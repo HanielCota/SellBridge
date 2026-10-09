@@ -1,3 +1,4 @@
+import { readJsonBody } from "@sellbridge/shared/http-body";
 import { z } from "zod";
 
 const apiErrorSchema = z.object({ error: z.string() });
@@ -5,7 +6,7 @@ const apiErrorSchema = z.object({ error: z.string() });
 /** Sends a multipart form to an API route and returns the JSON body or a readable error. */
 export async function postMultipart(url: string, formData: FormData): Promise<unknown> {
   const response = await fetch(url, { method: "POST", body: formData });
-  const body: unknown = await response.json().catch(() => null);
+  const body = await readJsonBody(response);
   if (response.ok) {
     return body;
   }

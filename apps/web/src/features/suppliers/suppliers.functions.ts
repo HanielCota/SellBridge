@@ -5,11 +5,11 @@ import {
   listNichesForRegion,
   listSupplierCategories,
   listSuppliersForRegion,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import { catalogSearchSchema, supplierListSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { requireTenantRegion } from "@/lib/server/region";
 
@@ -19,8 +19,8 @@ export const listSuppliers = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const [suppliers, niches] = await Promise.all([
-      listSuppliersForRegion(db, region, { search: data.q, niche: data.niche }),
-      listNichesForRegion(db, region),
+      listSuppliersForRegion(database, region, { search: data.query, niche: data.niche }),
+      listNichesForRegion(database, region),
     ]);
     return { region, suppliers, niches };
   });
@@ -32,13 +32,13 @@ export const getSupplierCatalog = createServerFn({ method: "GET" })
   .inputValidator(supplierCatalogInputSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
-    const supplier = await getSupplierForRegion(db, region, data.supplierId);
+    const supplier = await getSupplierForRegion(database, region, data.supplierId);
     const [products, categories] = await Promise.all([
       listCatalogProducts(
-        db,
+        database,
         supplier.id,
         {
-          search: data.q,
+          search: data.query,
           categorySlug: data.category,
           minCostCents: data.minCost,
           maxCostCents: data.maxCost,
@@ -47,7 +47,7 @@ export const getSupplierCatalog = createServerFn({ method: "GET" })
         },
         { page: data.page, pageSize: data.pageSize },
       ),
-      listSupplierCategories(db, supplier.id),
+      listSupplierCategories(database, supplier.id),
     ]);
     return { supplier, products, categories };
   });
@@ -57,5 +57,5 @@ export const getCatalogProduct = createServerFn({ method: "GET" })
   .inputValidator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
-    return getCatalogProductForRegion(db, region, data.productId);
+    return getCatalogProductForRegion(database, region, data.productId);
   });

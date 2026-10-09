@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { MarketplaceAuthError, MarketplaceError } from "../errors.ts";
 import {
   createMockConnector,
   encodeMockAuthorizationCode,
@@ -11,7 +10,7 @@ import {
 const connector = createMockConnector({
   appUrl: "http://localhost:3000",
   webhookSecret: "segredo-de-teste",
-  latencyMs: 0,
+  latencyMilliseconds: 0,
   now: () => new Date("2026-01-01T00:00:00Z"),
 });
 
@@ -55,18 +54,18 @@ describe("mock connector OAuth", () => {
   });
 
   it("rejects invalid codes", async () => {
-    await expect(connector.exchangeCode({ code: "abc", redirectUri: "x" })).rejects.toBeInstanceOf(
-      MarketplaceError,
-    );
+    await expect(connector.exchangeCode({ code: "abc", redirectUri: "x" })).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER",
+    });
   });
 
   it("refreshes tokens and reports revoked refresh tokens", async () => {
     const { tokens } = await connect();
     const refreshed = await connector.refreshTokens(tokens.refreshToken ?? "");
     expect(refreshed.accessToken).not.toBe(tokens.accessToken);
-    await expect(connector.refreshTokens(MOCK_REVOKED_REFRESH_TOKEN)).rejects.toBeInstanceOf(
-      MarketplaceAuthError,
-    );
+    await expect(connector.refreshTokens(MOCK_REVOKED_REFRESH_TOKEN)).rejects.toMatchObject({
+      code: "EXTERNAL_PROVIDER_AUTH",
+    });
   });
 });
 
@@ -82,25 +81,28 @@ describe("mock connector publishing", () => {
   it("rejects forbidden titles permanently", async () => {
     await expect(
       connector.publishProduct(credentials, { ...baseProduct, title: "Produto [falha]" }),
-    ).rejects.toMatchObject({ retryable: false, message: expect.stringContaining("título") });
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringContaining("título"),
+    });
   });
 
   it("signals temporary failures as retryable", async () => {
     await expect(
       connector.publishProduct(credentials, { ...baseProduct, title: "Produto [instavel]" }),
-    ).rejects.toMatchObject({ retryable: true });
+    ).rejects.toMatchObject({ details: { retryable: true } });
   });
 
   it("rejects prices below the minimum", async () => {
     await expect(
       connector.publishProduct(credentials, { ...baseProduct, priceCents: 499 }),
-    ).rejects.toMatchObject({ retryable: false });
+    ).rejects.toMatchObject({ details: { retryable: false } });
   });
 
   it("requires a valid access token", async () => {
     await expect(
       connector.publishProduct({ ...credentials, accessToken: "expired" }, baseProduct),
-    ).rejects.toBeInstanceOf(MarketplaceAuthError);
+    ).rejects.toMatchObject({ code: "EXTERNAL_PROVIDER_AUTH" });
   });
 });
 

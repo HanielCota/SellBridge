@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { submitHandler } from "@/components/form/form-bindings";
+import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
+import { TextareaField } from "@/components/form/textarea-field";
 import { AttachmentInput } from "@/components/support/attachment-input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
+
+const MIN_BODY_LENGTH = 10;
+const NO_ERRORS: readonly unknown[] = [];
 
 interface ReplyFormProps {
   endpoint: string;
@@ -13,24 +15,28 @@ interface ReplyFormProps {
   onSent: () => Promise<void> | void;
 }
 
-export function ReplyForm({ endpoint, label, onSent }: ReplyFormProps) {
+function buildReplyFormData(body: string, files: readonly File[]): FormData {
+  const formData = new FormData();
+  formData.set("body", body);
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  return formData;
+}
+
+function useReplySubmission({ endpoint, onSent }: Pick<ReplyFormProps, "endpoint" | "onSent">) {
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
   async function submit() {
     setSubmitError(null);
-    if (body.trim().length < 10) {
+    if (body.trim().length < MIN_BODY_LENGTH) {
       setSubmitError("Escreva ao menos 10 caracteres");
       return;
     }
-    const formData = new FormData();
-    formData.set("body", body);
-    for (const file of files) {
-      formData.append("files", file);
-    }
+    const formData = buildReplyFormData(body, files);
     setIsSending(true);
     try {
       await postMultipart(endpoint, formData);
@@ -44,34 +50,40 @@ export function ReplyForm({ endpoint, label, onSent }: ReplyFormProps) {
     }
   }
 
+  return { body, setBody, files, setFiles, submitError, isSending, submit };
+}
+
+export function ReplyForm({ endpoint, label, onSent }: ReplyFormProps) {
+  const reply = useReplySubmission({ endpoint, onSent });
+  const [fileError, setFileError] = useState<string | null>(null);
+
   return (
     <form
       noValidate
       className="grid gap-3 rounded-xl border p-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
+      onSubmit={submitHandler(reply.submit)}
     >
-      <div className="grid gap-2">
-        <Label htmlFor="reply-body">{label}</Label>
-        <Textarea
-          id="reply-body"
-          rows={4}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-        />
-      </div>
-      <AttachmentInput files={files} onChange={setFiles} error={fileError} onError={setFileError} />
-      {submitError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      ) : null}
+      <TextareaField
+        id="reply-body"
+        label={label}
+        rows={4}
+        value={reply.body}
+        errors={NO_ERRORS}
+        onValueChange={reply.setBody}
+      />
+      <AttachmentInput
+        files={reply.files}
+        onChange={reply.setFiles}
+        error={fileError}
+        onError={setFileError}
+      />
+      <FormErrorAlert message={reply.submitError} />
       <div className="flex justify-end">
-        <Button type="submit" disabled={isSending}>
-          {isSending ? "Enviando..." : "Enviar resposta"}
-        </Button>
+        <PendingSubmitButton
+          isPending={reply.isSending}
+          idleLabel="Enviar resposta"
+          pendingLabel="Enviando..."
+        />
       </div>
     </form>
   );

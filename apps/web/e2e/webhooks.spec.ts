@@ -1,8 +1,9 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { requireEnvironmentVariable } from "./environment";
 
-const MOCK_SECRET = process.env.MOCK_WEBHOOK_SECRET ?? "mock-webhook-secret-dev-only";
+const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
 
 function sign(body: string): string {
   return createHmac("sha256", MOCK_SECRET).update(body).digest("hex");
@@ -54,7 +55,7 @@ test("venda simulada chega por webhook e aparece no financeiro", async ({ page }
   ).toBeVisible();
 
   await expect(async () => {
-    await page.goto("/financeiro?period=7d&q=SIM-", { waitUntil: "networkidle" });
+    await page.goto("/financeiro?period=7d&query=SIM-", { waitUntil: "networkidle" });
     await expect(page.getByText(/^SIM-[0-9A-F]{8}$/).first()).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30_000 });
 });

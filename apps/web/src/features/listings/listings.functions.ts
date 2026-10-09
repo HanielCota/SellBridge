@@ -7,19 +7,19 @@ import {
   listListingTargets,
   listStoreConnections,
   resetTargetForRetry,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import {
   encodeMockOrderResource,
   MOCK_SIGNATURE_HEADER,
   signMockWebhook,
 } from "@sellbridge/marketplaces";
-import { ValidationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { db } from "@/lib/server/db";
-import { env } from "@/lib/server/env";
+import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { enqueuePublishJobs } from "@/lib/server/queues";
 import { requireTenantRegion } from "@/lib/server/region";
@@ -30,8 +30,8 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const [product, stores] = await Promise.all([
-      getCatalogProductForRegion(db, region, data.productId),
-      listStoreConnections(db, context.tenantId),
+      getCatalogProductForRegion(database, region, data.productId),
+      listStoreConnections(database, context.tenantId),
     ]);
     return { product, stores: stores.filter((store) => store.status === "connected") };
   });
@@ -41,17 +41,17 @@ export const createListing = createServerFn({ method: "POST" })
   .inputValidator(createListingSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
-    const product = await getCatalogProductForRegion(db, region, data.supplierProductId);
+    const product = await getCatalogProductForRegion(database, region, data.supplierProductId);
     if (data.priceCents <= product.costCents) {
-      throw new ValidationError("O preço de venda precisa ser maior que o custo do fornecedor");
+      throw validationError("O preço de venda precisa ser maior que o custo do fornecedor");
     }
     const uniqueStoreIds = [...new Set(data.storeConnectionIds)];
-    const stores = await findConnectedStores(db, context.tenantId, uniqueStoreIds);
+    const stores = await findConnectedStores(database, context.tenantId, uniqueStoreIds);
     if (stores.length !== uniqueStoreIds.length) {
-      throw new ValidationError("Uma ou mais lojas escolhidas não estão conectadas");
+      throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
     }
     const created = await createListingWithTargets(
-      db,
+      database,
       context.tenantId,
       {
         supplierProductId: product.id,
@@ -77,9 +77,9 @@ export const listListings = createServerFn({ method: "GET" })
   .inputValidator(listingsSearchSchema)
   .handler(async ({ context, data }) => {
     return listListingTargets(
-      db,
+      database,
       context.tenantId,
-      { status: data.status, search: data.q },
+      { status: data.status, search: data.query },
       { page: data.page, pageSize: data.pageSize },
     );
   });
@@ -88,7 +88,7 @@ export const retryListingTarget = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .inputValidator(z.object({ listingTargetId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    await resetTargetForRetry(db, context.tenantId, data.listingTargetId);
+    await resetTargetForRetry(database, context.tenantId, data.listingTargetId);
     await enqueuePublishJobs([
       { tenantId: context.tenantId, listingTargetId: data.listingTargetId },
     ]);
@@ -107,12 +107,12 @@ export const simulateMockSale = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .inputValidator(z.object({ listingTargetId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    const row = await getTargetForPublishing(db, context.tenantId, data.listingTargetId);
+    const row = await getTargetForPublishing(database, context.tenantId, data.listingTargetId);
     if (row.store.marketplace !== "mock") {
-      throw new ValidationError("Só é possível simular vendas em lojas simuladas");
+      throw validationError("Só é possível simular vendas em lojas simuladas");
     }
     if (row.target.status !== "published" || !row.target.externalId) {
-      throw new ValidationError("O anúncio precisa estar publicado para simular uma venda");
+      throw validationError("O anúncio precisa estar publicado para simular uma venda");
     }
     const priceCents = row.listing.priceCents;
     const resource = encodeMockOrderResource({
@@ -137,16 +137,20 @@ export const simulateMockSale = createServerFn({ method: "POST" })
       shopId: row.store.externalShopId,
       resource,
     });
-    const response = await fetch(new URL("/api/webhooks/mock", env.APP_URL), {
+    const mockWebhookSecret = environment.MOCK_WEBHOOK_SECRET;
+    if (mockWebhookSecret === undefined) {
+      throw validationError("O marketplace simulado não está configurado (MOCK_WEBHOOK_SECRET)");
+    }
+    const response = await fetch(new URL("/api/webhooks/mock", environment.APP_URL), {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, env.MOCK_WEBHOOK_SECRET),
+        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, mockWebhookSecret),
       },
       body: rawBody,
     });
     if (!response.ok) {
-      throw new ValidationError("O marketplace simulado não conseguiu enviar a venda");
+      throw validationError("O marketplace simulado não conseguiu enviar a venda");
     }
     logger.info("listing.mock_sale_simulated", {
       tenantId: context.tenantId,

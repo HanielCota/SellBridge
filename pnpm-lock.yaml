@@ -199,9 +199,9 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
-      '@sellbridge/db':
+      '@sellbridge/database':
         specifier: workspace:*
-        version: link:../../packages/db
+        version: link:../../packages/database
       '@sellbridge/marketplaces':
         specifier: workspace:*
         version: link:../../packages/marketplaces
@@ -305,9 +305,9 @@ importers:
 
   apps/worker:
     dependencies:
-      '@sellbridge/db':
+      '@sellbridge/database':
         specifier: workspace:*
-        version: link:../../packages/db
+        version: link:../../packages/database
       '@sellbridge/marketplaces':
         specifier: workspace:*
         version: link:../../packages/marketplaces
@@ -342,7 +342,7 @@ importers:
 
   packages/config: {}
 
-  packages/db:
+  packages/database:
     dependencies:
       '@sellbridge/shared':
         specifier: workspace:*
