@@ -21,6 +21,15 @@ pnpm dev                      # web em http://localhost:3000
 
 O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
 
+### Contas de demonstração (criadas pelo seed)
+
+| Conta                    | Senha        | O que tem                                                                              |
+| ------------------------ | ------------ | -------------------------------------------------------------------------------------- |
+| `demo@sellbridge.local`  | `demo12345`  | Região Belo Horizonte/MG, 2 lojas simuladas, 14 anúncios e cerca de 6 meses de pedidos |
+| `admin@sellbridge.local` | `admin12345` | Papel de administrador                                                                 |
+
+`pnpm db:seed -- --reset` limpa os dados de domínio e recria tudo.
+
 ## Qualidade
 
 | Comando                             | O que faz                                                  |
@@ -47,4 +56,5 @@ packages/config        tsconfig base
 
 ## Entregas
 
+- **Fase 1:** schema completo do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
 - **Fase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, layout base (sidebar colapsável, modo claro/escuro) e autenticação (cadastro, login, logout, organização por usuário, papel admin).

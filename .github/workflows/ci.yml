@@ -13,6 +13,19 @@ jobs:
   checks:
     name: Format, lint, typecheck e testes
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: sellbridge
+          POSTGRES_PASSWORD: sellbridge
+          POSTGRES_DB: sellbridge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sellbridge" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://sellbridge:sellbridge@localhost:5432/sellbridge
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -25,6 +38,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm check:no-else
       - run: pnpm typecheck
+      - run: pnpm db:migrate
       - run: pnpm test
 
   e2e:

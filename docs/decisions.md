@@ -75,3 +75,14 @@ Em dev, o primeiro carregamento demora a hidratar. Os testes navegam com `gotoHy
 ## 2026-10-08 — Fluxo de git (atualização)
 
 Commits locais na `main`. Push para o GitHub só após confirmação do usuário.
+
+## 2026-10-08 — Fase 1: região e fornecedores
+
+- **Fluxo do CEP:** cache em `cep_cache` (TTL de 30 dias), depois BrasilAPI e, em seguida, ViaCEP. A BrasilAPI responde 404 tanto para CEP inexistente quanto quando os provedores dela falham; por isso um 404 é confirmado no ViaCEP antes de virar "CEP não encontrado". As respostas dos provedores passam por Zod.
+- **Visibilidade de fornecedores:** um fornecedor aparece se `supplier_coverage` cobre a UF inteira (`city` nulo) ou a cidade do tenant (comparação sem diferenciar maiúsculas). Acessar catálogo ou produto fora da região resulta em `NotFoundError`.
+- **Filtro de preço do catálogo** usa o custo do fornecedor (valor de atacado), em centavos na URL.
+- **Loaders sem bloqueio:** os loaders aguardam os dados só no SSR (`prefetchOnServer`). Nas navegações do cliente, a URL muda na hora e o componente mostra seu próprio carregamento (`keepPreviousData`), em vez de travar a mudança de filtro.
+- **Sessão sem organização ativa:** a sessão do cadastro pode nascer antes da organização. O `tenantMiddleware` cai para a primeira organização do usuário e a grava como ativa.
+- **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm db:seed` é idempotente; `pnpm db:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
+- **Lojas da conta demo** usam o marketplace `mock`, porque não há tokens reais.
+- **Testes de integração do banco** rodam contra o Postgres real (`fileParallelism: false`). O CI sobe o Postgres no job de checagens.
