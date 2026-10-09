@@ -14,6 +14,7 @@ import {
   exists,
   gte,
   ilike,
+  inArray,
   isNull,
   lte,
   or,
@@ -21,7 +22,13 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { categories, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  categories,
+  listings,
+  supplierCoverage,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
 
 /** A supplier is visible when it covers the whole state or the tenant's city. */
@@ -288,4 +295,131 @@ export async function getSupplierIdsForRegion(
     .from(suppliers)
     .where(and(eq(suppliers.active, true), coversRegion(region)));
   return rows.map((row) => row.id);
+}
+
+export interface RegionCatalogFilters {
+  search?: string | undefined;
+  categorySlug?: string | undefined;
+  supplierId?: string | undefined;
+  inStockOnly?: boolean | undefined;
+  sort: ProductSort;
+}
+
+export interface RegionCatalogProduct extends CatalogProduct {
+  supplierId: string;
+  supplierName: string;
+  /** The tenant already has a listing for this product. */
+  published: boolean;
+}
+
+function regionCatalogConditions(
+  region: Pick<TenantRegion, "state" | "city">,
+  filters: RegionCatalogFilters,
+): SQL[] {
+  const conditions: SQL[] = [
+    eq(supplierProducts.active, true),
+    eq(suppliers.active, true),
+    coversRegion(region),
+  ];
+  if (filters.search) {
+    const term = `%${escapeLike(filters.search)}%`;
+    const searchCondition = or(
+      ilike(supplierProducts.title, term),
+      ilike(supplierProducts.sku, term),
+      ilike(suppliers.name, term),
+    );
+    if (searchCondition) {
+      conditions.push(searchCondition);
+    }
+  }
+  if (filters.categorySlug) {
+    conditions.push(eq(categories.slug, filters.categorySlug));
+  }
+  if (filters.supplierId) {
+    conditions.push(eq(suppliers.id, filters.supplierId));
+  }
+  if (filters.inStockOnly) {
+    conditions.push(gte(supplierProducts.stock, 1));
+  }
+  return conditions;
+}
+
+function selectRegionCatalog(database: Database, tenantId: string) {
+  return database
+    .select({
+      id: supplierProducts.id,
+      sku: supplierProducts.sku,
+      title: supplierProducts.title,
+      description: supplierProducts.description,
+      costCents: supplierProducts.costCents,
+      suggestedPriceCents: supplierProducts.suggestedPriceCents,
+      stock: supplierProducts.stock,
+      imageUrls: supplierProducts.imageUrls,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+      supplierId: suppliers.id,
+      supplierName: suppliers.name,
+      published: sql<boolean>`exists (select 1 from ${listings} where ${listings.tenantId} = ${tenantId} and ${listings.supplierProductId} = ${supplierProducts.id})`,
+    })
+    .from(supplierProducts)
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId));
+}
+
+/** Every product from suppliers that deliver to the tenant's region, in one list. */
+export async function listRegionCatalog(
+  database: Database,
+  input: { region: Pick<TenantRegion, "state" | "city">; tenantId: string },
+  filters: RegionCatalogFilters,
+  pagination: Pagination,
+): Promise<Paginated<RegionCatalogProduct>> {
+  const where = and(...regionCatalogConditions(input.region, filters));
+  const [totalRow] = await database
+    .select({ total: count() })
+    .from(supplierProducts)
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+    .where(where);
+  const rows = await selectRegionCatalog(database, input.tenantId)
+    .where(where)
+    .orderBy(...PRODUCT_ORDER[filters.sort])
+    .limit(pagination.pageSize)
+    .offset((pagination.page - 1) * pagination.pageSize);
+  const items = rows.map(({ imageUrls, ...row }) => ({
+    ...row,
+    imageUrl: imageUrls.at(0) ?? null,
+  }));
+  return toPaginated(items, totalRow?.total ?? 0, pagination);
+}
+
+/** Categories with at least one product available in the region. */
+export async function listRegionCategories(
+  database: Database,
+  region: Pick<TenantRegion, "state" | "city">,
+): Promise<{ name: string; slug: string }[]> {
+  return database
+    .selectDistinct({ name: categories.name, slug: categories.slug })
+    .from(categories)
+    .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(and(eq(supplierProducts.active, true), eq(suppliers.active, true), coversRegion(region)))
+    .orderBy(asc(categories.name));
+}
+
+/** The requested products that the region can buy; unknown or out-of-region ids are left out. */
+export async function getRegionProducts(
+  database: Database,
+  input: { region: Pick<TenantRegion, "state" | "city">; tenantId: string },
+  productIds: readonly string[],
+): Promise<RegionCatalogProduct[]> {
+  if (productIds.length === 0) {
+    return [];
+  }
+  const rows = await selectRegionCatalog(database, input.tenantId).where(
+    and(
+      ...regionCatalogConditions(input.region, { sort: "title" }),
+      inArray(supplierProducts.id, [...productIds]),
+    ),
+  );
+  return rows.map(({ imageUrls, ...row }) => ({ ...row, imageUrl: imageUrls.at(0) ?? null }));
 }

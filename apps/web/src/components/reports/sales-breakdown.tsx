@@ -105,7 +105,7 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
               <th scope="col" className="pb-2 font-normal">
                 Produto
               </th>
-              <th scope="col" className="w-14 pb-2 text-right font-normal">
+              <th scope="col" className="w-14 pb-2 text-right font-normal max-sm:hidden">
                 Unid.
               </th>
               <th scope="col" className="w-28 pb-2 text-right font-normal">
@@ -120,7 +120,7 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
                 <td className="py-2.5 pr-3" title={product.title}>
                   <span className="line-clamp-2 sm:line-clamp-1">{product.title}</span>
                 </td>
-                <td className="py-2.5 pl-2 text-right text-muted-foreground tabular-nums">
+                <td className="py-2.5 pl-2 text-right text-muted-foreground tabular-nums max-sm:hidden">
                   {product.units}
                 </td>
                 <td className="py-2.5 pl-4 text-right font-medium whitespace-nowrap tabular-nums">

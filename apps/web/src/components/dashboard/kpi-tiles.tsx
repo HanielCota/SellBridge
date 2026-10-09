@@ -98,14 +98,26 @@ export function KpiTiles({ caption, summary, previous, points }: KpiTilesProps) 
         label="Receita"
         to="/financeiro"
         figure={<MoneyFigure cents={summary.revenueCents} />}
-        visual={<ProgressRing value={revenueChange.value} label={revenueChange.text} />}
+        visual={
+          <ProgressRing
+            value={revenueChange.value}
+            label={revenueChange.text}
+            caption="vs. anterior"
+          />
+        }
       />
       <KpiTile
         caption={caption}
         label="Pedidos"
         to="/financeiro"
         figure={<CountFigure value={summary.orders} />}
-        visual={<ProgressRing value={completion} label={`${Math.round(completion * 100)}%`} />}
+        visual={
+          <ProgressRing
+            value={completion}
+            label={`${Math.round(completion * 100)}%`}
+            caption="concluídos"
+          />
+        }
       />
       <KpiTile
         caption={caption}

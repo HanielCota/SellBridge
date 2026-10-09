@@ -77,9 +77,9 @@ export function StoreCard({
       <header className="flex items-start gap-3">
         <MarketplaceMark marketplace={store.marketplace} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-medium" title={store.shopName}>
+          <h2 className="truncate font-medium" title={store.shopName}>
             {displayStoreName(store.shopName)}
-          </h3>
+          </h2>
           <p className="text-sm text-muted-foreground">{marketplaceLabel}</p>
         </div>
         <StoreStatusBadge status={store.status} />

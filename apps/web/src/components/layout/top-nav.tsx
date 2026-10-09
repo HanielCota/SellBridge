@@ -19,6 +19,8 @@ import {
   type NavItem,
 } from "./nav-items";
 import { AvatarButton } from "@/components/profile/avatar-button";
+import { CommandPalette } from "./command-palette";
+import { NotificationBell } from "./notification-bell";
 import { roleLabel, UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
@@ -46,7 +48,7 @@ function NavTab({
   count: number;
   onNavigate?: () => void;
 }) {
-  const isActive = isActivePath(pathname, item.to);
+  const isActive = [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   return (
     <Link
@@ -69,7 +71,7 @@ function NavTab({
               "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
               item.badge === "failedListings"
                 ? "bg-destructive/15 text-destructive"
-                : "bg-brand/20 text-brand",
+                : "bg-brand/20 text-brand-text",
             )}
           >
             {count}
@@ -117,6 +119,9 @@ function MobileNav({
   );
 }
 
+/** Pages reached from the account menu; the account chip shows as "you are here" on them. */
+const ACCOUNT_PATHS = ["/perfil", "/onboarding", "/suporte"];
+
 function AccountChip({
   user,
   supportReplies,
@@ -126,13 +131,21 @@ function AccountChip({
   supportReplies: number;
   adminMode: boolean;
 }) {
+  const isOnAccountPage = useRouterState({
+    select: (state) => ACCOUNT_PATHS.some((path) => isActivePath(state.location.pathname, path)),
+  });
   return (
-    <div className="flex items-center gap-3 rounded-full bg-card p-1.5">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-full bg-card p-1.5",
+        isOnAccountPage && "ring-1 ring-brand/60",
+      )}
+    >
       <AvatarButton name={user.name} image={user.image} />
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-brand">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-brand-text">
             <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
             Modo admin ativo
           </span>
@@ -177,7 +190,9 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
             />
           ))}
         </nav>
-        <div className="justify-self-end">
+        <div className="flex items-center gap-2 justify-self-end">
+          <CommandPalette />
+          <NotificationBell />
           <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
         </div>
       </div>

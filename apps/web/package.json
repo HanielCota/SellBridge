@@ -26,6 +26,7 @@
     "better-auth": "^1.7.7",
     "bullmq": "^6.3.11",
     "class-variance-authority": "^0.7.1",
+    "cmdk": "1.1.1",
     "cn": "^0.4.0",
     "drizzle-orm": "^0.45.4",
     "radix-ui": "^1.7.0",
@@ -38,6 +39,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.64.0",
     "@sellbridge/config": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",

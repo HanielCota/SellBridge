@@ -1,6 +1,6 @@
 import type { FinancialSearch, PeriodSearch } from "@sellbridge/shared/schemas";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import { getDashboard, getFinancials } from "./reports.functions";
+import { getDashboard, getFinancials, getSetupProgress } from "./reports.functions";
 
 export const dashboardQueryOptions = (search: PeriodSearch) =>
   queryOptions({
@@ -27,3 +27,10 @@ export function financialExportUrl(search: FinancialSearch): string {
   }
   return `/api/financeiro/exportar?${params.toString()}`;
 }
+
+/** Shared by the dashboard guide and the setup strip; refreshed after publishing. */
+export const setupProgressQueryOptions = () =>
+  queryOptions({
+    queryKey: ["setup-progress"],
+    queryFn: () => getSetupProgress(),
+  });

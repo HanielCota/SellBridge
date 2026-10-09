@@ -111,7 +111,7 @@ function NewTicketForm() {
 
 function NewTicketPage() {
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="w-full max-w-2xl space-y-6">
       <BackToSupportLink />
       <PageHeader
         title="Novo chamado"

@@ -25,3 +25,25 @@ export function formatRelativeTime(date: Date, now: Date = new Date()): string {
 export function formatAbsoluteTime(date: Date): string {
   return absolute.format(date);
 }
+
+const RECENT_DAYS = 7;
+const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" });
+const dayMonthYear = new Intl.DateTimeFormat("pt-BR", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/**
+ * The one date style of the app: relative within the last week ("há 2 horas", "ontem"),
+ * then "9 de out." (with the year when it is not the current one).
+ */
+export function formatSmartDate(date: Date, now: Date = new Date()): string {
+  const ageDays = (now.getTime() - date.getTime()) / 86_400_000;
+  if (ageDays >= 0 && ageDays < RECENT_DAYS) {
+    return formatRelativeTime(date, now);
+  }
+  return date.getFullYear() === now.getFullYear()
+    ? dayMonth.format(date)
+    : dayMonthYear.format(date);
+}

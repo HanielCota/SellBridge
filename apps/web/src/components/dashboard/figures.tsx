@@ -25,27 +25,43 @@ export function CountFigure({ value, className }: { value: number; className?: s
 }
 
 /** Circular progress (0–1) with a short label in the middle. */
-export function ProgressRing({ value, label }: { value: number; label: string }) {
+export function ProgressRing({
+  value,
+  label,
+  caption,
+}: {
+  value: number;
+  label: string;
+  /** What the ring measures, shown under it (e.g. "vs. anterior"). */
+  caption?: string;
+}) {
   const radius = 22;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(Math.max(value, 0), 1);
   return (
-    <span className="relative flex size-14 shrink-0 items-center justify-center">
-      <svg viewBox="0 0 56 56" className="absolute inset-0 size-full -rotate-90" aria-hidden="true">
-        <circle cx="28" cy="28" r={radius} fill="none" stroke="var(--muted)" strokeWidth="4" />
-        <circle
-          cx="28"
-          cy="28"
-          r={radius}
-          fill="none"
-          stroke="var(--brand)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - clamped)}
-        />
-      </svg>
-      <span className="text-[11px] font-semibold tabular-nums">{label}</span>
+    <span className="flex shrink-0 flex-col items-center gap-1">
+      <span className="relative flex size-14 items-center justify-center">
+        <svg
+          viewBox="0 0 56 56"
+          className="absolute inset-0 size-full -rotate-90"
+          aria-hidden="true"
+        >
+          <circle cx="28" cy="28" r={radius} fill="none" stroke="var(--muted)" strokeWidth="4" />
+          <circle
+            cx="28"
+            cy="28"
+            r={radius}
+            fill="none"
+            stroke="var(--brand)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - clamped)}
+          />
+        </svg>
+        <span className="text-[11px] font-semibold tabular-nums">{label}</span>
+      </span>
+      {caption ? <span className="text-[10px] text-muted-foreground">{caption}</span> : null}
     </span>
   );
 }

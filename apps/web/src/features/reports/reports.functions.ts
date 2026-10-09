@@ -28,6 +28,11 @@ async function loadOnboardingState(tenantId: string) {
   };
 }
 
+/** Where a new account stands in the setup: region, a store, a first publication. */
+export const getSetupProgress = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .handler(async ({ context }) => loadOnboardingState(context.tenantId));
+
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(periodSearchSchema)

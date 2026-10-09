@@ -29,6 +29,13 @@
       "when": 1791566543694,
       "tag": "0003_listing_paused",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791572112507,
+      "tag": "0004_notification_reads",
+      "breakpoints": true
     }
   ]
 }

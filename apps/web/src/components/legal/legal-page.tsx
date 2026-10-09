@@ -23,7 +23,7 @@ export function LegalPage({ title, updatedAt, intro, sections, footer }: LegalPa
         <Link to="/" aria-label="SellBridge — início">
           <BrandLogo className="text-xl" iconClassName="size-8" />
         </Link>
-        <Link to="/cadastro" className="text-[15px] font-medium text-brand-strong dark:text-brand">
+        <Link to="/cadastro" className="text-[15px] font-medium text-brand-text">
           Criar conta
         </Link>
       </header>
@@ -35,7 +35,7 @@ export function LegalPage({ title, updatedAt, intro, sections, footer }: LegalPa
           <section key={section.title} className="mt-10 space-y-3">
             <h2 className="text-xl font-medium tracking-[-0.01em]">{section.title}</h2>
             {section.paragraphs.map((paragraph) => (
-              <p key={paragraph} className="text-[15px] leading-relaxed text-muted-foreground">
+              <p key={paragraph} className="text-[15px] leading-relaxed text-foreground/80">
                 {paragraph}
               </p>
             ))}

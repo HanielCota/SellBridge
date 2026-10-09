@@ -55,11 +55,18 @@ test("venda simulada chega por webhook e aparece no financeiro", async ({ page }
     .click();
   await page.getByRole("menuitem", { name: "Simular venda" }).click();
   await expect(
-    page.getByText("Venda simulada enviada. Ela aparece no financeiro em instantes."),
+    page
+      .getByText("Venda simulada enviada. Ela aparece no financeiro em instantes.")
+      .filter({ visible: true }),
   ).toBeVisible();
 
   await expect(async () => {
     await page.goto("/financeiro?period=7d&query=SIM-", { waitUntil: "networkidle" });
-    await expect(page.getByText(/^SIM-[0-9A-F]{8}$/).first()).toBeVisible({ timeout: 2000 });
+    await expect(
+      page
+        .getByText(/^SIM-[0-9A-F]{8}$/)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30_000 });
 });

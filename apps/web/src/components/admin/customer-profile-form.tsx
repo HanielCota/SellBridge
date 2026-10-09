@@ -46,7 +46,7 @@ export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
 
   return (
     <AdminSection title="Perfil" description="Nome exibido no app e e-mail usado para entrar.">
-      <form noValidate onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+      <form noValidate onSubmit={handleSubmit} className="grid gap-4">
         <TextField
           id="customer-name"
           label="Nome"

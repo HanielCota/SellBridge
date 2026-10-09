@@ -6,7 +6,7 @@ test.describe("dashboard", () => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
     await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
-    await expect(page.getByText("Lucro no período")).toBeVisible();
+    await expect(page.getByText("Lucro no período").filter({ visible: true })).toBeVisible();
     for (const label of ["Receita", "Pedidos", "Ticket médio"]) {
       await expect(page.getByRole("article").filter({ hasText: label }).first()).toBeVisible();
     }
@@ -17,8 +17,8 @@ test.describe("dashboard", () => {
     await page.locator("label", { hasText: /^Lucro$/ }).click();
     await expect(page.getByRole("radio", { name: "Lucro" })).toBeChecked();
     await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
-    await expect(page.getByText("Vendas por loja")).toBeVisible();
-    await expect(page.getByText("Produtos mais vendidos")).toBeVisible();
+    await expect(page.getByText("Vendas por loja").filter({ visible: true })).toBeVisible();
+    await expect(page.getByText("Produtos mais vendidos").filter({ visible: true })).toBeVisible();
 
     await page.locator("label", { hasText: "6 meses" }).click();
     await expect(page.getByRole("radio", { name: "6 meses" })).toBeChecked();
@@ -34,7 +34,9 @@ test.describe("dashboard", () => {
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");
-    await expect(page.getByText("Primeiros passos")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Informar CEP" })).toBeVisible();
   });
 });
@@ -43,8 +45,10 @@ test.describe("financeiro", () => {
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/financeiro?period=180d");
-    await expect(page.getByText("Lucro líquido")).toBeVisible();
-    await expect(page.getByText(/pedidos · página 1 de/)).toBeVisible();
+    await expect(page.getByText("Lucro líquido").filter({ visible: true })).toBeVisible();
+    await expect(
+      page.getByText(/pedidos \(todos os status\) · página 1 de/).filter({ visible: true }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Ordenar por lucro" }).click();
     await expect(page).toHaveURL(/sort=profit/);
@@ -52,7 +56,7 @@ test.describe("financeiro", () => {
 
     await page.getByRole("button", { name: "Próxima" }).click();
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.getByText(/página 2 de/)).toBeVisible();
+    await expect(page.getByText(/página 2 de/).filter({ visible: true })).toBeVisible();
 
     await page.getByLabel("Filtrar por status do pedido").click();
     await page.getByRole("option", { name: "Devolvido" }).click();
@@ -81,11 +85,49 @@ test.describe("financeiro", () => {
   test("mostra estado vazio para conta sem pedidos", async ({ page }) => {
     await signUp(page, "Revendedor Sem Pedidos");
     await gotoHydrated(page, "/financeiro");
-    await expect(page.getByText("Ainda não há movimentações")).toBeVisible();
+    await expect(
+      page.getByText("Ainda não há movimentações").filter({ visible: true }),
+    ).toBeVisible();
   });
 
   test("bloqueia a exportação sem sessão", async ({ request }) => {
     const response = await request.get("/api/financeiro/exportar");
     expect(response.status()).toBe(401);
+  });
+});
+
+test.describe("avisos", () => {
+  test("o sino lista vendas recentes e zera os não lidos ao abrir", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
+  });
+
+  test("conta nova não tem avisos", async ({ page }) => {
+    await signUp(page, "Revendedor Sem Avisos");
+    await gotoHydrated(page, "/onboarding");
+    await page.getByRole("button", { name: "Avisos" }).click();
+    await expect(page.getByText(/Nada novo por aqui/)).toBeVisible();
+  });
+});
+
+test.describe("busca global", () => {
+  test("Ctrl+K encontra um pedido e leva até ele no financeiro", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.keyboard.press("Control+k");
+    const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
+    await expect(input).toBeVisible();
+    await input.fill("financeiro");
+    await expect(page.getByRole("option", { name: /Financeiro/ })).toBeVisible();
+    await input.fill("MOCK-ORD-0000");
+    const order = page.getByRole("option", { name: /^MOCK-ORD-0000/ }).first();
+    await expect(order).toBeVisible();
+    await order.click();
+    await expect(page).toHaveURL(/\/financeiro\?query=MOCK-ORD-0000/);
   });
 });

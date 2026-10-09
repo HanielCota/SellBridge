@@ -27,7 +27,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { OrderStatusBadge } from "@/components/data/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SmartDate } from "@/components/data/smart-date";
+import { displayStoreName } from "@/components/listings/store-statuses";
+import { MoneyFigure } from "@/components/dashboard/figures";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -37,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { financialExportUrl, financialsQueryOptions } from "@/features/reports/reports.queries";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/errors";
@@ -52,12 +55,6 @@ export const Route = createFileRoute("/_app/financeiro")({
     prefetchOnServer(context.queryClient, financialsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Financeiro | SellBridge" }] }),
   component: FinancialPage,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Sao_Paulo",
 });
 
 function useFinancialNavigation() {
@@ -134,9 +131,7 @@ const columnHelper = createServerColumnHelper<OrderFinancialRow>();
 const columns = columnHelper.columns([
   columnHelper.accessor("orderedAt", {
     header: () => <SortableHeader field="orderedAt" label="Data" />,
-    cell: (info) => (
-      <span className="whitespace-nowrap">{dateFormatter.format(info.getValue())}</span>
-    ),
+    cell: (info) => <SmartDate date={info.getValue()} className="whitespace-nowrap" />,
   }),
   columnHelper.accessor("externalOrderId", {
     header: "Pedido",
@@ -144,7 +139,9 @@ const columns = columnHelper.columns([
       <div className="min-w-44 space-y-0.5">
         <p className="font-medium">{info.getValue()}</p>
         <p className="line-clamp-1 text-xs text-muted-foreground">{info.row.original.items}</p>
-        <p className="text-xs text-muted-foreground">{info.row.original.storeName}</p>
+        <p className="text-xs text-muted-foreground">
+          {displayStoreName(info.row.original.storeName)}
+        </p>
       </div>
     ),
   }),
@@ -190,6 +187,28 @@ const columns = columnHelper.columns([
     cell: (info) => <Money cents={info.getValue()} emphasize />,
   }),
 ]);
+
+/** An order as a card on phones: when, what, and the profit it left. */
+function MobileOrderRow({ row }: { row: OrderFinancialRow }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{row.externalOrderId}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">{row.items}</p>
+        </div>
+        <Money cents={row.profitCents} emphasize />
+      </div>
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-2">
+          <SmartDate date={row.orderedAt} />
+          <span className="truncate">· {displayStoreName(row.storeName)}</span>
+        </span>
+        <OrderStatusBadge status={row.status} />
+      </div>
+    </div>
+  );
+}
 
 function FinancialPage() {
   return (
@@ -238,13 +257,18 @@ function FinancialContent() {
   const { summary, orders, stores, period } = query.data;
   return (
     <>
-      <PeriodFilters
-        search={search}
-        stores={stores}
-        resolvedFrom={period.fromDate}
-        resolvedTo={period.toDate}
-        onChange={updateSearch}
-      />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {formatDateRange(period.fromDate, period.toDate)}
+        </p>
+        <PeriodFilters
+          search={search}
+          stores={stores}
+          resolvedFrom={period.fromDate}
+          resolvedTo={period.toDate}
+          onChange={updateSearch}
+        />
+      </div>
       <SummaryCards summary={summary} />
       <OrderFilters />
       <FinancialOrders
@@ -274,12 +298,13 @@ function FinancialOrders({
       data={orders.items}
       getRowId={(row) => row.id}
       caption="Financeiro por pedido"
+      renderMobileRow={(row) => <MobileOrderRow row={row} />}
       footer={
         <PaginationBar
           page={orders.page}
           totalPages={orders.totalPages}
           total={orders.total}
-          itemLabel="pedidos"
+          itemLabel="pedidos (todos os status)"
           onPageChange={onPageChange}
         />
       }
@@ -288,39 +313,45 @@ function FinancialOrders({
 }
 
 function SummaryCards({ summary }: { summary: SalesSummary }) {
-  const items = [
-    { label: "Lucro líquido", cents: summary.profitCents, emphasize: true },
+  const stats = [
     { label: "Receita", cents: summary.revenueCents },
-    { label: "Custo dos produtos", cents: summary.costCents },
-    { label: "Taxas", cents: summary.feeCents + summary.platformFeeCents },
+    { label: "Custo dos produtos", cents: -summary.costCents },
+    { label: "Taxas", cents: -(summary.feeCents + summary.platformFeeCents) },
     { label: "Comissões recebidas", cents: summary.commissionCents },
-    { label: "Reembolsos", cents: summary.refundCents },
+    { label: "Reembolsos", cents: -summary.refundCents },
     { label: "Devoluções", cents: summary.returnCents },
   ];
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Resumo do período</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-7">
-          {items.map((item) => (
-            <div key={item.label} className="space-y-1">
-              <dt className="text-xs text-muted-foreground">{item.label}</dt>
-              <dd
-                className={cn(
-                  "font-semibold tabular-nums",
-                  item.emphasize && "text-lg",
-                  item.emphasize && item.cents < 0 && "text-destructive",
-                )}
-              >
-                {formatCents(item.cents)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+    <section
+      aria-label="Resumo do período"
+      className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+    >
+      <div className="flex flex-col justify-between gap-6 rounded-3xl bg-card p-6">
+        <p className="text-sm text-muted-foreground">
+          Lucro líquido<span className="sr-only">: {formatCents(summary.profitCents)}</span>
+        </p>
+        <MoneyFigure
+          cents={summary.profitCents}
+          className={cn("text-[52px] leading-none", summary.profitCents < 0 && "text-destructive")}
+        />
+        <p className="text-sm text-muted-foreground">
+          {summary.orders} {summary.orders === 1 ? "pedido válido" : "pedidos válidos"}
+          {summary.cancelledOrders > 0
+            ? ` · ${summary.cancelledOrders} cancelados ou devolvidos`
+            : ""}
+        </p>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-3xl bg-card p-6 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="space-y-1">
+            <dt className="text-xs text-muted-foreground">{stat.label}</dt>
+            <dd className="text-xl font-semibold tracking-[-0.02em] tabular-nums">
+              {formatCents(stat.cents)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 

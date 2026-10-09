@@ -32,6 +32,11 @@ interface DataTableProps<TData extends RowData> {
   getRowId: (row: TData) => string;
   caption: string;
   footer?: ReactNode;
+  /**
+   * How one row reads on a phone. When given, phones get a list of these cards and the
+   * table is kept for wider screens, so no column is ever cut off.
+   */
+  renderMobileRow?: (row: TData) => ReactNode;
 }
 
 export function DataTable<TData extends RowData>({
@@ -40,11 +45,21 @@ export function DataTable<TData extends RowData>({
   getRowId,
   caption,
   footer,
+  renderMobileRow,
 }: DataTableProps<TData>) {
   const table = useTable({ features: serverTableFeatures, columns, data, getRowId });
   return (
     <div className="overflow-hidden rounded-3xl border bg-card dark:border-transparent">
-      <Table>
+      {renderMobileRow ? (
+        <ul aria-label={caption} className="divide-y divide-border md:hidden">
+          {data.map((row) => (
+            <li key={getRowId(row)} className="p-4">
+              {renderMobileRow(row)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Table className={renderMobileRow ? "max-md:hidden" : undefined}>
         <caption className="sr-only">{caption}</caption>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (

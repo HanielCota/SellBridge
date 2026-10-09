@@ -1,6 +1,6 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
 
@@ -57,6 +57,14 @@ interface TooltipProps {
   payload?: { payload?: ChartPoint }[];
 }
 
+/** Axis labels stay short: "R$ 1,2 mil". */
+const axisMoney = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 const tooltipMoney = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -85,7 +93,7 @@ function ProfitTooltip({ active, payload }: TooltipProps) {
           </p>
         </div>
         {revenue > 0 ? (
-          <p className="rounded-full bg-primary-foreground px-2.5 py-1 text-xs font-semibold text-brand">
+          <p className="rounded-full bg-primary-foreground px-2.5 py-1 text-xs font-semibold text-brand-text">
             {Math.round(profitShare * 100)}% de margem
           </p>
         ) : null}
@@ -134,6 +142,14 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
           tickMargin={12}
           minTickGap={40}
           tickFormatter={(value: string) => formatPointDate(value)}
+        />
+        <YAxis
+          width={68}
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickCount={4}
+          tickFormatter={(cents: number) => axisMoney.format(cents / 100)}
         />
         <ChartTooltip
           cursor={{ stroke: "var(--foreground)", strokeOpacity: 0.35, strokeDasharray: "4 4" }}
