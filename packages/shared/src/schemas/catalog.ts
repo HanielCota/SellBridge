@@ -47,10 +47,16 @@ export const regionCatalogSearchSchema = z.object({
 
 export type RegionCatalogSearch = z.infer<typeof regionCatalogSearchSchema>;
 
+export const MIN_MARKUP_PERCENT = 5;
+export const MAX_MARKUP_PERCENT = 300;
+
 /** How bulk publishing sets each product's price. */
 export const priceRuleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("suggested") }),
-  z.object({ kind: z.literal("markup"), percent: z.number().int().min(5).max(300) }),
+  z.object({
+    kind: z.literal("markup"),
+    percent: z.number().int().min(MIN_MARKUP_PERCENT).max(MAX_MARKUP_PERCENT),
+  }),
 ]);
 
 export type PriceRule = z.infer<typeof priceRuleSchema>;

@@ -1,8 +1,9 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { ACTIVE_TARGET_STATUSES } from "@sellbridge/shared/listing-rules";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingTargets } from "../schema/index.ts";
 
-/** True while any of the tenant's targets is still pending or publishing. */
+/** True while any of the tenant's targets is still pending or publishing, so the UI keeps polling. */
 export async function hasActiveTargets(database: Database, tenantId: string): Promise<boolean> {
   const [row] = await database
     .select({ total: count() })
@@ -10,7 +11,7 @@ export async function hasActiveTargets(database: Database, tenantId: string): Pr
     .where(
       and(
         eq(listingTargets.tenantId, tenantId),
-        sql`${listingTargets.status} in ('pending', 'publishing')`,
+        inArray(listingTargets.status, [...ACTIVE_TARGET_STATUSES]),
       ),
     );
   return (row?.total ?? 0) > 0;

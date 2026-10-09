@@ -1,8 +1,9 @@
 import { type Pagination, type Paginated, toPaginated } from "@sellbridge/shared/schemas";
-import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, ne, or, type SQL, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { member, tenantProfile, user } from "../schema/index.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { isCountedOrder } from "./sql/counted-orders.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { daysBefore } from "./time-window.ts";
 
 /** How far back the "recent activity" numbers look. */
@@ -33,7 +34,7 @@ function activitySince(now: Date): Date {
 /** Per-tenant counters computed in the same query, so the list needs a single round trip. */
 function customerColumns(since: Date) {
   const tenantId = member.organizationId;
-  const countedOrders = sql`o.tenant_id = ${tenantId} and o.ordered_at >= ${since.toISOString()}::timestamptz and o.status not in ('cancelled', 'returned')`;
+  const countedOrders = sql`o.tenant_id = ${tenantId} and o.ordered_at >= ${since.toISOString()}::timestamptz and ${isCountedOrder(sql.raw("o.status"))}`;
   return {
     id: user.id,
     name: user.name,
@@ -106,4 +107,18 @@ export async function getCustomer(
 ): Promise<CustomerSummary | null> {
   const [row] = await customersQuery(database, now).where(eq(user.id, userId)).limit(1);
   return row ?? null;
+}
+
+/** Whether an account other than `userId` already uses `email` (expected already lowercased). */
+export async function isEmailTakenByOther(
+  database: Database,
+  email: string,
+  userId: string,
+): Promise<boolean> {
+  const [taken] = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.email, email), ne(user.id, userId)))
+    .limit(1);
+  return taken !== undefined;
 }

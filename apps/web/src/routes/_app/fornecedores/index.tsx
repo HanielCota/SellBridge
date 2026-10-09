@@ -1,19 +1,15 @@
 import { supplierListSearchSchema } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  MagnifyingGlassIcon,
-  MapPinIcon,
-  PackageIcon,
-  StorefrontIcon,
-} from "@phosphor-icons/react";
+import { MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -74,19 +70,13 @@ function SupplierFilters() {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
-      <div className="relative flex-1">
-        <MagnifyingGlassIcon
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          aria-label="Buscar fornecedor"
-          placeholder="Buscar fornecedor pelo nome"
-          className="pl-9"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-        />
-      </div>
+      <SearchInput
+        label="Buscar fornecedor"
+        placeholder="Buscar fornecedor pelo nome"
+        className="flex-1"
+        value={term}
+        onValueChange={setTerm}
+      />
       <Select
         value={search.niche ?? ALL_NICHES}
         onValueChange={(value) =>
@@ -174,36 +164,6 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         </li>
       ))}
     </ul>
-  );
-}
-
-function supplierInitials(name: string): string {
-  const words = name.split(/\s+/).filter((word) => word.length > 2);
-  const initials = words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("");
-  return initials.length > 0 ? initials : name.charAt(0).toUpperCase();
-}
-
-function SupplierLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
-  if (logoUrl) {
-    return (
-      <img
-        src={logoUrl}
-        alt=""
-        className="size-11 shrink-0 rounded-lg border bg-muted"
-        loading="lazy"
-      />
-    );
-  }
-  return (
-    <span
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-brand-text"
-      aria-hidden="true"
-    >
-      {supplierInitials(name)}
-    </span>
   );
 }
 

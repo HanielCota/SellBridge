@@ -9,21 +9,34 @@ O monorepo separa aplicações (processos que rodam) de pacotes (código reutili
 ```
 apps/web                   TanStack Start: UI, server functions e rotas HTTP
   src/routes/              uma rota por arquivo (file-based routing); só compõe a tela
-  src/features/<domínio>/  server functions (*.functions.ts), query options (*.queries.ts)
-                           e helpers server-only (*.server.ts) de um domínio
-  src/components/<área>/   componentes de UI reutilizáveis (ui/ é o shadcn gerado)
+  src/features/<domínio>/  tudo que é de um domínio e não é JSX: server functions
+                           (*.functions.ts), query options (*.queries.ts), helpers
+                           server-only (*.server.ts), hooks (use-*.ts) e regras puras
+  src/components/<área>/   componentes de UI do domínio <área>; data/, form/, feedback/ e
+                           layout/ são genéricos; ui/ é o shadcn gerado
+  src/hooks/, src/lib/     hooks e utilitários genéricos, sem domínio (seleção, debounce,
+                           cache otimista, datas); não importam de features/ nem components/
   src/lib/server/          infraestrutura server-only: ambiente, banco, auth, filas, storage
-apps/worker                processadores BullMQ (um arquivo por fila) e bootstrap
+apps/worker
+  src/processors/          um arquivo por fila (processador BullMQ)
+  src/lib/                 apoio aos processadores: acesso à loja, rate limiter
 packages/database          schema Drizzle, migrations, seeds e repositórios por tenant
-packages/marketplaces      interface MarketplaceConnector e conectores (mock, Mercado Livre)
-packages/shared            código isomórfico: schemas Zod, erros, dinheiro, CEP, logger
+  src/repositories/sql/    fragmentos SQL reutilizados pelos repositórios
+packages/marketplaces      interface MarketplaceConnector e conectores (mock/, mercado-livre/)
+packages/shared            código sem dependência de outros pacotes do monorepo
+  src/domain/              regras de negócio puras: dinheiro, finanças, período, CEP, regras
+                           de anúncio e de chamado
+  src/runtime/             infraestrutura comum: erros, logger, ambiente, filas, cifra de tokens
+  src/schemas/             schemas Zod das bordas (search params, formulários, payloads)
 ```
+
+Testes ficam ao lado do módulo e têm o nome dele (`stores.ts` → `stores.test.ts`); fixtures compartilhadas ficam em `src/testing/`.
 
 Regras de dependência:
 
 - `apps/*` dependem de `packages/*`; pacotes nunca importam de apps.
 - `packages/shared` não depende de nenhum outro pacote do monorepo.
-- Arquivos `*.functions.ts` são importados pelo cliente: helpers que tocam banco, segredos ou `node:*` ficam em `src/lib/server/` ou `*.server.ts` e nunca são exportados de um `*.functions.ts`.
+- Arquivos `*.functions.ts` são importados pelo cliente: helpers que tocam banco, segredos ou `node:*` ficam em `src/lib/server/` (infraestrutura) ou `features/<domínio>/*.server.ts` (domínio) e nunca são exportados de um `*.functions.ts`.
 - Acesso a dados passa por repositórios (`packages/database/src/repositories`), que recebem o `tenantId` explicitamente. Rotas e processadores não montam SQL.
 
 ## Responsabilidade única (SRP)

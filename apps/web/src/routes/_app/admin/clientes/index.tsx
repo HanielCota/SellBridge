@@ -3,16 +3,16 @@ import { formatCents } from "@sellbridge/shared/money";
 import { customersSearchSchema, type CustomersSearch } from "@sellbridge/shared/schemas";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MagnifyingGlassIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import { UsersThreeIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SearchInput } from "@/components/data/search-input";
 import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { adminListCustomers } from "@/features/admin/customers.functions";
 import { customersQueryOptions } from "@/features/admin/customers.queries";
@@ -138,19 +138,14 @@ function CustomersPage() {
         title="Clientes"
         description="Revendedores da plataforma. Abra um cliente para editar a conta ou entrar como ele."
       />
-      <div className="relative">
-        <MagnifyingGlassIcon
-          className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          aria-label="Buscar clientes"
-          placeholder="Buscar por nome ou e-mail"
-          className="pl-10"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-        />
-      </div>
+      <SearchInput
+        label="Buscar clientes"
+        placeholder="Buscar por nome ou e-mail"
+        iconClassName="left-3.5"
+        inputClassName="pl-10"
+        value={term}
+        onValueChange={setTerm}
+      />
       <CustomersTable
         query={query}
         onPageChange={(page) =>

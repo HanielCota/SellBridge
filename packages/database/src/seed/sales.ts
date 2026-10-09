@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
-import type { TokenCipher } from "@sellbridge/marketplaces";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { listingIdempotencyKey } from "../repositories/listings.ts";
 import { getSupplierIdsForRegion } from "../repositories/suppliers.ts";
 import {
   listings,
@@ -68,13 +69,6 @@ interface Adjustment {
   readonly type: "return" | "refund" | "commission";
   readonly amountCents: number;
   readonly reason: string;
-}
-
-interface OrderPlacement {
-  readonly orderId: string;
-  readonly status: OrderStatus;
-  readonly totalCents: number;
-  readonly orderedAt: Date;
 }
 
 interface DemoOrderInput {
@@ -179,7 +173,7 @@ async function insertPublishedTarget(
       status: "published",
       externalId: `MOCK-${listing.id.slice(0, 8)}-${storeConnectionId.slice(0, 4)}`,
       attempts: 1,
-      idempotencyKey: `${listing.id}:${storeConnectionId}`,
+      idempotencyKey: listingIdempotencyKey(listing.id, storeConnectionId),
       publishedAt: new Date(Date.now() - HISTORY_DAYS * DAY_MILLISECONDS),
     })
     .returning();
@@ -241,23 +235,20 @@ function pickAdjustment(
   return null;
 }
 
-async function seedAdjustment(context: SeedSalesContext, placement: OrderPlacement): Promise<void> {
-  const delayDays = context.random.integerBetween(2, 10);
-  const createdAt = new Date(placement.orderedAt.getTime() + delayDays * DAY_MILLISECONDS);
-  const adjustment = pickAdjustment(context.random, placement.status, placement.totalCents);
-  if (!adjustment) {
-    return;
-  }
-  await context.database.insert(orderAdjustments).values({
-    tenantId: context.tenantId,
-    orderId: placement.orderId,
-    ...adjustment,
-    createdAt,
-  });
+interface DemoOrder {
+  readonly sale: DemoSale;
+  readonly externalOrderId: string;
+  readonly status: OrderStatus;
+  readonly quantity: number;
+  readonly totalCents: number;
+  readonly marketplaceFeeCents: number;
+  readonly buyerName: string;
+  readonly orderedAt: Date;
+  readonly adjustment: (Adjustment & { readonly createdAt: Date }) | null;
 }
 
-async function insertDemoOrder(context: SeedSalesContext, input: DemoOrderInput): Promise<void> {
-  const { database, random, tenantId } = context;
+/** Draws one demo order; the order of the random calls keeps seeds reproducible. */
+function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
   const { sale } = input;
   const quantity = random.chance(0.8) ? 1 : random.integerBetween(2, 3);
   const totalCents = sale.listing.priceCents * quantity;
@@ -265,18 +256,55 @@ async function insertDemoOrder(context: SeedSalesContext, input: DemoOrderInput)
   const dayStart = input.now - input.ageDays * DAY_MILLISECONDS;
   const orderedAt = new Date(dayStart - random.integerBetween(0, DAY_MILLISECONDS - 1));
   const feeBasisPoints = random.integerBetween(1100, 1800);
+  const buyerName = random.pick(BUYERS);
+  const delayDays = random.integerBetween(2, 10);
+  const adjustment = pickAdjustment(random, status, totalCents);
+  return {
+    sale,
+    externalOrderId: `MOCK-ORD-${String(input.sequence).padStart(6, "0")}`,
+    status,
+    quantity,
+    totalCents,
+    marketplaceFeeCents: Math.round((totalCents * feeBasisPoints) / 10_000),
+    buyerName,
+    orderedAt,
+    adjustment: adjustment && {
+      ...adjustment,
+      createdAt: new Date(orderedAt.getTime() + delayDays * DAY_MILLISECONDS),
+    },
+  };
+}
 
+/** Orders grow over the history window so the dashboard shows a trend. */
+function generateDemoOrders(random: Random, sales: readonly DemoSale[], now: number): DemoOrder[] {
+  const demoOrders: DemoOrder[] = [];
+  for (let ageDays = HISTORY_DAYS; ageDays >= 0; ageDays -= 1) {
+    const growth = 1 + (HISTORY_DAYS - ageDays) / HISTORY_DAYS;
+    const dailyOrders = random.integerBetween(0, Math.round(3 * growth));
+    for (let index = 0; index < dailyOrders; index += 1) {
+      const sale = random.pick(sales);
+      demoOrders.push(
+        generateDemoOrder(random, { sale, ageDays, sequence: demoOrders.length + 1, now }),
+      );
+    }
+  }
+  return demoOrders;
+}
+
+async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder): Promise<void> {
+  const { database, tenantId } = context;
+  const { sale } = demoOrder;
   const [order] = await database
     .insert(orders)
     .values({
       tenantId,
       storeConnectionId: sale.target.storeConnectionId,
-      externalOrderId: `MOCK-ORD-${String(input.sequence).padStart(6, "0")}`,
-      status,
-      totalCents,
-      marketplaceFeeCents: Math.round((totalCents * feeBasisPoints) / 10_000),
-      buyerName: random.pick(BUYERS),
-      orderedAt,
+      externalOrderId: demoOrder.externalOrderId,
+      status: demoOrder.status,
+      totalCents: demoOrder.totalCents,
+      marketplaceFeeCents: demoOrder.marketplaceFeeCents,
+      buyerName: demoOrder.buyerName,
+      orderedAt: demoOrder.orderedAt,
     })
     .returning({ id: orders.id });
   if (!order) {
@@ -288,30 +316,26 @@ async function insertDemoOrder(context: SeedSalesContext, input: DemoOrderInput)
     listingTargetId: sale.target.id,
     supplierProductId: sale.product.id,
     title: sale.listing.title,
-    quantity,
+    quantity: demoOrder.quantity,
     unitPriceCents: sale.listing.priceCents,
     unitCostCents: sale.product.costCents,
   });
-  await seedAdjustment(context, { orderId: order.id, status, totalCents, orderedAt });
+  if (demoOrder.adjustment) {
+    await database
+      .insert(orderAdjustments)
+      .values({ tenantId, orderId: order.id, ...demoOrder.adjustment });
+  }
 }
 
-/** Orders grow over the history window so the dashboard shows a trend. */
 async function seedOrderHistory(
   context: SeedSalesContext,
   sales: readonly DemoSale[],
 ): Promise<number> {
-  const now = Date.now();
-  let sequence = 0;
-  for (let ageDays = HISTORY_DAYS; ageDays >= 0; ageDays -= 1) {
-    const growth = 1 + (HISTORY_DAYS - ageDays) / HISTORY_DAYS;
-    const dailyOrders = context.random.integerBetween(0, Math.round(3 * growth));
-    for (let index = 0; index < dailyOrders; index += 1) {
-      sequence += 1;
-      const sale = context.random.pick(sales);
-      await insertDemoOrder(context, { sale, ageDays, sequence, now });
-    }
+  const demoOrders = generateDemoOrders(context.random, sales, Date.now());
+  for (const demoOrder of demoOrders) {
+    await insertDemoOrder(context, demoOrder);
   }
-  return sequence;
+  return demoOrders.length;
 }
 
 async function countOrders(database: Database, tenantId: string): Promise<number> {

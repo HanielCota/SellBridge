@@ -1,8 +1,9 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { assertCanReply, nextTicketStatus } from "@sellbridge/shared/ticket-rules";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { organization, ticketAttachments, ticketMessages, tickets, user } from "../schema/index.ts";
 
 type TicketStatus = (typeof tickets.$inferSelect)["status"];
@@ -80,6 +81,7 @@ export async function createTicket(
 /**
  * Adds a message. Reseller replies (re)open the ticket; admin replies mark it answered.
  * `tenantId` scopes reseller access; admins pass null after their role was checked.
+ * The ticket row is locked so a concurrent close cannot slip in between check and reply.
  */
 export async function addTicketMessage(
   database: Database,
@@ -92,19 +94,21 @@ export async function addTicketMessage(
     attachments: readonly NewAttachment[];
   },
 ): Promise<void> {
-  const ticket = await database.query.tickets.findFirst({
-    where:
-      input.tenantId === null
-        ? eq(tickets.id, input.ticketId)
-        : and(eq(tickets.id, input.ticketId), eq(tickets.tenantId, input.tenantId)),
-  });
-  if (!ticket) {
-    throw notFoundError("Chamado não encontrado");
-  }
-  if (ticket.status === "closed" && input.isAdmin) {
-    throw conflictError("Reabra o chamado antes de responder");
-  }
   await database.transaction(async (transaction) => {
+    const [ticket] = await transaction
+      .select({ id: tickets.id, status: tickets.status })
+      .from(tickets)
+      .where(
+        input.tenantId === null
+          ? eq(tickets.id, input.ticketId)
+          : and(eq(tickets.id, input.ticketId), eq(tickets.tenantId, input.tenantId)),
+      )
+      .limit(1)
+      .for("update");
+    if (!ticket) {
+      throw notFoundError("Chamado não encontrado");
+    }
+    assertCanReply(ticket.status, input.isAdmin);
     const [message] = await transaction
       .insert(ticketMessages)
       .values({
@@ -128,7 +132,7 @@ export async function addTicketMessage(
     }
     await transaction
       .update(tickets)
-      .set({ status: input.isAdmin ? "answered" : "open" })
+      .set({ status: nextTicketStatus(input.isAdmin) })
       .where(eq(tickets.id, ticket.id));
   });
 }

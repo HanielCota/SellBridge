@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  createMockConnector,
-  encodeMockAuthorizationCode,
-  MOCK_REVOKED_REFRESH_TOKEN,
-  MOCK_SIGNATURE_HEADER,
-  signMockWebhook,
-} from "./mock-connector.ts";
+import { encodeMockAuthorizationCode, MOCK_SIGNATURE_HEADER, signMockWebhook } from "./codec.ts";
+import { createMockConnector } from "./mock-connector.ts";
+import { MOCK_REVOKED_REFRESH_TOKEN } from "./scenarios.ts";
 
 const connector = createMockConnector({
   appUrl: "http://localhost:3000",
@@ -145,5 +141,17 @@ describe("mock connector webhooks", () => {
     expect(await connector.verifyWebhook({ headers, rawBody: bad })).toMatchObject({
       valid: false,
     });
+  });
+
+  it("reads the shop and order from stored order events", () => {
+    expect(connector.parseStoredOrderEvent("orders", { shopId: "shop-1", resource: "r" })).toEqual({
+      kind: "order",
+      externalShopId: "shop-1",
+      resource: "r",
+    });
+    expect(connector.parseStoredOrderEvent("orders", { resource: "r" })).toEqual({
+      kind: "incomplete",
+    });
+    expect(connector.parseStoredOrderEvent("questions", { shopId: "shop-1" })).toBeNull();
   });
 });

@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { displayStoreName } from "@/components/listings/store-statuses";
+import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { publishProductsInBulk } from "@/features/catalog/catalog.functions";
 import { estimateProfit } from "@/features/listings/profit";
+import { MARKUP_RANGE_MESSAGE, usePriceRuleDraft } from "@/features/catalog/use-price-rule-draft";
 import { errorMessage } from "@/lib/errors";
 
 export interface PublishStore {
@@ -29,7 +30,6 @@ export interface PublishStore {
 }
 
 const PREVIEW_ROWS = 4;
-const DEFAULT_MARKUP = 60;
 
 function StorePicker({
   stores,
@@ -130,7 +130,7 @@ function PriceRulePicker({
           <span className="text-sm text-muted-foreground">% sobre o custo, terminando em ,90</span>
         </span>
         {kind === "markup" && !percentValid ? (
-          <span className="block text-xs text-destructive">Use um valor entre 5% e 300%</span>
+          <span className="block text-xs text-destructive">{MARKUP_RANGE_MESSAGE}</span>
         ) : null}
       </RuleOption>
       <RuleOption
@@ -216,17 +216,9 @@ function BulkPublishForm({
   const [storeIds, setStoreIds] = useState<ReadonlySet<string>>(
     new Set(stores.map((store) => store.id)),
   );
-  const [kind, setKind] = useState<PriceRule["kind"]>("markup");
-  const [percent, setPercent] = useState(String(DEFAULT_MARKUP));
-  const percentValue = Number.parseInt(percent, 10);
-  const percentValid = Number.isInteger(percentValue) && percentValue >= 5 && percentValue <= 300;
-  const rule: PriceRule =
-    kind === "suggested"
-      ? { kind }
-      : { kind, percent: percentValid ? percentValue : DEFAULT_MARKUP };
+  const { kind, setKind, percent, setPercent, percentValid, rule, isValid } = usePriceRuleDraft();
   const mutation = useBulkPublish(onDone);
-  const canSubmit =
-    storeIds.size > 0 && (kind === "suggested" || percentValid) && !mutation.isPending;
+  const canSubmit = storeIds.size > 0 && isValid && !mutation.isPending;
   return (
     <form
       noValidate

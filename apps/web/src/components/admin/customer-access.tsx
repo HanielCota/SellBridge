@@ -22,7 +22,7 @@ import {
   adminSetCustomerRole,
 } from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
-import { useAdminAction } from "./use-admin-action";
+import { useAdminAction } from "@/features/admin/use-admin-action";
 
 interface AccessProps {
   userId: string;

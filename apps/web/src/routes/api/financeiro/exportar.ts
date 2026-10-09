@@ -4,7 +4,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { financialSearchSchema } from "@sellbridge/shared/schemas";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
-import { buildReportScope } from "@/lib/server/report-scope";
+import { buildReportScope } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 

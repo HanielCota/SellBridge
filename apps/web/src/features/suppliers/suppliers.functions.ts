@@ -10,7 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { requireTenantRegion } from "@/lib/server/region";
+import { requireTenantRegion } from "@/features/region/region.server";
 
 export const listSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])

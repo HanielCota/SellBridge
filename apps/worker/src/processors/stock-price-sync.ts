@@ -1,16 +1,13 @@
 import type { Database } from "@sellbridge/database";
 import {
   findTargetsNeedingSync,
-  markStoreStatus,
   markTargetSynced,
   type TargetNeedingSync,
 } from "@sellbridge/database/repositories";
-import {
-  type ConnectorRegistry,
-  isMarketplaceAuthError,
-  type TokenCipher,
-} from "@sellbridge/marketplaces";
+import type { ConnectorRegistry } from "@sellbridge/marketplaces";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
+import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -28,27 +25,24 @@ async function syncOne(
   dependencies: StockPriceSyncDependencies,
   target: TargetNeedingSync,
 ): Promise<boolean> {
-  if (!target.store.accessTokenEnc) {
-    return false;
-  }
   try {
+    const credentials = resolveStoreCredentials(dependencies.cipher, target.store);
+    if (!credentials) {
+      return false;
+    }
     await dependencies.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
-    await dependencies.connectors[target.store.marketplace].updateStockPrice(
-      {
-        externalShopId: target.store.externalShopId,
-        accessToken: dependencies.cipher.decrypt(target.store.accessTokenEnc),
-      },
-      { externalId: target.externalId, stock: target.stock, priceCents: target.priceCents },
-    );
+    await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
+      externalId: target.externalId,
+      stock: target.stock,
+      priceCents: target.priceCents,
+    });
     await markTargetSynced(dependencies.database, target.targetId, {
       stock: target.stock,
       priceCents: target.priceCents,
     });
     return true;
   } catch (error) {
-    if (isMarketplaceAuthError(error)) {
-      await markStoreStatus(dependencies.database, target.store.id, "expired", error.userMessage);
-    }
+    await expireStoreOnAuthError(dependencies.database, target.store.id, error);
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
     return false;
   }

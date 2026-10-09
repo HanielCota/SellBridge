@@ -366,9 +366,6 @@ importers:
       '@sellbridge/config':
         specifier: workspace:*
         version: link:../config
-      '@sellbridge/marketplaces':
-        specifier: workspace:*
-        version: link:../marketplaces
       '@types/node':
         specifier: ^26.6.4
         version: 26.6.4

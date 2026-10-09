@@ -1,8 +1,10 @@
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
+import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { isCountedOrder, isUncountedOrder } from "./sql/counted-orders.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 
 /**
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
@@ -11,7 +13,8 @@ import { containsPattern } from "./search-pattern.ts";
  * Cancelled and returned orders contribute no revenue, cost or fee.
  */
 
-const REPORT_TIME_ZONE = "America/Sao_Paulo";
+/** The orders table is aliased `o` in the raw report queries. */
+const ORDER_STATUS = sql.raw("o.status");
 
 export interface ReportRange {
   from: Date;
@@ -50,10 +53,10 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         o.buyer_name,
         o.store_connection_id,
         s.shop_name,
-        (o.status not in ('cancelled', 'returned')) as counted,
-        case when o.status in ('cancelled', 'returned') then 0 else o.total_cents end as revenue,
-        case when o.status in ('cancelled', 'returned') then 0 else coalesce(items.cost, 0) end as cost,
-        case when o.status in ('cancelled', 'returned') then 0 else o.marketplace_fee_cents end as fee,
+        (${isCountedOrder(ORDER_STATUS)}) as counted,
+        case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.total_cents end as revenue,
+        case when ${isUncountedOrder(ORDER_STATUS)} then 0 else coalesce(items.cost, 0) end as cost,
+        case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.marketplace_fee_cents end as fee,
         coalesce(adj.refunds, 0) as refunds,
         coalesce(adj.returns, 0) as returns,
         coalesce(adj.commissions, 0) as commissions,

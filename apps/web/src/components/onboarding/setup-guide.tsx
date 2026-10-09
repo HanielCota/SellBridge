@@ -1,56 +1,17 @@
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-export interface SetupProgress {
-  hasRegion: boolean;
-  hasStore: boolean;
-  hasPublishedListing: boolean;
-}
-
-interface SetupStep {
-  key: keyof SetupProgress;
-  title: string;
-  description: string;
-  to: NonNullable<LinkProps["to"]>;
-  cta: string;
-}
-
-export const SETUP_STEPS: readonly SetupStep[] = [
-  {
-    key: "hasRegion",
-    title: "Sua região",
-    description: "O CEP define quais fornecedores entregam para você.",
-    to: "/onboarding",
-    cta: "Informar CEP",
-  },
-  {
-    key: "hasStore",
-    title: "Conecte uma loja",
-    description: "Autorize o SellBridge na sua conta do marketplace.",
-    to: "/lojas",
-    cta: "Conectar loja",
-  },
-  {
-    key: "hasPublishedListing",
-    title: "Publique produtos",
-    description: "Escolha vários produtos do catálogo e publique de uma vez.",
-    to: "/catalogo",
-    cta: "Abrir catálogo",
-  },
-];
-
-export function isSetupComplete(progress: SetupProgress): boolean {
-  return SETUP_STEPS.every((step) => progress[step.key]);
-}
-
-function doneCount(progress: SetupProgress): number {
-  return SETUP_STEPS.filter((step) => progress[step.key]).length;
-}
+import {
+  countDoneSteps,
+  findNextStep,
+  SETUP_STEPS,
+  type SetupProgress,
+  type SetupStep,
+} from "@/features/onboarding/setup-progress";
 
 function ProgressBar({ progress }: { progress: SetupProgress }) {
-  const done = doneCount(progress);
+  const done = countDoneSteps(progress);
   return (
     <div className="flex items-center gap-3">
       <progress
@@ -130,7 +91,7 @@ function stepState(
 
 /** The dashboard for accounts still setting up: progress and the one next step in focus. */
 export function SetupGuide({ progress }: { progress: SetupProgress }) {
-  const nextKey = SETUP_STEPS.find((step) => !progress[step.key])?.key;
+  const nextKey = findNextStep(progress)?.key;
   return (
     <section
       aria-labelledby="setup-title"
@@ -163,7 +124,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
 
 /** A thin reminder on other pages until the setup is done. */
 export function SetupStrip({ progress }: { progress: SetupProgress }) {
-  const next = SETUP_STEPS.find((step) => !progress[step.key]);
+  const next = findNextStep(progress);
   if (!next) {
     return null;
   }
@@ -174,7 +135,7 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
     >
       <p className="text-sm">
         <span className="text-muted-foreground">
-          Configuração {doneCount(progress)} de {SETUP_STEPS.length} ·
+          Configuração {countDoneSteps(progress)} de {SETUP_STEPS.length} ·
         </span>{" "}
         Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
       </p>

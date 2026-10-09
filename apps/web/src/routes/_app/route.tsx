@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { TopNav } from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
-import { SETUP_STEPS, SetupStrip } from "@/components/onboarding/setup-guide";
+import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { getAppSession } from "@/features/auth/session.functions";
+import { findNextStep } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 export const Route = createFileRoute("/_app")({
@@ -29,7 +30,7 @@ function SetupReminder() {
   if (hidden || !query.data) {
     return null;
   }
-  const next = SETUP_STEPS.find((step) => !query.data[step.key]);
+  const next = findNextStep(query.data);
   // The page of the next step already explains it.
   if (next && pathname.startsWith(next.to)) {
     return null;

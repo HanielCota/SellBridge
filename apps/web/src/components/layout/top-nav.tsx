@@ -17,7 +17,7 @@ import {
   NAV_ITEMS,
   type NavBadge,
   type NavItem,
-} from "./nav-items";
+} from "@/features/navigation/nav-items";
 import { AvatarButton } from "@/components/profile/avatar-button";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";

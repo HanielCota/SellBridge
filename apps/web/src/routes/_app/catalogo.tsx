@@ -8,17 +8,18 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { MagnifyingGlassIcon, MegaphoneIcon, PackageIcon, XIcon } from "@phosphor-icons/react";
+import { MegaphoneIcon, PackageIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { BulkPublishDialog, type PublishStore } from "@/components/catalog/bulk-publish-dialog";
 import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SearchInput } from "@/components/data/search-input";
+import { SelectionBar } from "@/components/data/selection-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { regionCatalogQueryOptions } from "@/features/catalog/catalog.queries";
 import { getTenantRegion } from "@/features/region/region.functions";
+import { useSelection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -63,7 +65,7 @@ function useUpdateSearch() {
     void navigate({ search: (previous) => ({ ...previous, ...patch, page: 1 }), replace: true });
 }
 
-function SearchInput() {
+function CatalogSearchInput() {
   const search = Route.useSearch();
   const updateSearch = useUpdateSearch();
   const { term, setTerm } = useUrlSearchQuery({
@@ -71,19 +73,13 @@ function SearchInput() {
     commitQuery: (query) => updateSearch({ query }),
   });
   return (
-    <div className="relative min-w-0 flex-1 sm:min-w-60">
-      <MagnifyingGlassIcon
-        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        aria-label="Buscar produto"
-        placeholder="Buscar por produto, SKU ou fornecedor"
-        className="pl-9"
-        value={term}
-        onChange={(event) => setTerm(event.target.value)}
-      />
-    </div>
+    <SearchInput
+      label="Buscar produto"
+      placeholder="Buscar por produto, SKU ou fornecedor"
+      className="min-w-0 flex-1 sm:min-w-60"
+      value={term}
+      onValueChange={setTerm}
+    />
   );
 }
 
@@ -128,7 +124,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
   return (
     <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:gap-3">
       <div className="col-span-2 flex sm:flex-1">
-        <SearchInput />
+        <CatalogSearchInput />
       </div>
       <FilterSelect
         label="Categoria"
@@ -171,64 +167,14 @@ function CatalogFilters({ data }: { data: CatalogData }) {
   );
 }
 
-function SelectionBar({
-  count,
-  onPublish,
-  onClear,
-}: {
-  count: number;
-  onPublish: () => void;
-  onClear: () => void;
-}) {
-  if (count === 0) {
-    return null;
-  }
-  return (
-    <section
-      aria-label="Produtos selecionados"
-      className="sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-2 rounded-full bg-foreground py-2 pr-2 pl-5 text-background shadow-lg shadow-black/20"
-    >
-      <p className="mr-2 text-sm font-medium">
-        {count} {count === 1 ? "selecionado" : "selecionados"}
-      </p>
-      <Button size="sm" onClick={onPublish}>
-        <MegaphoneIcon aria-hidden="true" />
-        Publicar selecionados
-      </Button>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        aria-label="Limpar seleção"
-        className="text-background hover:bg-background/10 hover:text-background"
-        onClick={onClear}
-      >
-        <XIcon aria-hidden="true" />
-      </Button>
-    </section>
-  );
-}
-
-function useProductSelection() {
-  const [selected, setSelected] = useState<ReadonlyMap<string, RegionCatalogProduct>>(new Map());
-  function toggle(product: RegionCatalogProduct, isSelected: boolean) {
-    setSelected((previous) => {
-      const next = new Map(previous);
-      if (isSelected && next.size < MAX_BULK_PUBLISH) {
-        next.set(product.id, product);
-      }
-      if (!isSelected) {
-        next.delete(product.id);
-      }
-      return next;
-    });
-  }
-  return { selected, toggle, clear: () => setSelected(new Map()) };
+function productId(product: RegionCatalogProduct): string {
+  return product.id;
 }
 
 function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore[] }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const selection = useProductSelection();
+  const selection = useSelection(productId, { limit: MAX_BULK_PUBLISH });
   const [isPublishing, setIsPublishing] = useState(false);
   return (
     <>
@@ -237,7 +183,7 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
           <li key={product.id}>
             <CatalogProductCard
               product={product}
-              selected={selection.selected.has(product.id)}
+              selected={selection.isSelected(product.id)}
               onSelectedChange={(isSelected) => selection.toggle(product, isSelected)}
             />
           </li>
@@ -251,10 +197,16 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
         onPageChange={(page) => void navigate({ search: { ...search, page } })}
       />
       <SelectionBar
+        label="Produtos selecionados"
         count={selection.selected.size}
-        onPublish={() => setIsPublishing(true)}
+        summary={`${selection.selected.size} ${selection.selected.size === 1 ? "selecionado" : "selecionados"}`}
         onClear={selection.clear}
-      />
+      >
+        <Button size="sm" onClick={() => setIsPublishing(true)}>
+          <MegaphoneIcon aria-hidden="true" />
+          Publicar selecionados
+        </Button>
+      </SelectionBar>
       <BulkPublishDialog
         open={isPublishing}
         onOpenChange={setIsPublishing}

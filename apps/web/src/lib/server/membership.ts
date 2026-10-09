@@ -1,6 +1,6 @@
 import { schema } from "@sellbridge/database";
 import { asc, eq } from "drizzle-orm";
-import { database } from "./database.ts";
+import { database } from "@/lib/server/database";
 
 /** Returns the oldest organization the user belongs to, or null when there is none. */
 export async function findFirstOrganizationId(userId: string): Promise<string | null> {

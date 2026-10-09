@@ -3,12 +3,12 @@ import {
   findTenantRegion,
   getCustomer,
   getSalesSummary,
+  isEmailTakenByOther,
   listCustomers,
   listStoreConnections,
   listTenantTickets,
   saveTenantRegion,
 } from "@sellbridge/database/repositories";
-import { schema } from "@sellbridge/database";
 import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
 import { conflictError, forbiddenError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -24,12 +24,11 @@ import {
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { and, eq, ne } from "drizzle-orm";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { adminMiddleware } from "@/lib/server/middleware";
-import { resolveCep } from "@/lib/server/region";
-import { buildReportScope } from "@/lib/server/report-scope";
+import { resolveCep } from "@/features/region/region.server";
+import { buildReportScope } from "@/features/reports/report-scope.server";
 
 async function requireCustomer(userId: string) {
   const customer = await getCustomer(database, userId);
@@ -99,12 +98,7 @@ export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireCustomer(data.userId);
     const email = data.email.toLowerCase();
-    const [taken] = await database
-      .select({ id: schema.user.id })
-      .from(schema.user)
-      .where(and(eq(schema.user.email, email), ne(schema.user.id, data.userId)))
-      .limit(1);
-    if (taken) {
+    if (await isEmailTakenByOther(database, email, data.userId)) {
       throw conflictError("Já existe outra conta com este e-mail");
     }
     await auth.api.adminUpdateUser({

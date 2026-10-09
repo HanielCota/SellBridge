@@ -2,6 +2,7 @@ import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
+import { type CacheSnapshot, restoreQueries, snapshotQueries } from "@/lib/optimistic";
 import {
   retryListings,
   setListingsPausedFn,
@@ -18,7 +19,6 @@ function showError(error: unknown) {
 }
 
 type ListingsPage = { items: ListingOverviewRow[] };
-type Snapshot = [readonly unknown[], ListingsPage | undefined][];
 
 /**
  * Applies a change to every cached listings page right away and returns how to undo it,
@@ -28,9 +28,8 @@ async function patchListings(
   queryClient: QueryClient,
   listingIds: readonly string[],
   patch: (row: ListingOverviewRow) => ListingOverviewRow,
-): Promise<Snapshot> {
-  await queryClient.cancelQueries({ queryKey: ["listings"] });
-  const snapshot = queryClient.getQueriesData<ListingsPage>({ queryKey: ["listings"] });
+): Promise<CacheSnapshot<ListingsPage>> {
+  const snapshot = await snapshotQueries<ListingsPage>(queryClient, ["listings"]);
   const ids = new Set(listingIds);
   // Other caches share the "listings" prefix (e.g. the nav counters); only pages have items.
   queryClient.setQueriesData<ListingsPage>({ queryKey: ["listings"] }, (page) =>
@@ -39,12 +38,6 @@ async function patchListings(
       : page,
   );
   return snapshot;
-}
-
-function restore(queryClient: QueryClient, snapshot: Snapshot | undefined) {
-  for (const [key, data] of snapshot ?? []) {
-    queryClient.setQueryData(key, data);
-  }
 }
 
 function withPaused(row: ListingOverviewRow, paused: boolean): ListingOverviewRow {
@@ -84,7 +77,7 @@ export function useBulkListingActions(onDone?: () => void) {
     onMutate: (input) =>
       patchListings(queryClient, input.listingIds, (row) => withPaused(row, input.paused)),
     onError: (error, _input, snapshot) => {
-      restore(queryClient, snapshot);
+      restoreQueries(queryClient, snapshot);
       showError(error);
     },
     onSuccess: async ({ changed }, { paused }) => {
@@ -114,7 +107,7 @@ export function useUpdatePrice(onSaved: () => void) {
         priceCents: input.priceCents,
       })),
     onError: (error, _input, snapshot) => {
-      restore(queryClient, snapshot);
+      restoreQueries(queryClient, snapshot);
       showError(error);
     },
     onSuccess: async () => {

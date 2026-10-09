@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PlusIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
@@ -9,17 +9,13 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { AddStore } from "@/components/stores/add-store";
-import { StoreCard } from "@/components/stores/store-card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DisconnectStoreDialog,
+  type StoreToDisconnect,
+} from "@/components/stores/disconnect-store-dialog";
+import { StoreCard } from "@/components/stores/store-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { disconnectStoreFn, type MarketplaceOption } from "@/features/stores/stores.functions";
+import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -121,9 +117,7 @@ function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOptio
 
 function StoresContent() {
   const query = useQuery(storesQueryOptions());
-  const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
   if (query.isPending) {
     return (
       <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="Carregando lojas">
@@ -165,57 +159,7 @@ function StoresContent() {
         </h2>
         <AddStore marketplaces={marketplaces} />
       </section>
-      <DisconnectDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
+      <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
     </>
-  );
-}
-
-function DisconnectDialog({
-  store,
-  onClose,
-}: {
-  store: { id: string; name: string } | null;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: (storeConnectionId: string) => disconnectStoreFn({ data: { storeConnectionId } }),
-    onSuccess: async () => {
-      toast.success("Loja desconectada");
-      await queryClient.invalidateQueries({ queryKey: ["stores"] });
-      onClose();
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  return (
-    <Dialog open={store !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Desconectar {store?.name ?? "loja"}?</DialogTitle>
-          <DialogDescription>
-            Os anúncios já publicados continuam no marketplace, mas o SellBridge deixa de
-            sincronizar estoque, preço e pedidos desta loja.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={mutation.isPending || store === null}
-            onClick={() => {
-              if (!store) {
-                return;
-              }
-              mutation.mutate(store.id);
-            }}
-          >
-            {mutation.isPending ? "Desconectando..." : "Desconectar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

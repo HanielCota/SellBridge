@@ -13,7 +13,7 @@ import { financialSearchSchema, periodSearchSchema } from "@sellbridge/shared/sc
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { buildReportScope } from "@/lib/server/report-scope";
+import { buildReportScope } from "@/features/reports/report-scope.server";
 
 async function loadOnboardingState(tenantId: string) {
   const [region, stores, listings] = await Promise.all([

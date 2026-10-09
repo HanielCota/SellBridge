@@ -1,16 +1,13 @@
 import type { Database } from "@sellbridge/database";
 import {
   findConnectionsExpiringBefore,
-  markStoreStatus,
   updateStoreTokens,
 } from "@sellbridge/database/repositories";
-import {
-  type ConnectorRegistry,
-  isMarketplaceAuthError,
-  type TokenCipher,
-} from "@sellbridge/marketplaces";
+import { type ConnectorRegistry, isMarketplaceAuthError } from "@sellbridge/marketplaces";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { expireStore } from "../lib/store-access.ts";
 
 export interface TokenRefreshDependencies {
   database: Database;
@@ -55,7 +52,7 @@ async function refreshOne(
     const alreadyExpired =
       connection.expiresAt !== null && connection.expiresAt.getTime() <= now.getTime();
     if (isMarketplaceAuthError(error) || alreadyExpired) {
-      await markStoreStatus(dependencies.database, connection.id, "expired", message);
+      await expireStore(dependencies.database, connection.id, message);
       logger.warn("store.token_expired", { storeConnectionId: connection.id, error });
       return "expired";
     }
