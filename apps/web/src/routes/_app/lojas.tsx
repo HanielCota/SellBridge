@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plug, Store, Unplug } from "lucide-react";
+import { LinkBreakIcon, PlugIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -97,7 +97,7 @@ function ConnectedStores() {
   if (query.data.stores.length === 0) {
     return (
       <EmptyState
-        icon={Store}
+        icon={StorefrontIcon}
         title="Nenhuma loja conectada"
         description="Conecte sua primeira loja abaixo para começar a publicar produtos."
       />
@@ -155,13 +155,13 @@ function StoreCard({
           {store.status === "connected" ? null : (
             <Button asChild size="sm">
               <a href={`/api/oauth/${store.marketplace}/start`}>
-                <Plug aria-hidden="true" />
+                <PlugIcon aria-hidden="true" />
                 Reconectar
               </a>
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={onDisconnect}>
-            <Unplug aria-hidden="true" />
+            <LinkBreakIcon aria-hidden="true" />
             Desconectar
           </Button>
         </div>

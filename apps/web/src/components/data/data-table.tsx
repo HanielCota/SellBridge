@@ -43,7 +43,7 @@ export function DataTable<TData extends RowData>({
 }: DataTableProps<TData>) {
   const table = useTable({ features: serverTableFeatures, columns, data, getRowId });
   return (
-    <div className="overflow-hidden rounded-xl border">
+    <div className="overflow-hidden rounded-3xl border bg-card dark:border-transparent">
       <Table>
         <caption className="sr-only">{caption}</caption>
         <TableHeader>

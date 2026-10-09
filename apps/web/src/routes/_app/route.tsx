@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { TopNav } from "@/components/layout/top-nav";
+import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { getAppSession } from "@/features/auth/session.functions";
 
 export const Route = createFileRoute("/_app")({
@@ -18,20 +17,12 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   const { session } = Route.useRouteContext();
   return (
-    <SidebarProvider>
-      <AppSidebar user={session.user} />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
-          <SidebarTrigger aria-label="Alternar menu lateral" />
-          <span className="h-4 w-px bg-border" aria-hidden="true" />
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </header>
-        <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 p-4 md:p-6">
-          <Outlet />
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="min-h-svh bg-background">
+      {session.impersonatedBy ? <ImpersonationBanner customerName={session.user.name} /> : null}
+      <TopNav user={session.user} adminMode={session.adminMode} />
+      <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-2 pb-12 md:px-8">
+        <Outlet />
+      </main>
+    </div>
   );
 }

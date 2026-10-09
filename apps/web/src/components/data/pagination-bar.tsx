@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 
 interface PaginationBarProps {
@@ -34,7 +34,7 @@ export function PaginationBar({
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          <ChevronLeft aria-hidden="true" />
+          <CaretLeftIcon aria-hidden="true" />
           Anterior
         </Button>
         <Button
@@ -44,7 +44,7 @@ export function PaginationBar({
           onClick={() => onPageChange(page + 1)}
         >
           Próxima
-          <ChevronRight aria-hidden="true" />
+          <CaretRightIcon aria-hidden="true" />
         </Button>
       </div>
     </nav>

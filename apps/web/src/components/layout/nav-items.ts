@@ -1,56 +1,33 @@
 import type { LinkProps } from "@tanstack/react-router";
-import {
-  Inbox,
-  LayoutDashboard,
-  LifeBuoy,
-  MapPin,
-  Megaphone,
-  Plug,
-  Store,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+
+/** Counters shown next to a tab when something there needs attention. */
+export type NavBadge = "failedListings" | "openTickets";
 
 export interface NavItem {
   label: string;
   to: NonNullable<LinkProps["to"]>;
-  icon: LucideIcon;
+  badge?: NavBadge;
 }
 
-export interface NavSection {
-  label: string;
-  items: NavItem[];
-}
-
-export const NAV_SECTIONS: NavSection[] = [
-  {
-    label: "Visão geral",
-    items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard }],
-  },
-  {
-    label: "Catálogo",
-    items: [
-      { label: "Fornecedores", to: "/fornecedores", icon: Store },
-      { label: "Publicações", to: "/publicacoes", icon: Megaphone },
-    ],
-  },
-  {
-    label: "Vendas",
-    items: [
-      { label: "Lojas conectadas", to: "/lojas", icon: Plug },
-      { label: "Financeiro", to: "/financeiro", icon: Wallet },
-    ],
-  },
-  {
-    label: "Conta",
-    items: [
-      { label: "Minha região", to: "/onboarding", icon: MapPin },
-      { label: "Suporte", to: "/suporte", icon: LifeBuoy },
-    ],
-  },
+export const NAV_ITEMS: NavItem[] = [
+  { label: "Visão geral", to: "/dashboard" },
+  { label: "Fornecedores", to: "/fornecedores" },
+  { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
+  { label: "Lojas", to: "/lojas" },
+  { label: "Financeiro", to: "/financeiro" },
 ];
 
-export const ADMIN_NAV_SECTION: NavSection | null = {
-  label: "Administração",
-  items: [{ label: "Chamados", to: "/admin/chamados", icon: Inbox }],
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Clientes", to: "/admin/clientes" },
+  { label: "Chamados", to: "/admin/chamados", badge: "openTickets" },
+];
+
+export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
+  failedListings: (count) =>
+    `${count} ${count === 1 ? "publicação com erro" : "publicações com erro"}`,
+  openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,
 };
+
+export function isActivePath(pathname: string, target: string): boolean {
+  return pathname === target || pathname.startsWith(`${target}/`);
+}

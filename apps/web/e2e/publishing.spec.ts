@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { gotoHydrated, signUp } from "./helpers";
+import { gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 async function onboardInBeloHorizonte(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
@@ -13,8 +13,9 @@ async function connectMockStore(page: Page, shopName: string) {
   await expect(page.getByText("Nenhuma loja conectada")).toBeVisible();
   await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
 
+  // The consent page arrives through a server redirect, i.e. a full page load.
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill(shopName);
   await page.getByRole("button", { name: "Autorizar acesso" }).click();
 

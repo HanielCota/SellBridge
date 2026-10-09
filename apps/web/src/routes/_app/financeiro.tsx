@@ -4,14 +4,20 @@ import {
   financialSearchSchema,
   ORDER_STATUS_LABELS,
   ORDER_STATUSES,
-  orderStatusSchema,
   type FinancialSearch,
   type FinancialSortKey,
   type Paginated,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Search, Wallet } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowsDownUpIcon,
+  DownloadSimpleIcon,
+  MagnifyingGlassIcon,
+  WalletIcon,
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -19,7 +25,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { PeriodFilters } from "@/components/reports/period-filters";
-import { Badge } from "@/components/ui/badge";
+import { OrderStatusBadge } from "@/components/data/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -65,12 +71,12 @@ function useFinancialNavigation() {
 
 function SortIcon({ isActive, direction }: { isActive: boolean; direction: "asc" | "desc" }) {
   if (!isActive) {
-    return <ArrowUpDown className="size-3.5" aria-hidden="true" />;
+    return <ArrowsDownUpIcon className="size-3.5" aria-hidden="true" />;
   }
   if (direction === "desc") {
-    return <ArrowDown className="size-3.5" aria-hidden="true" />;
+    return <ArrowDownIcon className="size-3.5" aria-hidden="true" />;
   }
-  return <ArrowUp className="size-3.5" aria-hidden="true" />;
+  return <ArrowUpIcon className="size-3.5" aria-hidden="true" />;
 }
 
 function sortStateLabel(isActive: boolean, direction: "asc" | "desc"): string {
@@ -109,11 +115,6 @@ function SortableHeader({
   );
 }
 
-function statusLabel(status: string): string {
-  const parsed = orderStatusSchema.safeParse(status);
-  return parsed.success ? ORDER_STATUS_LABELS[parsed.data] : status;
-}
-
 function Money({ cents, emphasize = false }: { cents: number; emphasize?: boolean }) {
   return (
     <span
@@ -149,11 +150,7 @@ const columns = columnHelper.columns([
   }),
   columnHelper.accessor("status", {
     header: () => <SortableHeader field="status" label="Status" />,
-    cell: (info) => (
-      <Badge variant="outline" className="whitespace-nowrap">
-        {statusLabel(info.getValue())}
-      </Badge>
-    ),
+    cell: (info) => <OrderStatusBadge status={info.getValue()} />,
   }),
   columnHelper.accessor("revenueCents", {
     header: () => <SortableHeader field="revenue" label="Receita" align="right" />,
@@ -212,7 +209,7 @@ function FinancialHeader() {
       actions={
         <Button asChild variant="outline">
           <a href={financialExportUrl(search)} download>
-            <Download aria-hidden="true" />
+            <DownloadSimpleIcon aria-hidden="true" />
             Exportar CSV
           </a>
         </Button>
@@ -344,7 +341,7 @@ function OrderFilters() {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div className="relative flex-1">
-        <Search
+        <MagnifyingGlassIcon
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
@@ -382,7 +379,7 @@ function FinancialEmptyState({ hasFilters }: { hasFilters: boolean }) {
   if (hasFilters) {
     return (
       <EmptyState
-        icon={Search}
+        icon={MagnifyingGlassIcon}
         title="Nenhum pedido encontrado"
         description="Nenhum pedido corresponde à busca ou ao status escolhido neste período."
       />
@@ -390,7 +387,7 @@ function FinancialEmptyState({ hasFilters }: { hasFilters: boolean }) {
   }
   return (
     <EmptyState
-      icon={Wallet}
+      icon={WalletIcon}
       title="Ainda não há movimentações"
       description="Quando seus produtos publicados venderem, lucro, comissões, devoluções e reembolsos aparecem aqui, pedido a pedido."
       action={

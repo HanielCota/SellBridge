@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title"><title id="title">SellBridge</title>
+<defs>
+  <linearGradient id="ramp" x1="20" y1="94" x2="100" y2="4" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00a98a"/><stop offset="1" stop-color="#00e696"/>
+  </linearGradient>
+  <linearGradient id="arch" x1="80" y1="48" x2="80" y2="124" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00b38d"/><stop offset=".55" stop-color="#16dc99"/><stop offset="1" stop-color="#66ebab"/>
+  </linearGradient>
+</defs><g transform="translate(0 16)"><path d="M79 4H121L24 94C11 83 8 66 21 54L70 10C73 6 76 4 79 4Z" fill="url(#ramp)"/><path d="M4 124L80 59C95 46 115 44 132 53C149 62 156 77 156 96V124H121V96C121 84 116 78 107 78C101 78 97 80 92 85L47 124Z" fill="url(#arch)"/></g>
+</svg>

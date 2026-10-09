@@ -1,3 +1,4 @@
+import { CircleNotchIcon } from "@phosphor-icons/react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -28,7 +29,8 @@ export function PendingSubmitButton({
   className,
 }: PendingSubmitButtonProps) {
   return (
-    <Button type="submit" disabled={isPending} className={className}>
+    <Button type="submit" disabled={isPending} aria-busy={isPending} className={className}>
+      {isPending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
       {isPending ? pendingLabel : idleLabel}
     </Button>
   );

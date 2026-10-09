@@ -8,7 +8,13 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ExternalLink, Megaphone, RotateCw, Search, ShoppingCart } from "lucide-react";
+import {
+  ArrowClockwiseIcon,
+  ArrowSquareOutIcon,
+  MagnifyingGlassIcon,
+  MegaphoneIcon,
+  ShoppingCartSimpleIcon,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
@@ -64,7 +70,10 @@ function RetryButton({ listingTargetId }: { listingTargetId: string }) {
       disabled={mutation.isPending}
       onClick={() => mutation.mutate()}
     >
-      <RotateCw aria-hidden="true" className={mutation.isPending ? "animate-spin" : undefined} />
+      <ArrowClockwiseIcon
+        aria-hidden="true"
+        className={mutation.isPending ? "animate-spin" : undefined}
+      />
       Reprocessar
     </Button>
   );
@@ -84,11 +93,11 @@ function SimulateSaleButton({ listingTargetId }: { listingTargetId: string }) {
   return (
     <Button
       size="sm"
-      variant="outline"
+      variant="ghost"
       disabled={mutation.isPending}
       onClick={() => mutation.mutate()}
     >
-      <ShoppingCart aria-hidden="true" />
+      <ShoppingCartSimpleIcon aria-hidden="true" />
       Simular venda
     </Button>
   );
@@ -154,7 +163,7 @@ const columns = columnHelper.columns([
           {row.externalUrl ? (
             <Button asChild size="sm" variant="ghost">
               <a href={row.externalUrl} target="_blank" rel="noreferrer">
-                <ExternalLink aria-hidden="true" />
+                <ArrowSquareOutIcon aria-hidden="true" />
                 Ver anúncio
               </a>
             </Button>
@@ -207,7 +216,7 @@ function ListingsFilters() {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div className="relative flex-1">
-        <Search
+        <MagnifyingGlassIcon
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
@@ -257,7 +266,7 @@ function ListingsTable() {
     const isFiltered = search.query !== undefined || search.status !== undefined;
     return (
       <EmptyState
-        icon={Megaphone}
+        icon={MegaphoneIcon}
         title={isFiltered ? "Nenhuma publicação encontrada" : "Você ainda não publicou produtos"}
         description={
           isFiltered

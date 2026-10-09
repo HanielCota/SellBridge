@@ -7,15 +7,16 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, PackageSearch, Search } from "lucide-react";
+import { ArrowLeftIcon, MagnifyingGlassIcon, PackageIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
+import { ProductVisual } from "@/components/catalog/product-visual";
+import { ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +66,7 @@ function CatalogPage() {
     <>
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
         <Link to="/fornecedores">
-          <ArrowLeft aria-hidden="true" />
+          <ArrowLeftIcon aria-hidden="true" />
           Fornecedores
         </Link>
       </Button>
@@ -138,7 +139,7 @@ function CatalogSearchInput() {
 
   return (
     <div className="relative md:col-span-2 xl:col-span-1">
-      <Search
+      <MagnifyingGlassIcon
         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
       />
@@ -289,7 +290,7 @@ function CatalogResults() {
   if (products.items.length === 0) {
     return (
       <EmptyState
-        icon={PackageSearch}
+        icon={PackageIcon}
         title="Nenhum produto encontrado"
         description="Ajuste a busca ou os filtros para ver outros produtos deste fornecedor."
       />
@@ -321,45 +322,41 @@ type CatalogProduct = Awaited<ReturnType<typeof getSupplierCatalog>>["products"]
 function ProductCard({ product }: { readonly product: CatalogProduct }) {
   const isInStock = product.stock > 0;
   return (
-    <Card className="h-full overflow-hidden pt-0">
-      <img
-        src={product.imageUrl ?? "/placeholder-product.svg"}
-        alt=""
-        loading="lazy"
-        className="aspect-square w-full bg-muted object-cover"
+    <Card className="h-full gap-0 overflow-hidden py-0">
+      <ProductVisual
+        imageUrl={product.imageUrl}
+        title={product.title}
+        categoryName={product.categoryName}
+        className="aspect-[4/3]"
       />
-      <CardContent className="flex flex-1 flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          {product.categoryName ? (
-            <Badge variant="secondary">{product.categoryName}</Badge>
-          ) : (
-            <span />
-          )}
-          <span className="text-xs text-muted-foreground">SKU {product.sku}</span>
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="space-y-1">
+          <p className="truncate text-xs text-muted-foreground">
+            {product.categoryName ? `${product.categoryName} · ` : null}SKU {product.sku}
+          </p>
+          <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
         </div>
-        <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
-        <dl className="mt-auto grid grid-cols-2 gap-1 text-sm">
-          <dt className="text-muted-foreground">Custo</dt>
-          <dd className="text-right font-semibold">{formatCents(product.costCents)}</dd>
-          <dt className="text-muted-foreground">Preço sugerido</dt>
-          <dd className="text-right">{formatCents(product.suggestedPriceCents)}</dd>
-          <dt className="text-muted-foreground">Estoque</dt>
-          <dd className={isInStock ? "text-right" : "text-right text-destructive"}>
-            {isInStock ? `${product.stock} un.` : "Esgotado"}
-          </dd>
+        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
+          <dt className="text-xs text-muted-foreground">Custo</dt>
+          <dt className="text-right text-xs text-muted-foreground">Preço sugerido</dt>
+          <dd className="font-semibold tabular-nums">{formatCents(product.costCents)}</dd>
+          <dd className="text-right tabular-nums">{formatCents(product.suggestedPriceCents)}</dd>
         </dl>
-        {isInStock ? (
-          <Button asChild size="sm" className="mt-2 w-full">
-            <Link to="/publicacoes/nova" search={{ productId: product.id }}>
-              Publicar
-            </Link>
-          </Button>
-        ) : (
-          <Button size="sm" className="mt-2 w-full" disabled>
-            Sem estoque
-          </Button>
-        )}
-      </CardContent>
+        <div className="flex items-center justify-between gap-2 border-t pt-3">
+          {isInStock ? (
+            <span className="text-xs text-muted-foreground">{product.stock} em estoque</span>
+          ) : (
+            <ToneStatus tone="danger" label="Esgotado" />
+          )}
+          {isInStock ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+                Publicar
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </Card>
   );
 }

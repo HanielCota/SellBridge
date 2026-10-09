@@ -1,5 +1,5 @@
 import type { TicketThread as TicketThreadData } from "@sellbridge/database/repositories";
-import { FileText, Headset, User } from "lucide-react";
+import { FileTextIcon, HeadsetIcon, UserIcon } from "@phosphor-icons/react";
 import { formatBytes } from "@/components/support/attachment-input";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ export function TicketThread({ messages }: { messages: TicketThreadData["message
             )}
             aria-hidden="true"
           >
-            {message.isAdmin ? <Headset className="size-4" /> : <User className="size-4" />}
+            {message.isAdmin ? <HeadsetIcon className="size-4" /> : <UserIcon className="size-4" />}
           </span>
           <article
             className={cn(
@@ -44,9 +44,9 @@ export function TicketThread({ messages }: { messages: TicketThreadData["message
                   <li key={attachment.id}>
                     <a
                       href={`/api/suporte/anexos/${attachment.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs hover:bg-muted"
+                      className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-2 py-1 text-xs hover:bg-muted"
                     >
-                      <FileText className="size-3.5" aria-hidden="true" />
+                      <FileTextIcon className="size-3.5" aria-hidden="true" />
                       {attachment.fileName}
                       <span className="text-muted-foreground">
                         ({formatBytes(attachment.sizeBytes)})

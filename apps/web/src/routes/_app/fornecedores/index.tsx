@@ -1,7 +1,12 @@
 import { supplierListSearchSchema } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MapPin, Package, Search, Store } from "lucide-react";
+import {
+  MagnifyingGlassIcon,
+  MapPinIcon,
+  PackageIcon,
+  StorefrontIcon,
+} from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -45,7 +50,7 @@ function SuppliersPage() {
         actions={
           <Button asChild variant="outline" size="sm">
             <Link to="/onboarding">
-              <MapPin aria-hidden="true" />
+              <MapPinIcon aria-hidden="true" />
               {region.city} - {region.state}
             </Link>
           </Button>
@@ -76,7 +81,7 @@ function SupplierFilters() {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div className="relative flex-1">
-        <Search
+        <MagnifyingGlassIcon
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
@@ -127,7 +132,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
   if (query.data.suppliers.length === 0) {
     return (
       <EmptyState
-        icon={Store}
+        icon={StorefrontIcon}
         title="Nenhum fornecedor encontrado"
         description={
           search.query || search.niche
@@ -165,7 +170,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
               <div className="flex items-center justify-between">
                 <Badge variant="secondary">{supplier.niche}</Badge>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Package className="size-3.5" aria-hidden="true" />
+                  <PackageIcon className="size-3.5" aria-hidden="true" />
                   {supplier.productCount} produtos
                 </span>
               </div>
@@ -178,7 +183,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
 }
 
 function supplierInitials(name: string): string {
-  const words = name.split(/s+/).filter((word) => word.length > 2);
+  const words = name.split(/\s+/).filter((word) => word.length > 2);
   const initials = words
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase())

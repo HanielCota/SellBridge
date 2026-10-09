@@ -20,6 +20,21 @@ export function fieldBindings(field: StringFieldApi) {
   };
 }
 
+interface BlurAwareFieldApi extends StringFieldApi {
+  readonly state: StringFieldApi["state"] & {
+    readonly meta: StringFieldApi["state"]["meta"] & { readonly isBlurred: boolean };
+  };
+}
+
+/**
+ * Like `fieldBindings`, but errors stay hidden until the user leaves the field (or submits),
+ * so untouched fields are never flagged while the person is still filling the form.
+ */
+export function liveFieldBindings(field: BlurAwareFieldApi, hasSubmitted: boolean) {
+  const showErrors = field.state.meta.isBlurred || hasSubmitted;
+  return { ...fieldBindings(field), errors: showErrors ? field.state.meta.errors : [] };
+}
+
 /** Builds a `<form onSubmit>` handler that skips native submission and runs `submit`. */
 export function submitHandler(submit: () => Promise<unknown>) {
   return (event: FormEvent<HTMLFormElement>) => {

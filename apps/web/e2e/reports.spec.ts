@@ -5,21 +5,27 @@ test.describe("dashboard", () => {
   test("mostra KPIs, gráfico e filtros por período e loja", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
-    for (const label of ["Vendas", "Receita", "Lucro", "Ticket médio"]) {
-      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
+    await expect(page.getByText("Lucro no período")).toBeVisible();
+    for (const label of ["Receita", "Pedidos", "Ticket médio"]) {
+      await expect(page.getByRole("article").filter({ hasText: label }).first()).toBeVisible();
     }
+    await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
     await expect(
-      page.getByRole("figure", { name: /Gráfico de receita e lucro por dia/ }),
+      page.getByRole("figure", { name: "Gráfico de receita e lucro por dia" }),
     ).toBeVisible();
+    await page.locator("label", { hasText: /^Lucro$/ }).click();
+    await expect(page.getByRole("radio", { name: "Lucro" })).toBeChecked();
+    await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
     await expect(page.getByText("Vendas por loja")).toBeVisible();
     await expect(page.getByText("Produtos mais vendidos")).toBeVisible();
 
-    await page.getByLabel("Período").click();
-    await page.getByRole("option", { name: "Últimos 6 meses" }).click();
+    await page.locator("label", { hasText: "6 meses" }).click();
+    await expect(page.getByRole("radio", { name: "6 meses" })).toBeChecked();
     await expect(page).toHaveURL(/period=180d/);
     await expect(page.getByRole("figure", { name: /por semana/ })).toBeVisible();
 
-    await page.getByLabel("Loja").click();
+    await page.getByLabel("Loja", { exact: true }).click();
     await page.getByRole("option", { name: "Ana Moda (loja simulada)" }).click();
     await expect(page).toHaveURL(/store=/);
     await expect(page.getByText("Ana Casa & Beleza (loja simulada)")).toHaveCount(0);

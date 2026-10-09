@@ -1,4 +1,4 @@
-import { AlertCircle } from "lucide-react";
+import { WarningCircleIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 
 interface ErrorStateProps {
@@ -12,7 +12,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
       role="alert"
       className="flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center"
     >
-      <AlertCircle className="size-8 text-destructive" aria-hidden="true" />
+      <WarningCircleIcon className="size-8 text-destructive" aria-hidden="true" />
       <p className="text-sm">{message ?? "Não foi possível carregar os dados."}</p>
       {onRetry ? (
         <Button variant="outline" size="sm" onClick={onRetry}>

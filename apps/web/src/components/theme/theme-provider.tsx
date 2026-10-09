@@ -9,7 +9,7 @@ const THEME_EVENT = "sellbridge-theme-change";
 export const themeInitScript = [
   "(function(){try{",
   `var t=localStorage.getItem("${STORAGE_KEY}");`,
-  'var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;',
+  'var d=t?t==="dark":true;',
   'document.documentElement.classList.toggle("dark",d);',
   "}catch(e){}})();",
 ].join("");
@@ -23,9 +23,9 @@ function getSnapshot(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-/** The server cannot know the user's theme; the first client render matches it, then syncs. */
+/** Dark is the default look; a saved preference for light is applied before hydration. */
 function getServerSnapshot(): Theme {
-  return "light";
+  return "dark";
 }
 
 function applyTheme(theme: Theme): void {

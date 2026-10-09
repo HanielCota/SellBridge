@@ -30,6 +30,12 @@ const serverEnvironmentSchema = z.object({
   /** Mock connector only: without it the simulated store is shown as not configured. */
   MOCK_WEBHOOK_SECRET: z.string().min(16).optional(),
   LOG_LEVEL: logLevelEnvironmentSchema,
+  /** Transactional e-mail (password reset). Without it, development logs the message. */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
+  /** "Continuar com Google" appears only when both are set. */
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
 });

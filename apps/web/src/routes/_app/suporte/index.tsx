@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LifeBuoy, Plus } from "lucide-react";
+import { LifebuoyIcon, PlusIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
@@ -72,18 +72,20 @@ const columns = columnHelper.columns([
   }),
 ]);
 
-function SupportHeader() {
+function SupportHeader({ showNewTicket = true }: { showNewTicket?: boolean }) {
   return (
     <PageHeader
       title="Suporte"
       description="Abra chamados e acompanhe as respostas da nossa equipe."
       actions={
-        <Button asChild>
-          <Link to="/suporte/novo">
-            <Plus aria-hidden="true" />
-            Novo chamado
-          </Link>
-        </Button>
+        showNewTicket ? (
+          <Button asChild>
+            <Link to="/suporte/novo">
+              <PlusIcon aria-hidden="true" />
+              Novo chamado
+            </Link>
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -116,11 +118,31 @@ function StatusFilter({
   );
 }
 
-function NoTickets({ isFiltered }: { isFiltered: boolean }) {
+function NoTickets({
+  isFiltered,
+  onClearFilter,
+}: {
+  isFiltered: boolean;
+  onClearFilter: () => void;
+}) {
+  if (isFiltered) {
+    return (
+      <EmptyState
+        icon={LifebuoyIcon}
+        title="Nenhum chamado com este status"
+        description="Seus outros chamados continuam na lista completa."
+        action={
+          <Button variant="outline" onClick={onClearFilter}>
+            Ver todos os chamados
+          </Button>
+        }
+      />
+    );
+  }
   return (
     <EmptyState
-      icon={LifeBuoy}
-      title={isFiltered ? "Nenhum chamado com este status" : "Você ainda não abriu chamados"}
+      icon={LifebuoyIcon}
+      title="Você ainda não abriu chamados"
       description="Precisa de ajuda com pedidos, lojas ou repasses? Abra um chamado e responderemos por aqui."
       action={
         <Button asChild>
@@ -187,12 +209,22 @@ function SupportPage() {
     );
   }
 
+  const isFiltered = search.status !== undefined;
+  const isEmpty = query.data.items.length === 0;
   return (
     <>
-      <SupportHeader />
-      <StatusFilter status={search.status} onStatusChange={(status) => updateSearch({ status })} />
-      {query.data.items.length === 0 ? (
-        <NoTickets isFiltered={search.status !== undefined} />
+      <SupportHeader showNewTicket={!isEmpty || isFiltered} />
+      {isEmpty && !isFiltered ? null : (
+        <StatusFilter
+          status={search.status}
+          onStatusChange={(status) => updateSearch({ status })}
+        />
+      )}
+      {isEmpty ? (
+        <NoTickets
+          isFiltered={isFiltered}
+          onClearFilter={() => updateSearch({ status: undefined })}
+        />
       ) : (
         <TicketsTable tickets={query.data} onPageChange={(page) => updateSearch({ page })} />
       )}

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ADMIN_USER, gotoHydrated, signIn, signUp } from "./helpers";
+import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
 
 const PDF_BYTES = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 
@@ -11,7 +11,7 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
 
   await gotoHydrated(reseller, "/suporte");
   await expect(reseller.getByText("Você ainda não abriu chamados")).toBeVisible();
-  await reseller.getByRole("link", { name: "Novo chamado" }).click();
+  await reseller.getByRole("link", { name: "Abrir chamado" }).click();
   await reseller.waitForLoadState("networkidle");
 
   await reseller.getByRole("button", { name: "Abrir chamado" }).click();
@@ -36,6 +36,7 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   const adminContext = await browser.newContext({ locale: "pt-BR" });
   const admin = await adminContext.newPage();
   await signIn(admin, ADMIN_USER);
+  await enableAdminMode(admin);
   await gotoHydrated(admin, "/admin/chamados");
   await admin.getByLabel("Buscar chamados").fill(subject);
   // Waits for the debounced search navigation so it cannot undo the click below.

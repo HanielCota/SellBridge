@@ -3,7 +3,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
 } from "@sellbridge/shared/schemas";
-import { Paperclip, X } from "lucide-react";
+import { PaperclipIcon, XIcon } from "@phosphor-icons/react";
 import { useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -66,7 +66,7 @@ function AttachmentList({ files, onRemove }: AttachmentListProps) {
               aria-label={`Remover ${file.name}`}
               onClick={() => onRemove(index)}
             >
-              <X aria-hidden="true" />
+              <XIcon aria-hidden="true" />
             </Button>
           </span>
         </li>
@@ -113,7 +113,7 @@ export function AttachmentInput({ files, onChange, error, onError }: AttachmentI
           disabled={files.length >= MAX_ATTACHMENTS}
           onClick={() => inputRef.current?.click()}
         >
-          <Paperclip aria-hidden="true" />
+          <PaperclipIcon aria-hidden="true" />
           Adicionar arquivo
         </Button>
         <p className="mt-1 text-xs text-muted-foreground">

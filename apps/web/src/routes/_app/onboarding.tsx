@@ -2,14 +2,14 @@ import { formatCep, normalizeCep } from "@sellbridge/shared/cep";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { MapPin } from "lucide-react";
+import { MapPinIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { z } from "zod";
 import { optionalParameter } from "@sellbridge/shared/schemas";
 import { TextField } from "@/components/form/form-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { getTenantRegion, updateTenantRegion } from "@/features/region/region.functions";
 import { errorMessage } from "@/lib/errors";
 
@@ -38,23 +38,21 @@ type TenantRegion = Awaited<ReturnType<typeof getTenantRegion>>;
 function OnboardingPage() {
   const region = Route.useLoaderData();
   return (
-    <div className="mx-auto w-full max-w-lg py-6">
+    <div className="mx-auto w-full max-w-lg space-y-6 py-4">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+          {region ? "Alterar sua região" : "Onde você está?"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Usamos seu CEP para mostrar só fornecedores que entregam na sua região.
+        </p>
+      </div>
       <Card>
-        <CardHeader>
-          <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10">
-            <MapPin className="size-5 text-primary" aria-hidden="true" />
-          </div>
-          <CardTitle>
-            <h1>{region ? "Alterar sua região" : "Onde você está?"}</h1>
-          </CardTitle>
-          <CardDescription>
-            Usamos seu CEP para mostrar fornecedores que entregam na sua região.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           {region ? (
-            <p className="text-sm text-muted-foreground">
-              Região atual:{" "}
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPinIcon className="size-4" aria-hidden="true" />
+              Região atual:
               <span className="font-medium text-foreground">
                 {region.city} - {region.state}
               </span>
@@ -127,7 +125,7 @@ function RegionForm({ region }: { readonly region: TenantRegion }) {
         </form.Field>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="justify-self-start">
               {isSubmitting ? "Consultando CEP..." : "Salvar região"}
             </Button>
           )}
