@@ -30,9 +30,13 @@ O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
 
 `pnpm db:seed -- --reset` limpa os dados de domínio e recria tudo.
 
+### Mercado Livre
+
+Crie um aplicativo em developers.mercadolivre.com.br, configure o redirect `{APP_URL}/api/oauth/mercado_livre/callback` e a URL de notificações `{APP_URL}/api/webhooks/mercado_livre` (tópico `orders_v2`), e preencha `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CLIENT_SECRET`. Sem essas variáveis, a opção aparece como "Em breve". Referência dos endpoints usados: [docs/marketplaces/mercado-livre.md](docs/marketplaces/mercado-livre.md).
+
 ### Testando a publicação com o marketplace simulado
 
-Em **Lojas conectadas**, use **Conectar Loja simulada**. No anúncio, inclua `[falha]` no título para simular uma recusa permanente, ou `[instavel]` para simular instabilidade (o job é repetido com backoff até esgotar as tentativas).
+Em **Lojas conectadas**, use **Conectar Loja simulada**. No anúncio, inclua `[falha]` no título para simular uma recusa permanente, ou `[instavel]` para simular instabilidade (o job é repetido com backoff até esgotar as tentativas). Em **Publicações**, o botão **Simular venda** envia um webhook assinado que vira pedido no financeiro.
 
 ## Qualidade
 
@@ -60,6 +64,7 @@ packages/config        tsconfig base
 
 ## Entregas
 
+- **Fase 4:** suporte com anexos (validados pelo conteúdo), histórico e status, e visão de admin para responder/encerrar; conector real do Mercado Livre (OAuth com PKCE, publicação, estoque/preço, pedidos, notificações) atrás da mesma interface; webhooks idempotentes com fila; sincronização periódica de estoque e preço; "Simular venda" para testar o fluxo completo; testes E2E dos fluxos críticos.
 - **Fase 3:** dashboard com KPIs (vendas, receita, lucro, ticket médio), comparação com o período anterior, gráfico de evolução por dia/semana, filtro por período e por loja, vendas por loja e produtos mais vendidos; financeiro com lucro, comissões, devoluções e reembolsos por pedido e por período, tabela com ordenação/filtros/paginação no servidor e exportação CSV; estados vazios e checklist de primeiros passos.
 - **Fase 2:** pacote `marketplaces` (interface única, conector mock completo, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
 - **Fase 1:** schema completo do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
