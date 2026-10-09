@@ -8,7 +8,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ExternalLink, Megaphone, RotateCw, Search } from "lucide-react";
+import { ExternalLink, Megaphone, RotateCw, Search, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { retryListingTarget } from "@/features/listings/listings.functions";
+import { retryListingTarget, simulateMockSale } from "@/features/listings/listings.functions";
 import { listingsQueryOptions } from "@/features/listings/listings.queries";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/errors";
@@ -65,6 +65,30 @@ function RetryButton({ listingTargetId }: { listingTargetId: string }) {
     >
       <RotateCw aria-hidden="true" className={mutation.isPending ? "animate-spin" : undefined} />
       Reprocessar
+    </Button>
+  );
+}
+
+function SimulateSaleButton({ listingTargetId }: { listingTargetId: string }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () => simulateMockSale({ data: { listingTargetId } }),
+    onSuccess: async () => {
+      toast.success("Venda simulada enviada. Ela aparece no financeiro em instantes.");
+      await queryClient.invalidateQueries({ queryKey: ["financials"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      <ShoppingCart aria-hidden="true" />
+      Simular venda
     </Button>
   );
 }
@@ -120,17 +144,22 @@ const columns = columnHelper.columns([
       if (row.status === "error") {
         return <RetryButton listingTargetId={row.id} />;
       }
-      if (row.status === "published" && row.externalUrl) {
-        return (
-          <Button asChild size="sm" variant="ghost">
-            <a href={row.externalUrl} target="_blank" rel="noreferrer">
-              <ExternalLink aria-hidden="true" />
-              Ver anúncio
-            </a>
-          </Button>
-        );
+      if (row.status !== "published") {
+        return null;
       }
-      return null;
+      return (
+        <div className="flex flex-wrap justify-end gap-2">
+          {row.marketplace === "mock" ? <SimulateSaleButton listingTargetId={row.id} /> : null}
+          {row.externalUrl ? (
+            <Button asChild size="sm" variant="ghost">
+              <a href={row.externalUrl} target="_blank" rel="noreferrer">
+                <ExternalLink aria-hidden="true" />
+                Ver anúncio
+              </a>
+            </Button>
+          ) : null}
+        </div>
+      );
     },
   }),
 ]);

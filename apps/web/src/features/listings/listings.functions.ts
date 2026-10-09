@@ -1,17 +1,25 @@
+import { randomUUID } from "node:crypto";
 import {
   createListingWithTargets,
   findConnectedStores,
   getCatalogProductForRegion,
+  getTargetForPublishing,
   listListingTargets,
   listStoreConnections,
   resetTargetForRetry,
 } from "@sellbridge/db/repositories";
+import {
+  encodeMockOrderResource,
+  MOCK_SIGNATURE_HEADER,
+  signMockWebhook,
+} from "@sellbridge/marketplaces";
 import { ValidationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { env } from "@/lib/server/env";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { enqueuePublishJobs } from "@/lib/server/queues";
 import { requireTenantRegion } from "@/lib/server/region";
@@ -85,6 +93,62 @@ export const retryListingTarget = createServerFn({ method: "POST" })
       { tenantId: context.tenantId, listingTargetId: data.listingTargetId },
     ]);
     logger.info("listing.retry_requested", {
+      tenantId: context.tenantId,
+      listingTargetId: data.listingTargetId,
+    });
+    return { ok: true };
+  });
+
+/**
+ * Simulated marketplace only: produces a signed "orders" webhook for a published listing
+ * and sends it to our own endpoint, exercising the real webhook → queue → worker path.
+ */
+export const simulateMockSale = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .inputValidator(z.object({ listingTargetId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    const row = await getTargetForPublishing(db, context.tenantId, data.listingTargetId);
+    if (row.store.marketplace !== "mock") {
+      throw new ValidationError("Só é possível simular vendas em lojas simuladas");
+    }
+    if (row.target.status !== "published" || !row.target.externalId) {
+      throw new ValidationError("O anúncio precisa estar publicado para simular uma venda");
+    }
+    const priceCents = row.listing.priceCents;
+    const resource = encodeMockOrderResource({
+      externalOrderId: `SIM-${randomUUID().slice(0, 8).toUpperCase()}`,
+      status: "paid",
+      totalCents: priceCents,
+      marketplaceFeeCents: Math.round((priceCents * 1400) / 10_000),
+      buyerName: "Comprador simulado",
+      orderedAt: new Date().toISOString(),
+      items: [
+        {
+          externalListingId: row.target.externalId,
+          title: row.listing.title,
+          quantity: 1,
+          unitPriceCents: priceCents,
+        },
+      ],
+    });
+    const rawBody = JSON.stringify({
+      id: randomUUID(),
+      topic: "orders",
+      shopId: row.store.externalShopId,
+      resource,
+    });
+    const response = await fetch(new URL("/api/webhooks/mock", env.APP_URL), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, env.MOCK_WEBHOOK_SECRET),
+      },
+      body: rawBody,
+    });
+    if (!response.ok) {
+      throw new ValidationError("O marketplace simulado não conseguiu enviar a venda");
+    }
+    logger.info("listing.mock_sale_simulated", {
       tenantId: context.tenantId,
       listingTargetId: data.listingTargetId,
     });

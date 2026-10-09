@@ -143,14 +143,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         <li key={supplier.id}>
           <Card className="relative h-full transition-colors hover:border-primary/40">
             <CardHeader className="flex flex-row items-start gap-3 space-y-0">
-              {supplier.logoUrl ? (
-                <img
-                  src={supplier.logoUrl}
-                  alt=""
-                  className="size-11 shrink-0 rounded-lg border bg-muted"
-                  loading="lazy"
-                />
-              ) : null}
+              <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
               <div className="min-w-0 space-y-1">
                 <CardTitle className="truncate text-base">
                   <Link
@@ -180,6 +173,36 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         </li>
       ))}
     </ul>
+  );
+}
+
+function supplierInitials(name: string): string {
+  const words = name.split(/s+/).filter((word) => word.length > 2);
+  const initials = words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+  return initials.length > 0 ? initials : name.charAt(0).toUpperCase();
+}
+
+function SupplierLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt=""
+        className="size-11 shrink-0 rounded-lg border bg-muted"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <span
+      className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
+      aria-hidden="true"
+    >
+      {supplierInitials(name)}
+    </span>
   );
 }
 

@@ -59,16 +59,19 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     return storesPageWithError(`${connector.displayName} ainda não está disponível`);
   }
   const state = randomBytes(24).toString("base64url");
+  // PKCE verifier (RFC 7636): ignored by marketplaces that do not use it.
+  const codeVerifier = randomBytes(48).toString("base64url");
   await createOAuthState(db, {
     state,
     tenantId: session.tenantId,
     marketplace,
-    codeVerifier: null,
+    codeVerifier,
     ttlMs: STATE_TTL_MS,
   });
   const authorizationUrl = connector.getAuthorizationUrl({
     state,
     redirectUri: oauthCallbackUrl(marketplace),
+    codeVerifier,
   });
   return Response.redirect(authorizationUrl, 302);
 }

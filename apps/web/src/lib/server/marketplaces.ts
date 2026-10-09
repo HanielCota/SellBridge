@@ -5,6 +5,10 @@ export const connectors = createConnectorRegistry({
   appUrl: env.APP_URL,
   mockWebhookSecret: env.MOCK_WEBHOOK_SECRET,
   mockLatencyMs: 0,
+  mercadoLivre: {
+    clientId: env.MERCADO_LIVRE_CLIENT_ID,
+    clientSecret: env.MERCADO_LIVRE_CLIENT_SECRET,
+  },
 });
 
 export const tokenCipher = createTokenCipher(env.TOKEN_ENCRYPTION_KEY);

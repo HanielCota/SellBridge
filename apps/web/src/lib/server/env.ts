@@ -30,7 +30,6 @@ const serverEnvSchema = z.object({
   MOCK_WEBHOOK_SECRET: z.string().min(16).default("mock-webhook-secret-dev-only"),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
-  MERCADO_LIVRE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

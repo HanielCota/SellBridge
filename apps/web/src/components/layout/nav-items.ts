@@ -1,6 +1,8 @@
 import type { LinkProps } from "@tanstack/react-router";
 import {
+  Inbox,
   LayoutDashboard,
+  LifeBuoy,
   MapPin,
   Megaphone,
   Plug,
@@ -41,8 +43,14 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: "Conta",
-    items: [{ label: "Minha região", to: "/onboarding", icon: MapPin }],
+    items: [
+      { label: "Minha região", to: "/onboarding", icon: MapPin },
+      { label: "Suporte", to: "/suporte", icon: LifeBuoy },
+    ],
   },
 ];
 
-export const ADMIN_NAV_SECTION: NavSection | null = null;
+export const ADMIN_NAV_SECTION: NavSection | null = {
+  label: "Administração",
+  items: [{ label: "Chamados", to: "/admin/chamados", icon: Inbox }],
+};
