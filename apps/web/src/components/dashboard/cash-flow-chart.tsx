@@ -1,10 +1,8 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
-import { cn } from "cn";
 import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
-import { MoneyFigure } from "./figures";
 
 const SERIES = [
   { key: "all", label: "Tudo" },
@@ -59,7 +57,13 @@ interface TooltipProps {
   payload?: { payload?: ChartPoint }[];
 }
 
-/** Mint card: what came in, what went out, and the profit as the big number. */
+const tooltipMoney = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
+
+/** Mint card, built to be read at a glance: profit first, then where the revenue went. */
 function ProfitTooltip({ active, payload }: TooltipProps) {
   const point = payload?.[0]?.payload;
   if (!active || !point) {
@@ -69,53 +73,35 @@ function ProfitTooltip({ active, payload }: TooltipProps) {
   const revenue = Math.round(point.revenue / 100);
   const profit = Math.round(point.profit / 100);
   const costs = Math.max(revenue - profit, 0);
-  const scale = Math.max(revenue, costs, 1);
-  const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
+  const profitShare = revenue > 0 ? Math.min(Math.max(profit / revenue, 0), 1) : 0;
   return (
-    <div className="w-64 rounded-3xl bg-brand p-4 text-primary-foreground shadow-2xl shadow-black/40">
-      <p className="text-right text-xs font-medium opacity-70">{formatPointDate(point.date)}</p>
-      <div className="mt-1 grid grid-cols-2 gap-2">
-        <TooltipBar label="Receita" reais={revenue} share={revenue / scale} tone="dark" />
-        <TooltipBar label="Custos" reais={costs} share={costs / scale} tone="mid" />
+    <div className="w-64 rounded-2xl bg-brand p-4 text-primary-foreground shadow-2xl shadow-black/50">
+      <p className="text-sm font-semibold">{formatPointDate(point.date)}</p>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium">Lucro</p>
+          <p className="text-[28px] leading-none font-semibold tracking-[-0.02em]">
+            {tooltipMoney.format(profit)}
+          </p>
+        </div>
+        {revenue > 0 ? (
+          <p className="rounded-full bg-primary-foreground px-2.5 py-1 text-xs font-semibold text-brand">
+            {Math.round(profitShare * 100)}% de margem
+          </p>
+        ) : null}
       </div>
-      <p className="mt-3 flex items-baseline justify-between text-xs font-medium">
-        <span className="opacity-70">Lucro</span>
-        {margin === null ? null : <span className="opacity-70">margem de {margin}%</span>}
-      </p>
-      <MoneyFigure
-        cents={profit * 100}
-        className="text-3xl leading-none [&>span]:text-primary-foreground/60"
-      />
-    </div>
-  );
-}
-
-function TooltipBar({
-  label,
-  reais,
-  share,
-  tone,
-}: {
-  label: string;
-  reais: number;
-  share: number;
-  tone: "dark" | "mid";
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-[11px] leading-tight">
-        <span className="block opacity-70">{label}</span>
-        <span className="block font-semibold tabular-nums">R$ {reais.toLocaleString("pt-BR")}</span>
-      </p>
-      <div className="flex h-14 items-end">
-        <span
-          className={cn(
-            "w-full rounded-xl",
-            tone === "dark" ? "bg-primary-foreground" : "bg-primary-foreground/35",
-          )}
-          style={{ height: `${Math.max(16, share * 100)}%` }}
-        />
+      <div
+        className="mt-3 flex h-2 overflow-hidden rounded-full bg-primary-foreground/20"
+        aria-hidden="true"
+      >
+        <span className="h-full bg-primary-foreground" style={{ width: `${profitShare * 100}%` }} />
       </div>
+      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+        <dt className="font-medium">Receita</dt>
+        <dd className="text-right font-semibold tabular-nums">{tooltipMoney.format(revenue)}</dd>
+        <dt className="font-medium">Custos e taxas</dt>
+        <dd className="text-right font-semibold tabular-nums">{tooltipMoney.format(costs)}</dd>
+      </dl>
     </div>
   );
 }
