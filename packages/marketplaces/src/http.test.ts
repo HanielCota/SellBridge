@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffDelay, createRateLimiter, fetchWithRetry, retryAfterMs } from "./http.ts";
+import { backoffDelay, createRateLimiter, fetchWithRetry, retryAfterMilliseconds } from "./http.ts";
 
 function respond(status: number, headers: Record<string, string> = {}) {
   return new Response("{}", { status, headers });
@@ -69,21 +69,26 @@ describe("fetchWithRetry", () => {
 });
 
 describe("backoff helpers", () => {
-  it("grows exponentially and caps at maxDelayMs", () => {
-    const options = { retries: 5, baseDelayMs: 100, maxDelayMs: 1000, random: () => 1 };
+  it("grows exponentially and caps at maxDelayMilliseconds", () => {
+    const options = {
+      retries: 5,
+      baseDelayMilliseconds: 100,
+      maxDelayMilliseconds: 1000,
+      random: () => 1,
+    };
     expect(backoffDelay(0, options)).toBe(100);
     expect(backoffDelay(2, options)).toBe(400);
     expect(backoffDelay(10, options)).toBe(1000);
   });
 
   it("parses Retry-After as seconds or date and ignores garbage", () => {
-    expect(retryAfterMs(respond(429, { "retry-after": "3" }))).toBe(3000);
+    expect(retryAfterMilliseconds(respond(429, { "retry-after": "3" }))).toBe(3000);
     const now = Date.parse("2026-01-01T00:00:00Z");
     expect(
-      retryAfterMs(respond(429, { "retry-after": "Thu, 01 Jan 2026 00:00:05 GMT" }), now),
+      retryAfterMilliseconds(respond(429, { "retry-after": "Thu, 01 Jan 2026 00:00:05 GMT" }), now),
     ).toBe(5000);
-    expect(retryAfterMs(respond(429, { "retry-after": "soon" }))).toBeNull();
-    expect(retryAfterMs(respond(429))).toBeNull();
+    expect(retryAfterMilliseconds(respond(429, { "retry-after": "soon" }))).toBeNull();
+    expect(retryAfterMilliseconds(respond(429))).toBeNull();
   });
 });
 
@@ -95,7 +100,7 @@ describe("createRateLimiter", () => {
     });
     const limiter = createRateLimiter({
       tokensPerInterval: 2,
-      intervalMs: 1000,
+      intervalMilliseconds: 1000,
       now: () => clock,
       sleep,
     });

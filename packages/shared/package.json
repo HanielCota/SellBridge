@@ -15,6 +15,7 @@
     "./queues": "./src/queues.ts",
     "./finance": "./src/finance.ts",
     "./file-signature": "./src/file-signature.ts",
+    "./http-body": "./src/http-body.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {
