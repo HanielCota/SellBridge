@@ -133,3 +133,7 @@ Aplicados os princípios descritos em [architecture.md](architecture.md) e refor
 - **Overrides do lint:** só por arquivo (o `.catch()` do Zod em `schemas/fallback.ts` e o tamanho dos blocos de teste). Nenhum comentário de desativação.
 - **Logger:** escreve em `process.stdout`/`stderr`, respeita `LOG_LEVEL` e mascara chaves sensíveis.
 - **Segredos fora do código:** `MOCK_WEBHOOK_SECRET` deixou de ter padrão; as senhas do seed vêm de `SEED_DEMO_PASSWORD`/`SEED_ADMIN_PASSWORD`, também lidas pelos testes E2E; o CI gera segredos efêmeros por execução.
+
+## 2026-10-09 — Build scripts de dependências
+
+O pnpm 12 falha o `install` quando um pacote tem script de build não aprovado. Ficam liberados só `esbuild` e `lefthook`; o `msgpackr-extract` (acelerador nativo opcional do `msgpackr`, usado pelo BullMQ) fica explicitamente negado em `allowBuilds`: o fallback em JavaScript puro atende o volume do MVP e evita compilar código nativo no install.
