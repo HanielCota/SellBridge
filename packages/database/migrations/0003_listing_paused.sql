@@ -1,0 +1,1 @@
+ALTER TYPE "public"."listing_target_status" ADD VALUE 'paused';

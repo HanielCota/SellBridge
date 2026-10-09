@@ -15,7 +15,7 @@ export const STORE_STATUS_LABELS: Record<StoreStatus, string> = {
   disconnected: "Desconectada",
 };
 
-export const LISTING_STATUSES = ["pending", "publishing", "published", "error"] as const;
+export const LISTING_STATUSES = ["pending", "publishing", "published", "paused", "error"] as const;
 export const listingStatusSchema = z.enum(LISTING_STATUSES);
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
 
@@ -23,6 +23,7 @@ export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
   pending: "Na fila",
   publishing: "Publicando",
   published: "Publicado",
+  paused: "Pausado",
   error: "Erro",
 };
 

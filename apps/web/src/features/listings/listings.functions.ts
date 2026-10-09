@@ -4,9 +4,11 @@ import {
   findConnectedStores,
   getCatalogProductForRegion,
   getTargetForPublishing,
-  listListingTargets,
+  listListingOverview,
   listStoreConnections,
-  resetTargetForRetry,
+  resetListingErrorsForRetry,
+  setListingsPaused,
+  updateListingPrice,
 } from "@sellbridge/database/repositories";
 import {
   encodeMockOrderResource,
@@ -76,7 +78,7 @@ export const listListings = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(listingsSearchSchema)
   .handler(async ({ context, data }) => {
-    return listListingTargets(
+    return listListingOverview(
       database,
       context.tenantId,
       { status: data.status, search: data.query },
@@ -84,18 +86,48 @@ export const listListings = createServerFn({ method: "GET" })
     );
   });
 
-export const retryListingTarget = createServerFn({ method: "POST" })
+const listingIdsSchema = z.object({ listingIds: z.array(z.uuid()).min(1).max(100) });
+
+/** Puts every failed store of the chosen listings back in the publishing queue. */
+export const retryListings = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .validator(z.object({ listingTargetId: z.uuid() }))
+  .validator(listingIdsSchema)
   .handler(async ({ context, data }) => {
-    await resetTargetForRetry(database, context.tenantId, data.listingTargetId);
-    await enqueuePublishJobs([
-      { tenantId: context.tenantId, listingTargetId: data.listingTargetId },
-    ]);
+    const targetIds = await resetListingErrorsForRetry(database, context.tenantId, data.listingIds);
+    await enqueuePublishJobs(
+      targetIds.map((listingTargetId) => ({ tenantId: context.tenantId, listingTargetId })),
+    );
     logger.info("listing.retry_requested", {
       tenantId: context.tenantId,
-      listingTargetId: data.listingTargetId,
+      targets: targetIds.length,
     });
+    return { retried: targetIds.length };
+  });
+
+/** Pauses (zero stock on the marketplace) or resumes the chosen listings. */
+export const setListingsPausedFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(listingIdsSchema.extend({ paused: z.boolean() }))
+  .handler(async ({ context, data }) => {
+    const changed = await setListingsPaused(
+      database,
+      context.tenantId,
+      data.listingIds,
+      data.paused,
+    );
+    logger.info(data.paused ? "listing.paused" : "listing.resumed", {
+      tenantId: context.tenantId,
+      targets: changed,
+    });
+    return { changed };
+  });
+
+export const updateListingPriceFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ listingId: z.uuid(), priceCents: z.number().int().positive() }))
+  .handler(async ({ context, data }) => {
+    await updateListingPrice(database, context.tenantId, data.listingId, data.priceCents);
+    logger.info("listing.price_updated", { tenantId: context.tenantId, listingId: data.listingId });
     return { ok: true };
   });
 

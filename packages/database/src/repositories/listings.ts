@@ -250,9 +250,15 @@ export interface TargetNeedingSync {
 }
 
 /**
- * Published listings whose supplier stock or listing price differs from what was last
- * sent to the marketplace (all tenants; used by the worker sync job).
+ * Live listings whose stock or price differs from what was last sent to the marketplace
+ * (all tenants; used by the worker sync job). Paused listings are held at zero stock.
  */
+/** Stock to show on the marketplace: zero while the reseller has the listing paused. */
+const liveStock =
+  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${supplierProducts.stock} end`.mapWith(
+    Number,
+  );
+
 export async function findTargetsNeedingSync(
   database: Database,
   limit = 200,
@@ -261,7 +267,7 @@ export async function findTargetsNeedingSync(
     .select({
       targetId: listingTargets.id,
       externalId: listingTargets.externalId,
-      stock: supplierProducts.stock,
+      stock: liveStock,
       priceCents: listings.priceCents,
       store: storeConnections,
     })
@@ -271,10 +277,10 @@ export async function findTargetsNeedingSync(
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
     .where(
       and(
-        eq(listingTargets.status, "published"),
+        sql`${listingTargets.status} in ('published', 'paused')`,
         eq(storeConnections.status, "connected"),
         sql`${listingTargets.externalId} is not null`,
-        sql`(${listingTargets.syncedStock} is distinct from ${supplierProducts.stock}
+        sql`(${listingTargets.syncedStock} is distinct from ${liveStock}
           or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
       ),
     )
