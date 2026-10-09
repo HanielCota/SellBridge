@@ -20,6 +20,7 @@ import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
+import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -33,6 +34,7 @@ import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$t
 import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
+import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
@@ -44,6 +46,7 @@ import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth
 import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from './routes/api/suporte/anexos/$attachmentId'
 import { Route as ApiSuporteChamadosIndexRouteImport } from './routes/api/suporte/chamados/index'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
+import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
 
 const IndexRoute = IndexRouteImport.update({
@@ -97,6 +100,11 @@ const AppLojasRoute = AppLojasRouteImport.update({
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPerfilRoute = AppPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AuthCadastroRoute = AuthCadastroRouteImport.update({
@@ -165,6 +173,11 @@ const ApiFinanceiroExportarRoute = ApiFinanceiroExportarRouteImport.update({
   path: '/api/financeiro/exportar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPerfilFotoRoute = ApiPerfilFotoRouteImport.update({
+  id: '/api/perfil/foto',
+  path: '/api/perfil/foto',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
   id: '/api/webhooks/$marketplace',
   path: '/api/webhooks/$marketplace',
@@ -225,6 +238,12 @@ const ApiAdminChamadosTicketIdMensagensRoute =
     path: '/api/admin/chamados/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPerfilFotoUserIdFileNameRoute =
+  ApiPerfilFotoUserIdFileNameRouteImport.update({
+    id: '/$userId/$fileName',
+    path: '/$userId/$fileName',
+    getParentRoute: () => ApiPerfilFotoRoute,
+  } as any)
 const ApiSuporteChamadosTicketIdMensagensRoute =
   ApiSuporteChamadosTicketIdMensagensRouteImport.update({
     id: '/api/suporte/chamados/$ticketId/mensagens',
@@ -242,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
+  '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
@@ -252,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -266,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
 }
 export interface FileRoutesByTo {
@@ -277,6 +299,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
+  '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
@@ -287,6 +310,7 @@ export interface FileRoutesByTo {
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
@@ -301,6 +325,7 @@ export interface FileRoutesByTo {
   '/admin/clientes': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
 }
 export interface FileRoutesById {
@@ -316,6 +341,7 @@ export interface FileRoutesById {
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
+  '/_app/perfil': typeof AppPerfilRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -326,6 +352,7 @@ export interface FileRoutesById {
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
+  '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -340,6 +367,7 @@ export interface FileRoutesById {
   '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
+  '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
 }
 export interface FileRouteTypes {
@@ -354,6 +382,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/lojas'
     | '/onboarding'
+    | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
@@ -364,6 +393,7 @@ export interface FileRouteTypes {
     | '/suporte/novo'
     | '/api/auth/$'
     | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores/'
@@ -378,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/clientes/'
     | '/api/suporte/chamados/'
     | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -389,6 +420,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/lojas'
     | '/onboarding'
+    | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
@@ -399,6 +431,7 @@ export interface FileRouteTypes {
     | '/suporte/novo'
     | '/api/auth/$'
     | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores'
@@ -413,6 +446,7 @@ export interface FileRouteTypes {
     | '/admin/clientes'
     | '/api/suporte/chamados'
     | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
   id:
     | '__root__'
@@ -427,6 +461,7 @@ export interface FileRouteTypes {
     | '/_app/financeiro'
     | '/_app/lojas'
     | '/_app/onboarding'
+    | '/_app/perfil'
     | '/_auth/cadastro'
     | '/_auth/esqueci-senha'
     | '/_auth/login'
@@ -437,6 +472,7 @@ export interface FileRouteTypes {
     | '/_app/suporte/novo'
     | '/api/auth/$'
     | '/api/financeiro/exportar'
+    | '/api/perfil/foto'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
@@ -451,6 +487,7 @@ export interface FileRouteTypes {
     | '/_app/admin/clientes/'
     | '/api/suporte/chamados/'
     | '/api/admin/chamados/$ticketId/mensagens'
+    | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
   fileRoutesById: FileRoutesById
 }
@@ -462,6 +499,7 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
+  ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
@@ -549,6 +587,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/perfil': {
+      id: '/_app/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AppPerfilRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_auth/cadastro': {
@@ -642,6 +687,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFinanceiroExportarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/perfil/foto': {
+      id: '/api/perfil/foto'
+      path: '/api/perfil/foto'
+      fullPath: '/api/perfil/foto'
+      preLoaderRoute: typeof ApiPerfilFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/$marketplace': {
       id: '/api/webhooks/$marketplace'
       path: '/api/webhooks/$marketplace'
@@ -719,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminChamadosTicketIdMensagensRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/perfil/foto/$userId/$fileName': {
+      id: '/api/perfil/foto/$userId/$fileName'
+      path: '/$userId/$fileName'
+      fullPath: '/api/perfil/foto/$userId/$fileName'
+      preLoaderRoute: typeof ApiPerfilFotoUserIdFileNameRouteImport
+      parentRoute: typeof ApiPerfilFotoRoute
+    }
     '/api/suporte/chamados/$ticketId/mensagens': {
       id: '/api/suporte/chamados/$ticketId/mensagens'
       path: '/api/suporte/chamados/$ticketId/mensagens'
@@ -767,6 +826,7 @@ interface AppRouteRouteChildren {
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPerfilRoute: typeof AppPerfilRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
   AppSuporteNovoRoute: typeof AppSuporteNovoRoute
@@ -781,6 +841,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
+  AppPerfilRoute: AppPerfilRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,
   AppSuporteNovoRoute: AppSuporteNovoRoute,
@@ -810,6 +871,18 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface ApiPerfilFotoRouteChildren {
+  ApiPerfilFotoUserIdFileNameRoute: typeof ApiPerfilFotoUserIdFileNameRoute
+}
+
+const ApiPerfilFotoRouteChildren: ApiPerfilFotoRouteChildren = {
+  ApiPerfilFotoUserIdFileNameRoute: ApiPerfilFotoUserIdFileNameRoute,
+}
+
+const ApiPerfilFotoRouteWithChildren = ApiPerfilFotoRoute._addFileChildren(
+  ApiPerfilFotoRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
@@ -818,6 +891,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
+  ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   OauthMockAutorizarRoute: OauthMockAutorizarRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,

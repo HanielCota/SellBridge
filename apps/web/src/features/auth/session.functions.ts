@@ -16,6 +16,8 @@ export interface SessionUser {
   name: string;
   email: string;
   role: string;
+  /** Profile photo URL (uploaded or from Google); null shows the initials. */
+  image: string | null;
 }
 
 export interface AppSession {
@@ -40,6 +42,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         name: session.user.name,
         email: session.user.email,
         role,
+        image: session.user.image ?? null,
       },
       adminMode: role === "admin" && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
