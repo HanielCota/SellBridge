@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import {
+  ADMIN_USER,
+  enableAdminMode,
+  gotoHydrated,
+  signIn,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 
 test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   const customerContext = await browser.newContext();
@@ -33,6 +40,7 @@ test("revendedor não acessa o painel de clientes", async ({ page }) => {
 
 test("modo administrador começa desligado e liga as ferramentas de admin", async ({ page }) => {
   await signIn(page, ADMIN_USER);
+  await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
   const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
   if ((await toggle.getAttribute("aria-checked")) === "true") {
@@ -52,6 +60,7 @@ test("modo administrador começa desligado e liga as ferramentas de admin", asyn
 
 test("revendedor não vê o modo administrador", async ({ page }) => {
   await signUp(page, "Revendedor Sem Toggle");
+  await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
   await expect(page.getByRole("menuitemcheckbox", { name: "Modo administrador" })).toHaveCount(0);
 });

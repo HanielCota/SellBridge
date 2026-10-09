@@ -49,6 +49,8 @@ export async function signUp(page: Page, name: string): Promise<string> {
 
 /** Turns on admin mode from the profile menu (admins only; it is off by default). */
 export async function enableAdminMode(page: Page): Promise<void> {
+  // The menu only opens once React owns the page; callers may arrive from a full page load.
+  await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
   const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
   if ((await toggle.getAttribute("aria-checked")) !== "true") {
