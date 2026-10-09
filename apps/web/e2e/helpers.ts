@@ -1,10 +1,18 @@
 import { expect, type Page } from "@playwright/test";
 import { requireEnvironmentVariable } from "./environment";
 
+/**
+ * Waits until React has hydrated the current document. Needed after any full page load:
+ * before hydration a click submits the form natively and the page just reloads.
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+}
+
 /** Opens a page and waits until React has hydrated it, so typed values are not reset. */
 export async function gotoHydrated(page: Page, path: string): Promise<void> {
   await page.goto(path, { waitUntil: "networkidle" });
-  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
+  await waitForHydration(page);
 }
 
 export const DEMO_USER = {
