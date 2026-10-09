@@ -18,7 +18,8 @@ import {
   type NavBadge,
   type NavItem,
 } from "./nav-items";
-import { initials, roleLabel, UserMenu } from "./user-menu";
+import { AvatarButton } from "@/components/profile/avatar-button";
+import { roleLabel, UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
 
@@ -127,12 +128,7 @@ function AccountChip({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-full bg-card p-1.5">
-      <span
-        aria-hidden="true"
-        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-primary-foreground"
-      >
-        {initials(user.name)}
-      </span>
+      <AvatarButton name={user.name} image={user.image} />
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (

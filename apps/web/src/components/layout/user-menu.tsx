@@ -6,6 +6,7 @@ import {
   ShieldCheckIcon,
   SignOutIcon,
   SunIcon,
+  UserCircleIcon,
 } from "@phosphor-icons/react";
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -121,6 +122,12 @@ export function UserMenu({ user, supportReplies, adminMode }: UserMenuProps) {
           <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/perfil">
+            <UserCircleIcon aria-hidden="true" />
+            Meu perfil
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/onboarding">
             <MapPinIcon aria-hidden="true" />

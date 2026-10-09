@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { validationError } from "@sellbridge/shared/errors";
 import { environment } from "./environment.ts";
@@ -10,6 +10,8 @@ import { environment } from "./environment.ts";
 export interface FileStorage {
   put(key: string, bytes: Uint8Array): Promise<void>;
   get(key: string): Promise<Uint8Array | null>;
+  /** Removes the file; a missing file is not an error. */
+  delete(key: string): Promise<void>;
 }
 
 export function createLocalFileStorage(rootDirectory: string): FileStorage {
@@ -38,6 +40,9 @@ export function createLocalFileStorage(rootDirectory: string): FileStorage {
         }
         throw error;
       }
+    },
+    async delete(key) {
+      await rm(pathFor(key), { force: true });
     },
   };
 }
