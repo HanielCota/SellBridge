@@ -145,3 +145,33 @@ test("desconecta uma loja após confirmação", async ({ page }) => {
   await expect(page.getByText("Loja desconectada")).toBeVisible();
   await expect(page.getByText("Nenhuma loja conectada")).toBeVisible();
 });
+
+test("publica vários produtos do catálogo de uma vez com regra de preço", async ({ page }) => {
+  await signUp(page, "Revendedora Lote");
+  await onboardInBeloHorizonte(page);
+  await connectMockStore(page, "Loja Lote");
+
+  await gotoHydrated(page, "/catalogo");
+  await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
+  const boxes = page.getByRole("checkbox", { name: /^Selecionar / });
+  await boxes.nth(0).click();
+  await boxes.nth(1).click();
+  await page.getByRole("button", { name: "Publicar selecionados" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Publicar 2 produtos" });
+  await expect(dialog.getByText("Loja Lote")).toBeVisible();
+  await dialog.getByLabel("Percentual sobre o custo").fill("2");
+  await expect(dialog.getByText("Use um valor entre 5% e 300%")).toBeVisible();
+  await dialog.getByLabel("Percentual sobre o custo").fill("80");
+  await expect(dialog.getByText(/,90$/).first()).toBeVisible();
+  await dialog.getByRole("button", { name: "Publicar 2 produtos" }).click();
+
+  await expect(page).toHaveURL(/\/publicacoes/);
+  await expect(page.getByText("2 produtos enviados para publicação")).toBeVisible();
+  await expect(page.getByText("Publicado", { exact: true }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await gotoHydrated(page, "/catalogo");
+  await expect(page.getByText("Publicado", { exact: true })).toHaveCount(2);
+});

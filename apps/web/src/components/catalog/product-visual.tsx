@@ -32,20 +32,20 @@ const CATEGORY_ICONS: Record<string, PhosphorIcon> = {
   "Infantil e brinquedos": BabyIcon,
 };
 
-/** Variant color (the "- Verde" suffix of the title) shown as a soft swatch. */
-const COLOR_SWATCHES: Record<string, string> = {
-  Preto: "bg-zinc-800 text-zinc-100",
-  Branco: "bg-white text-zinc-500 ring-1 ring-inset ring-black/5",
-  Azul: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-  Bege: "bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
-  Verde: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  Rosa: "bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300",
-  Cinza: "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200",
+/** Variant color (the "- Verde" suffix of the title), shown as a small dot with its name. */
+const COLOR_DOTS: Record<string, string> = {
+  Preto: "#18181b",
+  Branco: "#ffffff",
+  Azul: "#2563eb",
+  Bege: "#d6c3a1",
+  Verde: "#16a34a",
+  Rosa: "#ec4899",
+  Cinza: "#9ca3af",
 };
 
 function variantColor(title: string): string | null {
   const suffix = title.split(" - ").at(-1)?.trim();
-  return suffix && suffix in COLOR_SWATCHES ? suffix : null;
+  return suffix && suffix in COLOR_DOTS ? suffix : null;
 }
 
 interface ProductVisualProps {
@@ -56,8 +56,8 @@ interface ProductVisualProps {
 }
 
 /**
- * The supplier's photo when there is one; otherwise an honest stand-in (variant color +
- * category icon) instead of a random stock image.
+ * The supplier's photo when there is one; otherwise a neutral tile with the category icon
+ * and the variant color as a small labeled dot (never a full-color block that glares).
  */
 export function ProductVisual({ imageUrl, title, categoryName, className }: ProductVisualProps) {
   if (imageUrl) {
@@ -75,15 +75,18 @@ export function ProductVisual({ imageUrl, title, categoryName, className }: Prod
   return (
     <div
       className={cn(
-        "relative flex w-full items-center justify-center",
-        color ? COLOR_SWATCHES[color] : "bg-muted text-muted-foreground",
+        "relative flex w-full items-center justify-center bg-muted text-muted-foreground",
         className,
       )}
       aria-hidden="true"
     >
-      <Icon className="size-10 opacity-75" weight="light" />
+      <Icon className="size-9" weight="light" />
       {color ? (
-        <span className="absolute bottom-2.5 left-3 text-[11px] font-medium opacity-80">
+        <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background/80 py-0.5 pr-2 pl-1 text-[11px] font-medium text-foreground backdrop-blur">
+          <span
+            className="size-3 rounded-full ring-1 ring-foreground/20"
+            style={{ backgroundColor: COLOR_DOTS[color] }}
+          />
           {color}
         </span>
       ) : null}

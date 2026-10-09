@@ -7,11 +7,13 @@ export interface NavItem {
   label: string;
   to: NonNullable<LinkProps["to"]>;
   badge?: NavBadge;
+  /** Other sections that live under this tab (e.g. supplier pages under Catálogo). */
+  also?: string[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
-  { label: "Fornecedores", to: "/fornecedores" },
+  { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
   { label: "Lojas", to: "/lojas" },
   { label: "Financeiro", to: "/financeiro" },

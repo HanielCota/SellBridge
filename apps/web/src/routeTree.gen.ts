@@ -15,6 +15,7 @@ import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
+import { Route as AppCatalogoRouteImport } from './routes/_app/catalogo'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
@@ -75,6 +76,11 @@ const TermosRoute = TermosRouteImport.update({
 const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppCatalogoRoute = AppCatalogoRouteImport.update({
+  id: '/catalogo',
+  path: '/catalogo',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
   '/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
+  '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
@@ -295,6 +302,7 @@ export interface FileRoutesByTo {
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
+  '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
@@ -337,6 +345,7 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRouteRouteWithChildren
   '/_app/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
+  '/_app/catalogo': typeof AppCatalogoRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/lojas': typeof AppLojasRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/admin'
     | '/fornecedores'
+    | '/catalogo'
     | '/dashboard'
     | '/financeiro'
     | '/lojas'
@@ -416,6 +426,7 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/termos'
     | '/admin'
+    | '/catalogo'
     | '/dashboard'
     | '/financeiro'
     | '/lojas'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/_app/admin'
     | '/_app/fornecedores'
+    | '/_app/catalogo'
     | '/_app/dashboard'
     | '/_app/financeiro'
     | '/_app/lojas'
@@ -552,6 +564,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AppAdminRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/catalogo': {
+      id: '/_app/catalogo'
+      path: '/catalogo'
+      fullPath: '/catalogo'
+      preLoaderRoute: typeof AppCatalogoRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/dashboard': {
@@ -822,6 +841,7 @@ const AppFornecedoresRouteRouteWithChildren =
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
   AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
+  AppCatalogoRoute: typeof AppCatalogoRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppLojasRoute: typeof AppLojasRoute
@@ -837,6 +857,7 @@ interface AppRouteRouteChildren {
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAdminRouteRoute: AppAdminRouteRouteWithChildren,
   AppFornecedoresRouteRoute: AppFornecedoresRouteRouteWithChildren,
+  AppCatalogoRoute: AppCatalogoRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppLojasRoute: AppLojasRoute,

@@ -46,7 +46,7 @@ function NavTab({
   count: number;
   onNavigate?: () => void;
 }) {
-  const isActive = isActivePath(pathname, item.to);
+  const isActive = [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   return (
     <Link
