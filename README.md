@@ -16,7 +16,7 @@ pnpm install
 pnpm db:up                    # Postgres + Redis
 pnpm db:migrate
 pnpm db:seed
-pnpm dev                      # web em http://localhost:3000
+pnpm dev                      # web em http://localhost:3000 + worker (filas)
 ```
 
 O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
@@ -29,6 +29,10 @@ O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
 | `admin@sellbridge.local` | `admin12345` | Papel de administrador                                                                 |
 
 `pnpm db:seed -- --reset` limpa os dados de domínio e recria tudo.
+
+### Testando a publicação com o marketplace simulado
+
+Em **Lojas conectadas**, use **Conectar Loja simulada**. No anúncio, inclua `[falha]` no título para simular uma recusa permanente, ou `[instavel]` para simular instabilidade (o job é repetido com backoff até esgotar as tentativas).
 
 ## Qualidade
 
@@ -56,5 +60,6 @@ packages/config        tsconfig base
 
 ## Entregas
 
+- **Fase 2:** pacote `marketplaces` (interface única, conector mock completo, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
 - **Fase 1:** schema completo do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
 - **Fase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, layout base (sidebar colapsável, modo claro/escuro) e autenticação (cadastro, login, logout, organização por usuário, papel admin).

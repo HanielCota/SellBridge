@@ -86,3 +86,17 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 - **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm db:seed` é idempotente; `pnpm db:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
 - **Lojas da conta demo** usam o marketplace `mock`, porque não há tokens reais.
 - **Testes de integração do banco** rodam contra o Postgres real (`fileParallelism: false`). O CI sobe o Postgres no job de checagens.
+
+## 2026-10-08 — Fase 2: lojas e publicação
+
+- **Interface única `MarketplaceConnector`** (`packages/marketplaces`): autorização OAuth, troca de código, renovação de token, publicação, atualização de estoque/preço, pedidos e verificação de webhook. Web e worker só falam com marketplaces por ela.
+- **Conector mock completo e determinístico**: tela de consentimento própria (`/oauth/mock/autorizar`), tokens com validade de 6 h, publicação idempotente (o mesmo `idempotencyKey` gera o mesmo id externo) e gatilhos para testes: `[falha]` no título = recusa permanente, `[instavel]` = falha temporária, preço < R$ 5 = recusa, refresh token `mock-refresh-revoked` = loja expirada. Mercado Livre, Shopee e TikTok aparecem como "Em breve" até terem conector real.
+- **OAuth**: `state` aleatório de uso único, gravado em `oauth_states` com tenant, marketplace e validade de 10 min. O callback só aceita o state do mesmo tenant e marketplace (proteção contra CSRF e replay). A tela de consentimento mock só redireciona para o nosso próprio callback (sem open redirect).
+- **Tokens criptografados em repouso** com AES-256-GCM (IV aleatório + auth tag, formato `v1.iv.tag.dados`). Desconectar apaga os tokens.
+- **Fila de publicação (BullMQ 6)**: o web só produz jobs; o worker processa. 5 tentativas com backoff exponencial a partir de 5 s. Erros não recuperáveis (`retryable: false`, payload inválido, publicação de outro tenant, loja desconectada) usam `UnrecoverableError` e não são repetidos. Enquanto há tentativas, o destino fica "Na fila" com o motivo visível; na última, vira "Erro" com botão de reprocessar. Token revogado marca a loja como "Acesso expirado".
+- **Rate limit**: token bucket por loja no worker (5 req/s) mais o limiter global da fila (20 jobs/s). As requisições HTTP aos marketplaces usam `fetchWithRetry` (retry em 408/425/429/5xx, respeita `Retry-After`, backoff exponencial com jitter).
+- **Renovação de tokens**: job scheduler `refresh-expiring-tokens` a cada 10 min renova tokens que expiram nos próximos 30 min.
+- **Status em tempo quase real**: a tabela de publicações faz polling a cada 2 s enquanto há itens "Na fila" ou "Publicando".
+- **Tabelas (TanStack Table 9)**: todas são dirigidas pelo servidor (paginação, filtros e ordenação nos search params), então usam `tableFeatures({})` sem features de cliente.
+- **Worker com health check opcional** (`WORKER_HEALTH_PORT`), usado pelo Playwright para subir web + worker nos testes E2E.
+- **Lucro estimado** no formulário de publicação usa taxa de 14% como referência; o valor real vem dos pedidos.
