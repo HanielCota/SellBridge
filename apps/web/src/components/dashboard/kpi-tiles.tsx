@@ -30,7 +30,7 @@ function KpiTile({ caption, label, to, figure, visual }: TileProps) {
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{label}</p>
-          <div className="text-[34px] leading-tight">{figure}</div>
+          <div className="flex h-11 items-end text-[34px] leading-none">{figure}</div>
         </div>
         {visual}
       </div>

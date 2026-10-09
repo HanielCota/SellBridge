@@ -142,18 +142,21 @@ export function TopNav({ user }: { user: SessionUser }) {
   const items = isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
   return (
     <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-4 md:px-8">
-        <MobileNav items={items} pathname={pathname} counts={counts} />
-        <Link
-          to="/dashboard"
-          aria-label="SellBridge — Visão geral"
-          className="shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
-        >
-          <BrandIcon className="size-10" />
-        </Link>
+      {/* Equal side columns keep the tab capsule centred on the page, whatever the side widths. */}
+      <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 md:px-8 lg:grid-cols-[1fr_auto_1fr]">
+        <div className="flex items-center gap-3">
+          <MobileNav items={items} pathname={pathname} counts={counts} />
+          <Link
+            to="/dashboard"
+            aria-label="SellBridge — Visão geral"
+            className="shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+          >
+            <BrandIcon className="size-10" />
+          </Link>
+        </div>
         <nav
           aria-label="Principal"
-          className="mx-auto hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
+          className="hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
         >
           {items.map((item) => (
             <NavTab
@@ -164,7 +167,7 @@ export function TopNav({ user }: { user: SessionUser }) {
             />
           ))}
         </nav>
-        <div className="ml-auto lg:ml-0">
+        <div className="justify-self-end">
           <AccountChip user={user} supportReplies={supportReplies} />
         </div>
       </div>

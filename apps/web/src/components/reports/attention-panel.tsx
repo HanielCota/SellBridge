@@ -82,9 +82,11 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   );
   return (
     <section aria-labelledby="attention-title" className="h-full rounded-3xl bg-card p-5">
-      <h2 id="attention-title" className="text-[15px] font-semibold">
-        Precisa de você
-      </h2>
+      <div className="flex h-10 items-center">
+        <h2 id="attention-title" className="text-[15px] font-medium text-muted-foreground">
+          Precisa de você
+        </h2>
+      </div>
       {items.length === 0 ? (
         <div className="mt-4 flex items-start gap-3">
           <CheckCircleIcon

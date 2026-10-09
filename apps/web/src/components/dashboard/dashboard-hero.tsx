@@ -33,12 +33,15 @@ function HeroStatsRow({ stats }: { stats: HeroStats }) {
   return (
     <>
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">Lucro no período</p>
-        <MoneyFigure
-          cents={profitCents}
-          className={cn("text-[52px] leading-none", profitCents < 0 && "text-destructive")}
-        />
-        <span className="sr-only">{formatCents(profitCents)}</span>
+        <p className="text-sm text-muted-foreground">
+          Lucro no período<span className="sr-only">: {formatCents(profitCents)}</span>
+        </p>
+        <div className="flex">
+          <MoneyFigure
+            cents={profitCents}
+            className={cn("text-[52px] leading-none", profitCents < 0 && "text-destructive")}
+          />
+        </div>
       </div>
       <div className="grid gap-8 sm:grid-cols-2">
         <ComparisonMeter
