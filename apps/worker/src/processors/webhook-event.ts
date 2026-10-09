@@ -1,11 +1,11 @@
-import type { Database } from "@sellbridge/db";
+import type { Database } from "@sellbridge/database";
 import {
   findConnectedStoreByShop,
   getWebhookEvent,
   markWebhookFailed,
   markWebhookProcessed,
   upsertMarketplaceOrder,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { webhookEventJobSchema } from "@sellbridge/shared/queues";
@@ -14,7 +14,7 @@ import { UnrecoverableError } from "bullmq";
 import { z } from "zod";
 
 export interface WebhookDependencies {
-  db: Database;
+  database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
 }
@@ -49,14 +49,14 @@ function shopAndResource(rawPayload: unknown): { shopId: string; resource: strin
   return { shopId: String(shopId), resource: parsed.data.resource };
 }
 
-export function createWebhookEventProcessor(deps: WebhookDependencies) {
+export function createWebhookEventProcessor(dependencies: WebhookDependencies) {
   return async function processWebhookEvent(job: WebhookJobContext): Promise<WebhookOutcome> {
     const parsed = webhookEventJobSchema.safeParse(job.data);
     if (!parsed.success) {
       throw new UnrecoverableError("Payload do job de webhook inválido");
     }
     const { webhookEventId } = parsed.data;
-    const event = await getWebhookEvent(deps.db, webhookEventId);
+    const event = await getWebhookEvent(dependencies.database, webhookEventId);
     if (!event) {
       throw new UnrecoverableError(`Evento ${webhookEventId} não encontrado`);
     }
@@ -64,35 +64,52 @@ export function createWebhookEventProcessor(deps: WebhookDependencies) {
       return "already_processed";
     }
     if (!ORDER_TOPICS.has(event.topic)) {
-      await markWebhookProcessed(deps.db, event.id, `Tópico ${event.topic} ignorado`);
+      await markWebhookProcessed(dependencies.database, event.id, `Tópico ${event.topic} ignorado`);
       return "ignored_topic";
     }
     const reference = shopAndResource(event.rawPayload);
     if (!reference) {
-      await markWebhookProcessed(deps.db, event.id, "Evento sem loja ou recurso");
+      await markWebhookProcessed(dependencies.database, event.id, "Evento sem loja ou recurso");
       return "unknown_store";
     }
     const marketplace: MarketplaceId = event.marketplace;
-    const store = await findConnectedStoreByShop(deps.db, marketplace, reference.shopId);
+    const store = await findConnectedStoreByShop(
+      dependencies.database,
+      marketplace,
+      reference.shopId,
+    );
     if (!store) {
-      await markWebhookProcessed(deps.db, event.id, "Nenhuma loja conectada corresponde ao evento");
+      await markWebhookProcessed(
+        dependencies.database,
+        event.id,
+        "Nenhuma loja conectada corresponde ao evento",
+      );
       return "unknown_store";
     }
     if (!store.accessTokenEnc) {
-      await markWebhookProcessed(deps.db, event.id, "Loja sem token de acesso: reconecte a loja");
+      await markWebhookProcessed(
+        dependencies.database,
+        event.id,
+        "Loja sem token de acesso: reconecte a loja",
+      );
       return "unknown_store";
     }
 
     try {
-      const order = await deps.connectors[marketplace].fetchOrder(
+      const order = await dependencies.connectors[marketplace].fetchOrder(
         {
           externalShopId: store.externalShopId,
-          accessToken: deps.cipher.decrypt(store.accessTokenEnc),
+          accessToken: dependencies.cipher.decrypt(store.accessTokenEnc),
         },
         reference.resource,
       );
-      const result = await upsertMarketplaceOrder(deps.db, store.tenantId, store.id, order);
-      await markWebhookProcessed(deps.db, event.id);
+      const result = await upsertMarketplaceOrder(
+        dependencies.database,
+        store.tenantId,
+        store.id,
+        order,
+      );
+      await markWebhookProcessed(dependencies.database, event.id);
       logger.info("webhook.order_synced", {
         webhookEventId,
         tenantId: store.tenantId,
@@ -103,7 +120,7 @@ export function createWebhookEventProcessor(deps: WebhookDependencies) {
     } catch (error) {
       const message = isAppError(error) ? error.userMessage : "Falha ao processar o evento";
       const isFinal = job.attemptsMade + 1 >= job.maxAttempts;
-      await markWebhookFailed(deps.db, event.id, message);
+      await markWebhookFailed(dependencies.database, event.id, message);
       logger.warn("webhook.processing_failed", { webhookEventId, isFinal, error });
       throw error;
     }

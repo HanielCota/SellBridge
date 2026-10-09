@@ -45,12 +45,12 @@ const viaCepSuccessSchema = z.object({
 const viaCepErrorSchema = z.object({ erro: z.union([z.literal(true), z.literal("true")]) });
 
 async function fetchJson(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   url: string,
   timeoutMs: number,
 ): Promise<{ status: number; body: unknown } | null> {
   try {
-    const response = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchImplementation(url, { signal: AbortSignal.timeout(timeoutMs) });
     const body: unknown = await response.json().catch(() => null);
     return { status: response.status, body };
   } catch {
@@ -59,12 +59,12 @@ async function fetchJson(
 }
 
 async function queryBrasilApi(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   cep: string,
   timeoutMs: number,
 ): Promise<ProviderOutcome> {
   const result = await fetchJson(
-    fetchImpl,
+    fetchImplementation,
     `https://brasilapi.com.br/api/cep/v2/${cep}`,
     timeoutMs,
   );
@@ -92,11 +92,15 @@ async function queryBrasilApi(
 }
 
 async function queryViaCep(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   cep: string,
   timeoutMs: number,
 ): Promise<ProviderOutcome> {
-  const result = await fetchJson(fetchImpl, `https://viacep.com.br/ws/${cep}/json/`, timeoutMs);
+  const result = await fetchJson(
+    fetchImplementation,
+    `https://viacep.com.br/ws/${cep}/json/`,
+    timeoutMs,
+  );
   if (!result) {
     return { kind: "unavailable" };
   }
@@ -119,7 +123,7 @@ async function queryViaCep(
 }
 
 export interface CepLookupOptions {
-  fetchImpl?: FetchLike;
+  fetchImplementation?: FetchLike;
   timeoutMs?: number;
 }
 
@@ -132,14 +136,14 @@ export async function lookupCep(
   if (!cep) {
     return { ok: false, reason: "INVALID_CEP" };
   }
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImplementation = options.fetchImplementation ?? fetch;
   const timeoutMs = options.timeoutMs ?? 5000;
 
-  const primary = await queryBrasilApi(fetchImpl, cep, timeoutMs);
+  const primary = await queryBrasilApi(fetchImplementation, cep, timeoutMs);
   if (primary.kind === "found") {
     return { ok: true, address: primary.address, provider: "brasilapi", payload: primary.payload };
   }
-  const fallback = await queryViaCep(fetchImpl, cep, timeoutMs);
+  const fallback = await queryViaCep(fetchImplementation, cep, timeoutMs);
   if (fallback.kind === "found") {
     return { ok: true, address: fallback.address, provider: "viacep", payload: fallback.payload };
   }

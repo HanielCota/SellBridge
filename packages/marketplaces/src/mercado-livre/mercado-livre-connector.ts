@@ -24,7 +24,7 @@ import type {
 export interface MercadoLivreConfig {
   clientId: string | undefined;
   clientSecret: string | undefined;
-  fetchImpl?: FetchLike;
+  fetchImplementation?: FetchLike;
   retry?: Partial<RetryOptions>;
   now?: () => Date;
 }
@@ -140,7 +140,7 @@ async function readError(response: Response): Promise<AppError> {
 }
 
 export function createMercadoLivreConnector(config: MercadoLivreConfig): MarketplaceConnector {
-  const fetchImpl = config.fetchImpl ?? fetch;
+  const fetchImplementation = config.fetchImplementation ?? fetch;
   const now = config.now ?? (() => new Date());
 
   function credentials(): { clientId: string; clientSecret: string } {
@@ -165,7 +165,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     }
     const url = path.startsWith("http") ? path : `${API_URL}${path}`;
     const response = await fetchWithRetry(
-      fetchImpl,
+      fetchImplementation,
       url,
       { ...requestInit, headers },
       config.retry,

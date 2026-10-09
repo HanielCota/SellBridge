@@ -26,8 +26,8 @@ import { prefetchOnServer } from "@/lib/prefetch";
 export const Route = createFileRoute("/_app/publicacoes/nova")({
   validateSearch: z.object({ productId: z.uuid() }),
   loaderDeps: ({ search }) => ({ productId: search.productId }),
-  loader: ({ context, deps }) =>
-    prefetchOnServer(context.queryClient, newListingQueryOptions(deps.productId)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, newListingQueryOptions(search.productId)),
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });

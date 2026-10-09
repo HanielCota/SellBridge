@@ -151,9 +151,9 @@ export type FinancialSortKey = z.infer<typeof financialSortSchema>;
 
 export const financialSearchSchema = periodSearchSchema.extend({
   status: orderStatusSchema.optional().catch(undefined),
-  q: z.string().trim().max(100).optional().catch(undefined),
+  query: z.string().trim().max(100).optional().catch(undefined),
   sort: financialSortSchema.default("orderedAt").catch("orderedAt"),
-  dir: z.enum(["asc", "desc"]).default("desc").catch("desc"),
+  direction: z.enum(["asc", "desc"]).default("desc").catch("desc"),
   page: z.coerce.number().int().min(1).default(1).catch(1),
   pageSize: z.coerce.number().int().min(10).max(100).default(20).catch(20),
 });

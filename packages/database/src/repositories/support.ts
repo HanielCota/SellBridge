@@ -39,7 +39,7 @@ export interface TicketThread {
 }
 
 export async function createTicket(
-  db: Database,
+  database: Database,
   input: {
     tenantId: string;
     userId: string;
@@ -48,15 +48,15 @@ export async function createTicket(
     attachments: readonly NewAttachment[];
   },
 ): Promise<{ ticketId: string }> {
-  return db.transaction(async (tx) => {
-    const [ticket] = await tx
+  return database.transaction(async (transaction) => {
+    const [ticket] = await transaction
       .insert(tickets)
       .values({ tenantId: input.tenantId, createdById: input.userId, subject: input.subject })
       .returning({ id: tickets.id });
     if (!ticket) {
       throw conflictError("Não foi possível abrir o chamado");
     }
-    const [message] = await tx
+    const [message] = await transaction
       .insert(ticketMessages)
       .values({ ticketId: ticket.id, authorId: input.userId, isAdmin: false, body: input.body })
       .returning({ id: ticketMessages.id });
@@ -64,7 +64,7 @@ export async function createTicket(
       throw conflictError("Não foi possível registrar a mensagem");
     }
     if (input.attachments.length > 0) {
-      await tx.insert(ticketAttachments).values(
+      await transaction.insert(ticketAttachments).values(
         input.attachments.map((file) => ({
           ...file,
           ticketId: ticket.id,
@@ -81,7 +81,7 @@ export async function createTicket(
  * `tenantId` scopes reseller access; admins pass null after their role was checked.
  */
 export async function addTicketMessage(
-  db: Database,
+  database: Database,
   input: {
     ticketId: string;
     tenantId: string | null;
@@ -91,7 +91,7 @@ export async function addTicketMessage(
     attachments: readonly NewAttachment[];
   },
 ): Promise<void> {
-  const ticket = await db.query.tickets.findFirst({
+  const ticket = await database.query.tickets.findFirst({
     where:
       input.tenantId === null
         ? eq(tickets.id, input.ticketId)
@@ -103,8 +103,8 @@ export async function addTicketMessage(
   if (ticket.status === "closed" && input.isAdmin) {
     throw conflictError("Reabra o chamado antes de responder");
   }
-  await db.transaction(async (tx) => {
-    const [message] = await tx
+  await database.transaction(async (transaction) => {
+    const [message] = await transaction
       .insert(ticketMessages)
       .values({
         ticketId: ticket.id,
@@ -117,7 +117,7 @@ export async function addTicketMessage(
       throw conflictError("Não foi possível registrar a mensagem");
     }
     if (input.attachments.length > 0) {
-      await tx.insert(ticketAttachments).values(
+      await transaction.insert(ticketAttachments).values(
         input.attachments.map((file) => ({
           ...file,
           ticketId: ticket.id,
@@ -125,7 +125,7 @@ export async function addTicketMessage(
         })),
       );
     }
-    await tx
+    await transaction
       .update(tickets)
       .set({ status: input.isAdmin ? "answered" : "open" })
       .where(eq(tickets.id, ticket.id));
@@ -149,14 +149,14 @@ function ticketFilters(filters: {
 }
 
 export async function listTenantTickets(
-  db: Database,
+  database: Database,
   tenantId: string,
   filters: { status?: TicketStatus | undefined; search?: string | undefined },
   pagination: Pagination,
 ): Promise<Paginated<TicketSummary>> {
   const where = and(eq(tickets.tenantId, tenantId), ...ticketFilters(filters));
   const [rows, totals] = await Promise.all([
-    db
+    database
       .select({
         id: tickets.id,
         subject: tickets.subject,
@@ -169,13 +169,13 @@ export async function listTenantTickets(
       .orderBy(desc(tickets.updatedAt))
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
-    db.select({ total: count() }).from(tickets).where(where),
+    database.select({ total: count() }).from(tickets).where(where),
   ]);
   return toPaginated(rows, totals.at(0)?.total ?? 0, pagination);
 }
 
 export async function listAllTickets(
-  db: Database,
+  database: Database,
   filters: { status?: TicketStatus | undefined; search?: string | undefined },
   pagination: Pagination,
 ): Promise<Paginated<AdminTicketSummary>> {
@@ -193,7 +193,7 @@ export async function listAllTickets(
     }
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const base = db
+  const base = database
     .select({
       id: tickets.id,
       subject: tickets.subject,
@@ -212,7 +212,7 @@ export async function listAllTickets(
       .orderBy(asc(tickets.status), desc(tickets.updatedAt))
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
-    db
+    database
       .select({ total: count() })
       .from(tickets)
       .innerJoin(organization, eq(organization.id, tickets.tenantId))
@@ -224,11 +224,11 @@ export async function listAllTickets(
 
 /** Loads a full thread; pass the tenant to scope reseller access, or null for admins. */
 export async function getTicketThread(
-  db: Database,
+  database: Database,
   ticketId: string,
   tenantId: string | null,
 ): Promise<TicketThread> {
-  const [ticket] = await db
+  const [ticket] = await database
     .select({
       id: tickets.id,
       subject: tickets.subject,
@@ -251,7 +251,7 @@ export async function getTicketThread(
   if (!ticket) {
     throw notFoundError("Chamado não encontrado");
   }
-  const messages = await db
+  const messages = await database
     .select({
       id: ticketMessages.id,
       body: ticketMessages.body,
@@ -266,7 +266,7 @@ export async function getTicketThread(
   const attachments =
     messages.length === 0
       ? []
-      : await db
+      : await database
           .select({
             id: ticketAttachments.id,
             messageId: ticketAttachments.messageId,
@@ -293,11 +293,11 @@ export async function getTicketThread(
 }
 
 export async function setTicketStatus(
-  db: Database,
+  database: Database,
   ticketId: string,
   status: TicketStatus,
 ): Promise<void> {
-  const [row] = await db
+  const [row] = await database
     .update(tickets)
     .set({ status })
     .where(eq(tickets.id, ticketId))
@@ -308,8 +308,12 @@ export async function setTicketStatus(
 }
 
 /** Attachment metadata for download; scoped by tenant unless the caller is an admin (null). */
-export async function getAttachment(db: Database, attachmentId: string, tenantId: string | null) {
-  const [row] = await db
+export async function getAttachment(
+  database: Database,
+  attachmentId: string,
+  tenantId: string | null,
+) {
+  const [row] = await database
     .select({
       id: ticketAttachments.id,
       storageKey: ticketAttachments.storageKey,

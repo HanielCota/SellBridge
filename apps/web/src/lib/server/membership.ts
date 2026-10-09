@@ -1,10 +1,10 @@
-import { schema } from "@sellbridge/db";
+import { schema } from "@sellbridge/database";
 import { asc, eq } from "drizzle-orm";
-import { db } from "./db.ts";
+import { database } from "./database.ts";
 
 /** Returns the oldest organization the user belongs to, or null when there is none. */
 export async function findFirstOrganizationId(userId: string): Promise<string | null> {
-  const membership = await db.query.member.findFirst({
+  const membership = await database.query.member.findFirst({
     where: eq(schema.member.userId, userId),
     orderBy: asc(schema.member.createdAt),
   });

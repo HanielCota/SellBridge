@@ -18,7 +18,7 @@ import {
   upsertStoreConnection,
 } from "./stores.ts";
 
-const db = createTestDatabase();
+const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";
 let tenantB = "";
@@ -40,16 +40,16 @@ function storeInput(tenantId: string, shopId: string) {
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(db, 2);
+  tenants = await createTestTenants(database, 2);
   const [first, second] = tenants.ids;
   if (!first || !second) {
     throw new Error("tenants não criados");
   }
   tenantA = first;
   tenantB = second;
-  storeA = (await upsertStoreConnection(db, storeInput(tenantA, `shop-a-${tenantA}`))).id;
-  storeB = (await upsertStoreConnection(db, storeInput(tenantB, `shop-b-${tenantB}`))).id;
-  const [supplier] = await db
+  storeA = (await upsertStoreConnection(database, storeInput(tenantA, `shop-a-${tenantA}`))).id;
+  storeB = (await upsertStoreConnection(database, storeInput(tenantB, `shop-b-${tenantB}`))).id;
+  const [supplier] = await database
     .insert(suppliers)
     .values({ name: "Fornecedor isolamento", niche: "Teste", state: "ZZ", city: "X" })
     .returning();
@@ -57,7 +57,7 @@ beforeAll(async () => {
     throw new Error("fornecedor não criado");
   }
   supplierId = supplier.id;
-  const [product] = await db
+  const [product] = await database
     .insert(supplierProducts)
     .values({
       supplierId,
@@ -75,64 +75,71 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await tenants.cleanup();
-  await db.delete(suppliers).where(eq(suppliers.id, supplierId));
-  await db.$client.end();
+  await database.delete(suppliers).where(eq(suppliers.id, supplierId));
+  await database.$client.end();
 });
 
 describe("store connections are tenant-scoped", () => {
   it("lists only the tenant's stores", async () => {
-    const storesOfA = await listStoreConnections(db, tenantA);
+    const storesOfA = await listStoreConnections(database, tenantA);
     expect(storesOfA.map((store) => store.id)).toEqual([storeA]);
   });
 
   it("does not load or disconnect another tenant's store", async () => {
-    await expect(getStoreConnection(db, tenantA, storeB)).rejects.toMatchObject({
+    await expect(getStoreConnection(database, tenantA, storeB)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await expect(disconnectStore(db, tenantA, storeB)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect((await getStoreConnection(db, tenantB, storeB)).status).toBe("connected");
+    await expect(disconnectStore(database, tenantA, storeB)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect((await getStoreConnection(database, tenantB, storeB)).status).toBe("connected");
   });
 
   it("findConnectedStores ignores stores of other tenants", async () => {
-    const found = await findConnectedStores(db, tenantA, [storeA, storeB]);
+    const found = await findConnectedStores(database, tenantA, [storeA, storeB]);
     expect(found.map((store) => store.id)).toEqual([storeA]);
   });
 
   it("reconnecting the same shop reuses the connection", async () => {
-    const again = await upsertStoreConnection(db, storeInput(tenantA, `shop-a-${tenantA}`));
+    const again = await upsertStoreConnection(database, storeInput(tenantA, `shop-a-${tenantA}`));
     expect(again.id).toBe(storeA);
   });
 
   it("disconnected stores are hidden and cannot receive listings", async () => {
-    const extra = await upsertStoreConnection(db, storeInput(tenantA, `shop-extra-${tenantA}`));
-    await disconnectStore(db, tenantA, extra.id);
-    expect((await listStoreConnections(db, tenantA)).map((store) => store.id)).not.toContain(
+    const extra = await upsertStoreConnection(
+      database,
+      storeInput(tenantA, `shop-extra-${tenantA}`),
+    );
+    await disconnectStore(database, tenantA, extra.id);
+    expect((await listStoreConnections(database, tenantA)).map((store) => store.id)).not.toContain(
       extra.id,
     );
-    expect(await findConnectedStores(db, tenantA, [extra.id])).toEqual([]);
+    expect(await findConnectedStores(database, tenantA, [extra.id])).toEqual([]);
   });
 });
 
 describe("oauth state", () => {
   it("is single use and bound to tenant and marketplace", async () => {
     const state = `state-${tenantA}`;
-    await createOAuthState(db, {
+    await createOAuthState(database, {
       state,
       tenantId: tenantA,
       marketplace: "mock",
       codeVerifier: null,
       ttlMs: 60_000,
     });
-    expect(await consumeOAuthState(db, { state, tenantId: tenantA, marketplace: "mock" })).toEqual({
+    expect(
+      await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
+    ).toEqual({
       codeVerifier: null,
     });
     expect(
-      await consumeOAuthState(db, { state, tenantId: tenantA, marketplace: "mock" }),
+      await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
     ).toBeNull();
   });
 
   it("rejects another tenant and expired states", async () => {
-    await createOAuthState(db, {
+    await createOAuthState(database, {
       state: `other-${tenantA}`,
       tenantId: tenantA,
       marketplace: "mock",
@@ -140,14 +147,14 @@ describe("oauth state", () => {
       ttlMs: 60_000,
     });
     expect(
-      await consumeOAuthState(db, {
+      await consumeOAuthState(database, {
         state: `other-${tenantA}`,
         tenantId: tenantB,
         marketplace: "mock",
       }),
     ).toBeNull();
 
-    await createOAuthState(db, {
+    await createOAuthState(database, {
       state: `expired-${tenantA}`,
       tenantId: tenantA,
       marketplace: "mock",
@@ -155,7 +162,7 @@ describe("oauth state", () => {
       ttlMs: -1000,
     });
     expect(
-      await consumeOAuthState(db, {
+      await consumeOAuthState(database, {
         state: `expired-${tenantA}`,
         tenantId: tenantA,
         marketplace: "mock",
@@ -167,7 +174,7 @@ describe("oauth state", () => {
 describe("listings are tenant-scoped", () => {
   it("lists only the tenant's publications and reports active ones", async () => {
     await createListingWithTargets(
-      db,
+      database,
       tenantA,
       {
         supplierProductId: productId,
@@ -177,8 +184,8 @@ describe("listings are tenant-scoped", () => {
       },
       [storeA],
     );
-    const ofA = await listListingTargets(db, tenantA, {}, { page: 1, pageSize: 10 });
-    const ofB = await listListingTargets(db, tenantB, {}, { page: 1, pageSize: 10 });
+    const ofA = await listListingTargets(database, tenantA, {}, { page: 1, pageSize: 10 });
+    const ofB = await listListingTargets(database, tenantB, {}, { page: 1, pageSize: 10 });
     expect(ofA.items.map((item) => item.title)).toContain("Anúncio do tenant A");
     expect(ofA.hasActive).toBe(true);
     expect(ofB.items).toEqual([]);
@@ -187,7 +194,7 @@ describe("listings are tenant-scoped", () => {
 
   it("only retries failed targets of the same tenant", async () => {
     const created = await createListingWithTargets(
-      db,
+      database,
       tenantA,
       {
         supplierProductId: productId,
@@ -201,22 +208,24 @@ describe("listings are tenant-scoped", () => {
     if (!targetId) {
       throw new Error("destino não criado");
     }
-    await expect(resetTargetForRetry(db, tenantA, targetId)).rejects.toMatchObject({
+    await expect(resetTargetForRetry(database, tenantA, targetId)).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    await markTargetFailed(db, targetId, "Falhou", { final: true });
-    await expect(resetTargetForRetry(db, tenantB, targetId)).rejects.toMatchObject({
+    await markTargetFailed(database, targetId, "Falhou", { final: true });
+    await expect(resetTargetForRetry(database, tenantB, targetId)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await resetTargetForRetry(db, tenantA, targetId);
-    const row = await db.query.listingTargets.findFirst({ where: eq(listingTargets.id, targetId) });
+    await resetTargetForRetry(database, tenantA, targetId);
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(listingTargets.id, targetId),
+    });
     expect(row).toMatchObject({ status: "pending", errorReason: null });
   });
 
   it("requires at least one destination store", async () => {
     await expect(
       createListingWithTargets(
-        db,
+        database,
         tenantA,
         {
           supplierProductId: productId,

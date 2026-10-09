@@ -5,58 +5,66 @@ function respond(status: number, headers: Record<string, string> = {}) {
   return new Response("{}", { status, headers });
 }
 
-const noSleep = { sleep: vi.fn<(ms: number) => Promise<void>>(async () => {}), random: () => 1 };
+const noSleep = {
+  sleep: vi.fn<(milliseconds: number) => Promise<void>>(async () => {}),
+  random: () => 1,
+};
 
 describe("fetchWithRetry", () => {
   it("returns immediately on success", async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => respond(200));
-    const response = await fetchWithRetry(fetchImpl, "https://x", {}, noSleep);
+    const fetchImplementation = vi.fn<typeof fetch>(async () => respond(200));
+    const response = await fetchWithRetry(fetchImplementation, "https://x", {}, noSleep);
     expect(response.status).toBe(200);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry client errors", async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => respond(400));
-    const response = await fetchWithRetry(fetchImpl, "https://x", {}, noSleep);
+    const fetchImplementation = vi.fn<typeof fetch>(async () => respond(400));
+    const response = await fetchWithRetry(fetchImplementation, "https://x", {}, noSleep);
     expect(response.status).toBe(400);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
   it("retries 503 and succeeds", async () => {
-    const fetchImpl = vi
+    const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(respond(503))
       .mockResolvedValueOnce(respond(200));
-    const response = await fetchWithRetry(fetchImpl, "https://x", {}, noSleep);
+    const response = await fetchWithRetry(fetchImplementation, "https://x", {}, noSleep);
     expect(response.status).toBe(200);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
 
   it("honors Retry-After on 429", async () => {
-    const sleep = vi.fn<(ms: number) => Promise<void>>(async () => {});
-    const fetchImpl = vi
+    const sleep = vi.fn<(milliseconds: number) => Promise<void>>(async () => {});
+    const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(respond(429, { "retry-after": "2" }))
       .mockResolvedValueOnce(respond(200));
-    await fetchWithRetry(fetchImpl, "https://x", {}, { sleep });
+    await fetchWithRetry(fetchImplementation, "https://x", {}, { sleep });
     expect(sleep).toHaveBeenCalledWith(2000);
   });
 
   it("returns the last retryable response when attempts run out", async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => respond(500));
-    const response = await fetchWithRetry(fetchImpl, "https://x", {}, { ...noSleep, retries: 2 });
+    const fetchImplementation = vi.fn<typeof fetch>(async () => respond(500));
+    const response = await fetchWithRetry(
+      fetchImplementation,
+      "https://x",
+      {},
+      { ...noSleep, retries: 2 },
+    );
     expect(response.status).toBe(500);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImplementation).toHaveBeenCalledTimes(3);
   });
 
   it("throws a retryable MarketplaceError after repeated network errors", async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () => {
       throw new TypeError("fetch failed");
     });
     await expect(
-      fetchWithRetry(fetchImpl, "https://x", {}, { ...noSleep, retries: 1 }),
+      fetchWithRetry(fetchImplementation, "https://x", {}, { ...noSleep, retries: 1 }),
     ).rejects.toMatchObject({ details: { retryable: true } });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -82,8 +90,8 @@ describe("backoff helpers", () => {
 describe("createRateLimiter", () => {
   it("waits when the bucket is empty, per key", async () => {
     let clock = 0;
-    const sleep = vi.fn<(ms: number) => Promise<void>>(async (ms) => {
-      clock += ms;
+    const sleep = vi.fn<(milliseconds: number) => Promise<void>>(async (milliseconds) => {
+      clock += milliseconds;
     });
     const limiter = createRateLimiter({
       tokensPerInterval: 2,

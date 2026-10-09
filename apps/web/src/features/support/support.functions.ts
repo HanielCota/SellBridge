@@ -3,12 +3,12 @@ import {
   listAllTickets,
   listTenantTickets,
   setTicketStatus,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { ticketStatusSchema, ticketsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { adminMiddleware, tenantMiddleware } from "@/lib/server/middleware";
 
 export const listMyTickets = createServerFn({ method: "GET" })
@@ -16,9 +16,9 @@ export const listMyTickets = createServerFn({ method: "GET" })
   .inputValidator(ticketsSearchSchema)
   .handler(async ({ context, data }) =>
     listTenantTickets(
-      db,
+      database,
       context.tenantId,
-      { status: data.status, search: data.q },
+      { status: data.status, search: data.query },
       { page: data.page, pageSize: data.pageSize },
     ),
   );
@@ -26,15 +26,15 @@ export const listMyTickets = createServerFn({ method: "GET" })
 export const getMyTicket = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .inputValidator(z.object({ ticketId: z.uuid() }))
-  .handler(async ({ context, data }) => getTicketThread(db, data.ticketId, context.tenantId));
+  .handler(async ({ context, data }) => getTicketThread(database, data.ticketId, context.tenantId));
 
 export const adminListTickets = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .inputValidator(ticketsSearchSchema)
   .handler(async ({ data }) =>
     listAllTickets(
-      db,
-      { status: data.status, search: data.q },
+      database,
+      { status: data.status, search: data.query },
       { page: data.page, pageSize: data.pageSize },
     ),
   );
@@ -42,13 +42,13 @@ export const adminListTickets = createServerFn({ method: "GET" })
 export const adminGetTicket = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .inputValidator(z.object({ ticketId: z.uuid() }))
-  .handler(async ({ data }) => getTicketThread(db, data.ticketId, null));
+  .handler(async ({ data }) => getTicketThread(database, data.ticketId, null));
 
 export const adminSetTicketStatus = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .inputValidator(z.object({ ticketId: z.uuid(), status: ticketStatusSchema }))
   .handler(async ({ context, data }) => {
-    await setTicketStatus(db, data.ticketId, data.status);
+    await setTicketStatus(database, data.ticketId, data.status);
     logger.info("support.status_changed", {
       ticketId: data.ticketId,
       status: data.status,

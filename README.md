@@ -14,8 +14,8 @@ Pré-requisitos: Node 24+, Docker e corepack (`corepack enable`).
 cp .env.example .env          # gere BETTER_AUTH_SECRET e TOKEN_ENCRYPTION_KEY
 pnpm install
 pnpm db:up                    # Postgres + Redis
-pnpm db:migrate
-pnpm db:seed
+pnpm database:migrate
+pnpm database:seed
 pnpm dev                      # web em http://localhost:3000 + worker (filas)
 ```
 
@@ -28,7 +28,7 @@ O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
 | `demo@sellbridge.local`  | `demo12345`  | Região Belo Horizonte/MG, 2 lojas simuladas, 14 anúncios e cerca de 6 meses de pedidos |
 | `admin@sellbridge.local` | `admin12345` | Papel de administrador                                                                 |
 
-`pnpm db:seed -- --reset` limpa os dados de domínio e recria tudo.
+`pnpm database:seed -- --reset` limpa os dados de domínio e recria tudo.
 
 ### Mercado Livre
 
@@ -56,7 +56,7 @@ O hook de pre-commit (lefthook) formata, linta e roda o `check:no-else`. O CI no
 ```
 apps/web               TanStack Start (painel)
 apps/worker            filas BullMQ (publicação, sync, webhooks)
-packages/db            schema Drizzle, migrations, seeds, repositórios por tenant
+packages/database      schema Drizzle, migrations, seeds, repositórios por tenant
 packages/marketplaces  conectores (mock, Mercado Livre, Shopee, TikTok Shop)
 packages/shared        schemas Zod, dinheiro em centavos, CEP, erros, env
 packages/config        tsconfig base

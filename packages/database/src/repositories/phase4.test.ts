@@ -30,7 +30,7 @@ import {
 } from "./support.ts";
 import { findConnectedStoreByShop, recordWebhookEvent } from "./webhooks.ts";
 
-const db = createTestDatabase();
+const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";
 let tenantB = "";
@@ -41,14 +41,14 @@ let storeA = "";
 let shopId = "";
 
 beforeAll(async () => {
-  tenants = await createTestTenants(db, 2);
+  tenants = await createTestTenants(database, 2);
   const [first, second] = tenants.ids;
   if (!first || !second) {
     throw new Error("tenants não criados");
   }
   tenantA = first;
   tenantB = second;
-  await db.insert(user).values(
+  await database.insert(user).values(
     userIds.map((id, index) => ({
       id,
       name: `Usuário ${index}`,
@@ -57,7 +57,7 @@ beforeAll(async () => {
       updatedAt: new Date(),
     })),
   );
-  const [supplier] = await db
+  const [supplier] = await database
     .insert(suppliers)
     .values({ name: "Fornecedor fase 4", niche: "Teste", state: "ZZ", city: "X" })
     .returning();
@@ -65,7 +65,7 @@ beforeAll(async () => {
     throw new Error("fornecedor");
   }
   supplierId = supplier.id;
-  const [product] = await db
+  const [product] = await database
     .insert(supplierProducts)
     .values({
       supplierId,
@@ -82,7 +82,7 @@ beforeAll(async () => {
   productId = product.id;
   shopId = `shop-${tenantA}`;
   storeA = (
-    await upsertStoreConnection(db, {
+    await upsertStoreConnection(database, {
       tenantId: tenantA,
       marketplace: "mock",
       externalShopId: shopId,
@@ -96,9 +96,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await tenants.cleanup();
-  await db.delete(user).where(inArray(user.id, userIds));
-  await db.delete(suppliers).where(eq(suppliers.id, supplierId));
-  await db.$client.end();
+  await database.delete(user).where(inArray(user.id, userIds));
+  await database.delete(suppliers).where(eq(suppliers.id, supplierId));
+  await database.$client.end();
 });
 
 describe("support tickets", () => {
@@ -107,7 +107,7 @@ describe("support tickets", () => {
     if (!authorA) {
       throw new Error("usuário");
     }
-    const { ticketId } = await createTicket(db, {
+    const { ticketId } = await createTicket(database, {
       tenantId: tenantA,
       userId: authorA,
       subject: "Pedido não chegou",
@@ -116,22 +116,24 @@ describe("support tickets", () => {
         { storageKey: "k/1.pdf", fileName: "1.pdf", mimeType: "application/pdf", sizeBytes: 10 },
       ],
     });
-    const thread = await getTicketThread(db, ticketId, tenantA);
+    const thread = await getTicketThread(database, ticketId, tenantA);
     expect(thread.ticket.status).toBe("open");
     expect(thread.messages).toHaveLength(1);
     const attachmentId = thread.messages[0]?.attachments[0]?.id ?? "";
     expect(attachmentId).not.toBe("");
 
-    await expect(getTicketThread(db, ticketId, tenantB)).rejects.toMatchObject({
+    await expect(getTicketThread(database, ticketId, tenantB)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await expect(getAttachment(db, attachmentId, tenantB)).rejects.toMatchObject({
+    await expect(getAttachment(database, attachmentId, tenantB)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect((await getAttachment(db, attachmentId, null)).fileName).toBe("1.pdf");
-    expect((await listTenantTickets(db, tenantB, {}, { page: 1, pageSize: 10 })).total).toBe(0);
+    expect((await getAttachment(database, attachmentId, null)).fileName).toBe("1.pdf");
+    expect((await listTenantTickets(database, tenantB, {}, { page: 1, pageSize: 10 })).total).toBe(
+      0,
+    );
     await expect(
-      addTicketMessage(db, {
+      addTicketMessage(database, {
         ticketId,
         tenantId: tenantB,
         authorId: authorA,
@@ -147,14 +149,14 @@ describe("support tickets", () => {
     if (!authorA || !admin) {
       throw new Error("usuários");
     }
-    const { ticketId } = await createTicket(db, {
+    const { ticketId } = await createTicket(database, {
       tenantId: tenantA,
       userId: authorA,
       subject: "Dúvida sobre repasse",
       body: "Quando recebo as comissões do fornecedor?",
       attachments: [],
     });
-    await addTicketMessage(db, {
+    await addTicketMessage(database, {
       ticketId,
       tenantId: null,
       authorId: admin,
@@ -162,9 +164,9 @@ describe("support tickets", () => {
       body: "Resposta do suporte.",
       attachments: [],
     });
-    expect((await getTicketThread(db, ticketId, tenantA)).ticket.status).toBe("answered");
+    expect((await getTicketThread(database, ticketId, tenantA)).ticket.status).toBe("answered");
 
-    await addTicketMessage(db, {
+    await addTicketMessage(database, {
       ticketId,
       tenantId: tenantA,
       authorId: authorA,
@@ -172,11 +174,11 @@ describe("support tickets", () => {
       body: "Obrigado, mais uma dúvida.",
       attachments: [],
     });
-    expect((await getTicketThread(db, ticketId, tenantA)).ticket.status).toBe("open");
+    expect((await getTicketThread(database, ticketId, tenantA)).ticket.status).toBe("open");
 
-    await setTicketStatus(db, ticketId, "closed");
+    await setTicketStatus(database, ticketId, "closed");
     await expect(
-      addTicketMessage(db, {
+      addTicketMessage(database, {
         ticketId,
         tenantId: null,
         authorId: admin,
@@ -186,7 +188,11 @@ describe("support tickets", () => {
       }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
 
-    const adminList = await listAllTickets(db, { search: "repasse" }, { page: 1, pageSize: 10 });
+    const adminList = await listAllTickets(
+      database,
+      { search: "repasse" },
+      { page: 1, pageSize: 10 },
+    );
     expect(adminList.items.map((item) => item.id)).toContain(ticketId);
   });
 });
@@ -201,15 +207,15 @@ describe("webhook events", () => {
       rawPayload: { a: 1 },
       signatureValid: true,
     };
-    const first = await recordWebhookEvent(db, input);
-    const second = await recordWebhookEvent(db, input);
+    const first = await recordWebhookEvent(database, input);
+    const second = await recordWebhookEvent(database, input);
     expect(first.status).toBe("created");
     expect(second.status).toBe("duplicate");
-    await db.delete(webhookEvents).where(eq(webhookEvents.externalEventId, externalEventId));
+    await database.delete(webhookEvents).where(eq(webhookEvents.externalEventId, externalEventId));
   });
 
   it("records invalid events as already processed for auditing", async () => {
-    const result = await recordWebhookEvent(db, {
+    const result = await recordWebhookEvent(database, {
       marketplace: "mock",
       externalEventId: null,
       topic: null,
@@ -221,22 +227,24 @@ describe("webhook events", () => {
     if (result.status !== "created") {
       return;
     }
-    const row = await db.query.webhookEvents.findFirst({ where: eq(webhookEvents.id, result.id) });
+    const row = await database.query.webhookEvents.findFirst({
+      where: eq(webhookEvents.id, result.id),
+    });
     expect(row).toMatchObject({ signatureValid: false, error: "Assinatura inválida" });
     expect(row?.processedAt).not.toBeNull();
-    await db.delete(webhookEvents).where(eq(webhookEvents.id, result.id));
+    await database.delete(webhookEvents).where(eq(webhookEvents.id, result.id));
   });
 
   it("finds the connected store for a shop across tenants", async () => {
-    expect((await findConnectedStoreByShop(db, "mock", shopId))?.tenantId).toBe(tenantA);
-    expect(await findConnectedStoreByShop(db, "mock", "shop-inexistente")).toBeNull();
+    expect((await findConnectedStoreByShop(database, "mock", shopId))?.tenantId).toBe(tenantA);
+    expect(await findConnectedStoreByShop(database, "mock", "shop-inexistente")).toBeNull();
   });
 });
 
 describe("marketplace orders and sync", () => {
   it("upserts orders idempotently and links our listing and cost", async () => {
     const created = await createListingWithTargets(
-      db,
+      database,
       tenantA,
       {
         supplierProductId: productId,
@@ -250,7 +258,7 @@ describe("marketplace orders and sync", () => {
     if (!targetId) {
       throw new Error("destino");
     }
-    await markTargetPublished(db, targetId, { externalId: "EXT-F4", externalUrl: null });
+    await markTargetPublished(database, targetId, { externalId: "EXT-F4", externalUrl: null });
 
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,
@@ -269,30 +277,33 @@ describe("marketplace orders and sync", () => {
         },
       ],
     };
-    const first = await upsertMarketplaceOrder(db, tenantA, storeA, incoming);
-    const second = await upsertMarketplaceOrder(db, tenantA, storeA, {
+    const first = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    const second = await upsertMarketplaceOrder(database, tenantA, storeA, {
       ...incoming,
       status: "cancelled",
     });
     expect(first.status).toBe("created");
     expect(second).toEqual({ status: "updated", orderId: first.orderId });
 
-    const order = await db.query.orders.findFirst({ where: eq(orders.id, first.orderId) });
+    const order = await database.query.orders.findFirst({ where: eq(orders.id, first.orderId) });
     expect(order?.status).toBe("cancelled");
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, first.orderId));
+    const items = await database
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, first.orderId));
     expect(items).toHaveLength(2);
     const ours = items.find((item) => item.title === "Anúncio F4");
     expect(ours).toMatchObject({ listingTargetId: targetId, unitCostCents: 1500 });
     expect(items.find((item) => item.title !== "Anúncio F4")?.unitCostCents).toBe(0);
 
-    await expect(upsertMarketplaceOrder(db, tenantB, storeA, incoming)).rejects.toThrow(
+    await expect(upsertMarketplaceOrder(database, tenantB, storeA, incoming)).rejects.toThrow(
       "outro tenant",
     );
   });
 
   it("lists published listings whose stock or price changed", async () => {
     const created = await createListingWithTargets(
-      db,
+      database,
       tenantA,
       {
         supplierProductId: productId,
@@ -306,24 +317,30 @@ describe("marketplace orders and sync", () => {
     if (!targetId) {
       throw new Error("destino");
     }
-    await markTargetPublished(db, targetId, { externalId: "EXT-SYNC", externalUrl: null });
-    expect((await findTargetsNeedingSync(db, 500)).map((target) => target.targetId)).toContain(
-      targetId,
-    );
+    await markTargetPublished(database, targetId, { externalId: "EXT-SYNC", externalUrl: null });
+    expect(
+      (await findTargetsNeedingSync(database, 500)).map((target) => target.targetId),
+    ).toContain(targetId);
 
-    await markTargetSynced(db, targetId, { stock: 8, priceCents: 4500 });
-    expect((await findTargetsNeedingSync(db, 500)).map((target) => target.targetId)).not.toContain(
-      targetId,
-    );
+    await markTargetSynced(database, targetId, { stock: 8, priceCents: 4500 });
+    expect(
+      (await findTargetsNeedingSync(database, 500)).map((target) => target.targetId),
+    ).not.toContain(targetId);
 
-    await db.update(supplierProducts).set({ stock: 3 }).where(eq(supplierProducts.id, productId));
-    const pending = (await findTargetsNeedingSync(db, 500)).find(
+    await database
+      .update(supplierProducts)
+      .set({ stock: 3 })
+      .where(eq(supplierProducts.id, productId));
+    const pending = (await findTargetsNeedingSync(database, 500)).find(
       (target) => target.targetId === targetId,
     );
     expect(pending).toMatchObject({ stock: 3, priceCents: 4500, externalId: "EXT-SYNC" });
-    await db.update(listingTargets).set({ status: "error" }).where(eq(listingTargets.id, targetId));
-    expect((await findTargetsNeedingSync(db, 500)).map((target) => target.targetId)).not.toContain(
-      targetId,
-    );
+    await database
+      .update(listingTargets)
+      .set({ status: "error" })
+      .where(eq(listingTargets.id, targetId));
+    expect(
+      (await findTargetsNeedingSync(database, 500)).map((target) => target.targetId),
+    ).not.toContain(targetId);
   });
 });

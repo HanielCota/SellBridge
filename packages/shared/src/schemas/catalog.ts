@@ -14,7 +14,7 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 
 /** Search params of the supplier catalog page; money filters are in cents. */
 export const catalogSearchSchema = z.object({
-  q: z.string().trim().max(100).optional().catch(undefined),
+  query: z.string().trim().max(100).optional().catch(undefined),
   category: z.string().trim().max(100).optional().catch(undefined),
   minCost: z.coerce.number().int().min(0).optional().catch(undefined),
   maxCost: z.coerce.number().int().min(0).optional().catch(undefined),
@@ -27,7 +27,7 @@ export const catalogSearchSchema = z.object({
 export type CatalogSearch = z.infer<typeof catalogSearchSchema>;
 
 export const supplierListSearchSchema = z.object({
-  q: z.string().trim().max(100).optional().catch(undefined),
+  query: z.string().trim().max(100).optional().catch(undefined),
   niche: z.string().trim().max(100).optional().catch(undefined),
 });
 

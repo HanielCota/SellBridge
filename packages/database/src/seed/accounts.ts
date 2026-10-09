@@ -22,10 +22,15 @@ export interface SeededAccount {
  * Creates a credential user with its own organization, mirroring what the
  * Better Auth sign-up hooks do in the web app. Idempotent by e-mail.
  */
-export async function ensureAccount(db: Database, input: SeedAccountInput): Promise<SeededAccount> {
-  const existing = await db.query.user.findFirst({ where: eq(user.email, input.email) });
+export async function ensureAccount(
+  database: Database,
+  input: SeedAccountInput,
+): Promise<SeededAccount> {
+  const existing = await database.query.user.findFirst({ where: eq(user.email, input.email) });
   if (existing) {
-    const membership = await db.query.member.findFirst({ where: eq(member.userId, existing.id) });
+    const membership = await database.query.member.findFirst({
+      where: eq(member.userId, existing.id),
+    });
     if (!membership) {
       throw new Error(`Usuário ${input.email} existe mas não tem organização`);
     }
@@ -37,8 +42,8 @@ export async function ensureAccount(db: Database, input: SeedAccountInput): Prom
   const now = new Date();
   const passwordHash = await hashPassword(input.password);
 
-  await db.transaction(async (tx) => {
-    await tx.insert(user).values({
+  await database.transaction(async (transaction) => {
+    await transaction.insert(user).values({
       id: userId,
       name: input.name,
       email: input.email,
@@ -47,7 +52,7 @@ export async function ensureAccount(db: Database, input: SeedAccountInput): Prom
       createdAt: now,
       updatedAt: now,
     });
-    await tx.insert(account).values({
+    await transaction.insert(account).values({
       id: randomUUID(),
       accountId: userId,
       providerId: "credential",
@@ -56,13 +61,13 @@ export async function ensureAccount(db: Database, input: SeedAccountInput): Prom
       createdAt: now,
       updatedAt: now,
     });
-    await tx.insert(organization).values({
+    await transaction.insert(organization).values({
       id: tenantId,
       name: input.name,
       slug: input.organizationSlug,
       createdAt: now,
     });
-    await tx.insert(member).values({
+    await transaction.insert(member).values({
       id: randomUUID(),
       organizationId: tenantId,
       userId,

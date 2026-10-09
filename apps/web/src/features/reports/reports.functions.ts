@@ -8,18 +8,18 @@ import {
   listOrderFinancials,
   listStoreConnections,
   type ReportScope,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import { financialSearchSchema, periodSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { buildReportScope } from "@/lib/server/report-scope";
 
 async function loadOnboardingState(tenantId: string) {
   const [region, stores, listings] = await Promise.all([
-    findTenantRegion(db, tenantId),
-    listStoreConnections(db, tenantId),
-    listListingTargets(db, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
+    findTenantRegion(database, tenantId),
+    listStoreConnections(database, tenantId),
+    listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
   ]);
   return {
     hasRegion: region !== null,
@@ -39,12 +39,12 @@ export const getDashboard = createServerFn({ method: "GET" })
     };
     const [summary, previous, timeseries, byStore, topProducts, stores, onboarding] =
       await Promise.all([
-        getSalesSummary(db, scope),
-        getSalesSummary(db, previousScope),
-        getSalesTimeseries(db, scope, period.bucket),
-        getSalesByStore(db, scope),
-        getTopProducts(db, scope),
-        listStoreConnections(db, context.tenantId),
+        getSalesSummary(database, scope),
+        getSalesSummary(database, previousScope),
+        getSalesTimeseries(database, scope, period.bucket),
+        getSalesByStore(database, scope),
+        getTopProducts(database, scope),
+        listStoreConnections(database, context.tenantId),
         loadOnboardingState(context.tenantId),
       ]);
     return {
@@ -70,15 +70,15 @@ export const getFinancials = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { period, scope } = buildReportScope(context.tenantId, data);
     const [summary, orders, stores] = await Promise.all([
-      getSalesSummary(db, scope),
+      getSalesSummary(database, scope),
       listOrderFinancials(
-        db,
+        database,
         scope,
-        { status: data.status, search: data.q },
-        { field: data.sort, direction: data.dir },
+        { status: data.status, search: data.query },
+        { field: data.sort, direction: data.direction },
         { page: data.page, pageSize: data.pageSize },
       ),
-      listStoreConnections(db, context.tenantId),
+      listStoreConnections(database, context.tenantId),
     ]);
     return {
       period: { fromDate: period.fromDate, toDate: period.toDate },

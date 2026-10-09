@@ -7,8 +7,8 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL não definida");
 }
 
-const db = createDatabase(databaseUrl, { maxConnections: 1 });
+const database = createDatabase(databaseUrl, { maxConnections: 1 });
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
-await migrate(db, { migrationsFolder });
-await db.$client.end();
+await migrate(database, { migrationsFolder });
+await database.$client.end();
 console.log("Migrations aplicadas");

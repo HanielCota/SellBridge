@@ -36,7 +36,7 @@ export type CreateListingInput = z.infer<typeof createListingSchema>;
 
 export const listingsSearchSchema = z.object({
   status: listingStatusSchema.optional().catch(undefined),
-  q: z.string().trim().max(100).optional().catch(undefined),
+  query: z.string().trim().max(100).optional().catch(undefined),
   page: z.coerce.number().int().min(1).default(1).catch(1),
   pageSize: z.coerce.number().int().min(5).max(50).default(10).catch(10),
 });

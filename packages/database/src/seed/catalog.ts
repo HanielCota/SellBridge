@@ -39,22 +39,28 @@ function buildProducts(
   return products;
 }
 
-export async function seedCategories(db: Database): Promise<Map<string, string>> {
-  await db.insert(categories).values(CATEGORIES).onConflictDoNothing({ target: categories.slug });
-  const rows = await db.select({ id: categories.id, slug: categories.slug }).from(categories);
+export async function seedCategories(database: Database): Promise<Map<string, string>> {
+  await database
+    .insert(categories)
+    .values(CATEGORIES)
+    .onConflictDoNothing({ target: categories.slug });
+  const rows = await database.select({ id: categories.id, slug: categories.slug }).from(categories);
   return new Map(rows.map((row) => [row.slug, row.id]));
 }
 
 /** Inserts suppliers, coverage and products only when the catalog is empty. */
-export async function seedCatalog(db: Database, random: Random): Promise<{ created: boolean }> {
-  const [existing] = await db.select({ total: count() }).from(suppliers);
+export async function seedCatalog(
+  database: Database,
+  random: Random,
+): Promise<{ created: boolean }> {
+  const [existing] = await database.select({ total: count() }).from(suppliers);
   if (existing && existing.total > 0) {
     return { created: false };
   }
-  const categoryIds = await seedCategories(db);
+  const categoryIds = await seedCategories(database);
 
   for (const [supplierIndex, seedSupplier] of SUPPLIERS.entries()) {
-    const [inserted] = await db
+    const [inserted] = await database
       .insert(suppliers)
       .values({
         name: seedSupplier.name,
@@ -68,7 +74,7 @@ export async function seedCatalog(db: Database, random: Random): Promise<{ creat
     if (!inserted) {
       throw new Error(`Falha ao inserir fornecedor ${seedSupplier.name}`);
     }
-    await db.insert(supplierCoverage).values(
+    await database.insert(supplierCoverage).values(
       seedSupplier.coverage.map((area) => ({
         supplierId: inserted.id,
         state: area.state,
@@ -77,7 +83,7 @@ export async function seedCatalog(db: Database, random: Random): Promise<{ creat
     );
     const templates = NICHE_PRODUCTS[seedSupplier.niche] ?? [];
     const products = buildProducts(random, templates, supplierIndex, categoryIds);
-    await db
+    await database
       .insert(supplierProducts)
       .values(products.map((product) => ({ ...product, supplierId: inserted.id })));
   }

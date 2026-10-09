@@ -1,4 +1,4 @@
-import type { AdminTicketSummary } from "@sellbridge/db/repositories";
+import type { AdminTicketSummary } from "@sellbridge/database/repositories";
 import {
   TICKET_STATUS_LABELS,
   TICKET_STATUSES,
@@ -35,8 +35,8 @@ const ALL_STATUSES = "__all__";
 export const Route = createFileRoute("/_app/admin/chamados/")({
   validateSearch: ticketsSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) =>
-    prefetchOnServer(context.queryClient, adminTicketsQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, adminTicketsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Chamados (admin) | SellBridge" }] }),
   component: AdminTicketsPage,
 });
@@ -88,16 +88,19 @@ function AdminTicketsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const query = useQuery(adminTicketsQueryOptions(search));
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    void navigate({ search: (previous) => ({ ...previous, q, page: 1 }), replace: true });
-  }, [debouncedTerm, navigate, search.q]);
+    void navigate({
+      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
+      replace: true,
+    });
+  }, [debouncedTerm, navigate, search.query]);
 
   function updateSearch(patch: Partial<TicketsSearch>) {
     void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true });

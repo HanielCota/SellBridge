@@ -7,7 +7,7 @@ export interface RetryOptions {
   baseDelayMs: number;
   maxDelayMs: number;
   /** Injected for tests; defaults to setTimeout. */
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: (milliseconds: number) => Promise<void>;
   /** Injected for tests; defaults to Math.random. */
   random?: () => number;
 }
@@ -16,8 +16,8 @@ const DEFAULT_RETRY: RetryOptions = { retries: 3, baseDelayMs: 500, maxDelayMs: 
 
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function defaultSleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 /** Exponential backoff with full jitter, capped at maxDelayMs. */
@@ -49,7 +49,7 @@ export function retryAfterMs(response: Response, now: number = Date.now()): numb
  * Non-retryable responses are returned to the caller to interpret.
  */
 export async function fetchWithRetry(
-  fetchImpl: FetchLike,
+  fetchImplementation: FetchLike,
   url: string,
   init: RequestInit = {},
   partialOptions: Partial<RetryOptions> = {},
@@ -59,7 +59,7 @@ export async function fetchWithRetry(
 
   for (let attempt = 0; ; attempt += 1) {
     const isLastAttempt = attempt >= options.retries;
-    const response = await fetchImpl(url, init).catch((error: unknown) => {
+    const response = await fetchImplementation(url, init).catch((error: unknown) => {
       if (isLastAttempt) {
         throw marketplaceError("Falha de rede ao falar com o marketplace", {
           retryable: true,
@@ -87,7 +87,7 @@ export function createRateLimiter(options: {
   tokensPerInterval: number;
   intervalMs: number;
   now?: () => number;
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: (milliseconds: number) => Promise<void>;
 }) {
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? defaultSleep;

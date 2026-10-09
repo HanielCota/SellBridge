@@ -9,7 +9,7 @@ import {
   listSuppliersForRegion,
 } from "./suppliers.ts";
 
-const db = createTestDatabase();
+const database = createTestDatabase();
 const TEST_STATE = "ZZ";
 const ids: { stateWide: string; cityOnly: string; otherState: string; inactive: string } = {
   stateWide: "",
@@ -25,14 +25,14 @@ async function insertSupplier(
   coverage: { state: string; city: string | null },
   active = true,
 ) {
-  const [row] = await db
+  const [row] = await database
     .insert(suppliers)
     .values({ name, niche: "Teste", state: coverage.state, city: "Origem", active })
     .returning({ id: suppliers.id });
   if (!row) {
     throw new Error("falha ao criar fornecedor de teste");
   }
-  await db.insert(supplierCoverage).values({ supplierId: row.id, ...coverage });
+  await database.insert(supplierCoverage).values({ supplierId: row.id, ...coverage });
   return row.id;
 }
 
@@ -42,7 +42,7 @@ beforeAll(async () => {
   ids.otherState = await insertSupplier("Teste Outro Estado", { state: "YY", city: null });
   ids.inactive = await insertSupplier("Teste Inativo", { state: TEST_STATE, city: null }, false);
 
-  const products = await db
+  const products = await database
     .insert(supplierProducts)
     .values([
       {
@@ -84,13 +84,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(suppliers).where(inArray(suppliers.id, Object.values(ids)));
-  await db.$client.end();
+  await database.delete(suppliers).where(inArray(suppliers.id, Object.values(ids)));
+  await database.$client.end();
 });
 
 describe("supplier visibility by region", () => {
   it("lists state-wide suppliers but hides city-only suppliers for other cities", async () => {
-    const result = await listSuppliersForRegion(db, { state: TEST_STATE, city: "Interior" }, {});
+    const result = await listSuppliersForRegion(
+      database,
+      { state: TEST_STATE, city: "Interior" },
+      {},
+    );
     const names = result.map((supplier) => supplier.name);
     expect(names).toContain("Teste Estado Inteiro");
     expect(names).not.toContain("Teste Só Capital");
@@ -99,29 +103,41 @@ describe("supplier visibility by region", () => {
   });
 
   it("includes city-only suppliers for the covered city (case-insensitive)", async () => {
-    const result = await listSuppliersForRegion(db, { state: TEST_STATE, city: "capital" }, {});
+    const result = await listSuppliersForRegion(
+      database,
+      { state: TEST_STATE, city: "capital" },
+      {},
+    );
     expect(result.map((supplier) => supplier.name)).toEqual(
       expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital"]),
     );
   });
 
   it("counts active products per supplier", async () => {
-    const result = await listSuppliersForRegion(db, { state: TEST_STATE, city: "Interior" }, {});
+    const result = await listSuppliersForRegion(
+      database,
+      { state: TEST_STATE, city: "Interior" },
+      {},
+    );
     expect(result.find((supplier) => supplier.id === ids.stateWide)?.productCount).toBe(3);
   });
 
   it("throws NotFoundError for a supplier outside the region", async () => {
     await expect(
-      getSupplierForRegion(db, { state: TEST_STATE, city: "Interior" }, ids.otherState),
+      getSupplierForRegion(database, { state: TEST_STATE, city: "Interior" }, ids.otherState),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("throws NotFoundError for a product whose supplier does not serve the region", async () => {
     await expect(
-      getCatalogProductForRegion(db, { state: TEST_STATE, city: "Interior" }, hiddenProductId),
+      getCatalogProductForRegion(
+        database,
+        { state: TEST_STATE, city: "Interior" },
+        hiddenProductId,
+      ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     const visible = await getCatalogProductForRegion(
-      db,
+      database,
       { state: TEST_STATE, city: "Interior" },
       visibleProductId,
     );
@@ -134,7 +150,7 @@ describe("catalog filters", () => {
 
   it("filters by stock and sorts by cost", async () => {
     const result = await listCatalogProducts(
-      db,
+      database,
       ids.stateWide,
       { inStockOnly: true, sort: "cost_desc" },
       pagination,
@@ -145,7 +161,7 @@ describe("catalog filters", () => {
 
   it("filters by cost range", async () => {
     const result = await listCatalogProducts(
-      db,
+      database,
       ids.stateWide,
       { minCostCents: 2000, maxCostCents: 2200, sort: "title" },
       pagination,
@@ -155,7 +171,7 @@ describe("catalog filters", () => {
 
   it("treats LIKE wildcards in the search as literal text", async () => {
     const result = await listCatalogProducts(
-      db,
+      database,
       ids.stateWide,
       { search: "%_", sort: "title" },
       pagination,
@@ -165,7 +181,7 @@ describe("catalog filters", () => {
 
   it("paginates and reports total pages", async () => {
     const result = await listCatalogProducts(
-      db,
+      database,
       ids.stateWide,
       { sort: "title" },
       { page: 2, pageSize: 2 },
@@ -175,7 +191,7 @@ describe("catalog filters", () => {
   });
 
   it("returns an empty page for a supplier without products", async () => {
-    const result = await listCatalogProducts(db, ids.cityOnly, { sort: "title" }, pagination);
+    const result = await listCatalogProducts(database, ids.cityOnly, { sort: "title" }, pagination);
     expect(result).toMatchObject({ items: [], total: 0, totalPages: 1 });
   });
 });

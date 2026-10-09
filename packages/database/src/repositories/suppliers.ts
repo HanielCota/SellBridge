@@ -59,7 +59,7 @@ export interface ListSuppliersFilters {
 }
 
 export async function listSuppliersForRegion(
-  db: Database,
+  database: Database,
   region: Pick<TenantRegion, "state" | "city">,
   filters: ListSuppliersFilters,
 ): Promise<SupplierSummary[]> {
@@ -75,7 +75,7 @@ export async function listSuppliersForRegion(
     eq(supplierProducts.active, true),
   )})`.mapWith(Number);
 
-  return db
+  return database
     .select({
       id: suppliers.id,
       name: suppliers.name,
@@ -92,10 +92,10 @@ export async function listSuppliersForRegion(
 }
 
 export async function listNichesForRegion(
-  db: Database,
+  database: Database,
   region: Pick<TenantRegion, "state" | "city">,
 ): Promise<string[]> {
-  const rows = await db
+  const rows = await database
     .selectDistinct({ niche: suppliers.niche })
     .from(suppliers)
     .where(and(eq(suppliers.active, true), coversRegion(region)))
@@ -105,11 +105,11 @@ export async function listNichesForRegion(
 
 /** Loads a supplier only if it serves the tenant's region; otherwise reports not found. */
 export async function getSupplierForRegion(
-  db: Database,
+  database: Database,
   region: Pick<TenantRegion, "state" | "city">,
   supplierId: string,
 ): Promise<SupplierSummary> {
-  const [supplier] = await db
+  const [supplier] = await database
     .select({
       id: suppliers.id,
       name: suppliers.name,
@@ -190,18 +190,18 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
 }
 
 export async function listCatalogProducts(
-  db: Database,
+  database: Database,
   supplierId: string,
   filters: CatalogFilters,
   pagination: Pagination,
 ): Promise<Paginated<CatalogProduct>> {
   const where = and(...catalogConditions(supplierId, filters));
-  const [totalRow] = await db
+  const [totalRow] = await database
     .select({ total: count() })
     .from(supplierProducts)
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
     .where(where);
-  const rows = await db
+  const rows = await database
     .select({
       id: supplierProducts.id,
       sku: supplierProducts.sku,
@@ -229,10 +229,10 @@ export async function listCatalogProducts(
 }
 
 export async function listSupplierCategories(
-  db: Database,
+  database: Database,
   supplierId: string,
 ): Promise<{ name: string; slug: string }[]> {
-  return db
+  return database
     .selectDistinct({ name: categories.name, slug: categories.slug })
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
@@ -242,11 +242,11 @@ export async function listSupplierCategories(
 
 /** Product detail, only when its supplier serves the tenant's region. */
 export async function getCatalogProductForRegion(
-  db: Database,
+  database: Database,
   region: Pick<TenantRegion, "state" | "city">,
   productId: string,
 ): Promise<CatalogProduct & { supplierId: string; supplierName: string; imageUrls: string[] }> {
-  const [row] = await db
+  const [row] = await database
     .select({
       id: supplierProducts.id,
       sku: supplierProducts.sku,
@@ -280,10 +280,10 @@ export async function getCatalogProductForRegion(
 }
 
 export async function getSupplierIdsForRegion(
-  db: Database,
+  database: Database,
   region: Pick<TenantRegion, "state" | "city">,
 ): Promise<string[]> {
-  const rows = await db
+  const rows = await database
     .select({ id: suppliers.id })
     .from(suppliers)
     .where(and(eq(suppliers.active, true), coversRegion(region)));

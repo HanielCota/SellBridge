@@ -1,4 +1,4 @@
-import type { Database } from "@sellbridge/db";
+import type { Database } from "@sellbridge/database";
 import {
   getTargetForPublishing,
   markStoreStatus,
@@ -7,7 +7,7 @@ import {
   markTargetPublishing,
   markTargetSynced,
   type TargetForPublishing,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import {
   type ConnectorRegistry,
   isMarketplaceAuthError,
@@ -20,7 +20,7 @@ import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 
 export interface PublishDependencies {
-  db: Database;
+  database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
   /** Waits for the per-store rate limit before calling the marketplace. */
@@ -43,9 +43,9 @@ function failureReason(error: unknown): string {
   return "Erro inesperado ao publicar. Tente reprocessar.";
 }
 
-async function loadTarget(deps: PublishDependencies, tenantId: string, targetId: string) {
+async function loadTarget(dependencies: PublishDependencies, tenantId: string, targetId: string) {
   try {
-    return await getTargetForPublishing(deps.db, tenantId, targetId);
+    return await getTargetForPublishing(dependencies.database, tenantId, targetId);
   } catch (error) {
     if (hasErrorCode(error, "NOT_FOUND")) {
       throw new UnrecoverableError(`Publicação ${targetId} não encontrada para o tenant`);
@@ -55,45 +55,48 @@ async function loadTarget(deps: PublishDependencies, tenantId: string, targetId:
 }
 
 async function failPermanently(
-  deps: PublishDependencies,
+  dependencies: PublishDependencies,
   targetId: string,
   reason: string,
 ): Promise<never> {
-  await markTargetFailed(deps.db, targetId, reason, { final: true });
+  await markTargetFailed(dependencies.database, targetId, reason, { final: true });
   throw new UnrecoverableError(reason);
 }
 
-function storeAccessToken(deps: PublishDependencies, row: TargetForPublishing): string | null {
+function storeAccessToken(
+  dependencies: PublishDependencies,
+  row: TargetForPublishing,
+): string | null {
   if (row.store.status !== "connected" || !row.store.accessTokenEnc) {
     return null;
   }
-  return deps.cipher.decrypt(row.store.accessTokenEnc);
+  return dependencies.cipher.decrypt(row.store.accessTokenEnc);
 }
 
-export function createPublishListingProcessor(deps: PublishDependencies) {
+export function createPublishListingProcessor(dependencies: PublishDependencies) {
   return async function processPublishListing(job: PublishJobContext): Promise<PublishOutcome> {
     const parsed = publishListingJobSchema.safeParse(job.data);
     if (!parsed.success) {
       throw new UnrecoverableError("Payload do job de publicação inválido");
     }
     const { tenantId, listingTargetId } = parsed.data;
-    const row = await loadTarget(deps, tenantId, listingTargetId);
+    const row = await loadTarget(dependencies, tenantId, listingTargetId);
     if (row.target.status === "published") {
       return "already_published";
     }
-    const accessToken = storeAccessToken(deps, row);
+    const accessToken = storeAccessToken(dependencies, row);
     if (!accessToken) {
       return failPermanently(
-        deps,
+        dependencies,
         listingTargetId,
         "A loja de destino está desconectada. Reconecte-a e reprocesse.",
       );
     }
 
-    await markTargetPublishing(deps.db, listingTargetId);
-    const connector = deps.connectors[row.store.marketplace];
+    await markTargetPublishing(dependencies.database, listingTargetId);
+    const connector = dependencies.connectors[row.store.marketplace];
     try {
-      await deps.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
+      await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
       const result = await connector.publishProduct(
         { externalShopId: row.store.externalShopId, accessToken },
         {
@@ -106,8 +109,8 @@ export function createPublishListingProcessor(deps: PublishDependencies) {
           imageUrls: row.product.imageUrls,
         },
       );
-      await markTargetPublished(deps.db, listingTargetId, result);
-      await markTargetSynced(deps.db, listingTargetId, {
+      await markTargetPublished(dependencies.database, listingTargetId, result);
+      await markTargetSynced(dependencies.database, listingTargetId, {
         stock: row.product.stock,
         priceCents: row.listing.priceCents,
       });
@@ -120,10 +123,10 @@ export function createPublishListingProcessor(deps: PublishDependencies) {
     } catch (error) {
       const reason = failureReason(error);
       if (isMarketplaceAuthError(error)) {
-        await markStoreStatus(deps.db, row.store.id, "expired", reason);
+        await markStoreStatus(dependencies.database, row.store.id, "expired", reason);
       }
       const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
-      await markTargetFailed(deps.db, listingTargetId, reason, { final: isFinal });
+      await markTargetFailed(dependencies.database, listingTargetId, reason, { final: isFinal });
       logger.warn("listing.publish_failed", { tenantId, listingTargetId, reason, isFinal, error });
       if (isFinal) {
         throw new UnrecoverableError(reason);

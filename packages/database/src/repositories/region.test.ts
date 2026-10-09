@@ -4,27 +4,27 @@ import { cepCache } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import { findCachedCep, findTenantRegion, saveCachedCep, saveTenantRegion } from "./region.ts";
 
-const db = createTestDatabase();
+const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 
 const TEST_CEP = "00000009";
 
 beforeAll(async () => {
-  tenants = await createTestTenants(db, 2);
-  await db.delete(cepCache).where(eq(cepCache.cep, TEST_CEP));
+  tenants = await createTestTenants(database, 2);
+  await database.delete(cepCache).where(eq(cepCache.cep, TEST_CEP));
 });
 
 afterAll(async () => {
-  await db.delete(cepCache).where(eq(cepCache.cep, TEST_CEP));
+  await database.delete(cepCache).where(eq(cepCache.cep, TEST_CEP));
   await tenants.cleanup();
-  await db.$client.end();
+  await database.$client.end();
 });
 
 describe("tenant region", () => {
   it("returns null when the tenant has no region yet", async () => {
     const [tenantA] = tenants.ids;
     expect(tenantA).toBeDefined();
-    expect(await findTenantRegion(db, tenantA ?? "")).toBeNull();
+    expect(await findTenantRegion(database, tenantA ?? "")).toBeNull();
   });
 
   it("isolates regions between tenants", async () => {
@@ -32,15 +32,15 @@ describe("tenant region", () => {
     if (!tenantA || !tenantB) {
       throw new Error("tenants de teste não criados");
     }
-    await saveTenantRegion(db, tenantA, {
+    await saveTenantRegion(database, tenantA, {
       cep: "30130010",
       state: "MG",
       city: "Belo Horizonte",
       neighborhood: "Centro",
       street: null,
     });
-    expect(await findTenantRegion(db, tenantB)).toBeNull();
-    expect(await findTenantRegion(db, tenantA)).toMatchObject({
+    expect(await findTenantRegion(database, tenantB)).toBeNull();
+    expect(await findTenantRegion(database, tenantA)).toMatchObject({
       state: "MG",
       city: "Belo Horizonte",
     });
@@ -51,26 +51,32 @@ describe("tenant region", () => {
     if (!tenantA) {
       throw new Error("tenant de teste não criado");
     }
-    await saveTenantRegion(db, tenantA, {
+    await saveTenantRegion(database, tenantA, {
       cep: "01001000",
       state: "SP",
       city: "São Paulo",
       neighborhood: null,
       street: null,
     });
-    expect(await findTenantRegion(db, tenantA)).toMatchObject({ state: "SP", neighborhood: null });
+    expect(await findTenantRegion(database, tenantA)).toMatchObject({
+      state: "SP",
+      neighborhood: null,
+    });
   });
 });
 
 describe("cep cache", () => {
   it("returns null for an unknown CEP and stores resolved ones", async () => {
-    expect(await findCachedCep(db, "00000009")).toBeNull();
+    expect(await findCachedCep(database, "00000009")).toBeNull();
     await saveCachedCep(
-      db,
+      database,
       { cep: "00000009", state: "SP", city: "Teste", neighborhood: null, street: null },
       "test",
       { ok: true },
     );
-    expect(await findCachedCep(db, "00000009")).toMatchObject({ city: "Teste", provider: "test" });
+    expect(await findCachedCep(database, "00000009")).toMatchObject({
+      city: "Teste",
+      provider: "test",
+    });
   });
 });

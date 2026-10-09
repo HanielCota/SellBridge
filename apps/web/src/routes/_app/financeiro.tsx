@@ -1,4 +1,4 @@
-import type { OrderFinancialRow, SalesSummary } from "@sellbridge/db/repositories";
+import type { OrderFinancialRow, SalesSummary } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import {
   financialSearchSchema,
@@ -41,8 +41,8 @@ const ALL_STATUSES = "__all__";
 export const Route = createFileRoute("/_app/financeiro")({
   validateSearch: financialSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) =>
-    prefetchOnServer(context.queryClient, financialsQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, financialsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Financeiro | SellBridge" }] }),
   component: FinancialPage,
 });
@@ -91,7 +91,7 @@ function SortableHeader({
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
   const isActive = search.sort === field;
-  const nextDirection = isActive && search.dir === "desc" ? "asc" : "desc";
+  const nextDirection = isActive && search.direction === "desc" ? "asc" : "desc";
   return (
     <button
       type="button"
@@ -99,11 +99,11 @@ function SortableHeader({
         "inline-flex items-center gap-1 font-medium hover:text-foreground",
         align === "right" && "ml-auto",
       )}
-      aria-label={`Ordenar por ${label.toLowerCase()}${sortStateLabel(isActive, search.dir)}`}
-      onClick={() => updateSearch({ sort: field, dir: nextDirection })}
+      aria-label={`Ordenar por ${label.toLowerCase()}${sortStateLabel(isActive, search.direction)}`}
+      onClick={() => updateSearch({ sort: field, direction: nextDirection })}
     >
       {label}
-      <SortIcon isActive={isActive} direction={search.dir} />
+      <SortIcon isActive={isActive} direction={search.direction} />
     </button>
   );
 }
@@ -247,7 +247,9 @@ function FinancialPage() {
       <SummaryCards summary={summary} />
       <OrderFilters />
       {orders.items.length === 0 ? (
-        <FinancialEmptyState hasFilters={search.q !== undefined || search.status !== undefined} />
+        <FinancialEmptyState
+          hasFilters={search.query !== undefined || search.status !== undefined}
+        />
       ) : (
         <DataTable
           columns={columns}
@@ -309,16 +311,16 @@ function SummaryCards({ summary }: { summary: SalesSummary }) {
 function OrderFilters() {
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    updateSearch({ q });
-  }, [debouncedTerm, search.q, updateSearch]);
+    updateSearch({ query: nextQuery });
+  }, [debouncedTerm, search.query, updateSearch]);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">

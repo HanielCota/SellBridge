@@ -21,7 +21,7 @@ export interface ReportScope {
   tenantId: string;
   range: ReportRange;
   storeConnectionId?: string | undefined;
-  platformFeeBps: number;
+  platformFeeBasisPoints: number;
 }
 
 const cents = z.coerce.number().int();
@@ -79,9 +79,9 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
     order_profit as (
       select
         f.*,
-        round(f.revenue * ${scope.platformFeeBps}::numeric / 10000)::bigint as platform_fee,
+        round(f.revenue * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint as platform_fee,
         f.revenue - f.cost - f.fee - f.refunds + f.commissions
-          - round(f.revenue * ${scope.platformFeeBps}::numeric / 10000)::bigint as profit
+          - round(f.revenue * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint as profit
       from order_finance f
     )`;
 }
@@ -113,8 +113,11 @@ export interface SalesSummary {
   averageTicketCents: number | null;
 }
 
-export async function getSalesSummary(db: Database, scope: ReportScope): Promise<SalesSummary> {
-  const rows = await db.execute(sql`
+export async function getSalesSummary(
+  database: Database,
+  scope: ReportScope,
+): Promise<SalesSummary> {
+  const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)}
     select
       count(*) filter (where counted) as orders,
@@ -161,13 +164,13 @@ const timeseriesRowSchema = z.object({
 
 /** Revenue and profit per day or week (Brazil time), with empty buckets filled with zero. */
 export async function getSalesTimeseries(
-  db: Database,
+  database: Database,
   scope: ReportScope,
   bucket: "day" | "week",
 ): Promise<TimeseriesPoint[]> {
   const unit = bucket === "week" ? sql.raw("'week'") : sql.raw("'day'");
   const step = bucket === "week" ? sql.raw("interval '1 week'") : sql.raw("interval '1 day'");
-  const rows = await db.execute(sql`
+  const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)},
     buckets as (
       select generate_series(
@@ -213,8 +216,11 @@ export interface StoreBreakdown {
   profitCents: number;
 }
 
-export async function getSalesByStore(db: Database, scope: ReportScope): Promise<StoreBreakdown[]> {
-  const rows = await db.execute(sql`
+export async function getSalesByStore(
+  database: Database,
+  scope: ReportScope,
+): Promise<StoreBreakdown[]> {
+  const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)}
     select
       store_connection_id,
@@ -253,11 +259,11 @@ export interface TopProduct {
 }
 
 export async function getTopProducts(
-  db: Database,
+  database: Database,
   scope: ReportScope,
   limit = 5,
 ): Promise<TopProduct[]> {
-  const rows = await db.execute(sql`
+  const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)}
     select
       i.title,
@@ -373,7 +379,7 @@ function orderBy(sort: FinancialSort): SQL {
 }
 
 export async function listOrderFinancials(
-  db: Database,
+  database: Database,
   scope: ReportScope,
   filters: FinancialFilters,
   sort: FinancialSort,
@@ -381,13 +387,13 @@ export async function listOrderFinancials(
 ): Promise<Paginated<OrderFinancialRow>> {
   const cte = orderFinanceCte(scope, financialConditions(filters));
   const [rows, totals] = await Promise.all([
-    db.execute(sql`
+    database.execute(sql`
       with ${cte}
       select * from order_profit
       ${orderBy(sort)}
       limit ${pagination.pageSize} offset ${(pagination.page - 1) * pagination.pageSize}
     `),
-    db.execute(sql`with ${cte} select count(*) as total from order_profit`),
+    database.execute(sql`with ${cte} select count(*) as total from order_profit`),
   ]);
   const total = z.object({ total: count }).parse(totals[0]).total;
   const items = z
@@ -399,13 +405,13 @@ export async function listOrderFinancials(
 
 /** All matching rows for CSV export, capped to protect the server. */
 export async function exportOrderFinancials(
-  db: Database,
+  database: Database,
   scope: ReportScope,
   filters: FinancialFilters,
   sort: FinancialSort,
   maxRows = 20_000,
 ): Promise<OrderFinancialRow[]> {
-  const rows = await db.execute(sql`
+  const rows = await database.execute(sql`
     with ${orderFinanceCte(scope, financialConditions(filters))}
     select * from order_profit
     ${orderBy(sort)}

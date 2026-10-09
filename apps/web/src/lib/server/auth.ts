@@ -1,10 +1,10 @@
-import { schema } from "@sellbridge/db";
+import { schema } from "@sellbridge/database";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { db } from "./db.ts";
-import { env } from "./env.ts";
+import { database } from "./database.ts";
+import { environment } from "./environment.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
 
@@ -19,9 +19,9 @@ function slugify(value: string): string {
 }
 
 export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL,
-  secret: env.BETTER_AUTH_SECRET,
-  database: drizzleAdapter(db, { provider: "pg", schema }),
+  baseURL: environment.BETTER_AUTH_URL,
+  secret: environment.BETTER_AUTH_SECRET,
+  database: drizzleAdapter(database, { provider: "pg", schema }),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
@@ -30,7 +30,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const isAdmin = env.ADMIN_EMAILS.includes(user.email.toLowerCase());
+          const isAdmin = environment.ADMIN_EMAILS.includes(user.email.toLowerCase());
           return { data: { ...user, role: isAdmin ? "admin" : "user" } };
         },
         after: async (user) => {

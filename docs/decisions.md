@@ -42,7 +42,7 @@ Commits direto na `main` (pedido do usuário).
 - **pnpm 12.** Scripts de build de dependências ficam bloqueados por padrão; liberados explicitamente em `allowBuilds` no `pnpm-workspace.yaml` (`esbuild`, `lefthook`).
 - **Drizzle 0.45 (estável)** em vez do 1.0 RC que a documentação atual sugere. Migraremos quando o 1.0 sair do RC.
 - **Validador das server functions:** a versão instalada do TanStack Start usa `.inputValidator()` (a página "build from scratch" ainda mostra `.validator()`). Seguimos os tipos instalados.
-- **`.env` único na raiz**, carregado por `loadRootEnv()` (`process.loadEnvFile`) no web e no worker, e por `node --env-file-if-exists` nos scripts do `packages/db`.
+- **`.env` único na raiz**, carregado por `loadRootEnvironmentFile()` (`process.loadEnvFile`) no web e no worker, e por `node --env-file-if-exists` nos scripts do `packages/database`.
 
 ## 2026-10-08 — Papel de admin
 
@@ -54,7 +54,7 @@ Plugin `admin` do Better Auth. O e-mail listado em `ADMIN_EMAILS` recebe `role =
 
 ## 2026-10-08 — Taxa da plataforma
 
-No MVP vem de `PLATFORM_FEE_BPS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
+No MVP vem de `PLATFORM_FEE_BASIS_POINTS` (basis points, padrão 0) em vez de uma tabela `platform_settings`. Vira tabela quando houver tela de configuração.
 
 ## 2026-10-08 — shadcn/ui
 
@@ -83,7 +83,7 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 - **Filtro de preço do catálogo** usa o custo do fornecedor (valor de atacado), em centavos na URL.
 - **Loaders sem bloqueio:** os loaders aguardam os dados só no SSR (`prefetchOnServer`). Nas navegações do cliente, a URL muda na hora e o componente mostra seu próprio carregamento (`keepPreviousData`), em vez de travar a mudança de filtro.
 - **Sessão sem organização ativa:** a sessão do cadastro pode nascer antes da organização. O `tenantMiddleware` cai para a primeira organização do usuário e a grava como ativa.
-- **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm db:seed` é idempotente; `pnpm db:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
+- **Seeds:** dados determinísticos (PRNG com semente fixa). `pnpm database:seed` é idempotente; `pnpm database:seed -- --reset` limpa o domínio e recria. Contas: `demo@sellbridge.local / demo12345` (Belo Horizonte, 2 lojas simuladas, cerca de 6 meses de pedidos) e `admin@sellbridge.local / admin12345`. As imagens de produto vêm do picsum.photos e os logos do DiceBear: são placeholders de desenvolvimento.
 - **Lojas da conta demo** usam o marketplace `mock`, porque não há tokens reais.
 - **Testes de integração do banco** rodam contra o Postgres real (`fileParallelism: false`). O CI sobe o Postgres no job de checagens.
 

@@ -38,7 +38,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm check:no-else
       - run: pnpm typecheck
-      - run: pnpm db:migrate
+      - run: pnpm database:migrate
       - run: pnpm test
 
   e2e:
@@ -76,8 +76,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm db:migrate
-      - run: pnpm db:seed
+      - run: pnpm database:migrate
+      - run: pnpm database:seed
       - run: pnpm --filter @sellbridge/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4

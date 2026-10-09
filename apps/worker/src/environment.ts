@@ -1,10 +1,10 @@
-import { parseEnv } from "@sellbridge/shared/env";
-import { loadRootEnv } from "@sellbridge/shared/env-node";
+import { parseEnvironment } from "@sellbridge/shared/environment";
+import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { z } from "zod";
 
-loadRootEnv();
+loadRootEnvironmentFile();
 
-const workerEnvSchema = z.object({
+const workerEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
@@ -21,6 +21,9 @@ const workerEnvSchema = z.object({
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
 });
 
-export type WorkerEnv = z.infer<typeof workerEnvSchema>;
+export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 
-export const env: WorkerEnv = parseEnv(workerEnvSchema, process.env);
+export const environment: WorkerEnvironment = parseEnvironment(
+  workerEnvironmentSchema,
+  process.env,
+);

@@ -1,4 +1,4 @@
-import type { TicketSummary } from "@sellbridge/db/repositories";
+import type { TicketSummary } from "@sellbridge/database/repositories";
 import {
   TICKET_STATUS_LABELS,
   TICKET_STATUSES,
@@ -32,7 +32,8 @@ const ALL_STATUSES = "__all__";
 export const Route = createFileRoute("/_app/suporte/")({
   validateSearch: ticketsSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => prefetchOnServer(context.queryClient, myTicketsQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, myTicketsQueryOptions(search)),
   head: () => ({ meta: [{ title: "Suporte | SellBridge" }] }),
   component: SupportPage,
 });

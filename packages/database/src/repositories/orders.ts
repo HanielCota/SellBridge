@@ -16,7 +16,7 @@ export type UpsertOrderResult = { status: "created" | "updated"; orderId: string
 
 /** Maps marketplace listing ids of this store to our listing targets and supplier costs. */
 async function resolveListings(
-  db: Database,
+  database: Database,
   tenantId: string,
   storeConnectionId: string,
   externalIds: string[],
@@ -27,7 +27,7 @@ async function resolveListings(
       { listingTargetId: string; supplierProductId: string; costCents: number }
     >();
   }
-  const rows = await db
+  const rows = await database
     .select({
       externalId: listingTargets.externalId,
       listingTargetId: listingTargets.id,
@@ -62,19 +62,19 @@ async function resolveListings(
  * Items whose listing is not ours are kept with zero cost so revenue is never lost.
  */
 export async function upsertMarketplaceOrder(
-  db: Database,
+  database: Database,
   tenantId: string,
   storeConnectionId: string,
   order: IncomingOrder,
 ): Promise<UpsertOrderResult> {
   const listingsByExternalId = await resolveListings(
-    db,
+    database,
     tenantId,
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  return db.transaction(async (tx) => {
-    const existing = await tx.query.orders.findFirst({
+  return database.transaction(async (transaction) => {
+    const existing = await transaction.query.orders.findFirst({
       where: and(
         eq(orders.storeConnectionId, storeConnectionId),
         eq(orders.externalOrderId, order.externalOrderId),
@@ -84,7 +84,7 @@ export async function upsertMarketplaceOrder(
       if (existing.tenantId !== tenantId) {
         throw new Error("Pedido pertence a outro tenant");
       }
-      await tx
+      await transaction
         .update(orders)
         .set({
           status: order.status,
@@ -94,7 +94,7 @@ export async function upsertMarketplaceOrder(
         .where(eq(orders.id, existing.id));
       return { status: "updated", orderId: existing.id };
     }
-    const [created] = await tx
+    const [created] = await transaction
       .insert(orders)
       .values({
         tenantId,
@@ -111,7 +111,7 @@ export async function upsertMarketplaceOrder(
       throw new Error("Não foi possível gravar o pedido");
     }
     if (order.items.length > 0) {
-      await tx.insert(orderItems).values(
+      await transaction.insert(orderItems).values(
         order.items.map((item) => {
           const listing = listingsByExternalId.get(item.externalListingId);
           return {

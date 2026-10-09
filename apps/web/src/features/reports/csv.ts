@@ -1,4 +1,4 @@
-import type { OrderFinancialRow } from "@sellbridge/db/repositories";
+import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { ORDER_STATUS_LABELS, orderStatusSchema } from "@sellbridge/shared/schemas";
 
 /** Excel in pt-BR expects `;` as separator and `,` as decimal mark; the BOM keeps accents. */

@@ -36,7 +36,7 @@ function requestBody(body: RequestInit["body"]): string | null {
 
 function fakeApi(routes: Record<string, Responder>) {
   const calls: Recorded[] = [];
-  const fetchImpl = vi.fn<typeof fetch>(async (input, init) => {
+  const fetchImplementation = vi.fn<typeof fetch>(async (input, init) => {
     const url = requestUrl(input);
     const headers = new Headers(init?.headers);
     const body = requestBody(init?.body);
@@ -57,7 +57,7 @@ function fakeApi(routes: Record<string, Responder>) {
     }
     return responder(request);
   });
-  return { fetchImpl, calls };
+  return { fetchImplementation, calls };
 }
 
 const API = "https://api.mercadolibre.com";
@@ -70,7 +70,7 @@ function connector(routes: Record<string, Responder>) {
     ml: createMercadoLivreConnector({
       clientId: "123456",
       clientSecret: "segredo",
-      fetchImpl: api.fetchImpl,
+      fetchImplementation: api.fetchImplementation,
       retry: { sleep: async () => {}, random: () => 0 },
       now: () => fixedNow,
     }),
@@ -215,14 +215,14 @@ describe("publishing", () => {
   });
 
   it("marks rate limiting as retryable after the HTTP retries run out", async () => {
-    const { ml, fetchImpl } = connector({
+    const { ml, fetchImplementation } = connector({
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () =>
         json(429, { error: "local_rate_limited" }),
     });
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
       details: { retryable: true, status: 429 },
     });
-    expect(fetchImpl.mock.calls.length).toBeGreaterThan(1);
+    expect(fetchImplementation.mock.calls.length).toBeGreaterThan(1);
   });
 
   it("treats 401 as revoked access", async () => {

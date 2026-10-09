@@ -30,10 +30,10 @@ const summaryColumns = {
 };
 
 export async function listStoreConnections(
-  db: Database,
+  database: Database,
   tenantId: string,
 ): Promise<StoreConnectionSummary[]> {
-  return db
+  return database
     .select(summaryColumns)
     .from(storeConnections)
     .where(
@@ -43,11 +43,11 @@ export async function listStoreConnections(
 }
 
 export async function getStoreConnection(
-  db: Database,
+  database: Database,
   tenantId: string,
   storeConnectionId: string,
 ): Promise<StoreConnectionRow> {
-  const row = await db.query.storeConnections.findFirst({
+  const row = await database.query.storeConnections.findFirst({
     where: and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.id, storeConnectionId)),
   });
   if (!row) {
@@ -58,14 +58,14 @@ export async function getStoreConnection(
 
 /** Returns only the requested stores that belong to the tenant and are connected. */
 export async function findConnectedStores(
-  db: Database,
+  database: Database,
   tenantId: string,
   storeConnectionIds: readonly string[],
 ): Promise<StoreConnectionSummary[]> {
   if (storeConnectionIds.length === 0) {
     return [];
   }
-  return db
+  return database
     .select(summaryColumns)
     .from(storeConnections)
     .where(
@@ -89,11 +89,11 @@ export interface UpsertStoreConnectionInput {
 
 /** Connecting the same shop again reactivates it with fresh tokens. */
 export async function upsertStoreConnection(
-  db: Database,
+  database: Database,
   input: UpsertStoreConnectionInput,
 ): Promise<StoreConnectionSummary> {
   const values = { ...input, status: "connected" as const, lastError: null };
-  const [row] = await db
+  const [row] = await database
     .insert(storeConnections)
     .values({ ...values, connectedAt: new Date() })
     .onConflictDoUpdate({
@@ -112,11 +112,11 @@ export async function upsertStoreConnection(
 }
 
 export async function disconnectStore(
-  db: Database,
+  database: Database,
   tenantId: string,
   storeConnectionId: string,
 ): Promise<void> {
-  const [row] = await db
+  const [row] = await database
     .update(storeConnections)
     .set({ status: "disconnected", accessTokenEnc: null, refreshTokenEnc: null, expiresAt: null })
     .where(and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.id, storeConnectionId)))
@@ -127,23 +127,23 @@ export async function disconnectStore(
 }
 
 export async function updateStoreTokens(
-  db: Database,
+  database: Database,
   storeConnectionId: string,
   tokens: { accessTokenEnc: string; refreshTokenEnc: string | null; expiresAt: Date | null },
 ): Promise<void> {
-  await db
+  await database
     .update(storeConnections)
     .set({ ...tokens, status: "connected", lastError: null })
     .where(eq(storeConnections.id, storeConnectionId));
 }
 
 export async function markStoreStatus(
-  db: Database,
+  database: Database,
   storeConnectionId: string,
   status: Exclude<StoreStatus, "connected">,
   lastError: string,
 ): Promise<void> {
-  await db
+  await database
     .update(storeConnections)
     .set({ status, lastError })
     .where(eq(storeConnections.id, storeConnectionId));
@@ -151,10 +151,10 @@ export async function markStoreStatus(
 
 /** Connected stores whose access token expires before `threshold` (worker job, all tenants). */
 export async function findConnectionsExpiringBefore(
-  db: Database,
+  database: Database,
   threshold: Date,
 ): Promise<StoreConnectionRow[]> {
-  return db
+  return database
     .select()
     .from(storeConnections)
     .where(
@@ -167,7 +167,7 @@ export async function findConnectionsExpiringBefore(
 }
 
 export async function createOAuthState(
-  db: Database,
+  database: Database,
   input: {
     state: string;
     tenantId: string;
@@ -176,7 +176,7 @@ export async function createOAuthState(
     ttlMs: number;
   },
 ): Promise<void> {
-  await db.insert(oauthStates).values({
+  await database.insert(oauthStates).values({
     state: input.state,
     tenantId: input.tenantId,
     marketplace: input.marketplace,
@@ -190,10 +190,13 @@ export async function createOAuthState(
  * belongs to another tenant or another marketplace — protecting the callback from CSRF and replay.
  */
 export async function consumeOAuthState(
-  db: Database,
+  database: Database,
   input: { state: string; tenantId: string; marketplace: Marketplace },
 ): Promise<{ codeVerifier: string | null } | null> {
-  const [row] = await db.delete(oauthStates).where(eq(oauthStates.state, input.state)).returning();
+  const [row] = await database
+    .delete(oauthStates)
+    .where(eq(oauthStates.state, input.state))
+    .returning();
   if (!row) {
     return null;
   }

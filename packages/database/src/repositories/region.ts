@@ -13,8 +13,8 @@ export interface CachedCep {
   fetchedAt: Date;
 }
 
-export async function findCachedCep(db: Database, cep: string): Promise<CachedCep | null> {
-  const row = await db.query.cepCache.findFirst({ where: eq(cepCache.cep, cep) });
+export async function findCachedCep(database: Database, cep: string): Promise<CachedCep | null> {
+  const row = await database.query.cepCache.findFirst({ where: eq(cepCache.cep, cep) });
   if (!row) {
     return null;
   }
@@ -22,7 +22,7 @@ export async function findCachedCep(db: Database, cep: string): Promise<CachedCe
 }
 
 export async function saveCachedCep(
-  db: Database,
+  database: Database,
   address: ResolvedAddress,
   provider: string,
   payload: unknown,
@@ -37,7 +37,7 @@ export async function saveCachedCep(
     payload: payload ?? {},
     fetchedAt: new Date(),
   };
-  await db.insert(cepCache).values(values).onConflictDoUpdate({
+  await database.insert(cepCache).values(values).onConflictDoUpdate({
     target: cepCache.cep,
     set: values,
   });
@@ -52,10 +52,10 @@ export interface TenantRegion {
 }
 
 export async function findTenantRegion(
-  db: Database,
+  database: Database,
   tenantId: string,
 ): Promise<TenantRegion | null> {
-  const row = await db.query.tenantProfile.findFirst({
+  const row = await database.query.tenantProfile.findFirst({
     where: eq(tenantProfile.tenantId, tenantId),
   });
   if (!row) {
@@ -71,7 +71,7 @@ export async function findTenantRegion(
 }
 
 export async function saveTenantRegion(
-  db: Database,
+  database: Database,
   tenantId: string,
   address: ResolvedAddress,
 ): Promise<TenantRegion> {
@@ -82,7 +82,7 @@ export async function saveTenantRegion(
     city: address.city,
     neighborhood: address.neighborhood,
   };
-  await db.insert(tenantProfile).values(values).onConflictDoUpdate({
+  await database.insert(tenantProfile).values(values).onConflictDoUpdate({
     target: tenantProfile.tenantId,
     set: values,
   });

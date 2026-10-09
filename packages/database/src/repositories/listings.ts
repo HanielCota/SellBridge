@@ -23,7 +23,7 @@ export function listingIdempotencyKey(listingId: string, storeConnectionId: stri
 }
 
 export async function createListingWithTargets(
-  db: Database,
+  database: Database,
   tenantId: string,
   input: NewListingInput,
   storeConnectionIds: readonly string[],
@@ -31,15 +31,15 @@ export async function createListingWithTargets(
   if (storeConnectionIds.length === 0) {
     throw conflictError("Escolha ao menos uma loja de destino");
   }
-  return db.transaction(async (tx) => {
-    const [listing] = await tx
+  return database.transaction(async (transaction) => {
+    const [listing] = await transaction
       .insert(listings)
       .values({ ...input, tenantId })
       .returning({ id: listings.id });
     if (!listing) {
       throw conflictError("Não foi possível criar o anúncio");
     }
-    const targets = await tx
+    const targets = await transaction
       .insert(listingTargets)
       .values(
         storeConnectionIds.map((storeConnectionId) => ({
@@ -78,7 +78,7 @@ export interface ListingTargetFilters {
 }
 
 export async function listListingTargets(
-  db: Database,
+  database: Database,
   tenantId: string,
   filters: ListingTargetFilters,
   pagination: Pagination,
@@ -94,7 +94,7 @@ export async function listListingTargets(
   }
   const where = and(...conditions);
 
-  const base = db
+  const base = database
     .select({
       id: listingTargets.id,
       status: listingTargets.status,
@@ -123,12 +123,12 @@ export async function listListingTargets(
       .orderBy(desc(listingTargets.createdAt), desc(listingTargets.id))
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
-    db
+    database
       .select({ total: count() })
       .from(listingTargets)
       .innerJoin(listings, eq(listings.id, listingTargets.listingId))
       .where(where),
-    db
+    database
       .select({ total: count() })
       .from(listingTargets)
       .where(
@@ -152,11 +152,11 @@ export interface TargetForPublishing {
 }
 
 export async function getTargetForPublishing(
-  db: Database,
+  database: Database,
   tenantId: string,
   listingTargetId: string,
 ): Promise<TargetForPublishing> {
-  const [row] = await db
+  const [row] = await database
     .select({
       target: listingTargets,
       listing: listings,
@@ -175,19 +175,22 @@ export async function getTargetForPublishing(
   return row;
 }
 
-export async function markTargetPublishing(db: Database, listingTargetId: string): Promise<void> {
-  await db
+export async function markTargetPublishing(
+  database: Database,
+  listingTargetId: string,
+): Promise<void> {
+  await database
     .update(listingTargets)
     .set({ status: "publishing", attempts: sql`${listingTargets.attempts} + 1` })
     .where(eq(listingTargets.id, listingTargetId));
 }
 
 export async function markTargetPublished(
-  db: Database,
+  database: Database,
   listingTargetId: string,
   result: { externalId: string; externalUrl: string | null },
 ): Promise<void> {
-  await db
+  await database
     .update(listingTargets)
     .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
     .where(eq(listingTargets.id, listingTargetId));
@@ -198,12 +201,12 @@ export async function markTargetPublished(
  * (with the reason visible); on the final attempt it becomes "error".
  */
 export async function markTargetFailed(
-  db: Database,
+  database: Database,
   listingTargetId: string,
   reason: string,
   options: { final: boolean },
 ): Promise<void> {
-  await db
+  await database
     .update(listingTargets)
     .set({ status: options.final ? "error" : "pending", errorReason: reason })
     .where(eq(listingTargets.id, listingTargetId));
@@ -211,11 +214,11 @@ export async function markTargetFailed(
 
 /** Puts a failed publication back in the queue. Only targets in "error" can be retried. */
 export async function resetTargetForRetry(
-  db: Database,
+  database: Database,
   tenantId: string,
   listingTargetId: string,
 ): Promise<void> {
-  const target = await db.query.listingTargets.findFirst({
+  const target = await database.query.listingTargets.findFirst({
     where: and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)),
   });
   if (!target) {
@@ -224,7 +227,7 @@ export async function resetTargetForRetry(
   if (target.status !== "error") {
     throw conflictError("Só é possível reprocessar publicações com erro");
   }
-  await db
+  await database
     .update(listingTargets)
     .set({ status: "pending", errorReason: null })
     .where(eq(listingTargets.id, listingTargetId));
@@ -243,10 +246,10 @@ export interface TargetNeedingSync {
  * sent to the marketplace (all tenants; used by the worker sync job).
  */
 export async function findTargetsNeedingSync(
-  db: Database,
+  database: Database,
   limit = 200,
 ): Promise<TargetNeedingSync[]> {
-  const rows = await db
+  const rows = await database
     .select({
       targetId: listingTargets.id,
       externalId: listingTargets.externalId,
@@ -272,11 +275,11 @@ export async function findTargetsNeedingSync(
 }
 
 export async function markTargetSynced(
-  db: Database,
+  database: Database,
   listingTargetId: string,
   synced: { stock: number; priceCents: number },
 ): Promise<void> {
-  await db
+  await database
     .update(listingTargets)
     .set({ syncedStock: synced.stock, syncedPriceCents: synced.priceCents, syncedAt: new Date() })
     .where(eq(listingTargets.id, listingTargetId));

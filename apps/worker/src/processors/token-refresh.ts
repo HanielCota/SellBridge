@@ -1,9 +1,9 @@
-import type { Database } from "@sellbridge/db";
+import type { Database } from "@sellbridge/database";
 import {
   findConnectionsExpiringBefore,
   markStoreStatus,
   updateStoreTokens,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import {
   type ConnectorRegistry,
   isMarketplaceAuthError,
@@ -13,7 +13,7 @@ import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 
 export interface TokenRefreshDependencies {
-  db: Database;
+  database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
   now?: () => Date;
@@ -31,7 +31,7 @@ export interface TokenRefreshSummary {
 type Connection = Awaited<ReturnType<typeof findConnectionsExpiringBefore>>[number];
 
 async function refreshOne(
-  deps: TokenRefreshDependencies,
+  dependencies: TokenRefreshDependencies,
   connection: Connection,
   now: Date,
 ): Promise<keyof TokenRefreshSummary> {
@@ -39,12 +39,13 @@ async function refreshOne(
     return "failed";
   }
   try {
-    const refreshToken = deps.cipher.decrypt(connection.refreshTokenEnc);
-    const tokens = await deps.connectors[connection.marketplace].refreshTokens(refreshToken);
-    await updateStoreTokens(deps.db, connection.id, {
-      accessTokenEnc: deps.cipher.encrypt(tokens.accessToken),
+    const refreshToken = dependencies.cipher.decrypt(connection.refreshTokenEnc);
+    const tokens =
+      await dependencies.connectors[connection.marketplace].refreshTokens(refreshToken);
+    await updateStoreTokens(dependencies.database, connection.id, {
+      accessTokenEnc: dependencies.cipher.encrypt(tokens.accessToken),
       refreshTokenEnc: tokens.refreshToken
-        ? deps.cipher.encrypt(tokens.refreshToken)
+        ? dependencies.cipher.encrypt(tokens.refreshToken)
         : connection.refreshTokenEnc,
       expiresAt: tokens.expiresAt,
     });
@@ -54,7 +55,7 @@ async function refreshOne(
     const alreadyExpired =
       connection.expiresAt !== null && connection.expiresAt.getTime() <= now.getTime();
     if (isMarketplaceAuthError(error) || alreadyExpired) {
-      await markStoreStatus(deps.db, connection.id, "expired", message);
+      await markStoreStatus(dependencies.database, connection.id, "expired", message);
       logger.warn("store.token_expired", { storeConnectionId: connection.id, error });
       return "expired";
     }
@@ -63,16 +64,16 @@ async function refreshOne(
   }
 }
 
-export function createTokenRefreshProcessor(deps: TokenRefreshDependencies) {
+export function createTokenRefreshProcessor(dependencies: TokenRefreshDependencies) {
   return async function processTokenRefresh(): Promise<TokenRefreshSummary> {
-    const now = deps.now?.() ?? new Date();
+    const now = dependencies.now?.() ?? new Date();
     const expiring = await findConnectionsExpiringBefore(
-      deps.db,
+      dependencies.database,
       new Date(now.getTime() + REFRESH_WINDOW_MS),
     );
     const summary: TokenRefreshSummary = { refreshed: 0, expired: 0, failed: 0 };
     for (const connection of expiring) {
-      const outcome = await refreshOne(deps, connection, now);
+      const outcome = await refreshOne(dependencies, connection, now);
       summary[outcome] += 1;
     }
     if (expiring.length > 0) {

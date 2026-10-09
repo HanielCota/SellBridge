@@ -58,8 +58,8 @@ const BUYERS = [
   "Diego N.",
 ];
 
-async function ensureDemoStores(db: Database, tenantId: string, cipher: TokenCipher) {
-  await db
+async function ensureDemoStores(database: Database, tenantId: string, cipher: TokenCipher) {
+  await database
     .insert(storeConnections)
     .values(
       DEMO_STORES.map((store) => ({
@@ -75,7 +75,7 @@ async function ensureDemoStores(db: Database, tenantId: string, cipher: TokenCip
       })),
     )
     .onConflictDoNothing();
-  return db
+  return database
     .select({ id: storeConnections.id })
     .from(storeConnections)
     .where(
@@ -90,17 +90,17 @@ async function ensureDemoStores(db: Database, tenantId: string, cipher: TokenCip
 }
 
 async function createDemoListings(
-  db: Database,
+  database: Database,
   random: Random,
   tenantId: string,
   region: { state: string; city: string },
   storeIds: string[],
 ) {
-  const supplierIds = await getSupplierIdsForRegion(db, region);
+  const supplierIds = await getSupplierIdsForRegion(database, region);
   if (supplierIds.length === 0) {
     throw new Error("Nenhum fornecedor atende a região da conta demo");
   }
-  const products = await db
+  const products = await database
     .select()
     .from(supplierProducts)
     .where(inArray(supplierProducts.supplierId, supplierIds))
@@ -112,7 +112,7 @@ async function createDemoListings(
   const targets = [];
   for (const product of chosen) {
     const priceCents = product.suggestedPriceCents + random.int(-3, 6) * 100;
-    const [listing] = await db
+    const [listing] = await database
       .insert(listings)
       .values({
         tenantId,
@@ -127,7 +127,7 @@ async function createDemoListings(
     }
     const storesForListing = random.chance(0.4) ? storeIds : [random.pick(storeIds)];
     for (const storeConnectionId of storesForListing) {
-      const [target] = await db
+      const [target] = await database
         .insert(listingTargets)
         .values({
           tenantId,
@@ -151,13 +151,13 @@ async function createDemoListings(
 
 /** Creates demo stores, listings and ~6 months of orders for the demo tenant (idempotent). */
 export async function seedDemoSales(
-  db: Database,
+  database: Database,
   random: Random,
   tenantId: string,
   region: { state: string; city: string },
   cipher: TokenCipher,
 ): Promise<{ created: boolean; orders: number }> {
-  const [existing] = await db
+  const [existing] = await database
     .select({ total: count() })
     .from(orders)
     .where(eq(orders.tenantId, tenantId));
@@ -165,9 +165,9 @@ export async function seedDemoSales(
     return { created: false, orders: existing.total };
   }
 
-  const stores = await ensureDemoStores(db, tenantId, cipher);
+  const stores = await ensureDemoStores(database, tenantId, cipher);
   const storeIds = stores.map((store) => store.id);
-  const targets = await createDemoListings(db, random, tenantId, region, storeIds);
+  const targets = await createDemoListings(database, random, tenantId, region, storeIds);
 
   let orderCount = 0;
   const now = Date.now();
@@ -180,9 +180,9 @@ export async function seedDemoSales(
       const totalCents = sale.listing.priceCents * quantity;
       const status = pickStatus(random, ageDays);
       const orderedAt = new Date(now - ageDays * DAY_MS - random.int(0, DAY_MS - 1));
-      const feeBps = random.int(1100, 1800);
+      const feeBasisPoints = random.int(1100, 1800);
 
-      const [order] = await db
+      const [order] = await database
         .insert(orders)
         .values({
           tenantId,
@@ -190,7 +190,7 @@ export async function seedDemoSales(
           externalOrderId: `MOCK-ORD-${String(orderCount + 1).padStart(6, "0")}`,
           status,
           totalCents,
-          marketplaceFeeCents: Math.round((totalCents * feeBps) / 10_000),
+          marketplaceFeeCents: Math.round((totalCents * feeBasisPoints) / 10_000),
           buyerName: random.pick(BUYERS),
           orderedAt,
         })
@@ -198,7 +198,7 @@ export async function seedDemoSales(
       if (!order) {
         throw new Error("Falha ao criar pedido demo");
       }
-      await db.insert(orderItems).values({
+      await database.insert(orderItems).values({
         tenantId,
         orderId: order.id,
         listingTargetId: sale.target.id,
@@ -208,7 +208,7 @@ export async function seedDemoSales(
         unitPriceCents: sale.listing.priceCents,
         unitCostCents: sale.product.costCents,
       });
-      await seedAdjustments(db, random, tenantId, order.id, status, totalCents, orderedAt);
+      await seedAdjustments(database, random, tenantId, order.id, status, totalCents, orderedAt);
       orderCount += 1;
     }
   }
@@ -216,7 +216,7 @@ export async function seedDemoSales(
 }
 
 async function seedAdjustments(
-  db: Database,
+  database: Database,
   random: Random,
   tenantId: string,
   orderId: string,
@@ -226,7 +226,7 @@ async function seedAdjustments(
 ): Promise<void> {
   const createdAt = new Date(orderedAt.getTime() + random.int(2, 10) * DAY_MS);
   if (status === "returned") {
-    await db.insert(orderAdjustments).values({
+    await database.insert(orderAdjustments).values({
       tenantId,
       orderId,
       type: "return",
@@ -237,7 +237,7 @@ async function seedAdjustments(
     return;
   }
   if (status === "delivered" && random.chance(0.03)) {
-    await db.insert(orderAdjustments).values({
+    await database.insert(orderAdjustments).values({
       tenantId,
       orderId,
       type: "refund",
@@ -248,7 +248,7 @@ async function seedAdjustments(
     return;
   }
   if (status === "delivered" && random.chance(0.15)) {
-    await db.insert(orderAdjustments).values({
+    await database.insert(orderAdjustments).values({
       tenantId,
       orderId,
       type: "commission",

@@ -1,10 +1,10 @@
-import type { Database } from "@sellbridge/db";
+import type { Database } from "@sellbridge/database";
 import {
   findTargetsNeedingSync,
   markStoreStatus,
   markTargetSynced,
   type TargetNeedingSync,
-} from "@sellbridge/db/repositories";
+} from "@sellbridge/database/repositories";
 import {
   type ConnectorRegistry,
   isMarketplaceAuthError,
@@ -13,7 +13,7 @@ import {
 import { logger } from "@sellbridge/shared/logger";
 
 export interface StockPriceSyncDependencies {
-  db: Database;
+  database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
   acquireRateLimit: (key: string) => Promise<void>;
@@ -25,29 +25,29 @@ export interface StockPriceSyncSummary {
 }
 
 async function syncOne(
-  deps: StockPriceSyncDependencies,
+  dependencies: StockPriceSyncDependencies,
   target: TargetNeedingSync,
 ): Promise<boolean> {
   if (!target.store.accessTokenEnc) {
     return false;
   }
   try {
-    await deps.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
-    await deps.connectors[target.store.marketplace].updateStockPrice(
+    await dependencies.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
+    await dependencies.connectors[target.store.marketplace].updateStockPrice(
       {
         externalShopId: target.store.externalShopId,
-        accessToken: deps.cipher.decrypt(target.store.accessTokenEnc),
+        accessToken: dependencies.cipher.decrypt(target.store.accessTokenEnc),
       },
       { externalId: target.externalId, stock: target.stock, priceCents: target.priceCents },
     );
-    await markTargetSynced(deps.db, target.targetId, {
+    await markTargetSynced(dependencies.database, target.targetId, {
       stock: target.stock,
       priceCents: target.priceCents,
     });
     return true;
   } catch (error) {
     if (isMarketplaceAuthError(error)) {
-      await markStoreStatus(deps.db, target.store.id, "expired", error.userMessage);
+      await markStoreStatus(dependencies.database, target.store.id, "expired", error.userMessage);
     }
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
     return false;
@@ -55,12 +55,12 @@ async function syncOne(
 }
 
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
-export function createStockPriceSyncProcessor(deps: StockPriceSyncDependencies) {
+export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDependencies) {
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
-    const targets = await findTargetsNeedingSync(deps.db);
+    const targets = await findTargetsNeedingSync(dependencies.database);
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
     for (const target of targets) {
-      const ok = await syncOne(deps, target);
+      const ok = await syncOne(dependencies, target);
       summary[ok ? "synced" : "failed"] += 1;
     }
     if (targets.length > 0) {

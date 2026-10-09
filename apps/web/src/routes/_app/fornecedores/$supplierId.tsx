@@ -37,8 +37,8 @@ const ALL_CATEGORIES = "__all__";
 export const Route = createFileRoute("/_app/fornecedores/$supplierId")({
   validateSearch: catalogSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
-    prefetchOnServer(context.queryClient, supplierCatalogQueryOptions(params.supplierId, deps)),
+  loader: ({ context, params, deps: search }) =>
+    prefetchOnServer(context.queryClient, supplierCatalogQueryOptions(params.supplierId, search)),
   head: () => ({ meta: [{ title: "Catálogo | SellBridge" }] }),
   component: CatalogPage,
 });
@@ -81,7 +81,7 @@ function CatalogPage() {
 function CatalogFilters({ categories }: { categories: { name: string; slug: string }[] }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
 
   function updateSearch(patch: Partial<CatalogSearch>) {
@@ -89,12 +89,15 @@ function CatalogFilters({ categories }: { categories: { name: string; slug: stri
   }
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    void navigate({ search: (previous) => ({ ...previous, q, page: 1 }), replace: true });
-  }, [debouncedTerm, navigate, search.q]);
+    void navigate({
+      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
+      replace: true,
+    });
+  }, [debouncedTerm, navigate, search.query]);
 
   return (
     <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_auto]">

@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
-    "@sellbridge/db": "workspace:*",
+    "@sellbridge/database": "workspace:*",
     "@sellbridge/marketplaces": "workspace:*",
     "@sellbridge/shared": "workspace:*",
     "@tanstack/react-form": "^1.33.5",

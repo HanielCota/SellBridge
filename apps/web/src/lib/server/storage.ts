@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { validationError } from "@sellbridge/shared/errors";
-import { env } from "./env.ts";
+import { environment } from "./environment.ts";
 
 /**
  * Storage for user files. Development uses the local disk; production can swap in an
@@ -42,4 +42,4 @@ export function createLocalFileStorage(rootDirectory: string): FileStorage {
   };
 }
 
-export const fileStorage = createLocalFileStorage(env.UPLOADS_DIR);
+export const fileStorage = createLocalFileStorage(environment.UPLOADS_DIR);

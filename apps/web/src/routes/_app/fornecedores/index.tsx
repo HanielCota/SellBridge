@@ -28,7 +28,8 @@ const ALL_NICHES = "__all__";
 export const Route = createFileRoute("/_app/fornecedores/")({
   validateSearch: supplierListSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => prefetchOnServer(context.queryClient, suppliersQueryOptions(deps)),
+  loader: ({ context, deps: search }) =>
+    prefetchOnServer(context.queryClient, suppliersQueryOptions(search)),
   head: () => ({ meta: [{ title: "Fornecedores | SellBridge" }] }),
   component: SuppliersPage,
 });
@@ -59,18 +60,18 @@ function SuppliersPage() {
 function SupplierFilters() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.q ?? "");
+  const [term, setTerm] = useState(search.query ?? "");
   const debouncedTerm = useDebouncedValue(term, 300);
   const { data } = useQuery(suppliersQueryOptions(search));
   const niches = data?.niches ?? [];
 
   useEffect(() => {
-    const q = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (q === search.q) {
+    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
+    if (nextQuery === search.query) {
       return;
     }
-    void navigate({ search: (previous) => ({ ...previous, q }), replace: true });
-  }, [debouncedTerm, navigate, search.q]);
+    void navigate({ search: (previous) => ({ ...previous, query: nextQuery }), replace: true });
+  }, [debouncedTerm, navigate, search.query]);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
@@ -129,7 +130,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         icon={Store}
         title="Nenhum fornecedor encontrado"
         description={
-          search.q || search.niche
+          search.query || search.niche
             ? "Nenhum fornecedor corresponde aos filtros. Tente outros termos."
             : "Ainda não há fornecedores atendendo a sua região. Avisaremos quando chegarem novos."
         }

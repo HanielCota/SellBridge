@@ -31,20 +31,22 @@ const DOMAIN_TABLES = [
   "cep_cache",
 ];
 
-async function resetDomain(db: Database): Promise<void> {
-  await db.execute(sql.raw(`truncate table ${DOMAIN_TABLES.join(", ")} restart identity cascade`));
-  await db.execute(
+async function resetDomain(database: Database): Promise<void> {
+  await database.execute(
+    sql.raw(`truncate table ${DOMAIN_TABLES.join(", ")} restart identity cascade`),
+  );
+  await database.execute(
     sql`delete from "user" where email in (${DEMO_ACCOUNT.email}, ${ADMIN_ACCOUNT.email})`,
   );
-  await db.execute(
+  await database.execute(
     sql`delete from organization where slug in (${DEMO_ORGANIZATION_SLUG}, ${ADMIN_ORGANIZATION_SLUG})`,
   );
   console.log("Dados de domínio e contas de seed removidos");
 }
 
-async function seedCepCache(db: Database): Promise<void> {
+async function seedCepCache(database: Database): Promise<void> {
   for (const entry of CACHED_CEPS) {
-    await saveCachedCep(db, { ...entry }, "seed", { source: "seed" });
+    await saveCachedCep(database, { ...entry }, "seed", { source: "seed" });
   }
 }
 
@@ -60,25 +62,25 @@ async function main(): Promise<void> {
     );
   }
   const cipher = createTokenCipher(encryptionKey);
-  const db = createDatabase(databaseUrl, { maxConnections: 1 });
+  const database = createDatabase(databaseUrl, { maxConnections: 1 });
   const random = createRandom(20_261_008);
 
   if (process.argv.includes("--reset")) {
-    await resetDomain(db);
+    await resetDomain(database);
   }
 
-  await seedCepCache(db);
-  const catalog = await seedCatalog(db, random);
+  await seedCepCache(database);
+  const catalog = await seedCatalog(database, random);
   console.log(catalog.created ? "Catálogo criado" : "Catálogo já existia");
 
-  const admin = await ensureAccount(db, {
+  const admin = await ensureAccount(database, {
     ...ADMIN_ACCOUNT,
     role: "admin",
     organizationSlug: ADMIN_ORGANIZATION_SLUG,
   });
   console.log(`Admin: ${ADMIN_ACCOUNT.email} ${admin.created ? "(criado)" : "(existente)"}`);
 
-  const demo = await ensureAccount(db, {
+  const demo = await ensureAccount(database, {
     name: DEMO_ACCOUNT.name,
     email: DEMO_ACCOUNT.email,
     password: DEMO_ACCOUNT.password,
@@ -89,13 +91,13 @@ async function main(): Promise<void> {
   if (!demoCep) {
     throw new Error("CEP da conta demo não está no cache de seed");
   }
-  await saveTenantRegion(db, demo.tenantId, { ...demoCep });
-  const sales = await seedDemoSales(db, random, demo.tenantId, demoCep, cipher);
+  await saveTenantRegion(database, demo.tenantId, { ...demoCep });
+  const sales = await seedDemoSales(database, random, demo.tenantId, demoCep, cipher);
   console.log(
     `Demo: ${DEMO_ACCOUNT.email} ${demo.created ? "(criada)" : "(existente)"}, ${sales.orders} pedidos`,
   );
 
-  await db.$client.end();
+  await database.$client.end();
 }
 
 await main();

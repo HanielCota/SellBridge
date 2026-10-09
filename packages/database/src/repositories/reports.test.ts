@@ -12,14 +12,14 @@ import {
   type ReportScope,
 } from "./reports.ts";
 
-const db = createTestDatabase();
+const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";
 let tenantB = "";
 let storeA1 = "";
 let storeA2 = "";
 
-const PLATFORM_FEE_BPS = 250;
+const PLATFORM_FEE_BASIS_POINTS = 250;
 // Brazil midnight of 2026-03-01 = 03:00 UTC.
 const range = { from: new Date("2026-03-01T03:00:00Z"), to: new Date("2026-03-08T03:00:00Z") };
 
@@ -91,7 +91,7 @@ const OUTSIDE_RANGE: SeedOrder = {
 };
 
 async function insertStore(tenantId: string, name: string) {
-  const [store] = await db
+  const [store] = await database
     .insert(storeConnections)
     .values({
       tenantId,
@@ -107,7 +107,7 @@ async function insertStore(tenantId: string, name: string) {
 }
 
 async function insertOrder(tenantId: string, storeConnectionId: string, seed: SeedOrder) {
-  const [order] = await db
+  const [order] = await database
     .insert(orders)
     .values({
       tenantId,
@@ -123,7 +123,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
   if (!order) {
     throw new Error("pedido não criado");
   }
-  await db.insert(orderItems).values(
+  await database.insert(orderItems).values(
     seed.items.map((item) => ({
       tenantId,
       orderId: order.id,
@@ -134,7 +134,7 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
     })),
   );
   if (seed.adjustments.length > 0) {
-    await db
+    await database
       .insert(orderAdjustments)
       .values(
         seed.adjustments.map((adjustment) => ({ ...adjustment, tenantId, orderId: order.id })),
@@ -143,18 +143,23 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
 }
 
 function scope(overrides: Partial<ReportScope> = {}): ReportScope {
-  return { tenantId: tenantA, range, platformFeeBps: PLATFORM_FEE_BPS, ...overrides };
+  return {
+    tenantId: tenantA,
+    range,
+    platformFeeBasisPoints: PLATFORM_FEE_BASIS_POINTS,
+    ...overrides,
+  };
 }
 
 const expectedFinances = [...ORDERS_A1, ORDER_A2].map((order) =>
-  computeOrderFinance(order, PLATFORM_FEE_BPS),
+  computeOrderFinance(order, PLATFORM_FEE_BASIS_POINTS),
 );
 function expectedSum(key: keyof (typeof expectedFinances)[number]): number {
   return expectedFinances.reduce((total, finance) => total + finance[key], 0);
 }
 
 beforeAll(async () => {
-  tenants = await createTestTenants(db, 2);
+  tenants = await createTestTenants(database, 2);
   const [first, second] = tenants.ids;
   if (!first || !second) {
     throw new Error("tenants não criados");
@@ -174,12 +179,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await tenants.cleanup();
-  await db.$client.end();
+  await database.$client.end();
 });
 
 describe("sales summary", () => {
   it("matches the shared profit formula order by order", async () => {
-    const summary = await getSalesSummary(db, scope());
+    const summary = await getSalesSummary(database, scope());
     expect(summary).toMatchObject({
       orders: 3,
       cancelledOrders: 1,
@@ -196,13 +201,13 @@ describe("sales summary", () => {
   });
 
   it("filters by store", async () => {
-    const summary = await getSalesSummary(db, scope({ storeConnectionId: storeA2 }));
+    const summary = await getSalesSummary(database, scope({ storeConnectionId: storeA2 }));
     expect(summary).toMatchObject({ orders: 1, revenueCents: 20_000 });
   });
 
   it("never mixes tenants and returns zeros for an empty tenant", async () => {
     const otherTenant = await getSalesSummary(
-      db,
+      database,
       scope({ tenantId: tenantB, storeConnectionId: storeA1 }),
     );
     expect(otherTenant).toMatchObject({
@@ -216,7 +221,7 @@ describe("sales summary", () => {
 
 describe("timeseries", () => {
   it("returns one bucket per Brazil day, filling gaps with zero", async () => {
-    const points = await getSalesTimeseries(db, scope(), "day");
+    const points = await getSalesTimeseries(database, scope(), "day");
     expect(points).toHaveLength(7);
     expect(points[0]).toMatchObject({ date: "2026-03-01", orders: 1, revenueCents: 10_000 });
     expect(points[1]).toMatchObject({ date: "2026-03-02", orders: 0, revenueCents: 0 });
@@ -229,12 +234,12 @@ describe("timeseries", () => {
 
 describe("breakdowns", () => {
   it("groups revenue by store and ranks top products", async () => {
-    const byStore = await getSalesByStore(db, scope());
+    const byStore = await getSalesByStore(database, scope());
     expect(byStore.map((store) => [store.storeName, store.revenueCents])).toEqual([
       ["Loja A1", 20_000],
       ["Loja A2", 20_000],
     ]);
-    const top = await getTopProducts(db, scope());
+    const top = await getTopProducts(database, scope());
     expect(top.at(0)).toMatchObject({ title: "Tênis", units: 1, revenueCents: 20_000 });
     expect(top.map((product) => product.title)).not.toContain("Bolsa");
   });
@@ -245,7 +250,7 @@ describe("order financials list", () => {
 
   it("sorts by profit and paginates on the server", async () => {
     const page = await listOrderFinancials(
-      db,
+      database,
       scope(),
       {},
       { field: "profit", direction: "desc" },
@@ -258,7 +263,7 @@ describe("order financials list", () => {
 
   it("filters by status and searches by buyer or product", async () => {
     const returned = await listOrderFinancials(
-      db,
+      database,
       scope(),
       { status: "returned" },
       { field: "orderedAt", direction: "desc" },
@@ -268,7 +273,7 @@ describe("order financials list", () => {
     expect(returned.items.at(0)?.returnCents).toBe(8000);
 
     const byProduct = await listOrderFinancials(
-      db,
+      database,
       scope(),
       { search: "camis" },
       { field: "orderedAt", direction: "desc" },
@@ -279,7 +284,7 @@ describe("order financials list", () => {
 
   it("exports every matching row with the same numbers", async () => {
     const rows = await exportOrderFinancials(
-      db,
+      database,
       scope(),
       {},
       { field: "orderedAt", direction: "asc" },

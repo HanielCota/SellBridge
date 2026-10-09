@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { NewAttachment } from "@sellbridge/db/repositories";
+import type { NewAttachment } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import { detectAttachmentType, sanitizeFileName } from "@sellbridge/shared/file-signature";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@sellbridge/shared/schemas";

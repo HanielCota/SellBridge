@@ -1,7 +1,7 @@
-import { recordWebhookEvent } from "@sellbridge/db/repositories";
+import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
-import { db } from "@/lib/server/db";
+import { database } from "@/lib/server/database";
 import { connectors } from "@/lib/server/marketplaces";
 import { enqueueWebhookEvent } from "@/lib/server/queues";
 
@@ -18,7 +18,7 @@ function reply(status: number, body: Record<string, string>): Response {
  * POST /api/webhooks/:marketplace
  * 1. validates the signature/origin through the connector,
  * 2. stores the raw event once (idempotent by marketplace + event id),
- * 3. enqueues processing and answers immediately (Mercado Livre requires 200 in 500 ms).
+ * 3. enqueues processing and answers immediately (Mercado Livre requires 200 in 500 milliseconds).
  */
 export async function handleWebhook(request: Request, marketplaceParam: string | undefined) {
   const marketplace = marketplaceSchema.safeParse(marketplaceParam);
@@ -39,7 +39,7 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     rawBody,
   });
   if (!verification.valid) {
-    await recordWebhookEvent(db, {
+    await recordWebhookEvent(database, {
       marketplace: marketplace.data,
       externalEventId: null,
       topic: null,
@@ -51,7 +51,7 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     return reply(401, { error: "notificação inválida" });
   }
 
-  const recorded = await recordWebhookEvent(db, {
+  const recorded = await recordWebhookEvent(database, {
     marketplace: marketplace.data,
     externalEventId: verification.event.externalEventId,
     topic: verification.event.topic,

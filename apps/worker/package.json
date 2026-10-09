@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sellbridge/db": "workspace:*",
+    "@sellbridge/database": "workspace:*",
     "@sellbridge/marketplaces": "workspace:*",
     "@sellbridge/shared": "workspace:*",
     "bullmq": "^6.3.11",

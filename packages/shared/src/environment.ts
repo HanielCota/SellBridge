@@ -5,7 +5,7 @@ import { configurationError } from "./errors.ts";
  * Validates environment variables against a Zod schema at startup.
  * Throws a ConfigurationError listing every invalid or missing variable.
  */
-export function parseEnv<TSchema extends z.ZodType>(
+export function parseEnvironment<TSchema extends z.ZodType>(
   schema: TSchema,
   source: Record<string, string | undefined>,
 ): z.infer<TSchema> {

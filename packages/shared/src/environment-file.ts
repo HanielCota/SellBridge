@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
  * Walks up from the current directory until it finds `pnpm-workspace.yaml`.
  * Missing `.env` is not an error: variables may come from the real environment.
  */
-export function loadRootEnv(startDirectory: string = process.cwd()): void {
+export function loadRootEnvironmentFile(startDirectory: string = process.cwd()): void {
   const root = findWorkspaceRoot(startDirectory);
   if (!root) {
     return;

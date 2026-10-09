@@ -21,10 +21,10 @@ export type RecordWebhookResult = { status: "created"; id: string } | { status: 
  * deliveries, so a duplicate is acknowledged without being processed again.
  */
 export async function recordWebhookEvent(
-  db: Database,
+  database: Database,
   input: RecordWebhookInput,
 ): Promise<RecordWebhookResult> {
-  const [row] = await db
+  const [row] = await database
     .insert(webhookEvents)
     .values({
       marketplace: input.marketplace,
@@ -43,32 +43,36 @@ export async function recordWebhookEvent(
   return { status: "created", id: row.id };
 }
 
-export async function getWebhookEvent(db: Database, id: string) {
-  const row = await db.query.webhookEvents.findFirst({ where: eq(webhookEvents.id, id) });
+export async function getWebhookEvent(database: Database, id: string) {
+  const row = await database.query.webhookEvents.findFirst({ where: eq(webhookEvents.id, id) });
   if (!row) {
     return null;
   }
   return row;
 }
 
-export async function markWebhookProcessed(db: Database, id: string, note: string | null = null) {
-  await db
+export async function markWebhookProcessed(
+  database: Database,
+  id: string,
+  note: string | null = null,
+) {
+  await database
     .update(webhookEvents)
     .set({ processedAt: new Date(), error: note })
     .where(eq(webhookEvents.id, id));
 }
 
-export async function markWebhookFailed(db: Database, id: string, error: string) {
-  await db.update(webhookEvents).set({ error }).where(eq(webhookEvents.id, id));
+export async function markWebhookFailed(database: Database, id: string, error: string) {
+  await database.update(webhookEvents).set({ error }).where(eq(webhookEvents.id, id));
 }
 
 /** Webhooks identify the shop, not the tenant: resolve the connected store across tenants. */
 export async function findConnectedStoreByShop(
-  db: Database,
+  database: Database,
   marketplace: Marketplace,
   externalShopId: string,
 ) {
-  const row = await db.query.storeConnections.findFirst({
+  const row = await database.query.storeConnections.findFirst({
     where: and(
       eq(storeConnections.marketplace, marketplace),
       eq(storeConnections.externalShopId, externalShopId),
