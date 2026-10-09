@@ -18,7 +18,7 @@ export const getTenantRegion = createServerFn({ method: "GET" })
 
 export const updateTenantRegion = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(updateRegionSchema)
+  .validator(updateRegionSchema)
   .handler(async ({ context, data }): Promise<TenantRegion> => {
     const address = await resolveCep(data.cep);
     const region = await saveTenantRegion(database, context.tenantId, address);

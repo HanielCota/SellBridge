@@ -30,7 +30,7 @@ async function loadOnboardingState(tenantId: string) {
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(periodSearchSchema)
+  .validator(periodSearchSchema)
   .handler(async ({ context, data }) => {
     const { period, scope } = buildReportScope(context.tenantId, data);
     const previousScope: ReportScope = {
@@ -66,7 +66,7 @@ export const getDashboard = createServerFn({ method: "GET" })
 
 export const getFinancials = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(financialSearchSchema)
+  .validator(financialSearchSchema)
   .handler(async ({ context, data }) => {
     const { period, scope } = buildReportScope(context.tenantId, data);
     const [summary, orders, stores] = await Promise.all([

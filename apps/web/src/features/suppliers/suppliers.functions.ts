@@ -15,7 +15,7 @@ import { requireTenantRegion } from "@/lib/server/region";
 
 export const listSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(supplierListSearchSchema)
+  .validator(supplierListSearchSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const [suppliers, niches] = await Promise.all([
@@ -29,7 +29,7 @@ const supplierCatalogInputSchema = catalogSearchSchema.extend({ supplierId: z.uu
 
 export const getSupplierCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(supplierCatalogInputSchema)
+  .validator(supplierCatalogInputSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const supplier = await getSupplierForRegion(database, region, data.supplierId);
@@ -54,7 +54,7 @@ export const getSupplierCatalog = createServerFn({ method: "GET" })
 
 export const getCatalogProduct = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ productId: z.uuid() }))
+  .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     return getCatalogProductForRegion(database, region, data.productId);

@@ -34,7 +34,7 @@ export const listStores = createServerFn({ method: "GET" })
 
 export const disconnectStoreFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(z.object({ storeConnectionId: z.uuid() }))
+  .validator(z.object({ storeConnectionId: z.uuid() }))
   .handler(async ({ context, data }) => {
     await disconnectStore(database, context.tenantId, data.storeConnectionId);
     logger.info("store.disconnected", {
@@ -50,7 +50,7 @@ export const disconnectStoreFn = createServerFn({ method: "POST" })
  */
 export const approveMockAuthorization = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .inputValidator(
+  .validator(
     z.object({
       shopName: z.string().trim().min(3, "Informe o nome da loja").max(80),
       state: z.string().min(1),
