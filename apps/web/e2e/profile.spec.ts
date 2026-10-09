@@ -51,3 +51,17 @@ test("recusa arquivo que não é imagem e esconde fotos de quem não está logad
   expect(response.status()).toBe(401);
   await anonymous.dispose();
 });
+
+test("o avatar do topo abre o modal para enviar a foto", async ({ page }) => {
+  await signUp(page, "Revendedor Modal Foto");
+  await expect(page).toHaveURL(/\/onboarding/);
+  await gotoHydrated(page, "/onboarding");
+  await page.getByRole("button", { name: "Adicionar foto de perfil" }).click();
+  const dialog = page.getByRole("dialog", { name: "Foto de perfil" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Escolher foto de perfil").setInputFiles(AVATAR_FIXTURE);
+  await expect(page.getByText("Foto de perfil atualizada")).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("banner").locator("img[src^='/api/perfil/foto/']")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Trocar foto de perfil" })).toBeVisible();
+});
