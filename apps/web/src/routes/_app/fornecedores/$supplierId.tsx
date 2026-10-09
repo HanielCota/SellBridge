@@ -289,6 +289,17 @@ function CatalogResults() {
                     {product.stock > 0 ? `${product.stock} un.` : "Esgotado"}
                   </dd>
                 </dl>
+                {product.stock > 0 ? (
+                  <Button asChild size="sm" className="mt-2 w-full">
+                    <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+                      Publicar
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button size="sm" className="mt-2 w-full" disabled>
+                    Sem estoque
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </li>

@@ -14,12 +14,18 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
+import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
+import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
+import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoes/nova'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
+import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
+import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -42,6 +48,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
 const AppFornecedoresRouteRoute = AppFornecedoresRouteRouteImport.update({
   id: '/fornecedores',
   path: '/fornecedores',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppLojasRoute = AppLojasRouteImport.update({
+  id: '/lojas',
+  path: '/lojas',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
@@ -70,32 +81,71 @@ const AppFornecedoresSupplierIdRoute =
     path: '/$supplierId',
     getParentRoute: () => AppFornecedoresRouteRoute,
   } as any)
+const AppPublicacoesIndexRoute = AppPublicacoesIndexRouteImport.update({
+  id: '/publicacoes/',
+  path: '/publicacoes/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPublicacoesNovaRoute = AppPublicacoesNovaRouteImport.update({
+  id: '/publicacoes/nova',
+  path: '/publicacoes/nova',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthMockAutorizarRoute = OauthMockAutorizarRouteImport.update({
+  id: '/oauth/mock/autorizar',
+  path: '/oauth/mock/autorizar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthMarketplaceCallbackRoute =
+  ApiOauthMarketplaceCallbackRouteImport.update({
+    id: '/api/oauth/$marketplace/callback',
+    path: '/api/oauth/$marketplace/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiOauthMarketplaceStartRoute =
+  ApiOauthMarketplaceStartRouteImport.update({
+    id: '/api/oauth/$marketplace/start',
+    path: '/api/oauth/$marketplace/start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/dashboard': typeof AppDashboardRoute
+  '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
   '/login': typeof AuthLoginRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/publicacoes/': typeof AppPublicacoesIndexRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof AppDashboardRoute
+  '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/cadastro': typeof AuthCadastroRoute
   '/login': typeof AuthLoginRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
+  '/publicacoes': typeof AppPublicacoesIndexRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,12 +154,18 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_app/fornecedores': typeof AppFornecedoresRouteRouteWithChildren
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
+  '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
+  '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,22 +173,34 @@ export interface FileRouteTypes {
     | '/'
     | '/fornecedores'
     | '/dashboard'
+    | '/lojas'
     | '/onboarding'
     | '/cadastro'
     | '/login'
     | '/fornecedores/$supplierId'
+    | '/publicacoes/nova'
     | '/api/auth/$'
+    | '/oauth/mock/autorizar'
     | '/fornecedores/'
+    | '/publicacoes/'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/dashboard'
+    | '/lojas'
     | '/onboarding'
     | '/cadastro'
     | '/login'
     | '/fornecedores/$supplierId'
+    | '/publicacoes/nova'
     | '/api/auth/$'
+    | '/oauth/mock/autorizar'
     | '/fornecedores'
+    | '/publicacoes'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
   id:
     | '__root__'
     | '/'
@@ -140,12 +208,18 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/fornecedores'
     | '/_app/dashboard'
+    | '/_app/lojas'
     | '/_app/onboarding'
     | '/_auth/cadastro'
     | '/_auth/login'
     | '/_app/fornecedores/$supplierId'
+    | '/_app/publicacoes/nova'
     | '/api/auth/$'
+    | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
+    | '/_app/publicacoes/'
+    | '/api/oauth/$marketplace/callback'
+    | '/api/oauth/$marketplace/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -153,6 +227,9 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
+  ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
+  ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedoresRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/lojas': {
+      id: '/_app/lojas'
+      path: '/lojas'
+      fullPath: '/lojas'
+      preLoaderRoute: typeof AppLojasRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/onboarding': {
       id: '/_app/onboarding'
       path: '/onboarding'
@@ -227,11 +311,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedoresSupplierIdRouteImport
       parentRoute: typeof AppFornecedoresRouteRoute
     }
+    '/_app/publicacoes/': {
+      id: '/_app/publicacoes/'
+      path: '/publicacoes'
+      fullPath: '/publicacoes/'
+      preLoaderRoute: typeof AppPublicacoesIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/publicacoes/nova': {
+      id: '/_app/publicacoes/nova'
+      path: '/publicacoes/nova'
+      fullPath: '/publicacoes/nova'
+      preLoaderRoute: typeof AppPublicacoesNovaRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/mock/autorizar': {
+      id: '/oauth/mock/autorizar'
+      path: '/oauth/mock/autorizar'
+      fullPath: '/oauth/mock/autorizar'
+      preLoaderRoute: typeof OauthMockAutorizarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/$marketplace/callback': {
+      id: '/api/oauth/$marketplace/callback'
+      path: '/api/oauth/$marketplace/callback'
+      fullPath: '/api/oauth/$marketplace/callback'
+      preLoaderRoute: typeof ApiOauthMarketplaceCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/$marketplace/start': {
+      id: '/api/oauth/$marketplace/start'
+      path: '/api/oauth/$marketplace/start'
+      fullPath: '/api/oauth/$marketplace/start'
+      preLoaderRoute: typeof ApiOauthMarketplaceStartRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -253,13 +372,19 @@ const AppFornecedoresRouteRouteWithChildren =
 interface AppRouteRouteChildren {
   AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
   AppDashboardRoute: typeof AppDashboardRoute
+  AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
+  AppPublicacoesIndexRoute: typeof AppPublicacoesIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFornecedoresRouteRoute: AppFornecedoresRouteRouteWithChildren,
   AppDashboardRoute: AppDashboardRoute,
+  AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
+  AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
+  AppPublicacoesIndexRoute: AppPublicacoesIndexRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -285,6 +410,9 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  OauthMockAutorizarRoute: OauthMockAutorizarRoute,
+  ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
+  ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

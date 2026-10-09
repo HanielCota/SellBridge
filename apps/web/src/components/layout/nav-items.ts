@@ -1,5 +1,5 @@
 import type { LinkProps } from "@tanstack/react-router";
-import { LayoutDashboard, MapPin, Store, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, MapPin, Megaphone, Plug, Store, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -19,7 +19,14 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: "Catálogo",
-    items: [{ label: "Fornecedores", to: "/fornecedores", icon: Store }],
+    items: [
+      { label: "Fornecedores", to: "/fornecedores", icon: Store },
+      { label: "Publicações", to: "/publicacoes", icon: Megaphone },
+    ],
+  },
+  {
+    label: "Vendas",
+    items: [{ label: "Lojas conectadas", to: "/lojas", icon: Plug }],
   },
   {
     label: "Conta",
