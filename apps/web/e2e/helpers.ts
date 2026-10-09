@@ -1,9 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 import { requireEnvironmentVariable } from "./environment";
 
-/** Navigates and waits until the client bundle has loaded so React handlers are attached. */
+/** Opens a page and waits until React has hydrated it, so typed values are not reset. */
 export async function gotoHydrated(page: Page, path: string): Promise<void> {
   await page.goto(path, { waitUntil: "networkidle" });
+  await page.locator("html[data-hydrated]").waitFor({ state: "attached" });
 }
 
 export const DEMO_USER = {

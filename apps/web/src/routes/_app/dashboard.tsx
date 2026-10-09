@@ -1,23 +1,24 @@
-import { periodSearchSchema, type PeriodSearch } from "@sellbridge/shared/schemas";
+import {
+  financialSearchSchema,
+  periodSearchSchema,
+  type PeriodSearch,
+} from "@sellbridge/shared/schemas";
+import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "cn";
-import { CheckCircleIcon, CircleIcon, TrendUpIcon } from "@phosphor-icons/react";
-import { EmptyState } from "@/components/feedback/empty-state";
+import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
+import { DashboardHero } from "@/components/dashboard/dashboard-hero";
+import { KpiTiles } from "@/components/dashboard/kpi-tiles";
 import { ErrorState } from "@/components/feedback/error-state";
-import { PeriodFilters } from "@/components/reports/period-filters";
 import { AttentionPanel } from "@/components/reports/attention-panel";
-import { Briefing } from "@/components/reports/briefing";
-import { MetricsRibbon } from "@/components/reports/metrics-ribbon";
-import { MoneyFlow } from "@/components/reports/money-flow";
-import { RhythmChart } from "@/components/reports/rhythm-chart";
+import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { bestPoint } from "@/features/reports/dashboard-insights";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
-import { dashboardQueryOptions } from "@/features/reports/reports.queries";
+import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -37,32 +38,26 @@ function useDashboardQuery() {
   return useQuery(dashboardQueryOptions(search));
 }
 
-function DashboardHeader({ data }: { data: DashboardData | undefined }) {
+function DashboardFilters({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   function updateSearch(patch: Partial<PeriodSearch>) {
     void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
   }
   return (
-    <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Visão geral</h1>
-        <p className="text-sm text-muted-foreground">
-          {data
-            ? `${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`
-            : "Carregando período…"}
-        </p>
-      </div>
-      {data ? (
-        <PeriodFilters
-          search={search}
-          stores={data.stores}
-          resolvedFrom={data.period.fromDate}
-          resolvedTo={data.period.toDate}
-          onChange={updateSearch}
-        />
-      ) : null}
-    </header>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <p className="text-sm text-muted-foreground">
+        {formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os{" "}
+        {data.period.days} dias anteriores
+      </p>
+      <PeriodFilters
+        search={search}
+        stores={data.stores}
+        resolvedFrom={data.period.fromDate}
+        resolvedTo={data.period.toDate}
+        onChange={updateSearch}
+      />
+    </div>
   );
 }
 
@@ -71,7 +66,7 @@ function DashboardPage() {
   if (query.isError) {
     return (
       <>
-        <DashboardHeader data={undefined} />
+        <DashboardHero stats={null} />
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
       </>
     );
@@ -79,65 +74,17 @@ function DashboardPage() {
   if (query.isPending) {
     return (
       <>
-        <DashboardHeader data={undefined} />
+        <DashboardHero stats={null} />
         <DashboardSkeleton />
       </>
     );
   }
   return (
-    <>
-      <DashboardHeader data={query.data} />
-      <div
-        aria-busy={query.isPlaceholderData}
-        className={cn("transition-opacity", query.isPlaceholderData && "opacity-60")}
-      >
-        <DashboardContent data={query.data} />
-      </div>
-    </>
-  );
-}
-
-const PRESET_PHRASES: Record<string, { period: string; comparison: string }> = {
-  "7d": { period: "nos últimos 7 dias", comparison: "nos 7 dias anteriores" },
-  "30d": { period: "nos últimos 30 dias", comparison: "nos 30 dias anteriores" },
-  "90d": { period: "nos últimos 90 dias", comparison: "nos 90 dias anteriores" },
-  "180d": { period: "nos últimos 6 meses", comparison: "nos 6 meses anteriores" },
-};
-
-function periodPhrases(preset: string) {
-  return (
-    PRESET_PHRASES[preset] ?? {
-      period: "no período escolhido",
-      comparison: "no período anterior de mesmo tamanho",
-    }
-  );
-}
-
-function SalesInsights({ data }: { data: DashboardData }) {
-  const { summary, previous } = data;
-  if (summary.orders === 0) {
-    return (
-      <section className="rounded-2xl border bg-card">
-        <EmptyState
-          icon={TrendUpIcon}
-          title="Nenhuma venda neste período"
-          description="Escolha outro período ou outra loja para ver o ritmo e para onde vai o dinheiro."
-        />
-      </section>
-    );
-  }
-  return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <RhythmChart
-        points={data.timeseries}
-        bucket={data.period.bucket}
-        previousTotals={{
-          profit: previous.profitCents,
-          revenue: previous.revenueCents,
-          orders: previous.orders,
-        }}
-      />
-      <MoneyFlow summary={summary} />
+    <div
+      aria-busy={query.isPlaceholderData}
+      className={cn("space-y-6 transition-opacity", query.isPlaceholderData && "opacity-60")}
+    >
+      <DashboardContent data={query.data} />
     </div>
   );
 }
@@ -148,33 +95,42 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const onboardingComplete =
     onboarding.hasRegion && onboarding.hasStore && onboarding.hasPublishedListing;
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
-    return <OnboardingChecklist onboarding={onboarding} />;
+    return (
+      <>
+        <DashboardHero stats={null} />
+        <OnboardingChecklist onboarding={onboarding} />
+      </>
+    );
   }
-  const phrases = periodPhrases(search.period);
   return (
-    <div className="space-y-8">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <Briefing
+    <>
+      <DashboardHero
+        stats={{
+          profitCents: summary.profitCents,
+          revenue: { current: summary.revenueCents, previous: previous.revenueCents },
+          orders: { current: summary.orders, previous: previous.orders },
+        }}
+      />
+      <DashboardFilters data={data} />
+      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <KpiTiles
+          caption={formatDateRange(data.period.fromDate, data.period.toDate)}
           summary={summary}
           previous={previous}
-          periodPhrase={phrases.period}
-          comparisonPhrase={phrases.comparison}
-          bestDay={bestPoint(data.timeseries, (point) => point.profitCents)}
-          bucket={data.period.bucket}
+          points={data.timeseries}
         />
+        <CashFlowChart
+          points={data.timeseries}
+          bucket={data.period.bucket}
+          exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
+        />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StoreBreakdown stores={data.byStore} />
+        <TopProducts products={data.topProducts} />
         <AttentionPanel stores={data.stores} />
       </div>
-      <MetricsRibbon summary={summary} previous={previous} />
-      <SalesInsights data={data} />
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2">
-          <StoreBreakdown stores={data.byStore} />
-        </div>
-        <div className="lg:col-span-3">
-          <TopProducts products={data.topProducts} />
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 

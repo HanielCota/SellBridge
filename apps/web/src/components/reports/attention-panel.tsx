@@ -81,7 +81,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
     stores,
   );
   return (
-    <section aria-labelledby="attention-title" className="rounded-2xl border bg-card p-5">
+    <section aria-labelledby="attention-title" className="h-full rounded-3xl bg-card p-5">
       <h2 id="attention-title" className="text-[15px] font-semibold">
         Precisa de você
       </h2>

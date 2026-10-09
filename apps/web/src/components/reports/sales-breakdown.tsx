@@ -1,4 +1,6 @@
 import { formatCents } from "@sellbridge/shared/money";
+import { ArrowsOutSimpleIcon } from "@phosphor-icons/react";
+import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 interface StoreRow {
@@ -17,10 +19,27 @@ interface ProductRow {
 
 const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 
-function BreakdownSection({ title, children }: { title: string; children: ReactNode }) {
+function BreakdownSection({
+  title,
+  to,
+  children,
+}: {
+  title: string;
+  to: NonNullable<LinkProps["to"]>;
+  children: ReactNode;
+}) {
   return (
-    <section className="h-full rounded-2xl border bg-card p-5">
-      <h2 className="text-[15px] font-medium">{title}</h2>
+    <section className="h-full rounded-3xl bg-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-medium text-muted-foreground">{title}</h2>
+        <Link
+          to={to}
+          aria-label={`Abrir ${title.toLowerCase()}`}
+          className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowsOutSimpleIcon className="size-4" aria-hidden="true" />
+        </Link>
+      </div>
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -36,7 +55,7 @@ function EmptyRows() {
 export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
   const totalRevenue = stores.reduce((sum, store) => sum + store.revenueCents, 0);
   return (
-    <BreakdownSection title="Vendas por loja">
+    <BreakdownSection title="Vendas por loja" to="/lojas">
       {stores.length === 0 ? (
         <EmptyRows />
       ) : (
@@ -73,7 +92,7 @@ export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
 
 export function TopProducts({ products }: { products: ProductRow[] }) {
   return (
-    <BreakdownSection title="Produtos mais vendidos">
+    <BreakdownSection title="Produtos mais vendidos" to="/publicacoes">
       {products.length === 0 ? (
         <EmptyRows />
       ) : (

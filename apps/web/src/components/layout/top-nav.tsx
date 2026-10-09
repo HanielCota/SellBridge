@@ -1,0 +1,173 @@
+import { ListIcon } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { cn } from "cn";
+import { useState } from "react";
+import { BrandIcon } from "@/components/brand/brand-logo";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import type { SessionUser } from "@/features/auth/session.functions";
+import {
+  attentionCountsQueryOptions,
+  openTicketCountQueryOptions,
+} from "@/features/navigation/navigation.queries";
+import {
+  ADMIN_NAV_ITEMS,
+  BADGE_DESCRIPTIONS,
+  isActivePath,
+  NAV_ITEMS,
+  type NavBadge,
+  type NavItem,
+} from "./nav-items";
+import { initials, roleLabel, UserMenu } from "./user-menu";
+
+type BadgeCounts = Record<NavBadge, number>;
+
+function useNavCounts(isAdmin: boolean) {
+  const attention = useQuery(attentionCountsQueryOptions());
+  const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
+  return {
+    counts: {
+      failedListings: attention.data?.failedListings ?? 0,
+      openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
+    } satisfies BadgeCounts,
+    supportReplies: attention.data?.answeredTickets ?? 0,
+  };
+}
+
+function NavTab({
+  item,
+  pathname,
+  count,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  count: number;
+  onNavigate?: () => void;
+}) {
+  const isActive = isActivePath(pathname, item.to);
+  const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
+  return (
+    <Link
+      to={item.to}
+      aria-current={isActive ? "page" : undefined}
+      onClick={onNavigate}
+      className={cn(
+        "relative flex h-10 items-center gap-2 rounded-full px-4 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+        isActive
+          ? "bg-foreground font-medium text-background"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {item.label}
+      {description ? (
+        <>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+              item.badge === "failedListings"
+                ? "bg-destructive/15 text-destructive"
+                : "bg-brand/20 text-brand",
+            )}
+          >
+            {count}
+          </span>
+          <span className="sr-only">, {description}</span>
+        </>
+      ) : null}
+    </Link>
+  );
+}
+
+function MobileNav({
+  items,
+  pathname,
+  counts,
+}: {
+  items: NavItem[];
+  pathname: string;
+  counts: BadgeCounts;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger
+        aria-label="Abrir menu"
+        className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground lg:hidden"
+      >
+        <ListIcon className="size-5" aria-hidden="true" />
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72 p-4">
+        <SheetTitle className="sr-only">Navegação</SheetTitle>
+        <nav aria-label="Principal" className="mt-10 grid gap-1">
+          {items.map((item) => (
+            <NavTab
+              key={item.to}
+              item={item}
+              pathname={pathname}
+              count={item.badge ? counts[item.badge] : 0}
+              onNavigate={() => setIsOpen(false)}
+            />
+          ))}
+        </nav>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function AccountChip({ user, supportReplies }: { user: SessionUser; supportReplies: number }) {
+  return (
+    <div className="flex items-center gap-3 rounded-full bg-card p-1.5 sm:pr-1.5 sm:pl-1.5">
+      <span
+        aria-hidden="true"
+        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-primary-foreground"
+      >
+        {initials(user.name)}
+      </span>
+      <span className="hidden min-w-0 leading-tight sm:block">
+        <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
+        <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
+      </span>
+      <UserMenu user={user} supportReplies={supportReplies} />
+    </div>
+  );
+}
+
+/** App header: logo, the pill navigation and the account chip, as one floating row. */
+export function TopNav({ user }: { user: SessionUser }) {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isAdmin = user.role === "admin";
+  const { counts, supportReplies } = useNavCounts(isAdmin);
+  const items = isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
+  return (
+    <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-4 md:px-8">
+        <MobileNav items={items} pathname={pathname} counts={counts} />
+        <Link
+          to="/dashboard"
+          aria-label="SellBridge — Visão geral"
+          className="shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+        >
+          <BrandIcon className="size-10" />
+        </Link>
+        <nav
+          aria-label="Principal"
+          className="mx-auto hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
+        >
+          {items.map((item) => (
+            <NavTab
+              key={item.to}
+              item={item}
+              pathname={pathname}
+              count={item.badge ? counts[item.badge] : 0}
+            />
+          ))}
+        </nav>
+        <div className="ml-auto lg:ml-0">
+          <AccountChip user={user} supportReplies={supportReplies} />
+        </div>
+      </div>
+    </header>
+  );
+}
