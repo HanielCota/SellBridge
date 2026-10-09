@@ -15,6 +15,13 @@
       "when": 1791506139343,
       "tag": "0001_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791509303737,
+      "tag": "0002_listing_sync",
+      "breakpoints": true
     }
   ]
 }

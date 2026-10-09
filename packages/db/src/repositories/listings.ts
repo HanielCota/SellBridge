@@ -229,3 +229,55 @@ export async function resetTargetForRetry(
     .set({ status: "pending", errorReason: null })
     .where(eq(listingTargets.id, listingTargetId));
 }
+
+export interface TargetNeedingSync {
+  targetId: string;
+  externalId: string;
+  stock: number;
+  priceCents: number;
+  store: typeof storeConnections.$inferSelect;
+}
+
+/**
+ * Published listings whose supplier stock or listing price differs from what was last
+ * sent to the marketplace (all tenants; used by the worker sync job).
+ */
+export async function findTargetsNeedingSync(
+  db: Database,
+  limit = 200,
+): Promise<TargetNeedingSync[]> {
+  const rows = await db
+    .select({
+      targetId: listingTargets.id,
+      externalId: listingTargets.externalId,
+      stock: supplierProducts.stock,
+      priceCents: listings.priceCents,
+      store: storeConnections,
+    })
+    .from(listingTargets)
+    .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .where(
+      and(
+        eq(listingTargets.status, "published"),
+        eq(storeConnections.status, "connected"),
+        sql`${listingTargets.externalId} is not null`,
+        sql`(${listingTargets.syncedStock} is distinct from ${supplierProducts.stock}
+          or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
+      ),
+    )
+    .limit(limit);
+  return rows.flatMap((row) => (row.externalId ? [{ ...row, externalId: row.externalId }] : []));
+}
+
+export async function markTargetSynced(
+  db: Database,
+  listingTargetId: string,
+  synced: { stock: number; priceCents: number },
+): Promise<void> {
+  await db
+    .update(listingTargets)
+    .set({ syncedStock: synced.stock, syncedPriceCents: synced.priceCents, syncedAt: new Date() })
+    .where(eq(listingTargets.id, listingTargetId));
+}

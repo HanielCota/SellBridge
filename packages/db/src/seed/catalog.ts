@@ -62,7 +62,7 @@ export async function seedCatalog(db: Database, random: Random): Promise<{ creat
         description: seedSupplier.description,
         state: seedSupplier.state,
         city: seedSupplier.city,
-        logoUrl: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(seedSupplier.name)}`,
+        logoUrl: null,
       })
       .returning({ id: suppliers.id });
     if (!inserted) {

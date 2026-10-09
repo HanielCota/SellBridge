@@ -46,6 +46,10 @@ export const listingTargets = pgTable(
     attempts: integer().notNull().default(0),
     idempotencyKey: text().notNull(),
     publishedAt: timestamp({ withTimezone: true }),
+    /** Stock and price last sent to the marketplace (used by the sync job). */
+    syncedStock: integer(),
+    syncedPriceCents: integer(),
+    syncedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()

@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import type { TokenCipher } from "@sellbridge/marketplaces";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { getSupplierIdsForRegion } from "../repositories/suppliers.ts";
@@ -56,7 +58,7 @@ const BUYERS = [
   "Diego N.",
 ];
 
-async function ensureDemoStores(db: Database, tenantId: string) {
+async function ensureDemoStores(db: Database, tenantId: string, cipher: TokenCipher) {
   await db
     .insert(storeConnections)
     .values(
@@ -66,6 +68,10 @@ async function ensureDemoStores(db: Database, tenantId: string) {
         externalShopId: store.externalShopId,
         shopName: store.shopName,
         status: "connected" as const,
+        // Simulated marketplace tokens, encrypted like real ones, so webhooks and sync work.
+        accessTokenEnc: cipher.encrypt(`mock-access-${randomBytes(12).toString("hex")}`),
+        refreshTokenEnc: cipher.encrypt(`mock-refresh-${randomBytes(12).toString("hex")}`),
+        expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000),
       })),
     )
     .onConflictDoNothing();
@@ -149,6 +155,7 @@ export async function seedDemoSales(
   random: Random,
   tenantId: string,
   region: { state: string; city: string },
+  cipher: TokenCipher,
 ): Promise<{ created: boolean; orders: number }> {
   const [existing] = await db
     .select({ total: count() })
@@ -158,7 +165,7 @@ export async function seedDemoSales(
     return { created: false, orders: existing.total };
   }
 
-  const stores = await ensureDemoStores(db, tenantId);
+  const stores = await ensureDemoStores(db, tenantId, cipher);
   const storeIds = stores.map((store) => store.id);
   const targets = await createDemoListings(db, random, tenantId, region, storeIds);
 

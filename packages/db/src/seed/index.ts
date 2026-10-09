@@ -1,3 +1,4 @@
+import { createTokenCipher } from "@sellbridge/marketplaces";
 import { sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
 import { saveCachedCep, saveTenantRegion } from "../repositories/region.ts";
@@ -5,6 +6,9 @@ import { ensureAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { ADMIN_ACCOUNT, CACHED_CEPS, DEMO_ACCOUNT } from "./data.ts";
 import { createRandom } from "./random.ts";
+
+const DEMO_ORGANIZATION_SLUG = "ana-revendedora-demo";
+const ADMIN_ORGANIZATION_SLUG = "sellbridge-admin";
 import { seedDemoSales } from "./sales.ts";
 
 const DOMAIN_TABLES = [
@@ -32,6 +36,9 @@ async function resetDomain(db: Database): Promise<void> {
   await db.execute(
     sql`delete from "user" where email in (${DEMO_ACCOUNT.email}, ${ADMIN_ACCOUNT.email})`,
   );
+  await db.execute(
+    sql`delete from organization where slug in (${DEMO_ORGANIZATION_SLUG}, ${ADMIN_ORGANIZATION_SLUG})`,
+  );
   console.log("Dados de domínio e contas de seed removidos");
 }
 
@@ -46,6 +53,13 @@ async function main(): Promise<void> {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL não definida");
   }
+  const encryptionKey = process.env.TOKEN_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error(
+      "TOKEN_ENCRYPTION_KEY não definida (necessária para os tokens das lojas simuladas)",
+    );
+  }
+  const cipher = createTokenCipher(encryptionKey);
   const db = createDatabase(databaseUrl, { maxConnections: 1 });
   const random = createRandom(20_261_008);
 
@@ -60,7 +74,7 @@ async function main(): Promise<void> {
   const admin = await ensureAccount(db, {
     ...ADMIN_ACCOUNT,
     role: "admin",
-    organizationSlug: "sellbridge-admin",
+    organizationSlug: ADMIN_ORGANIZATION_SLUG,
   });
   console.log(`Admin: ${ADMIN_ACCOUNT.email} ${admin.created ? "(criado)" : "(existente)"}`);
 
@@ -69,14 +83,14 @@ async function main(): Promise<void> {
     email: DEMO_ACCOUNT.email,
     password: DEMO_ACCOUNT.password,
     role: "user",
-    organizationSlug: "ana-revendedora-demo",
+    organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
   const demoCep = CACHED_CEPS.find((entry) => entry.cep === DEMO_ACCOUNT.cep);
   if (!demoCep) {
     throw new Error("CEP da conta demo não está no cache de seed");
   }
   await saveTenantRegion(db, demo.tenantId, { ...demoCep });
-  const sales = await seedDemoSales(db, random, demo.tenantId, demoCep);
+  const sales = await seedDemoSales(db, random, demo.tenantId, demoCep, cipher);
   console.log(
     `Demo: ${DEMO_ACCOUNT.email} ${demo.created ? "(criada)" : "(existente)"}, ${sales.orders} pedidos`,
   );
