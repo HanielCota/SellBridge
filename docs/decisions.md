@@ -128,11 +128,11 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 Aplicados os princípios descritos em [architecture.md](architecture.md) e reforçados pelo Oxlint: `max-lines-per-function` (60), `max-params` (4), `max-depth` (3), `max-nested-callbacks` (3), `id-length` (mínimo 2), `no-param-reassign`, `prefer-const`, `no-console`, `no-empty` e o plugin `promise` (`prefer-await-to-then`, `prefer-await-to-callbacks`).
 
 - **Erros por composição:** as subclasses (`NotFoundError`, `MarketplaceError`...) viraram um único `AppError` com `code` e `details`, criado por fábricas. `instanceof` deu lugar a `hasErrorCode`/`isMarketplaceError`; a retentativa lê `details.retryable`.
-- **Nomes:** `packages/db` virou `packages/database`; `env`, `db`, `deps`, `tx`, `ms`, `q`, `dir`, `fetchImpl` e `*Bps` foram escritos por extenso. `PLATFORM_FEE_BPS` virou `PLATFORM_FEE_BASIS_POINTS` e os scripts `db:*` viraram `database:*` (`db:up` virou `services:up`). Ficam como estão os nomes impostos por APIs externas (`q` do Mercado Livre, `deps` do TanStack Router, `env` do Playwright) e as colunas `*_enc` já migradas.
+- **Nomes:** `packages/db` virou `packages/database`; `env`, `db`, `deps`, `tx`, `ms`, `q`, `dir`, `fetchImpl` e `*Bps` foram escritos por extenso. `PLATFORM_FEE_BPS` virou `PLATFORM_FEE_BASIS_POINTS` (e `MOCK_LATENCY_MS` virou `MOCK_LATENCY_MILLISECONDS`); definir um nome antigo faz a inicialização falhar com a indicação do novo, em vez de ser ignorado em silêncio e os scripts `db:*` viraram `database:*` (`db:up` virou `services:up`). Ficam como estão os nomes impostos por APIs externas (`q` do Mercado Livre, `deps` do TanStack Router, `env` do Playwright) e as colunas `*_enc` já migradas.
 - **"Sempre async":** interpretado como "todo I/O é `async`/`await`, sem cadeias `.then()/.catch()`". Funções puras continuam síncronas.
 - **Overrides do lint:** só por arquivo (o `.catch()` do Zod em `schemas/fallback.ts` e o tamanho dos blocos de teste). Nenhum comentário de desativação.
-- **Logger:** escreve em `process.stdout`/`stderr`, respeita `LOG_LEVEL` e mascara chaves sensíveis.
-- **Segredos fora do código:** `MOCK_WEBHOOK_SECRET` deixou de ter padrão; as senhas do seed vêm de `SEED_DEMO_PASSWORD`/`SEED_ADMIN_PASSWORD`, também lidas pelos testes E2E; o CI gera segredos efêmeros por execução.
+- **Logger:** escreve em `process.stdout`/`stderr`, respeita `LOG_LEVEL` (sem diferenciar maiúsculas) e mascara chaves sensíveis.
+- **Segredos fora do código:** `MOCK_WEBHOOK_SECRET` deixou de ter padrão e é opcional: sem ele a loja simulada aparece como não configurada (produção só com marketplaces reais sobe normalmente); as senhas do seed vêm de `SEED_DEMO_PASSWORD`/`SEED_ADMIN_PASSWORD`, também lidas pelos testes E2E; o CI gera segredos efêmeros por execução.
 
 ## 2026-10-09 — Build scripts de dependências
 

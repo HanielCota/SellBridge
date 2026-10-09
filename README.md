@@ -11,7 +11,7 @@ pnpm + Turborepo · TanStack Start/Router/Query/Table/Form · Tailwind v4 + shad
 Pré-requisitos: Node 24+, Docker e corepack (`corepack enable`).
 
 ```bash
-cp .env.example .env          # gere BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY e MOCK_WEBHOOK_SECRET
+cp .env.example .env          # gere BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY e MOCK_WEBHOOK_SECRET (loja simulada)
 pnpm install
 pnpm services:up              # Postgres + Redis
 pnpm database:migrate

@@ -1,4 +1,4 @@
-import { AppError, hasErrorCode, isAppError } from "@sellbridge/shared/errors";
+import { AppError, hasErrorCode } from "@sellbridge/shared/errors";
 
 /**
  * Failure reported by a marketplace. `retryable` tells the queue whether trying again
@@ -39,7 +39,7 @@ export function isMarketplaceAuthError(value: unknown): value is AppError {
 
 /** Unknown failures (bugs, network blips) get the benefit of the doubt and are retried. */
 export function isRetryableError(value: unknown): boolean {
-  if (!isAppError(value)) {
+  if (!isMarketplaceError(value)) {
     return true;
   }
   return value.details.retryable ?? false;

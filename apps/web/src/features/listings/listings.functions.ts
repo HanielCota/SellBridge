@@ -137,11 +137,15 @@ export const simulateMockSale = createServerFn({ method: "POST" })
       shopId: row.store.externalShopId,
       resource,
     });
+    const mockWebhookSecret = environment.MOCK_WEBHOOK_SECRET;
+    if (mockWebhookSecret === undefined) {
+      throw validationError("O marketplace simulado não está configurado (MOCK_WEBHOOK_SECRET)");
+    }
     const response = await fetch(new URL("/api/webhooks/mock", environment.APP_URL), {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, environment.MOCK_WEBHOOK_SECRET),
+        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, mockWebhookSecret),
       },
       body: rawBody,
     });

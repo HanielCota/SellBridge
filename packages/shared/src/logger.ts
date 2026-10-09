@@ -1,7 +1,6 @@
-import { z } from "zod";
+import { LOG_LEVELS, logLevelEnvironmentSchema } from "./environment.ts";
 import { withFallback } from "./schemas/fallback.ts";
 
-const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
 type LogLevel = (typeof LOG_LEVELS)[number];
 
 type LogFields = Readonly<Record<string, unknown>>;
@@ -17,7 +16,7 @@ const LEVEL_PRIORITY: Readonly<Record<LogLevel, number>> = {
 const SENSITIVE_KEY_PATTERN = /token|secret|password|authorization|cookie|email/i;
 const REDACTED = "[redacted]";
 
-const logLevelSchema = withFallback(z.enum(LOG_LEVELS).default("info"), "info");
+const logLevelSchema = withFallback(logLevelEnvironmentSchema, "info");
 
 function minimumLevel(): LogLevel {
   return logLevelSchema.parse(process.env.LOG_LEVEL);

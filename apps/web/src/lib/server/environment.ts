@@ -1,4 +1,4 @@
-import { parseEnvironment } from "@sellbridge/shared/environment";
+import { logLevelEnvironmentSchema, parseEnvironment } from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { z } from "zod";
 
@@ -27,8 +27,9 @@ const serverEnvironmentSchema = z.object({
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0),
     ),
-  MOCK_WEBHOOK_SECRET: z.string().min(16),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  /** Mock connector only: without it the simulated store is shown as not configured. */
+  MOCK_WEBHOOK_SECRET: z.string().min(16).optional(),
+  LOG_LEVEL: logLevelEnvironmentSchema,
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
 });
@@ -38,4 +39,5 @@ export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;
 export const environment: ServerEnvironment = parseEnvironment(
   serverEnvironmentSchema,
   process.env,
+  { renamedVariables: { PLATFORM_FEE_BPS: "PLATFORM_FEE_BASIS_POINTS" } },
 );

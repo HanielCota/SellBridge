@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { account, member, organization, user } from "../schema/index.ts";
 
@@ -22,6 +22,18 @@ export interface SeededAccount {
  * Creates a credential user with its own organization, mirroring what the
  * Better Auth sign-up hooks do in the web app. Idempotent by e-mail.
  */
+/** Keeps an already seeded account in sync with the current SEED_*_PASSWORD value. */
+async function updateSeededPassword(
+  database: Database,
+  userId: string,
+  password: string,
+): Promise<void> {
+  await database
+    .update(account)
+    .set({ password: await hashPassword(password), updatedAt: new Date() })
+    .where(and(eq(account.userId, userId), eq(account.providerId, "credential")));
+}
+
 export async function ensureAccount(
   database: Database,
   input: SeedAccountInput,
@@ -34,6 +46,7 @@ export async function ensureAccount(
     if (!membership) {
       throw new Error(`Usuário ${input.email} existe mas não tem organização`);
     }
+    await updateSeededPassword(database, existing.id, input.password);
     return { userId: existing.id, tenantId: membership.organizationId, created: false };
   }
 

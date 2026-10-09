@@ -5,7 +5,8 @@ import { createUnavailableConnector } from "./unavailable-connector.ts";
 
 export interface ConnectorRegistryConfig {
   appUrl: string;
-  mockWebhookSecret: string;
+  /** Without it the simulated store is unavailable (e.g. production with real marketplaces only). */
+  mockWebhookSecret?: string | undefined;
   mockLatencyMilliseconds?: number;
   mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
 }
@@ -19,15 +20,22 @@ export const MARKETPLACE_LABELS: Record<MarketplaceId, string> = {
   tiktok_shop: "TikTok Shop",
 };
 
+function createMockOrUnavailableConnector(config: ConnectorRegistryConfig): MarketplaceConnector {
+  if (config.mockWebhookSecret === undefined) {
+    return createUnavailableConnector("mock", MARKETPLACE_LABELS.mock);
+  }
+  return createMockConnector({
+    appUrl: config.appUrl,
+    webhookSecret: config.mockWebhookSecret,
+    ...(config.mockLatencyMilliseconds === undefined
+      ? {}
+      : { latencyMilliseconds: config.mockLatencyMilliseconds }),
+  });
+}
+
 export function createConnectorRegistry(config: ConnectorRegistryConfig): ConnectorRegistry {
   return {
-    mock: createMockConnector({
-      appUrl: config.appUrl,
-      webhookSecret: config.mockWebhookSecret,
-      ...(config.mockLatencyMilliseconds === undefined
-        ? {}
-        : { latencyMilliseconds: config.mockLatencyMilliseconds }),
-    }),
+    mock: createMockOrUnavailableConnector(config),
     mercado_livre: createMercadoLivreConnector({
       clientId: config.mercadoLivre?.clientId,
       clientSecret: config.mercadoLivre?.clientSecret,

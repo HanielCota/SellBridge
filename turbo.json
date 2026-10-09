@@ -14,6 +14,7 @@
     },
     "test": {
       "dependsOn": ["^typecheck"],
+      "env": ["DATABASE_URL", "REDIS_URL"],
       "outputs": ["coverage/**"]
     }
   }
