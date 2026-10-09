@@ -14,6 +14,7 @@
     "./logger": "./src/logger.ts",
     "./queues": "./src/queues.ts",
     "./finance": "./src/finance.ts",
+    "./file-signature": "./src/file-signature.ts",
     "./schemas": "./src/schemas/index.ts"
   },
   "scripts": {

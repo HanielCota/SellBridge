@@ -4,3 +4,4 @@ export * from "./catalog.ts";
 export * from "./region.ts";
 export * from "./stores.ts";
 export * from "./reports.ts";
+export * from "./support.ts";
