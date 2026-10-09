@@ -12,8 +12,9 @@ const workerEnvironmentSchema = z.object({
   TOKEN_ENCRYPTION_KEY: z.string().refine((value) => Buffer.from(value, "base64").length === 32, {
     message: "deve ser uma chave de 32 bytes em base64",
   }),
-  MOCK_WEBHOOK_SECRET: z.string().min(16).default("mock-webhook-secret-dev-only"),
-  MOCK_LATENCY_MS: z.coerce.number().int().min(0).default(800),
+  MOCK_WEBHOOK_SECRET: z.string().min(16),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  MOCK_LATENCY_MILLISECONDS: z.coerce.number().int().min(0).default(800),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),

@@ -11,11 +11,11 @@ export function loadRootEnvironmentFile(startDirectory: string = process.cwd()):
   if (!root) {
     return;
   }
-  const envPath = join(root, ".env");
-  if (!existsSync(envPath)) {
+  const environmentFilePath = join(root, ".env");
+  if (!existsSync(environmentFilePath)) {
     return;
   }
-  process.loadEnvFile(envPath);
+  process.loadEnvFile(environmentFilePath);
 }
 
 function findWorkspaceRoot(directory: string): string | null {

@@ -274,14 +274,12 @@ export const CACHED_CEPS = [
 export const DEMO_ACCOUNT = {
   name: "Ana Revendedora",
   email: "demo@sellbridge.local",
-  password: "demo12345",
   cep: "30130010",
 } as const;
 
 export const ADMIN_ACCOUNT = {
   name: "Admin SellBridge",
   email: "admin@sellbridge.local",
-  password: "admin12345",
 } as const;
 
 export const DEMO_STORES = [

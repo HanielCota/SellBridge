@@ -4,22 +4,22 @@ SaaS de dropshipping/intermediação: o revendedor conecta suas lojas em marketp
 
 ## Stack
 
-pnpm + Turborepo · TanStack Start/Router/Query/Table/Form · Tailwind v4 + shadcn/ui · PostgreSQL + Drizzle · Better Auth · Zod · BullMQ + Redis · Oxlint · Prettier · Vitest · Playwright · Docker Compose. Decisões em [docs/decisions.md](docs/decisions.md); plano em [docs/plan.md](docs/plan.md).
+pnpm + Turborepo · TanStack Start/Router/Query/Table/Form · Tailwind v4 + shadcn/ui · PostgreSQL + Drizzle · Better Auth · Zod · BullMQ + Redis · Oxlint · Prettier · Vitest · Playwright · Docker Compose. Decisões em [docs/decisions.md](docs/decisions.md); arquitetura e padrões de código em [docs/architecture.md](docs/architecture.md); plano em [docs/plan.md](docs/plan.md).
 
 ## Como rodar
 
 Pré-requisitos: Node 24+, Docker e corepack (`corepack enable`).
 
 ```bash
-cp .env.example .env          # gere BETTER_AUTH_SECRET e TOKEN_ENCRYPTION_KEY
+cp .env.example .env          # gere BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY e MOCK_WEBHOOK_SECRET
 pnpm install
-pnpm db:up                    # Postgres + Redis
+pnpm services:up              # Postgres + Redis
 pnpm database:migrate
 pnpm database:seed
 pnpm dev                      # web em http://localhost:3000 + worker (filas)
 ```
 
-O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
+O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar. Os logs são JSON estruturado; `LOG_LEVEL` define o nível mínimo (`debug`, `info`, `warn`, `error`).
 
 ### Contas de demonstração (criadas pelo seed)
 
@@ -28,7 +28,7 @@ O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar.
 | `demo@sellbridge.local`  | `demo12345`  | Região Belo Horizonte/MG, 2 lojas simuladas, 14 anúncios e cerca de 6 meses de pedidos |
 | `admin@sellbridge.local` | `admin12345` | Papel de administrador                                                                 |
 
-`pnpm database:seed -- --reset` limpa os dados de domínio e recria tudo.
+As senhas vêm de `SEED_DEMO_PASSWORD` e `SEED_ADMIN_PASSWORD` no `.env` (os valores acima são os do `.env.example`); os testes E2E usam as mesmas variáveis. `pnpm database:seed -- --reset` limpa os dados de domínio e recria tudo.
 
 ### Mercado Livre
 
@@ -58,7 +58,7 @@ apps/web               TanStack Start (painel)
 apps/worker            filas BullMQ (publicação, sync, webhooks)
 packages/database      schema Drizzle, migrations, seeds, repositórios por tenant
 packages/marketplaces  conectores (mock, Mercado Livre, Shopee, TikTok Shop)
-packages/shared        schemas Zod, dinheiro em centavos, CEP, erros, env
+packages/shared        schemas Zod, dinheiro em centavos, CEP, erros, ambiente, logger
 packages/config        tsconfig base
 ```
 

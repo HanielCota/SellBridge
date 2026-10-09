@@ -27,7 +27,8 @@ const serverEnvironmentSchema = z.object({
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0),
     ),
-  MOCK_WEBHOOK_SECRET: z.string().min(16).default("mock-webhook-secret-dev-only"),
+  MOCK_WEBHOOK_SECRET: z.string().min(16),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
 });

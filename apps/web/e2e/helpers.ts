@@ -1,12 +1,19 @@
 import { expect, type Page } from "@playwright/test";
+import { requireEnvironmentVariable } from "./environment";
 
 /** Navigates and waits until the client bundle has loaded so React handlers are attached. */
 export async function gotoHydrated(page: Page, path: string): Promise<void> {
   await page.goto(path, { waitUntil: "networkidle" });
 }
 
-export const DEMO_USER = { email: "demo@sellbridge.local", password: "demo12345" } as const;
-export const ADMIN_USER = { email: "admin@sellbridge.local", password: "admin12345" } as const;
+export const DEMO_USER = {
+  email: "demo@sellbridge.local",
+  password: requireEnvironmentVariable("SEED_DEMO_PASSWORD"),
+} as const;
+export const ADMIN_USER = {
+  email: "admin@sellbridge.local",
+  password: requireEnvironmentVariable("SEED_ADMIN_PASSWORD"),
+} as const;
 
 export async function signIn(page: Page, credentials: { email: string; password: string }) {
   await gotoHydrated(page, "/login");

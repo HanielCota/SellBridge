@@ -16,7 +16,7 @@
     "test": "vitest run && turbo run test",
     "test:e2e": "pnpm --filter @sellbridge/web test:e2e",
     "check:no-else": "tsx scripts/check-no-else.ts",
-    "db:up": "docker compose up -d",
+    "services:up": "docker compose up -d",
     "database:generate": "pnpm --filter @sellbridge/database generate",
     "database:migrate": "pnpm --filter @sellbridge/database migrate",
     "database:seed": "pnpm --filter @sellbridge/database seed",

@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
+
+loadRootEnvironmentFile();
 
 const port = 3100;
 const workerHealthPort = 3101;
@@ -31,7 +34,7 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         APP_URL: appUrl,
-        MOCK_LATENCY_MS: "150",
+        MOCK_LATENCY_MILLISECONDS: "150",
         WORKER_HEALTH_PORT: String(workerHealthPort),
       },
     },

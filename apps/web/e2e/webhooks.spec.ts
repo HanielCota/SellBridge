@@ -1,8 +1,9 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { requireEnvironmentVariable } from "./environment";
 
-const MOCK_SECRET = process.env.MOCK_WEBHOOK_SECRET ?? "mock-webhook-secret-dev-only";
+const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
 
 function sign(body: string): string {
   return createHmac("sha256", MOCK_SECRET).update(body).digest("hex");
