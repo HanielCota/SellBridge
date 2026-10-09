@@ -11,7 +11,7 @@ import {
 
 function MercadoLivreLogo() {
   return (
-    <svg viewBox={MERCADO_LIVRE_VIEWBOX} className="w-[78%]" aria-hidden="true">
+    <svg viewBox={MERCADO_LIVRE_VIEWBOX} className="h-[58%] w-auto" aria-hidden="true">
       <path d={MERCADO_LIVRE_PATH} transform={MERCADO_LIVRE_TRANSFORM} fill="#2d3277" />
     </svg>
   );
@@ -37,7 +37,8 @@ function TikTokLogo() {
 }
 
 const MARKS: Record<string, { logo: ReactNode; className: string }> = {
-  mercado_livre: { logo: <MercadoLivreLogo />, className: "bg-[#ffe600]" },
+  // The wordmark needs width to stay legible, so its badge is a wide pill.
+  mercado_livre: { logo: <MercadoLivreLogo />, className: "w-auto! bg-[#ffe600] px-[0.55em]" },
   shopee: { logo: <ShopeeLogo />, className: "bg-[#ee4d2d]" },
   tiktok_shop: { logo: <TikTokLogo />, className: "bg-black ring-1 ring-white/10" },
 };
