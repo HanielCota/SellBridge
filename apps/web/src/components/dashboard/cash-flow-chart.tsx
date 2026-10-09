@@ -65,23 +65,25 @@ function ProfitTooltip({ active, payload }: TooltipProps) {
   if (!active || !point) {
     return null;
   }
-  const costs = Math.max(point.revenue - point.profit, 0);
-  const max = Math.max(point.revenue, 1);
+  // Round once, then derive costs, so "receita − custos = lucro" always adds up on screen.
+  const revenue = Math.round(point.revenue / 100);
+  const profit = Math.round(point.profit / 100);
+  const costs = Math.max(revenue - profit, 0);
+  const scale = Math.max(revenue, costs, 1);
+  const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
   return (
-    <div className="w-60 rounded-3xl bg-brand p-4 text-primary-foreground shadow-2xl shadow-black/40">
+    <div className="w-64 rounded-3xl bg-brand p-4 text-primary-foreground shadow-2xl shadow-black/40">
       <p className="text-right text-xs font-medium opacity-70">{formatPointDate(point.date)}</p>
-      <div className="mt-2 flex h-20 items-end gap-2">
-        <TooltipBar
-          label="Receita"
-          cents={point.revenue}
-          height={point.revenue / max}
-          tone="dark"
-        />
-        <TooltipBar label="Custos" cents={costs} height={costs / max} tone="mid" />
+      <div className="mt-1 grid grid-cols-2 gap-2">
+        <TooltipBar label="Receita" reais={revenue} share={revenue / scale} tone="dark" />
+        <TooltipBar label="Custos" reais={costs} share={costs / scale} tone="mid" />
       </div>
-      <p className="mt-3 text-xs font-medium opacity-70">Lucro</p>
+      <p className="mt-3 flex items-baseline justify-between text-xs font-medium">
+        <span className="opacity-70">Lucro</span>
+        {margin === null ? null : <span className="opacity-70">margem de {margin}%</span>}
+      </p>
       <MoneyFigure
-        cents={point.profit}
+        cents={profit * 100}
         className="text-3xl leading-none [&>span]:text-primary-foreground/60"
       />
     </div>
@@ -90,27 +92,30 @@ function ProfitTooltip({ active, payload }: TooltipProps) {
 
 function TooltipBar({
   label,
-  cents,
-  height,
+  reais,
+  share,
   tone,
 }: {
   label: string;
-  cents: number;
-  height: number;
+  reais: number;
+  share: number;
   tone: "dark" | "mid";
 }) {
   return (
-    <div className="flex flex-1 flex-col justify-end gap-1">
-      <span className="text-[11px] font-semibold tabular-nums">
-        {label} R$ {Math.round(cents / 100).toLocaleString("pt-BR")}
-      </span>
-      <span
-        className={cn(
-          "rounded-xl",
-          tone === "dark" ? "bg-primary-foreground" : "bg-primary-foreground/35",
-        )}
-        style={{ height: `${Math.max(10, height * 56)}px` }}
-      />
+    <div className="space-y-1">
+      <p className="text-[11px] leading-tight">
+        <span className="block opacity-70">{label}</span>
+        <span className="block font-semibold tabular-nums">R$ {reais.toLocaleString("pt-BR")}</span>
+      </p>
+      <div className="flex h-14 items-end">
+        <span
+          className={cn(
+            "w-full rounded-xl",
+            tone === "dark" ? "bg-primary-foreground" : "bg-primary-foreground/35",
+          )}
+          style={{ height: `${Math.max(16, share * 100)}%` }}
+        />
+      </div>
     </div>
   );
 }
