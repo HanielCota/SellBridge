@@ -20,6 +20,7 @@ const LISTING_TONES: Record<ListingStatus, StatusTone> = {
   pending: "info",
   publishing: "info",
   published: "success",
+  paused: "muted",
   error: "danger",
 };
 

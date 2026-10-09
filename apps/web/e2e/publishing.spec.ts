@@ -48,7 +48,44 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   await expect(page).toHaveURL(/\/publicacoes/);
   await expect(page.getByText("Produto publicado pelo teste E2E")).toBeVisible();
   await expect(page.getByText("Publicado", { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("link", { name: "Ver anúncio" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ver anúncio em Loja E2E" })).toBeVisible();
+  await expect(page.getByText("Simulada", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^margem de \d+%$/)).toBeVisible();
+});
+
+test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
+  await signUp(page, "Revendedora Ações");
+  await onboardInBeloHorizonte(page);
+  await connectMockStore(page, "Loja Ações");
+  await openPublishFormForFirstProduct(page);
+  await page.getByLabel("Título").fill("Produto com ações");
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(page.getByText("Publicado", { exact: true })).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("button", { name: "Ações de Produto com ações" }).click();
+  await page.getByRole("menuitem", { name: "Editar preço" }).click();
+  const price = page.getByLabel("Preço de venda (R$)");
+  await price.fill("0,50");
+  await expect(page.getByText(/O preço precisa ser maior que o custo/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Salvar preço" })).toBeDisabled();
+  await price.fill("999,90");
+  await page.getByRole("button", { name: "Salvar preço" }).click();
+  await expect(page.getByText(/^Preço atualizado/)).toBeVisible();
+  await expect(page.getByText("R$ 999,90")).toBeVisible();
+
+  await page.getByRole("button", { name: "Ações de Produto com ações" }).click();
+  await page.getByRole("menuitem", { name: "Pausar" }).click();
+  await expect(page.getByText("Pausado em 1 loja")).toBeVisible();
+  await expect(page.getByText("Pausado", { exact: true })).toBeVisible();
+
+  await page.getByRole("checkbox", { name: "Selecionar Produto com ações" }).click();
+  await page
+    .getByRole("region", { name: "Ações em lote" })
+    .getByRole("button", { name: "Reativar" })
+    .click();
+  await expect(page.getByText("Reativado em 1 loja")).toBeVisible();
+  await expect(page.getByText("Publicado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Ações em lote" })).toHaveCount(0);
 });
 
 test("mostra erro com motivo e permite reprocessar", async ({ page }) => {

@@ -1,4 +1,4 @@
-import type { ListingTargetRow } from "@sellbridge/database/repositories";
+import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import {
   LISTING_STATUS_LABELS,
@@ -6,24 +6,22 @@ import {
   listingsSearchSchema,
   type ListingsSearch,
 } from "@sellbridge/shared/schemas";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowClockwiseIcon,
-  ArrowSquareOutIcon,
-  MagnifyingGlassIcon,
-  MegaphoneIcon,
-  ShoppingCartSimpleIcon,
-} from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { MagnifyingGlassIcon, MegaphoneIcon } from "@phosphor-icons/react";
+import { cn } from "cn";
+import { useEffect, useMemo, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
-import { ListingStatusBadge } from "@/components/data/status-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { BulkActionsBar } from "@/components/listings/bulk-actions-bar";
+import { ListingActions } from "@/components/listings/listing-actions";
+import { ListingThumb } from "@/components/listings/listing-thumb";
+import { StoreStatuses } from "@/components/listings/store-statuses";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -33,13 +31,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { retryListingTarget, simulateMockSale } from "@/features/listings/listings.functions";
 import { listingsQueryOptions } from "@/features/listings/listings.queries";
+import { estimateProfit } from "@/features/listings/profit";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
 
 const ALL_STATUSES = "__all__";
+const LOW_STOCK = 5;
+const THIN_MARGIN_PERCENT = 15;
 
 export const Route = createFileRoute("/_app/publicacoes/")({
   validateSearch: listingsSearchSchema,
@@ -50,136 +51,189 @@ export const Route = createFileRoute("/_app/publicacoes/")({
   component: ListingsPage,
 });
 
-const columnHelper = createServerColumnHelper<ListingTargetRow>();
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const columnHelper = createServerColumnHelper<ListingOverviewRow>();
 
-function RetryButton({ listingTargetId }: { listingTargetId: string }) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () => retryListingTarget({ data: { listingTargetId } }),
-    onSuccess: async () => {
-      toast.success("Publicação reenviada para a fila");
-      await queryClient.invalidateQueries({ queryKey: ["listings"] });
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
+function PriceCell({ row }: { row: ListingOverviewRow }) {
+  const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent ?? null;
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <ArrowClockwiseIcon
-        aria-hidden="true"
-        className={mutation.isPending ? "animate-spin" : undefined}
+    <div className="text-right whitespace-nowrap tabular-nums">
+      <p className="font-medium">{formatCents(row.priceCents)}</p>
+      {margin === null ? null : (
+        <p
+          className={cn(
+            "text-xs",
+            margin < THIN_MARGIN_PERCENT ? "text-amber-500" : "text-muted-foreground",
+          )}
+          title="Estimativa com o custo do fornecedor e a taxa média do marketplace"
+        >
+          margem de {Math.round(margin)}%
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StockCell({ stock }: { stock: number }) {
+  if (stock <= 0) {
+    return (
+      <p className="text-right text-sm font-medium whitespace-nowrap text-destructive">
+        Sem estoque
+      </p>
+    );
+  }
+  return (
+    <div className="text-right tabular-nums">
+      <p>{stock.toLocaleString("pt-BR")}</p>
+      {stock <= LOW_STOCK ? <p className="text-xs text-amber-500">baixo</p> : null}
+    </div>
+  );
+}
+
+function RightHeader({ label }: { label: string }) {
+  return <span className="block text-right">{label}</span>;
+}
+
+interface Selection {
+  ids: ReadonlySet<string>;
+  toggle: (id: string, checked: boolean) => void;
+  togglePage: (checked: boolean) => void;
+  pageState: boolean | "indeterminate";
+}
+
+function selectionColumn(selection: Selection) {
+  return columnHelper.display({
+    id: "select",
+    header: () => (
+      <Checkbox
+        aria-label="Selecionar todos desta página"
+        checked={selection.pageState}
+        onCheckedChange={(checked) => selection.togglePage(checked === true)}
       />
-      Reprocessar
-    </Button>
-  );
-}
-
-function SimulateSaleButton({ listingTargetId }: { listingTargetId: string }) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () => simulateMockSale({ data: { listingTargetId } }),
-    onSuccess: async () => {
-      toast.success("Venda simulada enviada. Ela aparece no financeiro em instantes.");
-      await queryClient.invalidateQueries({ queryKey: ["financials"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    ),
+    cell: (info) => {
+      const row = info.row.original;
+      return (
+        <Checkbox
+          aria-label={`Selecionar ${row.title}`}
+          checked={selection.ids.has(row.listingId)}
+          onCheckedChange={(checked) => selection.toggle(row.listingId, checked === true)}
+          className="mt-3.5"
+        />
+      );
     },
-    onError: (error) => toast.error(errorMessage(error)),
   });
-  return (
-    <Button
-      size="sm"
-      variant="ghost"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <ShoppingCartSimpleIcon aria-hidden="true" />
-      Simular venda
-    </Button>
-  );
 }
 
-const columns = columnHelper.columns([
-  columnHelper.accessor("title", {
+function productColumn() {
+  return columnHelper.accessor("title", {
     header: "Anúncio",
-    cell: (info) => (
-      <div className="min-w-48 space-y-0.5">
-        <p className="font-medium">{info.getValue()}</p>
-        <p className="text-xs text-muted-foreground">SKU {info.row.original.sku}</p>
-      </div>
-    ),
-  }),
-  columnHelper.accessor("storeName", {
-    header: "Loja",
-    cell: (info) => <span className="whitespace-nowrap">{info.getValue()}</span>,
-  }),
-  columnHelper.accessor("priceCents", {
-    header: "Preço",
-    cell: (info) => <span className="whitespace-nowrap">{formatCents(info.getValue())}</span>,
-  }),
-  columnHelper.accessor("status", {
-    header: "Status",
     cell: (info) => {
       const row = info.row.original;
       return (
-        <div className="min-w-40 space-y-1">
-          <ListingStatusBadge status={info.getValue()} />
-          {row.errorReason ? <p className="text-xs text-destructive">{row.errorReason}</p> : null}
-          {row.attempts > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              {row.attempts} {row.attempts === 1 ? "tentativa" : "tentativas"}
-            </p>
-          ) : null}
+        <div className="flex min-w-56 items-center gap-3">
+          <ListingThumb imageUrl={row.imageUrl} categorySlug={row.categorySlug} />
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-medium">{info.getValue()}</p>
+            <p className="text-xs text-muted-foreground">SKU {row.sku}</p>
+          </div>
         </div>
       );
     },
-  }),
-  columnHelper.accessor("updatedAt", {
-    header: "Atualizado em",
+  });
+}
+
+function updatedColumn() {
+  return columnHelper.accessor("updatedAt", {
+    header: "Atualizado",
     cell: (info) => (
-      <span className="whitespace-nowrap text-muted-foreground">
-        {dateFormatter.format(info.getValue())}
-      </span>
+      // Relative time depends on "now", so server and browser may differ by a minute.
+      <time
+        dateTime={info.getValue().toISOString()}
+        title={formatAbsoluteTime(info.getValue())}
+        className="text-sm whitespace-nowrap text-muted-foreground"
+        suppressHydrationWarning
+      >
+        {formatRelativeTime(info.getValue())}
+      </time>
     ),
-  }),
-  columnHelper.display({
-    id: "actions",
-    header: () => <span className="sr-only">Ações</span>,
-    cell: (info) => {
-      const row = info.row.original;
-      if (row.status === "error") {
-        return <RetryButton listingTargetId={row.id} />;
-      }
-      if (row.status !== "published") {
-        return null;
-      }
-      return (
-        <div className="flex flex-wrap justify-end gap-2">
-          {row.marketplace === "mock" ? <SimulateSaleButton listingTargetId={row.id} /> : null}
-          {row.externalUrl ? (
-            <Button asChild size="sm" variant="ghost">
-              <a href={row.externalUrl} target="_blank" rel="noreferrer">
-                <ArrowSquareOutIcon aria-hidden="true" />
-                Ver anúncio
-              </a>
-            </Button>
-          ) : null}
-        </div>
-      );
-    },
-  }),
-]);
+  });
+}
+
+function buildColumns(selection: Selection) {
+  return columnHelper.columns([
+    selectionColumn(selection),
+    productColumn(),
+    columnHelper.accessor("stores", {
+      header: "Lojas",
+      cell: (info) => <StoreStatuses stores={info.getValue()} />,
+    }),
+    columnHelper.accessor("priceCents", {
+      header: () => <RightHeader label="Preço" />,
+      cell: (info) => <PriceCell row={info.row.original} />,
+    }),
+    columnHelper.accessor("stock", {
+      header: () => <RightHeader label="Estoque" />,
+      cell: (info) => <StockCell stock={info.getValue()} />,
+    }),
+    columnHelper.accessor("unitsSold", {
+      header: () => <RightHeader label="Vendas (30 dias)" />,
+      cell: (info) => (
+        <p className="text-right tabular-nums">{info.getValue().toLocaleString("pt-BR")}</p>
+      ),
+    }),
+    updatedColumn(),
+    columnHelper.display({
+      id: "actions",
+      header: () => <span className="sr-only">Ações</span>,
+      cell: (info) => <ListingActions row={info.row.original} />,
+    }),
+  ]);
+}
+
+function pageSelectionState(selectedOnPage: number, pageSize: number): boolean | "indeterminate" {
+  if (selectedOnPage === 0) {
+    return false;
+  }
+  return selectedOnPage === pageSize ? true : "indeterminate";
+}
+
+function setChecked(next: Set<string>, id: string, checked: boolean) {
+  if (checked) {
+    next.add(id);
+    return;
+  }
+  next.delete(id);
+}
+
+function useSelection(pageIds: readonly string[]): Selection & { clear: () => void } {
+  const [ids, setIds] = useState<ReadonlySet<string>>(new Set());
+  function update(change: (next: Set<string>) => void) {
+    setIds((previous) => {
+      const next = new Set(previous);
+      change(next);
+      return next;
+    });
+  }
+  return {
+    ids,
+    toggle: (id, checked) => update((next) => setChecked(next, id, checked)),
+    togglePage: (checked) =>
+      update((next) => {
+        for (const id of pageIds) {
+          setChecked(next, id, checked);
+        }
+      }),
+    pageState: pageSelectionState(pageIds.filter((id) => ids.has(id)).length, pageIds.length),
+    clear: () => setIds(new Set()),
+  };
+}
 
 function ListingsPage() {
   return (
     <>
       <PageHeader
         title="Publicações"
-        description="Acompanhe o envio dos seus anúncios para as lojas conectadas."
+        description="Seus produtos e o status de cada um nas lojas conectadas."
         actions={
           <Button asChild>
             <Link to="/fornecedores">Publicar novo produto</Link>
@@ -251,10 +305,15 @@ function ListingsFilters() {
   );
 }
 
+function useListingsQuery() {
+  return useQuery(listingsQueryOptions(Route.useSearch()));
+}
+
+type ListingsPageData = NonNullable<ReturnType<typeof useListingsQuery>["data"]>;
+
 function ListingsTable() {
   const search = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
-  const query = useQuery(listingsQueryOptions(search));
+  const query = useListingsQuery();
 
   if (query.isPending) {
     return <Skeleton className="h-72 rounded-xl" aria-label="Carregando publicações" />;
@@ -283,22 +342,32 @@ function ListingsTable() {
       />
     );
   }
+  return <ListingsDataTable data={query.data} />;
+}
 
+function ListingsDataTable({ data }: { data: ListingsPageData }) {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const pageIds = useMemo(() => data.items.map((row) => row.listingId), [data.items]);
+  const selection = useSelection(pageIds);
   return (
-    <DataTable
-      columns={columns}
-      data={query.data.items}
-      getRowId={(row) => row.id}
-      caption="Publicações e status de envio"
-      footer={
-        <PaginationBar
-          page={query.data.page}
-          totalPages={query.data.totalPages}
-          total={query.data.total}
-          itemLabel="publicações"
-          onPageChange={(page) => void navigate({ search: { ...search, page } })}
-        />
-      }
-    />
+    <>
+      <DataTable
+        columns={buildColumns(selection)}
+        data={data.items}
+        getRowId={(row) => row.listingId}
+        caption="Publicações e status de envio"
+        footer={
+          <PaginationBar
+            page={data.page}
+            totalPages={data.totalPages}
+            total={data.total}
+            itemLabel="produtos"
+            onPageChange={(page) => void navigate({ search: { ...search, page } })}
+          />
+        }
+      />
+      <BulkActionsBar listingIds={[...selection.ids]} onClear={selection.clear} />
+    </>
   );
 }

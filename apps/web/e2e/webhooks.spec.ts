@@ -49,7 +49,11 @@ test.describe("endpoint de webhooks", () => {
 test("venda simulada chega por webhook e aparece no financeiro", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/publicacoes?status=published");
-  await page.getByRole("button", { name: "Simular venda" }).first().click();
+  await page
+    .getByRole("button", { name: /^Ações de / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Simular venda" }).click();
   await expect(
     page.getByText("Venda simulada enviada. Ela aparece no financeiro em instantes."),
   ).toBeVisible();

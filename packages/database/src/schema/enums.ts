@@ -19,6 +19,8 @@ export const listingTargetStatusEnum = pgEnum("listing_target_status", [
   "publishing",
   "published",
   "error",
+  // Published but held at zero stock on the marketplace until the reseller resumes it.
+  "paused",
 ]);
 
 export const orderStatusEnum = pgEnum("order_status", [
