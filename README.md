@@ -60,6 +60,7 @@ packages/config        tsconfig base
 
 ## Entregas
 
+- **Fase 3:** dashboard com KPIs (vendas, receita, lucro, ticket médio), comparação com o período anterior, gráfico de evolução por dia/semana, filtro por período e por loja, vendas por loja e produtos mais vendidos; financeiro com lucro, comissões, devoluções e reembolsos por pedido e por período, tabela com ordenação/filtros/paginação no servidor e exportação CSV; estados vazios e checklist de primeiros passos.
 - **Fase 2:** pacote `marketplaces` (interface única, conector mock completo, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
 - **Fase 1:** schema completo do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
 - **Fase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, layout base (sidebar colapsável, modo claro/escuro) e autenticação (cadastro, login, logout, organização por usuário, papel admin).

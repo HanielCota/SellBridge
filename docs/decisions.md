@@ -100,3 +100,13 @@ Commits locais na `main`. Push para o GitHub só após confirmação do usuário
 - **Tabelas (TanStack Table 9)**: todas são dirigidas pelo servidor (paginação, filtros e ordenação nos search params), então usam `tableFeatures({})` sem features de cliente.
 - **Worker com health check opcional** (`WORKER_HEALTH_PORT`), usado pelo Playwright para subir web + worker nos testes E2E.
 - **Lucro estimado** no formulário de publicação usa taxa de 14% como referência; o valor real vem dos pedidos.
+
+## 2026-10-08 — Fase 3: dashboard e financeiro
+
+- **Fórmula de lucro por pedido** (centavos): `receita − custo do fornecedor − taxa do marketplace − reembolsos + comissões − taxa da plataforma`. Pedidos cancelados e devolvidos não geram receita, custo nem taxa (o produto volta ao fornecedor); o valor devolvido aparece em "Devoluções" só para visibilidade. A regra vive em `computeOrderFinance` (`packages/shared/src/finance.ts`) e é repetida em SQL nos relatórios; um teste de integração compara as duas.
+- **"Comissões"** são os ajustes do tipo `commission`: bônus pagos pelo fornecedor ao revendedor (somam ao lucro).
+- **Fuso horário:** períodos e agrupamentos usam dias de Brasília (`America/Sao_Paulo`, UTC−3 fixo desde 2019). Um pedido às 23h30 conta no mesmo dia, não no seguinte em UTC.
+- **Comparação:** os KPIs comparam com o período anterior de mesmo tamanho. Períodos maiores que 45 dias agrupam o gráfico por semana. Intervalo personalizado de até 366 dias; um intervalo inválido na URL cai para os últimos 30 dias, sem erro.
+- **Agregações no Postgres** (CTE por pedido + `generate_series` para preencher dias sem venda). As linhas do banco passam por Zod antes de entrar no app.
+- **CSV** no padrão do Excel brasileiro: `;` como separador, vírgula decimal, BOM UTF-8, datas no fuso de Brasília. Células de texto são protegidas contra injeção de fórmula (prefixo `'`); números são escritos crus. Limite de 20 mil linhas por exportação. A rota exige sessão e usa os mesmos filtros da tela.
+- **Código de servidor fora do bundle:** server functions só têm o handler removido do cliente. Helpers comuns que usam `env`/banco ficam em `src/lib/server/` (ex.: `report-scope.ts`), nunca exportados de arquivos `*.functions.ts`.
