@@ -82,7 +82,7 @@ export function ProductVisual({ imageUrl, title, categoryName, className }: Prod
     >
       <Icon className="size-9" weight="light" />
       {color ? (
-        <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background py-0.5 pr-2 pl-1 text-caption font-medium text-foreground">
+        <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background py-0.5 pr-2 pl-1 text-xs font-medium text-foreground">
           <span
             className="size-3 rounded-full ring-1 ring-foreground/20"
             style={{ backgroundColor: COLOR_DOTS[color] }}

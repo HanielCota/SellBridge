@@ -17,7 +17,7 @@ function PriceLines({ product }: { product: RegionCatalogProduct }) {
         {formatCents(product.suggestedPriceCents)}
         <span className="sr-only"> preço sugerido</span>
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         custo {formatCents(product.costCents)}
         {margin === undefined ? null : (
           <>
@@ -46,7 +46,7 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
           <Link
             to="/publicacoes/nova"
             search={{ productId: product.id }}
-            className="text-xs font-medium text-brand-text hover:underline"
+            className="text-sm font-medium text-brand-text hover:underline"
           >
             Publicar
           </Link>

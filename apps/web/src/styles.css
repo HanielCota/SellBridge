@@ -10,6 +10,12 @@
  * values; `cn` in lib/utils.ts is configured to merge them as font sizes.
  */
 @theme {
+  /*
+   * Smallest everyday text. Tailwind's 12px default was most of the app's metadata and
+   * hard to read, so text-xs matches the 13px footnote size.
+   */
+  --text-xs: 0.8125rem; /* 13px */
+  --text-xs--line-height: calc(18 / 13);
   --text-caption: 0.6875rem; /* 11px */
   --text-caption--line-height: calc(13 / 11);
   --text-footnote: 0.8125rem; /* 13px */
@@ -106,7 +112,8 @@
   --secondary: oklch(0.94 0.003 260);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.945 0.003 260);
-  --muted-foreground: oklch(0.52 0.008 260);
+  /* Dark enough for small text on cards (above 6:1), not just the 4.5:1 minimum. */
+  --muted-foreground: oklch(0.47 0.008 260);
   --accent: oklch(0.945 0.003 260);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.53 0.22 27);

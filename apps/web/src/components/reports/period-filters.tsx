@@ -91,13 +91,14 @@ function PeriodSegments({
   onPeriodChange: (period: PeriodPreset) => void;
 }) {
   return (
-    <fieldset className="flex w-full overflow-x-auto rounded-lg bg-muted p-0.5 [scrollbar-width:none] sm:inline-flex sm:w-auto">
+    // min-w-0: a fieldset is as wide as its content by default, which defeats w-full and the scroll.
+    <fieldset className="flex w-full min-w-0 overflow-x-auto rounded-lg bg-muted p-0.5 [scrollbar-width:none] sm:inline-flex sm:w-auto">
       <legend className="sr-only">Período</legend>
       {PERIOD_PRESETS.map((preset) => (
         <label
           key={preset}
           className={cn(
-            "flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md px-3 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground sm:flex-none sm:text-sm",
+            "flex h-8 flex-1 shrink-0 cursor-pointer items-center justify-center rounded-md px-2 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground sm:flex-none sm:px-3 sm:text-sm",
             "has-checked:bg-card has-checked:text-foreground has-checked:shadow-sm",
             "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
           )}

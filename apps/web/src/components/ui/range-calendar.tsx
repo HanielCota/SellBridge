@@ -241,7 +241,7 @@ export function RangeCalendar({ value, onChange, max, maxDays, today }: RangeCal
                 key={weekday.long}
                 scope="col"
                 abbr={weekday.long}
-                className="h-7 text-caption font-semibold tracking-wide text-muted-foreground"
+                className="h-7 text-xs font-semibold tracking-wide text-muted-foreground"
               >
                 <span aria-hidden="true">{weekday.short}</span>
                 <span className="sr-only">{weekday.long}</span>
