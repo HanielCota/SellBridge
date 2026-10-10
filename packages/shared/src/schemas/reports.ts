@@ -44,6 +44,9 @@ export interface ResolvedPeriod {
   /** Calendar dates shown to the user, inclusive. */
   fromDate: string;
   toDate: string;
+  /** Calendar dates of the comparison window, inclusive. */
+  previousFromDate: string;
+  previousToDate: string;
 }
 
 const DAY_MILLISECONDS = 86_400_000;
@@ -86,6 +89,8 @@ function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
     bucket: days > 45 ? "week" : "day",
     fromDate: toIsoDate(firstDay),
     toDate: toIsoDate(new Date(to.getTime() - DAY_MILLISECONDS)),
+    previousFromDate: toIsoDate(previousFrom),
+    previousToDate: toIsoDate(new Date(firstDay.getTime() - DAY_MILLISECONDS)),
   };
 }
 

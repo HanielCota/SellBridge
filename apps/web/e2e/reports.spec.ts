@@ -7,8 +7,20 @@ test.describe("dashboard", () => {
     await gotoHydrated(page, "/dashboard");
     await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
     await expect(page.getByText("Lucro no período").filter({ visible: true })).toBeVisible();
-    for (const label of ["Receita", "Pedidos", "Ticket médio"]) {
-      await expect(page.getByRole("article").filter({ hasText: label }).first()).toBeVisible();
+    // Revenue and orders sit in the hero, each against the previous period.
+    const hero = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Painel de vendas" }) });
+    for (const label of ["Receita", "Pedidos"]) {
+      await expect(hero.getByText(label, { exact: true })).toBeVisible();
+    }
+    // Two meters, each with this period and the previous one.
+    await expect(hero.getByRole("definition")).toHaveCount(4);
+    for (const label of ["Margem de lucro", "Ticket médio", "Cancelamentos"]) {
+      await expect(page.getByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute(
+        "href",
+        "/financeiro",
+      );
     }
     await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
     await expect(
@@ -45,7 +57,9 @@ test.describe("financeiro", () => {
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/financeiro?period=180d");
-    await expect(page.getByText("Lucro líquido").filter({ visible: true })).toBeVisible();
+    const summary = page.getByRole("region", { name: "Resumo do período" });
+    await expect(summary.getByText(/^Lucro líquido: R\$/)).toBeVisible();
+    await expect(summary.getByRole("term").filter({ hasText: "Lucro líquido" })).toBeVisible();
     await expect(
       page.getByText(/pedidos \(todos os status\) · página 1 de/).filter({ visible: true }),
     ).toBeVisible();

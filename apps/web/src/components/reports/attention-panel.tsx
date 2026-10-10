@@ -81,14 +81,17 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
     stores,
   );
   return (
-    <section aria-labelledby="attention-title" className="h-full rounded-3xl bg-card p-5">
-      <div className="flex h-10 items-center">
-        <h2 id="attention-title" className="text-[15px] font-medium text-muted-foreground">
+    <section
+      aria-labelledby="attention-title"
+      className="surface-card h-full rounded-3xl bg-card p-5"
+    >
+      <div className="-my-1 flex h-8 items-center">
+        <h2 id="attention-title" className="text-subhead font-medium text-muted-foreground">
           Precisa de você
         </h2>
       </div>
       {items.length === 0 ? (
-        <div className="mt-4 flex items-start gap-3">
+        <div className="mt-5 flex items-start gap-3">
           <CheckCircleIcon
             className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
             aria-hidden="true"
@@ -99,12 +102,12 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
           </p>
         </div>
       ) : (
-        <ul className="-mx-2 mt-3 space-y-1">
+        <ul className="-mx-2 mt-4 space-y-1">
           {items.map((item) => (
             <li key={item.key}>
               <Link
                 to={item.to}
-                className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <span
                   className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONE_CLASSES[item.tone]}`}
@@ -118,7 +121,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
                   </span>
                 </span>
                 <CaretRightIcon
-                  className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                  className="size-4 shrink-0 text-muted-foreground"
                   aria-hidden="true"
                 />
               </Link>

@@ -4,16 +4,20 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
 
+/** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
+const REVENUE_COLOR = "var(--muted-foreground)";
+const PROFIT_COLOR = "var(--chart-brand)";
+
 const SERIES = [
-  { key: "all", label: "Tudo" },
-  { key: "revenue", label: "Receita" },
-  { key: "profit", label: "Lucro" },
+  { key: "all", label: "Tudo", swatch: null },
+  { key: "revenue", label: "Receita", swatch: REVENUE_COLOR },
+  { key: "profit", label: "Lucro", swatch: PROFIT_COLOR },
 ] as const;
 type SeriesKey = (typeof SERIES)[number]["key"];
 
 const chartConfig = {
-  revenue: { label: "Receita", color: "var(--chart-brand)" },
-  profit: { label: "Lucro", color: "var(--muted-foreground)" },
+  revenue: { label: "Receita", color: REVENUE_COLOR },
+  profit: { label: "Lucro", color: PROFIT_COLOR },
 } satisfies ChartConfig;
 
 interface ChartPoint {
@@ -30,12 +34,12 @@ function SeriesPills({
   onChange: (next: SeriesKey) => void;
 }) {
   return (
-    <fieldset className="flex flex-wrap gap-1.5">
+    <fieldset className="inline-flex rounded-lg bg-muted p-0.5">
       <legend className="sr-only">Séries do gráfico</legend>
       {SERIES.map((series) => (
         <label
           key={series.key}
-          className="flex h-10 cursor-pointer items-center rounded-full border border-border px-4 text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:border-foreground has-checked:bg-foreground has-checked:font-medium has-checked:text-background has-focus-visible:ring-3 has-focus-visible:ring-ring/40"
+          className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-checked:bg-card has-checked:text-foreground has-checked:shadow-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
         >
           <input
             type="radio"
@@ -45,6 +49,7 @@ function SeriesPills({
             onChange={() => onChange(series.key)}
             className="sr-only"
           />
+          {series.swatch ? <Swatch color={series.swatch} /> : null}
           {series.label}
         </label>
       ))}
@@ -71,45 +76,38 @@ const tooltipMoney = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 0,
 });
 
-/** Mint card, built to be read at a glance: profit first, then where the revenue went. */
+/** Same color as the line it describes, so the card reads like a legend. */
+function Swatch({ color }: { color: string }) {
+  return (
+    <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: color }} />
+  );
+}
+
+/** Quiet card: date, the two series the chart draws, and the margin as a footnote. */
 function ProfitTooltip({ active, payload }: TooltipProps) {
   const point = payload?.[0]?.payload;
   if (!active || !point) {
     return null;
   }
-  // Round once, then derive costs, so "receita − custos = lucro" always adds up on screen.
   const revenue = Math.round(point.revenue / 100);
   const profit = Math.round(point.profit / 100);
-  const costs = Math.max(revenue - profit, 0);
-  const profitShare = revenue > 0 ? Math.min(Math.max(profit / revenue, 0), 1) : 0;
+  const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
   return (
-    <div className="w-64 rounded-2xl bg-brand p-4 text-primary-foreground shadow-2xl shadow-black/50">
-      <p className="text-sm font-semibold">{formatPointDate(point.date)}</p>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium">Lucro</p>
-          <p className="text-[28px] leading-none font-semibold tracking-[-0.02em]">
-            {tooltipMoney.format(profit)}
-          </p>
-        </div>
-        {revenue > 0 ? (
-          <p className="rounded-full bg-primary-foreground px-2.5 py-1 text-xs font-semibold text-brand-text">
-            {Math.round(profitShare * 100)}% de margem
-          </p>
-        ) : null}
-      </div>
-      <div
-        className="mt-3 flex h-2 overflow-hidden rounded-full bg-primary-foreground/20"
-        aria-hidden="true"
-      >
-        <span className="h-full bg-primary-foreground" style={{ width: `${profitShare * 100}%` }} />
-      </div>
-      <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
-        <dt className="font-medium">Receita</dt>
-        <dd className="text-right font-semibold tabular-nums">{tooltipMoney.format(revenue)}</dd>
-        <dt className="font-medium">Custos e taxas</dt>
-        <dd className="text-right font-semibold tabular-nums">{tooltipMoney.format(costs)}</dd>
+    <div className="min-w-48 rounded-xl border border-border bg-popover px-3.5 py-3 text-popover-foreground shadow-md">
+      <p className="text-xs text-muted-foreground">{formatPointDate(point.date)}</p>
+      <dl className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1.5 text-sm">
+        <Swatch color={REVENUE_COLOR} />
+        <dt className="text-muted-foreground">Receita</dt>
+        <dd className="text-right font-medium tabular-nums">{tooltipMoney.format(revenue)}</dd>
+        <Swatch color={PROFIT_COLOR} />
+        <dt className="text-muted-foreground">Lucro</dt>
+        <dd className="text-right font-semibold tabular-nums">{tooltipMoney.format(profit)}</dd>
       </dl>
+      {margin === null ? null : (
+        <p className="mt-2.5 border-t border-border pt-2 text-xs text-muted-foreground">
+          Margem de <span className="font-medium text-foreground">{margin}%</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -118,23 +116,30 @@ function renderGradients() {
   return (
     <defs>
       <linearGradient id="cashRevenue" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--color-revenue)" stopOpacity={0.55} />
-        <stop offset="100%" stopColor="var(--color-revenue)" stopOpacity={0.03} />
+        <stop offset="0%" stopColor="var(--color-revenue)" stopOpacity={0.14} />
+        <stop offset="100%" stopColor="var(--color-revenue)" stopOpacity={0} />
       </linearGradient>
       <linearGradient id="cashProfit" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--color-profit)" stopOpacity={0.35} />
+        <stop offset="0%" stopColor="var(--color-profit)" stopOpacity={0.45} />
         <stop offset="100%" stopColor="var(--color-profit)" stopOpacity={0.02} />
       </linearGradient>
     </defs>
   );
 }
 
+/** Hover dot ringed with the card color, so it lifts off the line beneath it. */
+function renderActiveDot(color: string, radius: number) {
+  return ({ cx, cy }: { cx?: number | undefined; cy?: number | undefined }) => (
+    <circle cx={cx} cy={cy} r={radius} fill={color} stroke="var(--card)" strokeWidth={2} />
+  );
+}
+
 function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) {
   return (
-    <ChartContainer config={chartConfig} className="aspect-auto h-[340px] w-full">
+    <ChartContainer config={chartConfig} className="absolute inset-0 aspect-auto size-full">
       <AreaChart data={data} margin={{ left: 0, right: 0, top: 24, bottom: 0 }}>
         {renderGradients()}
-        <CartesianGrid vertical={false} stroke="var(--border)" />
+        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 6" />
         <XAxis
           dataKey="date"
           tickLine={false}
@@ -160,8 +165,9 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
             dataKey="revenue"
             type="monotone"
             stroke="var(--color-revenue)"
-            strokeWidth={2}
+            strokeWidth={1.5}
             fill="url(#cashRevenue)"
+            activeDot={renderActiveDot("var(--color-revenue)", 4)}
             isAnimationActive={false}
           />
         )}
@@ -169,10 +175,10 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
           <Area
             dataKey="profit"
             type="monotone"
-            stroke="var(--foreground)"
-            strokeOpacity={0.7}
-            strokeWidth={1.5}
+            stroke="var(--color-profit)"
+            strokeWidth={2.5}
             fill="url(#cashProfit)"
+            activeDot={renderActiveDot("var(--color-profit)", 5)}
             isAnimationActive={false}
           />
         )}
@@ -198,27 +204,26 @@ export function CashFlowChart({
     profit: point.profitCents,
   }));
   return (
-    <section
-      aria-labelledby="cash-flow-title"
-      className="flex h-full flex-col rounded-3xl bg-card p-5"
-    >
-      <h2 id="cash-flow-title" className="sr-only">
-        Receita e lucro por {bucket === "week" ? "semana" : "dia"}
-      </h2>
+    <section aria-labelledby="cash-flow-title" className="surface-card rounded-3xl bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SeriesPills value={series} onChange={setSeries} />
-        <a
-          href={exportUrl}
-          aria-label="Exportar CSV do período"
-          title="Exportar CSV do período"
-          className="flex size-10 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <DownloadSimpleIcon className="size-4" aria-hidden="true" />
-        </a>
+        <h2 id="cash-flow-title" className="text-subhead font-medium text-muted-foreground">
+          Receita e lucro por {bucket === "week" ? "semana" : "dia"}
+        </h2>
+        <div className="flex items-center gap-2">
+          <SeriesPills value={series} onChange={setSeries} />
+          <a
+            href={exportUrl}
+            aria-label="Exportar CSV do período"
+            title="Exportar CSV do período"
+            className="flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <DownloadSimpleIcon className="size-4" aria-hidden="true" />
+          </a>
+        </div>
       </div>
       <figure
         aria-label={`Gráfico de receita e lucro por ${bucket === "week" ? "semana" : "dia"}`}
-        className="mt-auto pt-4"
+        className="relative mt-5 h-72 sm:h-80"
       >
         <CashAreas data={data} series={series} />
       </figure>

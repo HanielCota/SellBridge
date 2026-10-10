@@ -5,17 +5,18 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { KpiTiles } from "@/components/dashboard/kpi-tiles";
+import { PeriodSummary } from "@/components/dashboard/period-summary";
 import { ErrorState } from "@/components/feedback/error-state";
 import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateRange } from "@/features/reports/dashboard-metrics";
+import { formatCompactRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -43,11 +44,14 @@ function DashboardFilters({ data }: { data: DashboardData }) {
     void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
   }
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <p className="text-sm text-muted-foreground">
-        {formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os{" "}
-        {data.period.days} dias anteriores
-      </p>
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold tracking-tight">Detalhes do período</h2>
+        <p className="text-sm text-muted-foreground">
+          {formatCompactRange(data.period.fromDate, data.period.toDate)}, comparado a{" "}
+          {formatCompactRange(data.period.previousFromDate, data.period.previousToDate)}
+        </p>
+      </div>
       <PeriodFilters
         search={search}
         stores={data.stores}
@@ -107,46 +111,65 @@ function DashboardContent({ data }: { data: DashboardData }) {
           profitCents: summary.profitCents,
           revenue: { current: summary.revenueCents, previous: previous.revenueCents },
           orders: { current: summary.orders, previous: previous.orders },
+          currentLabel: formatCompactRange(data.period.fromDate, data.period.toDate),
+          previousLabel: formatCompactRange(
+            data.period.previousFromDate,
+            data.period.previousToDate,
+          ),
         }}
+        summary={
+          <PeriodSummary
+            current={summary}
+            previous={previous}
+            points={data.timeseries}
+            bucket={data.period.bucket}
+          />
+        }
       />
       <DashboardFilters data={data} />
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <KpiTiles
-          caption={formatDateRange(data.period.fromDate, data.period.toDate)}
-          summary={summary}
-          previous={previous}
-          points={data.timeseries}
-        />
+      <div className="space-y-4">
+        <KpiTiles summary={summary} previous={previous} />
         <CashFlowChart
           points={data.timeseries}
           bucket={data.period.bucket}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
         />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <StoreBreakdown stores={data.byStore} />
-        <TopProducts products={data.topProducts} />
-        <AttentionPanel stores={data.stores} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <TopProducts products={data.topProducts} />
+          </div>
+          <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
+            <StoreBreakdown stores={data.byStore} />
+            <AttentionPanel stores={data.stores} />
+          </div>
+        </div>
       </div>
     </>
   );
 }
 
 function DashboardSkeleton() {
+  // Same sizes as the loaded layout, so nothing jumps when the data arrives.
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Carregando visão geral">
-      <Skeleton className="h-9 w-full max-w-lg rounded-lg" />
-      <div className="rounded-2xl border bg-card">
-        <div className="grid grid-cols-2 border-b lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="space-y-2 px-5 py-4">
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="h-7 w-28" />
-              <Skeleton className="h-3 w-20" />
-            </div>
+    <div className="space-y-6" aria-busy="true" aria-label="Carregando visão geral">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72 max-w-full" />
+        </div>
+        <Skeleton className="h-10 w-full max-w-md rounded-full" />
+      </div>
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} className="h-44 rounded-3xl" />
           ))}
         </div>
-        <Skeleton className="m-5 h-64 rounded-lg sm:h-72" />
+        <Skeleton className="h-[394px] rounded-3xl sm:h-[426px]" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-80 rounded-3xl lg:col-span-2" />
+          <Skeleton className="h-80 rounded-3xl" />
+        </div>
       </div>
     </div>
   );
