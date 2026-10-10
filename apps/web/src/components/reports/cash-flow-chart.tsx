@@ -1,5 +1,5 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
@@ -195,10 +195,13 @@ export function CashFlowChart({
   points,
   bucket,
   exportUrl,
+  filters,
 }: {
   points: MetricPoint[];
   bucket: "day" | "week";
   exportUrl: string;
+  /** Period and store controls, shown in the chart's header next to the export. */
+  filters?: ReactNode;
 }) {
   const [series, setSeries] = useState<SeriesKey>("all");
   const data = points.map((point) => ({
@@ -214,16 +217,21 @@ export function CashFlowChart({
       <h2 id="cash-flow-title" className="sr-only">
         Receita e lucro por {bucket === "week" ? "semana" : "dia"}
       </h2>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SeriesPills value={series} onChange={setSeries} />
+      {/* Two fixed rows, so nothing depends on where a wrap happens: what the page shows (period,
+          store) and the export first, then which series the chart draws. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">{filters}</div>
         <a
           href={exportUrl}
           aria-label="Exportar CSV do período"
           title="Exportar CSV do período"
-          className="flex size-10 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <DownloadSimpleIcon className="size-4" aria-hidden="true" />
         </a>
+      </div>
+      <div className="mt-4">
+        <SeriesPills value={series} onChange={setSeries} />
       </div>
       {/* Grows to the height of the tiles beside it; never shorter than a readable chart. */}
       <figure

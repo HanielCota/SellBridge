@@ -99,7 +99,7 @@ export function previousAverage(previousTotal: number | null, bucketCount: numbe
  * Above this the previous period had almost no activity, and a percentage stops meaning anything
  * (e.g. +13.188%). The UI says "more than 10×" instead.
  */
-const OFF_SCALE_PERCENT = 1000;
+export const OFF_SCALE_PERCENT = 1000;
 
 const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 

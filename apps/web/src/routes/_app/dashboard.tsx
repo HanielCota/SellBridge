@@ -99,20 +99,17 @@ function DashboardContent({ data }: { data: DashboardData }) {
     <>
       <DashboardIntro
         caption={`${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`}
-        filters={<DashboardFilters data={data} />}
-        current={summary}
-        previous={previous}
         summary={
           <PeriodSummary
             current={summary}
             previous={previous}
             points={data.timeseries}
             bucket={data.period.bucket}
-            className="max-w-xl text-lg"
+            className="max-w-2xl text-lg"
           />
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
         <KpiTiles
           caption={formatDateRange(data.period.fromDate, data.period.toDate)}
           summary={summary}
@@ -123,6 +120,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
           points={data.timeseries}
           bucket={data.period.bucket}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
+          filters={<DashboardFilters data={data} />}
         />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">

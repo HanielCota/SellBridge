@@ -1,11 +1,17 @@
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-import { bestPoint, explainRevenue } from "@/features/reports/dashboard-insights";
+import {
+  bestPoint,
+  explainRevenue,
+  OFF_SCALE_PERCENT,
+  trendOf,
+} from "@/features/reports/dashboard-insights";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
 
 interface Totals {
   revenueCents: number;
   orders: number;
+  profitCents: number;
 }
 
 interface PeriodSummaryProps {
@@ -22,9 +28,9 @@ const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }
 const NOTABLE_PERCENT = 3;
 
 /**
- * Plain-language reading of the period: did sales go up or down, why (more or fewer sales,
- * each worth more or less), and the best day. The profit sits beside it, revenue and orders
- * in the tiles below.
+ * Plain-language reading of the period: the profit (how it moved and the margin), whether
+ * revenue went up or down and why (more or fewer sales, each worth more or less), and the
+ * best day. Revenue and orders as numbers live in the tiles below.
  */
 export function PeriodSummary({
   current,
@@ -41,6 +47,7 @@ export function PeriodSummary({
         className,
       )}
     >
+      <ProfitSentence current={current} previous={previous} />
       <Headline current={current} previous={previous} />
       {best ? (
         <>
@@ -63,17 +70,19 @@ function Headline({ current, previous }: { current: Totals; previous: Totals }) 
     );
   }
   if (story.kind === "flat") {
-    return <>Você vendeu o mesmo que no período anterior.</>;
+    return <>A receita ficou igual à do período anterior.</>;
   }
   const up = story.revenue > 0;
+  if (Math.abs(story.revenue) >= OFF_SCALE_PERCENT) {
+    // Almost nothing sold before: "subiu 14.133%" and its reasons would be noise.
+    return <>A receita foi mais de 10 vezes a do período anterior.</>;
+  }
+  const why = reason(story.orders, story.ticket);
   return (
     <>
-      Você vendeu{" "}
-      <Tone up={up}>
-        {wholePercent.format(Math.abs(story.revenue))}% a {up ? "mais" : "menos"}
-      </Tone>{" "}
-      do que no período anterior.
-      {reason(story.orders, story.ticket)}
+      A receita {up ? "subiu" : "caiu"}{" "}
+      <Tone up={up}>{wholePercent.format(Math.abs(story.revenue))}%</Tone>
+      {why ? `:${why}` : "."}
     </>
   );
 }
@@ -98,15 +107,77 @@ function reason(orders: number, ticket: number | null): string {
   const countText = `${amount(orders)} vendas`;
   const valueText = `valeu ${amount(ticket ?? 0)}`;
   if (count && value) {
-    return ` Foram ${countText}${count === value ? " e " : ", mas "}cada uma ${valueText}.`;
+    return ` foram ${countText}${count === value ? " e " : ", mas "}cada uma ${valueText}.`;
   }
   if (count) {
-    return ` Foram ${countText}.`;
+    return ` foram ${countText}.`;
   }
   if (value) {
-    return ` Cada venda ${valueText}.`;
+    return ` cada venda ${valueText}.`;
   }
   return "";
+}
+
+/** Whole reais read better in a sentence than cents: "R$ 4.303". */
+const wholeReais = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
+
+const percentFormat = new Intl.NumberFormat("pt-BR", {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
+/** "Você lucrou R$ 1.130 no período, 10% a mais que no anterior, com 37% de margem." */
+function ProfitSentence({ current, previous }: { current: Totals; previous: Totals }) {
+  if (current.revenueCents <= 0 && current.profitCents === 0) {
+    return null;
+  }
+  if (current.profitCents < 0) {
+    return (
+      <>
+        Você teve{" "}
+        <span className="font-medium text-destructive">
+          prejuízo de {wholeReais.format(-current.profitCents / 100)}
+        </span>{" "}
+        no período.{" "}
+      </>
+    );
+  }
+  const trend = trendOf(current.profitCents, previous.profitCents);
+  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
+  const moved = trend !== null && trend.direction !== "flat";
+  return (
+    <>
+      Você lucrou <Strong>{wholeReais.format(current.profitCents / 100)}</Strong> no período
+      {moved ? (
+        <>
+          ,{" "}
+          {trend.isOffScale ? (
+            <>
+              <Tone up>mais de 10 vezes</Tone> o do período anterior
+            </>
+          ) : (
+            <>
+              <Tone up={trend.direction === "up"}>
+                {wholePercent.format(trend.percent)}% a{" "}
+                {trend.direction === "up" ? "mais" : "menos"}
+              </Tone>{" "}
+              que no anterior
+            </>
+          )}
+        </>
+      ) : null}
+      {margin === null ? null : (
+        <>
+          , com <Strong>{percentFormat.format(margin)} de margem</Strong>
+        </>
+      )}
+      .{" "}
+    </>
+  );
 }
 
 function Tone({ up, children }: { up: boolean; children: ReactNode }) {
