@@ -6,18 +6,15 @@ test.describe("dashboard", () => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
     await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
-    await expect(page.getByText("Lucro no período").filter({ visible: true })).toBeVisible();
-    // Revenue and orders sit in the hero, each against the previous period.
-    const hero = page
-      .locator("section")
-      .filter({ has: page.getByRole("heading", { name: "Painel de vendas" }) });
-    for (const label of ["Receita", "Pedidos"]) {
-      await expect(hero.getByText(label, { exact: true })).toBeVisible();
-    }
-    // Two meters, each with this period and the previous one.
-    await expect(hero.getByRole("definition")).toHaveCount(4);
-    for (const label of ["Margem de lucro", "Ticket médio", "Cancelamentos"]) {
-      await expect(page.getByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute(
+    await expect(page.getByText(/comparado com os \d+ dias anteriores/)).toBeVisible();
+    // One sentence reads the period: the profit with its margin, then revenue and why.
+    const reading = page.getByRole("region", { name: "Resumo do período" });
+    await expect(reading.getByText(/Você lucrou R\$/)).toBeVisible();
+    await expect(reading.getByText(/de margem/)).toBeVisible();
+    await expect(reading.getByText(/A receita (subiu|caiu|ficou igual)/)).toBeVisible();
+    // Tiles beside the chart open the financial report.
+    for (const label of ["receita", "pedidos", "ticket médio"]) {
+      await expect(page.getByRole("link", { name: `Ver ${label} no financeiro` })).toHaveAttribute(
         "href",
         "/financeiro",
       );

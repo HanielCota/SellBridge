@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
-import { DashboardHero } from "@/components/reports/dashboard-hero";
+import { DashboardHeader, DashboardIntro } from "@/components/reports/dashboard-hero";
 import { KpiTiles } from "@/components/reports/kpi-tiles";
 import { PeriodSummary } from "@/components/reports/period-summary";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -16,7 +16,7 @@ import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCompactRange } from "@/features/reports/dashboard-metrics";
+import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -44,22 +44,13 @@ function DashboardFilters({ data }: { data: DashboardData }) {
     void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
   }
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">Detalhes do período</h2>
-        <p className="text-sm text-muted-foreground">
-          {formatCompactRange(data.period.fromDate, data.period.toDate)}, comparado a{" "}
-          {formatCompactRange(data.period.previousFromDate, data.period.previousToDate)}
-        </p>
-      </div>
-      <PeriodFilters
-        search={search}
-        stores={data.stores}
-        resolvedFrom={data.period.fromDate}
-        resolvedTo={data.period.toDate}
-        onChange={updateSearch}
-      />
-    </div>
+    <PeriodFilters
+      search={search}
+      stores={data.stores}
+      resolvedFrom={data.period.fromDate}
+      resolvedTo={data.period.toDate}
+      onChange={updateSearch}
+    />
   );
 }
 
@@ -68,7 +59,7 @@ function DashboardPage() {
   if (query.isError) {
     return (
       <>
-        <DashboardHero stats={null} />
+        <DashboardHeader />
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
       </>
     );
@@ -76,7 +67,7 @@ function DashboardPage() {
   if (query.isPending) {
     return (
       <>
-        <DashboardHero stats={null} />
+        <DashboardHeader />
         <DashboardSkeleton />
       </>
     );
@@ -99,50 +90,43 @@ function DashboardContent({ data }: { data: DashboardData }) {
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
     return (
       <>
-        <DashboardHero stats={null} />
+        <DashboardHeader />
         <SetupGuide progress={onboarding} />
       </>
     );
   }
   return (
     <>
-      <DashboardHero
-        stats={{
-          profitCents: summary.profitCents,
-          revenue: { current: summary.revenueCents, previous: previous.revenueCents },
-          orders: { current: summary.orders, previous: previous.orders },
-          currentLabel: formatCompactRange(data.period.fromDate, data.period.toDate),
-          previousLabel: formatCompactRange(
-            data.period.previousFromDate,
-            data.period.previousToDate,
-          ),
-        }}
+      <DashboardIntro
+        caption={`${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`}
         summary={
           <PeriodSummary
             current={summary}
             previous={previous}
             points={data.timeseries}
             bucket={data.period.bucket}
+            className="max-w-2xl text-lg"
           />
         }
       />
-      <DashboardFilters data={data} />
-      <div className="space-y-4">
-        <KpiTiles summary={summary} previous={previous} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <KpiTiles
+          caption={formatDateRange(data.period.fromDate, data.period.toDate)}
+          summary={summary}
+          previous={previous}
+          points={data.timeseries}
+        />
         <CashFlowChart
           points={data.timeseries}
           bucket={data.period.bucket}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
+          filters={<DashboardFilters data={data} />}
         />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <TopProducts products={data.topProducts} />
-          </div>
-          <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
-            <StoreBreakdown stores={data.byStore} />
-            <AttentionPanel stores={data.stores} />
-          </div>
-        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StoreBreakdown stores={data.byStore} />
+        <TopProducts products={data.topProducts} />
+        <AttentionPanel stores={data.stores} />
       </div>
     </>
   );

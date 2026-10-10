@@ -4,7 +4,6 @@ import {
   explainRevenue,
   roundToTotal,
   buildMoneyFlow,
-  marginOf,
   previousAverage,
   trendOf,
 } from "./dashboard-insights";
@@ -87,11 +86,6 @@ describe("trends and averages", () => {
     expect(previousAverage(3000, 30)).toBe(100);
     expect(previousAverage(null, 30)).toBeNull();
     expect(previousAverage(3000, 0)).toBeNull();
-  });
-
-  it("computes margin only with revenue", () => {
-    expect(marginOf({ profitCents: 36, revenueCents: 100 })).toBe(0.36);
-    expect(marginOf({ profitCents: 0, revenueCents: 0 })).toBeNull();
   });
 });
 

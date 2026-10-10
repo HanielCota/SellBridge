@@ -99,7 +99,7 @@ export function previousAverage(previousTotal: number | null, bucketCount: numbe
  * Above this the previous period had almost no activity, and a percentage stops meaning anything
  * (e.g. +13.188%). The UI says "more than 10×" instead.
  */
-const OFF_SCALE_PERCENT = 1000;
+export const OFF_SCALE_PERCENT = 1000;
 
 const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
@@ -132,13 +132,6 @@ export function trendOf(current: number | null, previous: number | null): Trend 
     percent,
     isOffScale: percent >= OFF_SCALE_PERCENT,
   };
-}
-
-/** Profit as a share of revenue (0–1), or null without revenue. */
-export function marginOf(
-  summary: Pick<SummaryFigures, "profitCents" | "revenueCents">,
-): number | null {
-  return summary.revenueCents > 0 ? summary.profitCents / summary.revenueCents : null;
 }
 
 export type RevenueStory =

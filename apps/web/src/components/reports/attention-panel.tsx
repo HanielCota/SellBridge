@@ -72,6 +72,25 @@ const TONE_CLASSES = {
   info: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
 } as const;
 
+/** Centered in the card: an all-clear is a state of its own, not a list that ran short. */
+function AllClear() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-emerald-500/10">
+        <CheckCircleIcon
+          weight="fill"
+          className="size-6 text-emerald-600 dark:text-emerald-400"
+          aria-hidden="true"
+        />
+      </span>
+      <p className="max-w-60 text-sm text-muted-foreground">
+        <span className="block text-subhead font-medium text-foreground">Tudo em dia</span>
+        Nenhuma loja desconectada, publicação com erro ou resposta pendente.
+      </p>
+    </div>
+  );
+}
+
 /** The short list of things only the reseller can fix, ranked by urgency. */
 export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   const counts = useQuery(attentionCountsQueryOptions());
@@ -83,7 +102,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   return (
     <section
       aria-labelledby="attention-title"
-      className="surface-card h-full rounded-3xl bg-card p-5"
+      className="surface-card flex h-full flex-col rounded-3xl bg-card p-5"
     >
       <div className="-my-1 flex h-8 items-center">
         <h2 id="attention-title" className="text-subhead font-medium text-muted-foreground">
@@ -91,16 +110,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
         </h2>
       </div>
       {items.length === 0 ? (
-        <div className="mt-5 flex items-start gap-3">
-          <CheckCircleIcon
-            className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
-            aria-hidden="true"
-          />
-          <p className="text-sm text-muted-foreground">
-            <span className="block font-medium text-foreground">Tudo em dia</span>
-            Nenhuma loja desconectada, publicação com erro ou resposta pendente.
-          </p>
-        </div>
+        <AllClear />
       ) : (
         <ul className="-mx-2 mt-4 space-y-1">
           {items.map((item) => (

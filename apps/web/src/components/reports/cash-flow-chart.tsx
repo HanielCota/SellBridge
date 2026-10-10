@@ -1,17 +1,18 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
+import { cn } from "@/lib/utils";
 
 /** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
 const REVENUE_COLOR = "var(--muted-foreground)";
 const PROFIT_COLOR = "var(--chart-brand)";
 
 const SERIES = [
-  { key: "all", label: "Tudo", swatch: null },
-  { key: "revenue", label: "Receita", swatch: REVENUE_COLOR },
-  { key: "profit", label: "Lucro", swatch: PROFIT_COLOR },
+  { key: "all", label: "Tudo" },
+  { key: "revenue", label: "Receita" },
+  { key: "profit", label: "Lucro" },
 ] as const;
 type SeriesKey = (typeof SERIES)[number]["key"];
 
@@ -34,12 +35,12 @@ function SeriesPills({
   onChange: (next: SeriesKey) => void;
 }) {
   return (
-    <fieldset className="inline-flex rounded-lg bg-muted p-0.5">
+    <fieldset className="flex flex-wrap gap-1.5">
       <legend className="sr-only">Séries do gráfico</legend>
       {SERIES.map((series) => (
         <label
           key={series.key}
-          className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-checked:bg-card has-checked:text-foreground has-checked:shadow-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+          className="flex h-10 cursor-pointer items-center rounded-full border border-border px-4 text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:border-foreground has-checked:bg-foreground has-checked:font-medium has-checked:text-background has-focus-visible:ring-3 has-focus-visible:ring-ring/40"
         >
           <input
             type="radio"
@@ -49,7 +50,6 @@ function SeriesPills({
             onChange={() => onChange(series.key)}
             className="sr-only"
           />
-          {series.swatch ? <Swatch color={series.swatch} /> : null}
           {series.label}
         </label>
       ))}
@@ -165,11 +165,11 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
             dataKey="revenue"
             type="monotone"
             stroke="var(--color-revenue)"
-            strokeWidth={2.5}
+            strokeWidth={3.5}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="url(#cashRevenue)"
-            activeDot={renderActiveDot("var(--color-revenue)", 5)}
+            activeDot={renderActiveDot("var(--color-revenue)", 6)}
             isAnimationActive={false}
           />
         )}
@@ -178,11 +178,11 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
             dataKey="profit"
             type="monotone"
             stroke="var(--color-profit)"
-            strokeWidth={3.5}
+            strokeWidth={5}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="url(#cashProfit)"
-            activeDot={renderActiveDot("var(--color-profit)", 6)}
+            activeDot={renderActiveDot("var(--color-profit)", 7)}
             isAnimationActive={false}
           />
         )}
@@ -192,14 +192,33 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
 }
 
 /** Revenue and profit over the period, in the large chart card of the dashboard. */
+function ExportLink({ href, className }: { href: string; className?: string }) {
+  return (
+    <a
+      href={href}
+      aria-label="Exportar CSV do período"
+      title="Exportar CSV do período"
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+        className,
+      )}
+    >
+      <DownloadSimpleIcon className="size-4" aria-hidden="true" />
+    </a>
+  );
+}
+
 export function CashFlowChart({
   points,
   bucket,
   exportUrl,
+  filters,
 }: {
   points: MetricPoint[];
   bucket: "day" | "week";
   exportUrl: string;
+  /** Period and store controls, shown in the chart's header next to the export. */
+  filters?: ReactNode;
 }) {
   const [series, setSeries] = useState<SeriesKey>("all");
   const data = points.map((point) => ({
@@ -208,26 +227,28 @@ export function CashFlowChart({
     profit: point.profitCents,
   }));
   return (
-    <section aria-labelledby="cash-flow-title" className="surface-card rounded-3xl bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="cash-flow-title" className="text-subhead font-medium text-muted-foreground">
-          Receita e lucro por {bucket === "week" ? "semana" : "dia"}
-        </h2>
-        <div className="flex items-center gap-2">
-          <SeriesPills value={series} onChange={setSeries} />
-          <a
-            href={exportUrl}
-            aria-label="Exportar CSV do período"
-            title="Exportar CSV do período"
-            className="flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <DownloadSimpleIcon className="size-4" aria-hidden="true" />
-          </a>
-        </div>
+    <section
+      aria-labelledby="cash-flow-title"
+      className="surface-card flex h-full flex-col rounded-3xl bg-card p-5"
+    >
+      <h2 id="cash-flow-title" className="sr-only">
+        Receita e lucro por {bucket === "week" ? "semana" : "dia"}
+      </h2>
+      {/* Two fixed rows, so nothing depends on where a wrap happens: what the page shows (period,
+          store) and the export first, then which series the chart draws. On phones the export
+          moves down to the series row, so the period control gets the card's full width. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">{filters}</div>
+        <ExportLink href={exportUrl} className="max-sm:hidden" />
       </div>
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <SeriesPills value={series} onChange={setSeries} />
+        <ExportLink href={exportUrl} className="sm:hidden" />
+      </div>
+      {/* Grows to the height of the tiles beside it; never shorter than a readable chart. */}
       <figure
         aria-label={`Gráfico de receita e lucro por ${bucket === "week" ? "semana" : "dia"}`}
-        className="relative mt-5 h-72 sm:h-80"
+        className="relative mt-5 min-h-72 flex-1"
       >
         <CashAreas data={data} series={series} />
       </figure>

@@ -29,22 +29,3 @@ export function formatDateRange(from: string, to: string): string {
 export function formatPointDate(value: string): string {
   return shortDate.format(parseIsoDate(value));
 }
-
-const shortMonth = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
-
-/** "1–30 set." or "17 ago.–15 set.": a range short enough to label a meter row. */
-export function formatCompactRange(from: string, to: string): string {
-  const start = parseIsoDate(from);
-  const end = parseIsoDate(to);
-  const endLabel = `${end.getUTCDate()} ${shortMonth.format(end)}`;
-  if (from === to) {
-    return endLabel;
-  }
-  if (
-    start.getUTCMonth() === end.getUTCMonth() &&
-    start.getUTCFullYear() === end.getUTCFullYear()
-  ) {
-    return `${start.getUTCDate()}–${endLabel}`;
-  }
-  return `${start.getUTCDate()} ${shortMonth.format(start)}–${endLabel}`;
-}
