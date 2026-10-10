@@ -1,9 +1,5 @@
-import {
-  PERIOD_PRESETS,
-  REPORT_TIME_ZONE,
-  type PeriodPreset,
-  type PeriodSearch,
-} from "@sellbridge/shared/schemas";
+import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridge/shared/schemas";
 import { cn } from "@/lib/utils";
 import { useState, type ComponentProps } from "react";
 import { CalendarBlankIcon, CaretDownIcon } from "@phosphor-icons/react";

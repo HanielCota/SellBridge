@@ -83,6 +83,13 @@ export interface ParsedWebhookEvent {
 export type WebhookVerification =
   { valid: true; event: ParsedWebhookEvent } | { valid: false; reason: string; payload: unknown };
 
+/**
+ * Order reference read back from a stored webhook payload: the shop that owns the
+ * order and the resource to fetch, or "incomplete" when the payload lacks either.
+ */
+export type StoredOrderEvent =
+  { kind: "order"; externalShopId: string; resource: string } | { kind: "incomplete" };
+
 /** Credentials available to an operation on behalf of a connected store. */
 export interface StoreCredentials {
   externalShopId: string;
@@ -110,4 +117,6 @@ export interface MarketplaceConnector {
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;
   verifyWebhook(request: WebhookRequest): Promise<WebhookVerification>;
+  /** Reads the order reference of a stored webhook event; null when the topic is not about orders. */
+  parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderEvent | null;
 }

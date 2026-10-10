@@ -8,7 +8,7 @@ import { updateRegionSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { resolveCep } from "@/lib/server/region";
+import { resolveCep } from "@/features/region/region.server";
 
 export const getTenantRegion = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
+import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { ErrorState } from "@/components/feedback/error-state";
 import { ReplyForm } from "@/components/support/reply-form";
 import { TicketThread } from "@/components/support/ticket-thread";

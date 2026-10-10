@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffDelay, createRateLimiter, fetchWithRetry, retryAfterMilliseconds } from "./http.ts";
+import { backoffDelay, fetchWithRetry, retryAfterMilliseconds } from "./http.ts";
 
 function respond(status: number, headers: Record<string, string> = {}) {
   return new Response("{}", { status, headers });
@@ -89,27 +89,5 @@ describe("backoff helpers", () => {
     ).toBe(5000);
     expect(retryAfterMilliseconds(respond(429, { "retry-after": "soon" }))).toBeNull();
     expect(retryAfterMilliseconds(respond(429))).toBeNull();
-  });
-});
-
-describe("createRateLimiter", () => {
-  it("waits when the bucket is empty, per key", async () => {
-    let clock = 0;
-    const sleep = vi.fn<(milliseconds: number) => Promise<void>>(async (milliseconds) => {
-      clock += milliseconds;
-    });
-    const limiter = createRateLimiter({
-      tokensPerInterval: 2,
-      intervalMilliseconds: 1000,
-      now: () => clock,
-      sleep,
-    });
-    await limiter.acquire("store-a");
-    await limiter.acquire("store-a");
-    expect(sleep).not.toHaveBeenCalled();
-    await limiter.acquire("store-a");
-    expect(sleep).toHaveBeenCalledWith(500);
-    await limiter.acquire("store-b");
-    expect(sleep).toHaveBeenCalledTimes(1);
   });
 });

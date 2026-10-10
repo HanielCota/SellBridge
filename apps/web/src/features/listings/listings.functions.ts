@@ -1,7 +1,4 @@
-import { randomUUID } from "node:crypto";
 import {
-  createListingWithTargets,
-  findConnectedStores,
   getCatalogProductForRegion,
   getTargetForPublishing,
   listListingOverview,
@@ -10,23 +7,21 @@ import {
   setListingsPaused,
   updateListingPrice,
 } from "@sellbridge/database/repositories";
-import {
-  encodeMockOrderResource,
-  MOCK_SIGNATURE_HEADER,
-  signMockWebhook,
-} from "@sellbridge/marketplaces";
 import { validationError } from "@sellbridge/shared/errors";
-import { percentOfCents } from "@sellbridge/shared/money";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import {
+  buildMockOrderWebhook,
+  requireMockWebhookSecret,
+  sendMockWebhook,
+} from "@/features/listings/mock-sale.server";
 import { enqueuePublishJobs } from "@/lib/server/queues";
-import { requireTenantRegion } from "@/lib/server/region";
-import { ESTIMATED_MARKETPLACE_FEE_BPS } from "./profit";
+import { requireTenantRegion } from "@/features/region/region.server";
+import { assertConnectedStores, publishListing } from "./publish-listing.server";
 
 export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -49,13 +44,8 @@ export const createListing = createServerFn({ method: "POST" })
     if (data.priceCents <= product.costCents) {
       throw validationError("O preço de venda precisa ser maior que o custo do fornecedor");
     }
-    const uniqueStoreIds = [...new Set(data.storeConnectionIds)];
-    const stores = await findConnectedStores(database, context.tenantId, uniqueStoreIds);
-    if (stores.length !== uniqueStoreIds.length) {
-      throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
-    }
-    const created = await createListingWithTargets(
-      database,
+    const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
+    return publishListing(
       context.tenantId,
       {
         supplierProductId: product.id,
@@ -63,17 +53,8 @@ export const createListing = createServerFn({ method: "POST" })
         description: data.description,
         priceCents: data.priceCents,
       },
-      uniqueStoreIds,
+      storeIds,
     );
-    await enqueuePublishJobs(
-      created.targetIds.map((listingTargetId) => ({ tenantId: context.tenantId, listingTargetId })),
-    );
-    logger.info("listing.created", {
-      tenantId: context.tenantId,
-      listingId: created.listingId,
-      targets: created.targetIds.length,
-    });
-    return created;
   });
 
 export const listListings = createServerFn({ method: "GET" })
@@ -148,44 +129,14 @@ export const simulateMockSale = createServerFn({ method: "POST" })
     if (row.target.status !== "published" || !row.target.externalId) {
       throw validationError("O anúncio precisa estar publicado para simular uma venda");
     }
-    const priceCents = row.listing.priceCents;
-    const resource = encodeMockOrderResource({
-      externalOrderId: `SIM-${randomUUID().slice(0, 8).toUpperCase()}`,
-      status: "paid",
-      totalCents: priceCents,
-      marketplaceFeeCents: percentOfCents(priceCents, ESTIMATED_MARKETPLACE_FEE_BPS),
-      buyerName: "Comprador simulado",
-      orderedAt: new Date().toISOString(),
-      items: [
-        {
-          externalListingId: row.target.externalId,
-          title: row.listing.title,
-          quantity: 1,
-          unitPriceCents: priceCents,
-        },
-      ],
+    const mockWebhookSecret = requireMockWebhookSecret();
+    const rawBody = buildMockOrderWebhook({
+      externalShopId: row.store.externalShopId,
+      externalListingId: row.target.externalId,
+      title: row.listing.title,
+      priceCents: row.listing.priceCents,
     });
-    const rawBody = JSON.stringify({
-      id: randomUUID(),
-      topic: "orders",
-      shopId: row.store.externalShopId,
-      resource,
-    });
-    const mockWebhookSecret = environment.MOCK_WEBHOOK_SECRET;
-    if (mockWebhookSecret === undefined) {
-      throw validationError("O marketplace simulado não está configurado (MOCK_WEBHOOK_SECRET)");
-    }
-    const response = await fetch(new URL("/api/webhooks/mock", environment.APP_URL), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, mockWebhookSecret),
-      },
-      body: rawBody,
-    });
-    if (!response.ok) {
-      throw validationError("O marketplace simulado não conseguiu enviar a venda");
-    }
+    await sendMockWebhook(rawBody, mockWebhookSecret);
     logger.info("listing.mock_sale_simulated", {
       tenantId: context.tenantId,
       listingTargetId: data.listingTargetId,

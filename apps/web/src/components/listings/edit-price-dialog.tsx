@@ -1,4 +1,4 @@
-import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { formatCents, formatCentsForInput, parseBrlToCents } from "@sellbridge/shared/money";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,10 +20,6 @@ interface EditPriceDialogProps {
   listing: { listingId: string; title: string; priceCents: number; costCents: number };
 }
 
-function centsToInput(cents: number): string {
-  return (cents / 100).toFixed(2).replace(".", ",");
-}
-
 function priceProblem(priceCents: number | null, costCents: number): string | null {
   if (priceCents === null || priceCents <= 0) {
     return "Informe um preço válido";
@@ -41,7 +37,7 @@ function EditPriceForm({
   listing: EditPriceDialogProps["listing"];
   onDone: () => void;
 }) {
-  const [value, setValue] = useState(centsToInput(listing.priceCents));
+  const [value, setValue] = useState(formatCentsForInput(listing.priceCents));
   const mutation = useUpdatePrice(onDone);
   const priceCents = parseBrlToCents(value);
   const problem = priceProblem(priceCents, listing.costCents);

@@ -1,8 +1,7 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { parseJsonText } from "@sellbridge/shared/http-body";
 import { z } from "zod";
-import { marketplaceAuthError, marketplaceError } from "../errors.ts";
+import { marketplaceError } from "../errors.ts";
 import type {
   AuthorizationRequest,
   MarketplaceOrder,
@@ -13,10 +12,28 @@ import type {
   PublishProductInput,
   StockPriceUpdate,
   StoreCredentials,
+  StoredOrderEvent,
   WebhookRequest,
   WebhookVerification,
 } from "../types.ts";
+import { parseJsonText } from "@sellbridge/shared/http-body";
+import {
+  decodeMockAuthorizationCode,
+  decodeMockOrderResource,
+  isValidMockSignature,
+  MOCK_SIGNATURE_HEADER,
+} from "./codec.ts";
+import {
+  assertCredentials,
+  assertPriceAccepted,
+  assertPublishable,
+  assertRefreshable,
+} from "./scenarios.ts";
 
+/**
+ * Fully functional simulated marketplace, used in development, tests and demos.
+ * Behaviour is deterministic so tests can trigger each path (see scenarios.ts).
+ */
 export interface MockConnectorConfig {
   appUrl: string;
   webhookSecret: string;
@@ -26,55 +43,8 @@ export interface MockConnectorConfig {
 }
 
 const TOKEN_TTL_MILLISECONDS = 6 * 60 * 60 * 1000;
-const MIN_PRICE_CENTS = 500;
-export const MOCK_REVOKED_REFRESH_TOKEN = "mock-refresh-revoked";
-export const MOCK_SIGNATURE_HEADER = "x-mock-signature";
-const ORDER_RESOURCE_PREFIX = "mock-order.";
-const AUTHORIZATION_CODE_PREFIX = "mock.";
-
-const consentPayloadSchema = z.object({
-  shopName: z.string().trim().min(1).max(80),
-  nonce: z.string().min(8),
-});
-
-const mockOrderSchema = z.object({
-  externalOrderId: z.string().min(1),
-  status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled", "returned"]),
-  totalCents: z.number().int().nonnegative(),
-  marketplaceFeeCents: z.number().int().nonnegative(),
-  buyerName: z.string().nullable(),
-  orderedAt: z.string(),
-  items: z
-    .array(
-      z.object({
-        externalListingId: z.string().min(1),
-        title: z.string().min(1),
-        quantity: z.number().int().positive(),
-        unitPriceCents: z.number().int().nonnegative(),
-      }),
-    )
-    .min(1),
-});
-
-export type MockOrder = z.infer<typeof mockOrderSchema>;
-
-/** The simulated marketplace encodes the whole order in the webhook resource. */
-export function encodeMockOrderResource(order: MockOrder): string {
-  return `${ORDER_RESOURCE_PREFIX}${Buffer.from(JSON.stringify(order)).toString("base64url")}`;
-}
-
-function decodeMockOrderResource(resource: string): MarketplaceOrder {
-  if (!resource.startsWith(ORDER_RESOURCE_PREFIX)) {
-    throw marketplaceError("Recurso de pedido inválido", { retryable: false });
-  }
-  const encoded = resource.slice(ORDER_RESOURCE_PREFIX.length);
-  const json = parseJsonText(Buffer.from(encoded, "base64url").toString("utf8"));
-  const parsed = mockOrderSchema.safeParse(json);
-  if (!parsed.success) {
-    throw marketplaceError("Pedido simulado em formato inválido", { retryable: false });
-  }
-  return { ...parsed.data, orderedAt: new Date(parsed.data.orderedAt) };
-}
+/** Webhook topic that carries orders in the simulated marketplace. */
+const ORDER_TOPIC = "orders";
 
 const webhookPayloadSchema = z.object({
   id: z.string().min(1),
@@ -83,35 +53,16 @@ const webhookPayloadSchema = z.object({
   resource: z.string().nullable().optional(),
 });
 
-export function encodeMockAuthorizationCode(shopName: string): string {
-  const payload = { shopName, nonce: randomBytes(8).toString("hex") };
-  return `${AUTHORIZATION_CODE_PREFIX}${Buffer.from(JSON.stringify(payload)).toString("base64url")}`;
-}
-
-function decodeAuthorizationCode(code: string) {
-  if (!code.startsWith(AUTHORIZATION_CODE_PREFIX)) {
-    return null;
-  }
-  const encoded = code.slice(AUTHORIZATION_CODE_PREFIX.length);
-  const json = parseJsonText(Buffer.from(encoded, "base64url").toString("utf8"));
-  const parsed = consentPayloadSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
-}
+const storedOrderPayloadSchema = z.object({
+  shopId: z.union([z.string(), z.number()]),
+  resource: z.string().min(1),
+});
 
 function stableId(prefix: string, value: string): string {
   return `${prefix}-${createHash("sha256").update(value).digest("hex").slice(0, 12)}`;
 }
 
-export function signMockWebhook(rawBody: string, secret: string): string {
-  return createHmac("sha256", secret).update(rawBody).digest("hex");
-}
-
-function assertCredentials(credentials: StoreCredentials): void {
-  if (!credentials.accessToken.startsWith("mock-access-")) {
-    throw marketplaceAuthError();
-  }
-}
-
+/** Dependencies shared by the module-level simulated marketplace operations. */
 interface MockContext {
   readonly config: MockConnectorConfig;
   readonly now: () => Date;
@@ -142,7 +93,7 @@ function authorizationUrl(config: MockConnectorConfig, request: AuthorizationReq
 
 async function exchangeCode(context: MockContext, exchange: CodeExchange) {
   await simulateLatency(context);
-  const consent = decodeAuthorizationCode(exchange.code);
+  const consent = decodeMockAuthorizationCode(exchange.code);
   if (!consent) {
     throw marketplaceError("Código de autorização inválido", {
       retryable: false,
@@ -160,32 +111,8 @@ async function exchangeCode(context: MockContext, exchange: CodeExchange) {
 
 async function refreshTokens(context: MockContext, refreshToken: string): Promise<OAuthTokens> {
   await simulateLatency(context);
-  if (refreshToken === MOCK_REVOKED_REFRESH_TOKEN || !refreshToken.startsWith("mock-refresh-")) {
-    throw marketplaceAuthError();
-  }
+  assertRefreshable(refreshToken);
   return issueTokens(context);
-}
-
-function assertPublishable(input: PublishProductInput): void {
-  const title = input.title.toLowerCase();
-  if (title.includes("[falha]")) {
-    throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {
-      retryable: false,
-      status: 422,
-    });
-  }
-  if (title.includes("[instavel]")) {
-    throw marketplaceError("Marketplace indisponível no momento", {
-      retryable: true,
-      status: 503,
-    });
-  }
-  if (input.priceCents < MIN_PRICE_CENTS) {
-    throw marketplaceError("Anúncio recusado: o preço mínimo é R$ 5,00", {
-      retryable: false,
-      status: 422,
-    });
-  }
 }
 
 async function publishProduct(
@@ -208,12 +135,7 @@ async function updateStockPrice(
 ): Promise<void> {
   assertCredentials(credentials);
   await simulateLatency(context);
-  if (update.priceCents !== undefined && update.priceCents < MIN_PRICE_CENTS) {
-    throw marketplaceError("Preço abaixo do mínimo do marketplace", {
-      retryable: false,
-      status: 422,
-    });
-  }
+  assertPriceAccepted(update);
 }
 
 async function listOrders(
@@ -235,22 +157,13 @@ async function fetchOrder(
   return decodeMockOrderResource(resource);
 }
 
-function hasValidSignature(config: MockConnectorConfig, request: WebhookRequest): boolean {
-  const signature = request.headers.get(MOCK_SIGNATURE_HEADER);
-  if (!signature) {
-    return false;
-  }
-  const expected = Buffer.from(signMockWebhook(request.rawBody, config.webhookSecret), "hex");
-  const received = Buffer.from(signature, "hex");
-  return expected.length === received.length && timingSafeEqual(expected, received);
-}
-
 function verifyWebhook(config: MockConnectorConfig, request: WebhookRequest): WebhookVerification {
   const payload = parseJsonText(request.rawBody);
-  if (!request.headers.get(MOCK_SIGNATURE_HEADER)) {
+  const signature = request.headers.get(MOCK_SIGNATURE_HEADER);
+  if (!signature) {
     return { valid: false, reason: "Assinatura ausente", payload };
   }
-  if (!hasValidSignature(config, request)) {
+  if (!isValidMockSignature(request.rawBody, signature, config.webhookSecret)) {
     return { valid: false, reason: "Assinatura inválida", payload };
   }
   const parsed = webhookPayloadSchema.safeParse(payload);
@@ -269,14 +182,21 @@ function verifyWebhook(config: MockConnectorConfig, request: WebhookRequest): We
   };
 }
 
-/**
- * Fully functional simulated marketplace, used in development, tests and demos.
- * Behaviour is deterministic so tests can trigger each path:
- * - title containing "[falha]"    → permanent rejection (not retried)
- * - title containing "[instavel]" → temporary failure (retried until attempts run out)
- * - price below R$ 5,00           → permanent rejection
- * - refresh token "mock-refresh-revoked" → store must be reconnected
- */
+function parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderEvent | null {
+  if (topic !== ORDER_TOPIC) {
+    return null;
+  }
+  const parsed = storedOrderPayloadSchema.safeParse(rawPayload);
+  if (!parsed.success) {
+    return { kind: "incomplete" };
+  }
+  return {
+    kind: "order",
+    externalShopId: String(parsed.data.shopId),
+    resource: parsed.data.resource,
+  };
+}
+
 export function createMockConnector(config: MockConnectorConfig): MarketplaceConnector {
   const context: MockContext = {
     config,
@@ -295,5 +215,6 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
     listOrders: async (credentials) => listOrders(context, credentials),
     fetchOrder: async (credentials, resource) => fetchOrder(context, credentials, resource),
     verifyWebhook: async (request) => verifyWebhook(config, request),
+    parseStoredOrderEvent,
   };
 }

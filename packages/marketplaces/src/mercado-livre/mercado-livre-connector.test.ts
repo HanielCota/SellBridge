@@ -330,4 +330,22 @@ describe("notifications", () => {
     const malformed = await ml.verifyWebhook({ headers: new Headers(), rawBody: "not json" });
     expect(malformed).toMatchObject({ valid: false, payload: null });
   });
+
+  it("reads the seller and order from stored order notifications", () => {
+    const { ml } = connector({});
+    expect(ml.parseStoredOrderEvent("orders_v2", notification)).toEqual({
+      kind: "order",
+      externalShopId: "999",
+      resource: "/orders/2000003508897196",
+    });
+    expect(ml.parseStoredOrderEvent("orders_v2", { resource: "/orders/1" })).toEqual({
+      kind: "incomplete",
+    });
+    expect(ml.parseStoredOrderEvent("items", notification)).toBeNull();
+  });
+
+  it("still processes stored events with the legacy orders topic", () => {
+    const { ml } = connector({});
+    expect(ml.parseStoredOrderEvent("orders", notification)).toMatchObject({ kind: "order" });
+  });
 });

@@ -1,4 +1,4 @@
-import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { formatCents, formatCentsForInput, parseBrlToCents } from "@sellbridge/shared/money";
 import { optionalParameter } from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
+import { TextareaField } from "@/components/form/textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,10 +18,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
-import { ESTIMATED_MARKETPLACE_FEE_BPS, estimateProfit } from "@/features/listings/profit";
+import {
+  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
+  estimateProfit,
+} from "@/features/listings/profit";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -96,10 +99,6 @@ const listingFormSchema = z.object({
   storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
 });
 
-function centsToInput(cents: number): string {
-  return (cents / 100).toFixed(2).replace(".", ",");
-}
-
 type ListingProduct = NewListingData["product"];
 type ListingStore = NewListingData["stores"][number];
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -145,7 +144,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
     defaultValues: {
       title: product.title,
       description: product.description,
-      price: centsToInput(product.suggestedPriceCents),
+      price: formatCentsForInput(product.suggestedPriceCents),
       storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : [],
     },
     validators: { onSubmit: listingFormSchema },
@@ -226,7 +225,10 @@ function ListingTextFields({ form }: { readonly form: ListingFormApi }) {
       </form.Field>
       <form.Field name="description">
         {(field) => (
-          <DescriptionField
+          <TextareaField
+            id="description"
+            label="Descrição"
+            rows={6}
             value={field.state.value}
             errors={field.state.meta.errors}
             onBlur={field.handleBlur}
@@ -248,36 +250,6 @@ function ListingTextFields({ form }: { readonly form: ListingFormApi }) {
         )}
       </form.Field>
     </>
-  );
-}
-
-interface FieldControlProps<TValue> {
-  readonly value: TValue;
-  readonly errors: readonly unknown[];
-  readonly onBlur: () => void;
-  readonly onValueChange: (value: TValue) => void;
-}
-
-function DescriptionField({ value, errors, onBlur, onValueChange }: FieldControlProps<string>) {
-  const message = firstErrorMessage(errors);
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor="description">Descrição</Label>
-      <Textarea
-        id="description"
-        rows={6}
-        value={value}
-        onBlur={onBlur}
-        onChange={(event) => onValueChange(event.target.value)}
-        aria-invalid={message ? true : undefined}
-        aria-describedby={message ? "description-error" : undefined}
-      />
-      {message ? (
-        <p id="description-error" className="text-sm text-destructive">
-          {message}
-        </p>
-      ) : null}
-    </div>
   );
 }
 
@@ -364,7 +336,7 @@ function ProfitCard({
           <dt className="text-muted-foreground">Custo do fornecedor</dt>
           <dd className="text-right">− {formatCents(product.costCents)}</dd>
           <dt className="text-muted-foreground">
-            Taxa estimada ({ESTIMATED_MARKETPLACE_FEE_BPS / 100}%)
+            Taxa estimada ({ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})
           </dt>
           <dd className="text-right">− {estimate ? formatCents(estimate.feeCents) : "—"}</dd>
           <dt className="border-t pt-2 font-medium">Lucro estimado</dt>

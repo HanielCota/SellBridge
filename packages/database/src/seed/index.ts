@@ -1,4 +1,4 @@
-import { createTokenCipher, type TokenCipher } from "@sellbridge/marketplaces";
+import { createTokenCipher, type TokenCipher } from "@sellbridge/shared/token-cipher";
 import { parseEnvironment } from "@sellbridge/shared/environment";
 import { logger } from "@sellbridge/shared/logger";
 import { sql } from "drizzle-orm";

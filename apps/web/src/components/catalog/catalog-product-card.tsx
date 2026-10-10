@@ -3,12 +3,10 @@ import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { ToneStatus } from "@/components/data/tone-status";
 import { Checkbox } from "@/components/ui/checkbox";
-import { estimateProfit } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
-
-const THIN_MARGIN_PERCENT = 15;
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
 function PriceLines({ product }: { product: RegionCatalogProduct }) {
@@ -24,9 +22,7 @@ function PriceLines({ product }: { product: RegionCatalogProduct }) {
         {margin === undefined ? null : (
           <>
             {" · "}
-            <span
-              className={cn(margin < THIN_MARGIN_PERCENT && "text-amber-700 dark:text-amber-500")}
-            >
+            <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
               margem {Math.round(margin)}%
             </span>
           </>
@@ -34,13 +30,6 @@ function PriceLines({ product }: { product: RegionCatalogProduct }) {
       </p>
     </div>
   );
-}
-
-function StockLine({ stock }: { stock: number }) {
-  if (stock <= 0) {
-    return <ToneStatus tone="danger" label="Esgotado" />;
-  }
-  return <span className="text-xs text-muted-foreground">{stock} em estoque</span>;
 }
 
 function CardBody({ product }: { product: RegionCatalogProduct }) {
@@ -52,7 +41,7 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
       </div>
       <PriceLines product={product} />
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-        <StockLine stock={product.stock} />
+        <ProductStockLine stock={product.stock} />
         {product.stock > 0 && !product.published ? (
           <Link
             to="/publicacoes/nova"

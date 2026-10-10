@@ -10,27 +10,22 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  ArrowsDownUpIcon,
-  DownloadSimpleIcon,
-  MagnifyingGlassIcon,
-  WalletIcon,
-} from "@phosphor-icons/react";
+import { DownloadSimpleIcon, MagnifyingGlassIcon, WalletIcon } from "@phosphor-icons/react";
 import { useCallback } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
+import { Money } from "@/components/data/money";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SearchInput } from "@/components/data/search-input";
+import { SortableHeader } from "@/components/data/sortable-header";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { PeriodFilters } from "@/components/reports/period-filters";
-import { OrderStatusBadge } from "@/components/data/status-badge";
+import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { SmartDate } from "@/components/data/smart-date";
-import { displayStoreName } from "@/components/listings/store-statuses";
-import { MoneyFigure } from "@/components/dashboard/figures";
-import { Input } from "@/components/ui/input";
+import { displayStoreName } from "@/features/stores/store-name";
+import { MoneyFigure } from "@/components/reports/figures";
 import {
   Select,
   SelectContent,
@@ -40,6 +35,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
+import {
+  orderAdjustments,
+  orderCostsCents,
+  type OrderAdjustmentKind,
+} from "@/features/reports/financial-rows";
 import { financialExportUrl, financialsQueryOptions } from "@/features/reports/reports.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -66,24 +66,7 @@ function useFinancialNavigation() {
   );
 }
 
-function SortIcon({ isActive, direction }: { isActive: boolean; direction: "asc" | "desc" }) {
-  if (!isActive) {
-    return <ArrowsDownUpIcon className="size-3.5" aria-hidden="true" />;
-  }
-  if (direction === "desc") {
-    return <ArrowDownIcon className="size-3.5" aria-hidden="true" />;
-  }
-  return <ArrowUpIcon className="size-3.5" aria-hidden="true" />;
-}
-
-function sortStateLabel(isActive: boolean, direction: "asc" | "desc"): string {
-  if (!isActive) {
-    return "";
-  }
-  return direction === "desc" ? " (ordem decrescente)" : " (ordem crescente)";
-}
-
-function SortableHeader({
+function FinancialSortHeader({
   field,
   label,
   align,
@@ -94,44 +77,43 @@ function SortableHeader({
 }) {
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
-  const isActive = search.sort === field;
-  const nextDirection = isActive && search.direction === "desc" ? "asc" : "desc";
   return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center gap-1 font-medium hover:text-foreground",
-        align === "right" && "ml-auto",
-      )}
-      aria-label={`Ordenar por ${label.toLowerCase()}${sortStateLabel(isActive, search.direction)}`}
-      onClick={() => updateSearch({ sort: field, direction: nextDirection })}
-    >
-      {label}
-      <SortIcon isActive={isActive} direction={search.direction} />
-    </button>
+    <SortableHeader
+      label={label}
+      isActive={search.sort === field}
+      direction={search.direction}
+      onSort={(direction) => updateSearch({ sort: field, direction })}
+      align={align}
+    />
   );
 }
 
-function Money({
-  cents,
-  emphasize = false,
-  muted = false,
-}: {
-  cents: number;
-  emphasize?: boolean;
-  muted?: boolean;
-}) {
+const ADJUSTMENT_LINES: Record<
+  OrderAdjustmentKind,
+  { sign: string; label: string; className?: string }
+> = {
+  commission: { sign: "+", label: "comissão", className: "text-brand-text" },
+  refund: { sign: "−", label: "reembolso" },
+  return: { sign: "", label: "devolvido", className: "text-muted-foreground" },
+};
+
+function AdjustmentsCell({ row }: { row: OrderFinancialRow }) {
+  const adjustments = orderAdjustments(row);
+  if (adjustments.length === 0) {
+    return <span className="block text-right text-muted-foreground">—</span>;
+  }
   return (
-    <span
-      className={cn(
-        "block text-right whitespace-nowrap tabular-nums",
-        muted && "text-muted-foreground",
-        emphasize && "font-semibold",
-        emphasize && cents < 0 && "text-destructive",
-      )}
-    >
-      {cents < 0 ? `−${formatCents(-cents)}` : formatCents(cents)}
-    </span>
+    <div className="space-y-0.5 text-right text-xs">
+      {adjustments.map((adjustment) => {
+        const line = ADJUSTMENT_LINES[adjustment.kind];
+        return (
+          <p key={adjustment.kind} className={line.className}>
+            {line.sign}
+            {formatCents(adjustment.cents)} {line.label}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
@@ -139,7 +121,7 @@ const columnHelper = createServerColumnHelper<OrderFinancialRow>();
 
 const columns = columnHelper.columns([
   columnHelper.accessor("orderedAt", {
-    header: () => <SortableHeader field="orderedAt" label="Data" />,
+    header: () => <FinancialSortHeader field="orderedAt" label="Data" />,
     cell: (info) => <SmartDate date={info.getValue()} className="whitespace-nowrap" />,
   }),
   columnHelper.accessor("externalOrderId", {
@@ -155,46 +137,25 @@ const columns = columnHelper.columns([
     ),
   }),
   columnHelper.accessor("status", {
-    header: () => <SortableHeader field="status" label="Status" />,
+    header: () => <FinancialSortHeader field="status" label="Status" />,
     cell: (info) => <OrderStatusBadge status={info.getValue()} />,
   }),
   columnHelper.accessor("revenueCents", {
-    header: () => <SortableHeader field="revenue" label="Receita" align="right" />,
+    header: () => <FinancialSortHeader field="revenue" label="Receita" align="right" />,
     cell: (info) => <Money cents={info.getValue()} />,
   }),
   columnHelper.display({
     id: "costs",
     header: () => <span className="block text-right">Custos e taxas</span>,
-    cell: (info) => {
-      const row = info.row.original;
-      const total = row.costCents + row.feeCents + row.platformFeeCents;
-      return <Money cents={total === 0 ? 0 : -total} muted />;
-    },
+    cell: (info) => <Money cents={orderCostsCents(info.row.original)} muted />,
   }),
   columnHelper.display({
     id: "adjustments",
     header: () => <span className="block text-right">Ajustes</span>,
-    cell: (info) => {
-      const row = info.row.original;
-      const total = row.commissionCents - row.refundCents;
-      if (total === 0 && row.returnCents === 0) {
-        return <span className="block text-right text-muted-foreground">—</span>;
-      }
-      return (
-        <div className="space-y-0.5 text-right text-xs">
-          {row.commissionCents > 0 ? (
-            <p className="text-brand-text">+{formatCents(row.commissionCents)} comissão</p>
-          ) : null}
-          {row.refundCents > 0 ? <p>−{formatCents(row.refundCents)} reembolso</p> : null}
-          {row.returnCents > 0 ? (
-            <p className="text-muted-foreground">{formatCents(row.returnCents)} devolvido</p>
-          ) : null}
-        </div>
-      );
-    },
+    cell: (info) => <AdjustmentsCell row={info.row.original} />,
   }),
   columnHelper.accessor("profitCents", {
-    header: () => <SortableHeader field="profit" label="Lucro" align="right" />,
+    header: () => <FinancialSortHeader field="profit" label="Lucro" align="right" />,
     cell: (info) => <Money cents={info.getValue()} emphasize />,
   }),
 ]);
@@ -616,19 +577,13 @@ function OrderFilters() {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
-      <div className="relative flex-1">
-        <MagnifyingGlassIcon
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          aria-label="Buscar pedido"
-          placeholder="Buscar por pedido, comprador ou produto"
-          className="pl-9"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-        />
-      </div>
+      <SearchInput
+        label="Buscar pedido"
+        placeholder="Buscar por pedido, comprador ou produto"
+        className="flex-1"
+        value={term}
+        onValueChange={setTerm}
+      />
       <Select
         value={search.status ?? ALL_STATUSES}
         onValueChange={(value) =>

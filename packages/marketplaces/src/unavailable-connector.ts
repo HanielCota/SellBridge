@@ -30,5 +30,6 @@ export function createUnavailableConnector(
       reason: `Webhooks de ${displayName} ainda não são suportados`,
       payload: null,
     }),
+    parseStoredOrderEvent: () => null,
   };
 }

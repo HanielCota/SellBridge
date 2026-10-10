@@ -1,4 +1,3 @@
-import type { AppNotification, NotificationKind } from "@sellbridge/database/repositories";
 import {
   BellIcon,
   ChatCircleTextIcon,
@@ -13,6 +12,10 @@ import { cn } from "@/lib/utils";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { SmartDate } from "@/components/data/smart-date";
+import type {
+  AppNotification,
+  NotificationKind,
+} from "@/features/notifications/notification-presenter";
 import { markNotificationsSeenFn } from "@/features/notifications/notifications.functions";
 import { notificationsQueryOptions } from "@/features/notifications/notifications.queries";
 

@@ -1,36 +1,23 @@
 import type { AdminTicketSummary } from "@sellbridge/database/repositories";
-import {
-  TICKET_STATUS_LABELS,
-  TICKET_STATUSES,
-  ticketsSearchSchema,
-  type TicketsSearch,
-} from "@sellbridge/shared/schemas";
+import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
-import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
+import { SearchInput } from "@/components/data/search-input";
+import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { adminListTickets } from "@/features/support/support.functions";
 import { adminTicketsQueryOptions } from "@/features/support/support.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
-
-const ALL_STATUSES = "__all__";
 
 export const Route = createFileRoute("/_app/admin/chamados/")({
   validateSearch: ticketsSearchSchema,
@@ -94,33 +81,6 @@ function MobileTicketRow({ row }: { row: AdminTicketSummary }) {
   );
 }
 
-function TicketStatusFilter({
-  value,
-  onChange,
-}: {
-  value: TicketsSearch["status"];
-  onChange: (status: TicketsSearch["status"]) => void;
-}) {
-  return (
-    <Select
-      value={value ?? ALL_STATUSES}
-      onValueChange={(next) => onChange(TICKET_STATUSES.find((status) => status === next))}
-    >
-      <SelectTrigger className="sm:w-56" aria-label="Filtrar chamados por status">
-        <SelectValue>{value ? TICKET_STATUS_LABELS[value] : "Todos os status"}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
-        {TICKET_STATUSES.map((status) => (
-          <SelectItem key={status} value={status}>
-            {TICKET_STATUS_LABELS[status]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 function AdminTicketsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -139,19 +99,13 @@ function AdminTicketsPage() {
     <>
       <PageHeader title="Chamados" description="Todos os chamados dos revendedores." />
       <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <MagnifyingGlassIcon
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            aria-label="Buscar chamados"
-            placeholder="Buscar por assunto, revendedor ou e-mail"
-            className="pl-9"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </div>
+        <SearchInput
+          label="Buscar chamados"
+          placeholder="Buscar por assunto, revendedor ou e-mail"
+          className="flex-1"
+          value={term}
+          onValueChange={setTerm}
+        />
         <TicketStatusFilter value={search.status} onChange={(status) => updateSearch({ status })} />
       </div>
       <AdminTicketsTable

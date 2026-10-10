@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { StoreStatusBadge } from "@/components/data/status-badge";
+import { StoreStatusBadge } from "@/components/stores/store-status-badge";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { adminDisconnectCustomerStore } from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
-import { useAdminAction } from "./use-admin-action";
+import { useAdminAction } from "@/features/admin/use-admin-action";
 
 interface CustomerStore {
   id: string;

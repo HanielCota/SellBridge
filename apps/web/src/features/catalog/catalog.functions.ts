@@ -1,24 +1,20 @@
 import {
-  createListingWithTargets,
-  findConnectedStores,
   getRegionProducts,
   listRegionCatalog,
   listRegionCategories,
   listStoreConnections,
   listSuppliersForRegion,
 } from "@sellbridge/database/repositories";
-import { validationError } from "@sellbridge/shared/errors";
-import { logger } from "@sellbridge/shared/logger";
 import {
   bulkPublishSchema,
   priceForRule,
   regionCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
+import { assertConnectedStores, publishListings } from "@/features/listings/publish-listing.server";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { enqueuePublishJobs } from "@/lib/server/queues";
-import { requireTenantRegion } from "@/lib/server/region";
+import { requireTenantRegion } from "@/features/region/region.server";
 
 /** One list with every product the tenant can sell, plus what the filters and publishing need. */
 export const getRegionCatalog = createServerFn({ method: "GET" })
@@ -67,38 +63,21 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
   .validator(bulkPublishSchema)
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
-    const storeIds = [...new Set(data.storeConnectionIds)];
-    const stores = await findConnectedStores(database, context.tenantId, storeIds);
-    if (stores.length !== storeIds.length) {
-      throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
-    }
+    const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
     const products = await getRegionProducts(database, { region, tenantId: context.tenantId }, [
       ...new Set(data.productIds),
     ]);
     const toPublish = products.filter((product) => !product.published);
-    const targetIds: string[] = [];
-    for (const product of toPublish) {
-      const created = await createListingWithTargets(
-        database,
-        context.tenantId,
-        {
-          supplierProductId: product.id,
-          title: product.title,
-          description: product.description,
-          priceCents: priceForRule(product, data.priceRule),
-        },
-        storeIds,
-      );
-      targetIds.push(...created.targetIds);
-    }
-    await enqueuePublishJobs(
-      targetIds.map((listingTargetId) => ({ tenantId: context.tenantId, listingTargetId })),
+    await publishListings(
+      context.tenantId,
+      toPublish.map((product) => ({
+        supplierProductId: product.id,
+        title: product.title,
+        description: product.description,
+        priceCents: priceForRule(product, data.priceRule),
+      })),
+      storeIds,
     );
-    logger.info("listing.bulk_published", {
-      tenantId: context.tenantId,
-      products: toPublish.length,
-      targets: targetIds.length,
-    });
     return {
       published: toPublish.length,
       skipped: data.productIds.length - toPublish.length,

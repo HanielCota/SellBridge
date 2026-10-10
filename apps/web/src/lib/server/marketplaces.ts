@@ -1,4 +1,5 @@
-import { createConnectorRegistry, createTokenCipher } from "@sellbridge/marketplaces";
+import { createConnectorRegistry } from "@sellbridge/marketplaces";
+import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { environment } from "./environment.ts";
 
 export const connectors = createConnectorRegistry({

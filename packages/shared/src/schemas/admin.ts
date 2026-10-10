@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cepSchema } from "../cep.ts";
+import { cepSchema } from "../domain/cep.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { withFallback } from "./fallback.ts";
 

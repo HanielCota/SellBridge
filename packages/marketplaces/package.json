@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./crypto": "./src/crypto.ts",
     "./http": "./src/http.ts"
   },
   "scripts": {

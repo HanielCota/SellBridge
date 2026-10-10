@@ -1,34 +1,21 @@
 import type { TicketSummary } from "@sellbridge/database/repositories";
-import {
-  TICKET_STATUS_LABELS,
-  TICKET_STATUSES,
-  ticketsSearchSchema,
-  type TicketsSearch,
-} from "@sellbridge/shared/schemas";
+import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LifebuoyIcon, PlusIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
-import { TicketStatusBadge } from "@/components/data/ticket-status-badge";
+import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
-
-const ALL_STATUSES = "__all__";
 
 export const Route = createFileRoute("/_app/suporte/")({
   validateSearch: ticketsSearchSchema,
@@ -91,33 +78,6 @@ function SupportHeader() {
         </Button>
       }
     />
-  );
-}
-
-function StatusFilter({
-  status,
-  onStatusChange,
-}: {
-  status: TicketsSearch["status"];
-  onStatusChange: (status: TicketsSearch["status"]) => void;
-}) {
-  return (
-    <Select
-      value={status ?? ALL_STATUSES}
-      onValueChange={(value) => onStatusChange(TICKET_STATUSES.find((option) => option === value))}
-    >
-      <SelectTrigger className="w-full sm:w-56" aria-label="Filtrar chamados por status">
-        <SelectValue>{status ? TICKET_STATUS_LABELS[status] : "Todos os status"}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
-        {TICKET_STATUSES.map((option) => (
-          <SelectItem key={option} value={option}>
-            {TICKET_STATUS_LABELS[option]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 
@@ -219,9 +179,10 @@ function SupportPage() {
     <>
       <SupportHeader />
       {isEmpty && !isFiltered ? null : (
-        <StatusFilter
-          status={search.status}
-          onStatusChange={(status) => updateSearch({ status })}
+        <TicketStatusFilter
+          value={search.status}
+          onChange={(status) => updateSearch({ status })}
+          className="w-full"
         />
       )}
       {isEmpty ? (

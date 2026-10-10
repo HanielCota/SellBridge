@@ -22,6 +22,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import {
   categories,
   listings,
@@ -30,7 +31,6 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
-import { containsPattern } from "./search-pattern.ts";
 
 /** A supplier is visible when it covers the whole state or the tenant's city. */
 function coversRegion(region: Pick<TenantRegion, "state" | "city">): SQL {

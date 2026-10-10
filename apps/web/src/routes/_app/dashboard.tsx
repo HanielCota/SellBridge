@@ -6,10 +6,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { KpiTiles } from "@/components/dashboard/kpi-tiles";
-import { PeriodSummary } from "@/components/dashboard/period-summary";
+import { CashFlowChart } from "@/components/reports/cash-flow-chart";
+import { DashboardHero } from "@/components/reports/dashboard-hero";
+import { KpiTiles } from "@/components/reports/kpi-tiles";
+import { PeriodSummary } from "@/components/reports/period-summary";
 import { ErrorState } from "@/components/feedback/error-state";
 import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";

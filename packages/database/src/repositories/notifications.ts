@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   listings,
@@ -8,39 +8,60 @@ import {
   storeConnections,
   tickets,
 } from "../schema/index.ts";
+import { isCountedOrder } from "./sql/counted-orders.ts";
 import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
-const SIMULATED_SUFFIX = /\s*\(loja simulada\)\s*$/i;
-const MAX_NOTIFICATIONS = 20;
 
-export type NotificationKind = "sale" | "listing_error" | "store_problem" | "support_reply";
-
-export interface AppNotification {
-  /** Stable per event, so the list keys do not shuffle between polls. */
-  id: string;
-  kind: NotificationKind;
-  title: string;
-  detail: string;
+interface EventBase {
+  /** Id of the order, publication, store or ticket the event is about. */
+  entityId: string;
   at: Date;
-  /** Where the notification leads. */
-  href: string;
 }
+
+export interface SaleEvent extends EventBase {
+  kind: "sale";
+  externalOrderId: string;
+  totalCents: number;
+  storeName: string;
+}
+
+export interface ListingErrorEvent extends EventBase {
+  kind: "listing_error";
+  listingTitle: string;
+  errorReason: string | null;
+}
+
+export interface StoreProblemEvent extends EventBase {
+  kind: "store_problem";
+  storeName: string;
+}
+
+export interface SupportReplyEvent extends EventBase {
+  kind: "support_reply";
+  subject: string;
+}
+
+/** Something that happened in the tenant and deserves the reseller's attention. */
+export type NotificationEvent =
+  SaleEvent | ListingErrorEvent | StoreProblemEvent | SupportReplyEvent;
+
+export type NotificationKind = NotificationEvent["kind"];
 
 function since(): Date {
   return daysBefore(WINDOW_DAYS);
 }
 
-async function saleNotifications(database: Database, tenantId: string): Promise<AppNotification[]> {
+async function saleEvents(database: Database, tenantId: string): Promise<SaleEvent[]> {
   const rows = await database
     .select({
-      id: orders.id,
+      entityId: orders.id,
       externalOrderId: orders.externalOrderId,
       totalCents: orders.totalCents,
-      orderedAt: orders.orderedAt,
+      at: orders.orderedAt,
       storeName: storeConnections.shopName,
     })
     .from(orders)
@@ -49,57 +70,42 @@ async function saleNotifications(database: Database, tenantId: string): Promise<
       and(
         eq(orders.tenantId, tenantId),
         gte(orders.orderedAt, since()),
-        sql`${orders.status} not in ('cancelled', 'returned')`,
+        isCountedOrder(orders.status),
       ),
     )
     .orderBy(desc(orders.orderedAt))
     .limit(SALES_SHOWN);
-  return rows.map((row) => ({
-    id: `sale:${row.id}`,
-    kind: "sale",
-    title: `Nova venda de ${(row.totalCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
-    detail: `${row.externalOrderId} · ${row.storeName.replace(SIMULATED_SUFFIX, "")}`,
-    at: row.orderedAt,
-    href: `/financeiro?query=${encodeURIComponent(row.externalOrderId)}`,
-  }));
+  return rows.map((row) => ({ ...row, kind: "sale" as const }));
 }
 
-async function listingErrorNotifications(
+async function listingErrorEvents(
   database: Database,
   tenantId: string,
-): Promise<AppNotification[]> {
+): Promise<ListingErrorEvent[]> {
   const rows = await database
     .select({
-      id: listingTargets.id,
-      updatedAt: listingTargets.updatedAt,
+      entityId: listingTargets.id,
+      at: listingTargets.updatedAt,
       errorReason: listingTargets.errorReason,
-      title: listings.title,
+      listingTitle: listings.title,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.status, "error")))
     .orderBy(desc(listingTargets.updatedAt))
     .limit(PER_KIND);
-  return rows.map((row) => ({
-    id: `listing:${row.id}:${row.updatedAt.getTime()}`,
-    kind: "listing_error",
-    title: `Publicação recusada: ${row.title}`,
-    detail: row.errorReason ?? "Erro ao publicar",
-    at: row.updatedAt,
-    href: "/publicacoes?status=error",
-  }));
+  return rows.map((row) => ({ ...row, kind: "listing_error" as const }));
 }
 
-async function storeNotifications(
+async function storeProblemEvents(
   database: Database,
   tenantId: string,
-): Promise<AppNotification[]> {
+): Promise<StoreProblemEvent[]> {
   const rows = await database
     .select({
-      id: storeConnections.id,
-      shopName: storeConnections.shopName,
-      status: storeConnections.status,
-      updatedAt: storeConnections.updatedAt,
+      entityId: storeConnections.id,
+      storeName: storeConnections.shopName,
+      at: storeConnections.updatedAt,
     })
     .from(storeConnections)
     .where(
@@ -109,57 +115,46 @@ async function storeNotifications(
       ),
     )
     .limit(PER_KIND);
-  return rows.map((row) => ({
-    id: `store:${row.id}:${row.updatedAt.getTime()}`,
-    kind: "store_problem",
-    title: `${row.shopName.replace(SIMULATED_SUFFIX, "")} precisa ser reconectada`,
-    detail: "Pedidos e estoque estão parados nesta loja.",
-    at: row.updatedAt,
-    href: "/lojas",
-  }));
+  return rows.map((row) => ({ ...row, kind: "store_problem" as const }));
 }
 
-async function supportNotifications(
+async function supportReplyEvents(
   database: Database,
   tenantId: string,
-): Promise<AppNotification[]> {
+): Promise<SupportReplyEvent[]> {
   const rows = await database
-    .select({ id: tickets.id, subject: tickets.subject, updatedAt: tickets.updatedAt })
+    .select({ entityId: tickets.id, subject: tickets.subject, at: tickets.updatedAt })
     .from(tickets)
     .where(and(eq(tickets.tenantId, tenantId), eq(tickets.status, "answered")))
     .orderBy(desc(tickets.updatedAt))
     .limit(PER_KIND);
-  return rows.map((row) => ({
-    id: `ticket:${row.id}:${row.updatedAt.getTime()}`,
-    kind: "support_reply",
-    title: "O suporte respondeu",
-    detail: row.subject,
-    at: row.updatedAt,
-    href: `/suporte/${row.id}`,
-  }));
+  return rows.map((row) => ({ ...row, kind: "support_reply" as const }));
 }
 
-/** Recent events that deserve the reseller's attention, newest first, plus what is unread. */
-export async function listNotifications(
+async function lastSeenAt(database: Database, userId: string): Promise<Date | null> {
+  const reads = await database
+    .select({ seenAt: notificationReads.seenAt })
+    .from(notificationReads)
+    .where(eq(notificationReads.userId, userId));
+  return reads.at(0)?.seenAt ?? null;
+}
+
+/**
+ * Recent events of the tenant (unsorted, a few per kind) and when the user last opened the
+ * notifications. Ordering, capping and wording are up to the caller.
+ */
+export async function listNotificationEvents(
   database: Database,
   input: { tenantId: string; userId: string },
-): Promise<{ items: AppNotification[]; unread: number; seenAt: Date | null }> {
-  const [sales, listingErrors, stores, support, reads] = await Promise.all([
-    saleNotifications(database, input.tenantId),
-    listingErrorNotifications(database, input.tenantId),
-    storeNotifications(database, input.tenantId),
-    supportNotifications(database, input.tenantId),
-    database
-      .select({ seenAt: notificationReads.seenAt })
-      .from(notificationReads)
-      .where(eq(notificationReads.userId, input.userId)),
+): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
+  const [sales, listingErrors, stores, support, seenAt] = await Promise.all([
+    saleEvents(database, input.tenantId),
+    listingErrorEvents(database, input.tenantId),
+    storeProblemEvents(database, input.tenantId),
+    supportReplyEvents(database, input.tenantId),
+    lastSeenAt(database, input.userId),
   ]);
-  const seenAt = reads.at(0)?.seenAt ?? null;
-  const items = [...sales, ...listingErrors, ...stores, ...support]
-    .toSorted((first, second) => second.at.getTime() - first.at.getTime())
-    .slice(0, MAX_NOTIFICATIONS);
-  const unread = items.filter((item) => seenAt === null || item.at > seenAt).length;
-  return { items, unread, seenAt };
+  return { events: [...sales, ...listingErrors, ...stores, ...support], seenAt };
 }
 
 export async function markNotificationsSeen(database: Database, userId: string): Promise<void> {

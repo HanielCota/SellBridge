@@ -3,7 +3,7 @@ import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared
 import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -20,7 +20,7 @@ export interface CreatedListing {
   targetIds: string[];
 }
 
-function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
+export function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
   return `${listingId}:${storeConnectionId}`;
 }
 
@@ -122,7 +122,7 @@ export async function listListingTargets(
   pagination: Pagination,
 ): Promise<Paginated<ListingTargetRow> & { hasActive: boolean }> {
   const where = listingTargetConditions(tenantId, filters);
-  const [rows, totals, active] = await Promise.all([
+  const [rows, totals, hasActive] = await Promise.all([
     selectListingTargetRows(database)
       .where(where)
       .orderBy(desc(listingTargets.createdAt), desc(listingTargets.id))
@@ -135,10 +135,7 @@ export async function listListingTargets(
       .where(where),
     hasActiveTargets(database, tenantId),
   ]);
-  return {
-    ...toPaginated(rows, totals.at(0)?.total ?? 0, pagination),
-    hasActive: active,
-  };
+  return { ...toPaginated(rows, totals.at(0)?.total ?? 0, pagination), hasActive };
 }
 
 export interface TargetForPublishing {

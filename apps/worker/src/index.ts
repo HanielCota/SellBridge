@@ -1,13 +1,11 @@
 import { createDatabase } from "@sellbridge/database/client";
-import {
-  createConnectorRegistry,
-  createRateLimiter,
-  createTokenCipher,
-} from "@sellbridge/marketplaces";
+import { createConnectorRegistry } from "@sellbridge/marketplaces";
+import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import { QUEUE_NAMES } from "@sellbridge/shared/queues";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
+import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";

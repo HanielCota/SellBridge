@@ -2,7 +2,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listings, orders } from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { listRegionCatalog } from "./suppliers.ts";
 
 const PER_GROUP = 5;

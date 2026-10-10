@@ -1,14 +1,8 @@
 import type { ListingStoreStatus } from "@sellbridge/database/repositories";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { LISTING_STATUS_LABELS } from "@sellbridge/shared/schemas";
+import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
-
-const SIMULATED_SUFFIX = /\s*\(loja simulada\)\s*$/i;
-
-/** Shop name without the "(loja simulada)" noise; the chip's tooltip and screen-reader text say it once. */
-export function displayStoreName(name: string): string {
-  return name.replace(SIMULATED_SUFFIX, "");
-}
 
 function attemptsNote(store: ListingStoreStatus): string | null {
   // One successful attempt is the normal case and says nothing.

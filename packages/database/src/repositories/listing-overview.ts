@@ -1,4 +1,9 @@
-import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { notFoundError } from "@sellbridge/shared/errors";
+import {
+  assertSellablePrice,
+  pauseTransition,
+  RETRYABLE_TARGET_STATUS,
+} from "@sellbridge/shared/listing-rules";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, inArray, sql, sum, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -12,7 +17,8 @@ import {
   supplierProducts,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
-import { containsPattern } from "./search-pattern.ts";
+import { isCountedOrder } from "./sql/counted-orders.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { daysBefore } from "./time-window.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -133,7 +139,7 @@ async function selectUnitsSold(database: Database, ids: string[]) {
       and(
         inArray(listingTargets.listingId, ids),
         sql`${orders.orderedAt} >= ${since.toISOString()}::timestamptz`,
-        sql`${orders.status} not in ('cancelled', 'returned')`,
+        isCountedOrder(orders.status),
       ),
     )
     .groupBy(listingTargets.listingId);
@@ -202,14 +208,15 @@ export async function setListingsPaused(
   paused: boolean,
 ): Promise<number> {
   await requireTenantListings(database, tenantId, listingIds);
+  const transition = pauseTransition(paused);
   const changed = await database
     .update(listingTargets)
-    .set({ status: paused ? "paused" : "published" })
+    .set({ status: transition.to })
     .where(
       and(
         eq(listingTargets.tenantId, tenantId),
         inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, paused ? "published" : "paused"),
+        eq(listingTargets.status, transition.from),
       ),
     )
     .returning({ id: listingTargets.id });
@@ -231,9 +238,7 @@ export async function updateListingPrice(
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  if (priceCents <= row.costCents) {
-    throw conflictError("O preço de venda precisa ser maior que o custo do fornecedor");
-  }
+  assertSellablePrice(priceCents, row.costCents);
   await database
     .update(listings)
     .set({ priceCents })
@@ -254,7 +259,7 @@ export async function resetListingErrorsForRetry(
       and(
         eq(listingTargets.tenantId, tenantId),
         inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, "error"),
+        eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
       ),
     )
     .returning({ id: listingTargets.id });

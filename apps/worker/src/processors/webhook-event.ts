@@ -9,9 +9,10 @@ import {
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { webhookEventJobSchema } from "@sellbridge/shared/queues";
-import type { ConnectorRegistry, MarketplaceId, TokenCipher } from "@sellbridge/marketplaces";
+import type { ConnectorRegistry, MarketplaceId } from "@sellbridge/marketplaces";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
-import { z } from "zod";
+import { decryptStoreCredentials } from "../lib/store-access.ts";
 
 export interface WebhookDependencies {
   database: Database;
@@ -27,27 +28,6 @@ export interface WebhookJobContext {
 
 export type WebhookOutcome =
   "order_created" | "order_updated" | "already_processed" | "ignored_topic" | "unknown_store";
-
-/** Topics that carry orders: "orders_v2" (Mercado Livre) and "orders" (simulated marketplace). */
-const ORDER_TOPICS = new Set(["orders", "orders_v2"]);
-
-const storedEventSchema = z.object({
-  shopId: z.union([z.string(), z.number()]).optional(),
-  user_id: z.union([z.string(), z.number()]).optional(),
-  resource: z.string().min(1),
-});
-
-function shopAndResource(rawPayload: unknown): { shopId: string; resource: string } | null {
-  const parsed = storedEventSchema.safeParse(rawPayload);
-  if (!parsed.success) {
-    return null;
-  }
-  const shopId = parsed.data.shopId ?? parsed.data.user_id;
-  if (shopId === undefined) {
-    return null;
-  }
-  return { shopId: String(shopId), resource: parsed.data.resource };
-}
 
 type WebhookEvent = NonNullable<Awaited<ReturnType<typeof getWebhookEvent>>>;
 type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreByShop>>>;
@@ -100,20 +80,23 @@ async function prepareOrderSync(
   event: WebhookEvent,
 ): Promise<SyncPreparation> {
   const eventId = event.id;
-  if (!ORDER_TOPICS.has(event.topic)) {
+  const marketplace: MarketplaceId = event.marketplace;
+  const reference = dependencies.connectors[marketplace].parseStoredOrderEvent(
+    event.topic,
+    event.rawPayload,
+  );
+  if (!reference) {
     const note = `Tópico ${event.topic} ignorado`;
     return skipEvent(dependencies, { eventId, note, outcome: "ignored_topic" });
   }
-  const reference = shopAndResource(event.rawPayload);
-  if (!reference) {
+  if (reference.kind === "incomplete") {
     const note = "Evento sem loja ou recurso";
     return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
   }
-  const marketplace: MarketplaceId = event.marketplace;
   const store = await findConnectedStoreByShop(
     dependencies.database,
     marketplace,
-    reference.shopId,
+    reference.externalShopId,
   );
   if (!store) {
     const note = "Nenhuma loja conectada corresponde ao evento";
@@ -139,11 +122,12 @@ async function prepareOrderSync(
 
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
+  const credentials = decryptStoreCredentials(dependencies.cipher, {
+    externalShopId: store.externalShopId,
+    accessTokenEnc: sync.encryptedAccessToken,
+  });
   const order = await dependencies.connectors[sync.marketplace].fetchOrder(
-    {
-      externalShopId: store.externalShopId,
-      accessToken: dependencies.cipher.decrypt(sync.encryptedAccessToken),
-    },
+    credentials,
     sync.resource,
   );
   const result = await upsertMarketplaceOrder(

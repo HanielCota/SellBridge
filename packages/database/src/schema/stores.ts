@@ -12,7 +12,7 @@ export const storeConnections = pgTable(
     marketplace: marketplaceEnum().notNull(),
     externalShopId: text().notNull(),
     shopName: text().notNull(),
-    /** AES-256-GCM ciphertext (see packages/marketplaces/src/crypto.ts). */
+    /** AES-256-GCM ciphertext (see packages/shared/src/runtime/token-cipher.ts). */
     accessTokenEnc: text(),
     refreshTokenEnc: text(),
     expiresAt: timestamp({ withTimezone: true }),

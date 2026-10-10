@@ -12,13 +12,12 @@ import {
   UserCircleIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { type LinkProps, useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
-import { searchEverythingFn } from "@/features/search/search.functions";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useGlobalSearch } from "@/features/search/use-global-search";
+import { searchResultHref } from "@/features/search/search-targets";
 
 interface PageCommand {
   label: string;
@@ -46,8 +45,6 @@ const PAGES: PageCommand[] = [
   { label: "Meu perfil", to: "/perfil", icon: UserCircleIcon, keywords: "foto conta" },
   { label: "Ajuda e suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
 ];
-
-const MIN_QUERY = 2;
 
 function matchesPage(page: PageCommand, term: string): boolean {
   const haystack = `${page.label} ${page.keywords}`.toLowerCase();
@@ -103,18 +100,11 @@ const GROUP_CLASS =
   "[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground";
 
 function SearchResults({ term, go }: { term: string; go: (href: string) => void }) {
-  const debounced = useDebouncedValue(term.trim(), 200);
-  const enabled = debounced.length >= MIN_QUERY;
-  const query = useQuery({
-    queryKey: ["global-search", debounced],
-    queryFn: () => searchEverythingFn({ data: { query: debounced } }),
-    enabled,
-    staleTime: 30_000,
-  });
-  if (!enabled || !query.data) {
+  const results = useGlobalSearch(term);
+  if (!results) {
     return null;
   }
-  const { products, listings, orders } = query.data;
+  const { products, listings, orders } = results;
   return (
     <>
       {products.length > 0 ? (
@@ -126,7 +116,7 @@ function SearchResults({ term, go }: { term: string; go: (href: string) => void 
               icon={PackageIcon}
               title={product.title}
               detail={`${product.supplierName} · custo ${formatCents(product.costCents)}`}
-              onSelect={() => go(`/publicacoes/nova?productId=${product.id}`)}
+              onSelect={() => go(searchResultHref.product(product))}
             />
           ))}
         </Command.Group>
@@ -140,7 +130,7 @@ function SearchResults({ term, go }: { term: string; go: (href: string) => void 
               icon={MegaphoneIcon}
               title={listing.title}
               detail={formatCents(listing.priceCents)}
-              onSelect={() => go(`/publicacoes?query=${encodeURIComponent(listing.title)}`)}
+              onSelect={() => go(searchResultHref.listing(listing))}
             />
           ))}
         </Command.Group>
@@ -154,7 +144,7 @@ function SearchResults({ term, go }: { term: string; go: (href: string) => void 
               icon={ReceiptIcon}
               title={order.externalOrderId}
               detail={`${order.buyerName ?? "Comprador"} · ${formatCents(order.totalCents)}`}
-              onSelect={() => go(`/financeiro?query=${encodeURIComponent(order.externalOrderId)}`)}
+              onSelect={() => go(searchResultHref.order(order))}
             />
           ))}
         </Command.Group>

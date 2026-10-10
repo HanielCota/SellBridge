@@ -4,7 +4,7 @@ import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import { adminUpdateCustomerProfile } from "@/features/admin/customers.functions";
 import { SectionCard } from "@/components/layout/section-card";
-import { useAdminAction } from "./use-admin-action";
+import { useAdminAction } from "@/features/admin/use-admin-action";
 
 interface ProfileFormProps {
   userId: string;

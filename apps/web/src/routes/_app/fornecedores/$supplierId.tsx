@@ -1,4 +1,4 @@
-import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { formatCentsForInput, parseOptionalBrlToCents } from "@sellbridge/shared/money";
 import {
   catalogSearchSchema,
   PRODUCT_SORT_LABELS,
@@ -7,14 +7,14 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, MagnifyingGlassIcon, PackageIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PackageIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProductVisual } from "@/components/catalog/product-visual";
-import { ToneStatus } from "@/components/data/tone-status";
+import { SupplierProductCard } from "@/components/suppliers/supplier-product-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSupplierCatalog } from "@/features/suppliers/suppliers.functions";
 import { supplierCatalogQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -131,19 +130,13 @@ function CatalogSearchInput() {
   });
 
   return (
-    <div className="relative md:col-span-2 xl:col-span-1">
-      <MagnifyingGlassIcon
-        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        aria-label="Buscar produto"
-        placeholder="Buscar por nome ou SKU"
-        className="pl-9"
-        value={term}
-        onChange={(event) => setTerm(event.target.value)}
-      />
-    </div>
+    <SearchInput
+      label="Buscar produto"
+      placeholder="Buscar por nome ou SKU"
+      className="md:col-span-2 xl:col-span-1"
+      value={term}
+      onValueChange={setTerm}
+    />
   );
 }
 
@@ -213,30 +206,12 @@ interface CostRangeInputsProps {
   onChange: (range: { minCost: number | undefined; maxCost: number | undefined }) => void;
 }
 
-function centsToInput(cents: number | undefined): string {
-  if (cents === undefined) {
-    return "";
-  }
-  return (cents / 100).toFixed(2).replace(".", ",");
-}
-
-function inputToCents(value: string): number | undefined {
-  if (value.trim().length === 0) {
-    return undefined;
-  }
-  const cents = parseBrlToCents(value);
-  if (cents === null || cents < 0) {
-    return undefined;
-  }
-  return cents;
-}
-
 function CostRangeInputs({ minCost, maxCost, onChange }: CostRangeInputsProps) {
-  const [min, setMin] = useState(centsToInput(minCost));
-  const [max, setMax] = useState(centsToInput(maxCost));
+  const [min, setMin] = useState(formatCentsForInput(minCost));
+  const [max, setMax] = useState(formatCentsForInput(maxCost));
 
   function commit() {
-    onChange({ minCost: inputToCents(min), maxCost: inputToCents(max) });
+    onChange({ minCost: parseOptionalBrlToCents(min), maxCost: parseOptionalBrlToCents(max) });
   }
 
   return (
@@ -298,7 +273,7 @@ function CatalogResults() {
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {products.items.map((product) => (
           <li key={product.id}>
-            <ProductCard product={product} />
+            <SupplierProductCard product={product} />
           </li>
         ))}
       </ul>
@@ -310,50 +285,6 @@ function CatalogResults() {
         onPageChange={(page) => void navigate({ search: { ...search, page } })}
       />
     </div>
-  );
-}
-
-type CatalogProduct = Awaited<ReturnType<typeof getSupplierCatalog>>["products"]["items"][number];
-
-function ProductCard({ product }: { readonly product: CatalogProduct }) {
-  const isInStock = product.stock > 0;
-  return (
-    <article className="surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card">
-      <ProductVisual
-        imageUrl={product.imageUrl}
-        title={product.title}
-        categoryName={product.categoryName}
-        className="aspect-[16/10]"
-      />
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <div className="space-y-1">
-          <p className="truncate text-xs text-muted-foreground">
-            {product.categoryName ? `${product.categoryName} · ` : null}SKU {product.sku}
-          </p>
-          <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
-        </div>
-        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
-          <dt className="text-xs text-muted-foreground">Custo</dt>
-          <dt className="text-right text-xs text-muted-foreground">Preço sugerido</dt>
-          <dd className="font-semibold tabular-nums">{formatCents(product.costCents)}</dd>
-          <dd className="text-right tabular-nums">{formatCents(product.suggestedPriceCents)}</dd>
-        </dl>
-        <div className="flex items-center justify-between gap-2 border-t pt-3">
-          {isInStock ? (
-            <span className="text-xs text-muted-foreground">{product.stock} em estoque</span>
-          ) : (
-            <ToneStatus tone="danger" label="Esgotado" />
-          )}
-          {isInStock ? (
-            <Button asChild size="sm" variant="secondary">
-              <Link to="/publicacoes/nova" search={{ productId: product.id }}>
-                Publicar
-              </Link>
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </article>
   );
 }
 

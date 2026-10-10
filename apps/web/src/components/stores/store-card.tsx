@@ -1,8 +1,8 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { LinkBreakIcon, PlugIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { StoreStatusBadge } from "@/components/data/status-badge";
-import { displayStoreName } from "@/components/listings/store-statuses";
+import { StoreStatusBadge } from "@/components/stores/store-status-badge";
+import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
 import type { listStores } from "@/features/stores/stores.functions";
 import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";

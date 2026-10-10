@@ -1,7 +1,6 @@
 import type { Database } from "@sellbridge/database";
 import {
   getTargetForPublishing,
-  markStoreStatus,
   markTargetFailed,
   markTargetPublished,
   markTargetPublishing,
@@ -10,14 +9,16 @@ import {
 } from "@sellbridge/database/repositories";
 import {
   type ConnectorRegistry,
-  isMarketplaceAuthError,
   isRetryableError,
-  type TokenCipher,
+  type PublishProductInput,
+  type StoreCredentials,
 } from "@sellbridge/marketplaces";
+import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
+import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
 
 export interface PublishDependencies {
   database: Database;
@@ -63,14 +64,27 @@ async function failPermanently(
   throw new UnrecoverableError(reason);
 }
 
-function storeAccessToken(
+/** Only connected stores with an access token can receive new listings. */
+function publishingCredentials(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
-): string | null {
-  if (row.store.status !== "connected" || !row.store.accessTokenEnc) {
+): StoreCredentials | null {
+  if (row.store.status !== "connected") {
     return null;
   }
-  return dependencies.cipher.decrypt(row.store.accessTokenEnc);
+  return resolveStoreCredentials(dependencies.cipher, row.store);
+}
+
+function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
+  return {
+    idempotencyKey: row.target.idempotencyKey,
+    title: row.listing.title,
+    description: row.listing.description,
+    priceCents: row.listing.priceCents,
+    stock: row.product.stock,
+    sku: row.product.sku,
+    imageUrls: row.product.imageUrls,
+  };
 }
 
 interface PublishAttempt {
@@ -79,7 +93,7 @@ interface PublishAttempt {
   readonly tenantId: string;
   readonly listingTargetId: string;
   readonly row: TargetForPublishing;
-  readonly accessToken: string;
+  readonly credentials: StoreCredentials;
 }
 
 function parsePublishJob(job: PublishJobContext): { tenantId: string; listingTargetId: string } {
@@ -94,18 +108,7 @@ async function publishToMarketplace(attempt: PublishAttempt): Promise<PublishOut
   const { dependencies, row, listingTargetId } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
   await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
-  const result = await connector.publishProduct(
-    { externalShopId: row.store.externalShopId, accessToken: attempt.accessToken },
-    {
-      idempotencyKey: row.target.idempotencyKey,
-      title: row.listing.title,
-      description: row.listing.description,
-      priceCents: row.listing.priceCents,
-      stock: row.product.stock,
-      sku: row.product.sku,
-      imageUrls: row.product.imageUrls,
-    },
-  );
+  const result = await connector.publishProduct(attempt.credentials, toPublishProductInput(row));
   await markTargetPublished(dependencies.database, listingTargetId, result);
   await markTargetSynced(dependencies.database, listingTargetId, {
     stock: row.product.stock,
@@ -122,9 +125,7 @@ async function publishToMarketplace(attempt: PublishAttempt): Promise<PublishOut
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
   const { dependencies, job, tenantId, listingTargetId } = attempt;
   const reason = failureReason(error);
-  if (isMarketplaceAuthError(error)) {
-    await markStoreStatus(dependencies.database, attempt.row.store.id, "expired", reason);
-  }
+  await expireStoreOnAuthError(dependencies.database, attempt.row.store.id, error);
   const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
   await markTargetFailed(dependencies.database, listingTargetId, reason, { final: isFinal });
   logger.warn("listing.publish_failed", { tenantId, listingTargetId, reason, isFinal, error });
@@ -141,8 +142,8 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
     if (row.target.status === "published") {
       return "already_published";
     }
-    const accessToken = storeAccessToken(dependencies, row);
-    if (!accessToken) {
+    const credentials = publishingCredentials(dependencies, row);
+    if (!credentials) {
       return failPermanently(
         dependencies,
         listingTargetId,
@@ -157,7 +158,7 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
       tenantId,
       listingTargetId,
       row,
-      accessToken,
+      credentials,
     };
     try {
       return await publishToMarketplace(attempt);

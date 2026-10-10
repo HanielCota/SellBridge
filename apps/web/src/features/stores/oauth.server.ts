@@ -81,6 +81,31 @@ const callbackQuerySchema = z.union([
   z.object({ error: z.string().min(1), state: z.string().optional() }),
 ]);
 
+interface ConnectStoreInput {
+  tenantId: string;
+  marketplace: MarketplaceId;
+  code: string;
+  codeVerifier: string | null;
+}
+
+/** Exchanges the authorization code and saves the store with its tokens encrypted at rest. */
+async function connectStore(input: ConnectStoreInput) {
+  const { tokens, shop } = await connectors[input.marketplace].exchangeCode({
+    code: input.code,
+    redirectUri: oauthCallbackUrl(input.marketplace),
+    codeVerifier: input.codeVerifier ?? undefined,
+  });
+  return upsertStoreConnection(database, {
+    tenantId: input.tenantId,
+    marketplace: input.marketplace,
+    externalShopId: shop.externalShopId,
+    shopName: shop.shopName,
+    accessTokenEnc: tokenCipher.encrypt(tokens.accessToken),
+    refreshTokenEnc: tokens.refreshToken ? tokenCipher.encrypt(tokens.refreshToken) : null,
+    expiresAt: tokens.expiresAt,
+  });
+}
+
 /** GET /api/oauth/:marketplace/callback: validates state, exchanges the code and stores encrypted tokens. */
 export async function handleOAuthCallback(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
@@ -110,19 +135,11 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
   }
 
   try {
-    const { tokens, shop } = await connectors[marketplace].exchangeCode({
-      code: query.data.code,
-      redirectUri: oauthCallbackUrl(marketplace),
-      codeVerifier: stateRecord.codeVerifier ?? undefined,
-    });
-    const store = await upsertStoreConnection(database, {
+    const store = await connectStore({
       tenantId: session.tenantId,
       marketplace,
-      externalShopId: shop.externalShopId,
-      shopName: shop.shopName,
-      accessTokenEnc: tokenCipher.encrypt(tokens.accessToken),
-      refreshTokenEnc: tokens.refreshToken ? tokenCipher.encrypt(tokens.refreshToken) : null,
-      expiresAt: tokens.expiresAt,
+      code: query.data.code,
+      codeVerifier: stateRecord.codeVerifier,
     });
     logger.info("store.connected", {
       tenantId: session.tenantId,
