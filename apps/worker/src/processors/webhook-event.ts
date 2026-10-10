@@ -123,10 +123,18 @@ async function prepareOrderSync(
     const note = "Loja sem token de acesso: reconecte a loja";
     return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
   }
-  const encryptedAccessToken = store.accessTokenEnc;
-  const resource = reference.resource;
-  const sync = { dependencies, webhookEventId, eventId, marketplace, store, resource };
-  return { kind: "ready", sync: { ...sync, encryptedAccessToken } };
+  return {
+    kind: "ready",
+    sync: {
+      dependencies,
+      webhookEventId,
+      eventId,
+      marketplace,
+      store,
+      encryptedAccessToken: store.accessTokenEnc,
+      resource: reference.resource,
+    },
+  };
 }
 
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {

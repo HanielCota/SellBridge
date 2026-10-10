@@ -57,7 +57,7 @@ describe("fetchWithRetry", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(3);
   });
 
-  it("throws a retryable MarketplaceError after repeated network errors", async () => {
+  it("throws a retryable marketplace error after repeated network errors", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(async () => {
       throw new TypeError("fetch failed");
     });

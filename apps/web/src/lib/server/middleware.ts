@@ -8,7 +8,6 @@ export const tenantMiddleware = createMiddleware({ type: "function" }).server(as
   return next({ context });
 });
 
-/** Requires an authenticated user with the admin role. */
 export const adminMiddleware = createMiddleware({ type: "function" }).server(async ({ next }) => {
   const context = await requireAdminSession(getRequestHeaders());
   return next({ context });

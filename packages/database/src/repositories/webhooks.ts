@@ -45,24 +45,25 @@ export async function recordWebhookEvent(
 
 export async function getWebhookEvent(database: Database, id: string) {
   const row = await database.query.webhookEvents.findFirst({ where: eq(webhookEvents.id, id) });
-  if (!row) {
-    return null;
-  }
-  return row;
+  return row ?? null;
 }
 
 export async function markWebhookProcessed(
   database: Database,
   id: string,
   note: string | null = null,
-) {
+): Promise<void> {
   await database
     .update(webhookEvents)
     .set({ processedAt: new Date(), error: note })
     .where(eq(webhookEvents.id, id));
 }
 
-export async function markWebhookFailed(database: Database, id: string, error: string) {
+export async function markWebhookFailed(
+  database: Database,
+  id: string,
+  error: string,
+): Promise<void> {
   await database.update(webhookEvents).set({ error }).where(eq(webhookEvents.id, id));
 }
 
@@ -79,8 +80,5 @@ export async function findConnectedStoreByShop(
       eq(storeConnections.status, "connected"),
     ),
   });
-  if (!row) {
-    return null;
-  }
-  return row;
+  return row ?? null;
 }

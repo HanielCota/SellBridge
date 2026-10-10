@@ -7,7 +7,6 @@ import {
   PackageIcon,
   StorefrontIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { suppliersQueryOptions } from "@/features/suppliers/suppliers.queries";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -65,18 +64,13 @@ function SuppliersPage() {
 function SupplierFilters() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) =>
+      void navigate({ search: (previous) => ({ ...previous, query }), replace: true }),
+  });
   const { data } = useQuery(suppliersQueryOptions(search));
   const niches = data?.niches ?? [];
-
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    void navigate({ search: (previous) => ({ ...previous, query: nextQuery }), replace: true });
-  }, [debouncedTerm, navigate, search.query]);
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
@@ -105,7 +99,7 @@ function SupplierFilters() {
         }
       >
         <SelectTrigger className="sm:w-56" aria-label="Filtrar por nicho">
-          <SelectValue placeholder="Todos os nichos" />
+          <SelectValue>{search.niche ?? "Todos os nichos"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL_NICHES}>Todos os nichos</SelectItem>
@@ -136,8 +130,8 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         title="Nenhum fornecedor encontrado"
         description={
           search.query || search.niche
-            ? "Nenhum fornecedor corresponde aos filtros. Tente outros termos."
-            : "Ainda não há fornecedores atendendo a sua região. Avisaremos quando chegarem novos."
+            ? "Tente outro nome ou outro nicho."
+            : "Ainda não há fornecedores atendendo a sua região."
         }
       />
     );
@@ -147,7 +141,7 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
     <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {query.data.suppliers.map((supplier) => (
         <li key={supplier.id}>
-          <Card className="relative h-full transition-colors hover:border-primary/40">
+          <Card className="surface-interactive h-full has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
             <CardHeader className="flex flex-row items-start gap-3 space-y-0">
               <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
               <div className="min-w-0 space-y-1">
@@ -165,9 +159,10 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
                 </p>
               </div>
             </CardHeader>
-            <CardContent className="relative space-y-3">
+            <CardContent className="flex flex-1 flex-col gap-3">
               <p className="line-clamp-2 text-sm text-muted-foreground">{supplier.description}</p>
-              <div className="flex items-center justify-between">
+              {/* Pinned to the bottom so the niche and count line up across a row. */}
+              <div className="mt-auto flex items-center justify-between">
                 <Badge variant="secondary">{supplier.niche}</Badge>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <PackageIcon className="size-3.5" aria-hidden="true" />
@@ -204,7 +199,7 @@ function SupplierLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
   }
   return (
     <span
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary"
+      className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-brand-text"
       aria-hidden="true"
     >
       {supplierInitials(name)}
@@ -220,7 +215,7 @@ function SupplierListSkeleton() {
       aria-label="Carregando fornecedores"
     >
       {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-40 rounded-xl" />
+        <Skeleton key={index} className="h-40 rounded-3xl" />
       ))}
     </div>
   );

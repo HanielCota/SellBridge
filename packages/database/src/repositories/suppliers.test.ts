@@ -122,13 +122,13 @@ describe("supplier visibility by region", () => {
     expect(result.find((supplier) => supplier.id === ids.stateWide)?.productCount).toBe(3);
   });
 
-  it("throws NotFoundError for a supplier outside the region", async () => {
+  it("reports a supplier outside the region as not found", async () => {
     await expect(
       getSupplierForRegion(database, { state: TEST_STATE, city: "Interior" }, ids.otherState),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("throws NotFoundError for a product whose supplier does not serve the region", async () => {
+  it("reports a product whose supplier does not serve the region as not found", async () => {
     await expect(
       getCatalogProductForRegion(
         database,

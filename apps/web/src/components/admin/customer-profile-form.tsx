@@ -3,7 +3,7 @@ import { type FormEvent, useState } from "react";
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import { adminUpdateCustomerProfile } from "@/features/admin/customers.functions";
-import { AdminSection } from "./admin-section";
+import { SectionCard } from "@/components/layout/section-card";
 import { useAdminAction } from "./use-admin-action";
 
 interface ProfileFormProps {
@@ -45,7 +45,7 @@ export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
   }
 
   return (
-    <AdminSection title="Perfil" description="Nome exibido no app e e-mail usado para entrar.">
+    <SectionCard title="Perfil" description="Nome exibido no app e e-mail usado para entrar.">
       <form noValidate onSubmit={handleSubmit} className="grid gap-4">
         <TextField
           id="customer-name"
@@ -62,12 +62,12 @@ export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
           errors={errors.email ?? []}
           onValueChange={(next) => setValues((current) => ({ ...current, email: next }))}
         />
-        <div className="sm:col-span-2">
+        <div>
           <Button type="submit" disabled={isUnchanged || save.isPending}>
             {save.isPending ? "Salvando..." : "Salvar perfil"}
           </Button>
         </div>
       </form>
-    </AdminSection>
+    </SectionCard>
   );
 }

@@ -3,9 +3,10 @@ import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { member, tenantProfile, user } from "../schema/index.ts";
 import { containsPattern } from "./search-pattern.ts";
+import { daysBefore } from "./time-window.ts";
 
 /** How far back the "recent activity" numbers look. */
-export const CUSTOMER_ACTIVITY_DAYS = 30;
+const CUSTOMER_ACTIVITY_DAYS = 30;
 
 export interface CustomerSummary {
   id: string;
@@ -26,7 +27,7 @@ export interface CustomerSummary {
 }
 
 function activitySince(now: Date): Date {
-  return new Date(now.getTime() - CUSTOMER_ACTIVITY_DAYS * 86_400_000);
+  return daysBefore(CUSTOMER_ACTIVITY_DAYS, now);
 }
 
 /** Per-tenant counters computed in the same query, so the list needs a single round trip. */

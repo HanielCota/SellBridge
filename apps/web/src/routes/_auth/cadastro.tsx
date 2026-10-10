@@ -126,14 +126,14 @@ function SignUpForm() {
 function TermsConsent() {
   const linkClassName = "text-foreground underline underline-offset-2";
   return (
-    <p className="text-center text-[13px] leading-relaxed text-muted-foreground">
+    <p className="text-center text-footnote leading-relaxed text-muted-foreground">
       Ao criar a conta, você concorda com os{" "}
       <Link to="/termos" className={linkClassName}>
-        Termos de Uso
+        termos de uso
       </Link>{" "}
       e a{" "}
       <Link to="/privacidade" className={linkClassName}>
-        Política de Privacidade
+        política de privacidade
       </Link>
       .
     </p>
@@ -144,17 +144,20 @@ function SignUpPage() {
   const signInOptions = authLayoutRoute.useLoaderData();
   return (
     <div className="space-y-8">
-      <AuthPageHeader title="Criar conta" description="Comece a vender em poucos minutos." />
+      <AuthPageHeader
+        title="Criar conta"
+        description="Conecte suas lojas e publique produtos de fornecedores da sua região."
+      />
       <div className="grid gap-5">
         {signInOptions.google ? <GoogleSignIn callbackURL="/dashboard" /> : null}
         <SignUpForm />
         <TermsConsent />
       </div>
-      <p className="text-center text-[15px] text-muted-foreground">
+      <p className="text-center text-subhead text-muted-foreground">
         Já tem conta?{" "}
         <Link
           to="/login"
-          className="font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           Entrar
         </Link>

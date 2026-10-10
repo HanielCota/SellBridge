@@ -35,17 +35,6 @@ export function parseBrlToCents(input: string): Cents | null {
   return sign * (absoluteInteger * 100 + fraction);
 }
 
-export function sumCents(values: readonly Cents[]): Cents {
-  return values.reduce((total, value) => total + assertCents(value), 0);
-}
-
-export function multiplyCents(cents: Cents, quantity: number): Cents {
-  if (!Number.isSafeInteger(quantity)) {
-    throw validationError("Quantidade deve ser um número inteiro");
-  }
-  return assertCents(cents) * quantity;
-}
-
 /** Applies a percentage expressed in basis points (1% = 100 bps), rounding half up. */
 export function percentOfCents(cents: Cents, basisPoints: number): Cents {
   if (!Number.isSafeInteger(basisPoints)) {

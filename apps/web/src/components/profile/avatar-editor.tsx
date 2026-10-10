@@ -1,6 +1,6 @@
 import { CameraIcon, TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UserAvatar } from "@/components/layout/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -49,17 +49,21 @@ export function AvatarEditor({
   name,
   image,
   onDone,
+  children,
 }: {
   name: string;
   image: string | null;
   onDone?: () => void;
+  /** Shown above the buttons, e.g. the person's name on the profile page. */
+  children?: ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { isBusy, upload, remove } = useAvatarActions(onDone);
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row">
       <UserAvatar name={name} image={image} className="size-24 text-3xl" />
-      <div className="space-y-3 text-center sm:text-left">
+      <div className="min-w-0 space-y-3 text-center sm:text-left">
+        {children}
         <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
           <Button type="button" disabled={isBusy} onClick={() => inputRef.current?.click()}>
             <CameraIcon aria-hidden="true" />

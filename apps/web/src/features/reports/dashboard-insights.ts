@@ -99,7 +99,15 @@ export function previousAverage(previousTotal: number | null, bucketCount: numbe
  * Above this the previous period had almost no activity, and a percentage stops meaning anything
  * (e.g. +13.188%). The UI says "more than 10×" instead.
  */
-export const OFF_SCALE_PERCENT = 1000;
+const OFF_SCALE_PERCENT = 1000;
+
+const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+
+/** A rounded percentage change with its sign and thousands separator: "+18.208%", "−12%". */
+export function formatPercentChange(percent: number): string {
+  const sign = percent > 0 ? "+" : percent < 0 ? "−" : "";
+  return `${sign}${wholePercent.format(Math.abs(percent))}%`;
+}
 
 export type Trend = {
   direction: "up" | "down" | "flat";
@@ -131,4 +139,38 @@ export function marginOf(
   summary: Pick<SummaryFigures, "profitCents" | "revenueCents">,
 ): number | null {
   return summary.revenueCents > 0 ? summary.profitCents / summary.revenueCents : null;
+}
+
+export type RevenueStory =
+  | { kind: "no-baseline" }
+  | { kind: "flat" }
+  /** Signed, rounded percentages; `ticket` is null when the current period has no orders. */
+  | { kind: "change"; revenue: number; orders: number; ticket: number | null };
+
+/**
+ * Explains a revenue change by its two levers (how many orders and how much each one was
+ * worth), so the dashboard can say why revenue moved, not just repeat the percentage.
+ */
+export function explainRevenue(
+  current: { revenueCents: number; orders: number },
+  previous: { revenueCents: number; orders: number },
+): RevenueStory {
+  if (previous.revenueCents <= 0 || previous.orders <= 0) {
+    return { kind: "no-baseline" };
+  }
+  const revenue = Math.round(
+    ((current.revenueCents - previous.revenueCents) / previous.revenueCents) * 100,
+  );
+  if (revenue === 0) {
+    return { kind: "flat" };
+  }
+  const orders = Math.round(((current.orders - previous.orders) / previous.orders) * 100);
+  const previousTicket = previous.revenueCents / previous.orders;
+  const ticket =
+    current.orders > 0
+      ? Math.round(
+          ((current.revenueCents / current.orders - previousTicket) / previousTicket) * 100,
+        )
+      : null;
+  return { kind: "change", revenue, orders, ticket };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bestPoint,
+  explainRevenue,
   roundToTotal,
   buildMoneyFlow,
   marginOf,
@@ -98,5 +99,47 @@ describe("roundToTotal", () => {
   it("gives the extra units to the largest remainders", () => {
     expect(roundToTotal([48.6, 14.6, 0.9, 35.9], 100)).toEqual([49, 14, 1, 36]);
     expect(roundToTotal([33.3, 33.3, 33.4], 100)).toEqual([33, 33, 34]);
+  });
+});
+
+describe("explainRevenue", () => {
+  it("splits a revenue change into orders and ticket", () => {
+    expect(
+      explainRevenue(
+        { revenueCents: 1_246_200, orders: 83 },
+        { revenueCents: 1_124_000, orders: 68 },
+      ),
+    ).toEqual({ kind: "change", revenue: 11, orders: 22, ticket: -9 });
+  });
+
+  it("has no baseline when the previous period sold nothing", () => {
+    expect(
+      explainRevenue({ revenueCents: 5_000, orders: 1 }, { revenueCents: 0, orders: 0 }),
+    ).toEqual({
+      kind: "no-baseline",
+    });
+  });
+
+  it("calls a change under half a percent flat", () => {
+    expect(
+      explainRevenue({ revenueCents: 100_400, orders: 10 }, { revenueCents: 100_000, orders: 10 }),
+    ).toEqual({ kind: "flat" });
+  });
+
+  it("keeps the real percentage even when the previous period barely sold", () => {
+    expect(
+      explainRevenue({ revenueCents: 5_382_600, orders: 372 }, { revenueCents: 29_400, orders: 3 }),
+    ).toEqual({ kind: "change", revenue: 18_208, orders: 12_300, ticket: 48 });
+  });
+
+  it("has no ticket when the current period has no orders", () => {
+    expect(
+      explainRevenue({ revenueCents: 0, orders: 0 }, { revenueCents: 10_000, orders: 2 }),
+    ).toEqual({
+      kind: "change",
+      revenue: -100,
+      orders: -100,
+      ticket: null,
+    });
   });
 });

@@ -44,7 +44,7 @@ export function ListingThumb({
         src={imageUrl}
         alt=""
         loading="lazy"
-        className="size-11 shrink-0 rounded-xl bg-muted object-cover"
+        className="size-12 shrink-0 rounded-xl bg-muted object-cover"
       />
     );
   }
@@ -52,7 +52,7 @@ export function ListingThumb({
   return (
     <span
       aria-hidden="true"
-      className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"
+      className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"
     >
       <CategoryIcon className="size-5" />
     </span>

@@ -25,7 +25,7 @@ function TicketPage() {
   const query = useQuery(myTicketQueryOptions(ticketId));
 
   if (query.isPending) {
-    return <Skeleton className="h-96 rounded-xl" aria-label="Carregando chamado" />;
+    return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando chamado" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -41,7 +41,7 @@ function TicketPage() {
         </Link>
       </Button>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">{ticket.subject}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
         <TicketStatusBadge status={ticket.status} />
       </div>
       <TicketThread messages={messages} />

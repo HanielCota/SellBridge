@@ -34,8 +34,9 @@ As senhas vêm de `SEED_DEMO_PASSWORD` e `SEED_ADMIN_PASSWORD` no `.env` (os val
 
 ### Redefinição de senha e login com Google
 
-- **E-mail:** a redefinição de senha envia o link por e-mail via [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Sem a chave, em desenvolvimento o e-mail, com o link, aparece no log do servidor (`email.development_preview`). Em produção ele não é enviado sem a chave.
-- **Google:** crie um OAuth Client no Google Cloud com o redirect `{BETTER_AUTH_URL}/api/auth/callback/google` e preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Sem as duas variáveis, o botão "Continuar com Google" não aparece.
+A redefinição de senha envia o link por e-mail via [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Sem a chave, em desenvolvimento o e-mail com o link aparece no log do servidor (`email.development_preview`); em produção ele não é enviado.
+
+Para o login com Google, crie um OAuth Client no Google Cloud com o redirect `{BETTER_AUTH_URL}/api/auth/callback/google` e preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Sem as duas variáveis, o botão "Continuar com Google" não aparece.
 
 ### Mercado Livre
 
@@ -71,8 +72,8 @@ packages/config        tsconfig base
 
 ## Entregas
 
-- **Fase 4:** suporte com anexos (validados pelo conteúdo), histórico e status, e visão de admin para responder/encerrar; conector real do Mercado Livre (OAuth com PKCE, publicação, estoque/preço, pedidos, notificações) atrás da mesma interface; webhooks idempotentes com fila; sincronização periódica de estoque e preço; "Simular venda" para testar o fluxo completo; testes E2E dos fluxos críticos.
+- **Fase 4:** suporte com anexos (validados pelo conteúdo), histórico e status, e visão de admin para responder/encerrar; conector real do Mercado Livre (OAuth com PKCE, publicação, estoque/preço, pedidos, notificações) atrás da mesma interface; webhooks idempotentes com fila; sincronização periódica de estoque e preço; "Simular venda" para testar o fluxo de ponta a ponta; testes E2E dos fluxos críticos.
 - **Fase 3:** dashboard com KPIs (vendas, receita, lucro, ticket médio), comparação com o período anterior, gráfico de evolução por dia/semana, filtro por período e por loja, vendas por loja e produtos mais vendidos; financeiro com lucro, comissões, devoluções e reembolsos por pedido e por período, tabela com ordenação/filtros/paginação no servidor e exportação CSV; estados vazios e checklist de primeiros passos.
-- **Fase 2:** pacote `marketplaces` (interface única, conector mock completo, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
-- **Fase 1:** schema completo do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
+- **Fase 2:** pacote `marketplaces` (interface única, conector mock, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
+- **Fase 1:** schema do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
 - **Fase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, layout base (sidebar colapsável, modo claro/escuro) e autenticação (cadastro, login, logout, organização por usuário, papel admin).

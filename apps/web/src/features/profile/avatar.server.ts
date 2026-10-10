@@ -8,7 +8,7 @@ import { handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
-export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_URL_PREFIX = "/api/perfil/foto/";
 const EXTENSION_BY_TYPE = {
   "image/png": "png",
@@ -26,14 +26,20 @@ function isAvatarType(type: string | null): type is AvatarType {
   return type !== null && type in EXTENSION_BY_TYPE;
 }
 
-/** Storage key of a photo we host, or null for external images (e.g. Google). */
-export function avatarStorageKey(imageUrl: string | null | undefined): string | null {
+/**
+ * Storage key of a photo this user owns, or null for external images (e.g. Google)
+ * and for URLs pointing at someone else's folder.
+ */
+function avatarStorageKey(imageUrl: string | null | undefined, ownerId: string): string | null {
   if (!imageUrl?.startsWith(AVATAR_URL_PREFIX)) {
     return null;
   }
   const [userId, fileName] = imageUrl.slice(AVATAR_URL_PREFIX.length).split("/");
   const parsed = avatarPathSchema.safeParse({ userId, fileName });
-  return parsed.success ? `avatars/${parsed.data.userId}/${parsed.data.fileName}` : null;
+  if (!parsed.success || parsed.data.userId !== ownerId) {
+    return null;
+  }
+  return `avatars/${parsed.data.userId}/${parsed.data.fileName}`;
 }
 
 async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; type: AvatarType }> {
@@ -62,17 +68,17 @@ async function requireSession(headers: Headers) {
 
 async function replaceImage(
   headers: Headers,
-  previous: string | null | undefined,
+  user: { id: string; image?: string | null | undefined },
   next: string | null,
 ) {
   await auth.api.updateUser({ headers, body: { image: next } });
-  const previousKey = avatarStorageKey(previous);
+  const previousKey = avatarStorageKey(user.image, user.id);
   if (previousKey) {
     await fileStorage.delete(previousKey);
   }
 }
 
-/** POST /api/perfil/foto — multipart "file"; replaces the signed-in user's photo. */
+/** POST /api/perfil/foto: multipart "file"; replaces the signed-in user's photo. */
 export function handleUploadAvatar(request: Request) {
   return handleApi("profile.upload_avatar", async () => {
     const session = await requireSession(request.headers);
@@ -80,23 +86,23 @@ export function handleUploadAvatar(request: Request) {
     const fileName = `${randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
     await fileStorage.put(`avatars/${session.user.id}/${fileName}`, bytes);
     const image = `${AVATAR_URL_PREFIX}${session.user.id}/${fileName}`;
-    await replaceImage(request.headers, session.user.image, image);
+    await replaceImage(request.headers, session.user, image);
     logger.info("profile.avatar_updated", { userId: session.user.id });
     return jsonResponse(200, { image });
   });
 }
 
-/** DELETE /api/perfil/foto — back to the initials. */
+/** DELETE /api/perfil/foto: back to the initials. */
 export function handleDeleteAvatar(request: Request) {
   return handleApi("profile.delete_avatar", async () => {
     const session = await requireSession(request.headers);
-    await replaceImage(request.headers, session.user.image, null);
+    await replaceImage(request.headers, session.user, null);
     logger.info("profile.avatar_removed", { userId: session.user.id });
     return jsonResponse(200, { image: null });
   });
 }
 
-/** GET /api/perfil/foto/:userId/:fileName — any signed-in user may see profile photos. */
+/** GET /api/perfil/foto/:userId/:fileName: any signed-in user may see profile photos. */
 export function handleGetAvatar(request: Request, params: { userId?: string; fileName?: string }) {
   return handleApi("profile.get_avatar", async () => {
     await requireSession(request.headers);

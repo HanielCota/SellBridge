@@ -4,7 +4,7 @@ export function InlineFormError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <p role="alert" className="px-1 text-[13px] text-destructive">
+    <p role="alert" className="px-1 text-footnote text-destructive">
       {message}
     </p>
   );

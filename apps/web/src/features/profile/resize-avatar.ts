@@ -1,6 +1,6 @@
 const AVATAR_SIZE = 512;
 /** Originals above this are refused before any work; phone photos are usually 2–8 MB. */
-export const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
+const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
 export const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {

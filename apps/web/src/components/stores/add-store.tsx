@@ -4,9 +4,9 @@ import { MarketplaceMark } from "./marketplace-mark";
 
 const DESCRIPTIONS: Record<string, string> = {
   mock: "Teste o fluxo completo (publicar, vender, sincronizar) sem uma conta real.",
-  mercado_livre: "Publique no maior marketplace do Brasil.",
-  shopee: "Alcance compradores da Shopee.",
-  tiktok_shop: "Venda direto nos vídeos do TikTok.",
+  mercado_livre: "Entre com sua conta de vendedor do Mercado Livre.",
+  shopee: "Entre com a conta da sua loja na Shopee.",
+  tiktok_shop: "Entre com a conta da sua loja no TikTok Shop.",
 };
 
 function AvailableOption({ option }: { option: MarketplaceOption }) {
@@ -15,14 +15,14 @@ function AvailableOption({ option }: { option: MarketplaceOption }) {
       <a
         href={`/api/oauth/${option.id}/start`}
         aria-label={`Conectar ${option.label}`}
-        className="group flex items-center gap-4 rounded-3xl bg-card p-4 ring-1 ring-border transition-colors hover:bg-muted dark:bg-muted/60 dark:ring-0 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none"
+        className="surface-interactive flex items-center gap-4 rounded-3xl bg-card p-4 dark:bg-muted/60 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none"
       >
         <MarketplaceMark marketplace={option.id} />
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{option.label}</span>
           <span className="block text-sm text-muted-foreground">{DESCRIPTIONS[option.id]}</span>
         </span>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform group-hover:translate-x-0.5">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
           <ArrowRightIcon className="size-4" aria-hidden="true" />
         </span>
       </a>
@@ -36,7 +36,7 @@ function ComingSoon({ options }: { options: MarketplaceOption[] }) {
   }
   return (
     <div className="space-y-3">
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Em breve</p>
+      <p className="text-sm font-medium text-muted-foreground">Em breve</p>
       <ul className="flex flex-wrap gap-2">
         {options.map((option) => (
           <li

@@ -46,7 +46,7 @@ function StorePicker({
       {stores.map((store) => (
         <label
           key={store.id}
-          className="flex cursor-pointer items-center gap-3 rounded-2xl bg-muted/50 p-3 has-checked:bg-muted"
+          className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/50 has-checked:bg-muted/60"
         >
           <Checkbox
             checked={selected.has(store.id)}
@@ -81,7 +81,7 @@ function RuleOption({
   children?: React.ReactNode;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-muted/50 p-3 has-checked:bg-muted has-checked:ring-1 has-checked:ring-brand">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/50 has-checked:border-brand has-checked:bg-muted/60">
       <input
         type="radio"
         name="price-rule"
@@ -147,7 +147,7 @@ function PricePreview({ products, rule }: { products: RegionCatalogProduct[]; ru
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">Prévia</p>
-      <ul className="divide-y divide-border rounded-2xl bg-muted/40 text-sm">
+      <ul className="divide-y divide-border rounded-xl border border-border text-sm">
         {shown.map((product) => {
           const price = priceForRule(product, rule);
           const margin = estimateProfit(price, product.costCents)?.marginPercent ?? 0;
@@ -173,7 +173,7 @@ function PricePreview({ products, rule }: { products: RegionCatalogProduct[]; ru
 
 function NoStores() {
   return (
-    <div className="space-y-3 rounded-2xl bg-muted/50 p-4 text-sm">
+    <div className="space-y-3 text-sm">
       <p>Conecte uma loja antes de publicar.</p>
       <Button asChild size="sm">
         <Link to="/lojas">Conectar loja</Link>

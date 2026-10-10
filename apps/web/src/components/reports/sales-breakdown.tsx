@@ -1,5 +1,5 @@
 import { formatCents } from "@sellbridge/shared/money";
-import { ArrowsOutSimpleIcon } from "@phosphor-icons/react";
+import { ArrowUpRightIcon } from "@phosphor-icons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
@@ -28,19 +28,23 @@ function BreakdownSection({
   to: NonNullable<LinkProps["to"]>;
   children: ReactNode;
 }) {
+  // The link's hit area is stretched over the whole card (`after:inset-0`), so a click anywhere
+  // opens the full view while screen readers still hear one short link, not every row.
   return (
-    <section className="h-full rounded-3xl bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-medium text-muted-foreground">{title}</h2>
+    <section className="group surface-interactive h-full rounded-3xl bg-card p-5 has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring/50">
+      <div className="-my-1 flex h-8 items-center justify-between gap-3">
+        <h2 className="text-subhead font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+          {title}
+        </h2>
         <Link
           to={to}
           aria-label={`Abrir ${title.toLowerCase()}`}
-          className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground"
+          className="-mr-1.5 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-foreground group-hover:text-background outline-none after:absolute after:inset-0"
         >
-          <ArrowsOutSimpleIcon className="size-4" aria-hidden="true" />
+          <ArrowUpRightIcon className="size-3.5" weight="bold" aria-hidden="true" />
         </Link>
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
@@ -78,8 +82,9 @@ export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {percent.format(share)} da receita · {store.orders} vendas · lucro{" "}
-                  {formatCents(store.profitCents)} ({percent.format(margin)} de margem)
+                  {percent.format(share)} da receita · {store.orders}{" "}
+                  {store.orders === 1 ? "venda" : "vendas"} · lucro {formatCents(store.profitCents)}{" "}
+                  ({percent.format(margin)} de margem)
                 </p>
               </li>
             );
@@ -116,14 +121,14 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
           <tbody className="divide-y">
             {products.map((product, index) => (
               <tr key={product.title}>
-                <td className="py-2.5 text-xs text-muted-foreground tabular-nums">{index + 1}</td>
-                <td className="py-2.5 pr-3" title={product.title}>
+                <td className="py-3 text-xs text-muted-foreground tabular-nums">{index + 1}</td>
+                <td className="py-3 pr-3" title={product.title}>
                   <span className="line-clamp-2 sm:line-clamp-1">{product.title}</span>
                 </td>
-                <td className="py-2.5 pl-2 text-right text-muted-foreground tabular-nums max-sm:hidden">
+                <td className="py-3 pl-2 text-right text-muted-foreground tabular-nums max-sm:hidden">
                   {product.units}
                 </td>
-                <td className="py-2.5 pl-4 text-right font-medium whitespace-nowrap tabular-nums">
+                <td className="py-3 pl-4 text-right font-medium whitespace-nowrap tabular-nums">
                   {formatCents(product.revenueCents)}
                 </td>
               </tr>

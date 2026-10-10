@@ -29,7 +29,7 @@ function validateSelection(current: File[], added: File[]): string | null {
   }
   const tooBig = added.find((file) => file.size > MAX_ATTACHMENT_BYTES);
   if (tooBig) {
-    return `"${tooBig.name}" excede o limite de 5 MB`;
+    return `"${tooBig.name}" excede o limite de ${formatBytes(MAX_ATTACHMENT_BYTES)}`;
   }
   const allowed: readonly string[] = ALLOWED_ATTACHMENT_TYPES;
   const invalid = added.find((file) => !allowed.includes(file.type));
@@ -117,7 +117,8 @@ export function AttachmentInput({ files, onChange, error, onError }: AttachmentI
           Adicionar arquivo
         </Button>
         <p className="mt-1 text-xs text-muted-foreground">
-          Até {MAX_ATTACHMENTS} arquivos PNG, JPG, WEBP ou PDF, com no máximo 5 MB cada.
+          Até {MAX_ATTACHMENTS} arquivos PNG, JPG, WEBP ou PDF, com no máximo{" "}
+          {formatBytes(MAX_ATTACHMENT_BYTES)} cada.
         </p>
       </div>
       <AttachmentList

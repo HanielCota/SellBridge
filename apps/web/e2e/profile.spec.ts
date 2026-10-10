@@ -9,7 +9,9 @@ test("adiciona, mostra e remove a foto de perfil", async ({ page }) => {
   // Sign-up ends on the region step; let that navigation finish before leaving.
   await expect(page).toHaveURL(/\/onboarding/);
   await gotoHydrated(page, "/perfil");
-  await expect(page.getByRole("heading", { name: "Meu perfil" })).toBeVisible();
+  await expect(page).toHaveTitle("Meu perfil | SellBridge");
+  // The page now opens on the person: their name is the heading.
+  await expect(page.getByRole("heading", { level: 1, name: "Revendedor Com Foto" })).toBeVisible();
 
   await page.getByLabel("Escolher foto de perfil").setInputFiles(AVATAR_FIXTURE);
   await expect(page.getByText("Foto de perfil atualizada")).toBeVisible();

@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   assertCents,
   formatCents,
-  multiplyCents,
   parseBrlToCents,
   percentChange,
   percentOfCents,
-  sumCents,
 } from "./money.ts";
 
 describe("money", () => {
@@ -30,11 +28,6 @@ describe("money", () => {
 
   it.each(["", "abc", "1,234", "12,345"])("returns null for invalid input %j", (input) => {
     expect(parseBrlToCents(input)).toBeNull();
-  });
-
-  it("sums and multiplies in integer arithmetic", () => {
-    expect(sumCents([10, 20, 30])).toBe(60);
-    expect(multiplyCents(1999, 3)).toBe(5997);
   });
 
   it("applies basis points with rounding", () => {

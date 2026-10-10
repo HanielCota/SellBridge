@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export interface SetupProgress {
@@ -78,7 +78,7 @@ function StepCard({
   return (
     <li
       className={cn(
-        "flex flex-col gap-4 rounded-3xl p-5",
+        "flex flex-col gap-4 rounded-2xl p-5",
         state === "next" ? "bg-muted ring-1 ring-brand/60" : "bg-muted/50",
       )}
     >
@@ -91,7 +91,10 @@ function StepCard({
         )}
       >
         {state === "done" ? (
-          <CheckIcon weight="bold" className="size-4" aria-label="Concluído" />
+          <>
+            <CheckIcon weight="bold" className="size-4" aria-hidden="true" />
+            <span className="sr-only">Concluído</span>
+          </>
         ) : (
           index + 1
         )}
@@ -129,10 +132,13 @@ function stepState(
 export function SetupGuide({ progress }: { progress: SetupProgress }) {
   const nextKey = SETUP_STEPS.find((step) => !progress[step.key])?.key;
   return (
-    <section aria-labelledby="setup-title" className="space-y-6 rounded-3xl bg-card p-6 sm:p-8">
+    <section
+      aria-labelledby="setup-title"
+      className="surface-card space-y-6 rounded-3xl bg-card p-6 sm:p-8"
+    >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div className="space-y-2">
-          <h2 id="setup-title" className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
+          <h2 id="setup-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Falta pouco para sua primeira venda
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -164,7 +170,7 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
   return (
     <aside
       aria-label="Configuração da conta"
-      className="flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
+      className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
       <p className="text-sm">
         <span className="text-muted-foreground">

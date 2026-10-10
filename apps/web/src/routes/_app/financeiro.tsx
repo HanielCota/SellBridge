@@ -18,7 +18,7 @@ import {
   MagnifyingGlassIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -41,7 +41,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { financialExportUrl, financialsQueryOptions } from "@/features/reports/reports.queries";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
@@ -112,16 +112,25 @@ function SortableHeader({
   );
 }
 
-function Money({ cents, emphasize = false }: { cents: number; emphasize?: boolean }) {
+function Money({
+  cents,
+  emphasize = false,
+  muted = false,
+}: {
+  cents: number;
+  emphasize?: boolean;
+  muted?: boolean;
+}) {
   return (
     <span
       className={cn(
         "block text-right whitespace-nowrap tabular-nums",
+        muted && "text-muted-foreground",
         emphasize && "font-semibold",
         emphasize && cents < 0 && "text-destructive",
       )}
     >
-      {formatCents(cents)}
+      {cents < 0 ? `−${formatCents(-cents)}` : formatCents(cents)}
     </span>
   );
 }
@@ -159,7 +168,7 @@ const columns = columnHelper.columns([
     cell: (info) => {
       const row = info.row.original;
       const total = row.costCents + row.feeCents + row.platformFeeCents;
-      return <Money cents={total === 0 ? 0 : -total} />;
+      return <Money cents={total === 0 ? 0 : -total} muted />;
     },
   }),
   columnHelper.display({
@@ -173,7 +182,9 @@ const columns = columnHelper.columns([
       }
       return (
         <div className="space-y-0.5 text-right text-xs">
-          {row.commissionCents > 0 ? <p>+{formatCents(row.commissionCents)} comissão</p> : null}
+          {row.commissionCents > 0 ? (
+            <p className="text-brand-text">+{formatCents(row.commissionCents)} comissão</p>
+          ) : null}
           {row.refundCents > 0 ? <p>−{formatCents(row.refundCents)} reembolso</p> : null}
           {row.returnCents > 0 ? (
             <p className="text-muted-foreground">{formatCents(row.returnCents)} devolvido</p>
@@ -245,8 +256,8 @@ function FinancialContent() {
   if (query.isPending) {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-28 rounded-3xl" />
+        <Skeleton className="h-96 rounded-3xl" />
       </div>
     );
   }
@@ -304,7 +315,7 @@ function FinancialOrders({
           page={orders.page}
           totalPages={orders.totalPages}
           total={orders.total}
-          itemLabel="pedidos (todos os status)"
+          itemLabel={{ one: "pedido (todos os status)", other: "pedidos (todos os status)" }}
           onPageChange={onPageChange}
         />
       }
@@ -312,62 +323,296 @@ function FinancialOrders({
   );
 }
 
-function SummaryCards({ summary }: { summary: SalesSummary }) {
-  const stats = [
-    { label: "Receita", cents: summary.revenueCents },
-    { label: "Custo dos produtos", cents: -summary.costCents },
-    { label: "Taxas", cents: -(summary.feeCents + summary.platformFeeCents) },
-    { label: "Comissões recebidas", cents: summary.commissionCents },
-    { label: "Reembolsos", cents: -summary.refundCents },
-    { label: "Devoluções", cents: summary.returnCents },
+const marginFormat = new Intl.NumberFormat("pt-BR", {
+  style: "percent",
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/** Money with a real minus sign (or a plus for income), so signs line up and read as math. */
+function signedCents(cents: number): string {
+  if (cents < 0) {
+    return `−${formatCents(-cents)}`;
+  }
+  return cents > 0 ? `+${formatCents(cents)}` : formatCents(0);
+}
+
+/** Share of revenue as a short label; tiny non-zero shares read "<1%" instead of "0%". */
+function shareLabel(ratio: number): string {
+  if (ratio > 0 && ratio < 0.01) {
+    return "<1%";
+  }
+  return `${Math.round(ratio * 100)}%`;
+}
+
+interface BreakdownLine {
+  label: string;
+  /** Signed: negative leaves the revenue, positive adds to it. */
+  cents: number;
+  /** Background utility shared by the dot, the bar and the composition segment. */
+  color: string;
+}
+
+function breakdownLines(summary: SalesSummary): BreakdownLine[] {
+  const lines: BreakdownLine[] = [
+    { label: "Custo dos produtos", cents: -summary.costCents, color: "bg-finance-cost" },
+    {
+      label: "Taxas do marketplace",
+      cents: -(summary.feeCents + summary.platformFeeCents),
+      color: "bg-finance-fee",
+    },
+    { label: "Reembolsos", cents: -summary.refundCents, color: "bg-finance-refund" },
   ];
+  if (summary.commissionCents !== 0) {
+    lines.push({ label: "Comissões recebidas", cents: summary.commissionCents, color: "bg-brand" });
+  }
+  return lines;
+}
+
+/**
+ * The profit on its own, then the arithmetic behind it: one bar splits every real sold into
+ * where it went, and the list beside it spells out each line in the same colors.
+ */
+function SummaryCards({ summary }: { summary: SalesSummary }) {
+  const lines = breakdownLines(summary);
   return (
     <section
       aria-label="Resumo do período"
-      className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+      className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
     >
-      <div className="flex flex-col justify-between gap-6 rounded-3xl bg-card p-6">
-        <p className="text-sm text-muted-foreground">
-          Lucro líquido<span className="sr-only">: {formatCents(summary.profitCents)}</span>
+      <ProfitCard summary={summary} lines={lines} />
+      <BreakdownList summary={summary} lines={lines} />
+    </section>
+  );
+}
+
+interface Segment {
+  key: string;
+  cents: number;
+  color: string;
+}
+
+function profitSegments(profit: number, lines: readonly BreakdownLine[]): Segment[] {
+  return [
+    ...lines
+      .filter((line) => line.cents < 0)
+      .map((line) => ({ key: line.label, cents: -line.cents, color: line.color })),
+    { key: "Lucro", cents: Math.max(profit, 0), color: "bg-brand" },
+  ].filter((segment) => segment.cents > 0);
+}
+
+function ProfitHeadline({ revenue, profit }: { revenue: number; profit: number }) {
+  const isLoss = profit < 0;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className={cn("text-sm font-medium", isLoss ? "text-destructive" : "text-brand-text")}>
+          {isLoss ? "Prejuízo no período" : "Lucro líquido"}
+          <span className="sr-only">: {formatCents(profit)}</span>
         </p>
-        <MoneyFigure
-          cents={summary.profitCents}
-          className={cn("text-[52px] leading-none", summary.profitCents < 0 && "text-destructive")}
-        />
-        <p className="text-sm text-muted-foreground">
+        {revenue > 0 ? (
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums",
+              isLoss ? "bg-destructive/10 text-destructive" : "bg-brand/10 text-brand-text",
+            )}
+          >
+            {marginFormat.format(profit / revenue)} de margem
+          </span>
+        ) : null}
+      </div>
+      <MoneyFigure
+        cents={profit}
+        withCents
+        className={cn("text-[52px] leading-none", isLoss && "text-destructive")}
+      />
+    </div>
+  );
+}
+
+function ProfitComposition({
+  revenue,
+  profit,
+  segments,
+}: {
+  revenue: number;
+  profit: number;
+  segments: readonly Segment[];
+}) {
+  const total = segments.reduce((sum, segment) => sum + segment.cents, 0);
+  if (total === 0) {
+    return null;
+  }
+  const keptPerReal = revenue > 0 ? Math.max(profit, 0) / revenue : 0;
+  return (
+    <div className="space-y-2.5">
+      <div aria-hidden="true" className="flex h-2 gap-0.5 overflow-hidden rounded-full">
+        {segments.map((segment) => (
+          <span
+            key={segment.key}
+            className={cn("h-full", segment.color)}
+            style={{ width: `${(segment.cents / total) * 100}%` }}
+          />
+        ))}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {profit < 0 ? (
+          <>As saídas superaram a receita em {formatCents(-profit)}.</>
+        ) : (
+          <>
+            De cada R$ 1,00 vendido,{" "}
+            <span className="font-medium text-foreground tabular-nums">
+              {formatCents(Math.round(keptPerReal * 100))}
+            </span>{" "}
+            ficaram com você.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function ProfitCard({
+  summary,
+  lines,
+}: {
+  summary: SalesSummary;
+  lines: readonly BreakdownLine[];
+}) {
+  const revenue = summary.revenueCents;
+  const profit = summary.profitCents;
+  return (
+    <div
+      className={cn(
+        "surface-card flex flex-col gap-6 rounded-3xl p-6",
+        profit < 0 ? "bg-card" : "bg-brand/[0.045] ring-1 ring-brand/15 ring-inset",
+      )}
+    >
+      <ProfitHeadline revenue={revenue} profit={profit} />
+      <ProfitComposition
+        revenue={revenue}
+        profit={profit}
+        segments={profitSegments(profit, lines)}
+      />
+      <div className="mt-auto space-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
+        <p>
           {summary.orders} {summary.orders === 1 ? "pedido válido" : "pedidos válidos"}
           {summary.cancelledOrders > 0
             ? ` · ${summary.cancelledOrders} cancelados ou devolvidos`
             : ""}
         </p>
+        {summary.returnCents > 0 ? (
+          <p title="Pedidos devolvidos não entram na receita nem no lucro">
+            {formatCents(summary.returnCents)} em devoluções, já fora da receita
+          </p>
+        ) : null}
       </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-3xl bg-card p-6 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <div key={stat.label} className="space-y-1">
-            <dt className="text-xs text-muted-foreground">{stat.label}</dt>
-            <dd className="text-xl font-semibold tracking-[-0.02em] tabular-nums">
-              {formatCents(stat.cents)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+    </div>
+  );
+}
+
+function BreakdownList({
+  summary,
+  lines,
+}: {
+  summary: SalesSummary;
+  lines: readonly BreakdownLine[];
+}) {
+  const revenue = summary.revenueCents;
+  const isLoss = summary.profitCents < 0;
+  return (
+    <dl className="surface-card flex flex-col justify-between gap-4 rounded-3xl bg-card p-6">
+      <BreakdownRow
+        label="Receita"
+        value={formatCents(revenue)}
+        ratio={revenue > 0 ? 1 : 0}
+        color="bg-foreground/55"
+        emphasis
+      />
+      {lines.map((line) => {
+        const ratio = revenue > 0 ? Math.abs(line.cents) / revenue : 0;
+        return (
+          <BreakdownRow
+            key={line.label}
+            label={line.label}
+            value={signedCents(line.cents)}
+            share={revenue > 0 ? shareLabel(ratio) : undefined}
+            ratio={ratio}
+            color={line.color}
+          />
+        );
+      })}
+      <div className="flex items-baseline justify-between gap-4 border-t border-border pt-4">
+        <dt className={cn("text-sm font-medium", isLoss ? "text-destructive" : "text-brand-text")}>
+          {isLoss ? "Prejuízo" : "Lucro líquido"}
+        </dt>
+        <dd
+          className={cn(
+            "text-lg font-semibold tracking-tight tabular-nums",
+            isLoss ? "text-destructive" : "text-brand-text",
+          )}
+        >
+          {formatCents(summary.profitCents)}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function BreakdownRow({
+  label,
+  value,
+  share,
+  ratio,
+  color,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  share?: string | undefined;
+  ratio: number;
+  color: string;
+  emphasis?: boolean;
+}) {
+  return (
+    // A group inside a <dl> may only hold <dt> and <dd>: the bar is a hidden grid cell, not a wrapper.
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-2 text-sm">
+      <dt
+        className={cn(
+          "flex min-w-0 items-center gap-2",
+          emphasis ? "font-medium" : "text-muted-foreground",
+        )}
+      >
+        {emphasis ? null : (
+          <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", color)} />
+        )}
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="shrink-0 font-semibold tracking-tight tabular-nums">
+        {value}
+        {share ? (
+          <span className="ml-2 inline-block w-9 text-right text-xs font-normal text-muted-foreground">
+            {share}
+          </span>
+        ) : null}
+      </dd>
+      <span aria-hidden="true" className="col-span-2 block h-1 rounded-full bg-muted">
+        <span
+          className={cn("block h-full rounded-full", color)}
+          style={{ width: `${Math.min(Math.max(ratio * 100, ratio > 0 ? 1.5 : 0), 100)}%` }}
+        />
+      </span>
+    </div>
   );
 }
 
 function OrderFilters() {
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
-
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    updateSearch({ query: nextQuery });
-  }, [debouncedTerm, search.query, updateSearch]);
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) => updateSearch({ query }),
+  });
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
@@ -391,7 +636,9 @@ function OrderFilters() {
         }
       >
         <SelectTrigger className="sm:w-56" aria-label="Filtrar por status do pedido">
-          <SelectValue />
+          <SelectValue>
+            {search.status ? ORDER_STATUS_LABELS[search.status] : "Todos os status"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
@@ -412,7 +659,7 @@ function FinancialEmptyState({ hasFilters }: { hasFilters: boolean }) {
       <EmptyState
         icon={MagnifyingGlassIcon}
         title="Nenhum pedido encontrado"
-        description="Nenhum pedido corresponde à busca ou ao status escolhido neste período."
+        description="Tente outra busca, outro status ou outro período."
       />
     );
   }

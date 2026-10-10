@@ -2,6 +2,7 @@ import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared
 import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
+import { containsPattern } from "./search-pattern.ts";
 
 /**
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
@@ -364,7 +365,7 @@ function financialConditions(filters: FinancialFilters): SQL[] {
     conditions.push(sql`o.status = ${filters.status}`);
   }
   if (filters.search) {
-    const term = `%${filters.search.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+    const term = containsPattern(filters.search);
     conditions.push(
       sql`(o.external_order_id ilike ${term} or coalesce(o.buyer_name, '') ilike ${term}
         or exists (select 1 from order_items si where si.order_id = o.id and si.title ilike ${term}))`,

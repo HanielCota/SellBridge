@@ -21,7 +21,7 @@ import {
   adminSetCustomerBan,
   adminSetCustomerRole,
 } from "@/features/admin/customers.functions";
-import { AdminSection } from "./admin-section";
+import { SectionCard } from "@/components/layout/section-card";
 import { useAdminAction } from "./use-admin-action";
 
 interface AccessProps {
@@ -57,6 +57,7 @@ function RoleSelect({ userId, role, isSelf }: Pick<AccessProps, "userId" | "role
     (next: CustomerRole) => adminSetCustomerRole({ data: { userId, role: next } }),
     "Papel atualizado",
   );
+  const knownRole = CUSTOMER_ROLES.find((option) => option === role);
   return (
     <Select
       value={role}
@@ -69,7 +70,7 @@ function RoleSelect({ userId, role, isSelf }: Pick<AccessProps, "userId" | "role
       }}
     >
       <SelectTrigger aria-label="Papel do cliente" className="w-44">
-        <SelectValue />
+        <SelectValue>{knownRole ? CUSTOMER_ROLE_LABELS[knownRole] : role}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {CUSTOMER_ROLES.map((option) => (
@@ -191,7 +192,7 @@ function PasswordResetButton({ userId }: { userId: string }) {
 
 export function CustomerAccess({ userId, role, banned, banReason, isSelf }: AccessProps) {
   return (
-    <AdminSection
+    <SectionCard
       title="Acesso"
       description={
         isSelf
@@ -225,6 +226,6 @@ export function CustomerAccess({ userId, role, banned, banReason, isSelf }: Acce
           action={<PasswordResetButton userId={userId} />}
         />
       </div>
-    </AdminSection>
+    </SectionCard>
   );
 }

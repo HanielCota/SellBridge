@@ -30,6 +30,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
+import { containsPattern } from "./search-pattern.ts";
 
 /** A supplier is visible when it covers the whole state or the tenant's city. */
 function coversRegion(region: Pick<TenantRegion, "state" | "city">): SQL {
@@ -43,10 +44,6 @@ function coversRegion(region: Pick<TenantRegion, "state" | "city">): SQL {
       ),
     )})`,
   );
-}
-
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 export interface SupplierSummary {
@@ -75,7 +72,7 @@ export async function listSuppliersForRegion(
     conditions.push(eq(suppliers.niche, filters.niche));
   }
   if (filters.search) {
-    conditions.push(ilike(suppliers.name, `%${escapeLike(filters.search)}%`));
+    conditions.push(ilike(suppliers.name, containsPattern(filters.search)));
   }
   const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
     eq(supplierProducts.supplierId, suppliers.id),
@@ -172,7 +169,7 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
     eq(supplierProducts.active, true),
   ];
   if (filters.search) {
-    const term = `%${escapeLike(filters.search)}%`;
+    const term = containsPattern(filters.search);
     const searchCondition = or(
       ilike(supplierProducts.title, term),
       ilike(supplierProducts.sku, term),
@@ -322,7 +319,7 @@ function regionCatalogConditions(
     coversRegion(region),
   ];
   if (filters.search) {
-    const term = `%${escapeLike(filters.search)}%`;
+    const term = containsPattern(filters.search);
     const searchCondition = or(
       ilike(supplierProducts.title, term),
       ilike(supplierProducts.sku, term),

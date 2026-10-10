@@ -4,7 +4,6 @@ import { customersSearchSchema, type CustomersSearch } from "@sellbridge/shared/
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MagnifyingGlassIcon, UsersThreeIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -17,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { adminListCustomers } from "@/features/admin/customers.functions";
 import { customersQueryOptions } from "@/features/admin/customers.queries";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -121,19 +120,11 @@ function MobileCustomerRow({ row }: { row: CustomerSummary }) {
 
 function useSearchTerm(search: CustomersSearch) {
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    void navigate({
-      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
-      replace: true,
-    });
-  }, [debouncedTerm, navigate, search.query]);
-  return { term, setTerm };
+  return useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) =>
+      void navigate({ search: (previous) => ({ ...previous, query, page: 1 }), replace: true }),
+  });
 }
 
 function CustomersPage() {
@@ -178,7 +169,7 @@ function CustomersTable({
   onPageChange: (page: number) => void;
 }) {
   if (query.isPending) {
-    return <Skeleton className="h-64 rounded-xl" aria-label="Carregando clientes" />;
+    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando clientes" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -204,7 +195,7 @@ function CustomersTable({
           page={query.data.page}
           totalPages={query.data.totalPages}
           total={query.data.total}
-          itemLabel="clientes"
+          itemLabel={{ one: "cliente", other: "clientes" }}
           onPageChange={onPageChange}
         />
       }

@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { initials } from "./user-menu";
 

@@ -50,7 +50,7 @@ function useOAuthResultToast() {
     }
     shownKey.current = key;
     if (search.conectada) {
-      toast.success(`Loja "${search.conectada}" conectada com sucesso`);
+      toast.success(`Loja "${search.conectada}" conectada`);
     }
     if (search.erro) {
       toast.error(search.erro);
@@ -85,34 +85,31 @@ function StoresPage() {
 }
 
 const ONBOARDING_STEPS = [
-  { title: "Conecte", text: "Autorize o SellBridge na sua conta do marketplace." },
-  { title: "Publique", text: "Escolha produtos dos fornecedores e envie para a loja." },
-  { title: "Venda", text: "Pedidos, estoque e preço sincronizam sozinhos." },
+  "Autorize o SellBridge na sua conta do marketplace.",
+  "Escolha produtos dos fornecedores e publique na loja.",
+  "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
 ] as const;
 
 function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
   return (
     <section
       aria-labelledby="first-store"
-      className="grid gap-8 rounded-3xl bg-card p-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:p-8"
+      className="surface-card grid gap-8 rounded-3xl bg-card p-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:p-8"
     >
       <div className="space-y-6">
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Nenhuma loja conectada</p>
-          <h2 id="first-store" className="text-3xl leading-tight font-semibold tracking-[-0.03em]">
+          <h2 id="first-store" className="text-3xl leading-tight font-semibold tracking-tight">
             Conecte sua primeira loja
           </h2>
         </div>
         <ol className="space-y-4">
           {ONBOARDING_STEPS.map((step, index) => (
-            <li key={step.title} className="flex gap-3">
+            <li key={step} className="flex gap-3">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand-text">
                 {index + 1}
               </span>
-              <p className="text-sm">
-                <span className="font-medium">{step.title}.</span>{" "}
-                <span className="text-muted-foreground">{step.text}</span>
-              </p>
+              <p className="pt-1 text-sm text-muted-foreground">{step}</p>
             </li>
           ))}
         </ol>
@@ -163,7 +160,7 @@ function StoresContent() {
         aria-labelledby="add-store"
         className="scroll-mt-28 space-y-4 pt-4 lg:w-[calc(50%-0.5rem)]"
       >
-        <h2 id="add-store" className="text-lg font-semibold tracking-[-0.02em]">
+        <h2 id="add-store" className="text-lg font-semibold tracking-tight">
           Adicionar loja
         </h2>
         <AddStore marketplaces={marketplaces} />

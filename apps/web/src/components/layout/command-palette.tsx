@@ -88,7 +88,7 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-sm data-[selected=true]:bg-muted"
+      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm data-[selected=true]:bg-muted"
     >
       <ItemIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">{title}</span>
@@ -173,7 +173,7 @@ function SearchButton({ onClick }: { onClick: () => void }) {
     >
       <MagnifyingGlassIcon className="size-5 2xl:size-4" aria-hidden="true" />
       <span className="hidden 2xl:inline">Buscar</span>
-      <kbd className="hidden rounded-md bg-muted px-1.5 py-0.5 font-sans text-[11px] 2xl:inline">
+      <kbd className="hidden rounded-md bg-muted px-1.5 py-0.5 font-sans text-caption 2xl:inline">
         Ctrl K
       </kbd>
     </button>
@@ -197,10 +197,10 @@ export function CommandPalette() {
       <SearchButton onClick={() => setOpen(true)} />
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
           <Dialog.Content
             aria-describedby={undefined}
-            className="fixed top-[12svh] left-1/2 z-50 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-3xl bg-popover text-popover-foreground shadow-2xl shadow-black/50 ring-1 ring-border"
+            className="fixed top-[12svh] left-1/2 z-50 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-xl shadow-black/20 ring-1 ring-border"
           >
             <Dialog.Title className="sr-only">Buscar no SellBridge</Dialog.Title>
             <Command shouldFilter={false} loop>
@@ -210,7 +210,7 @@ export function CommandPalette() {
                   value={term}
                   onValueChange={setTerm}
                   placeholder="Buscar produtos, publicações, pedidos ou páginas"
-                  className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+                  className="h-14 flex-1 bg-transparent text-subhead outline-none placeholder:text-muted-foreground"
                 />
               </div>
               <Command.List className="max-h-[min(26rem,60svh)] overflow-y-auto p-2">

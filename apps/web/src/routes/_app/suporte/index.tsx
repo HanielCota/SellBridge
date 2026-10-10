@@ -77,20 +77,18 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
   );
 }
 
-function SupportHeader({ showNewTicket = true }: { showNewTicket?: boolean }) {
+function SupportHeader() {
   return (
     <PageHeader
       title="Suporte"
       description="Abra chamados e acompanhe as respostas da nossa equipe."
       actions={
-        showNewTicket ? (
-          <Button asChild>
-            <Link to="/suporte/novo">
-              <PlusIcon aria-hidden="true" />
-              Novo chamado
-            </Link>
-          </Button>
-        ) : undefined
+        <Button asChild>
+          <Link to="/suporte/novo">
+            <PlusIcon aria-hidden="true" />
+            Novo chamado
+          </Link>
+        </Button>
       }
     />
   );
@@ -109,7 +107,7 @@ function StatusFilter({
       onValueChange={(value) => onStatusChange(TICKET_STATUSES.find((option) => option === value))}
     >
       <SelectTrigger className="w-full sm:w-56" aria-label="Filtrar chamados por status">
-        <SelectValue />
+        <SelectValue>{status ? TICKET_STATUS_LABELS[status] : "Todos os status"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
@@ -148,7 +146,7 @@ function NoTickets({
     <EmptyState
       icon={LifebuoyIcon}
       title="Você ainda não abriu chamados"
-      description="Precisa de ajuda com pedidos, lojas ou repasses? Abra um chamado e responderemos por aqui."
+      description="Abra um chamado sobre pedidos, lojas ou repasses. A resposta aparece aqui."
       action={
         <Button asChild>
           <Link to="/suporte/novo">Abrir chamado</Link>
@@ -181,7 +179,7 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
           page={tickets.page}
           totalPages={tickets.totalPages}
           total={tickets.total}
-          itemLabel="chamados"
+          itemLabel={{ one: "chamado", other: "chamados" }}
           onPageChange={onPageChange}
         />
       }
@@ -202,7 +200,7 @@ function SupportPage() {
     return (
       <>
         <SupportHeader />
-        <Skeleton className="h-64 rounded-xl" aria-label="Carregando chamados" />
+        <Skeleton className="h-64 rounded-3xl" aria-label="Carregando chamados" />
       </>
     );
   }

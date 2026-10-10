@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, sql, sum } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingTargets, orders } from "../schema/index.ts";
+import { daysBefore } from "./time-window.ts";
 
 const ACTIVITY_WINDOW_DAYS = 30;
 
@@ -42,7 +43,7 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
 }
 
 async function recentSales(database: Database, tenantId: string, storeIds: string[]) {
-  const since = new Date(Date.now() - ACTIVITY_WINDOW_DAYS * 86_400_000);
+  const since = daysBefore(ACTIVITY_WINDOW_DAYS);
   return database
     .select({
       storeId: orders.storeConnectionId,
@@ -75,20 +76,21 @@ export async function getStoreActivity(
     listingCounts(database, tenantId, ids),
     recentSales(database, tenantId, ids),
   ]);
-  const activity = new Map(ids.map((id) => [id, { ...EMPTY_STORE_ACTIVITY }]));
-  for (const row of listingRows) {
-    const entry = activity.get(row.storeId);
-    if (entry) {
-      entry.liveListings = row.live;
-      entry.failedListings = row.failed;
-    }
-  }
-  for (const row of salesRows) {
-    const entry = activity.get(row.storeId);
-    if (entry) {
-      entry.orders = row.orders;
-      entry.revenueCents = row.revenueCents;
-    }
-  }
-  return activity;
+  const listingsByStore = new Map(listingRows.map((row) => [row.storeId, row]));
+  const salesByStore = new Map(salesRows.map((row) => [row.storeId, row]));
+  return new Map(
+    ids.map((id): [string, StoreActivity] => {
+      const listingCount = listingsByStore.get(id);
+      const sales = salesByStore.get(id);
+      return [
+        id,
+        {
+          liveListings: listingCount?.live ?? EMPTY_STORE_ACTIVITY.liveListings,
+          failedListings: listingCount?.failed ?? EMPTY_STORE_ACTIVITY.failedListings,
+          orders: sales?.orders ?? EMPTY_STORE_ACTIVITY.orders,
+          revenueCents: sales?.revenueCents ?? EMPTY_STORE_ACTIVITY.revenueCents,
+        },
+      ];
+    }),
+  );
 }

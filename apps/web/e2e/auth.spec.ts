@@ -53,7 +53,7 @@ test("cadastro só marca erro depois que o campo é deixado e mostra a regra da 
   await expect(page.getByText("Informe seu nome")).toBeVisible();
   await expect(page.getByText("Informe um e-mail válido")).toBeHidden();
 
-  await expect(page.getByRole("link", { name: "Termos de Uso" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Termos de uso" })).toHaveAttribute(
     "href",
     "/termos",
   );
@@ -77,7 +77,7 @@ test("link de redefinição inválido oferece pedir um novo", async ({ page }) =
 
 test("termos e privacidade são páginas públicas", async ({ page }) => {
   await page.goto("/termos");
-  await expect(page.getByRole("heading", { name: "Termos de Uso" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Termos de uso" })).toBeVisible();
   await page.goto("/privacidade");
-  await expect(page.getByRole("heading", { name: "Política de Privacidade" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Política de privacidade" })).toBeVisible();
 });

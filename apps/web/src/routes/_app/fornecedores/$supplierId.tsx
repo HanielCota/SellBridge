@@ -8,7 +8,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, MagnifyingGlassIcon, PackageIcon } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -29,7 +29,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSupplierCatalog } from "@/features/suppliers/suppliers.functions";
 import { supplierCatalogQueryOptions } from "@/features/suppliers/suppliers.queries";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -125,16 +125,10 @@ function CatalogFilters({
 function CatalogSearchInput() {
   const search = Route.useSearch();
   const updateSearch = useCatalogSearchUpdate();
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
-
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    updateSearch({ query: nextQuery });
-  }, [debouncedTerm, search.query, updateSearch]);
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) => updateSearch({ query }),
+  });
 
   return (
     <div className="relative md:col-span-2 xl:col-span-1">
@@ -168,7 +162,10 @@ function CategorySelect({
       }
     >
       <SelectTrigger aria-label="Filtrar por categoria">
-        <SelectValue placeholder="Todas as categorias" />
+        <SelectValue>
+          {categories.find((category) => category.slug === search.category)?.name ??
+            "Todas as categorias"}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL_CATEGORIES}>Todas as categorias</SelectItem>
@@ -197,7 +194,7 @@ function SortSelect() {
       }}
     >
       <SelectTrigger aria-label="Ordenar produtos">
-        <SelectValue />
+        <SelectValue>{PRODUCT_SORT_LABELS[search.sort]}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {PRODUCT_SORTS.map((option) => (
@@ -291,7 +288,7 @@ function CatalogResults() {
       <EmptyState
         icon={PackageIcon}
         title="Nenhum produto encontrado"
-        description="Ajuste a busca ou os filtros para ver outros produtos deste fornecedor."
+        description="Ajuste a busca ou os filtros."
       />
     );
   }
@@ -309,7 +306,7 @@ function CatalogResults() {
         page={products.page}
         totalPages={products.totalPages}
         total={products.total}
-        itemLabel="produtos"
+        itemLabel={{ one: "produto", other: "produtos" }}
         onPageChange={(page) => void navigate({ search: { ...search, page } })}
       />
     </div>
@@ -321,7 +318,7 @@ type CatalogProduct = Awaited<ReturnType<typeof getSupplierCatalog>>["products"]
 function ProductCard({ product }: { readonly product: CatalogProduct }) {
   const isInStock = product.stock > 0;
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-3xl bg-card">
+    <article className="surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card">
       <ProductVisual
         imageUrl={product.imageUrl}
         title={product.title}
@@ -368,7 +365,7 @@ function ProductGridSkeleton() {
       aria-label="Carregando produtos"
     >
       {Array.from({ length: 8 }, (_, index) => (
-        <Skeleton key={index} className="aspect-[3/4] rounded-xl" />
+        <Skeleton key={index} className="aspect-[3/4] rounded-3xl" />
       ))}
     </div>
   );

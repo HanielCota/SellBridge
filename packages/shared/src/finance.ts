@@ -4,7 +4,7 @@ export type FinanceOrderStatus =
   "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
 
 /** Orders that do not generate revenue: cancelled before shipping or returned by the buyer. */
-export const NON_REVENUE_STATUSES: readonly FinanceOrderStatus[] = ["cancelled", "returned"];
+const NON_REVENUE_STATUSES: readonly FinanceOrderStatus[] = ["cancelled", "returned"];
 
 export interface OrderFinanceInput {
   status: FinanceOrderStatus;

@@ -8,7 +8,6 @@ import {
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MagnifyingGlassIcon, TrayIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -27,7 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { adminListTickets } from "@/features/support/support.functions";
 import { adminTicketsQueryOptions } from "@/features/support/support.queries";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -108,7 +107,7 @@ function TicketStatusFilter({
       onValueChange={(next) => onChange(TICKET_STATUSES.find((status) => status === next))}
     >
       <SelectTrigger className="sm:w-56" aria-label="Filtrar chamados por status">
-        <SelectValue />
+        <SelectValue>{value ? TICKET_STATUS_LABELS[value] : "Todos os status"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
@@ -126,23 +125,15 @@ function AdminTicketsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const query = useQuery(adminTicketsQueryOptions(search));
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
-
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    void navigate({
-      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
-      replace: true,
-    });
-  }, [debouncedTerm, navigate, search.query]);
 
   function updateSearch(patch: Partial<TicketsSearch>) {
     void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true });
   }
+
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (nextQuery) => updateSearch({ query: nextQuery }),
+  });
 
   return (
     <>
@@ -163,20 +154,26 @@ function AdminTicketsPage() {
         </div>
         <TicketStatusFilter value={search.status} onChange={(status) => updateSearch({ status })} />
       </div>
-      <AdminTicketsTable query={query} onPageChange={(page) => updateSearch({ page })} />
+      <AdminTicketsTable
+        query={query}
+        isFiltered={search.query !== undefined || search.status !== undefined}
+        onPageChange={(page) => updateSearch({ page })}
+      />
     </>
   );
 }
 
 function AdminTicketsTable({
   query,
+  isFiltered,
   onPageChange,
 }: {
   query: UseQueryResult<Awaited<ReturnType<typeof adminListTickets>>>;
+  isFiltered: boolean;
   onPageChange: (page: number) => void;
 }) {
   if (query.isPending) {
-    return <Skeleton className="h-64 rounded-xl" aria-label="Carregando chamados" />;
+    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando chamados" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -185,8 +182,12 @@ function AdminTicketsTable({
     return (
       <EmptyState
         icon={TrayIcon}
-        title="Nenhum chamado"
-        description="Nenhum chamado corresponde aos filtros."
+        title={isFiltered ? "Nenhum chamado encontrado" : "Nenhum chamado"}
+        description={
+          isFiltered
+            ? "Ajuste a busca ou o filtro de status."
+            : "Os chamados abertos pelos revendedores aparecem aqui."
+        }
       />
     );
   }
@@ -202,7 +203,7 @@ function AdminTicketsTable({
           page={query.data.page}
           totalPages={query.data.totalPages}
           total={query.data.total}
-          itemLabel="chamados"
+          itemLabel={{ one: "chamado", other: "chamados" }}
           onPageChange={onPageChange}
         />
       }

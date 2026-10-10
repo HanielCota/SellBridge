@@ -56,6 +56,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       period: {
         fromDate: period.fromDate,
         toDate: period.toDate,
+        previousFromDate: period.previousFromDate,
+        previousToDate: period.previousToDate,
         days: period.days,
         bucket: period.bucket,
       },

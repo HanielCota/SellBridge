@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { ArrowFatUpIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { type ComponentProps, type KeyboardEvent, type ReactNode, useState } from "react";
 import { firstErrorMessage } from "./form-field";
@@ -33,14 +33,14 @@ function FieldFootnote({
 }) {
   if (message) {
     return (
-      <p id={id} className="px-1 text-[13px] text-destructive">
+      <p id={id} className="px-1 text-footnote text-destructive">
         {message}
       </p>
     );
   }
   if (hint) {
     return (
-      <p id={id} className="px-1 text-[13px] text-muted-foreground">
+      <p id={id} className="px-1 text-footnote text-muted-foreground">
         {hint}
       </p>
     );
@@ -79,7 +79,7 @@ function FloatingInput({
           aria-invalid={isInvalid ? true : undefined}
           aria-describedby={message || hint ? footnoteId : undefined}
           className={cn(
-            "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-5 pb-1.5 text-[17px] tracking-[-0.01em] text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
+            "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-5 pb-1.5 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
             "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
             "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
             trailing ? "pr-12" : null,
@@ -89,7 +89,7 @@ function FloatingInput({
         />
         <label
           htmlFor={id}
-          className="pointer-events-none absolute top-1/2 left-4 origin-left -translate-y-1/2 text-[17px] text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none"
+          className="pointer-events-none absolute top-1/2 left-4 origin-left -translate-y-1/2 text-body text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none"
         >
           {label}
         </label>
@@ -122,7 +122,7 @@ function usePasswordFieldState() {
 
 function CapsLockNotice() {
   return (
-    <output className="flex items-center gap-1 px-1 text-[13px] text-muted-foreground">
+    <output className="flex items-center gap-1 px-1 text-footnote text-muted-foreground">
       <ArrowFatUpIcon className="size-4" aria-hidden="true" />
       Caps Lock está ativado
     </output>

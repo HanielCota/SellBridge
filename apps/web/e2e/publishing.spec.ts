@@ -1,6 +1,27 @@
 import { expect, test, type Page } from "@playwright/test";
 import { gotoHydrated, signUp, waitForHydration } from "./helpers";
 
+/** Worker round trip (queue + mocked marketplace latency) before a status settles. */
+const STATUS_TIMEOUT = 20_000;
+
+/**
+ * A store's chip in the listings table. "Publicado" is spelled out only for screen readers
+ * (the chip's dot shows it), so its text, not its visible label, carries the status.
+ */
+function storeChip(page: Page, storeName: string) {
+  return page
+    .getByRole("table", { name: "Publicações e status de envio" })
+    .getByRole("listitem")
+    .filter({ hasText: storeName });
+}
+
+/** A published listing links to the marketplace ad, named by store and status. */
+function publishedAdLink(page: Page, storeName: string) {
+  return page.getByRole("link", {
+    name: new RegExp(`^${storeName}\\s*\\(loja simulada\\)\\s*: Publicado$`),
+  });
+}
+
 async function onboardInBeloHorizonte(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
   await page.getByLabel("CEP").fill("30130010");
@@ -22,7 +43,7 @@ async function connectMockStore(page: Page, shopName: string) {
 
   await expect(page).toHaveURL(/\/lojas/);
   await expect(
-    page.getByText(`Loja "${shopName}" conectada com sucesso`).filter({ visible: true }),
+    page.getByText(`Loja "${shopName}" conectada`).filter({ visible: true }),
   ).toBeVisible();
   await expect(page.getByText(shopName, { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(
@@ -54,11 +75,11 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   await expect(
     page.getByText("Produto publicado pelo teste E2E").filter({ visible: true }),
   ).toBeVisible();
-  await expect(page.getByText("Publicado", { exact: true }).filter({ visible: true })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByRole("link", { name: "Ver anúncio em Loja E2E" })).toBeVisible();
-  await expect(page.getByText("Simulada", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(publishedAdLink(page, "Loja E2E")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await expect(publishedAdLink(page, "Loja E2E")).toHaveAttribute(
+    "href",
+    /\/oauth\/mock\/anuncio\//,
+  );
   await expect(page.getByText(/^margem de \d+%$/).filter({ visible: true })).toBeVisible();
 });
 
@@ -69,9 +90,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await openPublishFormForFirstProduct(page);
   await page.getByLabel("Título").fill("Produto com ações");
   await page.getByRole("button", { name: "Publicar" }).click();
-  await expect(page.getByText("Publicado", { exact: true }).filter({ visible: true })).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(publishedAdLink(page, "Loja Ações")).toBeVisible({ timeout: STATUS_TIMEOUT });
 
   await page.getByRole("button", { name: "Ações de Produto com ações" }).click();
   await page.getByRole("menuitem", { name: "Editar preço" }).click();
@@ -89,7 +108,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await page.getByRole("button", { name: "Ações de Produto com ações" }).click();
   await page.getByRole("menuitem", { name: "Pausar" }).click();
   await expect(page.getByText("Pausado em 1 loja").filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("Pausado", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(storeChip(page, "Loja Ações")).toContainText("Pausado");
 
   await page.getByRole("checkbox", { name: "Selecionar Produto com ações" }).click();
   await page
@@ -97,9 +116,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
     .getByRole("button", { name: "Reativar" })
     .click();
   await expect(page.getByText("Reativado em 1 loja").filter({ visible: true })).toBeVisible();
-  await expect(
-    page.getByText("Publicado", { exact: true }).filter({ visible: true }),
-  ).toBeVisible();
+  await expect(publishedAdLink(page, "Loja Ações")).toBeVisible();
   await expect(page.getByRole("region", { name: "Ações em lote" })).toHaveCount(0);
 });
 
@@ -113,8 +130,8 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await page.getByRole("button", { name: "Publicar" }).click();
 
   await expect(page).toHaveURL(/\/publicacoes/);
-  await expect(page.getByText("Erro", { exact: true }).filter({ visible: true })).toBeVisible({
-    timeout: 20_000,
+  await expect(storeChip(page, "Loja Recusa")).toContainText("· Erro", {
+    timeout: STATUS_TIMEOUT,
   });
   await expect(
     page
@@ -126,8 +143,8 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await expect(
     page.getByText("Publicação reenviada para a fila").filter({ visible: true }),
   ).toBeVisible();
-  await expect(page.getByText("Erro", { exact: true }).filter({ visible: true })).toBeVisible({
-    timeout: 20_000,
+  await expect(storeChip(page, "Loja Recusa")).toContainText("· Erro", {
+    timeout: STATUS_TIMEOUT,
   });
 });
 
@@ -202,11 +219,7 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await expect(
     page.getByText("2 produtos enviados para publicação").filter({ visible: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Publicado", { exact: true }).filter({ visible: true }).first(),
-  ).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(publishedAdLink(page, "Loja Lote")).toHaveCount(2, { timeout: STATUS_TIMEOUT });
 
   await gotoHydrated(page, "/catalogo");
   await expect(page.getByText("Publicado", { exact: true }).filter({ visible: true })).toHaveCount(

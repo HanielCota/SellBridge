@@ -10,3 +10,13 @@ export async function readJsonBody(response: Response): Promise<unknown> {
     return null;
   }
 }
+
+/** Same contract as `readJsonBody`, for text already in hand. */
+export function parseJsonText(text: string): unknown {
+  try {
+    const value: unknown = JSON.parse(text);
+    return value;
+  } catch {
+    return null;
+  }
+}

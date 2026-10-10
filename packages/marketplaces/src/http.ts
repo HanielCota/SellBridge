@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "./errors.ts";
 
@@ -21,8 +22,8 @@ const DEFAULT_RETRY: RetryOptions = {
 
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-function defaultSleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+async function defaultSleep(milliseconds: number): Promise<void> {
+  await delay(milliseconds);
 }
 
 /** Exponential backoff with full jitter, capped at maxDelayMilliseconds. */
@@ -106,6 +107,11 @@ export async function fetchWithRetry(
   }
 }
 
+interface TokenBucket {
+  readonly tokens: number;
+  readonly updatedAt: number;
+}
+
 /**
  * Token bucket limiter keyed by store/app, so bursts respect marketplace quotas.
  * In-process only: each worker instance enforces its own share of the quota.
@@ -118,10 +124,10 @@ export function createRateLimiter(options: {
 }) {
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? defaultSleep;
-  const buckets = new Map<string, { tokens: number; updatedAt: number }>();
+  const buckets = new Map<string, TokenBucket>();
   const refillPerMilliseconds = options.tokensPerInterval / options.intervalMilliseconds;
 
-  function refill(key: string) {
+  function refill(key: string): TokenBucket {
     const current = now();
     const bucket = buckets.get(key) ?? { tokens: options.tokensPerInterval, updatedAt: current };
     const elapsed = current - bucket.updatedAt;
@@ -129,7 +135,7 @@ export function createRateLimiter(options: {
       options.tokensPerInterval,
       bucket.tokens + elapsed * refillPerMilliseconds,
     );
-    const updated = { tokens, updatedAt: current };
+    const updated: TokenBucket = { tokens, updatedAt: current };
     buckets.set(key, updated);
     return updated;
   }
@@ -137,7 +143,7 @@ export function createRateLimiter(options: {
   async function acquire(key: string): Promise<void> {
     const bucket = refill(key);
     if (bucket.tokens >= 1) {
-      bucket.tokens -= 1;
+      buckets.set(key, { ...bucket, tokens: bucket.tokens - 1 });
       return;
     }
     const waitMilliseconds = Math.ceil((1 - bucket.tokens) / refillPerMilliseconds);

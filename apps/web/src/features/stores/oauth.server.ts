@@ -44,7 +44,7 @@ async function tenantOrLogin(request: Request) {
   }
 }
 
-/** GET /api/oauth/:marketplace/start — creates a one-time state and redirects to the consent page. */
+/** GET /api/oauth/:marketplace/start: creates a one-time state and redirects to the consent page. */
 export async function handleOAuthStart(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
   if (!session) {
@@ -81,7 +81,7 @@ const callbackQuerySchema = z.union([
   z.object({ error: z.string().min(1), state: z.string().optional() }),
 ]);
 
-/** GET /api/oauth/:marketplace/callback — validates state, exchanges the code and stores encrypted tokens. */
+/** GET /api/oauth/:marketplace/callback: validates state, exchanges the code and stores encrypted tokens. */
 export async function handleOAuthCallback(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
   if (!session) {

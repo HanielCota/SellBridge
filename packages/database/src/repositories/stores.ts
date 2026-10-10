@@ -42,20 +42,6 @@ export async function listStoreConnections(
     .orderBy(asc(storeConnections.connectedAt));
 }
 
-export async function getStoreConnection(
-  database: Database,
-  tenantId: string,
-  storeConnectionId: string,
-): Promise<StoreConnectionRow> {
-  const row = await database.query.storeConnections.findFirst({
-    where: and(eq(storeConnections.tenantId, tenantId), eq(storeConnections.id, storeConnectionId)),
-  });
-  if (!row) {
-    throw notFoundError("Loja não encontrada");
-  }
-  return row;
-}
-
 /** Returns only the requested stores that belong to the tenant and are connected. */
 export async function findConnectedStores(
   database: Database,
@@ -187,7 +173,7 @@ export async function createOAuthState(
 
 /**
  * Consumes (deletes) an OAuth state. Returns null when it does not exist, is expired,
- * belongs to another tenant or another marketplace — protecting the callback from CSRF and replay.
+ * belongs to another tenant or another marketplace, which protects the callback from CSRF and replay.
  */
 export async function consumeOAuthState(
   database: Database,

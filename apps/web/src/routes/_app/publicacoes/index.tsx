@@ -9,8 +9,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MagnifyingGlassIcon, MegaphoneIcon } from "@phosphor-icons/react";
-import { cn } from "cn";
-import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -33,7 +33,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { listingsQueryOptions } from "@/features/listings/listings.queries";
 import { estimateProfit } from "@/features/listings/profit";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
@@ -54,15 +54,17 @@ export const Route = createFileRoute("/_app/publicacoes/")({
 const columnHelper = createServerColumnHelper<ListingOverviewRow>();
 
 function PriceCell({ row }: { row: ListingOverviewRow }) {
-  const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent ?? null;
+  const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent;
   return (
-    <div className="text-right whitespace-nowrap tabular-nums">
-      <p className="font-medium">{formatCents(row.priceCents)}</p>
-      {margin === null ? null : (
+    <div className="space-y-0.5 text-right whitespace-nowrap tabular-nums">
+      <p className="text-subhead font-semibold">{formatCents(row.priceCents)}</p>
+      {margin === undefined ? null : (
         <p
           className={cn(
             "text-xs",
-            margin < THIN_MARGIN_PERCENT ? "text-amber-500" : "text-muted-foreground",
+            margin < THIN_MARGIN_PERCENT
+              ? "text-amber-700 dark:text-amber-500"
+              : "text-muted-foreground",
           )}
           title="Estimativa com o custo do fornecedor e a taxa média do marketplace"
         >
@@ -76,15 +78,19 @@ function PriceCell({ row }: { row: ListingOverviewRow }) {
 function StockCell({ stock }: { stock: number }) {
   if (stock <= 0) {
     return (
-      <p className="text-right text-sm font-medium whitespace-nowrap text-destructive">
-        Sem estoque
+      <p className="text-right whitespace-nowrap">
+        <span className="inline-flex h-7 items-center rounded-full bg-destructive/10 px-3 text-footnote font-medium text-destructive">
+          Sem estoque
+        </span>
       </p>
     );
   }
   return (
-    <div className="text-right tabular-nums">
-      <p>{stock.toLocaleString("pt-BR")}</p>
-      {stock <= LOW_STOCK ? <p className="text-xs text-amber-500">baixo</p> : null}
+    <div className="space-y-0.5 text-right tabular-nums">
+      <p className="text-subhead font-medium">{stock.toLocaleString("pt-BR")}</p>
+      {stock <= LOW_STOCK ? (
+        <p className="text-xs text-amber-700 dark:text-amber-500">estoque baixo</p>
+      ) : null}
     </div>
   );
 }
@@ -140,7 +146,6 @@ function selectionColumn(selection: Selection) {
           aria-label={`Selecionar ${row.title}`}
           checked={selection.ids.has(row.listingId)}
           onCheckedChange={(checked) => selection.toggle(row.listingId, checked === true)}
-          className="mt-3.5"
         />
       );
     },
@@ -153,11 +158,15 @@ function productColumn() {
     cell: (info) => {
       const row = info.row.original;
       return (
-        <div className="flex min-w-56 items-center gap-3">
+        <div className="flex min-w-72 items-center gap-4">
           <ListingThumb imageUrl={row.imageUrl} categorySlug={row.categorySlug} />
-          <div className="min-w-0 space-y-0.5">
-            <p className="font-medium">{info.getValue()}</p>
-            <p className="text-xs text-muted-foreground">SKU {row.sku}</p>
+          <div className="min-w-0 space-y-1">
+            <p className="text-subhead leading-snug font-medium whitespace-normal">
+              {info.getValue()}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              SKU {row.sku} · <UpdatedAt date={row.updatedAt} />
+            </p>
           </div>
         </div>
       );
@@ -165,21 +174,13 @@ function productColumn() {
   });
 }
 
-function updatedColumn() {
-  return columnHelper.accessor("updatedAt", {
-    header: "Atualizado",
-    cell: (info) => (
-      // Relative time depends on "now", so server and browser may differ by a minute.
-      <time
-        dateTime={info.getValue().toISOString()}
-        title={formatAbsoluteTime(info.getValue())}
-        className="text-sm whitespace-nowrap text-muted-foreground"
-        suppressHydrationWarning
-      >
-        {formatRelativeTime(info.getValue())}
-      </time>
-    ),
-  });
+function UpdatedAt({ date }: { date: Date }) {
+  // Relative time depends on "now", so server and browser may differ by a minute.
+  return (
+    <time dateTime={date.toISOString()} title={formatAbsoluteTime(date)} suppressHydrationWarning>
+      atualizado {formatRelativeTime(date)}
+    </time>
+  );
 }
 
 function buildColumns(selection: Selection) {
@@ -201,10 +202,11 @@ function buildColumns(selection: Selection) {
     columnHelper.accessor("unitsSold", {
       header: () => <RightHeader label="Vendas (30 dias)" />,
       cell: (info) => (
-        <p className="text-right tabular-nums">{info.getValue().toLocaleString("pt-BR")}</p>
+        <p className="text-right text-subhead font-medium tabular-nums">
+          {info.getValue().toLocaleString("pt-BR")}
+        </p>
       ),
     }),
-    updatedColumn(),
     columnHelper.display({
       id: "actions",
       header: () => <span className="sr-only">Ações</span>,
@@ -220,34 +222,52 @@ function pageSelectionState(selectedOnPage: number, pageSize: number): boolean |
   return selectedOnPage === pageSize ? true : "indeterminate";
 }
 
-function setChecked(next: Set<string>, id: string, checked: boolean) {
+function setChecked(
+  next: Map<string, ListingOverviewRow>,
+  row: ListingOverviewRow,
+  checked: boolean,
+) {
   if (checked) {
-    next.add(id);
+    next.set(row.listingId, row);
     return;
   }
-  next.delete(id);
+  next.delete(row.listingId);
 }
 
-function useSelection(pageIds: readonly string[]): Selection & { clear: () => void } {
-  const [ids, setIds] = useState<ReadonlySet<string>>(new Set());
-  function update(change: (next: Set<string>) => void) {
-    setIds((previous) => {
-      const next = new Set(previous);
+/** Keeps the selected rows (not just ids) so the bulk bar can tell which actions apply. */
+function useSelection(
+  pageRows: readonly ListingOverviewRow[],
+): Selection & { rows: ListingOverviewRow[]; clear: () => void } {
+  const [selected, setSelected] = useState<ReadonlyMap<string, ListingOverviewRow>>(new Map());
+  function update(change: (next: Map<string, ListingOverviewRow>) => void) {
+    setSelected((previous) => {
+      const next = new Map(previous);
       change(next);
       return next;
     });
   }
+  const pageById = new Map(pageRows.map((row) => [row.listingId, row]));
   return {
-    ids,
-    toggle: (id, checked) => update((next) => setChecked(next, id, checked)),
+    ids: new Set(selected.keys()),
+    // Prefer the fresh row from the current page so optimistic status changes show up.
+    rows: [...selected.values()].map((row) => pageById.get(row.listingId) ?? row),
+    toggle: (id, checked) => {
+      const row = pageById.get(id);
+      if (row) {
+        update((next) => setChecked(next, row, checked));
+      }
+    },
     togglePage: (checked) =>
       update((next) => {
-        for (const id of pageIds) {
-          setChecked(next, id, checked);
+        for (const row of pageRows) {
+          setChecked(next, row, checked);
         }
       }),
-    pageState: pageSelectionState(pageIds.filter((id) => ids.has(id)).length, pageIds.length),
-    clear: () => setIds(new Set()),
+    pageState: pageSelectionState(
+      pageRows.filter((row) => selected.has(row.listingId)).length,
+      pageRows.length,
+    ),
+    clear: () => setSelected(new Map()),
   };
 }
 
@@ -272,23 +292,15 @@ function ListingsPage() {
 function ListingsFilters() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.query ?? "");
-  const debouncedTerm = useDebouncedValue(term, 300);
 
   function updateSearch(patch: Partial<ListingsSearch>) {
     void navigate({ search: (previous) => ({ ...previous, ...patch, page: 1 }), replace: true });
   }
 
-  useEffect(() => {
-    const nextQuery = debouncedTerm.trim().length > 0 ? debouncedTerm.trim() : undefined;
-    if (nextQuery === search.query) {
-      return;
-    }
-    void navigate({
-      search: (previous) => ({ ...previous, query: nextQuery, page: 1 }),
-      replace: true,
-    });
-  }, [debouncedTerm, navigate, search.query]);
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) => updateSearch({ query }),
+  });
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
@@ -313,7 +325,9 @@ function ListingsFilters() {
         }}
       >
         <SelectTrigger className="sm:w-48" aria-label="Filtrar por status">
-          <SelectValue />
+          <SelectValue>
+            {search.status ? LISTING_STATUS_LABELS[search.status] : "Todos os status"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
@@ -339,7 +353,7 @@ function ListingsTable() {
   const query = useListingsQuery();
 
   if (query.isPending) {
-    return <Skeleton className="h-72 rounded-xl" aria-label="Carregando publicações" />;
+    return <Skeleton className="h-72 rounded-3xl" aria-label="Carregando publicações" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -371,8 +385,7 @@ function ListingsTable() {
 function ListingsDataTable({ data }: { data: ListingsPageData }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const pageIds = useMemo(() => data.items.map((row) => row.listingId), [data.items]);
-  const selection = useSelection(pageIds);
+  const selection = useSelection(data.items);
   return (
     <>
       <DataTable
@@ -386,12 +399,12 @@ function ListingsDataTable({ data }: { data: ListingsPageData }) {
             page={data.page}
             totalPages={data.totalPages}
             total={data.total}
-            itemLabel="produtos"
+            itemLabel={{ one: "produto", other: "produtos" }}
             onPageChange={(page) => void navigate({ search: { ...search, page } })}
           />
         }
       />
-      <BulkActionsBar listingIds={[...selection.ids]} onClear={selection.clear} />
+      <BulkActionsBar rows={selection.rows} onClear={selection.clear} />
     </>
   );
 }

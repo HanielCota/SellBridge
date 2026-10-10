@@ -2,6 +2,7 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { hasActiveTargets } from "./active-targets.ts";
 import { containsPattern } from "./search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
@@ -19,7 +20,7 @@ export interface CreatedListing {
   targetIds: string[];
 }
 
-export function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
+function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
   return `${listingId}:${storeConnectionId}`;
 }
 
@@ -114,18 +115,6 @@ function selectListingTargetRows(database: Database) {
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId));
 }
 
-function countActiveTargets(database: Database, tenantId: string) {
-  return database
-    .select({ total: count() })
-    .from(listingTargets)
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        sql`${listingTargets.status} in ('pending', 'publishing')`,
-      ),
-    );
-}
-
 export async function listListingTargets(
   database: Database,
   tenantId: string,
@@ -144,11 +133,11 @@ export async function listListingTargets(
       .from(listingTargets)
       .innerJoin(listings, eq(listings.id, listingTargets.listingId))
       .where(where),
-    countActiveTargets(database, tenantId),
+    hasActiveTargets(database, tenantId),
   ]);
   return {
     ...toPaginated(rows, totals.at(0)?.total ?? 0, pagination),
-    hasActive: (active.at(0)?.total ?? 0) > 0,
+    hasActive: active,
   };
 }
 
@@ -220,27 +209,6 @@ export async function markTargetFailed(
     .where(eq(listingTargets.id, listingTargetId));
 }
 
-/** Puts a failed publication back in the queue. Only targets in "error" can be retried. */
-export async function resetTargetForRetry(
-  database: Database,
-  tenantId: string,
-  listingTargetId: string,
-): Promise<void> {
-  const target = await database.query.listingTargets.findFirst({
-    where: and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)),
-  });
-  if (!target) {
-    throw notFoundError("Publicação não encontrada");
-  }
-  if (target.status !== "error") {
-    throw conflictError("Só é possível reprocessar publicações com erro");
-  }
-  await database
-    .update(listingTargets)
-    .set({ status: "pending", errorReason: null })
-    .where(eq(listingTargets.id, listingTargetId));
-}
-
 export interface TargetNeedingSync {
   targetId: string;
   externalId: string;
@@ -249,16 +217,16 @@ export interface TargetNeedingSync {
   store: typeof storeConnections.$inferSelect;
 }
 
-/**
- * Live listings whose stock or price differs from what was last sent to the marketplace
- * (all tenants; used by the worker sync job). Paused listings are held at zero stock.
- */
 /** Stock to show on the marketplace: zero while the reseller has the listing paused. */
 const liveStock =
   sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${supplierProducts.stock} end`.mapWith(
     Number,
   );
 
+/**
+ * Live listings whose stock or price differs from what was last sent to the marketplace
+ * (all tenants; used by the worker sync job).
+ */
 export async function findTargetsNeedingSync(
   database: Database,
   limit = 200,

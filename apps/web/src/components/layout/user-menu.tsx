@@ -8,6 +8,7 @@ import {
   SunIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -40,12 +41,15 @@ export function roleLabel(role: string): string {
 
 function useSignOut() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   return async function signOut() {
     const result = await authClient.signOut();
     if (result.error) {
       toast.error("Não foi possível sair. Tente novamente.");
       return;
     }
+    // Cached sessions and profile data belong to the user who just left.
+    queryClient.clear();
     await navigate({ to: "/login" });
   };
 }

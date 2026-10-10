@@ -5,7 +5,8 @@ interface PaginationBarProps {
   page: number;
   totalPages: number;
   total: number;
-  itemLabel: string;
+  /** Singular and plural, so a single result reads "1 pedido" and not "1 pedidos". */
+  itemLabel: { one: string; other: string };
   onPageChange: (page: number) => void;
 }
 
@@ -25,7 +26,7 @@ export function PaginationBar({
       className="flex flex-col items-center justify-between gap-3 text-sm sm:flex-row"
     >
       <p className="text-muted-foreground">
-        {total} {itemLabel} · página {page} de {totalPages}
+        {total} {total === 1 ? itemLabel.one : itemLabel.other} · página {page} de {totalPages}
       </p>
       <div className="flex gap-2">
         <Button

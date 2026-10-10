@@ -1,9 +1,11 @@
 import { schema } from "@sellbridge/database";
-import { MIN_PASSWORD_LENGTH } from "@sellbridge/shared/schemas";
+import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { z } from "zod";
 import { database } from "./database.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
@@ -21,6 +23,54 @@ function slugify(value: string): string {
 }
 
 const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
+
+/** Account-security routes an admin impersonating a customer must not reach. */
+const OWNER_ONLY_PATHS = new Set([
+  "/change-password",
+  "/set-password",
+  "/list-sessions",
+  "/revoke-session",
+  "/revoke-sessions",
+  "/revoke-other-sessions",
+]);
+
+const updateUserBodySchema = z.object({
+  name: nameSchema.optional(),
+  image: z.string().nullish(),
+});
+
+/**
+ * The profile page hides password and session controls while impersonating and
+ * validates the name in the browser; this enforces both on the server. A photo
+ * may only point at the user's own upload folder, so avatar.server.ts never
+ * deletes someone else's file.
+ */
+const guardAccountRoutes = createAuthMiddleware(async (context) => {
+  const isOwnerOnly = OWNER_ONLY_PATHS.has(context.path);
+  const isUpdateUser = context.path === "/update-user";
+  if (!isOwnerOnly && !isUpdateUser) {
+    return;
+  }
+  const session = await getSessionFromCtx(context);
+  if (!session) {
+    return;
+  }
+  if (isOwnerOnly && session.session.impersonatedBy) {
+    throw new APIError("FORBIDDEN", { message: "Indisponível durante o acesso como cliente" });
+  }
+  if (isUpdateUser) {
+    const parsed = updateUserBodySchema.safeParse(context.body);
+    if (!parsed.success) {
+      throw new APIError("BAD_REQUEST", {
+        message: parsed.error.issues[0]?.message ?? "Dados inválidos",
+      });
+    }
+    const { image } = parsed.data;
+    if (image && !image.startsWith(`/api/perfil/foto/${session.user.id}/`)) {
+      throw new APIError("BAD_REQUEST", { message: "Foto inválida" });
+    }
+  }
+});
 
 export const isGoogleSignInEnabled = Boolean(
   environment.GOOGLE_CLIENT_ID && environment.GOOGLE_CLIENT_SECRET,
@@ -66,6 +116,7 @@ export const auth = betterAuth({
     sendResetPassword: sendResetPasswordEmail,
   },
   socialProviders: googleProvider(),
+  hooks: { before: guardAccountRoutes },
   databaseHooks: {
     user: {
       create: {

@@ -2,18 +2,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listingTargets, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  listListingTargets,
-  markTargetFailed,
-  resetTargetForRetry,
-} from "./listings.ts";
+import { createListingWithTargets, listListingTargets } from "./listings.ts";
 import {
   consumeOAuthState,
   createOAuthState,
   disconnectStore,
   findConnectedStores,
-  getStoreConnection,
   listStoreConnections,
   upsertStoreConnection,
 } from "./stores.ts";
@@ -86,14 +80,12 @@ describe("store connections are tenant-scoped", () => {
     expect(storesOfA.map((store) => store.id)).toEqual([storeA]);
   });
 
-  it("does not load or disconnect another tenant's store", async () => {
-    await expect(getStoreConnection(database, tenantA, storeB)).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+  it("does not disconnect another tenant's store", async () => {
     await expect(disconnectStore(database, tenantA, storeB)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect((await getStoreConnection(database, tenantB, storeB)).status).toBe("connected");
+    const storesOfB = await listStoreConnections(database, tenantB);
+    expect(storesOfB.map((store) => store.status)).toEqual(["connected"]);
   });
 
   it("findConnectedStores ignores stores of other tenants", async () => {
@@ -191,36 +183,6 @@ describe("listings are tenant-scoped", () => {
     expect(ofA.hasActive).toBe(true);
     expect(ofB.items).toEqual([]);
     expect(ofB.hasActive).toBe(false);
-  });
-
-  it("only retries failed targets of the same tenant", async () => {
-    const created = await createListingWithTargets(
-      database,
-      tenantA,
-      {
-        supplierProductId: productId,
-        title: "Anúncio com erro",
-        description: "Descrição",
-        priceCents: 2500,
-      },
-      [storeA],
-    );
-    const [targetId] = created.targetIds;
-    if (!targetId) {
-      throw new Error("destino não criado");
-    }
-    await expect(resetTargetForRetry(database, tenantA, targetId)).rejects.toMatchObject({
-      code: "CONFLICT",
-    });
-    await markTargetFailed(database, targetId, "Falhou", { final: true });
-    await expect(resetTargetForRetry(database, tenantB, targetId)).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
-    await resetTargetForRetry(database, tenantA, targetId);
-    const row = await database.query.listingTargets.findFirst({
-      where: eq(listingTargets.id, targetId),
-    });
-    expect(row).toMatchObject({ status: "pending", errorReason: null });
   });
 
   it("requires at least one destination store", async () => {

@@ -2,7 +2,13 @@ import { z } from "zod";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
-export const nameSchema = z.string().trim().min(2, "Informe seu nome");
+export const MAX_NAME_LENGTH = 100;
+
+export const nameSchema = z
+  .string()
+  .trim()
+  .min(2, "Informe seu nome")
+  .max(MAX_NAME_LENGTH, `O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
 export const emailSchema = z.email("Informe um e-mail válido");
 export const newPasswordSchema = z
   .string()
