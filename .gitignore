@@ -14,3 +14,7 @@ test-results/
 .DS_Store
 uploads/
 .claude/
+
+# Local agent skills (installed per machine, like .claude/)
+.agents/
+skills-lock.json
