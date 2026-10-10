@@ -19,8 +19,8 @@ export function DashboardHeader({
 }) {
   return (
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-1.5">
-        <h1 className="text-[34px] leading-none font-semibold tracking-tight sm:text-[40px]">
+      <div className="space-y-2">
+        <h1 className="text-[44px] leading-none font-semibold tracking-tight text-balance sm:text-[56px]">
           Painel de vendas
         </h1>
         {caption ? <p className="text-sm text-muted-foreground">{caption}</p> : null}
@@ -66,10 +66,10 @@ function ProfitTrend({ current, previous }: { current: number; previous: number 
 }
 
 /**
- * The period's headline: profit with how it moved and the margin on the left, and the
- * plain-language reading of why on the right. Revenue and orders live in the tiles below.
+ * The period's reading on the left and the profit on the right, open on the page like the
+ * title above (no card). Revenue and orders live in the tiles below, so they are not repeated.
  */
-export function ProfitSpotlight({
+export function ProfitHighlight({
   current,
   previous,
   summary,
@@ -83,9 +83,10 @@ export function ProfitSpotlight({
   return (
     <section
       aria-label="Resumo do período"
-      className="surface-card grid gap-6 rounded-3xl bg-card p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-10 lg:p-8"
+      className="grid items-center gap-6 pb-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-16"
     >
-      <div className="space-y-4">
+      {summary}
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           {isLoss ? "Prejuízo no período" : "Lucro no período"}
           <span className="sr-only">: {formatCents(current.profitCents)}</span>
@@ -106,8 +107,6 @@ export function ProfitSpotlight({
           )}
         </div>
       </div>
-      {/* Divider only side by side; stacked, the gap already separates the two halves. */}
-      <div className="flex items-center lg:border-l lg:border-border/60 lg:pl-10">{summary}</div>
     </section>
   );
 }
