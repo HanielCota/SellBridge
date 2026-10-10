@@ -16,8 +16,9 @@ test.describe("dashboard", () => {
     }
     // Two meters, each with this period and the previous one.
     await expect(hero.getByRole("definition")).toHaveCount(4);
-    for (const label of ["Margem de lucro", "Ticket médio", "Cancelamentos"]) {
-      await expect(page.getByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute(
+    // Tiles beside the chart open the financial report.
+    for (const label of ["receita", "pedidos", "ticket médio"]) {
+      await expect(page.getByRole("link", { name: `Ver ${label} no financeiro` })).toHaveAttribute(
         "href",
         "/financeiro",
       );

@@ -134,13 +134,6 @@ export function trendOf(current: number | null, previous: number | null): Trend 
   };
 }
 
-/** Profit as a share of revenue (0–1), or null without revenue. */
-export function marginOf(
-  summary: Pick<SummaryFigures, "profitCents" | "revenueCents">,
-): number | null {
-  return summary.revenueCents > 0 ? summary.profitCents / summary.revenueCents : null;
-}
-
 export type RevenueStory =
   | { kind: "no-baseline" }
   | { kind: "flat" }

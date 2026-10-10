@@ -16,7 +16,7 @@ import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCompactRange } from "@/features/reports/dashboard-metrics";
+import { formatCompactRange, formatDateRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -44,14 +44,11 @@ function DashboardFilters({ data }: { data: DashboardData }) {
     void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
   }
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">Detalhes do período</h2>
-        <p className="text-sm text-muted-foreground">
-          {formatCompactRange(data.period.fromDate, data.period.toDate)}, comparado a{" "}
-          {formatCompactRange(data.period.previousFromDate, data.period.previousToDate)}
-        </p>
-      </div>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <p className="text-sm text-muted-foreground">
+        {formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os{" "}
+        {data.period.days} dias anteriores
+      </p>
       <PeriodFilters
         search={search}
         stores={data.stores}
@@ -127,22 +124,23 @@ function DashboardContent({ data }: { data: DashboardData }) {
         }
       />
       <DashboardFilters data={data} />
-      <div className="space-y-4">
-        <KpiTiles summary={summary} previous={previous} />
+      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <KpiTiles
+          caption={formatDateRange(data.period.fromDate, data.period.toDate)}
+          summary={summary}
+          previous={previous}
+          points={data.timeseries}
+        />
         <CashFlowChart
           points={data.timeseries}
           bucket={data.period.bucket}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
         />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <TopProducts products={data.topProducts} />
-          </div>
-          <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
-            <StoreBreakdown stores={data.byStore} />
-            <AttentionPanel stores={data.stores} />
-          </div>
-        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StoreBreakdown stores={data.byStore} />
+        <TopProducts products={data.topProducts} />
+        <AttentionPanel stores={data.stores} />
       </div>
     </>
   );
