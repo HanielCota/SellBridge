@@ -11,7 +11,9 @@ import {
   storeConnections,
   supplierProducts,
 } from "../schema/index.ts";
+import { hasActiveTargets } from "./active-targets.ts";
 import { containsPattern } from "./search-pattern.ts";
+import { daysBefore } from "./time-window.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -79,7 +81,7 @@ async function pageOfListingIds(
   return { ids: rows.map((row) => row.id), total: totals.at(0)?.total ?? 0 };
 }
 
-function selectListingDetails(database: Database, ids: string[]) {
+async function selectListingDetails(database: Database, ids: string[]) {
   return database
     .select({
       listingId: listings.id,
@@ -97,7 +99,7 @@ function selectListingDetails(database: Database, ids: string[]) {
     .where(inArray(listings.id, ids));
 }
 
-function selectStoreStatuses(database: Database, ids: string[]) {
+async function selectStoreStatuses(database: Database, ids: string[]) {
   return database
     .select({
       listingId: listingTargets.listingId,
@@ -117,8 +119,8 @@ function selectStoreStatuses(database: Database, ids: string[]) {
 }
 
 /** Units sold per listing in the last 30 days, ignoring cancelled and returned orders. */
-function selectUnitsSold(database: Database, ids: string[]) {
-  const since = new Date(Date.now() - SALES_WINDOW_DAYS * 86_400_000);
+async function selectUnitsSold(database: Database, ids: string[]) {
+  const since = daysBefore(SALES_WINDOW_DAYS);
   return database
     .select({
       listingId: listingTargets.listingId,
@@ -135,19 +137,6 @@ function selectUnitsSold(database: Database, ids: string[]) {
       ),
     )
     .groupBy(listingTargets.listingId);
-}
-
-async function hasActiveTargets(database: Database, tenantId: string): Promise<boolean> {
-  const [row] = await database
-    .select({ total: count() })
-    .from(listingTargets)
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        sql`${listingTargets.status} in ('pending', 'publishing')`,
-      ),
-    );
-  return (row?.total ?? 0) > 0;
 }
 
 async function loadOverviewRows(database: Database, ids: string[]): Promise<ListingOverviewRow[]> {

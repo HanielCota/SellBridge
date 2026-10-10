@@ -1,15 +1,18 @@
+import { parseEnvironment } from "@sellbridge/shared/environment";
 import { logger } from "@sellbridge/shared/logger";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { createDatabase } from "./client.ts";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL não definida");
-}
+const migrationEnvironmentSchema = z.object({ DATABASE_URL: z.string().min(1) });
 
-const database = createDatabase(databaseUrl, { maxConnections: 1 });
+const environment = parseEnvironment(migrationEnvironmentSchema, process.env);
+const database = createDatabase(environment.DATABASE_URL, { maxConnections: 1 });
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
-await migrate(database, { migrationsFolder });
-await database.$client.end();
-logger.info("database.migrations_applied");
+try {
+  await migrate(database, { migrationsFolder });
+  logger.info("database.migrations_applied");
+} finally {
+  await database.$client.end();
+}

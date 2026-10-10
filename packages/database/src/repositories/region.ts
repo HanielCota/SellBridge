@@ -15,10 +15,7 @@ export interface CachedCep {
 
 export async function findCachedCep(database: Database, cep: string): Promise<CachedCep | null> {
   const row = await database.query.cepCache.findFirst({ where: eq(cepCache.cep, cep) });
-  if (!row) {
-    return null;
-  }
-  return row;
+  return row ?? null;
 }
 
 export async function saveCachedCep(

@@ -1,3 +1,4 @@
+import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
@@ -14,18 +15,21 @@ export interface IncomingOrder {
 
 export type UpsertOrderResult = { status: "created" | "updated"; orderId: string };
 
+interface ResolvedListing {
+  listingTargetId: string;
+  supplierProductId: string;
+  costCents: number;
+}
+
 /** Maps marketplace listing ids of this store to our listing targets and supplier costs. */
 async function resolveListings(
   database: Database,
   tenantId: string,
   storeConnectionId: string,
   externalIds: string[],
-) {
+): Promise<Map<string, ResolvedListing>> {
   if (externalIds.length === 0) {
-    return new Map<
-      string,
-      { listingTargetId: string; supplierProductId: string; costCents: number }
-    >();
+    return new Map();
   }
   const rows = await database
     .select({
@@ -44,32 +48,21 @@ async function resolveListings(
         inArray(listingTargets.externalId, externalIds),
       ),
     );
-  const map = new Map<
-    string,
-    { listingTargetId: string; supplierProductId: string; costCents: number }
-  >();
-  for (const row of rows) {
-    if (row.externalId) {
-      map.set(row.externalId, row);
-    }
-  }
-  return map;
+  return new Map(
+    rows.flatMap(({ externalId, ...listing }): [string, ResolvedListing][] =>
+      externalId ? [[externalId, listing]] : [],
+    ),
+  );
 }
 
-/**
- * Idempotent upsert of a marketplace order: the first delivery creates it with its items,
- * later deliveries (status changes, retries) only update status, totals and fee.
- * Items whose listing is not ours are kept with zero cost so revenue is never lost.
- */
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-type ResolvedListings = Awaited<ReturnType<typeof resolveListings>>;
 
 interface OrderWrite {
   readonly transaction: Transaction;
   readonly tenantId: string;
   readonly storeConnectionId: string;
   readonly order: IncomingOrder;
-  readonly listingsByExternalId: ResolvedListings;
+  readonly listingsByExternalId: Map<string, ResolvedListing>;
 }
 
 async function updateExistingOrder(
@@ -77,7 +70,7 @@ async function updateExistingOrder(
   existing: typeof orders.$inferSelect,
 ): Promise<UpsertOrderResult> {
   if (existing.tenantId !== write.tenantId) {
-    throw new Error("Pedido pertence a outro tenant");
+    throw conflictError("Pedido pertence a outro tenant");
   }
   await write.transaction
     .update(orders)
@@ -127,7 +120,7 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     })
     .returning({ id: orders.id });
   if (!created) {
-    throw new Error("Não foi possível gravar o pedido");
+    throw conflictError("Não foi possível gravar o pedido");
   }
   await insertOrderItems(write, created.id);
   return { status: "created", orderId: created.id };
@@ -146,6 +139,11 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
   return createOrder(write);
 }
 
+/**
+ * Idempotent upsert of a marketplace order: the first delivery creates it with its items,
+ * later deliveries (status changes, retries) only update status, totals and fee.
+ * Items whose listing is not ours are kept with zero cost so revenue is never lost.
+ */
 export async function upsertMarketplaceOrder(
   database: Database,
   tenantId: string,

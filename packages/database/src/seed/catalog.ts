@@ -40,7 +40,7 @@ function buildProducts(
   return products;
 }
 
-export async function seedCategories(database: Database): Promise<Map<string, string>> {
+async function seedCategories(database: Database): Promise<Map<string, string>> {
   await database
     .insert(categories)
     .values(CATEGORIES)

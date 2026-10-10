@@ -18,10 +18,6 @@ export interface SeededAccount {
   created: boolean;
 }
 
-/**
- * Creates a credential user with its own organization, mirroring what the
- * Better Auth sign-up hooks do in the web app. Idempotent by e-mail.
- */
 /** Keeps an already seeded account in sync with the current SEED_*_PASSWORD value. */
 async function updateSeededPassword(
   database: Database,
@@ -34,6 +30,10 @@ async function updateSeededPassword(
     .where(and(eq(account.userId, userId), eq(account.providerId, "credential")));
 }
 
+/**
+ * Creates a credential user with its own organization, mirroring what the
+ * Better Auth sign-up hooks do in the web app. Idempotent by e-mail.
+ */
 export async function ensureAccount(
   database: Database,
   input: SeedAccountInput,

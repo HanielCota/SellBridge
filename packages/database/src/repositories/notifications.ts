@@ -8,13 +8,14 @@ import {
   storeConnections,
   tickets,
 } from "../schema/index.ts";
+import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
 const SIMULATED_SUFFIX = /\s*\(loja simulada\)\s*$/i;
-export const MAX_NOTIFICATIONS = 20;
+const MAX_NOTIFICATIONS = 20;
 
 export type NotificationKind = "sale" | "listing_error" | "store_problem" | "support_reply";
 
@@ -30,7 +31,7 @@ export interface AppNotification {
 }
 
 function since(): Date {
-  return new Date(Date.now() - WINDOW_DAYS * 86_400_000);
+  return daysBefore(WINDOW_DAYS);
 }
 
 async function saleNotifications(database: Database, tenantId: string): Promise<AppNotification[]> {

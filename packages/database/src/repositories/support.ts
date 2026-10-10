@@ -178,20 +178,13 @@ export async function listAllTickets(
   filters: { status?: TicketStatus | undefined; search?: string | undefined },
   pagination: Pagination,
 ): Promise<Paginated<AdminTicketSummary>> {
-  const conditions = ticketFilters(filters);
-  if (filters.search) {
-    const term = containsPattern(filters.search);
-    conditions.pop();
-    const searchCondition = or(
-      ilike(tickets.subject, term),
-      ilike(organization.name, term),
-      ilike(user.email, term),
-    );
-    if (searchCondition) {
-      conditions.push(searchCondition);
-    }
-  }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const term = filters.search ? containsPattern(filters.search) : undefined;
+  const where = and(
+    filters.status ? eq(tickets.status, filters.status) : undefined,
+    term
+      ? or(ilike(tickets.subject, term), ilike(organization.name, term), ilike(user.email, term))
+      : undefined,
+  );
   const base = database
     .select({
       id: tickets.id,

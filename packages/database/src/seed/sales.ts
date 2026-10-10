@@ -319,10 +319,7 @@ async function countOrders(database: Database, tenantId: string): Promise<number
     .select({ total: count() })
     .from(orders)
     .where(eq(orders.tenantId, tenantId));
-  if (!existing) {
-    return 0;
-  }
-  return existing.total;
+  return existing?.total ?? 0;
 }
 
 export interface SeedDemoSalesInput extends SeedSalesContext {
