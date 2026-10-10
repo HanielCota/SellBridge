@@ -1,10 +1,10 @@
 # Arquitetura e padrões de código
 
-Este documento descreve como o código do SellBridge é organizado e as regras que todo módulo segue. As decisões pontuais (com data e motivo) ficam em [decisions.md](decisions.md).
+Decisões pontuais, com data e motivo, ficam em [decisions.md](decisions.md).
 
 ## Organização de pastas
 
-O monorepo separa **aplicações** (processos que rodam) de **pacotes** (código reutilizável sem estado de processo):
+O monorepo separa aplicações (processos que rodam) de pacotes (código reutilizável sem estado de processo):
 
 ```
 apps/web                   TanStack Start: UI, server functions e rotas HTTP
@@ -38,7 +38,7 @@ Cada módulo tem um motivo para mudar:
 | Processador (worker)    | Um tipo de job: carregar, executar, registrar resultado | Decidir retentativa por string |
 | Conector de marketplace | Traduzir a interface comum para a API do marketplace    | Persistir dados                |
 
-Funções têm no máximo 60 linhas, 4 parâmetros (acima disso, um objeto de parâmetros) e 3 níveis de aninhamento: o Oxlint barra o que passar disso.
+Funções têm no máximo 60 linhas, 4 parâmetros (acima disso, um objeto de parâmetros) e 3 níveis de aninhamento. O Oxlint barra o que passar disso.
 
 ## Regras de código
 
