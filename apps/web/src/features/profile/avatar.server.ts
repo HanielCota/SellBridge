@@ -8,7 +8,7 @@ import { handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
-export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_URL_PREFIX = "/api/perfil/foto/";
 const EXTENSION_BY_TYPE = {
   "image/png": "png",
@@ -27,7 +27,7 @@ function isAvatarType(type: string | null): type is AvatarType {
 }
 
 /** Storage key of a photo we host, or null for external images (e.g. Google). */
-export function avatarStorageKey(imageUrl: string | null | undefined): string | null {
+function avatarStorageKey(imageUrl: string | null | undefined): string | null {
   if (!imageUrl?.startsWith(AVATAR_URL_PREFIX)) {
     return null;
   }
@@ -72,7 +72,7 @@ async function replaceImage(
   }
 }
 
-/** POST /api/perfil/foto — multipart "file"; replaces the signed-in user's photo. */
+/** POST /api/perfil/foto: multipart "file"; replaces the signed-in user's photo. */
 export function handleUploadAvatar(request: Request) {
   return handleApi("profile.upload_avatar", async () => {
     const session = await requireSession(request.headers);
@@ -86,7 +86,7 @@ export function handleUploadAvatar(request: Request) {
   });
 }
 
-/** DELETE /api/perfil/foto — back to the initials. */
+/** DELETE /api/perfil/foto: back to the initials. */
 export function handleDeleteAvatar(request: Request) {
   return handleApi("profile.delete_avatar", async () => {
     const session = await requireSession(request.headers);
@@ -96,7 +96,7 @@ export function handleDeleteAvatar(request: Request) {
   });
 }
 
-/** GET /api/perfil/foto/:userId/:fileName — any signed-in user may see profile photos. */
+/** GET /api/perfil/foto/:userId/:fileName: any signed-in user may see profile photos. */
 export function handleGetAvatar(request: Request, params: { userId?: string; fileName?: string }) {
   return handleApi("profile.get_avatar", async () => {
     await requireSession(request.headers);

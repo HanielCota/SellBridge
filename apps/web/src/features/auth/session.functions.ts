@@ -18,6 +18,8 @@ export interface SessionUser {
   role: string;
   /** Profile photo URL (uploaded or from Google); null shows the initials. */
   image: string | null;
+  /** ISO date the account was created ("Membro desde" on the profile page). */
+  createdAt: string;
 }
 
 export interface AppSession {
@@ -43,6 +45,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         email: session.user.email,
         role,
         image: session.user.image ?? null,
+        createdAt: new Date(session.user.createdAt).toISOString(),
       },
       adminMode: role === "admin" && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
