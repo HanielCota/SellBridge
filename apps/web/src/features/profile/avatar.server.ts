@@ -26,14 +26,20 @@ function isAvatarType(type: string | null): type is AvatarType {
   return type !== null && type in EXTENSION_BY_TYPE;
 }
 
-/** Storage key of a photo we host, or null for external images (e.g. Google). */
-function avatarStorageKey(imageUrl: string | null | undefined): string | null {
+/**
+ * Storage key of a photo this user owns, or null for external images (e.g. Google)
+ * and for URLs pointing at someone else's folder.
+ */
+function avatarStorageKey(imageUrl: string | null | undefined, ownerId: string): string | null {
   if (!imageUrl?.startsWith(AVATAR_URL_PREFIX)) {
     return null;
   }
   const [userId, fileName] = imageUrl.slice(AVATAR_URL_PREFIX.length).split("/");
   const parsed = avatarPathSchema.safeParse({ userId, fileName });
-  return parsed.success ? `avatars/${parsed.data.userId}/${parsed.data.fileName}` : null;
+  if (!parsed.success || parsed.data.userId !== ownerId) {
+    return null;
+  }
+  return `avatars/${parsed.data.userId}/${parsed.data.fileName}`;
 }
 
 async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; type: AvatarType }> {
@@ -62,11 +68,11 @@ async function requireSession(headers: Headers) {
 
 async function replaceImage(
   headers: Headers,
-  previous: string | null | undefined,
+  user: { id: string; image?: string | null | undefined },
   next: string | null,
 ) {
   await auth.api.updateUser({ headers, body: { image: next } });
-  const previousKey = avatarStorageKey(previous);
+  const previousKey = avatarStorageKey(user.image, user.id);
   if (previousKey) {
     await fileStorage.delete(previousKey);
   }
@@ -80,7 +86,7 @@ export function handleUploadAvatar(request: Request) {
     const fileName = `${randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
     await fileStorage.put(`avatars/${session.user.id}/${fileName}`, bytes);
     const image = `${AVATAR_URL_PREFIX}${session.user.id}/${fileName}`;
-    await replaceImage(request.headers, session.user.image, image);
+    await replaceImage(request.headers, session.user, image);
     logger.info("profile.avatar_updated", { userId: session.user.id });
     return jsonResponse(200, { image });
   });
@@ -90,7 +96,7 @@ export function handleUploadAvatar(request: Request) {
 export function handleDeleteAvatar(request: Request) {
   return handleApi("profile.delete_avatar", async () => {
     const session = await requireSession(request.headers);
-    await replaceImage(request.headers, session.user.image, null);
+    await replaceImage(request.headers, session.user, null);
     logger.info("profile.avatar_removed", { userId: session.user.id });
     return jsonResponse(200, { image: null });
   });
