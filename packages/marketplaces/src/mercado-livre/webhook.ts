@@ -3,8 +3,12 @@ import { parseJsonText } from "@sellbridge/shared/http-body";
 import type { MercadoLivreConfig } from "./client.ts";
 import { notificationSchema, storedOrderNotificationSchema } from "./schemas.ts";
 
-/** Notification topic that carries sales (`resource: "/orders/{id}"`). */
-const ORDER_TOPIC = "orders_v2";
+/**
+ * Notification topics that carry sales (`resource: "/orders/{id}"`). "orders_v2" is the
+ * current one; legacy "orders" events were accepted before the connector split, so events
+ * already stored with it still get processed.
+ */
+const ORDER_TOPICS: ReadonlySet<string> = new Set(["orders_v2", "orders"]);
 
 export function verifyWebhook(
   config: MercadoLivreConfig,
@@ -33,7 +37,7 @@ export function verifyWebhook(
 }
 
 export function parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderEvent | null {
-  if (topic !== ORDER_TOPIC) {
+  if (!ORDER_TOPICS.has(topic)) {
     return null;
   }
   const parsed = storedOrderNotificationSchema.safeParse(rawPayload);

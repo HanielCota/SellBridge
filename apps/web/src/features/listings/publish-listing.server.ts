@@ -49,11 +49,15 @@ export async function publishListings(
   storeIds: readonly string[],
 ): Promise<string[]> {
   const targetIds: string[] = [];
-  for (const draft of drafts) {
-    const created = await createListingWithTargets(database, tenantId, draft, storeIds);
-    targetIds.push(...created.targetIds);
+  try {
+    for (const draft of drafts) {
+      const created = await createListingWithTargets(database, tenantId, draft, storeIds);
+      targetIds.push(...created.targetIds);
+    }
+  } finally {
+    // Listings created before a failure still get queued instead of staying pending forever.
+    await enqueueTargets(tenantId, targetIds);
   }
-  await enqueueTargets(tenantId, targetIds);
   logger.info("listing.bulk_published", {
     tenantId,
     products: drafts.length,

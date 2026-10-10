@@ -343,4 +343,9 @@ describe("notifications", () => {
     });
     expect(ml.parseStoredOrderEvent("items", notification)).toBeNull();
   });
+
+  it("still processes stored events with the legacy orders topic", () => {
+    const { ml } = connector({});
+    expect(ml.parseStoredOrderEvent("orders", notification)).toMatchObject({ kind: "order" });
+  });
 });
