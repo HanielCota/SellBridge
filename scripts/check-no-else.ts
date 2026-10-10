@@ -4,13 +4,13 @@ import { findElseKeywords } from "./no-else-scanner.ts";
 
 const ROOTS = ["apps", "packages"];
 const SOURCE_EXTENSIONS = /\.(ts|tsx|mts|cts|js|jsx)$/;
-const IGNORED_DIRS = new Set(["node_modules", "dist", ".output", ".tanstack", "migrations"]);
+const IGNORED_DIRECTORIES = new Set(["node_modules", "dist", ".output", ".tanstack", "migrations"]);
 const GENERATED_FILES = /(routeTree\.gen\.ts|\.d\.ts)$/;
 
 async function* walk(directory: string): AsyncGenerator<string> {
   const entries = await readdir(directory, { withFileTypes: true });
   for (const entry of entries) {
-    if (IGNORED_DIRS.has(entry.name)) {
+    if (IGNORED_DIRECTORIES.has(entry.name)) {
       continue;
     }
     const fullPath = join(directory, entry.name);
