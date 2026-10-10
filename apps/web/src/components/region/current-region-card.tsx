@@ -1,9 +1,10 @@
 import type { SupplierSummary, TenantRegion } from "@sellbridge/database/repositories";
 import { formatCep } from "@sellbridge/shared/cep";
-import { CaretRightIcon, MapPinIcon } from "@phosphor-icons/react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { countLabel } from "./count-label";
+import { RegionMapMark } from "./region-map-mark";
 
 const SUPPLIERS_SHOWN = 5;
 
@@ -82,9 +83,7 @@ export function CurrentRegionCard({
       className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-brand-text">
-          <MapPinIcon weight="fill" className="size-6" aria-hidden="true" />
-        </span>
+        <RegionMapMark className="size-12 shrink-0" />
         <div className="min-w-0 space-y-0.5">
           <p className="text-xs text-muted-foreground">Sua região</p>
           <h2 id="current-region" className="text-xl font-semibold tracking-tight">
