@@ -33,7 +33,7 @@ function TicketPage() {
 
   const { ticket, messages } = query.data;
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
         <Link to="/suporte">
           <ArrowLeftIcon aria-hidden="true" />

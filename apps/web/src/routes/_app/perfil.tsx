@@ -46,7 +46,7 @@ function ProfilePage() {
   const { user } = session;
   const isImpersonating = session.impersonatedBy !== null;
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <section className="surface-card rounded-3xl bg-card p-5 sm:p-6">
         <AvatarEditor name={user.name} image={user.image}>
           <ProfileHeader

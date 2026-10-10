@@ -33,7 +33,10 @@ export function SupplierProductCard({ product }: { readonly product: SupplierCat
           <dd className="text-right tabular-nums">{formatCents(product.suggestedPriceCents)}</dd>
         </dl>
         <div className="flex items-center justify-between gap-2 border-t pt-3">
-          <ProductStockLine stock={product.stock} />
+          {/* As tall as the publish button, so sold-out cards keep the price row level. */}
+          <span className="flex min-h-8 items-center">
+            <ProductStockLine stock={product.stock} />
+          </span>
           {product.stock > 0 ? (
             <Button asChild size="sm" variant="secondary">
               <Link to="/publicacoes/nova" search={{ productId: product.id }}>

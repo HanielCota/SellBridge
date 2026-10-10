@@ -145,7 +145,7 @@ function AccountChip({
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-brand-text">
+          <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
             <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
             Modo admin ativo
           </span>
