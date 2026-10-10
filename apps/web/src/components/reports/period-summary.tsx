@@ -13,6 +13,7 @@ interface PeriodSummaryProps {
   previous: Totals;
   points: MetricPoint[];
   bucket: "day" | "week";
+  className?: string;
 }
 
 const wholePercent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -22,12 +23,24 @@ const NOTABLE_PERCENT = 3;
 
 /**
  * Plain-language reading of the period: did sales go up or down, why (more or fewer sales,
- * each worth more or less), and the best day. The numbers live in the meters beside it.
+ * each worth more or less), and the best day. The profit sits beside it, revenue and orders
+ * in the tiles below.
  */
-export function PeriodSummary({ current, previous, points, bucket }: PeriodSummaryProps) {
+export function PeriodSummary({
+  current,
+  previous,
+  points,
+  bucket,
+  className,
+}: PeriodSummaryProps) {
   const best = points.length > 1 ? bestPoint(points, (point) => point.revenueCents) : null;
   return (
-    <p className="max-w-md text-base leading-relaxed text-muted-foreground text-pretty">
+    <p
+      className={cn(
+        "max-w-md text-base leading-relaxed text-muted-foreground text-pretty",
+        className,
+      )}
+    >
       <Headline current={current} previous={previous} />
       {best ? (
         <>

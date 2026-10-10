@@ -1,83 +1,113 @@
+import { TrendDownIcon, TrendUpIcon } from "@phosphor-icons/react";
 import { formatCents } from "@sellbridge/shared/money";
-import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-import { ComparisonMeter, MoneyFigure } from "./figures";
-
-interface HeroStats {
-  profitCents: number;
-  revenue: { current: number; previous: number };
-  orders: { current: number; previous: number };
-  /** Short date ranges ("1–30 set.") naming the two rows of each meter. */
-  currentLabel: string;
-  previousLabel: string;
-}
-
-const compactMoney = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  maximumFractionDigits: 0,
-});
+import { Badge } from "@/components/ui/badge";
+import { formatPercentChange, trendOf } from "@/features/reports/dashboard-insights";
+import { cn } from "@/lib/utils";
+import { MoneyFigure } from "./figures";
 
 /**
- * Big title with an optional reading of the period under it; with data, the profit as the
- * headline and two meters against last period.
+ * Page title with what the page shows under it and the period controls beside it: the
+ * filters change everything below, so they sit with the title rather than further down.
  */
-export function DashboardHero({
-  stats,
-  summary,
+export function DashboardHeader({
+  caption,
+  filters,
 }: {
-  stats: HeroStats | null;
-  summary?: ReactNode;
+  caption?: ReactNode;
+  filters?: ReactNode;
 }) {
   return (
-    <section className="grid items-end gap-8 pt-4 pb-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-12">
-      <div className="space-y-4">
-        <h1 className="text-[44px] leading-none font-semibold tracking-tight text-balance sm:text-[56px]">
+    <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="space-y-1.5">
+        <h1 className="text-[34px] leading-none font-semibold tracking-tight sm:text-[40px]">
           Painel de vendas
         </h1>
-        {summary}
+        {caption ? <p className="text-sm text-muted-foreground">{caption}</p> : null}
       </div>
-      {stats ? <HeroStatsRow stats={stats} /> : null}
-    </section>
+      {filters}
+    </header>
   );
 }
 
-function HeroStatsRow({ stats }: { stats: HeroStats }) {
-  const { profitCents, revenue, orders, currentLabel, previousLabel } = stats;
+interface ProfitFigures {
+  profitCents: number;
+  revenueCents: number;
+}
+
+const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+
+function ProfitTrend({ current, previous }: { current: number; previous: number }) {
+  const trend = trendOf(current, previous);
+  if (trend === null || trend.direction === "flat") {
+    return (
+      <span className="text-sm text-muted-foreground">
+        {trend === null ? "Sem lucro no período anterior" : "Igual ao período anterior"}
+      </span>
+    );
+  }
+  const up = trend.direction === "up";
+  const label = trend.isOffScale
+    ? "mais de 10×"
+    : formatPercentChange(up ? trend.percent : -trend.percent);
   return (
-    // One subgrid for the profit and both meters: the group sits on the hero's bottom line
-    // while its blocks share a top line, so the three labels align.
-    <div className="grid items-start gap-8 lg:col-span-2 lg:grid-cols-subgrid lg:[column-gap:inherit]">
-      <div className="space-y-1">
-        {/* Same height as the meter headers (their badge row), so the three labels line up. */}
-        <p className="flex h-6 items-center text-sm text-muted-foreground">
-          Lucro no período<span className="sr-only">: {formatCents(profitCents)}</span>
+    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Badge variant={up ? "default" : "destructive"} className="tabular-nums">
+        {up ? (
+          <TrendUpIcon data-icon="inline-start" aria-hidden="true" />
+        ) : (
+          <TrendDownIcon data-icon="inline-start" aria-hidden="true" />
+        )}
+        {label}
+      </Badge>
+      vs. período anterior
+    </span>
+  );
+}
+
+/**
+ * The period's headline: profit with how it moved and the margin on the left, and the
+ * plain-language reading of why on the right. Revenue and orders live in the tiles below.
+ */
+export function ProfitSpotlight({
+  current,
+  previous,
+  summary,
+}: {
+  current: ProfitFigures;
+  previous: ProfitFigures;
+  summary: ReactNode;
+}) {
+  const isLoss = current.profitCents < 0;
+  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
+  return (
+    <section
+      aria-label="Resumo do período"
+      className="surface-card grid gap-6 rounded-3xl bg-card p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-10 lg:p-8"
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          {isLoss ? "Prejuízo no período" : "Lucro no período"}
+          <span className="sr-only">: {formatCents(current.profitCents)}</span>
         </p>
-        <div className="flex">
-          <MoneyFigure
-            cents={profitCents}
-            className={cn("text-[52px] leading-none", profitCents < 0 && "text-destructive")}
-          />
+        <MoneyFigure
+          cents={current.profitCents}
+          className={cn("text-[52px] leading-none", isLoss && "text-destructive")}
+        />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ProfitTrend current={current.profitCents} previous={previous.profitCents} />
+          {margin === null ? null : (
+            <span className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">
+                {percent.format(margin)}
+              </span>{" "}
+              de margem
+            </span>
+          )}
         </div>
       </div>
-      <div className="grid gap-8 sm:grid-cols-2">
-        <ComparisonMeter
-          label="Receita"
-          current={revenue.current}
-          previous={revenue.previous}
-          currentLabel={currentLabel}
-          previousLabel={previousLabel}
-          format={(cents) => compactMoney.format(cents / 100)}
-        />
-        <ComparisonMeter
-          label="Pedidos"
-          current={orders.current}
-          previous={orders.previous}
-          currentLabel={currentLabel}
-          previousLabel={previousLabel}
-          format={(count) => count.toLocaleString("pt-BR")}
-        />
-      </div>
-    </div>
+      {/* Divider only side by side; stacked, the gap already separates the two halves. */}
+      <div className="flex items-center lg:border-l lg:border-border/60 lg:pl-10">{summary}</div>
+    </section>
   );
 }

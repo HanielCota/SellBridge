@@ -6,16 +6,14 @@ test.describe("dashboard", () => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
     await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
-    await expect(page.getByText("Lucro no período").filter({ visible: true })).toBeVisible();
-    // Revenue and orders sit in the hero, each against the previous period.
-    const hero = page
-      .locator("section")
-      .filter({ has: page.getByRole("heading", { name: "Painel de vendas" }) });
-    for (const label of ["Receita", "Pedidos"]) {
-      await expect(hero.getByText(label, { exact: true })).toBeVisible();
-    }
-    // Two meters, each with this period and the previous one.
-    await expect(hero.getByRole("definition")).toHaveCount(4);
+    await expect(page.getByText(/comparado com os \d+ dias anteriores/)).toBeVisible();
+    // The spotlight: profit, how it moved, the margin and the plain-language reading.
+    const spotlight = page.getByRole("region", { name: "Resumo do período" });
+    await expect(spotlight.getByText("Lucro no período")).toBeVisible();
+    await expect(spotlight.getByText("de margem")).toBeVisible();
+    await expect(
+      spotlight.getByText(/Você vendeu|Suas primeiras vendas|o mesmo que/),
+    ).toBeVisible();
     // Tiles beside the chart open the financial report.
     for (const label of ["receita", "pedidos", "ticket médio"]) {
       await expect(page.getByRole("link", { name: `Ver ${label} no financeiro` })).toHaveAttribute(
