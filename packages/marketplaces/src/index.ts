@@ -12,7 +12,4 @@ export {
   MOCK_SIGNATURE_HEADER,
   signMockWebhook,
 } from "./mock/mock-connector.ts";
-export {
-  createMercadoLivreConnector,
-  mapMercadoLivreOrder,
-} from "./mercado-livre/mercado-livre-connector.ts";
+export { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";

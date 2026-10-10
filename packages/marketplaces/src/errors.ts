@@ -23,12 +23,6 @@ export function marketplaceAuthError(
   });
 }
 
-export function marketplaceNotImplementedError(operation: string, marketplace: string): AppError {
-  return marketplaceError(`${operation} ainda não está disponível para ${marketplace}`, {
-    retryable: false,
-  });
-}
-
 export function isMarketplaceError(value: unknown): value is AppError {
   return hasErrorCode(value, "EXTERNAL_PROVIDER") || hasErrorCode(value, "EXTERNAL_PROVIDER_AUTH");
 }

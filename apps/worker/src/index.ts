@@ -27,12 +27,13 @@ const connectors = createConnectorRegistry({
   },
 });
 const storeRateLimiter = createRateLimiter({ tokensPerInterval: 5, intervalMilliseconds: 1000 });
+const acquireRateLimit = async (key: string) => storeRateLimiter.acquire(key);
 
 const processPublish = createPublishListingProcessor({
   database,
   connectors,
   cipher,
-  acquireRateLimit: (key) => storeRateLimiter.acquire(key),
+  acquireRateLimit,
 });
 const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
 const processWebhookEvent = createWebhookEventProcessor({ database, connectors, cipher });
@@ -40,7 +41,7 @@ const processStockPriceSync = createStockPriceSyncProcessor({
   database,
   connectors,
   cipher,
-  acquireRateLimit: (key) => storeRateLimiter.acquire(key),
+  acquireRateLimit,
 });
 
 const publishWorker = new Worker(
@@ -117,7 +118,7 @@ async function shutdown(signal: string): Promise<void> {
   logger.info("worker.stopping", { signal });
   healthServer?.close();
   await Promise.all([
-    ...workers.map((worker) => worker.close()),
+    ...workers.map(async (worker) => worker.close()),
     tokenRefreshQueue.close(),
     stockPriceSyncQueue.close(),
   ]);

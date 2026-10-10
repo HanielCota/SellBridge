@@ -14,16 +14,9 @@ export const publishListingJobSchema = z.object({
 });
 export type PublishListingJob = z.infer<typeof publishListingJobSchema>;
 
-export const tokenRefreshJobSchema = z.object({
-  /** When set, refreshes only this connection; otherwise scans every expiring one. */
-  storeConnectionId: z.uuid().optional(),
-});
-export type TokenRefreshJob = z.infer<typeof tokenRefreshJobSchema>;
-
 export const webhookEventJobSchema = z.object({
   webhookEventId: z.uuid(),
 });
-export type WebhookEventJob = z.infer<typeof webhookEventJobSchema>;
 
 /** Publishing retries: 5 attempts with exponential backoff starting at 5 s. */
 export const PUBLISH_JOB_ATTEMPTS = 5;

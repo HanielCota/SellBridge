@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AppError } from "@sellbridge/shared/errors";
-import { readJsonBody } from "@sellbridge/shared/http-body";
+import { parseJsonText, readJsonBody } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
@@ -19,10 +19,6 @@ import type {
   WebhookVerification,
 } from "../types.ts";
 
-/**
- * Mercado Livre connector. Every endpoint and field used here is documented in
- * docs/marketplaces/mercado-livre.md (official docs, checked on 2026-10-08).
- */
 export interface MercadoLivreConfig {
   clientId: string | undefined;
   clientSecret: string | undefined;
@@ -35,6 +31,9 @@ const AUTH_URL = "https://auth.mercadolivre.com.br/authorization";
 const API_URL = "https://api.mercadolibre.com";
 const SITE_ID = "MLB";
 const MAX_TITLE_LENGTH = 60;
+const ORDERS_PAGE_SIZE = 50;
+/** Stops paginating order searches after this many results. */
+const MAX_ORDERS_FETCHED = 1000;
 
 const tokenResponseSchema = z.object({
   access_token: z.string().min(1),
@@ -107,7 +106,7 @@ function pkceChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-export function mapMercadoLivreOrder(raw: z.infer<typeof orderSchema>): MarketplaceOrder {
+function mapMercadoLivreOrder(raw: z.infer<typeof orderSchema>): MarketplaceOrder {
   return {
     externalOrderId: String(raw.id),
     status: ORDER_STATUS_MAP[raw.status] ?? "pending",
@@ -141,7 +140,6 @@ async function readError(response: Response): Promise<AppError> {
   return marketplaceError(message, { retryable, status: response.status });
 }
 
-/** Dependencies shared by the module-level request helpers. */
 interface MercadoLivreContext {
   readonly config: MercadoLivreConfig;
   readonly fetchImplementation: FetchLike;
@@ -194,9 +192,9 @@ async function requestJson<TResponse>(
 
 async function requestToken(
   context: MercadoLivreContext,
-  params: Record<string, string>,
+  formFields: Record<string, string>,
 ): Promise<TokenWithUser> {
-  const body = new URLSearchParams(params);
+  const body = new URLSearchParams(formFields);
   const token = await requestJson(context, {
     schema: tokenResponseSchema,
     path: "/oauth/token",
@@ -391,7 +389,7 @@ async function fetchOrdersPage(
     "order.date_created.from": page.since.toISOString(),
     sort: "date_desc",
     offset: String(page.offset),
-    limit: "50",
+    limit: String(ORDERS_PAGE_SIZE),
   });
   return requestJson(context, {
     schema: ordersSearchSchema,
@@ -406,11 +404,11 @@ async function listOrders(
   since: Date,
 ): Promise<MarketplaceOrder[]> {
   const orders: MarketplaceOrder[] = [];
-  for (let offset = 0; offset < 1000; offset += 50) {
+  for (let offset = 0; offset < MAX_ORDERS_FETCHED; offset += ORDERS_PAGE_SIZE) {
     const page = await fetchOrdersPage(context, { store, since, offset });
     orders.push(...page.results.map(mapMercadoLivreOrder));
     const total = page.paging?.total ?? 0;
-    if (page.results.length === 0 || offset + 50 >= total) {
+    if (page.results.length === 0 || offset + ORDERS_PAGE_SIZE >= total) {
       return orders;
     }
   }
@@ -434,17 +432,8 @@ async function fetchOrder(
   return mapMercadoLivreOrder(raw);
 }
 
-function parseNotificationBody(rawBody: string): unknown {
-  try {
-    const payload: unknown = JSON.parse(rawBody);
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
 function verifyWebhook(config: MercadoLivreConfig, request: WebhookRequest): WebhookVerification {
-  const payload = parseNotificationBody(request.rawBody);
+  const payload = parseJsonText(request.rawBody);
   const parsed = notificationSchema.safeParse(payload);
   if (!parsed.success) {
     return { valid: false, reason: "Notificação fora do formato documentado", payload };
@@ -466,6 +455,10 @@ function verifyWebhook(config: MercadoLivreConfig, request: WebhookRequest): Web
   };
 }
 
+/**
+ * Mercado Livre connector. Every endpoint and field used here is documented in
+ * docs/marketplaces/mercado-livre.md (official docs, checked on 2026-10-08).
+ */
 export function createMercadoLivreConnector(config: MercadoLivreConfig): MarketplaceConnector {
   const context: MercadoLivreContext = {
     config,
