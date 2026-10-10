@@ -120,7 +120,8 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     })
     .returning({ id: orders.id });
   if (!created) {
-    throw conflictError("Não foi possível gravar o pedido");
+    // An insert that returns no row is an unexpected write failure, not a business conflict.
+    throw new Error("Não foi possível gravar o pedido");
   }
   await insertOrderItems(write, created.id);
   return { status: "created", orderId: created.id };
