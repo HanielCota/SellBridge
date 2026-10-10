@@ -294,6 +294,24 @@ export async function getSupplierIdsForRegion(
   return rows.map((row) => row.id);
 }
 
+/**
+ * Listings of the tenant whose supplier does not serve the given region: after moving there,
+ * their products no longer show in the catalog.
+ */
+export async function countListingsOutsideRegion(
+  database: Database,
+  tenantId: string,
+  region: Pick<TenantRegion, "state" | "city">,
+): Promise<number> {
+  const [row] = await database
+    .select({ total: count() })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(and(eq(listings.tenantId, tenantId), sql`not ${coversRegion(region)}`));
+  return row?.total ?? 0;
+}
+
 export interface RegionCatalogFilters {
   search?: string | undefined;
   categorySlug?: string | undefined;

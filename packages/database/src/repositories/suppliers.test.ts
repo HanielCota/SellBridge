@@ -1,8 +1,9 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
-import { createTestDatabase } from "../testing/fixtures.ts";
+import { listings, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
+  countListingsOutsideRegion,
   getCatalogProductForRegion,
   getSupplierForRegion,
   listCatalogProducts,
@@ -142,6 +143,34 @@ describe("supplier visibility by region", () => {
       visibleProductId,
     );
     expect(visible.sku).toBe("T-1");
+  });
+});
+
+describe("listings outside a region", () => {
+  it("counts only the tenant's listings whose supplier does not serve the region", async () => {
+    const tenants = await createTestTenants(database, 2);
+    const [tenantId, otherTenantId] = tenants.ids;
+    if (!tenantId || !otherTenantId) {
+      throw new Error("tenants não criados");
+    }
+    try {
+      const listing = { title: "Anúncio", description: "Descrição", priceCents: 4990 };
+      await database.insert(listings).values([
+        { ...listing, tenantId, supplierProductId: visibleProductId },
+        { ...listing, tenantId, supplierProductId: hiddenProductId },
+        { ...listing, tenantId: otherTenantId, supplierProductId: hiddenProductId },
+      ]);
+      // T-1 comes from a state-wide supplier of ZZ; T-4 only serves YY.
+      const inZz = { state: TEST_STATE, city: "Interior" };
+      const inYy = { state: "YY", city: "Qualquer" };
+      expect(await countListingsOutsideRegion(database, tenantId, inZz)).toBe(1);
+      expect(await countListingsOutsideRegion(database, tenantId, inYy)).toBe(1);
+      expect(await countListingsOutsideRegion(database, tenantId, { state: "XX", city: "" })).toBe(
+        2,
+      );
+    } finally {
+      await tenants.cleanup();
+    }
   });
 });
 
