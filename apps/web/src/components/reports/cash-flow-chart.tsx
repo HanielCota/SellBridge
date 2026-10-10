@@ -165,9 +165,11 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
             dataKey="revenue"
             type="monotone"
             stroke="var(--color-revenue)"
-            strokeWidth={1.5}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             fill="url(#cashRevenue)"
-            activeDot={renderActiveDot("var(--color-revenue)", 4)}
+            activeDot={renderActiveDot("var(--color-revenue)", 5)}
             isAnimationActive={false}
           />
         )}
@@ -176,9 +178,11 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
             dataKey="profit"
             type="monotone"
             stroke="var(--color-profit)"
-            strokeWidth={2.5}
+            strokeWidth={3.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             fill="url(#cashProfit)"
-            activeDot={renderActiveDot("var(--color-profit)", 5)}
+            activeDot={renderActiveDot("var(--color-profit)", 6)}
             isAnimationActive={false}
           />
         )}

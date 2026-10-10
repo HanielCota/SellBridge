@@ -105,7 +105,7 @@ export function StoreCard({
           </p>
           <FailedListingsLink count={activity.failedListings} />
         </div>
-        <Button variant="ghost" size="sm" onClick={onDisconnect}>
+        <Button variant="ghost" size="sm" className="-mr-3" onClick={onDisconnect}>
           <LinkBreakIcon aria-hidden="true" />
           Desconectar
         </Button>

@@ -154,7 +154,7 @@ function CategorySelect({
         updateSearch({ category: value === ALL_CATEGORIES ? undefined : value })
       }
     >
-      <SelectTrigger aria-label="Filtrar por categoria">
+      <SelectTrigger className="w-full" aria-label="Filtrar por categoria">
         <SelectValue>
           {categories.find((category) => category.slug === search.category)?.name ??
             "Todas as categorias"}
@@ -186,7 +186,7 @@ function SortSelect() {
         updateSearch({ sort });
       }}
     >
-      <SelectTrigger aria-label="Ordenar produtos">
+      <SelectTrigger className="w-full" aria-label="Ordenar produtos">
         <SelectValue>{PRODUCT_SORT_LABELS[search.sort]}</SelectValue>
       </SelectTrigger>
       <SelectContent>

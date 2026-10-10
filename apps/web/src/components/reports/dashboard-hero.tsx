@@ -19,8 +19,8 @@ const compactMoney = new Intl.NumberFormat("pt-BR", {
 });
 
 /**
- * Big two-line title with an optional reading of the period under it; with data, the profit
- * as the headline and two meters against last period.
+ * Big title with an optional reading of the period under it; with data, the profit as the
+ * headline and two meters against last period.
  */
 export function DashboardHero({
   stats,
@@ -32,10 +32,8 @@ export function DashboardHero({
   return (
     <section className="grid items-end gap-8 pt-4 pb-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-12">
       <div className="space-y-4">
-        <h1 className="text-[44px] leading-none font-semibold tracking-tight sm:text-[56px]">
-          Painel de
-          <br />
-          vendas
+        <h1 className="text-[44px] leading-none font-semibold tracking-tight text-balance sm:text-[56px]">
+          Painel de vendas
         </h1>
         {summary}
       </div>
@@ -47,9 +45,12 @@ export function DashboardHero({
 function HeroStatsRow({ stats }: { stats: HeroStats }) {
   const { profitCents, revenue, orders, currentLabel, previousLabel } = stats;
   return (
-    <>
+    // One subgrid for the profit and both meters: the group sits on the hero's bottom line
+    // while its blocks share a top line, so the three labels align.
+    <div className="grid items-start gap-8 lg:col-span-2 lg:grid-cols-subgrid lg:[column-gap:inherit]">
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">
+        {/* Same height as the meter headers (their badge row), so the three labels line up. */}
+        <p className="flex h-6 items-center text-sm text-muted-foreground">
           Lucro no período<span className="sr-only">: {formatCents(profitCents)}</span>
         </p>
         <div className="flex">
@@ -77,6 +78,6 @@ function HeroStatsRow({ stats }: { stats: HeroStats }) {
           format={(count) => count.toLocaleString("pt-BR")}
         />
       </div>
-    </>
+    </div>
   );
 }

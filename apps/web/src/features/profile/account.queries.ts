@@ -22,8 +22,15 @@ export const activeSessionsQueryOptions = () =>
       if (sessions.error) {
         throw new Error("Não foi possível carregar suas sessões.");
       }
-      const currentToken = current.data?.session.token;
-      return sessions.data
+      const currentSession = current.data?.session;
+      const currentToken = currentSession?.token;
+      // better-auth lists at most 100 sessions in no set order, so with many logins the
+      // current one can be missing; it must always show.
+      const listed =
+        currentSession && !sessions.data.some((session) => session.token === currentToken)
+          ? [currentSession, ...sessions.data]
+          : sessions.data;
+      return listed
         .map((session) => ({
           token: session.token,
           ipAddress: session.ipAddress ?? null,
