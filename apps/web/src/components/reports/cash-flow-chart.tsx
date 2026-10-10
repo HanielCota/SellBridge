@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
+import { cn } from "@/lib/utils";
 
 /** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
 const REVENUE_COLOR = "var(--muted-foreground)";
@@ -191,6 +192,22 @@ function CashAreas({ data, series }: { data: ChartPoint[]; series: SeriesKey }) 
 }
 
 /** Revenue and profit over the period, in the large chart card of the dashboard. */
+function ExportLink({ href, className }: { href: string; className?: string }) {
+  return (
+    <a
+      href={href}
+      aria-label="Exportar CSV do período"
+      title="Exportar CSV do período"
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+        className,
+      )}
+    >
+      <DownloadSimpleIcon className="size-4" aria-hidden="true" />
+    </a>
+  );
+}
+
 export function CashFlowChart({
   points,
   bucket,
@@ -218,20 +235,15 @@ export function CashFlowChart({
         Receita e lucro por {bucket === "week" ? "semana" : "dia"}
       </h2>
       {/* Two fixed rows, so nothing depends on where a wrap happens: what the page shows (period,
-          store) and the export first, then which series the chart draws. */}
+          store) and the export first, then which series the chart draws. On phones the export
+          moves down to the series row, so the period control gets the card's full width. */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">{filters}</div>
-        <a
-          href={exportUrl}
-          aria-label="Exportar CSV do período"
-          title="Exportar CSV do período"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <DownloadSimpleIcon className="size-4" aria-hidden="true" />
-        </a>
+        <ExportLink href={exportUrl} className="max-sm:hidden" />
       </div>
-      <div className="mt-4">
+      <div className="mt-4 flex items-start justify-between gap-3">
         <SeriesPills value={series} onChange={setSeries} />
+        <ExportLink href={exportUrl} className="sm:hidden" />
       </div>
       {/* Grows to the height of the tiles beside it; never shorter than a readable chart. */}
       <figure

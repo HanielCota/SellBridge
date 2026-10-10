@@ -31,6 +31,15 @@ const SEGMENT_LABELS: Record<PeriodPreset, string> = {
   custom: "Personalizado",
 };
 
+/** Phone labels, so all five fit inside the chart card without a hidden scroll. */
+const COMPACT_LABELS: Record<PeriodPreset, string> = {
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
+  "180d": "6m",
+  custom: "Personalizado",
+};
+
 interface PeriodFiltersProps {
   search: PeriodSearch;
   stores: { id: string; name: string }[];
@@ -92,26 +101,34 @@ function PeriodSegments({
 }) {
   return (
     // min-w-0: a fieldset is as wide as its content by default, which defeats w-full and the scroll.
-    <fieldset className="flex w-full min-w-0 overflow-x-auto rounded-lg bg-muted p-0.5 [scrollbar-width:none] sm:inline-flex sm:w-auto">
+    <fieldset className="flex h-10 w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-muted p-1 [scrollbar-width:none] sm:inline-flex sm:w-auto">
       <legend className="sr-only">Período</legend>
       {PERIOD_PRESETS.map((preset) => (
         <label
           key={preset}
           className={cn(
-            "flex h-8 flex-1 shrink-0 cursor-pointer items-center justify-center rounded-md px-2 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground sm:flex-none sm:px-3 sm:text-sm",
-            "has-checked:bg-card has-checked:text-foreground has-checked:shadow-sm",
+            "flex h-8 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground sm:flex-none sm:px-3.5 sm:text-sm",
+            // The chosen period is cut out of the track, like a segmented control.
+            "has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm has-checked:ring-1 has-checked:ring-border",
             "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
           )}
         >
+          {preset === "custom" ? (
+            <CalendarBlankIcon className="size-3.5 max-sm:hidden" aria-hidden="true" />
+          ) : null}
           <input
             type="radio"
             name="period"
             value={preset}
             checked={preset === period}
             onChange={() => onPeriodChange(preset)}
+            aria-label={SEGMENT_LABELS[preset]}
             className="sr-only"
           />
-          {SEGMENT_LABELS[preset]}
+          <span className="max-sm:hidden">{SEGMENT_LABELS[preset]}</span>
+          <span className="sm:hidden" aria-hidden="true">
+            {COMPACT_LABELS[preset]}
+          </span>
         </label>
       ))}
     </fieldset>
@@ -132,7 +149,7 @@ function StoreSelect({
       value={store ?? ALL_STORES}
       onValueChange={(value) => onStoreChange(value === ALL_STORES ? undefined : value)}
     >
-      <SelectTrigger aria-label="Loja" className="h-9 w-full min-w-44 sm:w-auto">
+      <SelectTrigger aria-label="Loja" className="w-full min-w-44 rounded-full sm:w-auto">
         <SelectValue>
           {stores.find((option) => option.id === store)?.name ?? "Todas as lojas"}
         </SelectValue>
