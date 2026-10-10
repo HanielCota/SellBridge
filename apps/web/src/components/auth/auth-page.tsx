@@ -4,8 +4,8 @@ import { PendingSubmitButton } from "@/components/form/form-feedback";
 export function AuthPageHeader({ title, description }: { title: string; description: string }) {
   return (
     <div className="space-y-2 text-center">
-      <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">{title}</h1>
-      <p className="text-[17px] text-balance text-muted-foreground">{description}</p>
+      <h1 className="text-3xl leading-tight font-semibold tracking-tight">{title}</h1>
+      <p className="text-body text-balance text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -21,7 +21,7 @@ export function AuthSubmitButton(props: AuthSubmitButtonProps) {
   return (
     <PendingSubmitButton
       {...props}
-      className="mt-3 h-[52px] w-full rounded-full text-[17px] font-medium transition-[transform,background-color] duration-100 active:scale-[0.98] motion-reduce:active:scale-100"
+      className="mt-3 h-13 w-full rounded-full text-body font-medium transition-[transform,background-color] duration-100 active:scale-[0.98] motion-reduce:active:scale-100"
     />
   );
 }

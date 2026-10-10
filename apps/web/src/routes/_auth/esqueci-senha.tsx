@@ -40,8 +40,8 @@ function useForgotPasswordForm() {
 function ResetLinkSent({ email }: { email: string }) {
   return (
     <output className="block space-y-2 text-center">
-      <span className="block text-[17px]">Verifique sua caixa de entrada.</span>
-      <span className="block text-[15px] font-light text-balance text-muted-foreground">
+      <span className="block text-body">Verifique sua caixa de entrada.</span>
+      <span className="block text-subhead font-light text-balance text-muted-foreground">
         Se houver uma conta com <span className="font-medium text-foreground">{email}</span>,
         enviamos um link para criar uma nova senha. Ele vale por 1 hora.
       </span>
@@ -90,10 +90,10 @@ function ForgotPasswordPage() {
         description="Informe o e-mail da conta e enviaremos um link para criar uma nova senha."
       />
       <ForgotPasswordForm />
-      <p className="text-center text-[15px] text-muted-foreground">
+      <p className="text-center text-subhead text-muted-foreground">
         <Link
           to="/login"
-          className="font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           Voltar para o login
         </Link>

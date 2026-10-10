@@ -86,14 +86,9 @@ function useConsentForm(search: ConsentSearch) {
 function ConsentHeader() {
   return (
     <header className="space-y-6 text-center">
-      <div className="flex items-center justify-center gap-3" aria-hidden="true">
+      <div className="flex items-center justify-center gap-4" aria-hidden="true">
         <span className="flex size-14 items-center justify-center rounded-2xl bg-muted">
           <BrandIcon className="size-7" />
-        </span>
-        <span className="flex gap-1">
-          <span className="size-1 rounded-full bg-muted-foreground/40" />
-          <span className="size-1 rounded-full bg-muted-foreground/60" />
-          <span className="size-1 rounded-full bg-muted-foreground/40" />
         </span>
         <MarketplaceMark marketplace="mock" className="size-14 rounded-2xl" />
       </div>
@@ -102,7 +97,7 @@ function ConsentHeader() {
           <FlaskIcon className="size-3.5" aria-hidden="true" />
           Marketplace simulado · ambiente de teste
         </p>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Autorizar o SellBridge</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Autorizar o SellBridge</h1>
         <p className="text-sm text-muted-foreground">
           O SellBridge vai poder fazer o seguinte na sua loja:
         </p>
@@ -113,7 +108,7 @@ function ConsentHeader() {
 
 function PermissionList() {
   return (
-    <ul className="divide-y divide-border rounded-2xl bg-muted/50">
+    <ul className="surface-card divide-y divide-border rounded-2xl bg-muted/50">
       {REQUESTED_PERMISSIONS.map((permission) => (
         <li key={permission.title} className="flex gap-3 p-4">
           <permission.icon className="mt-0.5 size-5 shrink-0 text-brand-text" aria-hidden="true" />
@@ -151,7 +146,7 @@ function ConsentForm({ search }: { search: ConsentSearch }) {
               isPending={isSubmitting}
               idleLabel="Autorizar acesso"
               pendingLabel="Autorizando..."
-              className="h-11 w-full text-[15px]"
+              className="h-11 w-full text-subhead"
             />
           )}
         </form.Subscribe>
@@ -177,7 +172,7 @@ function MockConsentPage() {
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md space-y-8 rounded-3xl bg-card p-6 shadow-2xl shadow-black/30 sm:p-8">
+      <div className="surface-card w-full max-w-md space-y-8 rounded-3xl bg-card p-6 sm:p-8">
         <ConsentHeader />
         <ConsentForm search={search} />
       </div>

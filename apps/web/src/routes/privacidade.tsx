@@ -45,14 +45,14 @@ const SECTIONS: readonly LegalSection[] = [
 ];
 
 export const Route = createFileRoute("/privacidade")({
-  head: () => ({ meta: [{ title: "Política de Privacidade | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Política de privacidade | SellBridge" }] }),
   component: PrivacyPage,
 });
 
 function PrivacyPage() {
   return (
     <LegalPage
-      title="Política de Privacidade"
+      title="Política de privacidade"
       updatedAt="9 de outubro de 2026"
       intro="Esta política explica quais dados o SellBridge trata, por que e quais são os seus direitos."
       sections={SECTIONS}

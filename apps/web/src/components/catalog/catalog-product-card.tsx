@@ -2,7 +2,7 @@ import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { CheckCircleIcon } from "@phosphor-icons/react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { ToneStatus } from "@/components/data/tone-status";
 import { Checkbox } from "@/components/ui/checkbox";
 import { estimateProfit } from "@/features/listings/profit";
@@ -15,16 +15,18 @@ function PriceLines({ product }: { product: RegionCatalogProduct }) {
   const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
-      <p className="text-lg leading-tight font-semibold tracking-[-0.01em]">
+      <p className="text-lg leading-tight font-semibold tracking-tight">
         {formatCents(product.suggestedPriceCents)}
         <span className="sr-only"> preço sugerido</span>
       </p>
       <p className="text-xs text-muted-foreground">
         custo {formatCents(product.costCents)}
-        {margin === undefined || margin === null ? null : (
+        {margin === undefined ? null : (
           <>
             {" · "}
-            <span className={cn(margin < THIN_MARGIN_PERCENT && "text-amber-500")}>
+            <span
+              className={cn(margin < THIN_MARGIN_PERCENT && "text-amber-700 dark:text-amber-500")}
+            >
               margem {Math.round(margin)}%
             </span>
           </>
@@ -79,7 +81,7 @@ export function CatalogProductCard({
   return (
     <article
       className={cn(
-        "relative flex h-full flex-col overflow-hidden rounded-3xl bg-card transition-shadow",
+        "surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card",
         selected && "ring-2 ring-brand",
       )}
     >
@@ -94,11 +96,11 @@ export function CatalogProductCard({
           aria-label={`Selecionar ${product.title}`}
           checked={selected}
           onCheckedChange={(checked) => onSelectedChange(checked === true)}
-          className="absolute top-3 left-3 size-5 bg-background/90 backdrop-blur"
+          className="absolute top-3 left-3 size-5 bg-background"
         />
       ) : null}
       {product.published ? (
-        <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium backdrop-blur">
+        <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-xs font-medium">
           <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
           Publicado
         </span>

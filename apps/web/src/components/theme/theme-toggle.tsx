@@ -4,7 +4,7 @@ import { useTheme } from "./theme-provider";
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-  const label = theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro";
+  const label = theme === "dark" ? "Usar tema claro" : "Usar tema escuro";
   return (
     <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={label} title={label}>
       <SunIcon className="hidden size-4 dark:block" aria-hidden="true" />

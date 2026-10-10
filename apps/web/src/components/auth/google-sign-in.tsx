@@ -51,16 +51,16 @@ export function GoogleSignIn({ callbackURL }: { callbackURL: string }) {
         type="button"
         onClick={() => void continueWithGoogle()}
         disabled={isRedirecting}
-        className="flex h-[52px] w-full items-center justify-center gap-3 rounded-full border border-field-border bg-field text-[17px] font-medium transition-[transform,background-color] duration-100 outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-brand/20 active:scale-[0.98] disabled:opacity-60 motion-reduce:active:scale-100"
+        className="flex h-13 w-full items-center justify-center gap-3 rounded-full border border-field-border bg-field text-body font-medium transition-[transform,background-color] duration-100 outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-brand/20 active:scale-[0.98] disabled:opacity-60 motion-reduce:active:scale-100"
       >
         <GoogleMark />
         Continuar com Google
       </button>
       <InlineFormError message={error} />
-      <div className="flex items-center gap-4 text-[13px] text-muted-foreground">
-        <span className="h-px flex-1 bg-field-border" />
+      <div className="flex items-center gap-4 text-footnote text-muted-foreground">
+        <span aria-hidden="true" className="h-px flex-1 bg-field-border" />
         ou
-        <span className="h-px flex-1 bg-field-border" />
+        <span aria-hidden="true" className="h-px flex-1 bg-field-border" />
       </div>
     </div>
   );

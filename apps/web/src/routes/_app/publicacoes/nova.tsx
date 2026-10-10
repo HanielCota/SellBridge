@@ -1,7 +1,8 @@
 import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { optionalParameter } from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,28 +20,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
-import { estimateProfit } from "@/features/listings/profit";
+import { ESTIMATED_MARKETPLACE_FEE_BPS, estimateProfit } from "@/features/listings/profit";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 export const Route = createFileRoute("/_app/publicacoes/nova")({
-  validateSearch: z.object({ productId: z.uuid() }),
+  // A missing or malformed product id (a typed or stale URL) sends the reseller back to pick one.
+  validateSearch: z.object({ productId: optionalParameter(z.uuid()) }),
+  beforeLoad: ({ search }) => {
+    if (!search.productId) {
+      throw redirect({ to: "/catalogo" });
+    }
+    return { productId: search.productId };
+  },
   loaderDeps: ({ search }) => ({ productId: search.productId }),
-  loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, newListingQueryOptions(search.productId)),
+  loader: ({ context }) =>
+    prefetchOnServer(context.queryClient, newListingQueryOptions(context.productId)),
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
 
 function NewListingPage() {
-  const { productId } = Route.useSearch();
+  const { productId } = Route.useRouteContext();
   const query = useQuery(newListingQueryOptions(productId));
 
   if (query.isPending) {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Carregando produto">
         <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-3xl" />
       </div>
     );
   }
@@ -65,7 +73,7 @@ function NewListingPage() {
         <EmptyState
           icon={StorefrontIcon}
           title="Conecte uma loja antes de publicar"
-          description="Você ainda não tem lojas conectadas. Conecte uma loja para publicar este produto."
+          description="Você ainda não tem lojas conectadas."
           action={
             <Button asChild>
               <Link to="/lojas">Conectar loja</Link>
@@ -138,7 +146,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       title: product.title,
       description: product.description,
       price: centsToInput(product.suggestedPriceCents),
-      storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : ([] as string[]),
+      storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : [],
     },
     validators: { onSubmit: listingFormSchema },
     onSubmit: ({ value }) => submit(value),
@@ -341,7 +349,7 @@ function ProfitCard({
   product,
 }: {
   priceCents: number | null;
-  product: NewListingData["product"];
+  product: ListingProduct;
 }) {
   const estimate = estimateProfit(priceCents, product.costCents);
   return (
@@ -355,7 +363,9 @@ function ProfitCard({
           <dd className="text-right">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
           <dt className="text-muted-foreground">Custo do fornecedor</dt>
           <dd className="text-right">− {formatCents(product.costCents)}</dd>
-          <dt className="text-muted-foreground">Taxa estimada (14%)</dt>
+          <dt className="text-muted-foreground">
+            Taxa estimada ({ESTIMATED_MARKETPLACE_FEE_BPS / 100}%)
+          </dt>
           <dd className="text-right">− {estimate ? formatCents(estimate.feeCents) : "—"}</dd>
           <dt className="border-t pt-2 font-medium">Lucro estimado</dt>
           <dd

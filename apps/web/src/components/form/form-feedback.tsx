@@ -2,7 +2,7 @@ import { CircleNotchIcon } from "@phosphor-icons/react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
-/** Destructive alert shown above a form when submission fails; renders nothing without a message. */
+/** Renders nothing without a message. */
 export function FormErrorAlert({ message }: { message: string | null }) {
   if (!message) {
     return null;

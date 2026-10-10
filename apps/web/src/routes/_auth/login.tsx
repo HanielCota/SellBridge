@@ -121,7 +121,7 @@ function LoginForm() {
       />
       <Link
         to="/esqueci-senha"
-        className="justify-self-end px-1 text-[13px] font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
+        className="justify-self-end px-1 text-footnote font-medium text-brand-text underline-offset-4 hover:underline"
       >
         Esqueceu a senha?
       </Link>
@@ -142,7 +142,7 @@ function LoginNotices() {
   const search = Route.useSearch();
   if (search.senhaRedefinida) {
     return (
-      <output className="block text-center text-[15px] text-brand-text">
+      <output className="block text-center text-subhead text-brand-text">
         Senha redefinida. Entre com a nova senha.
       </output>
     );
@@ -167,13 +167,13 @@ function LoginPage() {
         ) : null}
         <LoginForm />
       </div>
-      <p className="text-center text-[15px] text-muted-foreground">
+      <p className="text-center text-subhead text-muted-foreground">
         Não tem conta?{" "}
         <Link
           to="/cadastro"
-          className="font-medium text-brand-text underline-offset-4 hover:underline dark:text-brand-text"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
-          Crie a sua agora
+          Criar conta
         </Link>
       </p>
     </div>

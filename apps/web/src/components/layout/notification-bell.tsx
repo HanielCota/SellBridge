@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { SmartDate } from "@/components/data/smart-date";
@@ -18,9 +18,18 @@ import { notificationsQueryOptions } from "@/features/notifications/notification
 
 const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> = {
   sale: { icon: ShoppingBagIcon, className: "bg-brand/15 text-brand-text" },
-  listing_error: { icon: WarningCircleIcon, className: "bg-red-500/15 text-red-500" },
-  store_problem: { icon: PlugsIcon, className: "bg-amber-500/15 text-amber-500" },
-  support_reply: { icon: ChatCircleTextIcon, className: "bg-sky-500/15 text-sky-500" },
+  listing_error: {
+    icon: WarningCircleIcon,
+    className: "bg-red-500/15 text-red-600 dark:text-red-400",
+  },
+  store_problem: {
+    icon: PlugsIcon,
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  },
+  support_reply: {
+    icon: ChatCircleTextIcon,
+    className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  },
 };
 
 function NotificationRow({
@@ -38,7 +47,7 @@ function NotificationRow({
       <Link
         to={notification.href}
         onClick={onNavigate}
-        className="flex gap-3 rounded-2xl p-3 transition-colors hover:bg-muted"
+        className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-muted"
       >
         <span
           className={cn(
@@ -52,7 +61,10 @@ function NotificationRow({
           <span className="flex items-start justify-between gap-2">
             <span className="text-sm font-medium">{notification.title}</span>
             {isNew ? (
-              <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-label="Novo" />
+              <>
+                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                <span className="sr-only">Novo</span>
+              </>
             ) : null}
           </span>
           <span className="block truncate text-xs text-muted-foreground">
@@ -99,7 +111,7 @@ export function NotificationBell() {
       >
         <BellIcon className="size-5" aria-hidden="true" />
         {unread > 0 ? (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-semibold text-primary-foreground tabular-nums">
+          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
             {unread > 9 ? "9+" : unread}
           </span>
         ) : null}
@@ -108,13 +120,13 @@ export function NotificationBell() {
         <Popover.Content
           align="end"
           sideOffset={10}
-          className="z-50 w-[min(24rem,calc(100vw-2rem))] rounded-3xl bg-popover p-2 text-popover-foreground shadow-2xl shadow-black/40 ring-1 ring-border outline-none"
+          className="z-50 w-[min(24rem,calc(100vw-2rem))] rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >
           <p className="px-3 pt-2 pb-1 text-sm font-semibold">Avisos</p>
           {items.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-              Nada novo por aqui. Vendas, erros de publicação e respostas do suporte aparecem neste
-              lugar.
+              Nada novo por aqui. Vendas, erros de publicação e respostas do suporte aparecem nesta
+              lista.
             </p>
           ) : (
             <ul className="max-h-[min(28rem,70svh)] overflow-y-auto">

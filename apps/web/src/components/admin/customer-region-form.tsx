@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import { adminUpdateCustomerRegion } from "@/features/admin/customers.functions";
-import { AdminSection } from "./admin-section";
+import { SectionCard } from "@/components/layout/section-card";
 import { useAdminAction } from "./use-admin-action";
 
 interface RegionFormProps {
@@ -36,7 +36,7 @@ export function CustomerRegionForm({ userId, region }: RegionFormProps) {
   }
 
   return (
-    <AdminSection title="Região" description="Define quais fornecedores entregam para o cliente.">
+    <SectionCard title="Região" description="Define quais fornecedores entregam para o cliente.">
       <p className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
         <MapPinIcon className="size-4" aria-hidden="true" />
         {region ? (
@@ -76,6 +76,6 @@ export function CustomerRegionForm({ userId, region }: RegionFormProps) {
           {save.isPending ? "Consultando CEP..." : "Salvar região"}
         </Button>
       </form>
-    </AdminSection>
+    </SectionCard>
   );
 }

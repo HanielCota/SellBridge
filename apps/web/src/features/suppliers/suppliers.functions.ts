@@ -1,5 +1,4 @@
 import {
-  getCatalogProductForRegion,
   getSupplierForRegion,
   listCatalogProducts,
   listNichesForRegion,
@@ -50,12 +49,4 @@ export const getSupplierCatalog = createServerFn({ method: "GET" })
       listSupplierCategories(database, supplier.id),
     ]);
     return { supplier, products, categories };
-  });
-
-export const getCatalogProduct = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
-  .validator(z.object({ productId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    return getCatalogProductForRegion(database, region, data.productId);
   });

@@ -5,6 +5,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Type scale (Apple-style sizes). Use these instead of arbitrary text-[Npx]
+ * values; `cn` in lib/utils.ts is configured to merge them as font sizes.
+ */
+@theme {
+  --text-caption: 0.6875rem; /* 11px */
+  --text-caption--line-height: calc(13 / 11);
+  --text-footnote: 0.8125rem; /* 13px */
+  --text-footnote--line-height: calc(18 / 13);
+  --text-subhead: 0.9375rem; /* 15px */
+  --text-subhead--line-height: calc(20 / 15);
+  --text-body: 1.0625rem; /* 17px */
+  --text-body--line-height: calc(22 / 17);
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Manrope Variable", "Manrope", sans-serif;
@@ -16,6 +31,9 @@
   --color-field: var(--field);
   --color-field-border: var(--field-border);
   --color-chart-brand: var(--chart-brand);
+  --color-finance-cost: var(--finance-cost);
+  --color-finance-fee: var(--finance-fee);
+  --color-finance-refund: var(--finance-refund);
   --color-brand-wordmark: var(--brand-wordmark);
   --color-brand-wordmark-inverse: var(--brand-wordmark-inverse);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -59,13 +77,17 @@
 }
 
 :root {
-  /* Superfícies estilo "grouped" (Cinza claro da marca) usadas no login e no cadastro. */
+  /* Grouped surface (brand light gray) behind the login and sign-up forms. */
   --surface-grouped: oklch(0.97 0.002 260);
   --field: oklch(1 0 0);
   --field-border: oklch(0 0 0 / 12%);
-  /* Cor de série única dos gráficos, validada contra a superfície de cada modo. */
+  /* Single-series chart color, checked for contrast against each theme's surface. */
   --chart-brand: oklch(0.62 0.16 152);
-  /* Marca SellBridge: verde principal, verde profundo e preto/chumbo. */
+  /* Finance outflows: cool, desaturated tones that stay distinct without competing with the green. */
+  --finance-cost: oklch(0.6 0.07 255);
+  --finance-fee: oklch(0.6 0.075 300);
+  --finance-refund: oklch(0.62 0.07 350);
+  /* Brand: main green, deep green and ink. */
   --brand: oklch(0.78 0.18 155);
   --brand-strong: oklch(0.62 0.16 152);
   --brand-ink: oklch(0.2 0.015 250);
@@ -87,7 +109,7 @@
   --muted-foreground: oklch(0.52 0.008 260);
   --accent: oklch(0.945 0.003 260);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.53 0.22 27);
   --border: oklch(0 0 0 / 8%);
   --input: oklch(0 0 0 / 12%);
   --ring: oklch(0.74 0.19 153);
@@ -108,7 +130,7 @@
 }
 
 .dark {
-  /* Tema padrão: preto-grafite com destaque verde-menta. */
+  /* Default theme: graphite with a mint-green accent. */
   --brand: oklch(0.87 0.16 152);
   --brand-strong: oklch(0.8 0.17 152);
   --brand-text: oklch(0.87 0.16 152);
@@ -116,6 +138,9 @@
   --field: oklch(0.245 0.004 260);
   --field-border: oklch(1 0 0 / 8%);
   --chart-brand: oklch(0.76 0.17 150);
+  --finance-cost: oklch(0.74 0.065 255);
+  --finance-fee: oklch(0.74 0.07 300);
+  --finance-refund: oklch(0.76 0.065 350);
   --brand-wordmark: oklch(0.87 0.16 152);
   --background: oklch(0.165 0.003 260);
   --foreground: oklch(0.97 0 0);
@@ -160,4 +185,84 @@
   html {
     @apply font-sans;
   }
+}
+/*
+ * Cards sit on the page with a hairline edge instead of a shadow, so they read as surfaces in both
+ * themes without blur. On hover the edge brightens and the surface lifts a step in tone, enough to
+ * tell which card is under the cursor while nothing moves, so a page full of cards stays calm.
+ * Both are drawn on pseudo-elements: the tone on `::before`, behind the content, so it works on any
+ * card background, and the edge on `::after`, never on the card's own box-shadow, so it never
+ * fights `ring-*` or the focus ring.
+ */
+@utility surface-card {
+  position: relative;
+  isolation: isolate;
+  --surface-edge: 7%;
+  --surface-edge-hover: 20%;
+  --surface-tone-hover: 3%;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  &::before {
+    z-index: -1;
+    background: color-mix(in oklch, var(--foreground) var(--surface-tone-hover), transparent);
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+  }
+
+  &::after {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklch, var(--foreground) var(--surface-edge), transparent);
+    transition: box-shadow 200ms ease-out;
+  }
+
+  @media (hover: hover) {
+    &:hover::before {
+      opacity: 1;
+    }
+    &:hover::after {
+      box-shadow: inset 0 0 0 1px
+        color-mix(in oklch, var(--foreground) var(--surface-edge-hover), transparent);
+    }
+  }
+}
+
+/*
+ * A card that is itself a link: the same edge and tone, a little stronger, plus a press on
+ * pointer-down, so it reads as one big button rather than a panel.
+ */
+@utility surface-interactive {
+  @apply surface-card;
+
+  /* Doubled so it wins over a plain `surface-card` on the same element (the base `Card`). */
+  && {
+    --surface-edge-hover: 26%;
+    --surface-tone-hover: 4.5%;
+  }
+  transition: transform 160ms ease-out;
+
+  /* Feedback on press, not on release. */
+  &:active {
+    transform: scale(0.985);
+    transition-duration: 100ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+/* Lift bottom toasts above the floating bulk actions bar so feedback never hides it. */
+body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
+  --offset-bottom: 88px !important;
+  --mobile-offset-bottom: 88px !important;
 }

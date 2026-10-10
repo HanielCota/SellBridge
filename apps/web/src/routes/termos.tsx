@@ -7,7 +7,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "1. O serviço",
     paragraphs: [
-      "O SellBridge é uma plataforma que permite a revendedores encontrar fornecedores da sua região, publicar os produtos deles em marketplaces (como Mercado Livre, Shopee e TikTok Shop) e acompanhar vendas, lucro e financeiro em um só lugar.",
+      "O SellBridge é uma plataforma que permite a revendedores encontrar fornecedores da sua região, publicar os produtos deles em marketplaces (como Mercado Livre, Shopee e TikTok Shop) e acompanhar vendas, lucro e financeiro.",
     ],
   },
   {
@@ -48,14 +48,14 @@ const SECTIONS: readonly LegalSection[] = [
 ];
 
 export const Route = createFileRoute("/termos")({
-  head: () => ({ meta: [{ title: "Termos de Uso | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Termos de uso | SellBridge" }] }),
   component: TermsPage,
 });
 
 function TermsPage() {
   return (
     <LegalPage
-      title="Termos de Uso"
+      title="Termos de uso"
       updatedAt="9 de outubro de 2026"
       intro="Estes termos explicam as regras para usar o SellBridge. Ao criar uma conta, você concorda com eles."
       sections={SECTIONS}

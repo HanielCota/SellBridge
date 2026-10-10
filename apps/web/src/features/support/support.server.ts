@@ -24,7 +24,7 @@ function firstIssue(error: z.ZodError): string {
   return error.issues.at(0)?.message ?? "Dados inválidos";
 }
 
-/** POST /api/suporte/chamados — opens a ticket (multipart: subject, body, files). */
+/** POST /api/suporte/chamados: opens a ticket (multipart: subject, body, files). */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     const session = await requireTenantSession(request.headers);
@@ -61,7 +61,7 @@ async function readReply(request: Request, tenantId: string) {
   return { body: input.data.body, attachments };
 }
 
-/** POST /api/suporte/chamados/:ticketId/mensagens — reseller reply, scoped to the tenant. */
+/** POST /api/suporte/chamados/:ticketId/mensagens: reseller reply, scoped to the tenant. */
 export function handleTenantReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.tenant_reply", async () => {
     const session = await requireTenantSession(request.headers);
@@ -78,7 +78,7 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
   });
 }
 
-/** POST /api/admin/chamados/:ticketId/mensagens — support team reply. */
+/** POST /api/admin/chamados/:ticketId/mensagens: support team reply. */
 export function handleAdminReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.admin_reply", async () => {
     const admin = await requireAdminSession(request.headers);
@@ -96,7 +96,7 @@ export function handleAdminReply(request: Request, ticketIdParam: string | undef
   });
 }
 
-/** GET /api/suporte/anexos/:attachmentId — download for the owner tenant or an admin. */
+/** GET /api/suporte/anexos/:attachmentId: download for the owner tenant or an admin. */
 export function handleDownloadAttachment(request: Request, attachmentIdParam: string | undefined) {
   return handleApi("support.download", async () => {
     const attachmentId = parseId(attachmentIdParam, "Anexo");

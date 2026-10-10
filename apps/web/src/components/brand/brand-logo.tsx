@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { BRIDGE_PATH, SELL_PATH, WORDMARK_VIEW_BOX } from "./brand-wordmark";
 
 export const BRAND_TAGLINE = "A ponte entre quem vende e quem fornece.";

@@ -1,5 +1,5 @@
 import { FlaskIcon } from "@phosphor-icons/react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import {
   MERCADO_LIVRE_PATH,
@@ -56,7 +56,7 @@ export function MarketplaceMark({
     <span
       aria-hidden="true"
       className={cn(
-        "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
+        "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl",
         mark?.className ?? "bg-brand/15 text-brand-text",
         className,
       )}

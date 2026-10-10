@@ -1,5 +1,4 @@
 import { formatCents } from "@sellbridge/shared/money";
-import { CUSTOMER_ROLE_LABELS, customerRoleSchema } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SignInIcon } from "@phosphor-icons/react";
@@ -11,6 +10,7 @@ import { CustomerRegionForm } from "@/components/admin/customer-region-form";
 import { CustomerStores } from "@/components/admin/customer-stores";
 import { ToneStatus } from "@/components/data/tone-status";
 import { ErrorState } from "@/components/feedback/error-state";
+import { roleLabel } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { adminGetCustomer } from "@/features/admin/customers.functions";
@@ -27,11 +27,6 @@ export const Route = createFileRoute("/_app/admin/clientes/$userId")({
 });
 
 type CustomerDetail = Awaited<ReturnType<typeof adminGetCustomer>>;
-
-function roleLabel(role: string): string {
-  const parsed = customerRoleSchema.safeParse(role);
-  return parsed.success ? CUSTOMER_ROLE_LABELS[parsed.data] : role;
-}
 
 /** Opens the app as the customer; everything done there is done on their account. */
 function ImpersonateButton({
@@ -84,7 +79,7 @@ function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
       </Link>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1.5">
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{customer.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{customer.name}</h1>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {customer.email}
             <ToneStatus
@@ -113,9 +108,9 @@ function ActivityStrip({ detail }: { detail: CustomerDetail }) {
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {items.map((item) => (
-        <div key={item.label} className="space-y-2 rounded-3xl bg-card p-4">
+        <div key={item.label} className="surface-card space-y-2 rounded-3xl bg-card p-4">
           <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="text-2xl font-semibold tracking-[-0.02em] tabular-nums">{item.value}</dd>
+          <dd className="text-2xl font-semibold tracking-tight tabular-nums">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -127,7 +122,7 @@ function CustomerPage() {
   const { session } = Route.useRouteContext();
   const query = useQuery(customerQueryOptions(userId));
   if (query.isPending) {
-    return <Skeleton className="h-96 rounded-2xl" aria-label="Carregando cliente" />;
+    return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando cliente" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;

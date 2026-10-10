@@ -6,7 +6,7 @@ export const ESTIMATED_MARKETPLACE_FEE_BPS = 1400;
 export interface ProfitEstimate {
   feeCents: Cents;
   profitCents: Cents;
-  marginPercent: number | null;
+  marginPercent: number;
 }
 
 export function estimateProfit(priceCents: Cents | null, costCents: Cents): ProfitEstimate | null {

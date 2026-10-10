@@ -16,6 +16,7 @@ import {
   signMockWebhook,
 } from "@sellbridge/marketplaces";
 import { validationError } from "@sellbridge/shared/errors";
+import { percentOfCents } from "@sellbridge/shared/money";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
@@ -25,6 +26,7 @@ import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { enqueuePublishJobs } from "@/lib/server/queues";
 import { requireTenantRegion } from "@/lib/server/region";
+import { ESTIMATED_MARKETPLACE_FEE_BPS } from "./profit";
 
 export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -77,14 +79,14 @@ export const createListing = createServerFn({ method: "POST" })
 export const listListings = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(listingsSearchSchema)
-  .handler(async ({ context, data }) => {
-    return listListingOverview(
+  .handler(async ({ context, data }) =>
+    listListingOverview(
       database,
       context.tenantId,
       { status: data.status, search: data.query },
       { page: data.page, pageSize: data.pageSize },
-    );
-  });
+    ),
+  );
 
 const listingIdsSchema = z.object({ listingIds: z.array(z.uuid()).min(1).max(100) });
 
@@ -151,7 +153,7 @@ export const simulateMockSale = createServerFn({ method: "POST" })
       externalOrderId: `SIM-${randomUUID().slice(0, 8).toUpperCase()}`,
       status: "paid",
       totalCents: priceCents,
-      marketplaceFeeCents: Math.round((priceCents * 1400) / 10_000),
+      marketplaceFeeCents: percentOfCents(priceCents, ESTIMATED_MARKETPLACE_FEE_BPS),
       buyerName: "Comprador simulado",
       orderedAt: new Date().toISOString(),
       items: [

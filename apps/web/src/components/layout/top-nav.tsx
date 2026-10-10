@@ -1,7 +1,7 @@
 import { ListIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -68,7 +68,7 @@ function NavTab({
           <span
             aria-hidden="true"
             className={cn(
-              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
               item.badge === "failedListings"
                 ? "bg-destructive/15 text-destructive"
                 : "bg-brand/20 text-brand-text",
@@ -171,7 +171,7 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
           <MobileNav items={items} pathname={pathname} counts={counts} />
           <Link
             to="/dashboard"
-            aria-label="SellBridge — Visão geral"
+            aria-label="SellBridge, visão geral"
             className="shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
           >
             <BrandIcon className="size-10" />

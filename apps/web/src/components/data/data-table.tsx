@@ -49,7 +49,7 @@ export function DataTable<TData extends RowData>({
 }: DataTableProps<TData>) {
   const table = useTable({ features: serverTableFeatures, columns, data, getRowId });
   return (
-    <div className="overflow-hidden rounded-3xl border bg-card dark:border-transparent">
+    <div className="surface-card overflow-hidden rounded-3xl bg-card">
       {renderMobileRow ? (
         <ul aria-label={caption} className="divide-y divide-border md:hidden">
           {data.map((row) => (
@@ -76,7 +76,7 @@ export function DataTable<TData extends RowData>({
           {table.getRowModel().rows.map((row) => (
             <TableRow key={row.id}>
               {row.getAllCells().map((cell) => (
-                <TableCell key={cell.id} className="align-top">
+                <TableCell key={cell.id}>
                   <table.FlexRender cell={cell} />
                 </TableCell>
               ))}
@@ -84,7 +84,7 @@ export function DataTable<TData extends RowData>({
           ))}
         </TableBody>
       </Table>
-      {footer ? <div className="border-t p-3">{footer}</div> : null}
+      {footer ? <div className="border-t px-6 py-3">{footer}</div> : null}
     </div>
   );
 }

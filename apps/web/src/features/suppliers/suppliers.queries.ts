@@ -1,6 +1,6 @@
 import type { CatalogSearch, SupplierListSearch } from "@sellbridge/shared/schemas";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import { getCatalogProduct, getSupplierCatalog, listSuppliers } from "./suppliers.functions";
+import { getSupplierCatalog, listSuppliers } from "./suppliers.functions";
 
 export const suppliersQueryOptions = (search: SupplierListSearch) =>
   queryOptions({
@@ -13,10 +13,4 @@ export const supplierCatalogQueryOptions = (supplierId: string, search: CatalogS
     queryKey: ["supplier-catalog", supplierId, search],
     queryFn: () => getSupplierCatalog({ data: { ...search, supplierId } }),
     placeholderData: keepPreviousData,
-  });
-
-export const catalogProductQueryOptions = (productId: string) =>
-  queryOptions({
-    queryKey: ["catalog-product", productId],
-    queryFn: () => getCatalogProduct({ data: { productId } }),
   });

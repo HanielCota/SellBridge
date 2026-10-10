@@ -3,7 +3,7 @@ import { StoreStatusBadge } from "@/components/data/status-badge";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { adminDisconnectCustomerStore } from "@/features/admin/customers.functions";
-import { AdminSection } from "./admin-section";
+import { SectionCard } from "@/components/layout/section-card";
 import { useAdminAction } from "./use-admin-action";
 
 interface CustomerStore {
@@ -28,7 +28,7 @@ export function CustomerStores({
     () => setTarget(null),
   );
   return (
-    <AdminSection title="Lojas conectadas" description="Lojas do cliente nos marketplaces.">
+    <SectionCard title="Lojas conectadas">
       {stores.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhuma loja conectada.</p>
       ) : (
@@ -63,6 +63,6 @@ export function CustomerStores({
         isPending={disconnect.isPending}
         onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}
       />
-    </AdminSection>
+    </SectionCard>
   );
 }

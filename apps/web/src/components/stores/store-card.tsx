@@ -20,7 +20,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-xl font-semibold tracking-[-0.02em] tabular-nums">{value}</dd>
+      <dd className="text-xl font-semibold tracking-tight tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -30,7 +30,7 @@ function ConnectionProblem({ store }: { store: StoreWithActivity }) {
     return null;
   }
   return (
-    <div className="flex items-start gap-3 rounded-2xl bg-destructive/10 p-3 text-sm">
+    <div className="flex items-start gap-3 rounded-xl bg-destructive/10 p-3 text-sm">
       <WarningCircleIcon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
       <p className="flex-1">
         {store.lastError ??
@@ -73,7 +73,7 @@ export function StoreCard({
 }) {
   const { activity } = store;
   return (
-    <article className="flex h-full flex-col gap-5 rounded-3xl bg-card p-5">
+    <article className="surface-card flex h-full flex-col gap-5 rounded-3xl bg-card p-5">
       <header className="flex items-start gap-3">
         <MarketplaceMark marketplace={store.marketplace} />
         <div className="min-w-0 flex-1">
