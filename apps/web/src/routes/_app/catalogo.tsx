@@ -8,8 +8,8 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { MagnifyingGlassIcon, PackageIcon, RocketLaunchIcon, XIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { MagnifyingGlassIcon, MegaphoneIcon, PackageIcon, XIcon } from "@phosphor-icons/react";
+import { useState } from "react";
 import { BulkPublishDialog, type PublishStore } from "@/components/catalog/bulk-publish-dialog";
 import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -30,7 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { regionCatalogQueryOptions } from "@/features/catalog/catalog.queries";
 import { getTenantRegion } from "@/features/region/region.functions";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -65,16 +65,11 @@ function useUpdateSearch() {
 
 function SearchInput() {
   const search = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
-  const [term, setTerm] = useState(search.query ?? "");
-  const debounced = useDebouncedValue(term, 300);
-  useEffect(() => {
-    const query = debounced.trim().length > 0 ? debounced.trim() : undefined;
-    if (query === search.query) {
-      return;
-    }
-    void navigate({ search: (previous) => ({ ...previous, query, page: 1 }), replace: true });
-  }, [debounced, navigate, search.query]);
+  const updateSearch = useUpdateSearch();
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (query) => updateSearch({ query }),
+  });
   return (
     <div className="relative min-w-0 flex-1 sm:min-w-60">
       <MagnifyingGlassIcon
@@ -111,7 +106,9 @@ function FilterSelect({
       onValueChange={(next) => onChange(next === ALL ? undefined : next)}
     >
       <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={label}>
-        <SelectValue />
+        <SelectValue>
+          {options.find((option) => option.value === value)?.label ?? allLabel}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {allLabel ? <SelectItem value={ALL}>{allLabel}</SelectItem> : null}
@@ -189,13 +186,13 @@ function SelectionBar({
   return (
     <section
       aria-label="Produtos selecionados"
-      className="sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-2 rounded-full bg-foreground py-2 pr-2 pl-5 text-background shadow-2xl shadow-black/40"
+      className="sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-2 rounded-full bg-foreground py-2 pr-2 pl-5 text-background shadow-lg shadow-black/20"
     >
       <p className="mr-2 text-sm font-medium">
         {count} {count === 1 ? "selecionado" : "selecionados"}
       </p>
       <Button size="sm" onClick={onPublish}>
-        <RocketLaunchIcon aria-hidden="true" />
+        <MegaphoneIcon aria-hidden="true" />
         Publicar selecionados
       </Button>
       <Button
@@ -250,7 +247,7 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
         page={data.products.page}
         totalPages={data.products.totalPages}
         total={data.products.total}
-        itemLabel="produtos"
+        itemLabel={{ one: "produto", other: "produtos" }}
         onPageChange={(page) => void navigate({ search: { ...search, page } })}
       />
       <SelectionBar
