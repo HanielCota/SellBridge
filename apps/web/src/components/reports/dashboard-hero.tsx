@@ -65,48 +65,66 @@ function ProfitTrend({ current, previous }: { current: number; previous: number 
   );
 }
 
+function ProfitBlock({ current, previous }: { current: ProfitFigures; previous: ProfitFigures }) {
+  const isLoss = current.profitCents < 0;
+  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {isLoss ? "Prejuízo no período" : "Lucro no período"}
+        <span className="sr-only">: {formatCents(current.profitCents)}</span>
+      </p>
+      <MoneyFigure
+        cents={current.profitCents}
+        className={cn("text-[52px] leading-none", isLoss && "text-destructive")}
+      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <ProfitTrend current={current.profitCents} previous={previous.profitCents} />
+        {margin === null ? null : (
+          <span className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground tabular-nums">
+              {percent.format(margin)}
+            </span>{" "}
+            de margem
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
- * The period's reading on the left and the profit on the right, open on the page like the
- * title above (no card). Revenue and orders live in the tiles below, so they are not repeated.
+ * The top of the dashboard as one two-column grid, so everything lines up: the title over the
+ * reading on the left; the filters over the profit on the right, starting at the same x. In the
+ * second row the reading and the profit start at the same height. Stacked on phones.
  */
-export function ProfitHighlight({
+export function DashboardIntro({
+  caption,
+  filters,
   current,
   previous,
   summary,
 }: {
+  caption: ReactNode;
+  filters: ReactNode;
   current: ProfitFigures;
   previous: ProfitFigures;
   summary: ReactNode;
 }) {
-  const isLoss = current.profitCents < 0;
-  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
   return (
     <section
       aria-label="Resumo do período"
-      className="grid items-center gap-6 pb-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-16"
+      className="grid gap-x-16 gap-y-8 pb-2 lg:grid-cols-[minmax(0,1fr)_auto]"
     >
-      {summary}
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          {isLoss ? "Prejuízo no período" : "Lucro no período"}
-          <span className="sr-only">: {formatCents(current.profitCents)}</span>
-        </p>
-        <MoneyFigure
-          cents={current.profitCents}
-          className={cn("text-[52px] leading-none", isLoss && "text-destructive")}
-        />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <ProfitTrend current={current.profitCents} previous={previous.profitCents} />
-          {margin === null ? null : (
-            <span className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground tabular-nums">
-                {percent.format(margin)}
-              </span>{" "}
-              de margem
-            </span>
-          )}
-        </div>
+      <div className="space-y-2">
+        <h1 className="text-[44px] leading-none font-semibold tracking-tight text-balance sm:text-[56px]">
+          Painel de vendas
+        </h1>
+        <p className="text-sm text-muted-foreground">{caption}</p>
       </div>
+      <div className="lg:self-end">{filters}</div>
+      {summary}
+      <ProfitBlock current={current} previous={previous} />
     </section>
   );
 }

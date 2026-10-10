@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
-import { DashboardHeader, ProfitHighlight } from "@/components/reports/dashboard-hero";
+import { DashboardHeader, DashboardIntro } from "@/components/reports/dashboard-hero";
 import { KpiTiles } from "@/components/reports/kpi-tiles";
 import { PeriodSummary } from "@/components/reports/period-summary";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -97,11 +97,9 @@ function DashboardContent({ data }: { data: DashboardData }) {
   }
   return (
     <>
-      <DashboardHeader
+      <DashboardIntro
         caption={`${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`}
         filters={<DashboardFilters data={data} />}
-      />
-      <ProfitHighlight
         current={summary}
         previous={previous}
         summary={
@@ -110,6 +108,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
             previous={previous}
             points={data.timeseries}
             bucket={data.period.bucket}
+            className="max-w-xl text-lg"
           />
         }
       />
