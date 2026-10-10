@@ -119,7 +119,13 @@ function MeterRow({
           style={{ width: `${Math.max(ratio * 100, ratio > 0 ? 2 : 0)}%` }}
         />
       </span>
-      <dd className={cn("text-right font-medium tabular-nums", muted && "text-muted-foreground")}>
+      {/* Fixed width so the bars of side-by-side meters line up whatever the value's length. */}
+      <dd
+        className={cn(
+          "min-w-[4.5rem] text-right font-medium tabular-nums",
+          muted && "text-muted-foreground",
+        )}
+      >
         {value}
       </dd>
     </>
