@@ -1,10 +1,49 @@
-# SellBridge
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="apps/web/public/brand/sellbridge-logo-dark.png">
+  <img src="apps/web/public/brand/sellbridge-logo-light.png" alt="SellBridge" width="420">
+</picture>
+
+<p><strong>A ponte entre fornecedores atacadistas da sua região e as suas lojas nos marketplaces.</strong></p>
+
+[![CI](https://github.com/HanielCota/SellBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HanielCota/SellBridge/actions/workflows/ci.yml)
+![Node](https://img.shields.io/badge/node-%E2%89%A524-5FA04E?logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-Turborepo-F69220?logo=pnpm&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-8-FF4438?logo=redis&logoColor=white)
+
+[Como rodar](#como-rodar) · [Qualidade](#qualidade) · [Estrutura](#estrutura) · [Arquitetura](docs/architecture.md) · [Decisões](docs/decisions.md)
+
+</div>
+
+---
 
 SaaS de dropshipping/intermediação: o revendedor conecta suas lojas em marketplaces (Shopee, Mercado Livre, TikTok Shop), escolhe produtos de fornecedores atacadistas da sua região, publica nas lojas e acompanha vendas, comissões e financeiro.
 
+## Funcionalidades
+
+- **Fornecedores por região** — onboarding por CEP e catálogo filtrado pelos atacadistas próximos, com busca, filtros e ordenação.
+- **Lojas conectadas** — OAuth com os marketplaces (Mercado Livre real, loja simulada para testes) e renovação automática de tokens.
+- **Publicação em lote** — um anúncio em uma ou várias lojas via fila, com status acompanhável e reprocessamento.
+- **Sincronização** — estoque e preço periódicos, pedidos por webhooks idempotentes.
+- **Dashboard e financeiro** — KPIs, comparação com o período anterior, lucro, comissões, devoluções e exportação CSV.
+- **Suporte** — chamados com anexos, histórico e visão de administrador.
+
 ## Stack
 
-pnpm + Turborepo · TanStack Start/Router/Query/Table/Form · Tailwind v4 + shadcn/ui · PostgreSQL + Drizzle · Better Auth · Zod · BullMQ + Redis · Oxlint · Prettier · Vitest · Playwright · Docker Compose. Decisões em [docs/decisions.md](docs/decisions.md); arquitetura e padrões de código em [docs/architecture.md](docs/architecture.md); plano em [docs/plan.md](docs/plan.md).
+| Camada      | Tecnologias                                                      |
+| ----------- | ---------------------------------------------------------------- |
+| Monorepo    | pnpm · Turborepo                                                 |
+| Web         | TanStack Start/Router/Query/Table/Form · Tailwind v4 · shadcn/ui |
+| Dados       | PostgreSQL · Drizzle · Zod                                       |
+| Auth        | Better Auth (e-mail/senha e Google)                              |
+| Filas       | BullMQ · Redis                                                   |
+| Qualidade   | Oxlint · Prettier · Vitest · Playwright · lefthook               |
+| Infra local | Docker Compose                                                   |
+
+Decisões em [docs/decisions.md](docs/decisions.md); arquitetura e padrões de código em [docs/architecture.md](docs/architecture.md); plano em [docs/plan.md](docs/plan.md).
 
 ## Como rodar
 
