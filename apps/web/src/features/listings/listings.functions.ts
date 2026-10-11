@@ -64,7 +64,7 @@ export const listListings = createServerFn({ method: "GET" })
     listListingOverview(
       database,
       context.tenantId,
-      { status: data.status, search: data.query },
+      { status: data.status, search: data.query, sort: data.sort },
       { page: data.page, pageSize: data.pageSize },
     ),
   );

@@ -4,7 +4,12 @@ import {
   pauseTransition,
   RETRYABLE_TARGET_STATUS,
 } from "@sellbridge/shared/listing-rules";
-import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
+import {
+  toPaginated,
+  type ListingSort,
+  type Paginated,
+  type Pagination,
+} from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, inArray, sql, sum, type SQL } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
@@ -15,6 +20,7 @@ import {
   orders,
   storeConnections,
   supplierProducts,
+  suppliers,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
@@ -45,14 +51,32 @@ export interface ListingOverviewRow {
   stock: number;
   imageUrl: string | null;
   categorySlug: string | null;
+  categoryName: string | null;
+  supplierName: string;
   updatedAt: Date;
   unitsSold: number;
+  /** Units sold per day over the sales window, oldest first. */
+  dailySales: number[];
   stores: ListingStoreStatus[];
+}
+
+/** How many listings have at least one store in each status (one listing can count twice). */
+export interface ListingStatusCounts {
+  all: number;
+  published: number;
+  error: number;
+  paused: number;
 }
 
 export interface ListingOverviewFilters {
   status?: ListingTargetStatus | undefined;
   search?: string | undefined;
+  sort?: ListingSort | undefined;
+}
+
+function hasTargetWith(status: ListingTargetStatus | undefined): SQL {
+  const targetFilter = status ? sql` and ${listingTargets.status} = ${status}` : sql``;
+  return sql`exists (select 1 from ${listingTargets} where ${listingTargets.listingId} = ${listings.id}${targetFilter})`;
 }
 
 function listingConditions(tenantId: string, filters: ListingOverviewFilters): SQL | undefined {
@@ -60,18 +84,36 @@ function listingConditions(tenantId: string, filters: ListingOverviewFilters): S
   if (filters.search) {
     conditions.push(ilike(listings.title, containsPattern(filters.search)));
   }
-  const targetFilter = filters.status
-    ? sql` and ${listingTargets.status} = ${filters.status}`
-    : sql``;
-  conditions.push(
-    sql`exists (select 1 from ${listingTargets} where ${listingTargets.listingId} = ${listings.id}${targetFilter})`,
-  );
+  conditions.push(hasTargetWith(filters.status));
   return and(...conditions);
+}
+
+/** Units sold in the sales window, as a correlated subquery so the page can sort by it. */
+function unitsSoldInWindow(): SQL<number> {
+  const since = daysBefore(SALES_WINDOW_DAYS);
+  return sql<number>`(
+    select coalesce(sum(${orderItems.quantity}), 0)
+    from ${orderItems}
+    inner join ${orders} on ${orders.id} = ${orderItems.orderId}
+    inner join ${listingTargets} on ${listingTargets.id} = ${orderItems.listingTargetId}
+    where ${listingTargets.listingId} = ${listings.id}
+      and ${orders.orderedAt} >= ${since.toISOString()}::timestamptz
+      and ${isCountedOrder(orders.status)}
+  )`;
+}
+
+function listingOrder(sort: ListingSort | undefined): SQL[] {
+  const newestFirst = [desc(listings.createdAt), desc(listings.id)];
+  if (sort === "best_selling") {
+    return [desc(unitsSoldInWindow()), ...newestFirst];
+  }
+  return newestFirst;
 }
 
 async function pageOfListingIds(
   database: Database,
   where: SQL | undefined,
+  sort: ListingSort | undefined,
   pagination: Pagination,
 ): Promise<{ ids: string[]; total: number }> {
   const [rows, totals] = await Promise.all([
@@ -79,7 +121,7 @@ async function pageOfListingIds(
       .select({ id: listings.id })
       .from(listings)
       .where(where)
-      .orderBy(desc(listings.createdAt), desc(listings.id))
+      .orderBy(...listingOrder(sort))
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
     database.select({ total: count() }).from(listings).where(where),
@@ -98,9 +140,12 @@ async function selectListingDetails(database: Database, ids: string[]) {
       stock: supplierProducts.stock,
       imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,
       categorySlug: categories.slug,
+      categoryName: categories.name,
+      supplierName: suppliers.name,
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
     .where(inArray(listings.id, ids));
 }
@@ -124,12 +169,17 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
     .orderBy(storeConnections.shopName);
 }
 
-/** Units sold per listing in the last 30 days, ignoring cancelled and returned orders. */
-async function selectUnitsSold(database: Database, ids: string[]) {
+/**
+ * Units sold per listing and day over the last 30 days, ignoring cancelled and returned
+ * orders. Days count back from now (0 = the last 24 hours), so no time zone is involved.
+ */
+async function selectDailySales(database: Database, ids: string[]) {
   const since = daysBefore(SALES_WINDOW_DAYS);
+  const daysAgo = sql<number>`floor(extract(epoch from (now() - ${orders.orderedAt})) / 86400)::int`;
   return database
     .select({
       listingId: listingTargets.listingId,
+      daysAgo,
       units: sum(orderItems.quantity).mapWith(Number),
     })
     .from(orderItems)
@@ -142,7 +192,26 @@ async function selectUnitsSold(database: Database, ids: string[]) {
         isCountedOrder(orders.status),
       ),
     )
-    .groupBy(listingTargets.listingId);
+    .groupBy(listingTargets.listingId, daysAgo);
+}
+
+type DailySalesRow = Awaited<ReturnType<typeof selectDailySales>>[number];
+
+/** Spreads one listing's rows over the window, oldest day first, zero where nothing sold. */
+function dailySeries(rows: readonly DailySalesRow[]): number[] {
+  const series = Array.from({ length: SALES_WINDOW_DAYS }, () => 0);
+  for (const row of rows) {
+    const index = SALES_WINDOW_DAYS - 1 - row.daysAgo;
+    if (index < 0 || index >= SALES_WINDOW_DAYS) {
+      continue;
+    }
+    series[index] = (series[index] ?? 0) + row.units;
+  }
+  return series;
+}
+
+function sumOf(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 async function loadOverviewRows(database: Database, ids: string[]): Promise<ListingOverviewRow[]> {
@@ -152,9 +221,8 @@ async function loadOverviewRows(database: Database, ids: string[]): Promise<List
   const [details, statuses, sales] = await Promise.all([
     selectListingDetails(database, ids),
     selectStoreStatuses(database, ids),
-    selectUnitsSold(database, ids),
+    selectDailySales(database, ids),
   ]);
-  const unitsByListing = new Map(sales.map((row) => [row.listingId, row.units]));
   const detailsById = new Map(details.map((row) => [row.listingId, row]));
   return ids.flatMap((id) => {
     const detail = detailsById.get(id);
@@ -163,9 +231,38 @@ async function loadOverviewRows(database: Database, ids: string[]): Promise<List
     }
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
-    return [{ ...detail, updatedAt, unitsSold: unitsByListing.get(id) ?? 0, stores }];
+    const dailySales = dailySeries(sales.filter((row) => row.listingId === id));
+    return [{ ...detail, updatedAt, unitsSold: sumOf(dailySales), dailySales, stores }];
   });
 }
+
+function countWith(status: ListingTargetStatus): SQL<number> {
+  return sql<number>`count(*) filter (where ${hasTargetWith(status)})`.mapWith(Number);
+}
+
+/** Counts for the status tabs: the search applies, the status filter itself does not. */
+async function countByStatus(
+  database: Database,
+  tenantId: string,
+  search: string | undefined,
+): Promise<ListingStatusCounts> {
+  const where = listingConditions(tenantId, { search });
+  const [row] = await database
+    .select({
+      all: count(),
+      published: countWith("published"),
+      error: countWith("error"),
+      paused: countWith("paused"),
+    })
+    .from(listings)
+    .where(where);
+  return row ?? { all: 0, published: 0, error: 0, paused: 0 };
+}
+
+export type ListingOverviewPage = Paginated<ListingOverviewRow> & {
+  hasActive: boolean;
+  statusCounts: ListingStatusCounts;
+};
 
 /** Paginates listings (one row per product), each with its status in every store. */
 export async function listListingOverview(
@@ -173,14 +270,15 @@ export async function listListingOverview(
   tenantId: string,
   filters: ListingOverviewFilters,
   pagination: Pagination,
-): Promise<Paginated<ListingOverviewRow> & { hasActive: boolean }> {
+): Promise<ListingOverviewPage> {
   const where = listingConditions(tenantId, filters);
-  const [page, hasActive] = await Promise.all([
-    pageOfListingIds(database, where, pagination),
+  const [page, hasActive, statusCounts] = await Promise.all([
+    pageOfListingIds(database, where, filters.sort, pagination),
     hasActiveTargets(database, tenantId),
+    countByStatus(database, tenantId, filters.search),
   ]);
   const rows = await loadOverviewRows(database, page.ids);
-  return { ...toPaginated(rows, page.total, pagination), hasActive };
+  return { ...toPaginated(rows, page.total, pagination), hasActive, statusCounts };
 }
 
 async function requireTenantListings(

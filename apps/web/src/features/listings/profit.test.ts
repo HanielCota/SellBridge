@@ -4,6 +4,7 @@ import {
   estimateProfit,
   isLowStock,
   isThinMargin,
+  priceForMargin,
 } from "./profit";
 
 describe("estimateProfit", () => {
@@ -22,6 +23,18 @@ describe("estimateProfit", () => {
 
   it("reports negative profit when the price does not cover costs", () => {
     expect(estimateProfit(5000, 5000)?.profitCents).toBe(-700);
+  });
+});
+
+describe("priceForMargin", () => {
+  it("prices so the profit is the asked share of the sale", () => {
+    const price = priceForMargin(5814, 30);
+    expect(price).toBe(10_383);
+    expect(estimateProfit(price, 5814)?.marginPercent).toBe(30);
+  });
+
+  it("returns null when the fee leaves no room for the margin", () => {
+    expect(priceForMargin(5000, 86)).toBeNull();
   });
 });
 

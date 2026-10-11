@@ -115,13 +115,27 @@ describe("listing overview", () => {
     const [row] = result.items;
     expect(row?.stores).toHaveLength(2);
     expect(row).toMatchObject({ sku: "OV-1", stock: 7, unitsSold: 2, costCents: 1000 });
+    expect(row?.supplierName).toBe("Fornecedor visão geral");
     expect(result.hasActive).toBe(true);
+  });
+
+  it("spreads the units sold over the last 30 days, today last", async () => {
+    const [row] = (await listListingOverview(database, tenantA, {}, page)).items;
+    expect(row?.dailySales).toHaveLength(30);
+    expect(row?.dailySales.at(-1)).toBe(2);
+    expect(row?.dailySales.slice(0, -1).every((units) => units === 0)).toBe(true);
+  });
+
+  it("sorts by units sold when asked", async () => {
+    const result = await listListingOverview(database, tenantA, { sort: "best_selling" }, page);
+    expect(result.items.map((row) => row.listingId)).toEqual([listingId]);
   });
 
   it("filters by the status of any store and hides other tenants", async () => {
     await markTargetFailed(database, targetIds[1] ?? "", "Recusado", { final: true });
     const failing = await listListingOverview(database, tenantA, { status: "error" }, page);
     expect(failing.items.map((row) => row.listingId)).toEqual([listingId]);
+    expect(failing.statusCounts).toEqual({ all: 1, published: 0, error: 1, paused: 0 });
     const paused = await listListingOverview(database, tenantA, { status: "paused" }, page);
     expect(paused.total).toBe(0);
     const other = await listListingOverview(database, tenantB, {}, page);
