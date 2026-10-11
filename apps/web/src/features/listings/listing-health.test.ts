@@ -9,10 +9,12 @@ function store(
 ): ListingStoreStatus {
   return {
     id: storeName,
+    storeConnectionId: `store-${storeName}`,
     status,
     errorReason,
     attempts: 1,
     externalUrl: null,
+    publishedAt: null,
     storeName,
     marketplace: "mock",
   };
@@ -21,6 +23,7 @@ function store(
 function listing(stores: ListingStoreStatus[], stock = 10): ListingOverviewRow {
   return {
     listingId: "listing-1",
+    productId: "product-1",
     title: "Bermuda - Azul",
     priceCents: 9290,
     costCents: 5000,
@@ -30,6 +33,7 @@ function listing(stores: ListingStoreStatus[], stock = 10): ListingOverviewRow {
     categorySlug: null,
     categoryName: null,
     supplierName: "Fornecedor",
+    createdAt: new Date(),
     updatedAt: new Date(),
     unitsSold: 0,
     dailySales: [],

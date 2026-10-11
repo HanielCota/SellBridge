@@ -21,6 +21,7 @@ import {
   jsonResponse,
   parseJson,
   parsePart,
+  readBody,
   type RequestState,
 } from "./request-steps.server";
 
@@ -159,7 +160,11 @@ async function runEndpoint<
   const { caller, rateLimitHeaders } = admitted.value;
   const path = new URL(input.request.url).pathname;
   const state: RequestState = { ...base, path, rateLimitHeaders };
-  const bodyText = acceptsBody(endpoint) ? await input.request.text() : "";
+  const body = acceptsBody(endpoint) ? await readBody(input.request) : proceed("");
+  if (!body.ok) {
+    return problemResponse(body.problem, state.requestId, rateLimitHeaders);
+  }
+  const bodyText = body.value;
   const parsed = await parseInput(endpoint, input, bodyText);
   if (!parsed.ok) {
     return problemResponse(parsed.problem, state.requestId, rateLimitHeaders);

@@ -1,9 +1,11 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { apiIdempotencyKeys } from "../schema/index.ts";
 
 /** Long enough for any client retry loop; afterwards the same key starts a new request. */
 export const IDEMPOTENCY_KEY_TTL_MILLISECONDS = 24 * 60 * 60 * 1000;
+/** A request still "in progress" after this died midway (deploy, crash): its key is freed. */
+export const IDEMPOTENCY_ABANDONED_AFTER_MILLISECONDS = 5 * 60 * 1000;
 
 export type IdempotencyReservation =
   | { status: "reserved" }
@@ -33,9 +35,21 @@ export async function reserveIdempotencyKey(
   target: IdempotencyKey & { requestHash: string; now: Date },
 ): Promise<IdempotencyReservation> {
   const expiredBefore = new Date(target.now.getTime() - IDEMPOTENCY_KEY_TTL_MILLISECONDS);
+  const abandonedBefore = new Date(target.now.getTime() - IDEMPOTENCY_ABANDONED_AFTER_MILLISECONDS);
   await database
     .delete(apiIdempotencyKeys)
-    .where(and(keyCondition(target), lt(apiIdempotencyKeys.createdAt, expiredBefore)));
+    .where(
+      and(
+        keyCondition(target),
+        or(
+          lt(apiIdempotencyKeys.createdAt, expiredBefore),
+          and(
+            isNull(apiIdempotencyKeys.responseStatus),
+            lt(apiIdempotencyKeys.createdAt, abandonedBefore),
+          ),
+        ),
+      ),
+    );
   const inserted = await database
     .insert(apiIdempotencyKeys)
     .values({ tenantId: target.tenantId, key: target.key, requestHash: target.requestHash })
@@ -68,10 +82,11 @@ export async function completeIdempotencyKey(
     .where(keyCondition(target));
 }
 
-/** Frees the key after a failure worth retrying (5xx), so the client can try again with it. */
-export async function releaseIdempotencyKey(
-  database: Database,
-  target: IdempotencyKey,
-): Promise<void> {
-  await database.delete(apiIdempotencyKeys).where(keyCondition(target));
+/** Drops keys past their lifetime (every tenant); run by the worker, not on each request. */
+export async function pruneIdempotencyKeys(database: Database, before: Date): Promise<number> {
+  const deleted = await database
+    .delete(apiIdempotencyKeys)
+    .where(lt(apiIdempotencyKeys.createdAt, before))
+    .returning({ key: apiIdempotencyKeys.key });
+  return deleted.length;
 }

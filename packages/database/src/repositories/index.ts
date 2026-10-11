@@ -15,3 +15,6 @@ export * from "./supplier-reviews.ts";
 export * from "./api-keys.ts";
 export * from "./api-idempotency.ts";
 export * from "./api-events.ts";
+export * from "./order-detail.ts";
+export * from "./webhook-endpoints.ts";
+export * from "./webhook-deliveries.ts";

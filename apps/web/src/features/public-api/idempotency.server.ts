@@ -1,10 +1,8 @@
-import {
-  completeIdempotencyKey,
-  releaseIdempotencyKey,
-  reserveIdempotencyKey,
-} from "@sellbridge/database/repositories";
+import { completeIdempotencyKey, reserveIdempotencyKey } from "@sellbridge/database/repositories";
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { database } from "@/lib/server/database";
+import { tokenCipher } from "@/lib/server/marketplaces";
 import { proceed, stop, type StepResult } from "./problem";
 
 const IDEMPOTENCY_KEY_PATTERN = /^[\w.:-]{8,255}$/;
@@ -59,7 +57,7 @@ export async function startIdempotentRequest(input: {
     return proceed({
       kind: "replay",
       status: reservation.responseStatus,
-      body: reservation.responseBody,
+      body: readStoredBody(reservation.responseBody),
     });
   }
   if (reservation.status === "in_progress") {
@@ -78,20 +76,34 @@ export async function startIdempotentRequest(input: {
 }
 
 /**
- * Stores the outcome to replay later. Server errors release the key instead: the operation
- * may not have happened, so the client must be able to retry with the same key.
+ * Stores the outcome, whatever it was, for replay. A 5xx is stored too: the failure may have
+ * come after the listing was saved (the queue was down, say), and releasing the key would let
+ * the retry create a second one. A request that died midway is freed after a few minutes
+ * instead (see reserveIdempotencyKey). The body is encrypted at rest: it can hold a secret
+ * shown only once, like a new webhook's signing secret.
  */
 export async function finishIdempotentRequest(
   claim: IdempotencyClaim,
   response: { status: number; body: unknown },
 ): Promise<void> {
-  if (response.status >= 500) {
-    await releaseIdempotencyKey(database, claim);
-    return;
-  }
   await completeIdempotencyKey(database, {
     ...claim,
     responseStatus: response.status,
-    responseBody: response.body,
+    responseBody: { encrypted: tokenCipher.encrypt(JSON.stringify(response.body)) },
   });
+}
+
+const storedBodySchema = z.object({ encrypted: z.string() });
+
+/** The stored response body, or null when it can't be read back (key rotated, old format). */
+export function readStoredBody(stored: unknown): unknown {
+  const parsed = storedBodySchema.safeParse(stored);
+  if (!parsed.success) {
+    return null;
+  }
+  try {
+    return JSON.parse(tokenCipher.decrypt(parsed.data.encrypted));
+  } catch {
+    return null;
+  }
 }

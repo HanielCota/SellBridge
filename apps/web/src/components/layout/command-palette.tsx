@@ -7,6 +7,7 @@ import {
   MegaphoneIcon,
   PackageIcon,
   PlugIcon,
+  PlugsConnectedIcon,
   PlusCircleIcon,
   ReceiptIcon,
   SquaresFourIcon,
@@ -44,6 +45,12 @@ const PAGES: PageCommand[] = [
   { label: "Publicações", to: "/publicacoes", icon: MegaphoneIcon, keywords: "anúncios" },
   { label: "Lojas", to: "/lojas", icon: StorefrontIcon, keywords: "marketplace conectar" },
   { label: "Financeiro", to: "/financeiro", icon: WalletIcon, keywords: "pedidos lucro csv" },
+  {
+    label: "Integrações",
+    to: "/integracoes",
+    icon: PlugsConnectedIcon,
+    keywords: "api chave token webhook erp desenvolvedor",
+  },
   { label: "Meu perfil", to: "/perfil", icon: UserCircleIcon, keywords: "foto conta" },
   { label: "Ajuda e suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
 ];

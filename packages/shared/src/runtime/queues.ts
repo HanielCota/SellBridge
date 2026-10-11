@@ -6,6 +6,8 @@ export const QUEUE_NAMES = {
   tokenRefresh: "token-refresh",
   webhookEvents: "webhook-events",
   stockPriceSync: "stock-price-sync",
+  /** Outbound webhooks to integrators (public API), not marketplace notifications. */
+  webhookDelivery: "webhook-delivery",
 } as const;
 
 export const publishListingJobSchema = z.object({

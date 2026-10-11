@@ -26,6 +26,7 @@ jobs:
     env:
       DATABASE_URL: postgres://sellbridge:sellbridge@localhost:5432/sellbridge
       REDIS_URL: redis://localhost:6379
+      WEBHOOK_ALLOW_PRIVATE_URLS: "true"
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -66,6 +67,7 @@ jobs:
       APP_URL: http://localhost:3000
       BETTER_AUTH_URL: http://localhost:3000
       ADMIN_EMAILS: admin@sellbridge.local
+      WEBHOOK_ALLOW_PRIVATE_URLS: "true"
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

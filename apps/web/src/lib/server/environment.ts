@@ -1,4 +1,8 @@
-import { logLevelEnvironmentSchema, parseEnvironment } from "@sellbridge/shared/environment";
+import {
+  booleanFlagEnvironmentSchema,
+  logLevelEnvironmentSchema,
+  parseEnvironment,
+} from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { z } from "zod";
 
@@ -38,6 +42,11 @@ const serverEnvironmentSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * Lets webhook endpoints point to localhost and private networks (local development only).
+   * Off in production: otherwise a customer could make the server call internal services.
+   */
+  WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
 });
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;

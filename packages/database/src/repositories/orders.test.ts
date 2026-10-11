@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
+import {
+  apiEvents,
+  listingTargets,
+  orderItems,
+  orders,
+  supplierProducts,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -103,6 +109,47 @@ describe("marketplace orders and sync", () => {
     await expect(upsertMarketplaceOrder(database, tenantB, storeA, incoming)).rejects.toThrow(
       "outro tenant",
     );
+  });
+
+  it("records order.created and order.status_changed only when the status changes", async () => {
+    const externalOrderId = `ORD-${randomUUID()}`;
+    const incoming = {
+      externalOrderId,
+      status: "paid" as const,
+      totalCents: 5000,
+      marketplaceFeeCents: 500,
+      buyerName: null,
+      orderedAt: new Date("2026-02-01T10:00:00Z"),
+      items: [],
+    };
+    const eventsOfOrder = async () =>
+      database
+        .select({ type: apiEvents.type, data: apiEvents.data })
+        .from(apiEvents)
+        .where(
+          and(
+            eq(apiEvents.tenantId, tenantA),
+            sql`${apiEvents.data} ->> 'externalOrderId' = ${externalOrderId}`,
+          ),
+        )
+        .orderBy(apiEvents.sequence);
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, totalCents: 5100 });
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "shipped" });
+
+    const events = await eventsOfOrder();
+    expect(events.map((event) => event.type)).toEqual(["order.created", "order.status_changed"]);
+    expect(events[0]?.data).toEqual({
+      orderId,
+      externalOrderId,
+      storeId: storeA,
+      status: "paid",
+      previousStatus: null,
+      totalCents: 5000,
+      orderedAt: "2026-02-01T10:00:00.000Z",
+    });
+    expect(events[1]?.data).toMatchObject({ status: "shipped", previousStatus: "paid" });
   });
 
   it("dates the delivery on the first sync that sees it", async () => {

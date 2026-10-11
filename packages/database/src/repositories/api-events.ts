@@ -39,6 +39,14 @@ export async function recordApiEvent<TType extends ApiEventType>(
   return created.id;
 }
 
+/**
+ * Events younger than this are held back. Sequences are taken when a transaction inserts but
+ * become visible when it commits, so a slow transaction can surface a lower sequence after a
+ * higher one was read; a client polling with `after` would skip it. Transactions here take
+ * milliseconds, so a few seconds of delay closes that gap.
+ */
+export const EVENT_SETTLE_SECONDS = 5;
+
 /** Events after `afterSequence`, oldest first: a client keeps the last sequence it read. */
 export async function listApiEvents(
   database: Database,
@@ -48,6 +56,7 @@ export async function listApiEvents(
   const conditions = [
     eq(apiEvents.tenantId, tenantId),
     gt(apiEvents.sequence, query.afterSequence),
+    sql`${apiEvents.createdAt} < now() - make_interval(secs => ${EVENT_SETTLE_SECONDS})`,
   ];
   if (query.types && query.types.length > 0) {
     conditions.push(inArray(apiEvents.type, [...query.types]));

@@ -36,6 +36,30 @@ export function parsePart<TSchema extends z.ZodType>(
   });
 }
 
+/** Every request body of the API is a small JSON object; anything bigger is a mistake. */
+export const MAX_BODY_BYTES = 64 * 1024;
+
+function bodyTooLarge<TValue>(): StepResult<TValue> {
+  return stop({
+    status: 413,
+    code: "payload_too_large",
+    detail: `O corpo da requisição pode ter até ${MAX_BODY_BYTES / 1024} KB.`,
+  });
+}
+
+/** Refuses oversized bodies by their declared length first, so they are never read. */
+export async function readBody(request: Request): Promise<StepResult<string>> {
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (declared > MAX_BODY_BYTES) {
+    return bodyTooLarge();
+  }
+  const text = await request.text();
+  if (Buffer.byteLength(text) > MAX_BODY_BYTES) {
+    return bodyTooLarge();
+  }
+  return proceed(text);
+}
+
 export function parseJson(text: string): StepResult<unknown> {
   if (text.trim() === "") {
     return proceed({});

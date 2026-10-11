@@ -1,8 +1,10 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { ListingEventData } from "@sellbridge/shared/public-api";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
+import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
@@ -179,20 +181,50 @@ export async function markTargetPublishing(
     .where(eq(listingTargets.id, listingTargetId));
 }
 
+/** Columns a listing event needs, read back from the same UPDATE that changed the target. */
+const listingEventColumns = {
+  tenantId: listingTargets.tenantId,
+  listingId: listingTargets.listingId,
+  listingTargetId: listingTargets.id,
+  storeId: listingTargets.storeConnectionId,
+  status: listingTargets.status,
+  externalUrl: listingTargets.externalUrl,
+  errorReason: listingTargets.errorReason,
+};
+
+type ListingEventRow = { tenantId: string } & ListingEventData;
+
+async function recordListingEvent(
+  transaction: DatabaseExecutor,
+  type: "listing.published" | "listing.failed",
+  row: ListingEventRow | undefined,
+): Promise<void> {
+  if (!row) {
+    return;
+  }
+  const { tenantId, ...data } = row;
+  await recordApiEvent(transaction, { tenantId, type, data });
+}
+
 export async function markTargetPublished(
   database: Database,
   listingTargetId: string,
   result: { externalId: string; externalUrl: string | null },
 ): Promise<void> {
-  await database
-    .update(listingTargets)
-    .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
-    .where(eq(listingTargets.id, listingTargetId));
+  await database.transaction(async (transaction) => {
+    const [updated] = await transaction
+      .update(listingTargets)
+      .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
+      .where(eq(listingTargets.id, listingTargetId))
+      .returning(listingEventColumns);
+    await recordListingEvent(transaction, "listing.published", updated);
+  });
 }
 
 /**
  * Records a failed attempt. While retries remain the target goes back to "pending"
- * (with the reason visible); on the final attempt it becomes "error".
+ * (with the reason visible); on the final attempt it becomes "error" and integrators hear
+ * about it (`listing.failed`). Intermediate failures are not events: they may still succeed.
  */
 export async function markTargetFailed(
   database: Database,
@@ -200,10 +232,17 @@ export async function markTargetFailed(
   reason: string,
   options: { final: boolean },
 ): Promise<void> {
-  await database
-    .update(listingTargets)
-    .set({ status: options.final ? "error" : "pending", errorReason: reason })
-    .where(eq(listingTargets.id, listingTargetId));
+  await database.transaction(async (transaction) => {
+    const [updated] = await transaction
+      .update(listingTargets)
+      .set({ status: options.final ? "error" : "pending", errorReason: reason })
+      .where(eq(listingTargets.id, listingTargetId))
+      .returning(listingEventColumns);
+    if (!options.final) {
+      return;
+    }
+    await recordListingEvent(transaction, "listing.failed", updated);
+  });
 }
 
 export interface TargetNeedingSync {

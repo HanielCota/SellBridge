@@ -10,6 +10,7 @@ import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
+import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 
 const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
@@ -40,6 +41,11 @@ const processStockPriceSync = createStockPriceSyncProcessor({
   connectors,
   cipher,
   acquireRateLimit,
+});
+const processWebhookDeliveries = createWebhookDeliveryProcessor({
+  database,
+  cipher,
+  allowPrivateUrls: environment.WEBHOOK_ALLOW_PRIVATE_URLS,
 });
 
 const publishWorker = new Worker(
@@ -78,6 +84,12 @@ const stockPriceSyncWorker = new Worker(
   },
 );
 
+const webhookDeliveryWorker = new Worker(
+  QUEUE_NAMES.webhookDelivery,
+  async () => processWebhookDeliveries(),
+  { connection, concurrency: 1 },
+);
+
 const tokenRefreshQueue = new Queue(QUEUE_NAMES.tokenRefresh, { connection });
 const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
 await stockPriceSyncQueue.upsertJobScheduler(
@@ -85,13 +97,26 @@ await stockPriceSyncQueue.upsertJobScheduler(
   { every: 15 * 60 * 1000 },
   { name: "sync-stock-and-price", data: {} },
 );
+const webhookDeliveryQueue = new Queue(QUEUE_NAMES.webhookDelivery, { connection });
+await webhookDeliveryQueue.upsertJobScheduler(
+  "deliver-outbound-webhooks",
+  { every: 10 * 1000 },
+  // Each run is a new job: keep only a few finished ones in Redis.
+  { name: "deliver-outbound-webhooks", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
+);
 await tokenRefreshQueue.upsertJobScheduler(
   "refresh-expiring-tokens",
   { every: 10 * 60 * 1000 },
   { name: "refresh-expiring-tokens", data: {} },
 );
 
-const workers = [publishWorker, tokenRefreshWorker, webhookWorker, stockPriceSyncWorker];
+const workers = [
+  publishWorker,
+  tokenRefreshWorker,
+  webhookWorker,
+  stockPriceSyncWorker,
+  webhookDeliveryWorker,
+];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
     logger.warn("job.failed", {
@@ -119,6 +144,7 @@ async function shutdown(signal: string): Promise<void> {
     ...workers.map(async (worker) => worker.close()),
     tokenRefreshQueue.close(),
     stockPriceSyncQueue.close(),
+    webhookDeliveryQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

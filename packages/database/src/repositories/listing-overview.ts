@@ -33,10 +33,12 @@ const SALES_WINDOW_DAYS = 30;
 
 export interface ListingStoreStatus {
   id: string;
+  storeConnectionId: string;
   status: ListingTargetStatus;
   errorReason: string | null;
   attempts: number;
   externalUrl: string | null;
+  publishedAt: Date | null;
   storeName: string;
   marketplace: (typeof storeConnections.$inferSelect)["marketplace"];
 }
@@ -44,6 +46,8 @@ export interface ListingStoreStatus {
 /** One product listing with its status in every store it was sent to. */
 export interface ListingOverviewRow {
   listingId: string;
+  /** The supplier product the listing sells. */
+  productId: string;
   title: string;
   priceCents: number;
   costCents: number;
@@ -53,6 +57,7 @@ export interface ListingOverviewRow {
   categorySlug: string | null;
   categoryName: string | null;
   supplierName: string;
+  createdAt: Date;
   updatedAt: Date;
   unitsSold: number;
   /** Units sold per day over the sales window, oldest first. */
@@ -151,6 +156,7 @@ async function selectListingDetails(database: Database, ids: string[]) {
   return database
     .select({
       listingId: listings.id,
+      productId: listings.supplierProductId,
       title: listings.title,
       priceCents: listings.priceCents,
       costCents: supplierProducts.costCents,
@@ -160,6 +166,7 @@ async function selectListingDetails(database: Database, ids: string[]) {
       categorySlug: categories.slug,
       categoryName: categories.name,
       supplierName: suppliers.name,
+      createdAt: listings.createdAt,
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
@@ -173,10 +180,12 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
     .select({
       listingId: listingTargets.listingId,
       id: listingTargets.id,
+      storeConnectionId: listingTargets.storeConnectionId,
       status: listingTargets.status,
       errorReason: listingTargets.errorReason,
       attempts: listingTargets.attempts,
       externalUrl: listingTargets.externalUrl,
+      publishedAt: listingTargets.publishedAt,
       updatedAt: listingTargets.updatedAt,
       storeName: storeConnections.shopName,
       marketplace: storeConnections.marketplace,
@@ -305,6 +314,27 @@ export async function listListingOverview(
   ]);
   const rows = await loadOverviewRows(database, page.ids, salesWindow);
   return { ...toPaginated(rows, page.total, pagination), hasActive, statusCounts };
+}
+
+/** One listing of the tenant, shaped like a row of the overview; not found for other tenants. */
+export async function getListingOverview(
+  database: Database,
+  tenantId: string,
+  listingId: string,
+): Promise<ListingOverviewRow> {
+  const [owned] = await database
+    .select({ id: listings.id })
+    .from(listings)
+    .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)))
+    .limit(1);
+  if (!owned) {
+    throw notFoundError("Publicação não encontrada");
+  }
+  const [row] = await loadOverviewRows(database, [owned.id], salesWindowEndingAt(new Date()));
+  if (!row) {
+    throw notFoundError("Publicação não encontrada");
+  }
+  return row;
 }
 
 async function requireTenantListings(

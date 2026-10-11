@@ -19,6 +19,7 @@ import { Route as AppCatalogoRouteImport } from './routes/_app/catalogo'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
+import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPedidosRouteImport } from './routes/_app/pedidos'
@@ -38,8 +39,10 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
 import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
 import { Route as ApiV1DocsRouteImport } from './routes/api/v1/docs'
+import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
 import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
+import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
@@ -50,9 +53,19 @@ import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oa
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from './routes/api/suporte/anexos/$attachmentId'
 import { Route as ApiSuporteChamadosIndexRouteImport } from './routes/api/suporte/chamados/index'
+import { Route as ApiV1FinancialsSummaryRouteImport } from './routes/api/v1/financials/summary'
+import { Route as ApiV1ListingsIndexRouteImport } from './routes/api/v1/listings/index'
+import { Route as ApiV1ListingsListingIdRouteImport } from './routes/api/v1/listings/$listingId'
+import { Route as ApiV1OrdersIndexRouteImport } from './routes/api/v1/orders/index'
+import { Route as ApiV1OrdersOrderIdRouteImport } from './routes/api/v1/orders/$orderId'
+import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/webhook-endpoints/index'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
+import { Route as ApiV1CatalogProductsIndexRouteImport } from './routes/api/v1/catalog/products/index'
+import { Route as ApiV1CatalogProductsProductIdRouteImport } from './routes/api/v1/catalog/products/$productId'
+import { Route as ApiV1WebhookEndpointsEndpointIdIndexRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/index'
+import { Route as ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport } from './routes/api/v1/webhook-endpoints/$endpointId/deliveries'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -100,6 +113,11 @@ const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
 const AppFornecedoresRouteRoute = AppFornecedoresRouteRouteImport.update({
   id: '/fornecedores',
   path: '/fornecedores',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppIntegracoesRoute = AppIntegracoesRouteImport.update({
+  id: '/integracoes',
+  path: '/integracoes',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppLojasRoute = AppLojasRouteImport.update({
@@ -198,6 +216,11 @@ const ApiV1DocsRoute = ApiV1DocsRouteImport.update({
   path: '/api/v1/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1EventsRoute = ApiV1EventsRouteImport.update({
+  id: '/api/v1/events',
+  path: '/api/v1/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1MeRoute = ApiV1MeRouteImport.update({
   id: '/api/v1/me',
   path: '/api/v1/me',
@@ -206,6 +229,11 @@ const ApiV1MeRoute = ApiV1MeRouteImport.update({
 const ApiV1OpenapiDotjsonRoute = ApiV1OpenapiDotjsonRouteImport.update({
   id: '/api/v1/openapi.json',
   path: '/api/v1/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1StoresRoute = ApiV1StoresRouteImport.update({
+  id: '/api/v1/stores',
+  path: '/api/v1/stores',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
@@ -262,6 +290,37 @@ const ApiSuporteChamadosIndexRoute = ApiSuporteChamadosIndexRouteImport.update({
   path: '/api/suporte/chamados/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1FinancialsSummaryRoute = ApiV1FinancialsSummaryRouteImport.update({
+  id: '/api/v1/financials/summary',
+  path: '/api/v1/financials/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ListingsIndexRoute = ApiV1ListingsIndexRouteImport.update({
+  id: '/api/v1/listings/',
+  path: '/api/v1/listings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ListingsListingIdRoute = ApiV1ListingsListingIdRouteImport.update({
+  id: '/api/v1/listings/$listingId',
+  path: '/api/v1/listings/$listingId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1OrdersIndexRoute = ApiV1OrdersIndexRouteImport.update({
+  id: '/api/v1/orders/',
+  path: '/api/v1/orders/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1OrdersOrderIdRoute = ApiV1OrdersOrderIdRouteImport.update({
+  id: '/api/v1/orders/$orderId',
+  path: '/api/v1/orders/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1WebhookEndpointsIndexRoute =
+  ApiV1WebhookEndpointsIndexRouteImport.update({
+    id: '/api/v1/webhook-endpoints/',
+    path: '/api/v1/webhook-endpoints/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
     id: '/api/admin/chamados/$ticketId/mensagens',
@@ -280,6 +339,30 @@ const ApiSuporteChamadosTicketIdMensagensRoute =
     path: '/api/suporte/chamados/$ticketId/mensagens',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiV1CatalogProductsIndexRoute =
+  ApiV1CatalogProductsIndexRouteImport.update({
+    id: '/api/v1/catalog/products/',
+    path: '/api/v1/catalog/products/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1CatalogProductsProductIdRoute =
+  ApiV1CatalogProductsProductIdRouteImport.update({
+    id: '/api/v1/catalog/products/$productId',
+    path: '/api/v1/catalog/products/$productId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1WebhookEndpointsEndpointIdIndexRoute =
+  ApiV1WebhookEndpointsEndpointIdIndexRouteImport.update({
+    id: '/api/v1/webhook-endpoints/$endpointId/',
+    path: '/api/v1/webhook-endpoints/$endpointId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
+  ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport.update({
+    id: '/api/v1/webhook-endpoints/$endpointId/deliveries',
+    path: '/api/v1/webhook-endpoints/$endpointId/deliveries',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -290,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/financeiro': typeof AppFinanceiroRoute
+  '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/pedidos': typeof AppPedidosRoute
@@ -306,8 +390,10 @@ export interface FileRoutesByFullPath {
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -318,12 +404,22 @@ export interface FileRoutesByFullPath {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
+  '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -333,6 +429,7 @@ export interface FileRoutesByTo {
   '/catalogo': typeof AppCatalogoRoute
   '/dashboard': typeof AppDashboardRoute
   '/financeiro': typeof AppFinanceiroRoute
+  '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/pedidos': typeof AppPedidosRoute
@@ -349,8 +446,10 @@ export interface FileRoutesByTo {
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
@@ -361,12 +460,22 @@ export interface FileRoutesByTo {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/admin/chamados': typeof AppAdminChamadosIndexRoute
   '/admin/clientes': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
+  '/api/v1/listings': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints': typeof ApiV1WebhookEndpointsIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -380,6 +489,7 @@ export interface FileRoutesById {
   '/_app/catalogo': typeof AppCatalogoRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
+  '/_app/integracoes': typeof AppIntegracoesRoute
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/pedidos': typeof AppPedidosRoute
@@ -396,8 +506,10 @@ export interface FileRoutesById {
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
   '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
+  '/api/v1/stores': typeof ApiV1StoresRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -408,12 +520,22 @@ export interface FileRoutesById {
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
+  '/api/v1/financials/summary': typeof ApiV1FinancialsSummaryRoute
+  '/api/v1/listings/$listingId': typeof ApiV1ListingsListingIdRoute
+  '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/_app/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
+  '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
+  '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
+  '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
+  '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
+  '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
+  '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -426,6 +548,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/dashboard'
     | '/financeiro'
+    | '/integracoes'
     | '/lojas'
     | '/onboarding'
     | '/pedidos'
@@ -442,8 +565,10 @@ export interface FileRouteTypes {
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
     | '/api/v1/docs'
+    | '/api/v1/events'
     | '/api/v1/me'
     | '/api/v1/openapi.json'
+    | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores/'
@@ -454,12 +579,22 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
     | '/admin/chamados/'
     | '/admin/clientes/'
     | '/api/suporte/chamados/'
+    | '/api/v1/listings/'
+    | '/api/v1/orders/'
+    | '/api/v1/webhook-endpoints/'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/api/v1/catalog/products/'
+    | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -469,6 +604,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/dashboard'
     | '/financeiro'
+    | '/integracoes'
     | '/lojas'
     | '/onboarding'
     | '/pedidos'
@@ -485,8 +621,10 @@ export interface FileRouteTypes {
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
     | '/api/v1/docs'
+    | '/api/v1/events'
     | '/api/v1/me'
     | '/api/v1/openapi.json'
+    | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores'
@@ -497,12 +635,22 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
     | '/admin/chamados'
     | '/admin/clientes'
     | '/api/suporte/chamados'
+    | '/api/v1/listings'
+    | '/api/v1/orders'
+    | '/api/v1/webhook-endpoints'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/api/v1/catalog/products'
+    | '/api/v1/webhook-endpoints/$endpointId'
   id:
     | '__root__'
     | '/'
@@ -515,6 +663,7 @@ export interface FileRouteTypes {
     | '/_app/catalogo'
     | '/_app/dashboard'
     | '/_app/financeiro'
+    | '/_app/integracoes'
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/pedidos'
@@ -531,8 +680,10 @@ export interface FileRouteTypes {
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
     | '/api/v1/docs'
+    | '/api/v1/events'
     | '/api/v1/me'
     | '/api/v1/openapi.json'
+    | '/api/v1/stores'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
@@ -543,12 +694,22 @@ export interface FileRouteTypes {
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
+    | '/api/v1/financials/summary'
+    | '/api/v1/listings/$listingId'
+    | '/api/v1/orders/$orderId'
     | '/_app/admin/chamados/'
     | '/_app/admin/clientes/'
     | '/api/suporte/chamados/'
+    | '/api/v1/listings/'
+    | '/api/v1/orders/'
+    | '/api/v1/webhook-endpoints/'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
+    | '/api/v1/catalog/products/$productId'
+    | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/api/v1/catalog/products/'
+    | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -561,16 +722,28 @@ export interface RootRouteChildren {
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
   ApiV1DocsRoute: typeof ApiV1DocsRoute
+  ApiV1EventsRoute: typeof ApiV1EventsRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
   ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
+  ApiV1StoresRoute: typeof ApiV1StoresRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiSuporteAnexosAttachmentIdRoute: typeof ApiSuporteAnexosAttachmentIdRoute
+  ApiV1FinancialsSummaryRoute: typeof ApiV1FinancialsSummaryRoute
+  ApiV1ListingsListingIdRoute: typeof ApiV1ListingsListingIdRoute
+  ApiV1OrdersOrderIdRoute: typeof ApiV1OrdersOrderIdRoute
   ApiSuporteChamadosIndexRoute: typeof ApiSuporteChamadosIndexRoute
+  ApiV1ListingsIndexRoute: typeof ApiV1ListingsIndexRoute
+  ApiV1OrdersIndexRoute: typeof ApiV1OrdersIndexRoute
+  ApiV1WebhookEndpointsIndexRoute: typeof ApiV1WebhookEndpointsIndexRoute
   ApiAdminChamadosTicketIdMensagensRoute: typeof ApiAdminChamadosTicketIdMensagensRoute
   ApiSuporteChamadosTicketIdMensagensRoute: typeof ApiSuporteChamadosTicketIdMensagensRoute
+  ApiV1CatalogProductsProductIdRoute: typeof ApiV1CatalogProductsProductIdRoute
+  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  ApiV1CatalogProductsIndexRoute: typeof ApiV1CatalogProductsIndexRoute
+  ApiV1WebhookEndpointsEndpointIdIndexRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -643,6 +816,13 @@ declare module '@tanstack/react-router' {
       path: '/fornecedores'
       fullPath: '/fornecedores'
       preLoaderRoute: typeof AppFornecedoresRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/integracoes': {
+      id: '/_app/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof AppIntegracoesRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/lojas': {
@@ -778,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/events': {
+      id: '/api/v1/events'
+      path: '/api/v1/events'
+      fullPath: '/api/v1/events'
+      preLoaderRoute: typeof ApiV1EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/me': {
       id: '/api/v1/me'
       path: '/api/v1/me'
@@ -790,6 +977,13 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/openapi.json'
       fullPath: '/api/v1/openapi.json'
       preLoaderRoute: typeof ApiV1OpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/stores': {
+      id: '/api/v1/stores'
+      path: '/api/v1/stores'
+      fullPath: '/api/v1/stores'
+      preLoaderRoute: typeof ApiV1StoresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/$marketplace': {
@@ -862,6 +1056,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSuporteChamadosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/financials/summary': {
+      id: '/api/v1/financials/summary'
+      path: '/api/v1/financials/summary'
+      fullPath: '/api/v1/financials/summary'
+      preLoaderRoute: typeof ApiV1FinancialsSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/listings/': {
+      id: '/api/v1/listings/'
+      path: '/api/v1/listings'
+      fullPath: '/api/v1/listings/'
+      preLoaderRoute: typeof ApiV1ListingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/listings/$listingId': {
+      id: '/api/v1/listings/$listingId'
+      path: '/api/v1/listings/$listingId'
+      fullPath: '/api/v1/listings/$listingId'
+      preLoaderRoute: typeof ApiV1ListingsListingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/orders/': {
+      id: '/api/v1/orders/'
+      path: '/api/v1/orders'
+      fullPath: '/api/v1/orders/'
+      preLoaderRoute: typeof ApiV1OrdersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/orders/$orderId': {
+      id: '/api/v1/orders/$orderId'
+      path: '/api/v1/orders/$orderId'
+      fullPath: '/api/v1/orders/$orderId'
+      preLoaderRoute: typeof ApiV1OrdersOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/': {
+      id: '/api/v1/webhook-endpoints/'
+      path: '/api/v1/webhook-endpoints'
+      fullPath: '/api/v1/webhook-endpoints/'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/chamados/$ticketId/mensagens': {
       id: '/api/admin/chamados/$ticketId/mensagens'
       path: '/api/admin/chamados/$ticketId/mensagens'
@@ -881,6 +1117,34 @@ declare module '@tanstack/react-router' {
       path: '/api/suporte/chamados/$ticketId/mensagens'
       fullPath: '/api/suporte/chamados/$ticketId/mensagens'
       preLoaderRoute: typeof ApiSuporteChamadosTicketIdMensagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/catalog/products/': {
+      id: '/api/v1/catalog/products/'
+      path: '/api/v1/catalog/products'
+      fullPath: '/api/v1/catalog/products/'
+      preLoaderRoute: typeof ApiV1CatalogProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/catalog/products/$productId': {
+      id: '/api/v1/catalog/products/$productId'
+      path: '/api/v1/catalog/products/$productId'
+      fullPath: '/api/v1/catalog/products/$productId'
+      preLoaderRoute: typeof ApiV1CatalogProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/$endpointId/': {
+      id: '/api/v1/webhook-endpoints/$endpointId/'
+      path: '/api/v1/webhook-endpoints/$endpointId'
+      fullPath: '/api/v1/webhook-endpoints/$endpointId/'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/webhook-endpoints/$endpointId/deliveries': {
+      id: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      path: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      fullPath: '/api/v1/webhook-endpoints/$endpointId/deliveries'
+      preLoaderRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -923,6 +1187,7 @@ interface AppRouteRouteChildren {
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
+  AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPedidosRoute: typeof AppPedidosRoute
@@ -940,6 +1205,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCatalogoRoute: AppCatalogoRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
+  AppIntegracoesRoute: AppIntegracoesRoute,
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPedidosRoute: AppPedidosRoute,
@@ -995,18 +1261,32 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,
   ApiV1DocsRoute: ApiV1DocsRoute,
+  ApiV1EventsRoute: ApiV1EventsRoute,
   ApiV1MeRoute: ApiV1MeRoute,
   ApiV1OpenapiDotjsonRoute: ApiV1OpenapiDotjsonRoute,
+  ApiV1StoresRoute: ApiV1StoresRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   OauthMockAutorizarRoute: OauthMockAutorizarRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiSuporteAnexosAttachmentIdRoute: ApiSuporteAnexosAttachmentIdRoute,
+  ApiV1FinancialsSummaryRoute: ApiV1FinancialsSummaryRoute,
+  ApiV1ListingsListingIdRoute: ApiV1ListingsListingIdRoute,
+  ApiV1OrdersOrderIdRoute: ApiV1OrdersOrderIdRoute,
   ApiSuporteChamadosIndexRoute: ApiSuporteChamadosIndexRoute,
+  ApiV1ListingsIndexRoute: ApiV1ListingsIndexRoute,
+  ApiV1OrdersIndexRoute: ApiV1OrdersIndexRoute,
+  ApiV1WebhookEndpointsIndexRoute: ApiV1WebhookEndpointsIndexRoute,
   ApiAdminChamadosTicketIdMensagensRoute:
     ApiAdminChamadosTicketIdMensagensRoute,
   ApiSuporteChamadosTicketIdMensagensRoute:
     ApiSuporteChamadosTicketIdMensagensRoute,
+  ApiV1CatalogProductsProductIdRoute: ApiV1CatalogProductsProductIdRoute,
+  ApiV1WebhookEndpointsEndpointIdDeliveriesRoute:
+    ApiV1WebhookEndpointsEndpointIdDeliveriesRoute,
+  ApiV1CatalogProductsIndexRoute: ApiV1CatalogProductsIndexRoute,
+  ApiV1WebhookEndpointsEndpointIdIndexRoute:
+    ApiV1WebhookEndpointsEndpointIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -3,6 +3,7 @@ import {
   type Icon,
   MapPinIcon,
   MoonIcon,
+  PlugsConnectedIcon,
   QuestionIcon,
   ShieldCheckIcon,
   SignOutIcon,
@@ -174,6 +175,12 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
         <Link to="/onboarding">
           <MapPinIcon aria-hidden="true" />
           Minha região
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild className={MENU_ROW}>
+        <Link to="/integracoes">
+          <PlugsConnectedIcon aria-hidden="true" />
+          Integrações
         </Link>
       </DropdownMenuItem>
       <DropdownMenuItem asChild className={MENU_ROW}>

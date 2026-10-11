@@ -1,11 +1,18 @@
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { apiEvents } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { createListingWithTargets, listListingTargets } from "./listings.ts";
+import {
+  createListingWithTargets,
+  listListingTargets,
+  markTargetFailed,
+  markTargetPublished,
+} from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -70,5 +77,66 @@ describe("listings are tenant-scoped", () => {
         [],
       ),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
+async function eventsOfTarget(listingTargetId: string) {
+  return database
+    .select({ type: apiEvents.type, data: apiEvents.data })
+    .from(apiEvents)
+    .where(
+      and(
+        eq(apiEvents.tenantId, tenantA),
+        sql`${apiEvents.data} ->> 'listingTargetId' = ${listingTargetId}`,
+      ),
+    )
+    .orderBy(apiEvents.sequence);
+}
+
+async function createTarget(title: string) {
+  const created = await createListingWithTargets(
+    database,
+    tenantA,
+    { supplierProductId: productId, title, description: "Descrição", priceCents: 2500 },
+    [storeA],
+  );
+  const [targetId] = created.targetIds;
+  if (!targetId) {
+    throw new Error("destino");
+  }
+  return { listingId: created.listingId, targetId };
+}
+
+describe("listing events", () => {
+  it("records listing.published with the store and the public url", async () => {
+    const { listingId, targetId } = await createTarget("Anúncio publicado");
+    await markTargetPublished(database, targetId, {
+      externalId: "EXT-EV",
+      externalUrl: "https://loja.example/EXT-EV",
+    });
+    expect(await eventsOfTarget(targetId)).toEqual([
+      {
+        type: "listing.published",
+        data: {
+          listingId,
+          listingTargetId: targetId,
+          storeId: storeA,
+          status: "published",
+          externalUrl: "https://loja.example/EXT-EV",
+          errorReason: null,
+        },
+      },
+    ]);
+  });
+
+  it("records listing.failed only on the final failure", async () => {
+    const { targetId } = await createTarget("Anúncio recusado");
+    await markTargetFailed(database, targetId, "Instável", { final: false });
+    expect(await eventsOfTarget(targetId)).toEqual([]);
+
+    await markTargetFailed(database, targetId, "Categoria inválida", { final: true });
+    const events = await eventsOfTarget(targetId);
+    expect(events.map((event) => event.type)).toEqual(["listing.failed"]);
+    expect(events[0]?.data).toMatchObject({ status: "error", errorReason: "Categoria inválida" });
   });
 });

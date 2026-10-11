@@ -10,6 +10,15 @@ export const logLevelEnvironmentSchema = z
   .transform((value) => value.trim().toLowerCase())
   .pipe(z.enum(LOG_LEVELS));
 
+/**
+ * On/off flag, off unless set to "true" or "1". `z.coerce.boolean()` would read "false" as
+ * true (any non-empty string), which is the wrong default for a security switch.
+ */
+export const booleanFlagEnvironmentSchema = z
+  .string()
+  .default("false")
+  .transform((value) => ["true", "1"].includes(value.trim().toLowerCase()));
+
 export interface ParseEnvironmentOptions {
   /** Old variable name → new name. Setting an old name fails startup instead of being ignored. */
   renamedVariables?: Readonly<Record<string, string>>;

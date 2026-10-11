@@ -1,7 +1,9 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
+import type { OrderEventData } from "@sellbridge/shared/public-api";
 import type { Database } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
+import { recordApiEvent } from "./api-events.ts";
 
 export interface IncomingOrder {
   externalOrderId: string;
@@ -76,6 +78,22 @@ function deliveredAtOnUpdate(
   return new Date();
 }
 
+/** Public event snapshot of an order write (see packages/shared/src/public-api/events.ts). */
+function orderEventData(
+  write: OrderWrite,
+  order: { orderId: string; orderedAt: Date; previousStatus: string | null },
+): OrderEventData {
+  return {
+    orderId: order.orderId,
+    externalOrderId: write.order.externalOrderId,
+    storeId: write.storeConnectionId,
+    status: write.order.status,
+    previousStatus: order.previousStatus,
+    totalCents: write.order.totalCents,
+    orderedAt: order.orderedAt.toISOString(),
+  };
+}
+
 async function updateExistingOrder(
   write: OrderWrite,
   existing: typeof orders.$inferSelect,
@@ -92,6 +110,18 @@ async function updateExistingOrder(
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
     })
     .where(eq(orders.id, existing.id));
+  // Re-deliveries of the same status (retries, total changes) are not news to integrators.
+  if (existing.status !== write.order.status) {
+    await recordApiEvent(write.transaction, {
+      tenantId: write.tenantId,
+      type: "order.status_changed",
+      data: orderEventData(write, {
+        orderId: existing.id,
+        orderedAt: existing.orderedAt,
+        previousStatus: existing.status,
+      }),
+    });
+  }
   return { status: "updated", orderId: existing.id };
 }
 
@@ -137,16 +167,31 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     throw new Error("Não foi possível gravar o pedido");
   }
   await insertOrderItems(write, created.id);
+  await recordApiEvent(write.transaction, {
+    tenantId: write.tenantId,
+    type: "order.created",
+    data: orderEventData(write, {
+      orderId: created.id,
+      orderedAt: order.orderedAt,
+      previousStatus: null,
+    }),
+  });
   return { status: "created", orderId: created.id };
 }
 
 async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
-  const existing = await write.transaction.query.orders.findFirst({
-    where: and(
-      eq(orders.storeConnectionId, write.storeConnectionId),
-      eq(orders.externalOrderId, write.order.externalOrderId),
-    ),
-  });
+  // Locked so two syncs of the same order run one after the other: each sees the status the
+  // other wrote, and a status change is recorded (and announced) once.
+  const [existing] = await write.transaction
+    .select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.storeConnectionId, write.storeConnectionId),
+        eq(orders.externalOrderId, write.order.externalOrderId),
+      ),
+    )
+    .for("update");
   if (existing) {
     return updateExistingOrder(write, existing);
   }
