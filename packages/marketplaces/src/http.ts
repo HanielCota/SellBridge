@@ -87,14 +87,38 @@ function attemptSignal(attempt: FetchAttempt): AbortSignal {
   return AbortSignal.any([timeout, attempt.init.signal]);
 }
 
-/** One network attempt: a network error returns null (retry) until the last attempt, then throws. */
+/**
+ * The body is read inside the attempt, under the same timeout: headers that arrive just before
+ * the deadline followed by a stalled body are a timeout like any other, not a malformed reply.
+ * The caller gets a buffered copy it can read with no deadline attached.
+ */
+async function fetchBuffered(attempt: FetchAttempt): Promise<Response> {
+  const response = await attempt.fetchImplementation(attempt.url, {
+    ...attempt.init,
+    signal: attemptSignal(attempt),
+  });
+  const body = await response.arrayBuffer();
+  return new Response(body.byteLength > 0 ? body : null, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+/**
+ * One network attempt: a network error or timeout returns null (retry) until the last attempt,
+ * then throws. An abort from the caller's own signal throws at once, without further attempts.
+ */
 async function attemptFetch(attempt: FetchAttempt): Promise<Response | null> {
   try {
-    return await attempt.fetchImplementation(attempt.url, {
-      ...attempt.init,
-      signal: attemptSignal(attempt),
-    });
+    return await fetchBuffered(attempt);
   } catch (error) {
+    if (attempt.init.signal?.aborted) {
+      throw marketplaceError("Requisição ao marketplace cancelada", {
+        retryable: false,
+        cause: error,
+      });
+    }
     if (attempt.isLastAttempt) {
       throw marketplaceError("Falha de rede ao falar com o marketplace", {
         retryable: attempt.isIdempotent,
@@ -111,9 +135,10 @@ export function isIdempotentMethod(method: string | undefined): boolean {
 }
 
 /**
- * fetch with a per-attempt timeout and retries for network errors and retryable statuses
- * (429, 5xx...); non-idempotent methods retry only on 429. Non-retryable responses are
- * returned to the caller to interpret.
+ * fetch with a per-attempt timeout (covering the body too) and retries for network errors,
+ * timeouts and retryable statuses (429, 5xx...); non-idempotent methods retry only on 429.
+ * Non-retryable responses are returned, with the body already buffered, for the caller to
+ * interpret.
  */
 export async function fetchWithRetry(
   fetchImplementation: FetchLike,
