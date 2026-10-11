@@ -66,6 +66,60 @@ describe("fetchWithRetry", () => {
     ).rejects.toMatchObject({ details: { retryable: true } });
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
   });
+
+  it("aborts an attempt that outlives the timeout", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        }),
+    );
+    await expect(
+      fetchWithRetry(
+        fetchImplementation,
+        "https://x",
+        {},
+        { ...noSleep, retries: 0, timeoutMilliseconds: 10 },
+      ),
+    ).rejects.toMatchObject({ details: { retryable: true } });
+  });
+
+  it("does not repeat a POST that got a 5xx", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () => respond(503));
+    const response = await fetchWithRetry(
+      fetchImplementation,
+      "https://x",
+      { method: "POST" },
+      noSleep,
+    );
+    expect(response.status).toBe(503);
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("still retries a POST refused with 429", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(respond(429))
+      .mockResolvedValueOnce(respond(201));
+    const response = await fetchWithRetry(
+      fetchImplementation,
+      "https://x",
+      { method: "POST" },
+      noSleep,
+    );
+    expect(response.status).toBe(201);
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a failed POST as not retryable, since it may have gone through", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("fetch failed");
+    });
+    await expect(
+      fetchWithRetry(fetchImplementation, "https://x", { method: "POST" }, noSleep),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("backoff helpers", () => {
@@ -74,6 +128,7 @@ describe("backoff helpers", () => {
       retries: 5,
       baseDelayMilliseconds: 100,
       maxDelayMilliseconds: 1000,
+      timeoutMilliseconds: 1000,
       random: () => 1,
     };
     expect(backoffDelay(0, options)).toBe(100);
