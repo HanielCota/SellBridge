@@ -15,6 +15,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
+  { label: "Pedidos", to: "/pedidos" },
   { label: "Lojas", to: "/lojas" },
   { label: "Financeiro", to: "/financeiro" },
 ];

@@ -137,3 +137,16 @@ Aplicados os princípios descritos em [architecture.md](architecture.md) e refor
 ## 2026-10-09: Build scripts de dependências
 
 O pnpm 12 falha o `install` quando um pacote tem script de build não aprovado. Ficam liberados só `esbuild` e `lefthook`; o `msgpackr-extract` (acelerador nativo opcional do `msgpackr`, usado pelo BullMQ) fica explicitamente negado em `allowBuilds`: o fallback em JavaScript puro atende o volume do MVP e evita compilar código nativo no install.
+
+## 2026-10-10: Score de fornecedor
+
+Revendedores avaliam o fornecedor de cada pedido entregue (uma avaliação por pedido e fornecedor, tabela `supplier_reviews`). O score é global entre tenants, como a reputação de um marketplace, e os comentários aparecem sem identificar a loja. Regra pura em `@sellbridge/shared/supplier-score`, inspirada em:
+
+- Mercado Livre: termômetro de 5 níveis (Crítico, Atenção, Regular, Bom, Excelente) sobre uma janela móvel de 90 dias e selo "Fornecedor destaque" (score ≥ 90, média ≥ 4,7 e pelo menos 30 pedidos finalizados).
+- Amazon: estrelas de 1 a 5 divididas em positivas, neutras e negativas, e métricas operacionais com meta fixa (devolução até 3%, cancelamento até 2,5%).
+- Shopee: marcações rápidas por aspecto (prazo, conformidade, embalagem, atendimento). Notas 4 e 5 oferecem elogios; notas de 1 a 3, reclamações.
+
+Score (0–100) = estrelas convertidas para 0–100 (média bayesiana com 5 avaliações de 3,5 estrelas), menos uma penalidade operacional: cada métrica só tira pontos acima da meta, 5 pontos por múltiplo da meta excedido, até 15 por métrica (taxas suavizadas com 20 pedidos na metade da meta). Assim o nível sempre acompanha as estrelas exibidas e cancelamentos ou devoluções altos só puxam para baixo; o card mostra o motivo ("cancelamentos altos") e o selo de destaque exige as métricas dentro da meta. Com menos de 10 avaliações o fornecedor aparece como "Novo fornecedor". Só pedidos `delivered` dos últimos 60 dias podem ser avaliados ou ter a avaliação editada.
+
+- Não há data de entrega nem de despacho nos pedidos, então atraso no envio fica só nas marcações das avaliações, não nas métricas.
+- O seed atribui um perfil (`reputation`) a cada fornecedor, que define as estrelas e as taxas de cancelamento e devolução da conta demo.

@@ -1,17 +1,31 @@
 import { formatCents, formatCentsForInput, parseBrlToCents } from "@sellbridge/shared/money";
-import { optionalParameter } from "@sellbridge/shared/schemas";
+import {
+  LISTING_DESCRIPTION_MAX_LENGTH,
+  LISTING_TITLE_MAX_LENGTH,
+  listingDescriptionSchema,
+  listingTitleSchema,
+  optionalParameter,
+} from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, StorefrontIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { ArrowCounterClockwiseIcon, ArrowLeftIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ProductVisual } from "@/components/catalog/product-visual";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import {
+  PROFIT_SPLIT_COLORS,
+  ProfitSplitBar,
+  ProfitSplitLine,
+  profitTone,
+} from "@/components/listings/profit-split";
+import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +37,14 @@ import { newListingQueryOptions } from "@/features/listings/listings.queries";
 import {
   ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
   estimateProfit,
+  isThinMargin,
+  priceForMargin,
+  type ProfitEstimate,
 } from "@/features/listings/profit";
+import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/publicacoes/nova")({
   // A missing or malformed product id (a typed or stale URL) sends the reseller back to pick one.
@@ -42,6 +61,9 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
+
+/** One-tap prices besides the supplier's suggestion, named by the margin they leave. */
+const MARGIN_PRESETS = [30, 40, 50] as const;
 
 function NewListingPage() {
   const { productId } = Route.useRouteContext();
@@ -68,21 +90,23 @@ function NewListingPage() {
           {product.supplierName}
         </Link>
       </Button>
-      <PageHeader
-        title="Nova publicação"
-        description="Revise o anúncio e escolha em quais lojas ele será publicado."
-      />
       {stores.length === 0 ? (
-        <EmptyState
-          icon={StorefrontIcon}
-          title="Conecte uma loja antes de publicar"
-          description="Você ainda não tem lojas conectadas."
-          action={
-            <Button asChild>
-              <Link to="/lojas">Conectar loja</Link>
-            </Button>
-          }
-        />
+        <>
+          <PageHeader
+            title="Nova publicação"
+            description="Revise o anúncio e escolha em quais lojas ele será publicado."
+          />
+          <EmptyState
+            icon={StorefrontIcon}
+            title="Conecte uma loja antes de publicar"
+            description="Você ainda não tem lojas conectadas."
+            action={
+              <Button asChild>
+                <Link to="/lojas">Conectar loja</Link>
+              </Button>
+            }
+          />
+        </>
       ) : (
         <ListingForm product={product} stores={stores} />
       )}
@@ -93,8 +117,8 @@ function NewListingPage() {
 type NewListingData = Awaited<ReturnType<typeof getNewListingData>>;
 
 const listingFormSchema = z.object({
-  title: z.string().trim().min(10, "O título deve ter ao menos 10 caracteres").max(120),
-  description: z.string().trim().min(20, "Descreva o produto com ao menos 20 caracteres"),
+  title: listingTitleSchema,
+  description: listingDescriptionSchema,
   price: z.string().refine((value) => (parseBrlToCents(value) ?? 0) > 0, "Informe um preço válido"),
   storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
 });
@@ -102,6 +126,10 @@ const listingFormSchema = z.object({
 type ListingProduct = NewListingData["product"];
 type ListingStore = NewListingData["stores"][number];
 type ListingFormValues = z.infer<typeof listingFormSchema>;
+
+function pluralize(count: number, one: string, other: string): string {
+  return `${count} ${count === 1 ? one : other}`;
+}
 
 function successMessage(targetCount: number): string {
   return targetCount > 1
@@ -160,39 +188,106 @@ function ListingForm({ product, stores }: Pick<NewListingData, "product" | "stor
   return (
     <form
       noValidate
-      className="grid gap-6 lg:grid-cols-[1fr_320px]"
+      className="space-y-6"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
       }}
     >
-      <ListingFieldsCard form={form} stores={stores} submitError={submitError} />
-      <ListingSidebar form={form} product={product} />
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Nova publicação</h1>
+        <form.Subscribe selector={(state) => state.values.price}>
+          {(price) => (
+            <ProfitSentence priceCents={parseBrlToCents(price)} costCents={product.costCents} />
+          )}
+        </form.Subscribe>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <ListingFieldsCard
+          form={form}
+          product={product}
+          stores={stores}
+          submitError={submitError}
+        />
+        <ListingSidebar form={form} product={product} />
+      </div>
+      <PublishBar form={form} stores={stores} />
     </form>
+  );
+}
+
+function Strong({ className, children }: { className?: string; children: ReactNode }) {
+  return <span className={cn("font-medium text-foreground", className)}>{children}</span>;
+}
+
+/** The dashboard's headline voice for one sale: "Você lucra R$ 45,83 por venda, com 38% de margem." */
+function ProfitSentence({
+  priceCents,
+  costCents,
+}: {
+  priceCents: number | null;
+  costCents: number;
+}) {
+  const estimate = estimateProfit(priceCents, costCents);
+  if (!estimate) {
+    return (
+      <p className="text-sm text-muted-foreground">Informe o preço de venda para ver o lucro.</p>
+    );
+  }
+  if (estimate.profitCents < 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Com esse preço você tem{" "}
+        <Strong className="text-destructive">
+          prejuízo de {formatCents(-estimate.profitCents)}
+        </Strong>{" "}
+        por venda.
+      </p>
+    );
+  }
+  const tone = profitTone(estimate.profitCents, estimate.marginPercent);
+  return (
+    <p className="text-sm text-muted-foreground">
+      Você lucra <Strong className={tone}>{formatCents(estimate.profitCents)}</Strong> por venda,
+      com <Strong className={tone}>{Math.round(estimate.marginPercent)}% de margem</Strong>.
+    </p>
   );
 }
 
 function ListingFieldsCard({
   form,
+  product,
   stores,
   submitError,
 }: {
   readonly form: ListingFormApi;
+  readonly product: ListingProduct;
   readonly stores: readonly ListingStore[];
   readonly submitError: string | null;
 }) {
   return (
-    <Card>
+    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
       <CardHeader>
         <CardTitle className="text-base">Anúncio</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4">
+      <CardContent className="grid gap-5">
         {submitError ? (
           <Alert variant="destructive">
             <AlertDescription>{submitError}</AlertDescription>
           </Alert>
         ) : null}
-        <ListingTextFields form={form} />
+        <ListingTextFields form={form} product={product} />
+        <form.Field name="price">
+          {(field) => (
+            <PriceField
+              product={product}
+              value={field.state.value}
+              errors={field.state.meta.errors}
+              onBlur={field.handleBlur}
+              onChange={field.handleChange}
+            />
+          )}
+        </form.Field>
         <form.Field name="storeConnectionIds">
           {(field) => (
             <StoreSelection
@@ -208,48 +303,258 @@ function ListingFieldsCard({
   );
 }
 
-function ListingTextFields({ form }: { readonly form: ListingFormApi }) {
+/** Small text action beside a field label, such as a character count or "Restaurar original". */
+function FieldAside({ children }: { children: ReactNode }) {
+  return (
+    <span className="absolute top-0 right-0 flex h-5 items-center gap-3 text-xs text-muted-foreground tabular-nums">
+      {children}
+    </span>
+  );
+}
+
+/** "42/60", turning red when a supplier's text already arrives over the limit. */
+function CharacterCount({ value, max }: { value: string; max: number }) {
+  const length = value.trim().length;
+  return (
+    <span className={cn(length > max && "font-medium text-destructive")}>
+      {length.toLocaleString("pt-BR")}/{max.toLocaleString("pt-BR")}
+    </span>
+  );
+}
+
+function ListingTextFields({
+  form,
+  product,
+}: {
+  readonly form: ListingFormApi;
+  readonly product: ListingProduct;
+}) {
   return (
     <>
       <form.Field name="title">
         {(field) => (
-          <TextField
-            id="title"
-            label="Título"
-            value={field.state.value}
-            errors={field.state.meta.errors}
-            onBlur={field.handleBlur}
-            onValueChange={field.handleChange}
-          />
+          <div className="relative">
+            <TextField
+              id="title"
+              label="Título"
+              maxLength={LISTING_TITLE_MAX_LENGTH}
+              value={field.state.value}
+              errors={field.state.meta.errors}
+              onBlur={field.handleBlur}
+              onValueChange={field.handleChange}
+            />
+            <FieldAside>
+              <CharacterCount value={field.state.value} max={LISTING_TITLE_MAX_LENGTH} />
+            </FieldAside>
+          </div>
         )}
       </form.Field>
       <form.Field name="description">
         {(field) => (
-          <TextareaField
-            id="description"
-            label="Descrição"
-            rows={6}
-            value={field.state.value}
-            errors={field.state.meta.errors}
-            onBlur={field.handleBlur}
-            onValueChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-      <form.Field name="price">
-        {(field) => (
-          <TextField
-            id="price"
-            label="Preço de venda (R$)"
-            inputMode="decimal"
-            value={field.state.value}
-            errors={field.state.meta.errors}
-            onBlur={field.handleBlur}
-            onValueChange={field.handleChange}
-          />
+          <div className="relative">
+            <TextareaField
+              id="description"
+              label="Descrição"
+              rows={4}
+              maxLength={LISTING_DESCRIPTION_MAX_LENGTH}
+              value={field.state.value}
+              errors={field.state.meta.errors}
+              onBlur={field.handleBlur}
+              onValueChange={field.handleChange}
+            />
+            <FieldAside>
+              {field.state.value === product.description ? null : (
+                <button
+                  type="button"
+                  onClick={() => field.handleChange(product.description)}
+                  className="flex items-center gap-1 rounded-md transition-colors outline-none animate-in fade-in hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <ArrowCounterClockwiseIcon className="size-3.5" aria-hidden="true" />
+                  Restaurar original
+                </button>
+              )}
+              <CharacterCount value={field.state.value} max={LISTING_DESCRIPTION_MAX_LENGTH} />
+            </FieldAside>
+          </div>
         )}
       </form.Field>
     </>
+  );
+}
+
+interface PricePreset {
+  key: string;
+  label: string;
+  priceCents: number;
+}
+
+/** The supplier's suggestion first, then the margin presets that land above the cost. */
+function pricePresets(product: ListingProduct): PricePreset[] {
+  const presets: PricePreset[] = [
+    { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
+  ];
+  for (const margin of MARGIN_PRESETS) {
+    const priceCents = priceForMargin(product.costCents, margin);
+    if (priceCents !== null) {
+      presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
+    }
+  }
+  return presets;
+}
+
+/** Tint behind the margin badge, in step with `profitTone` for its text. */
+function marginSurface(estimate: ProfitEstimate): string {
+  if (estimate.profitCents < 0) {
+    return "bg-destructive/10";
+  }
+  if (isThinMargin(estimate.marginPercent)) {
+    return "bg-amber-500/10";
+  }
+  return "bg-brand/10";
+}
+
+function MarginBadge({ estimate }: { estimate: ProfitEstimate | null }) {
+  if (!estimate) {
+    return null;
+  }
+  const isLoss = estimate.profitCents < 0;
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap tabular-nums transition-colors duration-300",
+        marginSurface(estimate),
+        profitTone(estimate.profitCents, estimate.marginPercent),
+      )}
+    >
+      {isLoss ? "Prejuízo" : `${Math.round(estimate.marginPercent)}% de margem`}
+    </span>
+  );
+}
+
+function PricePresets({
+  product,
+  priceCents,
+  onPick,
+}: {
+  readonly product: ListingProduct;
+  readonly priceCents: number | null;
+  readonly onPick: (value: string) => void;
+}) {
+  return (
+    <fieldset className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <legend className="sr-only">Preços prontos</legend>
+      {pricePresets(product).map((preset) => (
+        <button
+          key={preset.key}
+          type="button"
+          aria-pressed={priceCents === preset.priceCents}
+          onClick={() => onPick(formatCentsForInput(preset.priceCents))}
+          className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
+        >
+          {preset.label}
+          <span className="font-normal tabular-nums opacity-80">
+            {formatCents(preset.priceCents)}
+          </span>
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
+/**
+ * The price is typed freely; the presets fill it in one tap and the badge inside the field
+ * follows whatever is typed, so the margin is always the one of the price on screen.
+ */
+function PriceField({
+  product,
+  value,
+  errors,
+  onBlur,
+  onChange,
+}: {
+  readonly product: ListingProduct;
+  readonly value: string;
+  readonly errors: readonly unknown[];
+  readonly onBlur: () => void;
+  readonly onChange: (value: string) => void;
+}) {
+  const priceCents = parseBrlToCents(value);
+  const estimate = estimateProfit(priceCents, product.costCents);
+  const message = firstErrorMessage(errors);
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor="price">Preço de venda</Label>
+      <div className="relative">
+        <span
+          className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-sm text-muted-foreground"
+          aria-hidden="true"
+        >
+          R$
+        </span>
+        <input
+          id="price"
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          onChange={(event) => onChange(event.target.value.replace(/[^\d.,]/g, ""))}
+          onBlur={() => {
+            const cents = parseBrlToCents(value);
+            if (cents !== null && cents > 0) {
+              onChange(formatCentsForInput(cents));
+            }
+            onBlur();
+          }}
+          aria-invalid={message ? true : undefined}
+          aria-describedby={message ? "price-error" : "price-hint"}
+          className="h-12 w-full rounded-full border border-field-border bg-field pr-36 pl-11 text-lg font-semibold tabular-nums transition-[border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
+        />
+        <MarginBadge estimate={estimate} />
+      </div>
+      <PricePresets product={product} priceCents={priceCents} onPick={onChange} />
+      {message ? (
+        <p id="price-error" className="text-sm text-destructive">
+          {message}
+        </p>
+      ) : (
+        <p id="price-hint" className="text-xs text-muted-foreground">
+          Digite o preço que quiser ou use um dos prontos. Custo do fornecedor:{" "}
+          {formatCents(product.costCents)}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function storeSubtitle(store: ListingStore): string | null {
+  return displayStoreName(store.shopName) === store.shopName ? null : "Loja simulada";
+}
+
+function StoreOption({
+  store,
+  checked,
+  onCheckedChange,
+}: {
+  readonly store: ListingStore;
+  readonly checked: boolean;
+  readonly onCheckedChange: (checked: boolean) => void;
+}) {
+  const subtitle = storeSubtitle(store);
+  return (
+    <Label
+      htmlFor={`store-${store.id}`}
+      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand"
+    >
+      <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{displayStoreName(store.shopName)}</span>
+        {subtitle ? <span className="block text-xs text-muted-foreground">{subtitle}</span> : null}
+      </span>
+      <Checkbox
+        id={`store-${store.id}`}
+        checked={checked}
+        onCheckedChange={(next) => onCheckedChange(next === true)}
+      />
+    </Label>
   );
 }
 
@@ -265,30 +570,34 @@ function StoreSelection({
   readonly onChange: (storeConnectionIds: string[]) => void;
 }) {
   const message = firstErrorMessage(errors);
+  const allSelected = selectedIds.length === stores.length;
   return (
-    <fieldset className="grid gap-2">
-      <legend className="mb-2 text-sm font-medium">Lojas de destino</legend>
-      {stores.map((store) => (
-        <Label
-          key={store.id}
-          htmlFor={`store-${store.id}`}
-          className="flex cursor-pointer items-center gap-3 rounded-xl border border-field-border bg-field px-4 py-3 font-normal transition-colors has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand"
+    <fieldset>
+      <legend className="float-left mb-3 text-sm font-medium">Publicar em</legend>
+      {stores.length > 1 ? (
+        <button
+          type="button"
+          onClick={() => onChange(allSelected ? [] : stores.map((store) => store.id))}
+          className="float-right rounded-md text-xs font-medium text-brand-text transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Checkbox
-            id={`store-${store.id}`}
+          {allSelected ? "Limpar seleção" : "Selecionar todas"}
+        </button>
+      ) : null}
+      <div className="clear-both grid gap-2 sm:grid-cols-2">
+        {stores.map((store) => (
+          <StoreOption
+            key={store.id}
+            store={store}
             checked={selectedIds.includes(store.id)}
-            onCheckedChange={(next) =>
+            onCheckedChange={(on) =>
               onChange(
-                next === true
-                  ? [...selectedIds, store.id]
-                  : selectedIds.filter((id) => id !== store.id),
+                on ? [...selectedIds, store.id] : selectedIds.filter((id) => id !== store.id),
               )
             }
           />
-          {store.shopName}
-        </Label>
-      ))}
-      {message ? <p className="text-sm text-destructive">{message}</p> : null}
+        ))}
+      </div>
+      {message ? <p className="mt-2 text-sm text-destructive">{message}</p> : null}
     </fieldset>
   );
 }
@@ -301,18 +610,84 @@ function ListingSidebar({
   readonly product: ListingProduct;
 }) {
   return (
-    <div className="space-y-3 lg:sticky lg:top-24 lg:self-start">
-      <form.Subscribe selector={(state) => state.values.price}>
-        {(price) => <ProfitCard priceCents={parseBrlToCents(price)} product={product} />}
-      </form.Subscribe>
-      <form.Subscribe selector={(state) => state.isSubmitting}>
-        {(isSubmitting) => (
-          <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Enviando..." : "Publicar"}
-          </Button>
+    <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+      <form.Subscribe
+        selector={(state) => ({ title: state.values.title, price: state.values.price })}
+      >
+        {({ title, price }) => (
+          <>
+            <ListingPreview product={product} title={title} priceCents={parseBrlToCents(price)} />
+            <ProfitCard priceCents={parseBrlToCents(price)} product={product} />
+          </>
         )}
       </form.Subscribe>
     </div>
+  );
+}
+
+/** Roughly how the ad reads on a marketplace grid: photo, title and price, live as they change. */
+function ListingPreview({
+  product,
+  title,
+  priceCents,
+}: {
+  product: ListingProduct;
+  title: string;
+  priceCents: number | null;
+}) {
+  return (
+    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+      <CardHeader>
+        <CardTitle className="text-sm font-normal text-muted-foreground">
+          Prévia do anúncio
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-3 overflow-hidden rounded-2xl bg-background p-2 ring-1 ring-border">
+          <ProductVisual
+            imageUrl={product.imageUrls.at(0) ?? null}
+            title={title}
+            categoryName={product.categoryName}
+            className="aspect-square w-28! shrink-0 rounded-xl"
+          />
+          <div className="min-w-0 space-y-1 py-1 pr-1">
+            <p className="line-clamp-2 text-sm wrap-anywhere">
+              {title.trim() || "Título do anúncio"}
+            </p>
+            <p className="text-lg font-semibold tabular-nums">
+              {priceCents === null ? "—" : formatCents(priceCents)}
+            </p>
+            <p className="text-xs text-brand-text">Enviado pelo fornecedor</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Whole reais big, cents small, like the dashboard tiles. */
+function ProfitFigure({ estimate }: { estimate: ProfitEstimate | null }) {
+  if (!estimate) {
+    return <p className="text-3xl font-semibold tracking-tight">—</p>;
+  }
+  const [reais, cents] = formatCents(Math.abs(estimate.profitCents))
+    .replace(/^R\$\s?/, "")
+    .split(",");
+  return (
+    <p
+      className={cn(
+        "flex items-baseline gap-1 tabular-nums transition-colors duration-300",
+        estimate.profitCents < 0 ? "text-destructive" : "text-foreground",
+      )}
+    >
+      <span className="text-sm text-muted-foreground">
+        {estimate.profitCents < 0 ? "− R$" : "R$"}
+      </span>
+      <span>
+        <span className="text-3xl font-semibold tracking-tight">{reais}</span>
+        <span className="text-base font-medium text-muted-foreground">,{cents}</span>
+      </span>
+    </p>
   );
 }
 
@@ -324,36 +699,112 @@ function ProfitCard({
   product: ListingProduct;
 }) {
   const estimate = estimateProfit(priceCents, product.costCents);
+  const isLoss = estimate !== null && estimate.profitCents < 0;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Estimativa por venda</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-2 gap-x-0 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Preço de venda</dt>
-          <dd className="text-right">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
-          <dt className="text-muted-foreground">Custo do fornecedor</dt>
-          <dd className="text-right">− {formatCents(product.costCents)}</dd>
-          <dt className="text-muted-foreground">
-            Taxa estimada ({ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})
-          </dt>
-          <dd className="text-right">− {estimate ? formatCents(estimate.feeCents) : "—"}</dd>
-          <dt className="border-t pt-2 font-medium">Lucro estimado</dt>
-          <dd
-            className={
-              estimate && estimate.profitCents < 0
-                ? "border-t pt-2 text-right font-semibold text-destructive"
-                : "border-t pt-2 text-right font-semibold"
+    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+      <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            {isLoss ? "Prejuízo estimado" : "Lucro estimado"} por venda
+          </p>
+          <ProfitFigure estimate={estimate} />
+        </div>
+        {estimate ? (
+          <ProfitSplitBar
+            costCents={product.costCents}
+            feeCents={estimate.feeCents}
+            profitCents={estimate.profitCents}
+          />
+        ) : null}
+        <dl className="space-y-1.5 text-sm">
+          <ProfitSplitLine
+            swatch={PROFIT_SPLIT_COLORS.cost}
+            label="Custo do fornecedor"
+            value={formatCents(product.costCents)}
+          />
+          <ProfitSplitLine
+            swatch={PROFIT_SPLIT_COLORS.fee}
+            label={`Taxa estimada (${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})`}
+            value={estimate ? formatCents(estimate.feeCents) : "—"}
+          />
+          <ProfitSplitLine
+            swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
+            label={isLoss ? "Seu prejuízo" : "Seu lucro"}
+            value={estimate ? formatCents(Math.abs(estimate.profitCents)) : "—"}
+            valueClassName={
+              estimate
+                ? cn("font-medium", profitTone(estimate.profitCents, estimate.marginPercent))
+                : undefined
             }
-          >
-            {estimate ? formatCents(estimate.profitCents) : "—"}
-          </dd>
+          />
+          <div className="flex items-center justify-between border-t border-border pt-2 font-medium">
+            <dt>Preço de venda</dt>
+            <dd className="tabular-nums">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
+          </div>
         </dl>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           A taxa real depende do marketplace e da categoria do anúncio.
         </p>
       </CardContent>
     </Card>
   );
+}
+
+function publishSummary(selected: readonly ListingStore[]): string {
+  const [only] = selected;
+  if (selected.length === 1 && only) {
+    return `Vai para ${displayStoreName(only.shopName)}`;
+  }
+  if (selected.length === 0) {
+    return "Escolha ao menos uma loja";
+  }
+  return `Vai para ${pluralize(selected.length, "loja", "lojas")}`;
+}
+
+/** Floating pill like the catalog's selection bar: where the ad goes and the one action. */
+function PublishBar({
+  form,
+  stores,
+}: {
+  readonly form: ListingFormApi;
+  readonly stores: readonly ListingStore[];
+}) {
+  return (
+    <form.Subscribe
+      selector={(state) => ({
+        selectedIds: state.values.storeConnectionIds,
+        isSubmitting: state.isSubmitting,
+      })}
+    >
+      {({ selectedIds, isSubmitting }) => {
+        const selected = stores.filter((store) => selectedIds.includes(store.id));
+        return (
+          <section
+            aria-label="Publicar"
+            className="sticky bottom-4 z-20 flex items-center gap-3 rounded-full bg-card p-1.5 pl-3 shadow-lg ring-1 shadow-black/20 ring-border animate-in duration-300 fade-in slide-in-from-bottom-3 motion-reduce:animate-none"
+          >
+            <span className="flex shrink-0" aria-hidden="true">
+              {selected.slice(0, 3).map((store) => (
+                <MarketplaceMark
+                  key={store.id}
+                  marketplace={store.marketplace}
+                  className="-ml-2 size-7 rounded-lg ring-2 ring-card first:ml-0 animate-in zoom-in-75 fade-in duration-200"
+                />
+              ))}
+            </span>
+            <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" aria-live="polite">
+              {publishSummary(selected)}
+            </p>
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Enviando..." : publishLabel(selected.length)}
+            </Button>
+          </section>
+        );
+      }}
+    </form.Subscribe>
+  );
+}
+
+function publishLabel(count: number): string {
+  return count === 0 ? "Publicar" : `Publicar em ${pluralize(count, "loja", "lojas")}`;
 }

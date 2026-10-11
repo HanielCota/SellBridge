@@ -1,4 +1,8 @@
-import { supplierListSearchSchema } from "@sellbridge/shared/schemas";
+import {
+  SUPPLIER_SORT_LABELS,
+  SUPPLIER_SORTS,
+  supplierListSearchSchema,
+} from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
@@ -6,6 +10,7 @@ import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { listSuppliers } from "@/features/suppliers/suppliers.functions";
 import { suppliersQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -41,7 +47,7 @@ function SuppliersPage() {
     <>
       <PageHeader
         title="Fornecedores"
-        description="Atacadistas que entregam na sua região. Escolha um para ver o catálogo."
+        description="Atacadistas que entregam na sua região, com o score dado por quem já vendeu os produtos deles."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link to="/onboarding">
@@ -100,7 +106,36 @@ function SupplierFilters() {
           ))}
         </SelectContent>
       </Select>
+      <SupplierSortSelect />
     </div>
+  );
+}
+
+function SupplierSortSelect() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  return (
+    <Select
+      value={search.sort}
+      onValueChange={(value) => {
+        const sort = SUPPLIER_SORTS.find((option) => option === value);
+        if (!sort) {
+          return;
+        }
+        void navigate({ search: (previous) => ({ ...previous, sort }), replace: true });
+      }}
+    >
+      <SelectTrigger className="sm:w-48" aria-label="Ordenar fornecedores">
+        <SelectValue>{SUPPLIER_SORT_LABELS[search.sort]}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {SUPPLIER_SORTS.map((option) => (
+          <SelectItem key={option} value={option}>
+            {SUPPLIER_SORT_LABELS[option]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -131,39 +166,50 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
     <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {query.data.suppliers.map((supplier) => (
         <li key={supplier.id}>
-          <Card className="surface-interactive h-full has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
-            <CardHeader className="flex flex-row items-start gap-3 space-y-0">
-              <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
-              <div className="min-w-0 space-y-1">
-                <CardTitle className="truncate text-base">
-                  <Link
-                    to="/fornecedores/$supplierId"
-                    params={{ supplierId: supplier.id }}
-                    className="after:absolute after:inset-0 focus-visible:outline-none"
-                  >
-                    {supplier.name}
-                  </Link>
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {supplier.city} - {supplier.state}
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col gap-3">
-              <p className="line-clamp-2 text-sm text-muted-foreground">{supplier.description}</p>
-              {/* Pinned to the bottom so the niche and count line up across a row. */}
-              <div className="mt-auto flex items-center justify-between">
-                <Badge variant="secondary">{supplier.niche}</Badge>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <PackageIcon className="size-3.5" aria-hidden="true" />
-                  {supplier.productCount} produtos
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <SupplierCard supplier={supplier} />
         </li>
       ))}
     </ul>
+  );
+}
+
+type SupplierWithReputation = Awaited<ReturnType<typeof listSuppliers>>["suppliers"][number];
+
+function SupplierCard({ supplier }: { supplier: SupplierWithReputation }) {
+  return (
+    <Card className="surface-interactive h-full has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="truncate text-base">
+            <Link
+              to="/fornecedores/$supplierId"
+              params={{ supplierId: supplier.id }}
+              className="after:absolute after:inset-0 focus-visible:outline-none"
+            >
+              {supplier.name}
+            </Link>
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {supplier.city} - {supplier.state}
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3">
+        <p className="line-clamp-2 text-sm text-muted-foreground">{supplier.description}</p>
+        {/* Pinned to the bottom so reputation, niche and count line up across a row. */}
+        <div className="mt-auto space-y-3">
+          <ReputationSummary reputation={supplier.reputation} />
+          <div className="flex items-center justify-between">
+            <Badge variant="secondary">{supplier.niche}</Badge>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <PackageIcon className="size-3.5" aria-hidden="true" />
+              {supplier.productCount} produtos
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -175,7 +221,7 @@ function SupplierListSkeleton() {
       aria-label="Carregando fornecedores"
     >
       {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-40 rounded-3xl" />
+        <Skeleton key={index} className="h-56 rounded-3xl" />
       ))}
     </div>
   );

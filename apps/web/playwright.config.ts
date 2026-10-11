@@ -22,6 +22,9 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   timeout: 60_000,
+  // The app runs on the Vite dev server, which compiles routes on first hit; with every worker
+  // busy, a hydration or loader can pass the 5s default and fail a test that is fine.
+  expect: { timeout: 10_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",
   use: {

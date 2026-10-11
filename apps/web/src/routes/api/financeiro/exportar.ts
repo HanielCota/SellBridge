@@ -1,7 +1,7 @@
 import { exportOrderFinancials } from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { financialSearchSchema } from "@sellbridge/shared/schemas";
+import { financialSearchSchema, ORDER_STAGE_STATUSES } from "@sellbridge/shared/schemas";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
 import { buildReportScope } from "@/features/reports/report-scope.server";
@@ -28,7 +28,10 @@ async function handleExport(request: Request): Promise<Response> {
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);
   const rows = await exportOrderFinancials(database, scope, {
-    filters: { status: search.status, search: search.query },
+    filters: {
+      statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
+      search: search.query,
+    },
     sort: { field: search.sort, direction: search.direction },
   });
   logger.info("financial.exported", { tenantId: session.tenantId, rows: rows.length });

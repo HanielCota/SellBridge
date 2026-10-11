@@ -1,8 +1,17 @@
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridge/shared/schemas";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useState, type ComponentProps } from "react";
+import { useCallback, useRef, useState, type ComponentProps } from "react";
 import { CalendarBlankIcon, CaretDownIcon } from "@phosphor-icons/react";
+import { useActiveIndicator } from "@/components/data/use-active-indicator";
+import {
+  TRACK_CLASSES,
+  TRACK_FALLBACK_PILL_CLASSES,
+  TRACK_OPTION_CLASSES,
+  TrackPill,
+} from "@/components/data/track-pill";
+import { useOptimisticChoice } from "@/hooks/use-optimistic-choice";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -99,17 +108,34 @@ function PeriodSegments({
   period: PeriodSearch["period"];
   onPeriodChange: (period: PeriodPreset) => void;
 }) {
+  const chosen = useOptimisticChoice(period);
+  const containerRef = useRef<HTMLFieldSetElement>(null);
+  const optionRefs = useRef(new Map<PeriodPreset, HTMLElement>());
+  const indicator = useActiveIndicator(chosen.value, containerRef, optionRefs);
+  // Off until the first pick, so the pill lands in place on load instead of sliding in.
+  const [canAnimate, setCanAnimate] = useState(false);
   return (
     // min-w-0: a fieldset is as wide as its content by default, which defeats w-full and the scroll.
-    <fieldset className="flex h-10 w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-muted p-1 [scrollbar-width:none] sm:inline-flex sm:w-auto">
+    <fieldset ref={containerRef} className={cn(TRACK_CLASSES, "w-full sm:inline-flex sm:w-auto")}>
       <legend className="sr-only">Período</legend>
+      {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
       {PERIOD_PRESETS.map((preset) => (
         <label
           key={preset}
+          ref={(node) => {
+            if (!node) {
+              optionRefs.current.delete(preset);
+              return;
+            }
+            optionRefs.current.set(preset, node);
+          }}
           className={cn(
-            "flex h-8 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground sm:flex-none sm:px-3.5 sm:text-sm",
-            // The chosen period is cut out of the track, like a segmented control.
-            "has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm has-checked:ring-1 has-checked:ring-border",
+            TRACK_OPTION_CLASSES,
+            "flex-1 px-2.5 sm:flex-none sm:px-3.5",
+            // Unchosen periods answer the pointer with a faint pill of their own.
+            "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
+            // Before the first measure (SSR, hydration) the chosen period paints its own pill.
+            !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
             "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
           )}
         >
@@ -120,8 +146,12 @@ function PeriodSegments({
             type="radio"
             name="period"
             value={preset}
-            checked={preset === period}
-            onChange={() => onPeriodChange(preset)}
+            checked={preset === chosen.value}
+            onChange={() => {
+              setCanAnimate(true);
+              chosen.choose(preset);
+              onPeriodChange(preset);
+            }}
             aria-label={SEGMENT_LABELS[preset]}
             className="sr-only"
           />
@@ -202,6 +232,29 @@ function rangeShortcuts(today: string): { label: string; from: string; to: strin
   ];
 }
 
+/**
+ * Keeps the calendar inside the card it opens from, never over the cards around it. It is taller
+ * than the room under the date field, so on wide cards it opens beside the field, over the chart,
+ * and slides up or down to stay inside. Phones have the card's full height below the field; if
+ * even that is short, the calendar scrolls inside itself.
+ */
+function useCalendarInsideCard() {
+  const isMobile = useIsMobile();
+  const [card, setCard] = useState<Element | null>(null);
+  const trackCard = useCallback((trigger: HTMLButtonElement | null) => {
+    setCard(trigger?.closest("section") ?? null);
+  }, []);
+  const placement = {
+    side: isMobile ? "bottom" : "right",
+    align: "start",
+    collisionBoundary: card,
+    collisionPadding: 12,
+    className:
+      "max-h-(--radix-popover-content-available-height) overflow-y-auto overscroll-contain",
+  } as const;
+  return { trackCard, placement };
+}
+
 /** Trigger showing the applied range; the popover edits a draft until "Aplicar". */
 function CustomRange({
   from,
@@ -219,6 +272,7 @@ function CustomRange({
   const [open, setOpen] = useState(defaultOpen);
   const [draft, setDraft] = useState<DateRange>({ from, to });
   const today = brazilToday();
+  const { trackCard, placement } = useCalendarInsideCard();
 
   function changeOpen(next: boolean) {
     if (next) {
@@ -238,12 +292,12 @@ function CustomRange({
 
   return (
     <Popover open={open} onOpenChange={changeOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild ref={trackCard}>
         <RangeTrigger from={from} to={to} />
       </PopoverTrigger>
       <PopoverContent
         aria-label="Escolher período"
-        collisionPadding={16}
+        {...placement}
         onOpenAutoFocus={focusSelectedDay}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {

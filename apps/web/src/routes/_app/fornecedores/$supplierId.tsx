@@ -14,6 +14,7 @@ import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { ReputationPanel } from "@/components/suppliers/reputation-panel";
 import { SupplierProductCard } from "@/components/suppliers/supplier-product-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supplierCatalogQueryOptions } from "@/features/suppliers/suppliers.queries";
+import {
+  supplierCatalogQueryOptions,
+  supplierReputationQueryOptions,
+} from "@/features/suppliers/suppliers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -38,7 +42,10 @@ export const Route = createFileRoute("/_app/fornecedores/$supplierId")({
   validateSearch: catalogSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps: search }) =>
-    prefetchOnServer(context.queryClient, supplierCatalogQueryOptions(params.supplierId, search)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, supplierCatalogQueryOptions(params.supplierId, search)),
+      prefetchOnServer(context.queryClient, supplierReputationQueryOptions(params.supplierId)),
+    ]),
   head: () => ({ meta: [{ title: "Catálogo | SellBridge" }] }),
   component: CatalogPage,
 });
@@ -72,6 +79,7 @@ function CatalogPage() {
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
       />
+      <ReputationPanel supplierId={supplier.id} />
       <CatalogFilters categories={query.data.categories} />
       <CatalogResults />
     </>

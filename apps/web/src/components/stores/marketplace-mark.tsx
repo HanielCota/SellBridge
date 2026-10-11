@@ -1,20 +1,11 @@
-import { FlaskIcon } from "@phosphor-icons/react";
+import { FlaskIcon, HandshakeIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-import {
-  MERCADO_LIVRE_PATH,
-  MERCADO_LIVRE_TRANSFORM,
-  MERCADO_LIVRE_VIEWBOX,
-  SHOPEE_PATH,
-  TIKTOK_PATH,
-} from "./marketplace-logo-paths";
+import { SHOPEE_PATH, TIKTOK_PATH } from "./marketplace-logo-paths";
 
+/** The handshake from Mercado Livre's emblem; the wordmark is unreadable at tile size. */
 function MercadoLivreLogo() {
-  return (
-    <svg viewBox={MERCADO_LIVRE_VIEWBOX} className="h-[58%] w-auto" aria-hidden="true">
-      <path d={MERCADO_LIVRE_PATH} transform={MERCADO_LIVRE_TRANSFORM} fill="#2d3277" />
-    </svg>
-  );
+  return <HandshakeIcon weight="bold" className="size-[60%] text-[#2d3277]" />;
 }
 
 function ShopeeLogo() {
@@ -37,8 +28,7 @@ function TikTokLogo() {
 }
 
 const MARKS: Record<string, { logo: ReactNode; className: string }> = {
-  // The wordmark needs width to stay legible, so its badge is a wide pill.
-  mercado_livre: { logo: <MercadoLivreLogo />, className: "w-auto! bg-[#ffe600] px-[0.55em]" },
+  mercado_livre: { logo: <MercadoLivreLogo />, className: "bg-[#ffe600]" },
   shopee: { logo: <ShopeeLogo />, className: "bg-[#ee4d2d]" },
   tiktok_shop: { logo: <TikTokLogo />, className: "bg-black ring-1 ring-white/10" },
 };

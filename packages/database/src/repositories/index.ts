@@ -11,3 +11,4 @@ export * from "./support.ts";
 export * from "./customers.ts";
 export * from "./notifications.ts";
 export * from "./global-search.ts";
+export * from "./supplier-reviews.ts";

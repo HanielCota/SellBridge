@@ -59,6 +59,19 @@ export const disconnectStoreFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Where the consent screen of the simulated marketplace sends the user back, or null when
+ * the simulated store is off (production without `MOCK_WEBHOOK_SECRET`).
+ */
+export const getMockConsentCallback = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .handler(async (): Promise<{ callbackUrl: string | null }> => {
+    if (!connectors.mock.isConfigured()) {
+      return { callbackUrl: null };
+    }
+    return { callbackUrl: oauthCallbackUrl("mock") };
+  });
+
+/**
  * Consent screen of the simulated marketplace: issues an authorization code for the
  * callback URL. Only our own mock callback is accepted, so it cannot be an open redirect.
  */
@@ -72,6 +85,9 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    if (!connectors.mock.isConfigured()) {
+      throw validationError("A loja simulada não está disponível");
+    }
     if (data.redirectUri !== oauthCallbackUrl("mock")) {
       throw validationError("Endereço de retorno não autorizado");
     }

@@ -14,7 +14,7 @@ const ICON = "size-3.5";
 
 /**
  * Notifications rise from the bottom center, near where actions happen, as a solid
- * card in inverted contrast. The type shows as a small colored badge with an icon,
+ * card on the same surface as popovers. The type shows as a small colored badge with an icon,
  * never as a tinted background.
  */
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -37,17 +37,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
         unstyled: true,
         classNames: {
           toast:
-            "group flex w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl bg-foreground py-3 pr-4 pl-3 text-background shadow-[0_12px_40px_-8px_rgb(0_0_0/0.45)] sm:w-[400px]",
-          icon: "m-0 flex size-6 shrink-0 items-center justify-center rounded-full bg-background/15 text-background",
+            "group flex w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-border bg-popover py-3 pr-4 pl-3 text-popover-foreground shadow-[0_12px_40px_-8px_rgb(0_0_0/0.45)] sm:w-[400px]",
+          icon: "m-0 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground",
           success: "[&_[data-icon]]:bg-brand [&_[data-icon]]:text-primary-foreground",
           error: "[&_[data-icon]]:bg-red-500 [&_[data-icon]]:text-white",
           warning: "[&_[data-icon]]:bg-amber-400 [&_[data-icon]]:text-black",
           content: "min-w-0 flex-1",
           title: "text-sm leading-snug font-medium",
-          description: "mt-0.5 text-xs leading-snug text-background/65",
+          description: "mt-0.5 text-xs leading-snug text-muted-foreground",
           actionButton:
-            "ml-auto shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-medium text-foreground",
-          cancelButton: "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-background/70",
+            "ml-auto shrink-0 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background",
+          cancelButton:
+            "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground",
         },
       }}
       {...props}

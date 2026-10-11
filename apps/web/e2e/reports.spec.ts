@@ -20,9 +20,8 @@ test.describe("dashboard", () => {
       );
     }
     await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
-    await expect(
-      page.getByRole("figure", { name: "Gráfico de receita e lucro por dia" }),
-    ).toBeVisible();
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(chart).toBeVisible();
     await page.locator("label", { hasText: /^Lucro$/ }).click();
     await expect(page.getByRole("radio", { name: "Lucro" })).toBeChecked();
     await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
@@ -32,7 +31,7 @@ test.describe("dashboard", () => {
     await page.locator("label", { hasText: "6 meses" }).click();
     await expect(page.getByRole("radio", { name: "6 meses" })).toBeChecked();
     await expect(page).toHaveURL(/period=180d/);
-    await expect(page.getByRole("figure", { name: /por semana/ })).toBeVisible();
+    await expect(chart).toBeVisible();
 
     await page.getByLabel("Loja", { exact: true }).click();
     await page.getByRole("option", { name: "Ana Moda (loja simulada)" }).click();
@@ -56,12 +55,12 @@ test.describe("financeiro", () => {
     await gotoHydrated(page, "/financeiro?period=180d");
     const summary = page.getByRole("region", { name: "Resumo do período" });
     await expect(summary.getByText(/^Lucro líquido: R\$/)).toBeVisible();
-    await expect(summary.getByRole("term").filter({ hasText: "Lucro líquido" })).toBeVisible();
-    await expect(
-      page.getByText(/pedidos \(todos os status\) · página 1 de/).filter({ visible: true }),
-    ).toBeVisible();
+    await expect(summary.getByText(/em vendas$/)).toBeVisible();
+    await expect(summary.getByRole("term").filter({ hasText: "Seu lucro" })).toBeVisible();
+    await expect(page.getByText(/pedidos · página 1 de/).filter({ visible: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Ordenar por lucro" }).click();
+    await page.getByLabel("Ordenar pedidos").click();
+    await page.getByRole("option", { name: "Maior lucro" }).click();
     await expect(page).toHaveURL(/sort=profit/);
     await expect(page).toHaveURL(/direction=desc/);
 
@@ -69,14 +68,21 @@ test.describe("financeiro", () => {
     await expect(page).toHaveURL(/page=2/);
     await expect(page.getByText(/página 2 de/).filter({ visible: true })).toBeVisible();
 
-    await page.getByLabel("Filtrar por status do pedido").click();
-    await page.getByRole("option", { name: "Devolvido" }).click();
-    await expect(page).toHaveURL(/status=returned/);
+    await page
+      .getByRole("group", { name: "Filtrar por etapa do pedido" })
+      .getByRole("button", { name: "Cancelados e devolvidos" })
+      .click();
+    await expect(page).toHaveURL(/stage=issue/);
     await expect(page).not.toHaveURL(/page=2/);
-    await expect(page.getByRole("cell", { name: "Entregue" })).toHaveCount(0);
+    // Only cancelled and returned orders carry a status badge, so the list now shows one per row.
+    await expect(
+      page.getByLabel("Financeiro por pedido").getByRole("button").first(),
+    ).toContainText(/Cancelado|Devolvido/);
 
+    const exportLink = page.getByRole("link", { name: "Exportar CSV" });
+    await expect(exportLink).toHaveAttribute("href", /stage=issue/);
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("link", { name: "Exportar CSV" }).click();
+    await exportLink.click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(
       /^financeiro-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.csv$/,
@@ -90,7 +96,9 @@ test.describe("financeiro", () => {
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toContain("Data;Pedido;Loja;Comprador;Status");
     expect(lines.length).toBeGreaterThan(1);
-    expect(lines.slice(1).every((line) => line.includes(";Devolvido;"))).toBe(true);
+    expect(
+      lines.slice(1).every((line) => line.includes(";Devolvido;") || line.includes(";Cancelado;")),
+    ).toBe(true);
   });
 
   test("mostra estado vazio para conta sem pedidos", async ({ page }) => {
@@ -130,9 +138,16 @@ test.describe("busca global", () => {
   test("Ctrl+K encontra um pedido e leva até ele no financeiro", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
-    await page.keyboard.press("Control+k");
     const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
-    await expect(input).toBeVisible();
+    // The root marks hydration before the header's shortcut listener may be attached, so a
+    // press that lands too early is retried instead of failing the run.
+    // Ctrl+K toggles the palette, so it is pressed again only while the input is still hidden.
+    await expect(async () => {
+      if (!(await input.isVisible())) {
+        await page.keyboard.press("Control+k");
+      }
+      await expect(input).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
     await input.fill("financeiro");
     await expect(page.getByRole("option", { name: /Financeiro/ })).toBeVisible();
     await input.fill("MOCK-ORD-0000");

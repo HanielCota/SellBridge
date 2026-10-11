@@ -132,11 +132,16 @@ export interface SeedSupplier {
   city: string;
   /** States covered entirely, and specific cities covered in other states. */
   coverage: { state: string; city?: string }[];
+  /** How the demo history treats this supplier: review stars, cancellations and returns. */
+  reputation?: SupplierReputationProfile;
 }
+
+export type SupplierReputationProfile = "excellent" | "good" | "regular" | "poor";
 
 export const SUPPLIERS: SeedSupplier[] = [
   {
     name: "Ateliê Divinópolis Confecções",
+    reputation: "good",
     niche: "Moda feminina",
     description: "Confecção própria no polo de moda de Divinópolis, com coleções a cada 45 dias.",
     state: "MG",
@@ -145,6 +150,7 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
   {
     name: "Brás Atacado Masculino",
+    reputation: "regular",
     niche: "Moda masculina",
     description: "Atacadista do Brás com básicos masculinos e reposição semanal.",
     state: "SP",
@@ -153,6 +159,7 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
   {
     name: "Franca Calçados Direto da Fábrica",
+    reputation: "excellent",
     niche: "Calçados",
     description: "Fábrica de calçados de couro em Franca com envio em 24 horas.",
     state: "SP",
@@ -161,6 +168,7 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
   {
     name: "BH Beauty Distribuidora",
+    reputation: "excellent",
     niche: "Cosméticos",
     description: "Distribuidora de cosméticos nacionais com produtos registrados na Anvisa.",
     state: "MG",
@@ -185,6 +193,7 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
   {
     name: "Curitiba Tech Acessórios",
+    reputation: "poor",
     niche: "Eletrônicos",
     description: "Acessórios para celular e eletrônicos com garantia de 90 dias.",
     state: "PR",
@@ -206,6 +215,7 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
   {
     name: "Goiânia Fit Wear",
+    reputation: "good",
     niche: "Fitness",
     description: "Moda fitness e acessórios para treino, produção própria em Goiânia.",
     state: "GO",

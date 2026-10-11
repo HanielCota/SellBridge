@@ -2,7 +2,7 @@ import type { AppError } from "@sellbridge/shared/errors";
 import { readJsonBody } from "@sellbridge/shared/http-body";
 import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
-import { fetchWithRetry, type FetchLike, type RetryOptions } from "../http.ts";
+import { fetchWithRetry, isIdempotentMethod, type FetchLike, type RetryOptions } from "../http.ts";
 import { errorBodySchema } from "./schemas.ts";
 
 /**
@@ -44,13 +44,17 @@ export function credentials(config: MercadoLivreConfig): {
   return { clientId: config.clientId, clientSecret: config.clientSecret };
 }
 
-async function readError(response: Response): Promise<AppError> {
+/**
+ * A 5xx on a POST/PATCH (creating an item, rotating a single-use refresh token) does not say
+ * whether it took effect, so it is reported as permanent instead of letting a job repeat it.
+ */
+async function readError(response: Response, isIdempotent: boolean): Promise<AppError> {
   const body = errorBodySchema.safeParse(await readJsonBody(response));
   const detail = body.success ? (body.data.message ?? body.data.error ?? "") : "";
   if (response.status === 401 || (body.success && body.data.error === "invalid_grant")) {
     return marketplaceAuthError();
   }
-  const retryable = response.status === 429 || response.status >= 500;
+  const retryable = response.status === 429 || (isIdempotent && response.status >= 500);
   const message = detail
     ? `Mercado Livre recusou a operação: ${detail}`
     : `Mercado Livre respondeu com erro ${response.status}`;
@@ -75,7 +79,7 @@ export async function requestJson<TResponse>(
     context.config.retry,
   );
   if (!response.ok) {
-    throw await readError(response);
+    throw await readError(response, isIdempotentMethod(requestInit.method));
   }
   const parsed = request.schema.safeParse(await readJsonBody(response));
   if (!parsed.success) {

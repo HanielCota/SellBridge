@@ -24,6 +24,18 @@ export interface ProfitEstimate {
   marginPercent: number;
 }
 
+/**
+ * Smallest price whose estimated profit is at least `marginPercent` of it, after the cost and
+ * the estimated fee. Null when the fee alone already eats that margin.
+ */
+export function priceForMargin(costCents: Cents, marginPercent: number): Cents | null {
+  const keptBps = 10_000 - ESTIMATED_MARKETPLACE_FEE_BPS - Math.round(marginPercent * 100);
+  if (keptBps <= 0) {
+    return null;
+  }
+  return Math.ceil((costCents * 10_000) / keptBps);
+}
+
 export function estimateProfit(priceCents: Cents | null, costCents: Cents): ProfitEstimate | null {
   if (priceCents === null || priceCents <= 0) {
     return null;

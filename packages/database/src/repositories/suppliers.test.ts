@@ -7,6 +7,7 @@ import {
   getCatalogProductForRegion,
   getSupplierForRegion,
   listCatalogProducts,
+  listRegionCatalog,
   listSuppliersForRegion,
 } from "./suppliers.ts";
 
@@ -208,6 +209,48 @@ describe("catalog filters", () => {
     expect(result.items.map((item) => item.sku)).toEqual(["T-3"]);
   });
 
+  it("ignores accents and case and matches every word of the search", async () => {
+    const accentless = await listCatalogProducts(
+      database,
+      ids.stateWide,
+      { search: "BONE", sort: "title" },
+      pagination,
+    );
+    expect(accentless.items.map((item) => item.sku)).toEqual(["T-3"]);
+    const twoWords = await listCatalogProducts(
+      database,
+      ids.stateWide,
+      { search: "camiseta  azul", sort: "title" },
+      pagination,
+    );
+    expect(twoWords.items.map((item) => item.sku)).toEqual(["T-1"]);
+  });
+
+  it("sorts by the margin left by the suggested price", async () => {
+    const result = await listCatalogProducts(
+      database,
+      ids.stateWide,
+      { sort: "margin_desc" },
+      pagination,
+    );
+    expect(result.items.map((item) => item.sku)).toEqual(["T-3", "T-1", "T-2"]);
+  });
+
+  it("never repeats or skips products across pages when the sort key ties", async () => {
+    // Inserted in one statement, every product shares the same creation time.
+    const seen: string[] = [];
+    for (const page of [1, 2, 3]) {
+      const result = await listCatalogProducts(
+        database,
+        ids.stateWide,
+        { sort: "newest" },
+        { page, pageSize: 1 },
+      );
+      seen.push(...result.items.map((item) => item.sku));
+    }
+    expect(seen.toSorted()).toEqual(["T-1", "T-2", "T-3"]);
+  });
+
   it("paginates and reports total pages", async () => {
     const result = await listCatalogProducts(
       database,
@@ -222,5 +265,37 @@ describe("catalog filters", () => {
   it("returns an empty page for a supplier without products", async () => {
     const result = await listCatalogProducts(database, ids.cityOnly, { sort: "title" }, pagination);
     expect(result).toMatchObject({ items: [], total: 0, totalPages: 1 });
+  });
+});
+
+describe("region catalog", () => {
+  it("leaves out the tenant's published products when asked", async () => {
+    const tenants = await createTestTenants(database, 1);
+    const [tenantId] = tenants.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      await database.insert(listings).values({
+        tenantId,
+        supplierProductId: visibleProductId,
+        title: "Anúncio",
+        description: "Descrição",
+        priceCents: 4990,
+      });
+      const input = { region: { state: TEST_STATE, city: "Interior" }, tenantId };
+      const pagination = { page: 1, pageSize: 20 };
+      const all = await listRegionCatalog(database, input, { sort: "title" }, pagination);
+      expect(all.items.find((item) => item.sku === "T-1")?.published).toBe(true);
+      const unpublished = await listRegionCatalog(
+        database,
+        input,
+        { unpublishedOnly: true, sort: "title" },
+        pagination,
+      );
+      expect(unpublished.items.map((item) => item.sku)).toEqual(["T-3", "T-2"]);
+    } finally {
+      await tenants.cleanup();
+    }
   });
 });

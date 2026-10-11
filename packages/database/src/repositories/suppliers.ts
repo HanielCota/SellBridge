@@ -22,7 +22,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { containsPattern } from "./sql/search-pattern.ts";
+import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import {
   categories,
   listings,
@@ -133,12 +133,25 @@ export async function getSupplierForRegion(
   return supplier;
 }
 
+/** Margin left by the suggested price; the marketplace fee is a flat rate, so it keeps the order. */
+const suggestedMargin = sql`(${supplierProducts.suggestedPriceCents} - ${supplierProducts.costCents})::float / nullif(${supplierProducts.suggestedPriceCents}, 0)`;
+
+/** The id breaks ties last, so equal titles or dates never repeat or skip items across pages. */
 const PRODUCT_ORDER: Record<ProductSort, SQL[]> = {
-  title: [asc(supplierProducts.title)],
-  cost_asc: [asc(supplierProducts.costCents), asc(supplierProducts.title)],
-  cost_desc: [desc(supplierProducts.costCents), asc(supplierProducts.title)],
-  stock_desc: [desc(supplierProducts.stock), asc(supplierProducts.title)],
-  newest: [desc(supplierProducts.createdAt)],
+  title: [asc(supplierProducts.title), asc(supplierProducts.id)],
+  cost_asc: [
+    asc(supplierProducts.costCents),
+    asc(supplierProducts.title),
+    asc(supplierProducts.id),
+  ],
+  cost_desc: [
+    desc(supplierProducts.costCents),
+    asc(supplierProducts.title),
+    asc(supplierProducts.id),
+  ],
+  margin_desc: [sql`${suggestedMargin} desc nulls last`, asc(supplierProducts.id)],
+  stock_desc: [desc(supplierProducts.stock), asc(supplierProducts.title), asc(supplierProducts.id)],
+  newest: [desc(supplierProducts.createdAt), asc(supplierProducts.id)],
 };
 
 export interface CatalogFilters {
@@ -169,11 +182,10 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
     eq(supplierProducts.active, true),
   ];
   if (filters.search) {
-    const term = containsPattern(filters.search);
-    const searchCondition = or(
-      ilike(supplierProducts.title, term),
-      ilike(supplierProducts.sku, term),
-    );
+    const searchCondition = matchesEveryWord(filters.search, [
+      supplierProducts.title,
+      supplierProducts.sku,
+    ]);
     if (searchCondition) {
       conditions.push(searchCondition);
     }
@@ -317,6 +329,7 @@ export interface RegionCatalogFilters {
   categorySlug?: string | undefined;
   supplierId?: string | undefined;
   inStockOnly?: boolean | undefined;
+  unpublishedOnly?: boolean | undefined;
   sort: ProductSort;
 }
 
@@ -327,22 +340,26 @@ export interface RegionCatalogProduct extends CatalogProduct {
   published: boolean;
 }
 
+function isPublishedBy(tenantId: string): SQL {
+  return sql`exists (select 1 from ${listings} where ${listings.tenantId} = ${tenantId} and ${listings.supplierProductId} = ${supplierProducts.id})`;
+}
+
 function regionCatalogConditions(
-  region: Pick<TenantRegion, "state" | "city">,
+  input: { region: Pick<TenantRegion, "state" | "city">; tenantId: string },
   filters: RegionCatalogFilters,
 ): SQL[] {
+  const { region } = input;
   const conditions: SQL[] = [
     eq(supplierProducts.active, true),
     eq(suppliers.active, true),
     coversRegion(region),
   ];
   if (filters.search) {
-    const term = containsPattern(filters.search);
-    const searchCondition = or(
-      ilike(supplierProducts.title, term),
-      ilike(supplierProducts.sku, term),
-      ilike(suppliers.name, term),
-    );
+    const searchCondition = matchesEveryWord(filters.search, [
+      supplierProducts.title,
+      supplierProducts.sku,
+      suppliers.name,
+    ]);
     if (searchCondition) {
       conditions.push(searchCondition);
     }
@@ -355,6 +372,9 @@ function regionCatalogConditions(
   }
   if (filters.inStockOnly) {
     conditions.push(gte(supplierProducts.stock, 1));
+  }
+  if (filters.unpublishedOnly) {
+    conditions.push(sql`not ${isPublishedBy(input.tenantId)}`);
   }
   return conditions;
 }
@@ -374,7 +394,7 @@ function selectRegionCatalog(database: Database, tenantId: string) {
       categorySlug: categories.slug,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
-      published: sql<boolean>`exists (select 1 from ${listings} where ${listings.tenantId} = ${tenantId} and ${listings.supplierProductId} = ${supplierProducts.id})`,
+      published: sql<boolean>`${isPublishedBy(tenantId)}`,
     })
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
@@ -388,7 +408,7 @@ export async function listRegionCatalog(
   filters: RegionCatalogFilters,
   pagination: Pagination,
 ): Promise<Paginated<RegionCatalogProduct>> {
-  const where = and(...regionCatalogConditions(input.region, filters));
+  const where = and(...regionCatalogConditions(input, filters));
   const [totalRow] = await database
     .select({ total: count() })
     .from(supplierProducts)
@@ -432,7 +452,7 @@ export async function getRegionProducts(
   }
   const rows = await selectRegionCatalog(database, input.tenantId).where(
     and(
-      ...regionCatalogConditions(input.region, { sort: "title" }),
+      ...regionCatalogConditions(input, { sort: "title" }),
       inArray(supplierProducts.id, [...productIds]),
     ),
   );

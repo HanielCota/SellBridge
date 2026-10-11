@@ -52,6 +52,17 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         detail: "Pedidos e estoque estão parados nesta loja.",
         href: "/lojas",
       };
+    case "review_pending":
+      return {
+        ...base,
+        id: `reviews:${event.pending}:${event.at.getTime()}`,
+        title:
+          event.pending === 1
+            ? "1 pedido esperando sua avaliação"
+            : `${event.pending} pedidos esperando sua avaliação`,
+        detail: "Avalie os fornecedores para formar o score deles.",
+        href: "/pedidos",
+      };
   }
   return {
     ...base,

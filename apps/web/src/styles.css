@@ -268,8 +268,456 @@
   }
 }
 
+/*
+ * The highlighted row of a menu or list: the `surface-card` tone and edge, stronger because the
+ * row is small and sits on a raised surface. Built from the foreground, so it reads on any
+ * popover, dialog or card behind it.
+ */
+@utility row-lift {
+  background-color: color-mix(in oklch, var(--foreground) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+
 /* Lift bottom toasts above the floating bulk actions bar so feedback never hides it. */
 body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
   --offset-bottom: 88px !important;
   --mobile-offset-bottom: 88px !important;
+}
+
+/*
+ * StoreBridge (OAuth consent header): the two marks spring in, the arc between them draws
+ * itself, then a pulse rides it. While authorizing, a lit copy of the arc draws across over
+ * `--link-duration` (set by the consent page, which waits at least that long); once connected
+ * the marks latch toward each other and the check pops in. On `failed` the draw pauses where it
+ * is, StoreBridge pulls the arc back from there, and the bridge shakes.
+ */
+.store-bridge {
+  --bridge-enter: 520ms cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.store-bridge-tile {
+  animation: store-bridge-tile-in var(--bridge-enter) both;
+  --bridge-from: -14px;
+  --bridge-latch: 6px;
+
+  &[data-side="end"] {
+    --bridge-from: 14px;
+    --bridge-latch: -6px;
+  }
+}
+
+.store-bridge-arc {
+  fill: none;
+  stroke: color-mix(in oklch, var(--foreground) 22%, transparent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: store-bridge-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) 280ms both;
+}
+
+.store-bridge-link {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.store-bridge-pulse {
+  offset-rotate: 0deg;
+  opacity: 0;
+  animation: store-bridge-pulse 2.8s linear 1s infinite;
+  transition: opacity 200ms ease-out;
+}
+
+.store-bridge-check {
+  transform: scale(0);
+  transition: transform 420ms cubic-bezier(0.34, 1.6, 0.64, 1);
+}
+
+/* The drawing arc is the progress now, so the pulse steps aside. */
+.store-bridge:is([data-status="authorizing"], [data-status="failed"]) {
+  .store-bridge-link {
+    animation: store-bridge-draw var(--link-duration, 1.5s) cubic-bezier(0.37, 0, 0.63, 1) both;
+  }
+  .store-bridge-pulse {
+    animation: none;
+  }
+}
+
+/* Held where it stopped, so the rewind in StoreBridge starts from the value on screen. */
+.store-bridge[data-status="failed"] {
+  animation: store-bridge-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+
+  .store-bridge-link {
+    animation-play-state: paused;
+  }
+}
+
+.store-bridge[data-status="connected"] {
+  .store-bridge-tile {
+    animation: store-bridge-latch 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .store-bridge-link {
+    stroke-dashoffset: 0;
+  }
+  .store-bridge-pulse {
+    animation: none;
+  }
+  .store-bridge-check {
+    transform: scale(1);
+    transition-delay: 140ms;
+  }
+}
+
+@keyframes store-bridge-tile-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--bridge-from));
+  }
+}
+
+@keyframes store-bridge-shake {
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes store-bridge-latch {
+  40% {
+    transform: translateX(var(--bridge-latch));
+  }
+}
+
+@keyframes store-bridge-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes store-bridge-pulse {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/*
+ * Consent permissions: while authorizing, each permission's icon turns into a check in turn,
+ * one per third of `--link-duration`, so the list finishes as the arc reaches the store.
+ * `--step` (1-based) is set per row. On `failed` they hold where they are and the page rewinds
+ * them, last check first.
+ */
+.consent-permission-done {
+  opacity: 0;
+}
+
+:is([data-status="authorizing"], [data-status="failed"]) {
+  .consent-permission-icon,
+  .consent-permission-done {
+    animation-delay: calc(var(--link-duration, 1.5s) * var(--step) / 3 - 240ms);
+    animation-fill-mode: both;
+  }
+  .consent-permission-icon {
+    animation-name: consent-icon-out;
+    animation-duration: 160ms;
+  }
+  .consent-permission-done {
+    animation-name: consent-check-in;
+    animation-duration: 360ms;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+[data-status="failed"] :is(.consent-permission-icon, .consent-permission-done) {
+  animation-play-state: paused;
+}
+
+[data-status="connected"] {
+  .consent-permission-icon {
+    opacity: 0;
+  }
+  .consent-permission-done {
+    opacity: 1;
+  }
+}
+
+@keyframes consent-icon-out {
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes consent-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes consent-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * No travel when motion is reduced: the arc is already drawn, the lit arc and the checks only
+ * fade in on the same schedule, and the marks neither latch nor shake.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .store-bridge-tile,
+  .store-bridge-arc,
+  .store-bridge[data-status="connected"] .store-bridge-tile,
+  .store-bridge[data-status="failed"] {
+    animation: none;
+  }
+  .store-bridge:is([data-status="authorizing"], [data-status="failed"]) .store-bridge-link {
+    stroke-dashoffset: 0;
+    animation-name: consent-fade-in;
+  }
+  .store-bridge-pulse {
+    display: none;
+  }
+  .store-bridge-check {
+    transition: none;
+  }
+  :is([data-status="authorizing"], [data-status="failed"]) .consent-permission-done {
+    animation-name: consent-fade-in;
+  }
+  :is([data-status="authorizing"], [data-status="failed"]) .consent-permission-icon {
+    animation-name: consent-fade-out;
+  }
+}
+
+@keyframes consent-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * Attention icons (see `components/reports/attention-icons.tsx`): when their link is hovered or
+ * reached by keyboard, every `.glyph` part plays its own motion once. Each variant only sets
+ * `--glyph-play` (and its pivot), so the triggers below stay in one place and reduced motion only
+ * swaps the motion.
+ */
+.glyph {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Review: the bubble rises from its tail, then the star pops in. */
+.glyph-rise {
+  transform-origin: 20% 100%;
+  --glyph-play: glyph-rise 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glyph-pop {
+  --glyph-play: glyph-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Store: the storefront sags once and the pause blinks twice, like a stalled status light. */
+.glyph-dip {
+  transform-origin: 50% 100%;
+  --glyph-play: glyph-dip 300ms ease-out;
+}
+
+.glyph-blink {
+  --glyph-play: glyph-blink 900ms ease-in-out;
+}
+
+/* Listing: the tag shakes a "no" and the "!" drops in from above. */
+.glyph-shake {
+  --glyph-play: glyph-shake 420ms ease-in-out;
+}
+
+.glyph-drop {
+  --glyph-play: glyph-drop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms both;
+}
+
+/* Support: the headset rings, then its microphone lights up. */
+.glyph-ring {
+  transform-origin: 50% 40%;
+  --glyph-play: glyph-ring 600ms ease-in-out;
+}
+
+.glyph-pop-late {
+  --glyph-play: glyph-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 380ms both;
+}
+
+/* Hover only where a pointer can hover: on touch, `:hover` sticks after the tap. */
+@media (hover: hover) {
+  a:hover .glyph {
+    animation: var(--glyph-play);
+  }
+}
+
+a:focus-visible .glyph {
+  animation: var(--glyph-play);
+}
+
+/*
+ * All clear: no link to hover, so it plays once as the state appears. Each tick is drawn by hand
+ * and its row fills in after it; the paths use `pathLength="1"` so one dash covers any of them.
+ */
+.glyph-draw {
+  stroke-dasharray: 1;
+  animation: glyph-draw 280ms ease-out both;
+}
+
+@keyframes glyph-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.6);
+  }
+}
+
+@keyframes glyph-pop {
+  0%,
+  35% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glyph-dip {
+  40% {
+    transform: scaleY(0.94);
+  }
+}
+
+@keyframes glyph-blink {
+  25%,
+  65% {
+    opacity: 0.15;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+@keyframes glyph-shake {
+  20% {
+    transform: translateX(-1.5px);
+  }
+  40% {
+    transform: translateX(1.5px);
+  }
+  60% {
+    transform: translateX(-1px);
+  }
+  80% {
+    transform: translateX(0.6px);
+  }
+}
+
+@keyframes glyph-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes glyph-ring {
+  15% {
+    transform: rotate(-8deg);
+  }
+  35% {
+    transform: rotate(7deg);
+  }
+  55% {
+    transform: rotate(-4deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+/* Hidden at the very start: a round cap would otherwise show a dot before the stroke draws. */
+@keyframes glyph-draw {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes glyph-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes glyph-mark-fade {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: nothing travels, but the body still fades in and then the mark inside it. */
+@media (prefers-reduced-motion: reduce) {
+  .glyph {
+    --glyph-play: glyph-fade 260ms ease-out;
+  }
+  .glyph-mark {
+    --glyph-play: glyph-mark-fade 520ms ease-out;
+  }
+  .glyph-draw {
+    stroke-dasharray: none;
+    animation: glyph-mark-fade 520ms ease-out both;
+  }
+}
+
+/*
+ * Theme reveal: the new theme grows as a circle over a still snapshot of the old one (the clip is
+ * animated from theme-provider), instead of the default cross-fade.
+ */
+:root[data-theme-reveal]::view-transition-old(root),
+:root[data-theme-reveal]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }

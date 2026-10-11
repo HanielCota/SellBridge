@@ -1,19 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { PlusIcon } from "@phosphor-icons/react";
+import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { optionalParameter } from "@sellbridge/shared/schemas";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
 import { AddStore } from "@/components/stores/add-store";
 import {
   DisconnectStoreDialog,
   type StoreToDisconnect,
 } from "@/components/stores/disconnect-store-dialog";
-import { StoreCard } from "@/components/stores/store-card";
+import { StoreList } from "@/components/stores/store-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
@@ -57,23 +55,11 @@ function useOAuthResultToast() {
 
 function StoresPage() {
   useOAuthResultToast();
-  const query = useQuery(storesQueryOptions());
-  const hasStores = query.isSuccess && query.data.stores.length > 0;
   return (
     <>
       <PageHeader
         title="Lojas"
         description="Suas lojas nos marketplaces, com o que cada uma vendeu nos últimos 30 dias."
-        actions={
-          hasStores ? (
-            <Button asChild>
-              <a href="#adicionar-loja">
-                <PlusIcon aria-hidden="true" />
-                Conectar loja
-              </a>
-            </Button>
-          ) : null
-        }
       />
       <StoresContent />
     </>
@@ -115,13 +101,49 @@ function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOptio
   );
 }
 
+const ADD_STORE_ANCHOR = "adicionar-loja";
+
+/**
+ * The list loads after a client navigation, so the router's own hash scroll runs before this
+ * section exists; it brings itself into view once mounted when the link pointed at it.
+ */
+function useScrollIntoViewOnHash(anchor: string) {
+  const ref = useRef<HTMLElement>(null);
+  const hash = useLocation({ select: (location) => location.hash });
+  useEffect(() => {
+    if (hash !== anchor) {
+      return;
+    }
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }, [anchor, hash]);
+  return ref;
+}
+
+function AddStoreSection({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
+  const ref = useScrollIntoViewOnHash(ADD_STORE_ANCHOR);
+  return (
+    <section
+      ref={ref}
+      id={ADD_STORE_ANCHOR}
+      aria-labelledby="add-store"
+      className="scroll-mt-28 space-y-2 pt-6"
+    >
+      <h2 id="add-store" className="px-5 text-footnote font-normal text-muted-foreground">
+        Adicionar loja
+      </h2>
+      <AddStore marketplaces={marketplaces} />
+    </section>
+  );
+}
+
 function StoresContent() {
   const query = useQuery(storesQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
   if (query.isPending) {
     return (
-      <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="Carregando lojas">
-        <Skeleton className="h-64 rounded-3xl" />
+      <div className="space-y-8" aria-busy="true" aria-label="Carregando lojas">
+        <Skeleton className="h-20 rounded-3xl" />
         <Skeleton className="h-64 rounded-3xl" />
       </div>
     );
@@ -137,28 +159,13 @@ function StoresContent() {
   return (
     <>
       <section aria-label="Suas lojas">
-        <ul className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {stores.map((store) => (
-            <li key={store.id}>
-              <StoreCard
-                store={store}
-                marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-                onDisconnect={() => setPendingDisconnect({ id: store.id, name: store.shopName })}
-              />
-            </li>
-          ))}
-        </ul>
+        <StoreList
+          stores={stores}
+          labels={labels}
+          onDisconnect={(store) => setPendingDisconnect({ id: store.id, name: store.shopName })}
+        />
       </section>
-      <section
-        id="adicionar-loja"
-        aria-labelledby="add-store"
-        className="scroll-mt-28 space-y-4 pt-4 lg:w-[calc(50%-0.5rem)]"
-      >
-        <h2 id="add-store" className="text-lg font-semibold tracking-tight">
-          Adicionar loja
-        </h2>
-        <AddStore marketplaces={marketplaces} />
-      </section>
+      <AddStoreSection marketplaces={marketplaces} />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
     </>
   );

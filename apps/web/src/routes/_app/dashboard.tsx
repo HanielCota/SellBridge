@@ -110,15 +110,14 @@ function DashboardContent({ data }: { data: DashboardData }) {
         }
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <KpiTiles
-          caption={formatDateRange(data.period.fromDate, data.period.toDate)}
-          summary={summary}
-          previous={previous}
-          points={data.timeseries}
-        />
+        <KpiTiles summary={summary} previous={previous} points={data.timeseries} />
         <CashFlowChart
           points={data.timeseries}
+          previousPoints={data.previousTimeseries}
+          monthlyPoints={data.monthly}
           bucket={data.period.bucket}
+          summary={summary}
+          previous={previous}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
           filters={<DashboardFilters data={data} />}
         />
