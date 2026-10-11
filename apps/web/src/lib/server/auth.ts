@@ -1,6 +1,7 @@
 import { schema } from "@sellbridge/database";
 import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { admin, organization } from "better-auth/plugins";
@@ -104,6 +105,47 @@ async function sendResetPasswordEmail({ user, url }: { user: { email: string }; 
   });
 }
 
+async function sendVerificationEmail({ user, url }: { user: { email: string }; url: string }) {
+  await sendEmail({
+    to: user.email,
+    subject: "Confirme seu e-mail no SellBridge",
+    text: [
+      "Para confirmar o e-mail da sua conta no SellBridge, abra o link abaixo (válido por 1 hora):",
+      url,
+      "",
+      "Se você não criou essa conta, ignore este e-mail.",
+    ].join("\n"),
+  });
+}
+
+function isAdminEmail(email: string): boolean {
+  return environment.ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+/**
+ * Admin is granted only to an ADMIN_EMAILS address whose ownership is proven: verified by the
+ * provider (Google) at sign-up, or later through the verification link. Otherwise anyone
+ * could register an admin address that has not signed up yet.
+ */
+async function requestAdminVerification(user: { email: string; emailVerified: boolean }) {
+  if (user.emailVerified || !isAdminEmail(user.email)) {
+    return;
+  }
+  try {
+    await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/" } });
+  } catch (error) {
+    logger.error("auth.admin_verification_email_failed", { error });
+  }
+}
+
+async function promoteVerifiedAdmin(verified: { id: string; email: string }) {
+  if (!isAdminEmail(verified.email)) {
+    return;
+  }
+  await database.update(schema.user).set({ role: "admin" }).where(eq(schema.user.id, verified.id));
+  logger.info("auth.admin_promoted", { userId: verified.id });
+}
+
 export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,
   secret: environment.BETTER_AUTH_SECRET,
@@ -115,13 +157,18 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: sendResetPasswordEmail,
   },
+  emailVerification: {
+    sendVerificationEmail,
+    sendOnSignUp: false,
+    afterEmailVerification: promoteVerifiedAdmin,
+  },
   socialProviders: googleProvider(),
   hooks: { before: guardAccountRoutes },
   databaseHooks: {
     user: {
       create: {
         before: async (user) => {
-          const isAdmin = environment.ADMIN_EMAILS.includes(user.email.toLowerCase());
+          const isAdmin = user.emailVerified && isAdminEmail(user.email);
           return { data: { ...user, role: isAdmin ? "admin" : "user" } };
         },
         after: async (user) => {
@@ -134,6 +181,7 @@ export const auth = betterAuth({
             },
           });
           logger.info("organization.created_for_user", { userId: user.id });
+          await requestAdminVerification(user);
         },
       },
     },

@@ -5,6 +5,7 @@ import {
   signMockWebhook,
 } from "@sellbridge/marketplaces";
 import { validationError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { ESTIMATED_MARKETPLACE_FEE_BPS } from "@sellbridge/shared/finance";
 import { percentOfCents } from "@sellbridge/shared/money";
 import { environment } from "@/lib/server/environment";
@@ -51,17 +52,29 @@ export function buildMockOrderWebhook(sale: MockSaleInput): string {
   });
 }
 
+const MOCK_WEBHOOK_TIMEOUT_MILLISECONDS = 10_000;
+
 /** Signs the body and posts it to our own webhook endpoint, as the simulated marketplace would. */
 export async function sendMockWebhook(rawBody: string, mockWebhookSecret: string): Promise<void> {
-  const response = await fetch(new URL("/api/webhooks/mock", environment.APP_URL), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, mockWebhookSecret),
-    },
-    body: rawBody,
-  });
+  const response = await postMockWebhook(rawBody, mockWebhookSecret);
   if (!response.ok) {
     throw validationError("O marketplace simulado não conseguiu enviar a venda");
+  }
+}
+
+async function postMockWebhook(rawBody: string, mockWebhookSecret: string): Promise<Response> {
+  try {
+    return await fetch(new URL("/api/webhooks/mock", environment.APP_URL), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [MOCK_SIGNATURE_HEADER]: signMockWebhook(rawBody, mockWebhookSecret),
+      },
+      body: rawBody,
+      signal: AbortSignal.timeout(MOCK_WEBHOOK_TIMEOUT_MILLISECONDS),
+    });
+  } catch (error) {
+    logger.error("mock_sale.webhook_unreachable", { error });
+    throw validationError("O marketplace simulado não respondeu a tempo");
   }
 }
