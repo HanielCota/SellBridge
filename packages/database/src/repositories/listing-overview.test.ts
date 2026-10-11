@@ -59,17 +59,21 @@ async function createProduct(): Promise<string> {
   return product?.id ?? "";
 }
 
-async function sellOne(targetId: string, status: "paid" | "cancelled") {
+async function sellOne(
+  targetId: string,
+  status: "paid" | "cancelled",
+  orderedAt: Date = new Date(),
+) {
   const [order] = await database
     .insert(orders)
     .values({
       tenantId: tenantA,
       storeConnectionId: storeIds[0] ?? "",
-      externalOrderId: `OV-${status}-${Date.now()}`,
+      externalOrderId: `OV-${status}-${orderedAt.getTime()}-${Date.now()}`,
       status,
       totalCents: 2500,
       marketplaceFeeCents: 300,
-      orderedAt: new Date(),
+      orderedAt,
     })
     .returning({ id: orders.id });
   await database.insert(orderItems).values({
@@ -124,6 +128,15 @@ describe("listing overview", () => {
     expect(row?.dailySales).toHaveLength(30);
     expect(row?.dailySales.at(-1)).toBe(2);
     expect(row?.dailySales.slice(0, -1).every((units) => units === 0)).toBe(true);
+  });
+
+  it("counts the same window on the card that the sort uses", async () => {
+    const day = 86_400_000;
+    await sellOne(targetIds[0] ?? "", "paid", new Date(Date.now() + day));
+    await sellOne(targetIds[0] ?? "", "paid", new Date(Date.now() - 31 * day));
+    const [row] = (await listListingOverview(database, tenantA, {}, page)).items;
+    expect(row?.unitsSold).toBe(2);
+    expect(row?.dailySales.reduce((total, units) => total + units, 0)).toBe(2);
   });
 
   it("sorts by units sold when asked", async () => {

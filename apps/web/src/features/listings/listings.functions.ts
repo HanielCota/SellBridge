@@ -8,6 +8,7 @@ import {
   updateListingPrice,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
+import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
 import { logger } from "@sellbridge/shared/logger";
 import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
@@ -41,9 +42,7 @@ export const createListing = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
     const product = await getCatalogProductForRegion(database, region, data.supplierProductId);
-    if (data.priceCents <= product.costCents) {
-      throw validationError("O preço de venda precisa ser maior que o custo do fornecedor");
-    }
+    assertSellablePrice(data.priceCents, product.costCents);
     const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
     return publishListing(
       context.tenantId,
@@ -105,6 +104,7 @@ export const setListingsPausedFn = createServerFn({ method: "POST" })
     return { changed };
   });
 
+/** The repository rejects a price at or below cost, the same rule `createListing` applies. */
 export const updateListingPriceFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ listingId: z.uuid(), priceCents: z.number().int().positive() }))

@@ -1,11 +1,9 @@
 import type { ListingStatusCounts } from "@sellbridge/database/repositories";
-import type { ListingStatus } from "@sellbridge/shared/schemas";
+import { LISTING_FILTER_STATUSES, type ListingFilterStatus } from "@sellbridge/shared/schemas";
 import { SegmentedControl } from "@/components/data/segmented-control";
 
 /** "all" stands in for the absent status filter, since the control needs a string per option. */
-const OPTIONS = ["all", "published", "error", "paused"] as const satisfies readonly (
-  ListingStatus | "all"
-)[];
+const OPTIONS = ["all", ...LISTING_FILTER_STATUSES] as const;
 type TabOption = (typeof OPTIONS)[number];
 
 const LABELS: Record<TabOption, string> = {
@@ -27,18 +25,15 @@ function tabCounts(counts: ListingStatusCounts | undefined) {
   } satisfies Record<TabOption, number>;
 }
 
-function activeOption(value: ListingStatus | undefined): TabOption {
-  return OPTIONS.find((option) => option === value) ?? "all";
-}
-
+/** The search schema only accepts tab statuses, so the filter always has a matching tab. */
 export function ListingStatusTabs({
   value,
   counts,
   onChange,
 }: {
-  value: ListingStatus | undefined;
+  value: ListingFilterStatus | undefined;
   counts: ListingStatusCounts | undefined;
-  onChange: (status: ListingStatus | undefined) => void;
+  onChange: (status: ListingFilterStatus | undefined) => void;
 }) {
   return (
     <SegmentedControl
@@ -46,7 +41,7 @@ export function ListingStatusTabs({
       options={OPTIONS}
       labels={LABELS}
       counts={tabCounts(counts)}
-      value={activeOption(value)}
+      value={value ?? "all"}
       onChange={(option) => onChange(option === "all" ? undefined : option)}
     />
   );

@@ -33,6 +33,22 @@ export const LISTING_TITLE_MAX_LENGTH = 60;
 export const LISTING_DESCRIPTION_MIN_LENGTH = 20;
 export const LISTING_DESCRIPTION_MAX_LENGTH = 5000;
 
+/**
+ * Fits a supplier title into the marketplace limit: cut at the last word that fits, or
+ * mid-word when a single word is already too long. Runs of whitespace become one space.
+ */
+export function fitListingTitle(title: string): string {
+  const normalized = title.trim().replace(/\s+/g, " ");
+  if (normalized.length <= LISTING_TITLE_MAX_LENGTH) {
+    return normalized;
+  }
+  const lastSpace = normalized.lastIndexOf(" ", LISTING_TITLE_MAX_LENGTH);
+  if (lastSpace <= 0) {
+    return normalized.slice(0, LISTING_TITLE_MAX_LENGTH);
+  }
+  return normalized.slice(0, lastSpace);
+}
+
 export const listingTitleSchema = z
   .string()
   .trim()
@@ -72,9 +88,20 @@ export const LISTING_SORT_LABELS: Record<ListingSort, string> = {
   best_selling: "Mais vendidos",
 };
 
+/**
+ * The statuses the listings page can filter by, one tab each. Any other status in the URL
+ * falls back to "all", so the highlighted tab always matches the grid.
+ */
+export const LISTING_FILTER_STATUSES = [
+  "published",
+  "error",
+  "paused",
+] as const satisfies readonly ListingStatus[];
+export type ListingFilterStatus = (typeof LISTING_FILTER_STATUSES)[number];
+
 /** Listings show as a three-column grid, so a page holds a multiple of three. */
 export const listingsSearchSchema = z.object({
-  status: optionalParameter(listingStatusSchema),
+  status: optionalParameter(z.enum(LISTING_FILTER_STATUSES)),
   query: optionalParameter(z.string().trim().max(100)),
   sort: optionalParameter(listingSortSchema),
   page: withFallback(z.coerce.number().int().min(1).default(1), 1),
