@@ -104,7 +104,9 @@ export function priceForRule(
   if (rule.kind === "suggested") {
     return Math.max(product.suggestedPriceCents, product.costCents + 100);
   }
-  const raw = product.costCents * (1 + rule.percent / 100);
-  const endingInNinety = Math.ceil((raw + 10) / 100) * 100 - 10;
+  // Integers only: cost × (1 + percent/100) in float lands a hair above an exact ,90 price
+  // (200 × 2.45 = 490.00000000000006) and the ceiling then adds a whole real.
+  const markedUpTimesHundred = product.costCents * (100 + rule.percent);
+  const endingInNinety = Math.ceil((markedUpTimesHundred + 1_000) / 10_000) * 100 - 10;
   return Math.max(endingInNinety, product.costCents + 100);
 }
