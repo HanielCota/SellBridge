@@ -1,9 +1,10 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
+import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 
 const DESCRIPTIONS: Record<string, string> = {
-  mock: "Teste o fluxo completo (publicar, vender, sincronizar) sem uma conta real.",
+  mock: "Teste publicar, vender e sincronizar sem uma conta real.",
   mercado_livre: "Entre com sua conta de vendedor do Mercado Livre.",
   shopee: "Entre com a conta da sua loja na Shopee.",
   tiktok_shop: "Entre com a conta da sua loja no TikTok Shop.",
@@ -15,54 +16,50 @@ function AvailableOption({ option }: { option: MarketplaceOption }) {
       <a
         href={`/api/oauth/${option.id}/start`}
         aria-label={`Conectar ${option.label}`}
-        className="surface-interactive flex items-center gap-4 rounded-3xl bg-card p-4 dark:bg-muted/60 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none"
+        className="group flex items-center gap-4 px-5 py-3.5 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] active:bg-foreground/[0.06]"
       >
-        <MarketplaceMark marketplace={option.id} />
+        <MarkSlot>
+          <MarketplaceMark marketplace={option.id} className="size-10" />
+        </MarkSlot>
         <span className="min-w-0 flex-1">
-          <span className="block font-medium">{option.label}</span>
-          <span className="block text-sm text-muted-foreground">{DESCRIPTIONS[option.id]}</span>
+          <span className="block truncate font-medium">{option.label}</span>
+          <span className="hidden truncate text-sm text-muted-foreground sm:block">
+            {DESCRIPTIONS[option.id]}
+          </span>
         </span>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
-          <ArrowRightIcon className="size-4" aria-hidden="true" />
+        <span className="flex size-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-footnote font-semibold text-primary-foreground transition-transform group-active:scale-95 sm:w-auto sm:px-3.5">
+          <span className="hidden sm:inline">Conectar</span>
+          <ArrowRightIcon className="size-3.5" aria-hidden="true" />
         </span>
       </a>
     </li>
   );
 }
 
-function ComingSoon({ options }: { options: MarketplaceOption[] }) {
-  if (options.length === 0) {
-    return null;
-  }
+function ComingSoonOption({ option }: { option: MarketplaceOption }) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium text-muted-foreground">Em breve</p>
-      <ul className="flex flex-wrap gap-2">
-        {options.map((option) => (
-          <li
-            key={option.id}
-            className="flex items-center gap-2.5 rounded-full bg-card py-1.5 pr-4 pl-1.5 text-sm text-muted-foreground ring-1 ring-border dark:bg-muted/40 dark:ring-0"
-          >
-            <MarketplaceMark marketplace={option.id} className="size-8 rounded-full" />
-            {option.label}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <li className="flex items-center gap-4 px-5 py-3.5">
+      <MarkSlot>
+        <MarketplaceMark marketplace={option.id} className="size-10" />
+      </MarkSlot>
+      <span className="min-w-0 flex-1 font-medium">{option.label}</span>
+      <span className="shrink-0 text-footnote text-muted-foreground">Em breve</span>
+    </li>
   );
 }
 
-/** Marketplaces ready to connect, then the ones still on the way (no dead buttons). */
+/** Every marketplace in one list: the ones ready to connect first, then the ones on the way. */
 export function AddStore({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
   const available = marketplaces.filter((option) => option.available);
+  const comingSoon = marketplaces.filter((option) => !option.available);
   return (
-    <div className="space-y-6">
-      <ul className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]">
-        {available.map((option) => (
-          <AvailableOption key={option.id} option={option} />
-        ))}
-      </ul>
-      <ComingSoon options={marketplaces.filter((option) => !option.available)} />
-    </div>
+    <GroupedList>
+      {available.map((option) => (
+        <AvailableOption key={option.id} option={option} />
+      ))}
+      {comingSoon.map((option) => (
+        <ComingSoonOption key={option.id} option={option} />
+      ))}
+    </GroupedList>
   );
 }
