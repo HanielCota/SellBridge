@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 export function SearchInput({
   label,
   placeholder,
+  maxLength,
   value,
   onValueChange,
   className,
@@ -14,6 +15,7 @@ export function SearchInput({
 }: {
   label: string;
   placeholder: string;
+  maxLength?: number;
   value: string;
   onValueChange: (value: string) => void;
   className?: string;
@@ -32,6 +34,7 @@ export function SearchInput({
       <Input
         aria-label={label}
         placeholder={placeholder}
+        maxLength={maxLength}
         className={cn("pl-9", inputClassName)}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}

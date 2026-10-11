@@ -38,10 +38,73 @@ function applyTheme(theme: Theme): void {
   window.dispatchEvent(new Event(THEME_EVENT));
 }
 
-export function useTheme(): { theme: Theme; toggleTheme: () => void } {
+/**
+ * Switches the theme with the new colors spreading as a circle from `origin` (the control that
+ * was pressed), so the change reads as one cause and effect instead of a flash. Reduced motion
+ * gets the browser's plain cross-fade; browsers without view transitions switch at once.
+ */
+async function revealTheme(theme: Theme, origin: HTMLElement): Promise<void> {
+  if (theme === getSnapshot()) {
+    return;
+  }
+  if (typeof document.startViewTransition !== "function") {
+    applyTheme(theme);
+    return;
+  }
+  const transition = document.startViewTransition(() => applyTheme(theme));
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+  const root = document.documentElement;
+  root.dataset.themeReveal = "";
+  const box = origin.getBoundingClientRect();
+  const centerX = box.left + box.width / 2;
+  const centerY = box.top + box.height / 2;
+  const radius = Math.hypot(
+    Math.max(centerX, window.innerWidth - centerX),
+    Math.max(centerY, window.innerHeight - centerY),
+  );
+  try {
+    await transition.ready;
+    const reveal = root.animate(
+      {
+        clipPath: [
+          `circle(0px at ${centerX}px ${centerY}px)`,
+          `circle(${radius}px at ${centerX}px ${centerY}px)`,
+        ],
+      },
+      {
+        duration: 550,
+        easing: "cubic-bezier(0.32, 0.72, 0, 1)",
+        pseudoElement: "::view-transition-new(root)",
+      },
+    );
+    await reveal.finished;
+  } catch (error) {
+    // A skipped transition still applied the theme; only the reveal is lost.
+    if (!(error instanceof DOMException)) {
+      throw error;
+    }
+  } finally {
+    delete root.dataset.themeReveal;
+  }
+}
+
+export function useTheme(): {
+  theme: Theme;
+  setTheme: (theme: Theme, origin?: HTMLElement) => void;
+  toggleTheme: () => void;
+} {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const setTheme = useCallback((next: Theme, origin?: HTMLElement) => {
+    if (!origin) {
+      applyTheme(next);
+      return;
+    }
+    void revealTheme(next, origin);
+  }, []);
   const toggleTheme = useCallback(() => {
     applyTheme(getSnapshot() === "dark" ? "light" : "dark");
   }, []);
-  return { theme, toggleTheme };
+  return { theme, setTheme, toggleTheme };
 }

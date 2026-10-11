@@ -6,6 +6,8 @@ import {
   MagnifyingGlassIcon,
   MegaphoneIcon,
   PackageIcon,
+  PlugIcon,
+  PlusCircleIcon,
   ReceiptIcon,
   SquaresFourIcon,
   StorefrontIcon,
@@ -46,8 +48,31 @@ const PAGES: PageCommand[] = [
   { label: "Ajuda e suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
 ];
 
-function matchesPage(page: PageCommand, term: string): boolean {
-  const haystack = `${page.label} ${page.keywords}`.toLowerCase();
+interface ActionCommand {
+  label: string;
+  href: string;
+  icon: Icon;
+  keywords: string;
+}
+
+/** Shortcuts to the first step of the common tasks, so they are a search away from anywhere. */
+const ACTIONS: ActionCommand[] = [
+  {
+    label: "Conectar loja",
+    href: "/lojas#adicionar-loja",
+    icon: PlugIcon,
+    keywords: "adicionar marketplace integrar mercado livre shopee tiktok",
+  },
+  {
+    label: "Publicar produto",
+    href: "/catalogo",
+    icon: PlusCircleIcon,
+    keywords: "anunciar novo anúncio vender",
+  },
+];
+
+function matchesCommand(command: { label: string; keywords: string }, term: string): boolean {
+  const haystack = `${command.label} ${command.keywords}`.toLowerCase();
   return term
     .toLowerCase()
     .split(/\s+/)
@@ -85,13 +110,26 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm data-[selected=true]:bg-muted"
+      className="group flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-sm text-muted-foreground transition-[background-color,color,box-shadow] duration-100 data-[selected=true]:row-lift"
     >
-      <ItemIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      {/* Both weights are rendered so the selected row can swap to the filled one in CSS alone. */}
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors duration-100 group-data-[selected=true]:bg-brand/15 group-data-[selected=true]:text-brand-text"
+        aria-hidden="true"
+      >
+        <ItemIcon className="size-4 group-data-[selected=true]:hidden" />
+        <ItemIcon weight="fill" className="hidden size-4 group-data-[selected=true]:block" />
+      </span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
       {detail ? (
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{detail}</span>
       ) : null}
+      <kbd
+        className="invisible shrink-0 rounded-md bg-muted px-1.5 py-0.5 font-sans text-caption text-muted-foreground group-data-[selected=true]:visible"
+        aria-hidden="true"
+      >
+        ↵
+      </kbd>
     </Command.Item>
   );
 }
@@ -170,6 +208,67 @@ function SearchButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** Pages and actions, both matched locally against the term before the remote results. */
+function QuickCommands({ term, go }: { term: string; go: (href: string) => void }) {
+  const trimmed = term.trim();
+  const pages = trimmed ? PAGES.filter((page) => matchesCommand(page, trimmed)) : PAGES;
+  const actions = trimmed ? ACTIONS.filter((action) => matchesCommand(action, trimmed)) : ACTIONS;
+  return (
+    <>
+      {pages.length > 0 ? (
+        <Command.Group heading="Páginas" className={GROUP_CLASS}>
+          {pages.map((page) => (
+            <Item
+              key={page.to}
+              value={`page-${page.to}`}
+              icon={page.icon}
+              title={page.label}
+              onSelect={() => go(page.to)}
+            />
+          ))}
+        </Command.Group>
+      ) : null}
+      {actions.length > 0 ? (
+        <Command.Group heading="Ações" className={GROUP_CLASS}>
+          {actions.map((action) => (
+            <Item
+              key={action.href}
+              value={`action-${action.href}`}
+              icon={action.icon}
+              title={action.label}
+              onSelect={() => go(action.href)}
+            />
+          ))}
+        </Command.Group>
+      ) : null}
+    </>
+  );
+}
+
+const HINTS = [
+  { keys: "↑↓", label: "navegar" },
+  { keys: "↵", label: "abrir" },
+  { keys: "esc", label: "fechar" },
+];
+
+function KeyboardHints() {
+  return (
+    <div
+      className="flex items-center gap-4 border-t border-border bg-muted/40 px-4 py-2.5 text-caption text-muted-foreground"
+      aria-hidden="true"
+    >
+      {HINTS.map((hint) => (
+        <span key={hint.label} className="flex items-center gap-1.5">
+          <kbd className="rounded-md bg-muted px-1.5 py-0.5 font-sans text-foreground/80">
+            {hint.keys}
+          </kbd>
+          {hint.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Search box in the header plus the Ctrl+K palette: pages, catalog, listings and orders. */
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -181,7 +280,6 @@ export function CommandPalette() {
     setTerm("");
     void navigate({ href });
   }
-  const pages = term.trim() ? PAGES.filter((page) => matchesPage(page, term.trim())) : PAGES;
   return (
     <>
       <SearchButton onClick={() => setOpen(true)} />
@@ -203,25 +301,14 @@ export function CommandPalette() {
                   className="h-14 flex-1 bg-transparent text-subhead outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <Command.List className="max-h-[min(26rem,60svh)] overflow-y-auto p-2">
+              <Command.List className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]">
                 <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
                   Nada encontrado para essa busca.
                 </Command.Empty>
-                {pages.length > 0 ? (
-                  <Command.Group heading="Páginas" className={GROUP_CLASS}>
-                    {pages.map((page) => (
-                      <Item
-                        key={page.to}
-                        value={`page-${page.to}`}
-                        icon={page.icon}
-                        title={page.label}
-                        onSelect={() => go(page.to)}
-                      />
-                    ))}
-                  </Command.Group>
-                ) : null}
+                <QuickCommands term={term} go={go} />
                 <SearchResults term={term} go={go} />
               </Command.List>
+              <KeyboardHints />
             </Command>
           </Dialog.Content>
         </Dialog.Portal>

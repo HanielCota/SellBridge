@@ -2,8 +2,11 @@ import { ListIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
+import { useActiveIndicator } from "@/components/data/use-active-indicator";
+import { TrackPill } from "@/components/data/track-pill";
+import { useOptimisticChoice } from "@/hooks/use-optimistic-choice";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { SessionUser } from "@/features/auth/session.functions";
 import {
@@ -37,29 +40,39 @@ function useNavCounts(isAdmin: boolean) {
   };
 }
 
+function isItemActive(item: NavItem, pathname: string): boolean {
+  return [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
+}
+
 function NavTab({
   item,
-  pathname,
+  isActive,
   count,
+  paintsOwnPill = true,
+  tabRef,
   onNavigate,
 }: {
   item: NavItem;
-  pathname: string;
+  isActive: boolean;
   count: number;
-  onNavigate?: () => void;
+  /** False while a shared sliding pill sits behind the active tab instead. */
+  paintsOwnPill?: boolean;
+  tabRef?: Ref<HTMLAnchorElement>;
+  onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  const isActive = [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   return (
     <Link
+      ref={tabRef}
       to={item.to}
       aria-current={isActive ? "page" : undefined}
       onClick={onNavigate}
       className={cn(
-        "relative flex h-10 items-center gap-2 rounded-full px-4 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+        "relative flex h-10 items-center gap-2 rounded-full px-4 text-sm whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
         isActive
-          ? "bg-foreground font-medium text-background"
-          : "text-muted-foreground hover:text-foreground",
+          ? "font-medium text-background"
+          : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+        isActive && paintsOwnPill && "bg-foreground",
       )}
     >
       {item.label}
@@ -108,7 +121,7 @@ function MobileNav({
             <NavTab
               key={item.to}
               item={item}
-              pathname={pathname}
+              isActive={isItemActive(item, pathname)}
               count={item.badge ? counts[item.badge] : 0}
               onNavigate={() => setIsOpen(false)}
             />
@@ -117,6 +130,78 @@ function MobileNav({
       </SheetContent>
     </Sheet>
   );
+}
+
+/**
+ * The tab capsule. One lit pill glides to the page you pick, like the period and status
+ * controls; it moves on the click, while the next page still loads.
+ */
+function DesktopNav({
+  items,
+  pathname,
+  counts,
+}: {
+  items: NavItem[];
+  pathname: string;
+  counts: BadgeCounts;
+}) {
+  const activeTo = items.find((item) => isItemActive(item, pathname))?.to ?? null;
+  const chosen = useOptimisticChoice(activeTo);
+  const containerRef = useRef<HTMLElement>(null);
+  const tabRefs = useRef(new Map<string | null, HTMLElement>());
+  const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
+  const canAnimate = useAnimateAfterFirstPaint(indicator !== null);
+  return (
+    <nav
+      ref={containerRef}
+      aria-label="Principal"
+      className="relative hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
+    >
+      {indicator && chosen.value !== null ? (
+        <TrackPill box={indicator} canAnimate={canAnimate} className="inset-y-1.5" />
+      ) : null}
+      {items.map((item) => (
+        <NavTab
+          key={item.to}
+          item={item}
+          isActive={item.to === chosen.value}
+          count={item.badge ? counts[item.badge] : 0}
+          paintsOwnPill={indicator === null}
+          tabRef={(node) => {
+            if (!node) {
+              tabRefs.current.delete(item.to);
+              return;
+            }
+            tabRefs.current.set(item.to, node);
+          }}
+          onNavigate={(event) => {
+            // A click that opens a new tab leaves this page where it is.
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
+              return;
+            }
+            chosen.choose(item.to);
+          }}
+        />
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * The header outlives every page, so after the pill first lands it should glide on any change:
+ * a click, the command palette or the back button.
+ */
+function useAnimateAfterFirstPaint(hasLanded: boolean): boolean {
+  const [canAnimate, setCanAnimate] = useState(false);
+  useEffect(() => {
+    if (!hasLanded) {
+      return undefined;
+    }
+    // Flipped on the next frame, once the pill has been painted where it landed.
+    const frame = requestAnimationFrame(() => setCanAnimate(true));
+    return () => cancelAnimationFrame(frame);
+  }, [hasLanded]);
+  return canAnimate;
 }
 
 /** Pages reached from the account menu; the account chip shows as "you are here" on them. */
@@ -177,19 +262,7 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
             <BrandIcon className="size-10" />
           </Link>
         </div>
-        <nav
-          aria-label="Principal"
-          className="hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
-        >
-          {items.map((item) => (
-            <NavTab
-              key={item.to}
-              item={item}
-              pathname={pathname}
-              count={item.badge ? counts[item.badge] : 0}
-            />
-          ))}
-        </nav>
+        <DesktopNav items={items} pathname={pathname} counts={counts} />
         <div className="flex items-center gap-2 justify-self-end">
           <CommandPalette />
           <NotificationBell />
