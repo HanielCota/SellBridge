@@ -15,6 +15,18 @@ describe("parseEnvironment", () => {
   it("throws listing missing variables", () => {
     expect(() => parseEnvironment(schema, {})).toThrow(/DATABASE_URL/);
   });
+
+  it("treats blank values as not set, like a copied .env.example", () => {
+    const withOptional = schema.extend({ API_KEY: z.string().min(1).optional() });
+    expect(
+      parseEnvironment(withOptional, {
+        DATABASE_URL: "postgres://localhost/db",
+        PORT: "",
+        API_KEY: "  ",
+      }),
+    ).toEqual({ DATABASE_URL: "postgres://localhost/db", PORT: 3000 });
+    expect(() => parseEnvironment(schema, { DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
+  });
 });
 
 describe("parseEnvironment renamed variables", () => {
