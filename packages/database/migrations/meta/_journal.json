@@ -43,6 +43,13 @@
       "when": 1791666170293,
       "tag": "0005_supplier_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791668372768,
+      "tag": "0006_notification_clear",
+      "breakpoints": true
     }
   ]
 }

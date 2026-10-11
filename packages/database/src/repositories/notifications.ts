@@ -9,6 +9,7 @@ import {
   tickets,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { countPendingReviews } from "./supplier-reviews.ts";
 import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
@@ -45,9 +46,15 @@ export interface SupportReplyEvent extends EventBase {
   subject: string;
 }
 
+/** Delivered orders whose supplier the reseller has not reviewed yet, as a single entry. */
+export interface ReviewPendingEvent extends EventBase {
+  kind: "review_pending";
+  pending: number;
+}
+
 /** Something that happened in the tenant and deserves the reseller's attention. */
 export type NotificationEvent =
-  SaleEvent | ListingErrorEvent | StoreProblemEvent | SupportReplyEvent;
+  SaleEvent | ListingErrorEvent | StoreProblemEvent | SupportReplyEvent | ReviewPendingEvent;
 
 export type NotificationKind = NotificationEvent["kind"];
 
@@ -131,30 +138,60 @@ async function supportReplyEvents(
   return rows.map((row) => ({ ...row, kind: "support_reply" as const }));
 }
 
-async function lastSeenAt(database: Database, userId: string): Promise<Date | null> {
+async function reviewPendingEvents(
+  database: Database,
+  tenantId: string,
+  reviewableSince: Date,
+): Promise<ReviewPendingEvent[]> {
+  const pending = await countPendingReviews(database, tenantId, reviewableSince);
+  if (pending.total === 0 || pending.latestOrderedAt === null) {
+    return [];
+  }
+  return [
+    {
+      kind: "review_pending",
+      entityId: "reviews",
+      at: pending.latestOrderedAt,
+      pending: pending.total,
+    },
+  ];
+}
+
+async function readState(
+  database: Database,
+  userId: string,
+): Promise<{ seenAt: Date | null; clearedAt: Date | null }> {
   const reads = await database
-    .select({ seenAt: notificationReads.seenAt })
+    .select({ seenAt: notificationReads.seenAt, clearedAt: notificationReads.clearedAt })
     .from(notificationReads)
     .where(eq(notificationReads.userId, userId));
-  return reads.at(0)?.seenAt ?? null;
+  const read = reads.at(0);
+  return { seenAt: read?.seenAt ?? null, clearedAt: read?.clearedAt ?? null };
 }
 
 /**
  * Recent events of the tenant (unsorted, a few per kind) and when the user last opened the
- * notifications. Ordering, capping and wording are up to the caller.
+ * notifications. Events up to the user's last clear are left out. Ordering, capping and wording
+ * are up to the caller.
  */
 export async function listNotificationEvents(
   database: Database,
-  input: { tenantId: string; userId: string },
+  input: { tenantId: string; userId: string; reviewableSince: Date },
 ): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [sales, listingErrors, stores, support, seenAt] = await Promise.all([
+  const [sales, listingErrors, stores, support, reviews, read] = await Promise.all([
     saleEvents(database, input.tenantId),
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
     supportReplyEvents(database, input.tenantId),
-    lastSeenAt(database, input.userId),
+    reviewPendingEvents(database, input.tenantId, input.reviewableSince),
+    readState(database, input.userId),
   ]);
-  return { events: [...sales, ...listingErrors, ...stores, ...support], seenAt };
+  const events = [...sales, ...listingErrors, ...stores, ...support, ...reviews];
+  const { clearedAt } = read;
+  if (clearedAt === null) {
+    return { events, seenAt: read.seenAt };
+  }
+  return { events: events.filter((event) => event.at > clearedAt), seenAt: read.seenAt };
 }
 
 export async function markNotificationsSeen(database: Database, userId: string): Promise<void> {
@@ -163,4 +200,13 @@ export async function markNotificationsSeen(database: Database, userId: string):
     .insert(notificationReads)
     .values({ userId, seenAt })
     .onConflictDoUpdate({ target: notificationReads.userId, set: { seenAt } });
+}
+
+/** Empties the notification center: everything that happened until now stops being listed. */
+export async function clearNotifications(database: Database, userId: string): Promise<void> {
+  const now = new Date();
+  await database
+    .insert(notificationReads)
+    .values({ userId, seenAt: now, clearedAt: now })
+    .onConflictDoUpdate({ target: notificationReads.userId, set: { seenAt: now, clearedAt: now } });
 }

@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { orders, tickets, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
-import { listNotificationEvents, markNotificationsSeen } from "./notifications.ts";
+import {
+  clearNotifications,
+  listNotificationEvents,
+  markNotificationsSeen,
+} from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -52,7 +56,11 @@ afterAll(async () => {
 
 describe("notifications", () => {
   it("lists the tenant's sales and support replies with when the user last looked", async () => {
-    const first = await listNotificationEvents(database, { tenantId: tenantA, userId });
+    const first = await listNotificationEvents(database, {
+      tenantId: tenantA,
+      userId,
+      reviewableSince: new Date(),
+    });
     expect(first.events.map((event) => event.kind).toSorted()).toEqual(["sale", "support_reply"]);
     expect(first.seenAt).toBeNull();
     expect(first.events.find((event) => event.kind === "sale")).toMatchObject({
@@ -62,15 +70,34 @@ describe("notifications", () => {
     });
 
     await markNotificationsSeen(database, userId);
-    const after = await listNotificationEvents(database, { tenantId: tenantA, userId });
+    const after = await listNotificationEvents(database, {
+      tenantId: tenantA,
+      userId,
+      reviewableSince: new Date(),
+    });
     expect(after.seenAt).toBeInstanceOf(Date);
     expect(after.events.every((event) => after.seenAt !== null && event.at <= after.seenAt)).toBe(
       true,
     );
   });
 
+  it("stops listing everything that happened before the user cleared the list", async () => {
+    await clearNotifications(database, userId);
+    const cleared = await listNotificationEvents(database, {
+      tenantId: tenantA,
+      userId,
+      reviewableSince: new Date(),
+    });
+    expect(cleared.events).toEqual([]);
+    expect(cleared.seenAt).toBeInstanceOf(Date);
+  });
+
   it("never shows another tenant's events", async () => {
-    const other = await listNotificationEvents(database, { tenantId: tenantB, userId });
+    const other = await listNotificationEvents(database, {
+      tenantId: tenantB,
+      userId,
+      reviewableSince: new Date(),
+    });
     expect(other.events).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ import {
   type Icon,
   PlugsIcon,
   ShoppingBagIcon,
+  StarIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,13 +12,19 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Popover } from "radix-ui";
 import { useState } from "react";
+import { toast } from "sonner";
 import { SmartDate } from "@/components/data/smart-date";
 import type {
   AppNotification,
   NotificationKind,
 } from "@/features/notifications/notification-presenter";
-import { markNotificationsSeenFn } from "@/features/notifications/notifications.functions";
+import {
+  clearNotificationsFn,
+  markNotificationsSeenFn,
+} from "@/features/notifications/notifications.functions";
 import { notificationsQueryOptions } from "@/features/notifications/notifications.queries";
+import { errorMessage } from "@/lib/errors";
+import { useNotificationChime } from "@/features/notifications/use-notification-chime";
 
 const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> = {
   sale: { icon: ShoppingBagIcon, className: "bg-brand/15 text-brand-text" },
@@ -32,6 +39,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   support_reply: {
     icon: ChatCircleTextIcon,
     className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  },
+  review_pending: {
+    icon: StarIcon,
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   },
 };
 
@@ -50,7 +61,7 @@ function NotificationRow({
       <Link
         to={notification.href}
         onClick={onNavigate}
-        className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-muted"
+        className="flex gap-3 rounded-xl p-3 transition-[background-color,box-shadow] duration-100 outline-none hover:row-lift focus-visible:row-lift"
       >
         <span
           className={cn(
@@ -62,7 +73,9 @@ function NotificationRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-start justify-between gap-2">
-            <span className="text-sm font-medium">{notification.title}</span>
+            <span className="line-clamp-2 text-sm font-medium wrap-anywhere">
+              {notification.title}
+            </span>
             {isNew ? (
               <>
                 <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
@@ -88,10 +101,39 @@ function useMarkSeen() {
   });
 }
 
+function useClearNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => clearNotificationsFn(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+function PanelHeader({ canClear }: { canClear: boolean }) {
+  const clear = useClearNotifications();
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1">
+      <p className="text-sm font-semibold">Avisos</p>
+      {canClear ? (
+        <button
+          type="button"
+          onClick={() => clear.mutate()}
+          disabled={clear.isPending}
+          className="-mr-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 disabled:opacity-50"
+        >
+          Limpar tudo
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** Bell with the unread count; opening it lists recent events and marks them as seen. */
 export function NotificationBell() {
   const query = useQuery(notificationsQueryOptions());
   const markSeen = useMarkSeen();
+  useNotificationChime(query.data?.items);
   const [open, setOpen] = useState(false);
   // What was unread when the panel opened stays highlighted while it is open.
   const [seenBefore, setSeenBefore] = useState<Date | null>(null);
@@ -125,7 +167,7 @@ export function NotificationBell() {
           sideOffset={10}
           className="z-50 w-[min(24rem,calc(100vw-2rem))] rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >
-          <p className="px-3 pt-2 pb-1 text-sm font-semibold">Avisos</p>
+          <PanelHeader canClear={items.length > 0} />
           {items.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">
               Nada novo por aqui. Vendas, erros de publicação e respostas do suporte aparecem nesta
