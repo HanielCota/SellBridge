@@ -1,0 +1,63 @@
+/** What stands in for a contact detail removed from a text other tenants will read. */
+export const REDACTED = "[removido]";
+
+const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+
+const LINK = /(?:https?:\/\/|www\.)\S+/giu;
+
+/**
+ * A bare domain such as "minhaloja.com.br" or "loja.shop/produto". Top-level domains are matched
+ * in lowercase only, so a missing space after a full stop ("Chegou.Com cuidado") is left alone.
+ */
+const TOP_LEVEL_DOMAINS = [
+  "com",
+  "net",
+  "org",
+  "br",
+  "io",
+  "shop",
+  "store",
+  "online",
+  "site",
+  "app",
+  "info",
+  "biz",
+  "link",
+  "ly",
+].join("|");
+const DOMAIN = new RegExp(
+  String.raw`(?<![\p{L}\p{N}@.-])[\p{L}\p{N}][\p{L}\p{N}-]*(?:\.[\p{L}\p{N}-]+)*` +
+    String.raw`\.(?:${TOP_LEVEL_DOMAINS})(?![\p{L}\p{N}-])(?:/\S*)?`,
+  "gu",
+);
+
+/** An "@minhaloja" handle (Instagram, Telegram): a store name in all but name. */
+const HANDLE = /(?<![\p{L}\p{N}_.])@[\p{L}\p{N}_.]{2,}/gu;
+
+/**
+ * Eight or more digits with the separators people type between them: phone numbers with or
+ * without area code ("(11) 98765-4321", "+55 11 98765 4321", "98765-4321"), CPF and CNPJ
+ * ("123.456.789-09", "12.345.678/0001-90"). Prices ("R$ 1.299,90") and dates stay short of it.
+ */
+const DIGIT_RUN = /(?:\+\s?)?\(?\d(?:[\s().\/-]{0,2}\d){7,}/gu;
+
+/** A date like "12/09/2026" or "12/09": kept, so the digit rule can skip it. */
+const DATE = /^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/u;
+
+function redactDigitRun(match: string): string {
+  return DATE.test(match.trim()) ? match : REDACTED;
+}
+
+/**
+ * Removes what could identify the reviewer or a buyer from a free-text comment shown to other
+ * tenants: e-mails, links and domains, @handles, phone numbers, CPF and CNPJ. Each one becomes
+ * "[removido]"; the rest of the text is kept as written.
+ */
+export function redactContactDetails(text: string): string {
+  return text
+    .replace(EMAIL, REDACTED)
+    .replace(LINK, REDACTED)
+    .replace(DOMAIN, REDACTED)
+    .replace(HANDLE, REDACTED)
+    .replace(DIGIT_RUN, redactDigitRun);
+}

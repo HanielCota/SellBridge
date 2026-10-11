@@ -127,16 +127,28 @@ describe("scoreLevel", () => {
 
 describe("canReviewOrder", () => {
   const now = new Date("2026-10-10T12:00:00Z");
+  const delivered = (orderedAt: Date, deliveredAt: Date | null) => ({
+    status: "delivered",
+    orderedAt,
+    deliveredAt,
+  });
 
   it("allows delivered orders inside the window", () => {
     const orderedAt = new Date("2026-09-01T12:00:00Z");
-    expect(canReviewOrder({ status: "delivered", orderedAt }, now)).toBe(true);
+    expect(canReviewOrder(delivered(orderedAt, orderedAt), now)).toBe(true);
   });
 
   it("refuses orders not delivered or too old", () => {
-    expect(canReviewOrder({ status: "shipped", orderedAt: now }, now)).toBe(false);
+    const shipped = { status: "shipped", orderedAt: now, deliveredAt: null };
+    expect(canReviewOrder(shipped, now)).toBe(false);
     const old = new Date("2026-07-01T12:00:00Z");
-    expect(canReviewOrder({ status: "delivered", orderedAt: old }, now)).toBe(false);
+    expect(canReviewOrder(delivered(old, old), now)).toBe(false);
+  });
+
+  it("counts the window from the delivery, not the order", () => {
+    const orderedAt = new Date("2026-07-01T12:00:00Z");
+    expect(canReviewOrder(delivered(orderedAt, new Date("2026-09-20T12:00:00Z")), now)).toBe(true);
+    expect(canReviewOrder(delivered(orderedAt, null), now)).toBe(false);
   });
 });
 

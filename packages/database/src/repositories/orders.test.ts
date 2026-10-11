@@ -105,6 +105,39 @@ describe("marketplace orders and sync", () => {
     );
   });
 
+  it("dates the delivery on the first sync that sees it", async () => {
+    const orderedAt = new Date("2026-01-05T12:00:00Z");
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "shipped" as const,
+      totalCents: 3990,
+      marketplaceFeeCents: 0,
+      buyerName: null,
+      orderedAt,
+      items: [],
+    };
+    const deliveredAt = async (orderId: string) =>
+      (await database.query.orders.findFirst({ where: eq(orders.id, orderId) }))?.deliveredAt;
+
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    expect(await deliveredAt(orderId)).toBeNull();
+
+    const before = new Date();
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "delivered" });
+    const first = await deliveredAt(orderId);
+    expect(first?.getTime()).toBeGreaterThanOrEqual(before.getTime());
+
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "delivered" });
+    expect(await deliveredAt(orderId)).toEqual(first);
+
+    const late = await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "delivered",
+    });
+    expect(await deliveredAt(late.orderId)).toEqual(orderedAt);
+  });
+
   it("lists published listings whose stock or price changed", async () => {
     const created = await createListingWithTargets(
       database,

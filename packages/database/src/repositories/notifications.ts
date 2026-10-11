@@ -58,6 +58,14 @@ export type NotificationEvent =
 
 export type NotificationKind = NotificationEvent["kind"];
 
+/** Read state is kept per user and organization. */
+export interface NotificationReader {
+  userId: string;
+  tenantId: string;
+}
+
+const READER_KEY = [notificationReads.userId, notificationReads.tenantId];
+
 function since(): Date {
   return daysBefore(WINDOW_DAYS);
 }
@@ -144,14 +152,14 @@ async function reviewPendingEvents(
   reviewableSince: Date,
 ): Promise<ReviewPendingEvent[]> {
   const pending = await countPendingReviews(database, tenantId, reviewableSince);
-  if (pending.total === 0 || pending.latestOrderedAt === null) {
+  if (pending.total === 0 || pending.latestDeliveredAt === null) {
     return [];
   }
   return [
     {
       kind: "review_pending",
       entityId: "reviews",
-      at: pending.latestOrderedAt,
+      at: pending.latestDeliveredAt,
       pending: pending.total,
     },
   ];
@@ -159,12 +167,17 @@ async function reviewPendingEvents(
 
 async function readState(
   database: Database,
-  userId: string,
+  reader: NotificationReader,
 ): Promise<{ seenAt: Date | null; clearedAt: Date | null }> {
   const reads = await database
     .select({ seenAt: notificationReads.seenAt, clearedAt: notificationReads.clearedAt })
     .from(notificationReads)
-    .where(eq(notificationReads.userId, userId));
+    .where(
+      and(
+        eq(notificationReads.userId, reader.userId),
+        eq(notificationReads.tenantId, reader.tenantId),
+      ),
+    );
   const read = reads.at(0);
   return { seenAt: read?.seenAt ?? null, clearedAt: read?.clearedAt ?? null };
 }
@@ -184,7 +197,7 @@ export async function listNotificationEvents(
     storeProblemEvents(database, input.tenantId),
     supportReplyEvents(database, input.tenantId),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
-    readState(database, input.userId),
+    readState(database, input),
   ]);
   const events = [...sales, ...listingErrors, ...stores, ...support, ...reviews];
   const { clearedAt } = read;
@@ -194,19 +207,28 @@ export async function listNotificationEvents(
   return { events: events.filter((event) => event.at > clearedAt), seenAt: read.seenAt };
 }
 
-export async function markNotificationsSeen(database: Database, userId: string): Promise<void> {
+export async function markNotificationsSeen(
+  database: Database,
+  reader: NotificationReader,
+): Promise<void> {
   const seenAt = new Date();
   await database
     .insert(notificationReads)
-    .values({ userId, seenAt })
-    .onConflictDoUpdate({ target: notificationReads.userId, set: { seenAt } });
+    .values({ ...reader, seenAt })
+    .onConflictDoUpdate({ target: READER_KEY, set: { seenAt } });
 }
 
-/** Empties the notification center: everything that happened until now stops being listed. */
-export async function clearNotifications(database: Database, userId: string): Promise<void> {
+/**
+ * Empties the user's notification center in one organization: everything that happened there
+ * until now stops being listed.
+ */
+export async function clearNotifications(
+  database: Database,
+  reader: NotificationReader,
+): Promise<void> {
   const now = new Date();
   await database
     .insert(notificationReads)
-    .values({ userId, seenAt: now, clearedAt: now })
-    .onConflictDoUpdate({ target: notificationReads.userId, set: { seenAt: now, clearedAt: now } });
+    .values({ ...reader, seenAt: now, clearedAt: now })
+    .onConflictDoUpdate({ target: READER_KEY, set: { seenAt: now, clearedAt: now } });
 }

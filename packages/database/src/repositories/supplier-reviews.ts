@@ -1,4 +1,5 @@
 import {
+  redactContactDetails,
   REVIEW_ASPECTS,
   reviewTagSchema,
   toPaginated,
@@ -187,7 +188,11 @@ export interface PublicSupplierReview {
   createdAt: Date;
 }
 
-/** Latest written reviews of a supplier; the reviewing tenant is never exposed. */
+/**
+ * Latest written reviews of a supplier; the reviewing tenant is never exposed. Comments are read
+ * by every other reseller, so contact details are removed here too, for reviews saved before the
+ * comment was cleaned on save.
+ */
 export async function listRecentSupplierReviews(
   database: Database,
   supplierId: string,
@@ -215,7 +220,7 @@ export async function listRecentSupplierReviews(
       id: row.id,
       rating: row.rating,
       tags: row.tags,
-      comment: row.comment,
+      comment: redactContactDetails(row.comment),
       createdAt: row.created_at,
     }));
 }
@@ -232,6 +237,7 @@ export interface ReviewableOrderRow {
   orderId: string;
   externalOrderId: string;
   orderedAt: Date;
+  deliveredAt: Date | null;
   status: string;
   storeName: string;
   supplierId: string;
@@ -246,6 +252,7 @@ const reviewableRowSchema = z.object({
   order_id: z.string(),
   external_order_id: z.string(),
   ordered_at: z.coerce.date(),
+  delivered_at: z.coerce.date().nullable(),
   status: z.string(),
   shop_name: z.string(),
   supplier_id: z.string(),
@@ -273,6 +280,7 @@ function toReviewableRow(row: z.infer<typeof reviewableRowSchema>): ReviewableOr
     orderId: row.order_id,
     externalOrderId: row.external_order_id,
     orderedAt: row.ordered_at,
+    deliveredAt: row.delivered_at,
     status: row.status,
     storeName: row.shop_name,
     supplierId: row.supplier_id,
@@ -287,7 +295,7 @@ function toReviewableRow(row: z.infer<typeof reviewableRowSchema>): ReviewableOr
 export interface ReviewableOrderFilters {
   filter: ReviewFilter;
   search?: string | undefined;
-  /** Delivered orders placed before this can no longer be reviewed. */
+  /** Orders delivered before this can no longer be reviewed. */
   reviewableSince: Date;
 }
 
@@ -295,7 +303,7 @@ function reviewConditions(filters: ReviewableOrderFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.filter === "pending") {
     conditions.push(
-      sql`o.status = 'delivered' and o.ordered_at >= ${since(filters.reviewableSince)} and r.id is null`,
+      sql`o.status = 'delivered' and ${DELIVERED_AT} >= ${since(filters.reviewableSince)} and r.id is null`,
     );
   }
   if (filters.filter === "done") {
@@ -308,11 +316,15 @@ function reviewConditions(filters: ReviewableOrderFilters): SQL[] {
   return conditions;
 }
 
+/** Orders synced before delivery dates existed fall back to their order date. */
+const DELIVERED_AT = sql.raw("coalesce(o.delivered_at, o.ordered_at)");
+
 /** One row per order and supplier of the tenant, with the review when there is one. */
 function reviewablePairsCte(tenantId: string, filters: ReviewableOrderFilters): SQL {
   const conditions = [sql`o.tenant_id = ${tenantId}`, ...reviewConditions(filters)];
   return sql`pairs as (
-    select o.id as order_id, o.external_order_id, o.ordered_at, o.status, sc.shop_name,
+    select o.id as order_id, o.external_order_id, o.ordered_at, ${DELIVERED_AT} as delivered_at,
+      o.status, sc.shop_name,
       s.id as supplier_id, s.name as supplier_name, s.logo_url,
       string_agg(oi.title, ', ' order by oi.title) as item_titles,
       sum(oi.quantity) as units,
@@ -352,18 +364,18 @@ export async function listReviewableOrders(
   return toPaginated(items, total, pagination);
 }
 
-/** Delivered (order, supplier) pairs still waiting for a review, and the newest sale among them. */
+/** Delivered (order, supplier) pairs still waiting for a review, and the latest delivery. */
 export async function countPendingReviews(
   database: Database,
   tenantId: string,
   reviewableSince: Date,
-): Promise<{ total: number; latestOrderedAt: Date | null }> {
+): Promise<{ total: number; latestDeliveredAt: Date | null }> {
   const cte = reviewablePairsCte(tenantId, { filter: "pending", reviewableSince });
   const rows = await database.execute(sql`
-    with ${cte} select count(*) as total, max(ordered_at) as latest from pairs
+    with ${cte} select count(*) as total, max(delivered_at) as latest from pairs
   `);
   const row = z.object({ total: countSchema, latest: z.coerce.date().nullable() }).parse(rows[0]);
-  return { total: row.total, latestOrderedAt: row.latest };
+  return { total: row.total, latestDeliveredAt: row.latest };
 }
 
 /**
@@ -374,9 +386,9 @@ export async function getReviewTarget(
   database: Database,
   tenantId: string,
   target: { orderId: string; supplierId: string },
-): Promise<{ status: string; orderedAt: Date } | null> {
+): Promise<{ status: string; orderedAt: Date; deliveredAt: Date | null } | null> {
   const rows = await database.execute(sql`
-    select o.status, o.ordered_at
+    select o.status, o.ordered_at, o.delivered_at
     from orders o
     where o.id = ${target.orderId}::uuid and o.tenant_id = ${tenantId}
       and exists (
@@ -389,8 +401,14 @@ export async function getReviewTarget(
   if (!row) {
     return null;
   }
-  const parsed = z.object({ status: z.string(), ordered_at: z.coerce.date() }).parse(row);
-  return { status: parsed.status, orderedAt: parsed.ordered_at };
+  const parsed = z
+    .object({
+      status: z.string(),
+      ordered_at: z.coerce.date(),
+      delivered_at: z.coerce.date().nullable(),
+    })
+    .parse(row);
+  return { status: parsed.status, orderedAt: parsed.ordered_at, deliveredAt: parsed.delivered_at };
 }
 
 export interface SaveSupplierReviewInput {
