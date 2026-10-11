@@ -132,7 +132,10 @@ function addDays(isoDate: string, days: number): string {
 
 /** Index of the bucket holding `isoDate`: the last one starting on or before it, or the first. */
 function bucketIndexOf(buckets: readonly MetricPoint[], isoDate: string): number {
-  return Math.max(0, buckets.findLastIndex((bucket) => bucket.date <= isoDate));
+  return Math.max(
+    0,
+    buckets.findLastIndex((bucket) => bucket.date <= isoDate),
+  );
 }
 
 interface AlignedTotals {

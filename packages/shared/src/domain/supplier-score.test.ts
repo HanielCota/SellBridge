@@ -125,13 +125,12 @@ describe("scoreLevel", () => {
   });
 });
 
+function delivered(orderedAt: Date, deliveredAt: Date | null) {
+  return { status: "delivered", orderedAt, deliveredAt };
+}
+
 describe("canReviewOrder", () => {
   const now = new Date("2026-10-10T12:00:00Z");
-  const delivered = (orderedAt: Date, deliveredAt: Date | null) => ({
-    status: "delivered",
-    orderedAt,
-    deliveredAt,
-  });
 
   it("allows delivered orders inside the window", () => {
     const orderedAt = new Date("2026-09-01T12:00:00Z");

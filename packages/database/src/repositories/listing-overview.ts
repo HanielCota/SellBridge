@@ -131,8 +131,7 @@ function listingOrder(sort: ListingSort | undefined, salesWindow: SalesWindow): 
 async function pageOfListingIds(
   database: Database,
   where: SQL | undefined,
-  sort: ListingSort | undefined,
-  salesWindow: SalesWindow,
+  order: SQL[],
   pagination: Pagination,
 ): Promise<{ ids: string[]; total: number }> {
   const [rows, totals] = await Promise.all([
@@ -140,7 +139,7 @@ async function pageOfListingIds(
       .select({ id: listings.id })
       .from(listings)
       .where(where)
-      .orderBy(...listingOrder(sort, salesWindow))
+      .orderBy(...order)
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
     database.select({ total: count() }).from(listings).where(where),
@@ -300,7 +299,7 @@ export async function listListingOverview(
   const where = listingConditions(tenantId, filters);
   const salesWindow = salesWindowEndingAt(new Date());
   const [page, hasActive, statusCounts] = await Promise.all([
-    pageOfListingIds(database, where, filters.sort, salesWindow, pagination),
+    pageOfListingIds(database, where, listingOrder(filters.sort, salesWindow), pagination),
     hasActiveTargets(database, tenantId),
     countByStatus(database, tenantId, filters.search),
   ]);

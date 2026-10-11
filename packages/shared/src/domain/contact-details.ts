@@ -39,7 +39,7 @@ const HANDLE = /(?<![\p{L}\p{N}_.])@[\p{L}\p{N}_.]{2,}/gu;
  * without area code ("(11) 98765-4321", "+55 11 98765 4321", "98765-4321"), CPF and CNPJ
  * ("123.456.789-09", "12.345.678/0001-90"). Prices ("R$ 1.299,90") and dates stay short of it.
  */
-const DIGIT_RUN = /(?:\+\s?)?\(?\d(?:[\s().\/-]{0,2}\d){7,}/gu;
+const DIGIT_RUN = /(?:\+\s?)?\(?\d(?:[\s()./-]{0,2}\d){7,}/gu;
 
 /** A date like "12/09/2026" or "12/09": kept, so the digit rule can skip it. */
 const DATE = /^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/u;
