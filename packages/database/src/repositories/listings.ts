@@ -1,6 +1,6 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, count, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
@@ -171,14 +171,71 @@ export async function getTargetForPublishing(
   return row;
 }
 
-export async function markTargetPublishing(
+/**
+ * Moves a pending target to "publishing" and reports whether this caller won it. Only one job
+ * can call the marketplace for a target: a duplicate job, a re-enqueue or a stalled re-run
+ * finds it no longer pending and backs off instead of creating a second listing.
+ */
+export async function claimTargetForPublishing(
   database: Database,
   listingTargetId: string,
-): Promise<void> {
-  await database
+): Promise<boolean> {
+  const claimed = await database
     .update(listingTargets)
     .set({ status: "publishing", attempts: sql`${listingTargets.attempts} + 1` })
-    .where(eq(listingTargets.id, listingTargetId));
+    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "pending")))
+    .returning({ id: listingTargets.id });
+  return claimed.length > 0;
+}
+
+export interface StalePendingTarget {
+  tenantId: string;
+  listingTargetId: string;
+  updatedAt: Date;
+}
+
+/**
+ * Pending targets untouched since `olderThan`: their job never reached the queue (Redis was
+ * down when the listing was created) or was lost. All tenants; used by the worker relay.
+ */
+export async function findStalePendingTargets(
+  database: Database,
+  olderThan: Date,
+  limit = 100,
+): Promise<StalePendingTarget[]> {
+  return database
+    .select({
+      tenantId: listingTargets.tenantId,
+      listingTargetId: listingTargets.id,
+      updatedAt: listingTargets.updatedAt,
+    })
+    .from(listingTargets)
+    .where(and(eq(listingTargets.status, "pending"), lt(listingTargets.updatedAt, olderThan)))
+    .orderBy(asc(listingTargets.updatedAt))
+    .limit(limit);
+}
+
+/**
+ * Ends publications stuck in "publishing" since `olderThan`: the worker died mid-call or the
+ * result could not be saved. They become "error" (with `listing.failed`) instead of being
+ * retried, because the marketplace may already have the listing.
+ */
+export async function failStalledPublications(
+  database: Database,
+  olderThan: Date,
+  reason: string,
+): Promise<number> {
+  return database.transaction(async (transaction) => {
+    const stalled = await transaction
+      .update(listingTargets)
+      .set({ status: "error", errorReason: reason })
+      .where(and(eq(listingTargets.status, "publishing"), lt(listingTargets.updatedAt, olderThan)))
+      .returning(listingEventColumns);
+    for (const row of stalled) {
+      await recordListingEvent(transaction, "listing.failed", row);
+    }
+    return stalled.length;
+  });
 }
 
 /** Columns a listing event needs, read back from the same UPDATE that changed the target. */
@@ -217,6 +274,9 @@ export async function markTargetPublished(
       .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
       .where(eq(listingTargets.id, listingTargetId))
       .returning(listingEventColumns);
+    if (!updated) {
+      throw notFoundError("Publicação não encontrada");
+    }
     await recordListingEvent(transaction, "listing.published", updated);
   });
 }

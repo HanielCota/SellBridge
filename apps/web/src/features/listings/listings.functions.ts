@@ -21,13 +21,13 @@ import {
   requireMockWebhookSecret,
   sendMockWebhook,
 } from "@/features/listings/mock-sale.server";
-import { enqueuePublishJobs } from "@/lib/server/queues";
 import { requireTenantRegion } from "@/features/region/region.server";
 import {
   createListingForTenant,
   setListingsPausedForTenant,
   updateListingPriceForTenant,
 } from "./listing-commands.server";
+import { enqueueTargets } from "./publish-listing.server";
 
 export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -74,9 +74,7 @@ export const retryListings = createServerFn({ method: "POST" })
   .validator(listingIdsSchema)
   .handler(async ({ context, data }) => {
     const targetIds = await resetListingErrorsForRetry(database, context.tenantId, data.listingIds);
-    await enqueuePublishJobs(
-      targetIds.map((listingTargetId) => ({ tenantId: context.tenantId, listingTargetId })),
-    );
+    await enqueueTargets(context.tenantId, targetIds);
     logger.info("listing.retry_requested", {
       tenantId: context.tenantId,
       targets: targetIds.length,

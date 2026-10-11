@@ -2,12 +2,17 @@ import { createDatabase } from "@sellbridge/database/client";
 import { createConnectorRegistry } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
-import { QUEUE_NAMES } from "@sellbridge/shared/queues";
+import {
+  PUBLISH_BACKOFF_MILLISECONDS,
+  PUBLISH_JOB_ATTEMPTS,
+  QUEUE_NAMES,
+} from "@sellbridge/shared/queues";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
+import { createPublishRecoveryProcessor } from "./processors/publish-recovery.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
@@ -84,6 +89,34 @@ const stockPriceSyncWorker = new Worker(
   },
 );
 
+const publishQueue = new Queue(QUEUE_NAMES.publishListing, { connection });
+const processPublishRecovery = createPublishRecoveryProcessor({
+  database,
+  enqueue: async (jobs) => {
+    if (jobs.length === 0) {
+      return;
+    }
+    await publishQueue.addBulk(
+      jobs.map(({ data, jobId }) => ({
+        name: "publish",
+        data,
+        opts: {
+          jobId,
+          attempts: PUBLISH_JOB_ATTEMPTS,
+          backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
+        },
+      })),
+    );
+  },
+});
+const publishRecoveryWorker = new Worker(
+  QUEUE_NAMES.publishRecovery,
+  async () => processPublishRecovery(),
+  { connection, concurrency: 1 },
+);
+
 const webhookDeliveryWorker = new Worker(
   QUEUE_NAMES.webhookDelivery,
   async () => processWebhookDeliveries(),
@@ -104,6 +137,12 @@ await webhookDeliveryQueue.upsertJobScheduler(
   // Each run is a new job: keep only a few finished ones in Redis.
   { name: "deliver-outbound-webhooks", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
 );
+const publishRecoveryQueue = new Queue(QUEUE_NAMES.publishRecovery, { connection });
+await publishRecoveryQueue.upsertJobScheduler(
+  "recover-publications",
+  { every: 5 * 60 * 1000 },
+  { name: "recover-publications", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
+);
 await tokenRefreshQueue.upsertJobScheduler(
   "refresh-expiring-tokens",
   { every: 10 * 60 * 1000 },
@@ -116,6 +155,7 @@ const workers = [
   webhookWorker,
   stockPriceSyncWorker,
   webhookDeliveryWorker,
+  publishRecoveryWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
@@ -145,6 +185,8 @@ async function shutdown(signal: string): Promise<void> {
     tokenRefreshQueue.close(),
     stockPriceSyncQueue.close(),
     webhookDeliveryQueue.close(),
+    publishQueue.close(),
+    publishRecoveryQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

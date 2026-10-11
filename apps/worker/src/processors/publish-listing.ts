@@ -1,15 +1,16 @@
 import type { Database } from "@sellbridge/database";
 import {
+  claimTargetForPublishing,
   getTargetForPublishing,
   markTargetFailed,
   markTargetPublished,
-  markTargetPublishing,
   markTargetSynced,
   type TargetForPublishing,
 } from "@sellbridge/database/repositories";
 import {
   type ConnectorRegistry,
   isRetryableError,
+  type PublishedListing,
   type PublishProductInput,
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
@@ -35,7 +36,8 @@ export interface PublishJobContext {
   maxAttempts: number;
 }
 
-export type PublishOutcome = "published" | "already_published";
+/** `not_pending`: another job owns the target, or it already failed or is paused. */
+export type PublishOutcome = "published" | "already_published" | "not_pending";
 
 function failureReason(error: unknown): string {
   if (isAppError(error)) {
@@ -104,22 +106,43 @@ function parsePublishJob(job: PublishJobContext): { tenantId: string; listingTar
   return parsed.data;
 }
 
-async function publishToMarketplace(attempt: PublishAttempt): Promise<PublishOutcome> {
-  const { dependencies, row, listingTargetId } = attempt;
+async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListing> {
+  const { dependencies, row } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
-  await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
-  const result = await connector.publishProduct(attempt.credentials, toPublishProductInput(row));
-  await markTargetPublished(dependencies.database, listingTargetId, result);
-  await markTargetSynced(dependencies.database, listingTargetId, {
-    stock: row.product.stock,
-    priceCents: row.listing.priceCents,
-  });
-  logger.info("listing.published", {
-    tenantId: attempt.tenantId,
-    listingTargetId,
-    externalId: result.externalId,
-  });
-  return "published";
+  try {
+    return await connector.publishProduct(attempt.credentials, toPublishProductInput(row));
+  } catch (error) {
+    return handlePublishFailure(attempt, error);
+  }
+}
+
+/**
+ * The listing already exists on the marketplace here, so a failure must not reach the retry
+ * path: another attempt would create a duplicate. The target stays "publishing" and
+ * `failStalledPublications` turns it into an error the reseller can check.
+ */
+async function savePublished(attempt: PublishAttempt, result: PublishedListing): Promise<void> {
+  const { dependencies, row, listingTargetId } = attempt;
+  try {
+    await markTargetPublished(dependencies.database, listingTargetId, result);
+  } catch (error) {
+    logger.error("listing.persist_after_publish_failed", {
+      tenantId: attempt.tenantId,
+      listingTargetId,
+      externalId: result.externalId,
+      error,
+    });
+    throw new UnrecoverableError(`Anúncio ${result.externalId} criado, mas não foi salvo`);
+  }
+  try {
+    await markTargetSynced(dependencies.database, listingTargetId, {
+      stock: row.product.stock,
+      priceCents: row.listing.priceCents,
+    });
+  } catch (error) {
+    // Not fatal: unsynced stock and price differ from the listing, so the sync job sends them.
+    logger.warn("listing.initial_sync_not_saved", { listingTargetId, error });
+  }
 }
 
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
@@ -142,6 +165,9 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
     if (row.target.status === "published") {
       return "already_published";
     }
+    if (row.target.status !== "pending") {
+      return "not_pending";
+    }
     const credentials = publishingCredentials(dependencies, row);
     if (!credentials) {
       return failPermanently(
@@ -151,7 +177,11 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
       );
     }
 
-    await markTargetPublishing(dependencies.database, listingTargetId);
+    await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
+    const claimed = await claimTargetForPublishing(dependencies.database, listingTargetId);
+    if (!claimed) {
+      return "not_pending";
+    }
     const attempt: PublishAttempt = {
       dependencies,
       job,
@@ -160,10 +190,9 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
       row,
       credentials,
     };
-    try {
-      return await publishToMarketplace(attempt);
-    } catch (error) {
-      return handlePublishFailure(attempt, error);
-    }
+    const result = await callMarketplace(attempt);
+    await savePublished(attempt, result);
+    logger.info("listing.published", { tenantId, listingTargetId, externalId: result.externalId });
+    return "published";
   };
 }

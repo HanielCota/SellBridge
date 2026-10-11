@@ -8,6 +8,8 @@ export const QUEUE_NAMES = {
   stockPriceSync: "stock-price-sync",
   /** Outbound webhooks to integrators (public API), not marketplace notifications. */
   webhookDelivery: "webhook-delivery",
+  /** Re-queues lost publish jobs and ends publications stuck mid-call. */
+  publishRecovery: "publish-recovery",
 } as const;
 
 export const publishListingJobSchema = z.object({
