@@ -50,6 +50,7 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         o.external_order_id,
         o.status,
         o.ordered_at,
+        o.delivered_at,
         o.buyer_name,
         o.store_connection_id,
         s.shop_name,
@@ -317,7 +318,9 @@ export interface OrderFinancialRow {
   id: string;
   externalOrderId: string;
   orderedAt: Date;
+  deliveredAt: Date | null;
   status: string;
+  storeConnectionId: string;
   storeName: string;
   buyerName: string | null;
   items: string;
@@ -337,7 +340,9 @@ const financialRowSchema = z.object({
   id: z.string(),
   external_order_id: z.string(),
   ordered_at: z.coerce.date(),
+  delivered_at: z.coerce.date().nullable(),
   status: z.string(),
+  store_connection_id: z.string(),
   shop_name: z.string(),
   buyer_name: z.string().nullable(),
   item_titles: z.string(),
@@ -359,7 +364,9 @@ function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancial
     id: row.id,
     externalOrderId: row.external_order_id,
     orderedAt: row.ordered_at,
+    deliveredAt: row.delivered_at,
     status: row.status,
+    storeConnectionId: row.store_connection_id,
     storeName: row.shop_name,
     buyerName: row.buyer_name,
     items: row.item_titles,

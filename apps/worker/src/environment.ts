@@ -1,4 +1,8 @@
-import { logLevelEnvironmentSchema, parseEnvironment } from "@sellbridge/shared/environment";
+import {
+  booleanFlagEnvironmentSchema,
+  logLevelEnvironmentSchema,
+  parseEnvironment,
+} from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { z } from "zod";
 
@@ -21,6 +25,11 @@ const workerEnvironmentSchema = z.object({
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
   /** When set, exposes GET /health on this port (container probes, E2E readiness). */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
+  /**
+   * Lets webhook endpoints point to localhost and private networks (local development only).
+   * Off in production: otherwise a customer could make the server call internal services.
+   */
+  WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
 });
 
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;

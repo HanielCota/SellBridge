@@ -39,3 +39,9 @@ export const orderAdjustmentTypeEnum = pgEnum("order_adjustment_type", [
 ]);
 
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
+
+export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
+  "pending",
+  "succeeded",
+  "failed",
+]);

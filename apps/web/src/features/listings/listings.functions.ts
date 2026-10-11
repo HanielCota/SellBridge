@@ -4,13 +4,14 @@ import {
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
-  setListingsPaused,
-  updateListingPrice,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
-import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
 import { logger } from "@sellbridge/shared/logger";
-import { createListingSchema, listingsSearchSchema } from "@sellbridge/shared/schemas";
+import {
+  createListingSchema,
+  listingPriceCentsSchema,
+  listingsSearchSchema,
+} from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -22,7 +23,11 @@ import {
 } from "@/features/listings/mock-sale.server";
 import { enqueuePublishJobs } from "@/lib/server/queues";
 import { requireTenantRegion } from "@/features/region/region.server";
-import { assertConnectedStores, publishListing } from "./publish-listing.server";
+import {
+  createListingForTenant,
+  setListingsPausedForTenant,
+  updateListingPriceForTenant,
+} from "./listing-commands.server";
 
 export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -39,22 +44,15 @@ export const getNewListingData = createServerFn({ method: "GET" })
 export const createListing = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createListingSchema)
-  .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    const product = await getCatalogProductForRegion(database, region, data.supplierProductId);
-    assertSellablePrice(data.priceCents, product.costCents);
-    const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
-    return publishListing(
-      context.tenantId,
-      {
-        supplierProductId: product.id,
-        title: data.title,
-        description: data.description,
-        priceCents: data.priceCents,
-      },
-      storeIds,
-    );
-  });
+  .handler(async ({ context, data }) =>
+    createListingForTenant(context.tenantId, {
+      productId: data.supplierProductId,
+      title: data.title,
+      description: data.description,
+      priceCents: data.priceCents,
+      storeConnectionIds: data.storeConnectionIds,
+    }),
+  );
 
 export const listListings = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -90,27 +88,16 @@ export const retryListings = createServerFn({ method: "POST" })
 export const setListingsPausedFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(listingIdsSchema.extend({ paused: z.boolean() }))
-  .handler(async ({ context, data }) => {
-    const changed = await setListingsPaused(
-      database,
-      context.tenantId,
-      data.listingIds,
-      data.paused,
-    );
-    logger.info(data.paused ? "listing.paused" : "listing.resumed", {
-      tenantId: context.tenantId,
-      targets: changed,
-    });
-    return { changed };
-  });
+  .handler(async ({ context, data }) => ({
+    changed: await setListingsPausedForTenant(context.tenantId, data.listingIds, data.paused),
+  }));
 
 /** The repository rejects a price at or below cost, the same rule `createListing` applies. */
 export const updateListingPriceFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .validator(z.object({ listingId: z.uuid(), priceCents: z.number().int().positive() }))
+  .validator(z.object({ listingId: z.uuid(), priceCents: listingPriceCentsSchema }))
   .handler(async ({ context, data }) => {
-    await updateListingPrice(database, context.tenantId, data.listingId, data.priceCents);
-    logger.info("listing.price_updated", { tenantId: context.tenantId, listingId: data.listingId });
+    await updateListingPriceForTenant(context.tenantId, data.listingId, data.priceCents);
     return { ok: true };
   });
 

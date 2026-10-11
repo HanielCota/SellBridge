@@ -9,6 +9,7 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
+  getListingOverview,
   listListingOverview,
   resetListingErrorsForRetry,
   setListingsPaused,
@@ -121,6 +122,18 @@ describe("listing overview", () => {
     expect(row).toMatchObject({ sku: "OV-1", stock: 7, unitsSold: 2, costCents: 1000 });
     expect(row?.supplierName).toBe("Fornecedor visão geral");
     expect(result.hasActive).toBe(true);
+  });
+
+  it("loads one listing like a row of the overview, only for its tenant", async () => {
+    const row = await getListingOverview(database, tenantA, listingId);
+    expect(row).toMatchObject({ listingId, sku: "OV-1", unitsSold: 2 });
+    expect(row.productId).not.toBe("");
+    expect(row.stores.map((store) => store.storeConnectionId).toSorted()).toEqual(
+      [...storeIds].toSorted(),
+    );
+    await expect(getListingOverview(database, tenantB, listingId)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("spreads the units sold over the last 30 days, today last", async () => {

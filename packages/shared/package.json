@@ -21,8 +21,11 @@
     "./file-signature": "./src/runtime/file-signature.ts",
     "./http-body": "./src/runtime/http-body.ts",
     "./schemas": "./src/schemas/index.ts",
+    "./public-api": "./src/public-api/index.ts",
+    "./webhook-signature": "./src/public-api/webhook-signature.ts",
     "./token-cipher": "./src/runtime/token-cipher.ts",
-    "./sleep": "./src/runtime/sleep.ts"
+    "./sleep": "./src/runtime/sleep.ts",
+    "./network-address": "./src/runtime/network-address.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

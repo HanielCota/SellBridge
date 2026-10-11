@@ -336,6 +336,8 @@ export interface RegionCatalogFilters {
 export interface RegionCatalogProduct extends CatalogProduct {
   supplierId: string;
   supplierName: string;
+  /** Every picture of the product, the first one being `imageUrl`. */
+  imageUrls: string[];
   /** The tenant already has a listing for this product. */
   published: boolean;
 }
@@ -420,10 +422,7 @@ export async function listRegionCatalog(
     .orderBy(...PRODUCT_ORDER[filters.sort])
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
-  const items = rows.map(({ imageUrls, ...row }) => ({
-    ...row,
-    imageUrl: imageUrls.at(0) ?? null,
-  }));
+  const items = rows.map((row) => ({ ...row, imageUrl: row.imageUrls.at(0) ?? null }));
   return toPaginated(items, totalRow?.total ?? 0, pagination);
 }
 
@@ -456,5 +455,5 @@ export async function getRegionProducts(
       inArray(supplierProducts.id, [...productIds]),
     ),
   );
-  return rows.map(({ imageUrls, ...row }) => ({ ...row, imageUrl: imageUrls.at(0) ?? null }));
+  return rows.map((row) => ({ ...row, imageUrl: row.imageUrls.at(0) ?? null }));
 }

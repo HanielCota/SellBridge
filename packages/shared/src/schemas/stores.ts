@@ -70,11 +70,20 @@ export const listingDescriptionSchema = z
   )
   .max(LISTING_DESCRIPTION_MAX_LENGTH, "A descrição deve ter no máximo 5.000 caracteres");
 
+/** R$ 1.000.000,00: far above any real listing, and well inside the database integer. */
+export const LISTING_MAX_PRICE_CENTS = 100_000_000;
+
+export const listingPriceCentsSchema = z
+  .number()
+  .int()
+  .positive("Informe o preço de venda")
+  .max(LISTING_MAX_PRICE_CENTS, "O preço de venda pode ser de até R$ 1.000.000,00");
+
 export const createListingSchema = z.object({
   supplierProductId: z.uuid(),
   title: listingTitleSchema,
   description: listingDescriptionSchema,
-  priceCents: z.number().int().positive("Informe o preço de venda"),
+  priceCents: listingPriceCentsSchema,
   storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja de destino"),
 });
 export type CreateListingInput = z.infer<typeof createListingSchema>;
