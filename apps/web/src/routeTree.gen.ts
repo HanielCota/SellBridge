@@ -37,6 +37,9 @@ import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
 import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
+import { Route as ApiV1DocsRouteImport } from './routes/api/v1/docs'
+import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
+import { Route as ApiV1OpenapiDotjsonRouteImport } from './routes/api/v1/openapi[.]json'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
@@ -190,6 +193,21 @@ const ApiPerfilFotoRoute = ApiPerfilFotoRouteImport.update({
   path: '/api/perfil/foto',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1DocsRoute = ApiV1DocsRouteImport.update({
+  id: '/api/v1/docs',
+  path: '/api/v1/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1MeRoute = ApiV1MeRouteImport.update({
+  id: '/api/v1/me',
+  path: '/api/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1OpenapiDotjsonRoute = ApiV1OpenapiDotjsonRouteImport.update({
+  id: '/api/v1/openapi.json',
+  path: '/api/v1/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMarketplaceRoute = ApiWebhooksMarketplaceRouteImport.update({
   id: '/api/webhooks/$marketplace',
   path: '/api/webhooks/$marketplace',
@@ -287,6 +305,9 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -327,6 +348,9 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
@@ -371,6 +395,9 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/v1/docs': typeof ApiV1DocsRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/openapi.json': typeof ApiV1OpenapiDotjsonRoute
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
@@ -414,6 +441,9 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/v1/docs'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores/'
@@ -454,6 +484,9 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/v1/docs'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/fornecedores'
@@ -497,6 +530,9 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/v1/docs'
+    | '/api/v1/me'
+    | '/api/v1/openapi.json'
     | '/api/webhooks/$marketplace'
     | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
@@ -524,6 +560,9 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
+  ApiV1DocsRoute: typeof ApiV1DocsRoute
+  ApiV1MeRoute: typeof ApiV1MeRoute
+  ApiV1OpenapiDotjsonRoute: typeof ApiV1OpenapiDotjsonRoute
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
@@ -732,6 +771,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPerfilFotoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/docs': {
+      id: '/api/v1/docs'
+      path: '/api/v1/docs'
+      fullPath: '/api/v1/docs'
+      preLoaderRoute: typeof ApiV1DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/me': {
+      id: '/api/v1/me'
+      path: '/api/v1/me'
+      fullPath: '/api/v1/me'
+      preLoaderRoute: typeof ApiV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/openapi.json': {
+      id: '/api/v1/openapi.json'
+      path: '/api/v1/openapi.json'
+      fullPath: '/api/v1/openapi.json'
+      preLoaderRoute: typeof ApiV1OpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/$marketplace': {
       id: '/api/webhooks/$marketplace'
       path: '/api/webhooks/$marketplace'
@@ -934,6 +994,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,
+  ApiV1DocsRoute: ApiV1DocsRoute,
+  ApiV1MeRoute: ApiV1MeRoute,
+  ApiV1OpenapiDotjsonRoute: ApiV1OpenapiDotjsonRoute,
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   OauthMockAutorizarRoute: OauthMockAutorizarRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
@@ -948,12 +1011,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

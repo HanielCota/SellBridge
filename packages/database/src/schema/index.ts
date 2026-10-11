@@ -10,3 +10,4 @@ export * from "./support.ts";
 export * from "./relations.ts";
 export * from "./notifications.ts";
 export * from "./reviews.ts";
+export * from "./public-api.ts";
