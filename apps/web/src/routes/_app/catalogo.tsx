@@ -7,10 +7,11 @@ import {
   MAX_BULK_PUBLISH,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, redirect, useNavigate } from "@tanstack/react-router";
 import { MegaphoneIcon, PackageIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { BulkPublishDialog, type PublishStore } from "@/components/catalog/bulk-publish-dialog";
+import { toast } from "sonner";
+import { BulkPublishDialog } from "@/components/catalog/bulk-publish-dialog";
 import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -31,7 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { regionCatalogQueryOptions } from "@/features/catalog/catalog.queries";
 import { getTenantRegion } from "@/features/region/region.functions";
-import { useSelection } from "@/hooks/use-selection";
+import { useSelection, type Selection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -77,6 +78,7 @@ function CatalogSearchInput() {
       label="Buscar produto"
       placeholder="Buscar por produto, SKU ou fornecedor"
       className="min-w-0 flex-1 sm:min-w-60"
+      maxLength={100}
       value={term}
       onValueChange={setTerm}
     />
@@ -118,6 +120,31 @@ function FilterSelect({
   );
 }
 
+function FilterCheckbox({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (checked: true | undefined) => void;
+}) {
+  return (
+    <div className="flex h-10 items-center gap-2">
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(next) => onChange(next === true ? true : undefined)}
+      />
+      <Label htmlFor={id} className="font-normal">
+        {label}
+      </Label>
+    </div>
+  );
+}
+
 function CatalogFilters({ data }: { data: CatalogData }) {
   const search = Route.useSearch();
   const updateSearch = useUpdateSearch();
@@ -151,18 +178,18 @@ function CatalogFilters({ data }: { data: CatalogData }) {
           updateSearch({ sort: PRODUCT_SORTS.find((option) => option === sort) ?? "title" })
         }
       />
-      <div className="flex h-10 items-center gap-2">
-        <Checkbox
-          id="in-stock"
-          checked={search.inStock === true}
-          onCheckedChange={(checked) =>
-            updateSearch({ inStock: checked === true ? true : undefined })
-          }
-        />
-        <Label htmlFor="in-stock" className="font-normal">
-          Só com estoque
-        </Label>
-      </div>
+      <FilterCheckbox
+        id="in-stock"
+        label="Só com estoque"
+        checked={search.inStock === true}
+        onChange={(inStock) => updateSearch({ inStock })}
+      />
+      <FilterCheckbox
+        id="unpublished"
+        label="Ocultar publicados"
+        checked={search.unpublished === true}
+        onChange={(unpublished) => updateSearch({ unpublished })}
+      />
     </div>
   );
 }
@@ -171,11 +198,24 @@ function productId(product: RegionCatalogProduct): string {
   return product.id;
 }
 
-function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore[] }) {
+const SELECTION_LIMIT_MESSAGE = `Dá para publicar até ${MAX_BULK_PUBLISH} produtos por vez`;
+
+function ProductGrid({
+  data,
+  selection,
+}: {
+  data: CatalogData;
+  selection: Selection<RegionCatalogProduct>;
+}) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const selection = useSelection(productId, { limit: MAX_BULK_PUBLISH });
-  const [isPublishing, setIsPublishing] = useState(false);
+  function select(product: RegionCatalogProduct, isSelected: boolean) {
+    if (isSelected && selection.selected.size >= MAX_BULK_PUBLISH) {
+      toast.info(SELECTION_LIMIT_MESSAGE, { id: "selection-limit" });
+      return;
+    }
+    selection.toggle(product, isSelected);
+  }
   return (
     <>
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -184,7 +224,7 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
             <CatalogProductCard
               product={product}
               selected={selection.isSelected(product.id)}
-              onSelectedChange={(isSelected) => selection.toggle(product, isSelected)}
+              onSelectedChange={(isSelected) => select(product, isSelected)}
             />
           </li>
         ))}
@@ -196,10 +236,77 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
         itemLabel={{ one: "produto", other: "produtos" }}
         onPageChange={(page) => void navigate({ search: { ...search, page } })}
       />
+    </>
+  );
+}
+
+function hasActiveFilters(search: RegionCatalogSearch): boolean {
+  return (
+    search.query !== undefined ||
+    search.category !== undefined ||
+    search.supplier !== undefined ||
+    search.inStock !== undefined ||
+    search.unpublished !== undefined
+  );
+}
+
+function NoProducts() {
+  const search = Route.useSearch();
+  const updateSearch = useUpdateSearch();
+  if (!hasActiveFilters(search)) {
+    return (
+      <EmptyState
+        icon={PackageIcon}
+        title="Nenhum produto na sua região ainda"
+        description="Ainda não há fornecedores entregando na sua região."
+      />
+    );
+  }
+  return (
+    <EmptyState
+      icon={PackageIcon}
+      title="Nenhum produto encontrado"
+      description="Ajuste a busca ou os filtros."
+      action={
+        <Button
+          variant="outline"
+          onClick={() =>
+            updateSearch({
+              query: undefined,
+              category: undefined,
+              supplier: undefined,
+              inStock: undefined,
+              unpublished: undefined,
+            })
+          }
+        >
+          Limpar filtros
+        </Button>
+      }
+    />
+  );
+}
+
+/**
+ * The selection lives above the grid, so it survives a search with no results and the
+ * products picked on other pages can still be published.
+ */
+function CatalogResults({ data }: { data: CatalogData }) {
+  const search = Route.useSearch();
+  const selection = useSelection(productId, { limit: MAX_BULK_PUBLISH });
+  const [isPublishing, setIsPublishing] = useState(false);
+  const { items, total, totalPages } = data.products;
+  // A page past the end (old link, products gone) jumps to the last page that has products.
+  if (items.length === 0 && total > 0 && search.page > totalPages) {
+    return <Navigate from={Route.fullPath} search={{ ...search, page: totalPages }} replace />;
+  }
+  return (
+    <>
+      {items.length === 0 ? <NoProducts /> : <ProductGrid data={data} selection={selection} />}
       <SelectionBar
         label="Produtos selecionados"
         count={selection.selected.size}
-        summary={`${selection.selected.size} ${selection.selected.size === 1 ? "selecionado" : "selecionados"}`}
+        countLabel={{ one: "selecionado", other: "selecionados" }}
         onClear={selection.clear}
       >
         <Button size="sm" onClick={() => setIsPublishing(true)}>
@@ -211,33 +318,10 @@ function ProductGrid({ data, stores }: { data: CatalogData; stores: PublishStore
         open={isPublishing}
         onOpenChange={setIsPublishing}
         products={[...selection.selected.values()]}
-        stores={stores}
+        stores={data.stores}
       />
     </>
   );
-}
-
-function CatalogResults({ data }: { data: CatalogData }) {
-  const search = Route.useSearch();
-  if (data.products.items.length === 0) {
-    const isFiltered =
-      search.query !== undefined ||
-      search.category !== undefined ||
-      search.supplier !== undefined ||
-      search.inStock !== undefined;
-    return (
-      <EmptyState
-        icon={PackageIcon}
-        title={isFiltered ? "Nenhum produto encontrado" : "Nenhum produto na sua região ainda"}
-        description={
-          isFiltered
-            ? "Ajuste a busca ou os filtros."
-            : "Ainda não há fornecedores entregando na sua região."
-        }
-      />
-    );
-  }
-  return <ProductGrid data={data} stores={data.stores} />;
 }
 
 function CatalogSkeleton() {

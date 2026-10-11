@@ -52,6 +52,10 @@ interface ProductVisualProps {
   imageUrl: string | null;
   title: string;
   categoryName: string | null;
+  /** Drains the photo or icon to gray; the variant dot keeps its color to stay identifiable. */
+  soldOut?: boolean;
+  /** Thumbnail size: a small icon, and the variant color as a bare dot instead of a label. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -59,14 +63,25 @@ interface ProductVisualProps {
  * The supplier's photo when there is one; otherwise a neutral tile with the category icon
  * and the variant color as a small labeled dot (never a full-color block that glares).
  */
-export function ProductVisual({ imageUrl, title, categoryName, className }: ProductVisualProps) {
+export function ProductVisual({
+  imageUrl,
+  title,
+  categoryName,
+  soldOut = false,
+  compact = false,
+  className,
+}: ProductVisualProps) {
   if (imageUrl) {
     return (
       <img
         src={imageUrl}
         alt=""
         loading="lazy"
-        className={cn("w-full bg-muted object-cover", className)}
+        className={cn(
+          "w-full bg-muted object-cover",
+          soldOut && "brightness-75 grayscale",
+          className,
+        )}
       />
     );
   }
@@ -80,8 +95,14 @@ export function ProductVisual({ imageUrl, title, categoryName, className }: Prod
       )}
       aria-hidden="true"
     >
-      <Icon className="size-9" weight="light" />
-      {color ? (
+      <Icon className={cn(compact ? "size-5" : "size-9", soldOut && "opacity-40")} weight="light" />
+      {color && compact ? (
+        <span
+          className="absolute right-1 bottom-1 size-2.5 rounded-full ring-2 ring-muted"
+          style={{ backgroundColor: COLOR_DOTS[color] }}
+        />
+      ) : null}
+      {color && !compact ? (
         <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background py-0.5 pr-2 pl-1 text-xs font-medium text-foreground">
           <span
             className="size-3 rounded-full ring-1 ring-foreground/20"

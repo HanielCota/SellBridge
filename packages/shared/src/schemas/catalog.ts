@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
-export const PRODUCT_SORTS = ["title", "cost_asc", "cost_desc", "stock_desc", "newest"] as const;
+export const PRODUCT_SORTS = [
+  "title",
+  "cost_asc",
+  "cost_desc",
+  "margin_desc",
+  "stock_desc",
+  "newest",
+] as const;
 export const productSortSchema = z.enum(PRODUCT_SORTS);
 export type ProductSort = z.infer<typeof productSortSchema>;
 
@@ -9,6 +16,7 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
   title: "Nome (A–Z)",
   cost_asc: "Menor custo",
   cost_desc: "Maior custo",
+  margin_desc: "Maior margem",
   stock_desc: "Maior estoque",
   newest: "Mais recentes",
 };
@@ -27,9 +35,19 @@ export const catalogSearchSchema = z.object({
 
 export type CatalogSearch = z.infer<typeof catalogSearchSchema>;
 
+export const SUPPLIER_SORTS = ["name", "reputation"] as const;
+export const supplierSortSchema = z.enum(SUPPLIER_SORTS);
+export type SupplierSort = z.infer<typeof supplierSortSchema>;
+
+export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
+  name: "Nome (A–Z)",
+  reputation: "Melhor avaliados",
+};
+
 export const supplierListSearchSchema = z.object({
   query: optionalParameter(z.string().trim().max(100)),
   niche: optionalParameter(z.string().trim().max(100)),
+  sort: withFallback(supplierSortSchema.default("name"), "name"),
 });
 
 export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
@@ -40,6 +58,8 @@ export const regionCatalogSearchSchema = z.object({
   category: optionalParameter(z.string().trim().max(100)),
   supplier: optionalParameter(z.uuid()),
   inStock: optionalParameter(z.coerce.boolean()),
+  /** Leaves out products the tenant already listed, so only new ones remain to publish. */
+  unpublished: optionalParameter(z.coerce.boolean()),
   sort: withFallback(productSortSchema.default("title"), "title"),
   page: withFallback(z.coerce.number().int().min(1).default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(24), 24),
@@ -67,6 +87,8 @@ export const bulkPublishSchema = z.object({
   productIds: z.array(z.uuid()).min(1).max(MAX_BULK_PUBLISH),
   storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja"),
   priceRule: priceRuleSchema,
+  /** Per-product rules that replace `priceRule` for the products they name. */
+  priceOverrides: z.record(z.uuid(), priceRuleSchema).optional(),
 });
 
 export type BulkPublishInput = z.infer<typeof bulkPublishSchema>;

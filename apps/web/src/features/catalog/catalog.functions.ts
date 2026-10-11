@@ -31,6 +31,7 @@ export const getRegionCatalog = createServerFn({ method: "GET" })
           categorySlug: data.category,
           supplierId: data.supplier,
           inStockOnly: data.inStock,
+          unpublishedOnly: data.unpublished,
           sort: data.sort,
         },
         { page: data.page, pageSize: data.pageSize },
@@ -74,7 +75,7 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
         supplierProductId: product.id,
         title: product.title,
         description: product.description,
-        priceCents: priceForRule(product, data.priceRule),
+        priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
       })),
       storeIds,
     );

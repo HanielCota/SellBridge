@@ -1,19 +1,26 @@
 import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
-import { CheckCircleIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { estimateProfit, isThinMargin } from "@/features/listings/profit";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
+import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product }: { product: RegionCatalogProduct }) {
+function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldOut: boolean }) {
   const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
-      <p className="text-lg leading-tight font-semibold tracking-tight">
+      <p
+        className={cn(
+          "text-lg leading-tight font-semibold tracking-tight",
+          soldOut && "text-muted-foreground line-through decoration-destructive",
+        )}
+      >
         {formatCents(product.suggestedPriceCents)}
         <span className="sr-only"> preço sugerido</span>
       </p>
@@ -33,25 +40,33 @@ function PriceLines({ product }: { product: RegionCatalogProduct }) {
 }
 
 function CardBody({ product }: { product: RegionCatalogProduct }) {
+  const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
         <p className="truncate text-xs text-muted-foreground">{product.supplierName}</p>
-        <h2 className="line-clamp-2 text-sm font-medium">{product.title}</h2>
+        <h2 className={cn("line-clamp-2 text-sm font-medium", soldOut && "text-muted-foreground")}>
+          {product.title}
+        </h2>
       </div>
-      <PriceLines product={product} />
-      <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-        <ProductStockLine stock={product.stock} />
-        {product.stock > 0 && !product.published ? (
-          <Link
-            to="/publicacoes/nova"
-            search={{ productId: product.id }}
-            className="text-sm font-medium text-brand-text hover:underline"
-          >
+      <PriceLines product={product} soldOut={soldOut} />
+      {soldOut ? null : <StockFooter product={product} />}
+    </div>
+  );
+}
+
+function StockFooter({ product }: { product: RegionCatalogProduct }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+      <ProductStockLine stock={product.stock} />
+      {product.published ? null : (
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+            <PackageIcon weight="bold" aria-hidden="true" />
             Publicar
           </Link>
-        ) : null}
-      </div>
+        </Button>
+      )}
     </div>
   );
 }
@@ -66,11 +81,25 @@ export function CatalogProductCard({
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {
-  const canSelect = product.stock > 0 && !product.published;
+  const soldOut = product.stock <= 0;
+  const canSelect = !soldOut && !product.published;
+
+  /** The whole card toggles selection; its own controls (checkbox, "Publicar") keep their behavior. */
+  function handleCardClick(event: React.MouseEvent<HTMLElement>) {
+    if (!canSelect) return;
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("a, button, input, label")) return;
+    onSelectedChange(!selected);
+  }
+
   return (
+    // Pointer shortcut only; the checkbox stays the keyboard and screen-reader control.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <article
+      onClick={handleCardClick}
       className={cn(
         "surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card",
+        canSelect && "cursor-pointer select-none",
         selected && "ring-2 ring-brand",
       )}
     >
@@ -78,8 +107,10 @@ export function CatalogProductCard({
         imageUrl={product.imageUrl}
         title={product.title}
         categoryName={product.categoryName}
+        soldOut={soldOut}
         className="aspect-[16/10]"
       />
+      {soldOut ? <SoldOutRibbon /> : null}
       {canSelect ? (
         <Checkbox
           aria-label={`Selecionar ${product.title}`}
@@ -95,6 +126,7 @@ export function CatalogProductCard({
         </span>
       ) : null}
       <CardBody product={product} />
+      {soldOut ? <SoldOutFooter /> : null}
     </article>
   );
 }
