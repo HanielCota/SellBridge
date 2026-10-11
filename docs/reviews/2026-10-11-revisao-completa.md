@@ -310,3 +310,17 @@ Logo em seguida vêm os índices e as podas, com esforço **M**: `order_items`, 
   - schedulers globais (não por instância) e a sobreposição de execuções quando uma rodada passa do intervalo;
   - endpoints do plugin `organization` expostos sem tela;
   - escopos implícitos via assinatura de webhook.
+
+## Correções (branch `fix/review-2026-10-11`)
+
+| Achado                                                  | Status        | Commit    | Testes                                                                                                                                                                                                                                              |
+| ------------------------------------------------------- | ------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1 (#18) preço em float                                 | **Corrigido** | `0490d18` | `catalog-price.test.ts`: casos (200, 145) e (450, 120), mais comparação exaustiva (custos 1–20.000 × margens 5–300%) contra a fórmula inteira                                                                                                       |
+| N2 publicação perdida no enqueue                        | **Corrigido** | `597b872` | `publish-recovery.test.ts`: `pending` antigo é reenfileirado, o recente não                                                                                                                                                                         |
+| N3 (#5, #15) publicação duplicada / `publishing` eterno | **Corrigido** | `597b872` | `publish-listing.test.ts`: target já em `publishing` não chama o marketplace; falha ao salvar depois do POST → `UnrecoverableError` e um único `publishProduct`; `publish-recovery.test.ts`: `publishing` travado vira `error` com `listing.failed` |
+
+Notas:
+
+- Sem migration nesta branch: a `main` vai até a 0008, e as 0009–0011 estão em outra branch em andamento. Índice parcial sugerido para o varredor, quando as migrations assentarem: `listing_targets (updated_at) where status in ('pending', 'publishing')`.
+- O polling de 2 s (#20) agora termina: todo target `pending` ou `publishing` sai desses estados em no máximo cerca de 15 min.
+- Pendentes: os demais achados, a começar por #4, N16, #6, N14 e N15 (ingestão sem perda).
