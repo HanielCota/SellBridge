@@ -21,6 +21,7 @@ import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/fornecedores/route'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
+import { Route as AppPedidosRouteImport } from './routes/_app/pedidos'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
@@ -106,6 +107,11 @@ const AppLojasRoute = AppLojasRouteImport.update({
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPedidosRoute = AppPedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppPerfilRoute = AppPerfilRouteImport.update({
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
+  '/pedidos': typeof AppPedidosRoute
   '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof AppFinanceiroRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
+  '/pedidos': typeof AppPedidosRoute
   '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -350,6 +358,7 @@ export interface FileRoutesById {
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
+  '/_app/pedidos': typeof AppPedidosRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -392,6 +401,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/lojas'
     | '/onboarding'
+    | '/pedidos'
     | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/lojas'
     | '/onboarding'
+    | '/pedidos'
     | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
@@ -473,6 +484,7 @@ export interface FileRouteTypes {
     | '/_app/financeiro'
     | '/_app/lojas'
     | '/_app/onboarding'
+    | '/_app/pedidos'
     | '/_app/perfil'
     | '/_auth/cadastro'
     | '/_auth/esqueci-senha'
@@ -606,6 +618,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/pedidos': {
+      id: '/_app/pedidos'
+      path: '/pedidos'
+      fullPath: '/pedidos'
+      preLoaderRoute: typeof AppPedidosRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/perfil': {
@@ -846,6 +865,7 @@ interface AppRouteRouteChildren {
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
+  AppPedidosRoute: typeof AppPedidosRoute
   AppPerfilRoute: typeof AppPerfilRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
@@ -862,6 +882,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
+  AppPedidosRoute: AppPedidosRoute,
   AppPerfilRoute: AppPerfilRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,

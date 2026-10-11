@@ -6,6 +6,8 @@ const APP_PAGES = [
   "/dashboard",
   "/catalogo",
   "/publicacoes",
+  "/pedidos",
+  "/fornecedores",
   "/lojas",
   "/financeiro",
   "/suporte",

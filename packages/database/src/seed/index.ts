@@ -8,6 +8,7 @@ import { ensureAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { ADMIN_ACCOUNT, CACHED_CEPS, DEMO_ACCOUNT } from "./data.ts";
 import { createRandom, type Random } from "./random.ts";
+import { seedDemoReviews } from "./reputation.ts";
 import { seedDemoSales } from "./sales.ts";
 import { z } from "zod";
 
@@ -35,6 +36,7 @@ const DOMAIN_TABLES = [
   "ticket_messages",
   "tickets",
   "webhook_events",
+  "supplier_reviews",
   "order_adjustments",
   "order_items",
   "orders",
@@ -100,7 +102,12 @@ async function seedDemo(context: SeedContext): Promise<void> {
     region: demoCep,
     cipher,
   });
-  logger.info("seed.demo_ready", { created: demo.created, orders: sales.orders });
+  const reviews = await seedDemoReviews({ database, random, tenantId: demo.tenantId });
+  logger.info("seed.demo_ready", {
+    created: demo.created,
+    orders: sales.orders,
+    reviews: reviews.reviews,
+  });
 }
 
 async function main(): Promise<void> {

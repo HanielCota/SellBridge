@@ -75,7 +75,8 @@ test.describe("fornecedores e catálogo", () => {
 
     await page.getByLabel("Buscar produto").fill("vestido");
     await expect(page).toHaveURL(/query=vestido/);
-    await expect(page.getByRole("heading", { level: 3 }).first()).toContainText("Vestido");
+    // The supplier's reviews have their own heading, so look only at the product titles.
+    await expect(page.getByRole("heading", { level: 3, name: /Vestido/ }).first()).toBeVisible();
   });
 
   test("mostra erro amigável para fornecedor fora da região", async ({ page }) => {

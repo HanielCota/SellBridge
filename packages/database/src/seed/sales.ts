@@ -15,6 +15,7 @@ import {
 } from "../schema/index.ts";
 import { DEMO_STORES } from "./data.ts";
 import type { Random } from "./random.ts";
+import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
 
 const DAY_MILLISECONDS = 86_400_000;
 const SIX_HOURS_MILLISECONDS = 6 * 60 * 60 * 1000;
@@ -26,14 +27,24 @@ type Product = typeof supplierProducts.$inferSelect;
 type Listing = typeof listings.$inferSelect;
 type ListingTarget = typeof listingTargets.$inferSelect;
 
-const STATUS_WEIGHTS: readonly (readonly [OrderStatus, number])[] = [
-  ["delivered", 0.62],
+type ReputationBehaviour = (typeof REPUTATION_BEHAVIOURS)[keyof typeof REPUTATION_BEHAVIOURS];
+
+/** Orders still moving; whatever is left after them and the failures is delivered. */
+const IN_PROGRESS_WEIGHTS: readonly (readonly [OrderStatus, number])[] = [
   ["shipped", 0.12],
   ["paid", 0.1],
   ["pending", 0.04],
-  ["cancelled", 0.07],
-  ["returned", 0.05],
 ];
+
+/** Cancellations and returns follow the supplier's profile, so the scores differ. */
+function statusWeights(behaviour: ReputationBehaviour): (readonly [OrderStatus, number])[] {
+  const failures: (readonly [OrderStatus, number])[] = [
+    ["cancelled", behaviour.cancelledShare],
+    ["returned", behaviour.returnedShare],
+  ];
+  const used = [...IN_PROGRESS_WEIGHTS, ...failures].reduce((sum, [, weight]) => sum + weight, 0);
+  return [["delivered", 1 - used], ...IN_PROGRESS_WEIGHTS, ...failures];
+}
 
 const BUYERS = [
   "Mariana S.",
@@ -73,18 +84,19 @@ interface Adjustment {
 
 interface DemoOrderInput {
   readonly sale: DemoSale;
+  readonly behaviour: ReputationBehaviour;
   readonly ageDays: number;
   readonly sequence: number;
   readonly now: number;
 }
 
-function pickStatus(random: Random, ageDays: number): OrderStatus {
+function pickStatus(random: Random, ageDays: number, behaviour: ReputationBehaviour): OrderStatus {
   if (ageDays <= 2) {
     return random.chance(0.5) ? "paid" : "pending";
   }
   const roll = random.next();
   let cumulative = 0;
-  for (const [status, weight] of STATUS_WEIGHTS) {
+  for (const [status, weight] of statusWeights(behaviour)) {
     cumulative += weight;
     if (roll < cumulative) {
       return status;
@@ -252,7 +264,7 @@ function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
   const { sale } = input;
   const quantity = random.chance(0.8) ? 1 : random.integerBetween(2, 3);
   const totalCents = sale.listing.priceCents * quantity;
-  const status = pickStatus(random, input.ageDays);
+  const status = pickStatus(random, input.ageDays, input.behaviour);
   const dayStart = input.now - input.ageDays * DAY_MILLISECONDS;
   const orderedAt = new Date(dayStart - random.integerBetween(0, DAY_MILLISECONDS - 1));
   const feeBasisPoints = random.integerBetween(1100, 1800);
@@ -276,15 +288,27 @@ function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
 }
 
 /** Orders grow over the history window so the dashboard shows a trend. */
-function generateDemoOrders(random: Random, sales: readonly DemoSale[], now: number): DemoOrder[] {
+function generateDemoOrders(
+  random: Random,
+  sales: readonly DemoSale[],
+  behaviours: ReadonlyMap<string, ReputationBehaviour>,
+): DemoOrder[] {
+  const now = Date.now();
   const demoOrders: DemoOrder[] = [];
   for (let ageDays = HISTORY_DAYS; ageDays >= 0; ageDays -= 1) {
     const growth = 1 + (HISTORY_DAYS - ageDays) / HISTORY_DAYS;
     const dailyOrders = random.integerBetween(0, Math.round(3 * growth));
     for (let index = 0; index < dailyOrders; index += 1) {
       const sale = random.pick(sales);
+      const behaviour = behaviours.get(sale.product.supplierId) ?? REPUTATION_BEHAVIOURS.good;
       demoOrders.push(
-        generateDemoOrder(random, { sale, ageDays, sequence: demoOrders.length + 1, now }),
+        generateDemoOrder(random, {
+          sale,
+          behaviour,
+          ageDays,
+          sequence: demoOrders.length + 1,
+          now,
+        }),
       );
     }
   }
@@ -331,7 +355,9 @@ async function seedOrderHistory(
   context: SeedSalesContext,
   sales: readonly DemoSale[],
 ): Promise<number> {
-  const demoOrders = generateDemoOrders(context.random, sales, Date.now());
+  const supplierIds = [...new Set(sales.map((sale) => sale.product.supplierId))];
+  const behaviours = await behavioursById(context.database, supplierIds);
+  const demoOrders = generateDemoOrders(context.random, sales, behaviours);
   for (const demoOrder of demoOrders) {
     await insertDemoOrder(context, demoOrder);
   }
