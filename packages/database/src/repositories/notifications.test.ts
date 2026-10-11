@@ -69,7 +69,7 @@ describe("notifications", () => {
       storeName: "Loja Avisos",
     });
 
-    await markNotificationsSeen(database, userId);
+    await markNotificationsSeen(database, { userId, tenantId: tenantA });
     const after = await listNotificationEvents(database, {
       tenantId: tenantA,
       userId,
@@ -82,7 +82,7 @@ describe("notifications", () => {
   });
 
   it("stops listing everything that happened before the user cleared the list", async () => {
-    await clearNotifications(database, userId);
+    await clearNotifications(database, { userId, tenantId: tenantA });
     const cleared = await listNotificationEvents(database, {
       tenantId: tenantA,
       userId,
@@ -99,5 +99,14 @@ describe("notifications", () => {
       reviewableSince: new Date(),
     });
     expect(other.events).toEqual([]);
+  });
+
+  it("keeps what the user saw and cleared per organization", async () => {
+    const other = await listNotificationEvents(database, {
+      tenantId: tenantB,
+      userId,
+      reviewableSince: new Date(),
+    });
+    expect(other.seenAt).toBeNull();
   });
 });

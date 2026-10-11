@@ -24,13 +24,13 @@ export const getNotifications = createServerFn({ method: "GET" })
 export const markNotificationsSeenFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    await markNotificationsSeen(database, context.userId);
+    await markNotificationsSeen(database, { userId: context.userId, tenantId: context.tenantId });
     return { ok: true };
   });
 
 export const clearNotificationsFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => {
-    await clearNotifications(database, context.userId);
+    await clearNotifications(database, { userId: context.userId, tenantId: context.tenantId });
     return { ok: true };
   });

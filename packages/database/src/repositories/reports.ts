@@ -410,7 +410,7 @@ function orderBy(sort: FinancialSort): SQL {
  * Continues the finance CTE: sorts and cuts the page first, then looks up each order's first
  * item picture and category, so only the rows on screen pay for the product lookup.
  */
-function ordersWithProduct(sort: FinancialSort, limit: SQL): SQL {
+function ordersWithProduct(tenantId: string, sort: FinancialSort, limit: SQL): SQL {
   return sql`,
     page as (select * from order_profit ${orderBy(sort)} ${limit})
     select page.*, product.title as product_title, product.image_url as product_image_url,
@@ -421,7 +421,7 @@ function ordersWithProduct(sort: FinancialSort, limit: SQL): SQL {
       from order_items i
       left join supplier_products sp on sp.id = i.supplier_product_id
       left join categories c on c.id = sp.category_id
-      where i.order_id = page.id
+      where i.order_id = page.id and i.tenant_id = ${tenantId}
       order by i.title
       limit 1
     ) product on true
@@ -445,6 +445,7 @@ export async function listOrderFinancials(
     database.execute(sql`
       with ${cte}
       ${ordersWithProduct(
+        scope.tenantId,
         sort,
         sql`limit ${pagination.pageSize} offset ${(pagination.page - 1) * pagination.pageSize}`,
       )}
@@ -474,7 +475,7 @@ export async function exportOrderFinancials(
   const { filters, sort, maxRows = 20_000 } = query;
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope, financialConditions(filters))}
-    ${ordersWithProduct(sort, sql`limit ${maxRows}`)}
+    ${ordersWithProduct(scope.tenantId, sort, sql`limit ${maxRows}`)}
   `);
   return z
     .array(financialRowSchema)

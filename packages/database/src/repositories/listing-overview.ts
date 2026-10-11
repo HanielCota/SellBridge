@@ -88,24 +88,42 @@ function listingConditions(tenantId: string, filters: ListingOverviewFilters): S
   return and(...conditions);
 }
 
+/**
+ * The sales window the page sorts by and the cards count over. Both ends come from one
+ * clock reading, so the sort, the units on each card and the daily series always agree:
+ * orders after `until` (dated in the future) or at/before `since` count nowhere.
+ */
+interface SalesWindow {
+  since: Date;
+  until: Date;
+}
+
+function salesWindowEndingAt(until: Date): SalesWindow {
+  return { since: daysBefore(SALES_WINDOW_DAYS, until), until };
+}
+
+function orderedWithin(salesWindow: SalesWindow): SQL {
+  return sql`${orders.orderedAt} > ${salesWindow.since.toISOString()}::timestamptz
+    and ${orders.orderedAt} <= ${salesWindow.until.toISOString()}::timestamptz`;
+}
+
 /** Units sold in the sales window, as a correlated subquery so the page can sort by it. */
-function unitsSoldInWindow(): SQL<number> {
-  const since = daysBefore(SALES_WINDOW_DAYS);
+function unitsSoldInWindow(salesWindow: SalesWindow): SQL<number> {
   return sql<number>`(
     select coalesce(sum(${orderItems.quantity}), 0)
     from ${orderItems}
     inner join ${orders} on ${orders.id} = ${orderItems.orderId}
     inner join ${listingTargets} on ${listingTargets.id} = ${orderItems.listingTargetId}
     where ${listingTargets.listingId} = ${listings.id}
-      and ${orders.orderedAt} >= ${since.toISOString()}::timestamptz
+      and ${orderedWithin(salesWindow)}
       and ${isCountedOrder(orders.status)}
   )`;
 }
 
-function listingOrder(sort: ListingSort | undefined): SQL[] {
+function listingOrder(sort: ListingSort | undefined, salesWindow: SalesWindow): SQL[] {
   const newestFirst = [desc(listings.createdAt), desc(listings.id)];
   if (sort === "best_selling") {
-    return [desc(unitsSoldInWindow()), ...newestFirst];
+    return [desc(unitsSoldInWindow(salesWindow)), ...newestFirst];
   }
   return newestFirst;
 }
@@ -113,7 +131,7 @@ function listingOrder(sort: ListingSort | undefined): SQL[] {
 async function pageOfListingIds(
   database: Database,
   where: SQL | undefined,
-  sort: ListingSort | undefined,
+  order: SQL[],
   pagination: Pagination,
 ): Promise<{ ids: string[]; total: number }> {
   const [rows, totals] = await Promise.all([
@@ -121,7 +139,7 @@ async function pageOfListingIds(
       .select({ id: listings.id })
       .from(listings)
       .where(where)
-      .orderBy(...listingOrder(sort))
+      .orderBy(...order)
       .limit(pagination.pageSize)
       .offset((pagination.page - 1) * pagination.pageSize),
     database.select({ total: count() }).from(listings).where(where),
@@ -170,12 +188,15 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
 }
 
 /**
- * Units sold per listing and day over the last 30 days, ignoring cancelled and returned
- * orders. Days count back from now (0 = the last 24 hours), so no time zone is involved.
+ * Units sold per listing and day over the sales window, ignoring cancelled and returned
+ * orders. Days count back from the window end (0 = its last 24 hours), so no time zone is
+ * involved and every order inside the window lands on one of its days.
  */
-async function selectDailySales(database: Database, ids: string[]) {
-  const since = daysBefore(SALES_WINDOW_DAYS);
-  const daysAgo = sql<number>`floor(extract(epoch from (now() - ${orders.orderedAt})) / 86400)::int`;
+async function selectDailySales(database: Database, ids: string[], salesWindow: SalesWindow) {
+  // Inlined rather than bound: a bound parameter would make the select and the group by
+  // two different expressions to Postgres. An ISO date string holds no quotes.
+  const windowEnd = sql.raw(`'${salesWindow.until.toISOString()}'::timestamptz`);
+  const daysAgo = sql<number>`floor(extract(epoch from (${windowEnd} - ${orders.orderedAt})) / 86400)::int`;
   return database
     .select({
       listingId: listingTargets.listingId,
@@ -188,7 +209,7 @@ async function selectDailySales(database: Database, ids: string[]) {
     .where(
       and(
         inArray(listingTargets.listingId, ids),
-        sql`${orders.orderedAt} >= ${since.toISOString()}::timestamptz`,
+        orderedWithin(salesWindow),
         isCountedOrder(orders.status),
       ),
     )
@@ -214,14 +235,18 @@ function sumOf(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
-async function loadOverviewRows(database: Database, ids: string[]): Promise<ListingOverviewRow[]> {
+async function loadOverviewRows(
+  database: Database,
+  ids: string[],
+  salesWindow: SalesWindow,
+): Promise<ListingOverviewRow[]> {
   if (ids.length === 0) {
     return [];
   }
   const [details, statuses, sales] = await Promise.all([
     selectListingDetails(database, ids),
     selectStoreStatuses(database, ids),
-    selectDailySales(database, ids),
+    selectDailySales(database, ids, salesWindow),
   ]);
   const detailsById = new Map(details.map((row) => [row.listingId, row]));
   return ids.flatMap((id) => {
@@ -272,12 +297,13 @@ export async function listListingOverview(
   pagination: Pagination,
 ): Promise<ListingOverviewPage> {
   const where = listingConditions(tenantId, filters);
+  const salesWindow = salesWindowEndingAt(new Date());
   const [page, hasActive, statusCounts] = await Promise.all([
-    pageOfListingIds(database, where, filters.sort, pagination),
+    pageOfListingIds(database, where, listingOrder(filters.sort, salesWindow), pagination),
     hasActiveTargets(database, tenantId),
     countByStatus(database, tenantId, filters.search),
   ]);
-  const rows = await loadOverviewRows(database, page.ids);
+  const rows = await loadOverviewRows(database, page.ids, salesWindow);
   return { ...toPaginated(rows, page.total, pagination), hasActive, statusCounts };
 }
 

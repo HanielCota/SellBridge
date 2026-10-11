@@ -48,6 +48,8 @@ Commits direto na `main` (pedido do usuário).
 
 Plugin `admin` do Better Auth. O e-mail listado em `ADMIN_EMAILS` recebe `role = "admin"` no cadastro (hook `databaseHooks.user.create.before`). Admin gerencia fornecedores e responde chamados.
 
+Atualização (2026-10-11): o papel só vem com a posse do e-mail comprovada. No cadastro pelo Google, o provedor comprova e `user.create.before` já grava `admin`. No cadastro com senha, cada login de um e-mail de admin não verificado envia o link de confirmação (`session.create.after`). Quando o e-mail passa a verificado, pelo link ou por um login Google que vincula a conta, `user.update.after` promove a conta, apaga a senha e todas as sessões, e manda o link de redefinição. Confirmar o e-mail prova quem lê a caixa, não quem escolheu a senha: sem isso, quem cadastrasse primeiro um e-mail de admin herdaria o papel quando o dono clicasse no link. A migration `0007` rebaixa admins promovidos pela regra antiga sem e-mail verificado.
+
 ## 2026-10-08: Organização criada no cadastro
 
 `databaseHooks.user.create.after` cria a organização do usuário e `databaseHooks.session.create.before` define `activeOrganizationId`. O `tenantMiddleware` das server functions exige essa organização e injeta `tenantId` no contexto.

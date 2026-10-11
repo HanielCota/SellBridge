@@ -5,6 +5,16 @@ function respond(status: number, headers: Record<string, string> = {}) {
   return new Response("{}", { status, headers });
 }
 
+/** Headers arrive at once; the body never does, and errors when the attempt is aborted. */
+function stalledBody(signal: AbortSignal | null | undefined): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal?.addEventListener("abort", () => controller.error(signal.reason));
+    },
+  });
+  return new Response(body, { status: 200 });
+}
+
 const noSleep = {
   sleep: vi.fn<(milliseconds: number) => Promise<void>>(async () => {}),
   random: () => 1,
@@ -119,6 +129,55 @@ describe("fetchWithRetry", () => {
       fetchWithRetry(fetchImplementation, "https://x", { method: "POST" }, noSleep),
     ).rejects.toMatchObject({ details: { retryable: false } });
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a GET whose body stalls past the timeout", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockImplementationOnce(async (_input, init) => stalledBody(init?.signal))
+      .mockResolvedValueOnce(new Response('{"ok":true}', { status: 200 }));
+    const response = await fetchWithRetry(
+      fetchImplementation,
+      "https://x",
+      {},
+      { ...noSleep, timeoutMilliseconds: 10 },
+    );
+    expect(await response.json()).toEqual({ ok: true });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a POST whose body stalls past the timeout as not retryable", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async (_input, init) =>
+      stalledBody(init?.signal),
+    );
+    await expect(
+      fetchWithRetry(
+        fetchImplementation,
+        "https://x",
+        { method: "POST" },
+        { ...noSleep, timeoutMilliseconds: 10 },
+      ),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops at once, without retrying, when the caller aborts", async () => {
+    const sleep = vi.fn<(milliseconds: number) => Promise<void>>(async () => {});
+    const controller = new AbortController();
+    const fetchImplementation = vi.fn<typeof fetch>(async () => {
+      controller.abort();
+      throw new DOMException("aborted", "AbortError");
+    });
+    await expect(
+      fetchWithRetry(
+        fetchImplementation,
+        "https://x",
+        { signal: controller.signal },
+        { sleep, random: () => 1 },
+      ),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });
 

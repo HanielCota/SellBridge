@@ -109,6 +109,15 @@ function useConsentForm(search: ConsentSearch) {
   const [connected, setConnected] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // Owned by an effect so a resubmit (which resets `failed`) or leaving the page cancels it.
+  useEffect(() => {
+    if (!failed) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setFailed(false), FAILED_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [failed]);
+
   const form = useForm({
     defaultValues: { shopName: "" },
     validators: { onSubmit: shopFormSchema },
@@ -134,7 +143,6 @@ function useConsentForm(search: ConsentSearch) {
       } catch (error) {
         chime.failed();
         setFailed(true);
-        setTimeout(() => setFailed(false), FAILED_HOLD_MS);
         setSubmitError(errorMessage(error));
       }
     },

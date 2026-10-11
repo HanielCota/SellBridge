@@ -20,6 +20,7 @@ import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
 const DAY_MILLISECONDS = 86_400_000;
 const SIX_HOURS_MILLISECONDS = 6 * 60 * 60 * 1000;
 const HISTORY_DAYS = 180;
+const DELIVERY_DAYS = 3;
 const LISTING_COUNT = 14;
 
 type OrderStatus = (typeof orders.$inferInsert)["status"];
@@ -256,7 +257,16 @@ interface DemoOrder {
   readonly marketplaceFeeCents: number;
   readonly buyerName: string;
   readonly orderedAt: Date;
+  readonly deliveredAt: Date | null;
   readonly adjustment: (Adjustment & { readonly createdAt: Date }) | null;
+}
+
+/** Delivered demo orders arrive a few days after the order, never later than now. */
+function demoDeliveredAt(status: OrderStatus, orderedAt: Date, now: number): Date | null {
+  if (status !== "delivered") {
+    return null;
+  }
+  return new Date(Math.min(orderedAt.getTime() + DELIVERY_DAYS * DAY_MILLISECONDS, now));
 }
 
 /** Draws one demo order; the order of the random calls keeps seeds reproducible. */
@@ -280,6 +290,7 @@ function generateDemoOrder(random: Random, input: DemoOrderInput): DemoOrder {
     marketplaceFeeCents: Math.round((totalCents * feeBasisPoints) / 10_000),
     buyerName,
     orderedAt,
+    deliveredAt: demoDeliveredAt(status, orderedAt, input.now),
     adjustment: adjustment && {
       ...adjustment,
       createdAt: new Date(orderedAt.getTime() + delayDays * DAY_MILLISECONDS),
@@ -329,6 +340,7 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
       marketplaceFeeCents: demoOrder.marketplaceFeeCents,
       buyerName: demoOrder.buyerName,
       orderedAt: demoOrder.orderedAt,
+      deliveredAt: demoOrder.deliveredAt,
     })
     .returning({ id: orders.id });
   if (!order) {

@@ -21,6 +21,11 @@ export const orders = pgTable(
     marketplaceFeeCents: integer().notNull().default(0),
     buyerName: text(),
     orderedAt: timestamp({ withTimezone: true }).notNull(),
+    /**
+     * When the order was first seen as delivered: the marketplaces don't send a delivery date.
+     * An order already delivered when first synced takes its order date.
+     */
+    deliveredAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

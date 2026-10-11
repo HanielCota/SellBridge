@@ -12,9 +12,17 @@ export interface OutgoingEmail {
   text: string;
 }
 
+/**
+ * Network failures, timeouts (status null), 429 and 5xx can pass on a later try; any other 4xx
+ * (an invalid address, a rejected sender) will fail the same way again.
+ */
+function isRetryableStatus(status: number | null): boolean {
+  return status === null || status === 429 || status >= 500;
+}
+
 function emailProviderError(status: number | null, cause?: unknown): AppError {
   return new AppError("EXTERNAL_PROVIDER", "Não foi possível enviar o e-mail agora", {
-    details: { retryable: true, status },
+    details: { retryable: isRetryableStatus(status), status },
     cause,
   });
 }

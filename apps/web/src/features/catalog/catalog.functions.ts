@@ -7,6 +7,7 @@ import {
 } from "@sellbridge/database/repositories";
 import {
   bulkPublishSchema,
+  fitListingTitle,
   priceForRule,
   regionCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
@@ -73,7 +74,7 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       context.tenantId,
       toPublish.map((product) => ({
         supplierProductId: product.id,
-        title: product.title,
+        title: fitListingTitle(product.title),
         description: product.description,
         priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
       })),

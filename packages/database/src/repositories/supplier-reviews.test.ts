@@ -152,4 +152,18 @@ describe("supplier reviews", () => {
       aspects: { dispatch: { good: 1, bad: 1 }, packaging: { good: 1, bad: 0 } },
     });
   });
+
+  it("hides contact details from the comments other tenants read", async () => {
+    await saveSupplierReview(database, tenantB, {
+      orderId: orderIds.otherTenant,
+      supplierId: catalog.supplierId,
+      rating: 3,
+      tags: ["dispatch:bad"],
+      comment: "Atrasou. Fale comigo: (11) 98765-4321 ou loja@exemplo.com",
+    });
+    const recent = await listRecentSupplierReviews(database, catalog.supplierId);
+    expect(recent.map((review) => review.comment)).toContain(
+      "Atrasou. Fale comigo: [removido] ou [removido]",
+    );
+  });
 });

@@ -1,7 +1,7 @@
 import { schema } from "@sellbridge/database";
 import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { admin, organization } from "better-auth/plugins";
@@ -124,26 +124,69 @@ function isAdminEmail(email: string): boolean {
 
 /**
  * Admin is granted only to an ADMIN_EMAILS address whose ownership is proven: verified by the
- * provider (Google) at sign-up, or later through the verification link. Otherwise anyone
- * could register an admin address that has not signed up yet.
+ * provider (Google) at sign-up, or later through the verification link or a Google sign-in that
+ * links to the account. Otherwise anyone could register an admin address that has not signed up
+ * yet. The link is sent on every sign-in of an unproven admin address, sign-up included.
  */
-async function requestAdminVerification(user: { email: string; emailVerified: boolean }) {
-  if (user.emailVerified || !isAdminEmail(user.email)) {
+async function requestAdminVerification(userId: string) {
+  const [user] = await database
+    .select({ email: schema.user.email, emailVerified: schema.user.emailVerified })
+    .from(schema.user)
+    .where(eq(schema.user.id, userId));
+  if (!user || user.emailVerified || !isAdminEmail(user.email)) {
     return;
   }
   try {
-    await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/" } });
+    await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/login" } });
   } catch (error) {
     logger.error("auth.admin_verification_email_failed", { error });
   }
 }
 
-async function promoteVerifiedAdmin(verified: { id: string; email: string }) {
-  if (!isAdminEmail(verified.email)) {
+/**
+ * Proving the mailbox doesn't prove who chose the password: it may have been set by someone who
+ * registered the address first. So the promotion drops the password and every session, and the
+ * owner sets a new password through the reset link.
+ */
+async function promoteVerifiedAdmin(user: { id: string; email: string; emailVerified: boolean }) {
+  if (!user.emailVerified || !isAdminEmail(user.email)) {
     return;
   }
-  await database.update(schema.user).set({ role: "admin" }).where(eq(schema.user.id, verified.id));
-  logger.info("auth.admin_promoted", { userId: verified.id });
+  const droppedPasswords = await database.transaction(async (transaction) => {
+    const promoted = await transaction
+      .update(schema.user)
+      .set({ role: "admin" })
+      .where(
+        and(
+          eq(schema.user.id, user.id),
+          or(isNull(schema.user.role), ne(schema.user.role, "admin")),
+        ),
+      )
+      .returning({ id: schema.user.id });
+    if (promoted.length === 0) {
+      return null;
+    }
+    const credentials = await transaction
+      .delete(schema.account)
+      .where(and(eq(schema.account.userId, user.id), eq(schema.account.providerId, "credential")))
+      .returning({ id: schema.account.id });
+    await transaction.delete(schema.session).where(eq(schema.session.userId, user.id));
+    return credentials.length;
+  });
+  if (droppedPasswords === null) {
+    return;
+  }
+  logger.info("auth.admin_promoted", { userId: user.id, droppedPasswords });
+  if (droppedPasswords === 0) {
+    return;
+  }
+  try {
+    await auth.api.requestPasswordReset({
+      body: { email: user.email, redirectTo: "/redefinir-senha" },
+    });
+  } catch (error) {
+    logger.error("auth.admin_password_reset_failed", { error });
+  }
 }
 
 export const auth = betterAuth({
@@ -160,7 +203,6 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail,
     sendOnSignUp: false,
-    afterEmailVerification: promoteVerifiedAdmin,
   },
   socialProviders: googleProvider(),
   hooks: { before: guardAccountRoutes },
@@ -181,7 +223,12 @@ export const auth = betterAuth({
             },
           });
           logger.info("organization.created_for_user", { userId: user.id });
-          await requestAdminVerification(user);
+        },
+      },
+      update: {
+        // Covers both the verification link and a Google sign-in linked to an unverified account.
+        after: async (user) => {
+          await promoteVerifiedAdmin(user);
         },
       },
     },
@@ -190,6 +237,9 @@ export const auth = betterAuth({
         before: async (session) => {
           const organizationId = await findFirstOrganizationId(session.userId);
           return { data: { ...session, activeOrganizationId: organizationId } };
+        },
+        after: async (session) => {
+          await requestAdminVerification(session.userId);
         },
       },
     },

@@ -14,11 +14,30 @@ const points = [
   { date: "2026-09-03", orders: 1, revenueCents: 30_000, profitCents: -3_000 },
 ];
 
-const previous = [
-  { date: "2026-08-02", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
-  { date: "2026-08-03", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
-  { date: "2026-08-04", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
-];
+const previous = {
+  points: [
+    { date: "2026-08-02", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
+    { date: "2026-08-03", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
+    { date: "2026-08-04", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
+  ],
+  offsetDays: 30,
+};
+
+const week = (date: string, revenueCents: number) => ({
+  date,
+  orders: 1,
+  revenueCents,
+  profitCents: revenueCents / 10,
+});
+
+/** `count` weekly buckets from the Monday `first`, the revenue of each from its position. */
+function weeksFrom(first: string, count: number, revenueAt: (index: number) => number) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(`${first}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + index * 7);
+    return week(date.toISOString().slice(0, 10), revenueAt(index));
+  });
+}
 
 describe("buildChartPoints", () => {
   it("splits revenue into cost and profit", () => {
@@ -63,6 +82,42 @@ describe("buildChartPoints", () => {
     expect(cumulative.map((point) => point.previousProfit)).toEqual([1_000, 2_000, 3_000]);
     expect(cumulative[2]?.margin).toBe(-2.5);
     expect(cumulative[2]?.averageRevenue).toBeNull();
+  });
+
+  it("keeps the previous period's last week when it has one bucket more", () => {
+    // 90 days from Tuesday 2026-07-07 make 13 weeks; the 90 days before (from Wednesday
+    // 2026-04-08 to Monday 2026-07-06) touch 14, the last of them a single day.
+    const current = weeksFrom("2026-07-06", 13, () => 100);
+    const before = weeksFrom("2026-04-06", 14, (index) => (index + 1) * 1_000);
+    const chart = buildChartPoints(current, { previous: { points: before, offsetDays: 90 } });
+    // The one-day last week joins the week before it instead of being dropped.
+    expect(chart.map((point) => point.previousRevenue)).toEqual([
+      1_000, 2_000, 3_000, 4_000, 5_000, 6_000, 7_000, 8_000, 9_000, 10_000, 11_000, 12_000, 27_000,
+    ]);
+  });
+
+  it("lines weeks up by date when the previous period has one bucket fewer", () => {
+    // 60 days from Friday 2026-07-03: a 3-day first week, then 9 more. The 60 days before start
+    // on Monday 2026-05-04, so their first week lands on the current second one, not the first.
+    const current = weeksFrom("2026-06-29", 10, () => 100);
+    const before = weeksFrom("2026-05-04", 9, (index) => (index + 1) * 1_000);
+    const chart = buildChartPoints(current, { previous: { points: before, offsetDays: 60 } });
+    expect(chart[0]?.previousRevenue).toBeNull();
+    expect(chart.slice(1).map((point) => point.previousRevenue)).toEqual([
+      1_000, 2_000, 3_000, 4_000, 5_000, 6_000, 7_000, 8_000, 9_000,
+    ]);
+    expect(chart[0]?.previousAverageRevenue).toBeNull();
+    expect(chart[2]?.previousAverageRevenue).toBe(1_500);
+  });
+
+  it("adds up the previous period's running total over the matched buckets", () => {
+    const current = [week("2026-09-07", 100), week("2026-09-14", 100), week("2026-09-21", 100)];
+    const before = [week("2026-08-24", 1_000), week("2026-08-31", 2_000)];
+    const chart = buildChartPoints(current, {
+      previous: { points: before, offsetDays: 14 },
+      cumulative: true,
+    });
+    expect(chart.map((point) => point.previousRevenue)).toEqual([1_000, 3_000, null]);
   });
 });
 

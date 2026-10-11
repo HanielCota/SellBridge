@@ -65,6 +65,17 @@ interface OrderWrite {
   readonly listingsByExternalId: Map<string, ResolvedListing>;
 }
 
+/** The first sync that sees the order delivered dates the delivery; later syncs keep that date. */
+function deliveredAtOnUpdate(
+  existing: typeof orders.$inferSelect,
+  status: IncomingOrder["status"],
+): Date | null {
+  if (existing.deliveredAt !== null || status !== "delivered") {
+    return existing.deliveredAt;
+  }
+  return new Date();
+}
+
 async function updateExistingOrder(
   write: OrderWrite,
   existing: typeof orders.$inferSelect,
@@ -78,6 +89,7 @@ async function updateExistingOrder(
       status: write.order.status,
       totalCents: write.order.totalCents,
       marketplaceFeeCents: write.order.marketplaceFeeCents,
+      deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
     })
     .where(eq(orders.id, existing.id));
   return { status: "updated", orderId: existing.id };
@@ -117,6 +129,7 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       marketplaceFeeCents: order.marketplaceFeeCents,
       buyerName: order.buyerName,
       orderedAt: order.orderedAt,
+      deliveredAt: order.status === "delivered" ? order.orderedAt : null,
     })
     .returning({ id: orders.id });
   if (!created) {

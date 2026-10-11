@@ -6,19 +6,20 @@ export function containsPattern(search: string): string {
   return `%${escaped}%`;
 }
 
-const ACCENTED = "áàâãäéèêëíìîïóòôõöúùûüçñ";
-const PLAIN = "aaaaaeeeeiiiiooooouuuucn";
+/** Combining marks only, so `^`, backtick and other plain symbols in a SKU survive. */
+const COMBINING_MARKS = /[\u0300-\u036f]/g;
 
-/** Lowercased, without accents: how both sides of an accent-insensitive search compare. */
+/**
+ * Lowercased, without accents: how the search text is folded before it meets
+ * `lower(unaccent(column))` in Postgres ("Ñ" → "n", "Ångström" → "angstrom").
+ */
 export function foldAccents(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+  return text.normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
 }
 
+/** Needs the `unaccent` extension, created by a migration. */
 function foldedColumn(column: Column): SQL {
-  return sql`translate(lower(${column}), ${ACCENTED}, ${PLAIN})`;
+  return sql`lower(unaccent(${column}))`;
 }
 
 /**

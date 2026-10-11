@@ -257,15 +257,20 @@ export function computeSupplierReputation(stats: SupplierReputationStats): Suppl
   };
 }
 
-/** Whether a reseller may still review (or edit the review of) an order. */
+/**
+ * Whether a reseller may still review (or edit the review of) an order. The window runs from the
+ * delivery, so a slow delivery doesn't eat into it; an order without a delivery date falls back
+ * to its order date.
+ */
 export function canReviewOrder(
-  order: { status: string; orderedAt: Date },
+  order: { status: string; orderedAt: Date; deliveredAt: Date | null },
   now: Date = new Date(),
 ): boolean {
   if (order.status !== "delivered") {
     return false;
   }
-  const ageDays = (now.getTime() - order.orderedAt.getTime()) / 86_400_000;
+  const deliveredAt = order.deliveredAt ?? order.orderedAt;
+  const ageDays = (now.getTime() - deliveredAt.getTime()) / 86_400_000;
   return ageDays <= REVIEW_WINDOW_DAYS;
 }
 
