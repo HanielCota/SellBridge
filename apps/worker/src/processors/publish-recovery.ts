@@ -2,6 +2,7 @@ import type { Database } from "@sellbridge/database";
 import {
   failStalledPublications,
   findStalePendingTargets,
+  type StalePendingTarget,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import type { PublishListingJob } from "@sellbridge/shared/queues";
@@ -15,20 +16,57 @@ export const STALLED_PUBLISHING_REASON =
   "A publicação foi interrompida. Confira na loja se o anúncio foi criado antes de reprocessar.";
 
 export interface RecoveryJob {
-  data: PublishListingJob;
+  readonly data: PublishListingJob;
   /** Same stale state, same id: BullMQ ignores the copy if an earlier run already queued it. */
-  jobId: string;
+  readonly jobId: string;
 }
 
 export interface PublishRecoveryDependencies {
-  database: Database;
-  enqueue: (jobs: readonly RecoveryJob[]) => Promise<void>;
-  now?: () => Date;
+  readonly database: Database;
+  readonly enqueue: (jobs: readonly RecoveryJob[]) => Promise<void>;
+  readonly now?: () => Date;
 }
 
 export interface PublishRecoveryResult {
-  requeued: number;
-  failed: number;
+  readonly requeued: number;
+  readonly failed: number;
+}
+
+function millisecondsBefore(now: Date, milliseconds: number): Date {
+  return new Date(now.getTime() - milliseconds);
+}
+
+function toRecoveryJob(target: StalePendingTarget): RecoveryJob {
+  return {
+    data: { tenantId: target.tenantId, listingTargetId: target.listingTargetId },
+    jobId: `recover-${target.listingTargetId}-${target.updatedAt.getTime()}`,
+  };
+}
+
+async function requeueStalePending(
+  dependencies: PublishRecoveryDependencies,
+  now: Date,
+): Promise<number> {
+  const stalePending = await findStalePendingTargets(
+    dependencies.database,
+    millisecondsBefore(now, STALE_PENDING_MILLISECONDS),
+  );
+  if (stalePending.length === 0) {
+    return 0;
+  }
+  await dependencies.enqueue(stalePending.map(toRecoveryJob));
+  return stalePending.length;
+}
+
+async function failStalledPublishing(
+  dependencies: PublishRecoveryDependencies,
+  now: Date,
+): Promise<number> {
+  return failStalledPublications(
+    dependencies.database,
+    millisecondsBefore(now, STALLED_PUBLISHING_MILLISECONDS),
+    STALLED_PUBLISHING_REASON,
+  );
 }
 
 /**
@@ -39,24 +77,11 @@ export interface PublishRecoveryResult {
 export function createPublishRecoveryProcessor(dependencies: PublishRecoveryDependencies) {
   return async function recoverPublications(): Promise<PublishRecoveryResult> {
     const now = dependencies.now?.() ?? new Date();
-    const stalePending = await findStalePendingTargets(
-      dependencies.database,
-      new Date(now.getTime() - STALE_PENDING_MILLISECONDS),
-    );
-    await dependencies.enqueue(
-      stalePending.map((target) => ({
-        data: { tenantId: target.tenantId, listingTargetId: target.listingTargetId },
-        jobId: `recover-${target.listingTargetId}-${target.updatedAt.getTime()}`,
-      })),
-    );
-    const failed = await failStalledPublications(
-      dependencies.database,
-      new Date(now.getTime() - STALLED_PUBLISHING_MILLISECONDS),
-      STALLED_PUBLISHING_REASON,
-    );
-    if (stalePending.length > 0 || failed > 0) {
-      logger.warn("listing.publications_recovered", { requeued: stalePending.length, failed });
+    const requeued = await requeueStalePending(dependencies, now);
+    const failed = await failStalledPublishing(dependencies, now);
+    if (requeued > 0 || failed > 0) {
+      logger.warn("listing.publications_recovered", { requeued, failed });
     }
-    return { requeued: stalePending.length, failed };
+    return { requeued, failed };
   };
 }

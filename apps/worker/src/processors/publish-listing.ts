@@ -121,28 +121,46 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
  * path: another attempt would create a duplicate. The target stays "publishing" and
  * `failStalledPublications` turns it into an error the reseller can check.
  */
-async function savePublished(attempt: PublishAttempt, result: PublishedListing): Promise<void> {
-  const { dependencies, row, listingTargetId } = attempt;
+async function persistPublishedListing(
+  attempt: PublishAttempt,
+  result: PublishedListing,
+): Promise<void> {
   try {
-    await markTargetPublished(dependencies.database, listingTargetId, result);
+    await markTargetPublished(attempt.dependencies.database, attempt.listingTargetId, result);
   } catch (error) {
     logger.error("listing.persist_after_publish_failed", {
       tenantId: attempt.tenantId,
-      listingTargetId,
+      listingTargetId: attempt.listingTargetId,
       externalId: result.externalId,
       error,
     });
     throw new UnrecoverableError(`Anúncio ${result.externalId} criado, mas não foi salvo`);
   }
+}
+
+/** Not fatal: unsaved stock and price differ from the listing, so the sync job sends them. */
+async function recordInitialSync(attempt: PublishAttempt): Promise<void> {
+  const { dependencies, row, listingTargetId } = attempt;
   try {
     await markTargetSynced(dependencies.database, listingTargetId, {
       stock: row.product.stock,
       priceCents: row.listing.priceCents,
     });
   } catch (error) {
-    // Not fatal: unsynced stock and price differ from the listing, so the sync job sends them.
     logger.warn("listing.initial_sync_not_saved", { listingTargetId, error });
   }
+}
+
+async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOutcome> {
+  const result = await callMarketplace(attempt);
+  await persistPublishedListing(attempt, result);
+  await recordInitialSync(attempt);
+  logger.info("listing.published", {
+    tenantId: attempt.tenantId,
+    listingTargetId: attempt.listingTargetId,
+    externalId: result.externalId,
+  });
+  return "published";
 }
 
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
@@ -158,41 +176,54 @@ async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Pr
   throw error;
 }
 
+/** Targets this job must leave alone: already live, owned by another job, failed or paused. */
+function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | null {
+  if (row.target.status === "published") {
+    return "already_published";
+  }
+  if (row.target.status !== "pending") {
+    return "not_pending";
+  }
+  return null;
+}
+
+async function requireCredentials(
+  dependencies: PublishDependencies,
+  row: TargetForPublishing,
+): Promise<StoreCredentials> {
+  const credentials = publishingCredentials(dependencies, row);
+  if (!credentials) {
+    return failPermanently(
+      dependencies,
+      row.target.id,
+      "A loja de destino está desconectada. Reconecte-a e reprocesse.",
+    );
+  }
+  return credentials;
+}
+
+/** Waits for the store's rate limit first, so the claim is taken right before the call. */
+async function claimWhenRateAllows(
+  dependencies: PublishDependencies,
+  row: TargetForPublishing,
+): Promise<boolean> {
+  await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
+  return claimTargetForPublishing(dependencies.database, row.target.id);
+}
+
 export function createPublishListingProcessor(dependencies: PublishDependencies) {
   return async function processPublishListing(job: PublishJobContext): Promise<PublishOutcome> {
     const { tenantId, listingTargetId } = parsePublishJob(job);
     const row = await loadTarget(dependencies, tenantId, listingTargetId);
-    if (row.target.status === "published") {
-      return "already_published";
+    const skipped = outcomeWithoutPublishing(row);
+    if (skipped) {
+      return skipped;
     }
-    if (row.target.status !== "pending") {
-      return "not_pending";
-    }
-    const credentials = publishingCredentials(dependencies, row);
-    if (!credentials) {
-      return failPermanently(
-        dependencies,
-        listingTargetId,
-        "A loja de destino está desconectada. Reconecte-a e reprocesse.",
-      );
-    }
-
-    await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
-    const claimed = await claimTargetForPublishing(dependencies.database, listingTargetId);
+    const credentials = await requireCredentials(dependencies, row);
+    const claimed = await claimWhenRateAllows(dependencies, row);
     if (!claimed) {
       return "not_pending";
     }
-    const attempt: PublishAttempt = {
-      dependencies,
-      job,
-      tenantId,
-      listingTargetId,
-      row,
-      credentials,
-    };
-    const result = await callMarketplace(attempt);
-    await savePublished(attempt, result);
-    logger.info("listing.published", { tenantId, listingTargetId, externalId: result.externalId });
-    return "published";
+    return publishClaimedTarget({ dependencies, job, tenantId, listingTargetId, row, credentials });
   };
 }

@@ -12,7 +12,7 @@ import { startHealthServer } from "./health.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
-import { createPublishRecoveryProcessor } from "./processors/publish-recovery.ts";
+import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/publish-recovery.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
@@ -90,26 +90,26 @@ const stockPriceSyncWorker = new Worker(
 );
 
 const publishQueue = new Queue(QUEUE_NAMES.publishListing, { connection });
+
+async function enqueueRecoveredPublications(jobs: readonly RecoveryJob[]): Promise<void> {
+  await publishQueue.addBulk(
+    jobs.map(({ data, jobId }) => ({
+      name: "publish",
+      data,
+      opts: {
+        jobId,
+        attempts: PUBLISH_JOB_ATTEMPTS,
+        backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
+        removeOnComplete: 1000,
+        removeOnFail: 5000,
+      },
+    })),
+  );
+}
+
 const processPublishRecovery = createPublishRecoveryProcessor({
   database,
-  enqueue: async (jobs) => {
-    if (jobs.length === 0) {
-      return;
-    }
-    await publishQueue.addBulk(
-      jobs.map(({ data, jobId }) => ({
-        name: "publish",
-        data,
-        opts: {
-          jobId,
-          attempts: PUBLISH_JOB_ATTEMPTS,
-          backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
-          removeOnComplete: 1000,
-          removeOnFail: 5000,
-        },
-      })),
-    );
-  },
+  enqueue: enqueueRecoveredPublications,
 });
 const publishRecoveryWorker = new Worker(
   QUEUE_NAMES.publishRecovery,
