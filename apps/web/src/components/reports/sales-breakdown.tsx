@@ -145,7 +145,7 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
                 <td className="py-3 text-xs text-muted-foreground tabular-nums">{index + 1}</td>
                 <td className="py-3 pr-3" title={product.title}>
                   {/* Two lines instead of one: names like "Fone bluetooth TWS com estojo - Verde" stay whole. */}
-                  <span className="line-clamp-2">{product.title}</span>
+                  <span className="line-clamp-2 wrap-anywhere">{product.title}</span>
                 </td>
                 <td className="py-3 pl-2 text-right text-muted-foreground tabular-nums max-sm:hidden">
                   {product.units}

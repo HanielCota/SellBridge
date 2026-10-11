@@ -166,14 +166,21 @@ const timeseriesRowSchema = z.object({
   profit: cents,
 });
 
-/** Revenue and profit per day or week (Brazil time), with empty buckets filled with zero. */
+export type TimeseriesBucket = "day" | "week" | "month";
+
+const BUCKET_SQL: Record<TimeseriesBucket, { unit: SQL; step: SQL }> = {
+  day: { unit: sql.raw("'day'"), step: sql.raw("interval '1 day'") },
+  week: { unit: sql.raw("'week'"), step: sql.raw("interval '1 week'") },
+  month: { unit: sql.raw("'month'"), step: sql.raw("interval '1 month'") },
+};
+
+/** Revenue and profit per day, week or month (Brazil time), with empty buckets filled with zero. */
 export async function getSalesTimeseries(
   database: Database,
   scope: ReportScope,
-  bucket: "day" | "week",
+  bucket: TimeseriesBucket,
 ): Promise<TimeseriesPoint[]> {
-  const unit = bucket === "week" ? sql.raw("'week'") : sql.raw("'day'");
-  const step = bucket === "week" ? sql.raw("interval '1 week'") : sql.raw("interval '1 day'");
+  const { unit, step } = BUCKET_SQL[bucket];
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)},
     buckets as (
@@ -297,7 +304,7 @@ const FINANCIAL_SORT_SQL: Record<FinancialSortField, SQL> = {
 };
 
 export interface FinancialFilters {
-  status?: string | undefined;
+  statuses?: readonly string[] | undefined;
   search?: string | undefined;
 }
 
@@ -322,6 +329,8 @@ export interface OrderFinancialRow {
   commissionCents: number;
   platformFeeCents: number;
   profitCents: number;
+  /** First item by title, for the card's picture: its title carries the variant color. */
+  product: { title: string; imageUrl: string | null; categoryName: string | null } | null;
 }
 
 const financialRowSchema = z.object({
@@ -340,6 +349,9 @@ const financialRowSchema = z.object({
   commissions: cents,
   platform_fee: cents,
   profit: cents,
+  product_title: z.string().nullable(),
+  product_image_url: z.string().nullable(),
+  product_category: z.string().nullable(),
 });
 
 function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancialRow {
@@ -359,13 +371,25 @@ function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancial
     commissionCents: row.commissions,
     platformFeeCents: row.platform_fee,
     profitCents: row.profit,
+    product:
+      row.product_title === null
+        ? null
+        : {
+            title: row.product_title,
+            imageUrl: row.product_image_url,
+            categoryName: row.product_category,
+          },
   };
 }
 
 function financialConditions(filters: FinancialFilters): SQL[] {
   const conditions: SQL[] = [];
-  if (filters.status) {
-    conditions.push(sql`o.status = ${filters.status}`);
+  if (filters.statuses && filters.statuses.length > 0) {
+    const statuses = sql.join(
+      filters.statuses.map((status) => sql`${status}`),
+      sql`, `,
+    );
+    conditions.push(sql`o.status in (${statuses})`);
   }
   if (filters.search) {
     const term = containsPattern(filters.search);
@@ -380,6 +404,28 @@ function financialConditions(filters: FinancialFilters): SQL[] {
 function orderBy(sort: FinancialSort): SQL {
   const direction = sort.direction === "asc" ? sql.raw("asc") : sql.raw("desc");
   return sql`order by ${FINANCIAL_SORT_SQL[sort.field]} ${direction}, ordered_at desc, id`;
+}
+
+/**
+ * Continues the finance CTE: sorts and cuts the page first, then looks up each order's first
+ * item picture and category, so only the rows on screen pay for the product lookup.
+ */
+function ordersWithProduct(sort: FinancialSort, limit: SQL): SQL {
+  return sql`,
+    page as (select * from order_profit ${orderBy(sort)} ${limit})
+    select page.*, product.title as product_title, product.image_url as product_image_url,
+      product.category_name as product_category
+    from page
+    left join lateral (
+      select i.title, sp.image_urls[1] as image_url, c.name as category_name
+      from order_items i
+      left join supplier_products sp on sp.id = i.supplier_product_id
+      left join categories c on c.id = sp.category_id
+      where i.order_id = page.id
+      order by i.title
+      limit 1
+    ) product on true
+    ${orderBy(sort)}`;
 }
 
 export interface FinancialListQuery {
@@ -398,9 +444,10 @@ export async function listOrderFinancials(
   const [rows, totals] = await Promise.all([
     database.execute(sql`
       with ${cte}
-      select * from order_profit
-      ${orderBy(sort)}
-      limit ${pagination.pageSize} offset ${(pagination.page - 1) * pagination.pageSize}
+      ${ordersWithProduct(
+        sort,
+        sql`limit ${pagination.pageSize} offset ${(pagination.page - 1) * pagination.pageSize}`,
+      )}
     `),
     database.execute(sql`with ${cte} select count(*) as total from order_profit`),
   ]);
@@ -427,9 +474,7 @@ export async function exportOrderFinancials(
   const { filters, sort, maxRows = 20_000 } = query;
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope, financialConditions(filters))}
-    select * from order_profit
-    ${orderBy(sort)}
-    limit ${maxRows}
+    ${ordersWithProduct(sort, sql`limit ${maxRows}`)}
   `);
   return z
     .array(financialRowSchema)

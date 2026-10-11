@@ -18,6 +18,7 @@ const row: OrderFinancialRow = {
   commissionCents: 300,
   platformFeeCents: 250,
   profitCents: -5,
+  product: null,
 };
 
 describe("centsToCsv", () => {

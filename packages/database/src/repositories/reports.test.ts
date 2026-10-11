@@ -259,14 +259,21 @@ describe("order financials list", () => {
     expect(page.items.map((item) => item.externalOrderId)).toEqual(["A-4", "A-1"]);
   });
 
-  it("filters by status and searches by buyer or product", async () => {
+  it("filters by statuses and searches by buyer or product", async () => {
     const returned = await listOrderFinancials(database, scope(), {
-      filters: { status: "returned" },
+      filters: { statuses: ["returned"] },
       sort: { field: "orderedAt", direction: "desc" },
       pagination,
     });
     expect(returned.items.map((item) => item.externalOrderId)).toEqual(["A-3"]);
     expect(returned.items.at(0)?.returnCents).toBe(8000);
+
+    const inTransit = await listOrderFinancials(database, scope(), {
+      filters: { statuses: ["paid", "shipped"] },
+      sort: { field: "orderedAt", direction: "asc" },
+      pagination,
+    });
+    expect(inTransit.items.map((item) => item.status).toSorted()).toEqual(["paid", "shipped"]);
 
     const byProduct = await listOrderFinancials(database, scope(), {
       filters: { search: "camis" },
@@ -274,6 +281,7 @@ describe("order financials list", () => {
       pagination,
     });
     expect(byProduct.items.map((item) => item.externalOrderId)).toEqual(["A-2"]);
+    expect(byProduct.items.at(0)?.product?.title).toMatch(/camis/i);
   });
 
   it("exports every matching row with the same numbers", async () => {
