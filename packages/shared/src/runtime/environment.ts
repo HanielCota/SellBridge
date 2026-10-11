@@ -34,6 +34,19 @@ function renamedVariableIssues(
 }
 
 /**
+ * `NAME=` with nothing after it means "not set", as in any .env file: optional variables left
+ * blank (the .env.example ships several) fall back to their default instead of failing a
+ * minimum-length rule.
+ */
+function withoutBlankValues(
+  source: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value === undefined || value.trim() !== ""),
+  );
+}
+
+/**
  * Validates environment variables against a Zod schema at startup.
  * Throws a configuration error listing every invalid, missing or renamed variable.
  */
@@ -42,8 +55,9 @@ export function parseEnvironment<TSchema extends z.ZodType>(
   source: Record<string, string | undefined>,
   options: ParseEnvironmentOptions = {},
 ): z.infer<TSchema> {
-  const renamedIssues = renamedVariableIssues(source, options.renamedVariables ?? {});
-  const parsed = schema.safeParse(source);
+  const present = withoutBlankValues(source);
+  const renamedIssues = renamedVariableIssues(present, options.renamedVariables ?? {});
+  const parsed = schema.safeParse(present);
   if (parsed.success && renamedIssues.length === 0) {
     return parsed.data;
   }
