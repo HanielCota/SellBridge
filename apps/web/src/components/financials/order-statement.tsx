@@ -190,7 +190,29 @@ function StatementCard({
   );
 }
 
-function DayHeading({ dayKey, total }: { dayKey: string; total: DayTotal | undefined }) {
+/**
+ * "3 vendas" counts only orders that still count as a sale; when the day also lists cancelled or
+ * returned orders, it says "válidas" so the number does not read as a count of the rows below.
+ */
+const VOID_ROWS_HINT = "Pedidos cancelados ou devolvidos não contam como venda.";
+
+function salesLabel(sales: number, hasVoidRows: boolean): string {
+  const noun = sales === 1 ? "venda" : "vendas";
+  if (!hasVoidRows) {
+    return `${sales} ${noun}`;
+  }
+  return `${sales} ${noun} ${sales === 1 ? "válida" : "válidas"}`;
+}
+
+function DayHeading({
+  dayKey,
+  total,
+  hasVoidRows,
+}: {
+  dayKey: string;
+  total: DayTotal | undefined;
+  hasVoidRows: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3 px-1 pb-2.5">
       {/* "Hoje" depends on the clock, so server and browser may disagree right at midnight. */}
@@ -198,8 +220,11 @@ function DayHeading({ dayKey, total }: { dayKey: string; total: DayTotal | undef
         {formatDayHeading(dayKey)}
       </h3>
       {total && total.orders > 0 ? (
-        <p className="text-xs text-muted-foreground tabular-nums">
-          {total.orders} {total.orders === 1 ? "venda" : "vendas"}
+        <p
+          className="text-xs text-muted-foreground tabular-nums"
+          title={hasVoidRows ? VOID_ROWS_HINT : undefined}
+        >
+          {salesLabel(total.orders, hasVoidRows)}
           {" · "}
           <span
             className={cn(
@@ -243,7 +268,11 @@ export function OrderStatement({
     <section aria-label="Financeiro por pedido" className="space-y-6">
       {groupOrdersByDay(rows).map((day) => (
         <div key={day.key}>
-          <DayHeading dayKey={day.key} total={dayTotals?.get(day.key)} />
+          <DayHeading
+            dayKey={day.key}
+            total={dayTotals?.get(day.key)}
+            hasVoidRows={day.rows.some(isVoidOrder)}
+          />
           <StatementCard rows={day.rows} byDay showStore={showStore} />
         </div>
       ))}

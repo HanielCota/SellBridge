@@ -917,6 +917,7 @@ interface ChartInput {
   previousPoints: MetricPoint[] | null;
   monthlyPoints: MetricPoint[] | null;
   bucket: "day" | "week";
+  periodDays: number;
   summary: FlowSummary;
 }
 
@@ -931,7 +932,7 @@ function ChartBody({
   series: SeriesKey;
   layers: ChartLayers;
 }) {
-  const { points, previousPoints, monthlyPoints, bucket, summary } = input;
+  const { points, previousPoints, monthlyPoints, bucket, periodDays, summary } = input;
   if (!hasSales(points)) {
     return <EmptyChart />;
   }
@@ -956,7 +957,8 @@ function ChartBody({
     );
   }
   const cumulative = kind === "cumulative";
-  const previous = layers.compare ? previousPoints : null;
+  const previous =
+    layers.compare && previousPoints ? { points: previousPoints, offsetDays: periodDays } : null;
   return (
     <CashAreas
       data={buildChartPoints(points, { previous, cumulative })}
@@ -1217,6 +1219,8 @@ interface CashFlowChartProps {
   /** One point per month, sent for long periods. */
   monthlyPoints: MetricPoint[] | null;
   bucket: "day" | "week";
+  /** Length of the period in days: how far the previous period is moved to sit under this one. */
+  periodDays: number;
   summary: FlowSummary;
   previous: PeriodTotals;
   exportUrl: string;
@@ -1235,6 +1239,7 @@ export function CashFlowChart({
   previousPoints,
   monthlyPoints,
   bucket,
+  periodDays,
   summary,
   previous,
   exportUrl,
@@ -1273,7 +1278,7 @@ export function CashFlowChart({
       >
         <ChartBody
           kind={kind}
-          input={{ points, previousPoints, monthlyPoints, bucket, summary }}
+          input={{ points, previousPoints, monthlyPoints, bucket, periodDays, summary }}
           series={series}
           layers={layers}
         />

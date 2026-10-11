@@ -72,7 +72,7 @@ export interface ChartPoint {
   cost: number;
   /** Profit over revenue, in percent; null when nothing was sold. */
   margin: number | null;
-  /** Same position in the previous period, for the comparison line; null without one. */
+  /** The same stretch of the previous period, for the comparison line; null without one. */
   previousRevenue: number | null;
   previousProfit: number | null;
   /** Trailing average of the last buckets, the trend under the daily noise; null when cumulative. */
@@ -111,25 +111,116 @@ function trailingAverage(values: readonly number[], index: number): number {
   return Math.round(recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length);
 }
 
+/** Trailing average over the buckets that have a value; null where this bucket has none. */
+function trailingAverageOf(values: readonly (number | null)[], index: number): number | null {
+  if (values[index] === null) {
+    return null;
+  }
+  const recentValues = values
+    .slice(Math.max(0, index - AVERAGE_WINDOW + 1), index + 1)
+    .filter((value): value is number => value !== null);
+  return Math.round(recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length);
+}
+
+const DAY_MILLISECONDS = 86_400_000;
+
+function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Index of the bucket holding `isoDate`: the last one starting on or before it, or the first. */
+function bucketIndexOf(buckets: readonly MetricPoint[], isoDate: string): number {
+  return Math.max(0, buckets.findLastIndex((bucket) => bucket.date <= isoDate));
+}
+
+interface AlignedTotals {
+  revenueCents: number;
+  profitCents: number;
+}
+
+/** Days one bucket spans (1 for days, 7 for weeks), read from the gap between the first two. */
+function bucketSpanDays(buckets: readonly MetricPoint[]): number {
+  const [first, second] = buckets;
+  if (!first || !second) {
+    return 1;
+  }
+  const milliseconds = Date.parse(second.date) - Date.parse(first.date);
+  return Math.max(1, Math.round(milliseconds / DAY_MILLISECONDS));
+}
+
 /**
- * Points the charts draw. `previous` lines up bucket by bucket with the current period (both
- * cover the same number of days); `cumulative` turns both into running totals.
+ * The previous period laid over the current buckets. Each previous bucket moves forward by the
+ * period's length and lands in the current bucket that holds its middle day, the one it overlaps
+ * most. A weekly series thus stays in step even when the two periods start on different weekdays
+ * (a partial first week, one week more or less) instead of being paired by position. Buckets
+ * landing together add up; a current bucket nothing lands in has no value.
+ */
+function alignPrevious(
+  current: readonly MetricPoint[],
+  previous: readonly MetricPoint[],
+  offsetDays: number,
+): (AlignedTotals | null)[] {
+  const aligned: (AlignedTotals | null)[] = current.map(() => null);
+  if (current.length === 0) {
+    return aligned;
+  }
+  const middleDays = Math.floor((bucketSpanDays(current) - 1) / 2);
+  for (const point of previous) {
+    const index = bucketIndexOf(current, addDays(point.date, offsetDays + middleDays));
+    const slot = aligned[index] ?? { revenueCents: 0, profitCents: 0 };
+    aligned[index] = {
+      revenueCents: slot.revenueCents + point.revenueCents,
+      profitCents: slot.profitCents + point.profitCents,
+    };
+  }
+  return aligned;
+}
+
+/** Running totals that skip the buckets without a value (they stay empty). */
+function runningAlignedTotals(
+  aligned: readonly (AlignedTotals | null)[],
+): (AlignedTotals | null)[] {
+  let revenueCents = 0;
+  let profitCents = 0;
+  return aligned.map((slot) => {
+    if (slot === null) {
+      return null;
+    }
+    revenueCents += slot.revenueCents;
+    profitCents += slot.profitCents;
+    return { revenueCents, profitCents };
+  });
+}
+
+export interface PreviousSeries {
+  points: readonly MetricPoint[];
+  /** How many days the previous period starts before the current one: the period's length. */
+  offsetDays: number;
+}
+
+/**
+ * Points the charts draw. `previous` is matched by date, shifted by the period's length, so its
+ * line sits under the same stretch of the current period; `cumulative` turns both into running
+ * totals.
  */
 export function buildChartPoints(
   points: readonly MetricPoint[],
   {
     previous = null,
     cumulative = false,
-  }: { previous?: readonly MetricPoint[] | null; cumulative?: boolean } = {},
+  }: { previous?: PreviousSeries | null; cumulative?: boolean } = {},
 ): ChartPoint[] {
   const current = cumulative ? runningTotals(points) : points;
-  const before = previous && cumulative ? runningTotals(previous) : previous;
+  const aligned = previous ? alignPrevious(points, previous.points, previous.offsetDays) : null;
+  const before = aligned && cumulative ? runningAlignedTotals(aligned) : aligned;
   const revenues = current.map((point) => point.revenueCents);
   const profits = current.map((point) => point.profitCents);
-  const previousRevenues = before?.map((point) => point.revenueCents) ?? [];
-  const previousProfits = before?.map((point) => point.profitCents) ?? [];
+  const previousRevenues = before?.map((slot) => slot?.revenueCents ?? null) ?? [];
+  const previousProfits = before?.map((slot) => slot?.profitCents ?? null) ?? [];
   return current.map((point, index) => {
-    const previousPoint = before?.[index];
+    const previousPoint = before?.[index] ?? null;
     return {
       date: point.date,
       revenue: point.revenueCents,
@@ -141,9 +232,9 @@ export function buildChartPoints(
       averageRevenue: cumulative ? null : trailingAverage(revenues, index),
       averageProfit: cumulative ? null : trailingAverage(profits, index),
       previousAverageRevenue:
-        previousPoint && !cumulative ? trailingAverage(previousRevenues, index) : null,
+        previousPoint && !cumulative ? trailingAverageOf(previousRevenues, index) : null,
       previousAverageProfit:
-        previousPoint && !cumulative ? trailingAverage(previousProfits, index) : null,
+        previousPoint && !cumulative ? trailingAverageOf(previousProfits, index) : null,
     };
   });
 }

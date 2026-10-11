@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { redactContactDetails } from "../domain/contact-details.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
+
+export { redactContactDetails };
 
 /** What a reseller can praise or criticize about a supplier in one order. */
 export const REVIEW_ASPECTS = ["dispatch", "conformity", "packaging", "support"] as const;
@@ -62,7 +65,12 @@ export const supplierReviewInputSchema = z
     message: "As marcações não combinam com a nota",
     path: ["tags"],
   })
-  .transform((review) => ({ ...review, tags: [...new Set(review.tags)] }));
+  // Other resellers read the comment: contact details (e-mail, phone, store link) are removed.
+  .transform((review) => ({
+    ...review,
+    tags: [...new Set(review.tags)],
+    comment: redactContactDetails(review.comment),
+  }));
 
 export type SupplierReviewInput = z.infer<typeof supplierReviewInputSchema>;
 

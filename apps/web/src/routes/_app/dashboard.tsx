@@ -116,6 +116,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
           previousPoints={data.previousTimeseries}
           monthlyPoints={data.monthly}
           bucket={data.period.bucket}
+          periodDays={data.period.days}
           summary={summary}
           previous={previous}
           exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
