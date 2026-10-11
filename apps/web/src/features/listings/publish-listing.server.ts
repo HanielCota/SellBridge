@@ -22,8 +22,20 @@ export async function assertConnectedStores(
   return uniqueStoreIds;
 }
 
-async function enqueueTargets(tenantId: string, targetIds: readonly string[]): Promise<void> {
-  await enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId })));
+/**
+ * Queues pending targets for the worker. The targets are already saved as "pending", so if
+ * Redis is unavailable the worker's recovery job queues them within minutes (see
+ * apps/worker/src/processors/publish-recovery.ts): the reseller's action still succeeded.
+ */
+export async function enqueueTargets(
+  tenantId: string,
+  targetIds: readonly string[],
+): Promise<void> {
+  try {
+    await enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId })));
+  } catch (error) {
+    logger.error("listing.enqueue_failed", { tenantId, targets: targetIds.length, error });
+  }
 }
 
 /** Creates one listing for the given (already checked) stores and queues its publication. */
