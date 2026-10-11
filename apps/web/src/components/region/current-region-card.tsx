@@ -1,8 +1,9 @@
 import type { SupplierSummary, TenantRegion } from "@sellbridge/database/repositories";
 import { formatCep } from "@sellbridge/shared/cep";
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
+import { Button } from "@/components/ui/button";
 import { countLabel } from "./count-label";
 import { RegionMapMark } from "./region-map-mark";
 
@@ -57,12 +58,12 @@ function RegionSuppliers({ suppliers }: { suppliers: SupplierSummary[] }) {
         ))}
       </ul>
       {hidden > 0 ? (
-        <Link
-          to="/fornecedores"
-          className="inline-block text-sm font-medium text-brand-text underline-offset-4 hover:underline"
-        >
-          Ver todos os {suppliers.length} fornecedores
-        </Link>
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/fornecedores">
+            <StorefrontIcon weight="bold" aria-hidden="true" />
+            Ver todos os {suppliers.length} fornecedores
+          </Link>
+        </Button>
       ) : null}
     </div>
   );
