@@ -91,7 +91,24 @@ const stockPriceSyncWorker = new Worker(
 
 const publishQueue = new Queue(QUEUE_NAMES.publishListing, { connection });
 
+/**
+ * A finished job keeps its id in Redis (removeOnComplete/removeOnFail), and BullMQ silently
+ * ignores a new job with that id: a recovery job that failed before touching the target (the
+ * database was down) would block every later recovery of the same stale state.
+ */
+async function releaseFinishedJob(jobId: string): Promise<void> {
+  const existing = await publishQueue.getJob(jobId);
+  if (!existing) {
+    return;
+  }
+  const state = await existing.getState();
+  if (state === "completed" || state === "failed") {
+    await existing.remove();
+  }
+}
+
 async function enqueueRecoveredPublications(jobs: readonly RecoveryJob[]): Promise<void> {
+  await Promise.all(jobs.map(({ jobId }) => releaseFinishedJob(jobId)));
   await publishQueue.addBulk(
     jobs.map(({ data, jobId }) => ({
       name: "publish",

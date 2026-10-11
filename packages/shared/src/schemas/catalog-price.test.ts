@@ -24,19 +24,24 @@ describe("priceForRule", () => {
     ).toBe(990);
   });
 
-  it("matches exact integer arithmetic for every markup", () => {
+  it("picks the smallest ,90 price at or above the markup for every cost", () => {
     const mismatches: string[] = [];
     for (let costCents = 1; costCents <= 20_000; costCents += 1) {
       for (let percent = 5; percent <= 300; percent += 5) {
-        const scaled = costCents * (100 + percent);
-        // Smallest price ending in ,90 that is >= cost × (1 + percent/100), in integers only.
-        const exact = Math.max(Math.ceil((scaled + 1_000) / 10_000) * 100 - 10, costCents + 100);
         const actual = priceForRule(
           { costCents, suggestedPriceCents: 0 },
           { kind: "markup", percent },
         );
-        if (actual !== exact) {
-          mismatches.push(`${costCents}+${percent}%: ${actual} != ${exact}`);
+        // Checked in integers against cost × (100 + percent) / 100, not with the same formula.
+        const target = costCents * (100 + percent);
+        const coversMarkup = actual * 100 >= target;
+        const previousFallsShort = (actual - 100) * 100 < target;
+        const isFloor = actual === costCents + 100;
+        const isValid = isFloor
+          ? coversMarkup
+          : actual % 100 === 90 && coversMarkup && previousFallsShort && actual > costCents + 100;
+        if (!isValid) {
+          mismatches.push(`${costCents}+${percent}%: ${actual}`);
         }
       }
     }
