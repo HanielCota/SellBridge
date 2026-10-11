@@ -20,6 +20,7 @@ Architecture and code conventions are documented in [docs/architecture.md](docs/
 - No `else` in `apps/*/src` or `packages/*/src` (`pnpm check:no-else`); prefer early returns.
 - TypeScript strict mode, type-aware Oxlint rules, and Prettier formatting.
 - Money is stored in cents; data access goes through the tenant-scoped repositories in `packages/database`.
+- The public API (`/api/v1`, guide in [docs/api.md](docs/api.md)) only takes backward-compatible changes: new endpoints, response fields, optional parameters, event types, or error codes. Anything breaking goes to a new version. Describe every new field with `.describe()` so it shows up in the generated OpenAPI docs.
 
 ## Before opening a pull request
 

@@ -15,7 +15,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-8-FF4438?logo=redis&logoColor=white)
 
-[Getting started](#getting-started) · [Quality](#quality) · [Structure](#structure) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
+[Getting started](#getting-started) · [Public API](#public-api) · [Quality](#quality) · [Structure](#structure) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -31,6 +31,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 - **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
 - **Dashboard and finances** — KPIs, comparison with the previous period, profit, fees, returns, and CSV export.
 - **Support** — tickets with attachments, history, and an admin view.
+- **Public API** — REST API with organization-scoped keys, scopes, OpenAPI docs, events, and signed webhooks.
 
 ## Stack
 
@@ -85,6 +86,16 @@ Create an app at developers.mercadolivre.com.br, configure the redirect `{APP_UR
 ### Testing publishing with the simulated marketplace
 
 The app UI is in Portuguese. In **Lojas conectadas** (connected stores), use **Conectar Loja simulada** (connect simulated store). In a listing, put `[falha]` in the title to simulate a permanent rejection, or `[instavel]` to simulate instability (the job is retried with backoff until attempts run out). In **Publicações** (publications), the **Simular venda** (simulate sale) button sends a signed webhook that becomes an order in the finances view.
+
+## Public API
+
+Other systems (ERPs, spreadsheets, in-house tools) can integrate through a versioned REST API at `/api/v1`. Create a key in **Integrações** (account menu), then:
+
+```bash
+curl http://localhost:3000/api/v1/me -H "Authorization: Bearer sb_live_..."
+```
+
+Interactive reference at `/api/v1/docs` and the OpenAPI document at `/api/v1/openapi.json`. The guide (authentication, scopes, pagination, errors, rate limits, idempotency, events, and webhook signatures) is in [docs/api.md](docs/api.md), in Portuguese.
 
 ## Quality
 

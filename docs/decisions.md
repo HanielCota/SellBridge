@@ -152,3 +152,15 @@ Score (0–100) = estrelas convertidas para 0–100 (média bayesiana com 5 aval
 
 - Não há data de entrega nem de despacho nos pedidos, então atraso no envio fica só nas marcações das avaliações, não nas métricas.
 - O seed atribui um perfil (`reputation`) a cada fornecedor, que define as estrelas e as taxas de cancelamento e devolução da conta demo.
+
+## 2026-10-11: API pública v1
+
+Integradores (ERPs, planilhas, sistemas próprios) passam a acessar os dados da organização por uma API REST. Guia de uso em [api.md](api.md); referência gerada em `/api/v1/docs`.
+
+- **REST v1 dentro do `apps/web`.** As rotas ficam em `src/routes/api/v1` e reutilizam repositórios, regras e filas que o app já usa; um serviço separado duplicaria acesso a dados e deploy sem ganho no volume atual. Cada operação é descrita uma vez (`defineApiEndpoint`: escopo, schemas Zod de entrada e resposta, handler) e dessa descrição saem tanto a execução quanto o OpenAPI 3.1.
+- **Chaves de API por organização, guardadas como SHA-256.** O segredo (`sb_live_` + 32 bytes aleatórios) aparece uma vez; o banco guarda só o hash e um prefixo visível. SHA-256 sem salt basta porque o segredo tem 256 bits de entropia (não há o que adivinhar) e permite achar a chave pelo hash a cada requisição. Não usamos plugin do Better Auth: a v1.7.7 não traz API keys no core, e precisamos de chaves da organização (não do usuário) com os nossos escopos. Escopos separam leitura de escrita; até 20 chaves ativas por organização; revogação e expiração valem na hora.
+- **Paginação por página**, igual aos repositórios e às telas (`page`/`pageSize`, até 100). Só os eventos usam cursor (`after` = `sequence`), porque são lidos de forma incremental e crescem sem parar.
+- **Limite de requisições e idempotência no Postgres**, sem infraestrutura nova: janela fixa de um minuto por chave (120 requisições, cabeçalhos `RateLimit-*` e `Retry-After`) e `Idempotency-Key` obrigatória em `POST`, com a primeira resposta guardada por 24 horas. Respostas 5xx liberam a chave para nova tentativa.
+- **Eventos por outbox transacional.** O evento é gravado em `api_events`, com uma linha em `webhook_deliveries` por endpoint inscrito, na mesma transação da mudança (pedido, publicação): nunca há evento de algo que não aconteceu nem mudança sem evento. O worker varre as entregas pendentes e as envia (assinatura HMAC-SHA256 no cabeçalho `SellBridge-Signature`, com timestamp e tolerância de 5 minutos), com retentativas e backoff; `GET /events` serve de alternativa e de rede de segurança.
+- **Erros em `application/problem+json`** (RFC 9457) com um `code` estável, `requestId` e `issues` por campo. Os textos para pessoas ficam em português, como no resto do produto.
+- Versionamento pelo caminho: a v1 só recebe mudanças compatíveis (campos, parâmetros opcionais, eventos e códigos novos); qualquer quebra vira `/api/v2`.
