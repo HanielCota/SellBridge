@@ -5,114 +5,123 @@
   <img src="apps/web/public/brand/sellbridge-logo-light.png" alt="SellBridge" width="420">
 </picture>
 
-<p><strong>A ponte entre fornecedores atacadistas da sua região e as suas lojas nos marketplaces.</strong></p>
+<p><strong>The bridge between wholesale suppliers in your region and your marketplace stores.</strong></p>
 
 [![CI](https://github.com/HanielCota/SellBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HanielCota/SellBridge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-00a98a)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A524-5FA04E?logo=nodedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-Turborepo-F69220?logo=pnpm&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-8-FF4438?logo=redis&logoColor=white)
 
-[Como rodar](#como-rodar) · [Qualidade](#qualidade) · [Estrutura](#estrutura) · [Arquitetura](docs/architecture.md) · [Decisões](docs/decisions.md)
+[Getting started](#getting-started) · [Quality](#quality) · [Structure](#structure) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
 ---
 
-SaaS de dropshipping/intermediação: o revendedor conecta suas lojas em marketplaces (Shopee, Mercado Livre, TikTok Shop), escolhe produtos de fornecedores atacadistas da sua região, publica nas lojas e acompanha vendas, comissões e financeiro.
+SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on marketplaces (Shopee, Mercado Livre, TikTok Shop), pick products from wholesale suppliers in their region, publish them to their stores, and track sales, fees, and finances.
 
-## Funcionalidades
+## Features
 
-- **Fornecedores por região** — onboarding por CEP e catálogo filtrado pelos atacadistas próximos, com busca, filtros e ordenação.
-- **Lojas conectadas** — OAuth com os marketplaces (Mercado Livre real, loja simulada para testes) e renovação automática de tokens.
-- **Publicação em lote** — um anúncio em uma ou várias lojas via fila, com status acompanhável e reprocessamento.
-- **Sincronização** — estoque e preço periódicos, pedidos por webhooks idempotentes.
-- **Dashboard e financeiro** — KPIs, comparação com o período anterior, lucro, comissões, devoluções e exportação CSV.
-- **Suporte** — chamados com anexos, histórico e visão de administrador.
+- **Suppliers by region** — onboarding by CEP (Brazilian postal code) and a catalog filtered to nearby wholesalers, with search, filters, and sorting.
+- **Connected stores** — OAuth with the marketplaces (real Mercado Livre connector, plus a simulated store for testing) and automatic token renewal.
+- **Bulk publishing** — publish one listing to one or many stores through a job queue, with trackable status and retries.
+- **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
+- **Dashboard and finances** — KPIs, comparison with the previous period, profit, fees, returns, and CSV export.
+- **Support** — tickets with attachments, history, and an admin view.
 
 ## Stack
 
-| Camada      | Tecnologias                                                      |
+| Layer       | Technologies                                                     |
 | ----------- | ---------------------------------------------------------------- |
 | Monorepo    | pnpm · Turborepo                                                 |
 | Web         | TanStack Start/Router/Query/Table/Form · Tailwind v4 · shadcn/ui |
-| Dados       | PostgreSQL · Drizzle · Zod                                       |
-| Auth        | Better Auth (e-mail/senha e Google)                              |
-| Filas       | BullMQ · Redis                                                   |
-| Qualidade   | Oxlint · Prettier · Vitest · Playwright · lefthook               |
-| Infra local | Docker Compose                                                   |
+| Data        | PostgreSQL · Drizzle · Zod                                       |
+| Auth        | Better Auth (email/password and Google)                          |
+| Queues      | BullMQ · Redis                                                   |
+| Quality     | Oxlint · Prettier · Vitest · Playwright · lefthook               |
+| Local infra | Docker Compose                                                   |
 
-Decisões em [docs/decisions.md](docs/decisions.md); arquitetura e padrões de código em [docs/architecture.md](docs/architecture.md); plano em [docs/plan.md](docs/plan.md).
+Decisions live in [docs/decisions.md](docs/decisions.md); architecture and code conventions in [docs/architecture.md](docs/architecture.md); the roadmap in [docs/plan.md](docs/plan.md). These documents are written in Portuguese.
 
-## Como rodar
+## Getting started
 
-Pré-requisitos: Node 24+, Docker e corepack (`corepack enable`).
+Requirements: Node 24+, Docker, and corepack (`corepack enable`).
 
 ```bash
-cp .env.example .env          # gere BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY e MOCK_WEBHOOK_SECRET (loja simulada)
+cp .env.example .env          # generate BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY and MOCK_WEBHOOK_SECRET (simulated store)
 pnpm install
 pnpm services:up              # Postgres + Redis
 pnpm database:migrate
 pnpm database:seed
-pnpm dev                      # web em http://localhost:3000 + worker (filas)
+pnpm dev                      # web on http://localhost:3000 + worker (queues)
 ```
 
-Postgres 18 e Redis 8 rodam via Docker Compose. Quem já tinha o banco local do Postgres 17 (volume `pgdata`) precisa migrar os dados, porque o 18 usa um volume novo (`postgres-data`): faça `pg_dump -Fc` com o contêiner antigo, rode `pnpm services:up` e restaure com `pg_restore --no-owner`. O volume antigo continua intacto até você removê-lo.
+Postgres 18 and Redis 8 run via Docker Compose. If you already had a local Postgres 17 database (the `pgdata` volume), migrate your data, because 18 uses a new volume (`postgres-data`): run `pg_dump -Fc` against the old container, run `pnpm services:up`, and restore with `pg_restore --no-owner`. The old volume stays intact until you remove it.
 
-O e-mail definido em `ADMIN_EMAILS` vira administrador ao se cadastrar. Os logs são JSON estruturado; `LOG_LEVEL` define o nível mínimo (`debug`, `info`, `warn`, `error`).
+The email set in `ADMIN_EMAILS` becomes an administrator once ownership of it is proven: when signing up with Google, or through the confirmation link sent after a password sign-up. In that case the chosen password is discarded and a link to set a new one is sent, because whoever signed up may not own the email. Logs are structured JSON; `LOG_LEVEL` sets the minimum level (`debug`, `info`, `warn`, `error`).
 
-### Contas de demonstração (criadas pelo seed)
+### Demo accounts (created by the seed)
 
-| Conta                    | Senha        | O que tem                                                                              |
-| ------------------------ | ------------ | -------------------------------------------------------------------------------------- |
-| `demo@sellbridge.local`  | `demo12345`  | Região Belo Horizonte/MG, 2 lojas simuladas, 14 anúncios e cerca de 6 meses de pedidos |
-| `admin@sellbridge.local` | `admin12345` | Papel de administrador                                                                 |
+| Account                  | Password     | What it has                                                                    |
+| ------------------------ | ------------ | ------------------------------------------------------------------------------ |
+| `demo@sellbridge.local`  | `demo12345`  | Belo Horizonte/MG region, 2 simulated stores, 14 listings, ~6 months of orders |
+| `admin@sellbridge.local` | `admin12345` | Administrator role                                                             |
 
-As senhas vêm de `SEED_DEMO_PASSWORD` e `SEED_ADMIN_PASSWORD` no `.env` (os valores acima são os do `.env.example`); os testes E2E usam as mesmas variáveis. `pnpm database:seed -- --reset` limpa os dados de domínio e recria tudo.
+Passwords come from `SEED_DEMO_PASSWORD` and `SEED_ADMIN_PASSWORD` in `.env` (the values above are the `.env.example` defaults); the E2E tests use the same variables. `pnpm database:seed -- --reset` wipes domain data and recreates everything.
 
-### Redefinição de senha e login com Google
+### Password reset and Google sign-in
 
-A redefinição de senha envia o link por e-mail via [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Sem a chave, em desenvolvimento o e-mail com o link aparece no log do servidor (`email.development_preview`); em produção ele não é enviado.
+Password reset sends the link by email through [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Without the key, in development the email with the link shows up in the server log (`email.development_preview`); in production it is not sent.
 
-Para o login com Google, crie um OAuth Client no Google Cloud com o redirect `{BETTER_AUTH_URL}/api/auth/callback/google` e preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Sem as duas variáveis, o botão "Continuar com Google" não aparece.
+For Google sign-in, create an OAuth client in Google Cloud with the redirect `{BETTER_AUTH_URL}/api/auth/callback/google` and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Without both variables, the "Continuar com Google" button is hidden.
 
 ### Mercado Livre
 
-Crie um aplicativo em developers.mercadolivre.com.br, configure o redirect `{APP_URL}/api/oauth/mercado_livre/callback` e a URL de notificações `{APP_URL}/api/webhooks/mercado_livre` (tópico `orders_v2`), e preencha `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CLIENT_SECRET`. Sem essas variáveis, a opção aparece como "Em breve". Referência dos endpoints usados: [docs/marketplaces/mercado-livre.md](docs/marketplaces/mercado-livre.md).
+Create an app at developers.mercadolivre.com.br, configure the redirect `{APP_URL}/api/oauth/mercado_livre/callback` and the notifications URL `{APP_URL}/api/webhooks/mercado_livre` (topic `orders_v2`), and set `MERCADO_LIVRE_CLIENT_ID` and `MERCADO_LIVRE_CLIENT_SECRET`. Without these variables, the option shows as "Em breve" (coming soon). Endpoint reference: [docs/marketplaces/mercado-livre.md](docs/marketplaces/mercado-livre.md).
 
-### Testando a publicação com o marketplace simulado
+### Testing publishing with the simulated marketplace
 
-Em **Lojas conectadas**, use **Conectar Loja simulada**. No anúncio, inclua `[falha]` no título para simular uma recusa permanente, ou `[instavel]` para simular instabilidade (o job é repetido com backoff até esgotar as tentativas). Em **Publicações**, o botão **Simular venda** envia um webhook assinado que vira pedido no financeiro.
+The app UI is in Portuguese. In **Lojas conectadas** (connected stores), use **Conectar Loja simulada** (connect simulated store). In a listing, put `[falha]` in the title to simulate a permanent rejection, or `[instavel]` to simulate instability (the job is retried with backoff until attempts run out). In **Publicações** (publications), the **Simular venda** (simulate sale) button sends a signed webhook that becomes an order in the finances view.
 
-## Qualidade
+## Quality
 
-| Comando                             | O que faz                                                  |
-| ----------------------------------- | ---------------------------------------------------------- |
-| `pnpm format` / `pnpm format:check` | Prettier                                                   |
-| `pnpm lint`                         | Oxlint (inclui regras type-aware)                          |
-| `pnpm check:no-else`                | Falha se houver `else` em `apps/*/src` ou `packages/*/src` |
-| `pnpm typecheck`                    | `tsc --noEmit` em todos os pacotes (TS 7, strict)          |
-| `pnpm test`                         | Vitest                                                     |
-| `pnpm test:e2e`                     | Playwright (precisa do banco rodando)                      |
+| Command                             | What it does                                                    |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `pnpm format` / `pnpm format:check` | Prettier                                                        |
+| `pnpm lint`                         | Oxlint (including type-aware rules)                             |
+| `pnpm check:no-else`                | Fails if there is an `else` in `apps/*/src` or `packages/*/src` |
+| `pnpm typecheck`                    | `tsc --noEmit` across all packages (TS 7, strict)               |
+| `pnpm test`                         | Vitest                                                          |
+| `pnpm test:e2e`                     | Playwright (requires the database running)                      |
 
-O hook de pre-commit (lefthook) formata, linta e roda o `check:no-else`. O CI no GitHub Actions roda tudo isso e os testes E2E.
+The pre-commit hook (lefthook) formats, lints, and runs `check:no-else`. CI on GitHub Actions runs all of that plus the E2E tests.
 
-## Estrutura
+## Structure
 
 ```
-apps/web               TanStack Start (painel)
-apps/worker            filas BullMQ (publicação, sync, webhooks)
-packages/database      schema Drizzle, migrations, seeds, repositórios por tenant
-packages/marketplaces  conectores (mock, Mercado Livre, Shopee, TikTok Shop)
-packages/shared        schemas Zod, dinheiro em centavos, CEP, erros, ambiente, logger
-packages/config        tsconfig base
+apps/web               TanStack Start (dashboard)
+apps/worker            BullMQ queues (publishing, sync, webhooks)
+packages/database      Drizzle schema, migrations, seeds, tenant-scoped repositories
+packages/marketplaces  connectors (mock, Mercado Livre, Shopee, TikTok Shop)
+packages/shared        Zod schemas, money in cents, CEP, errors, environment, logger
+packages/config        base tsconfig
 ```
 
-## Entregas
+## Milestones
 
-- **Fase 4:** suporte com anexos (validados pelo conteúdo), histórico e status, e visão de admin para responder/encerrar; conector real do Mercado Livre (OAuth com PKCE, publicação, estoque/preço, pedidos, notificações) atrás da mesma interface; webhooks idempotentes com fila; sincronização periódica de estoque e preço; "Simular venda" para testar o fluxo de ponta a ponta; testes E2E dos fluxos críticos.
-- **Fase 3:** dashboard com KPIs (vendas, receita, lucro, ticket médio), comparação com o período anterior, gráfico de evolução por dia/semana, filtro por período e por loja, vendas por loja e produtos mais vendidos; financeiro com lucro, comissões, devoluções e reembolsos por pedido e por período, tabela com ordenação/filtros/paginação no servidor e exportação CSV; estados vazios e checklist de primeiros passos.
-- **Fase 2:** pacote `marketplaces` (interface única, conector mock, criptografia de tokens, HTTP com retry/backoff e rate limit), lojas conectadas via OAuth (mock), publicação em uma ou várias lojas com fila BullMQ no worker, status acompanhável e reprocessamento, renovação automática de tokens.
-- **Fase 1:** schema do domínio (região, fornecedores, lojas, anúncios, pedidos, webhooks, suporte), seeds determinísticos, onboarding por CEP (cache + BrasilAPI + ViaCEP), fornecedores filtrados pela região e catálogo com busca, filtros, ordenação e paginação na URL.
-- **Fase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, layout base (sidebar colapsável, modo claro/escuro) e autenticação (cadastro, login, logout, organização por usuário, papel admin).
+- **Phase 4:** support with attachments (validated by content), history and status, and an admin view to reply/close; real Mercado Livre connector (OAuth with PKCE, publishing, stock/price, orders, notifications) behind the same interface; idempotent queued webhooks; periodic stock and price sync; "Simular venda" to test the flow end to end; E2E tests for critical flows.
+- **Phase 3:** dashboard with KPIs (sales, revenue, profit, average order value), comparison with the previous period, daily/weekly trend chart, filters by period and store, sales by store and best-selling products; finances with profit, fees, returns, and refunds per order and per period, a table with server-side sorting/filtering/pagination and CSV export; empty states and a getting-started checklist.
+- **Phase 2:** `marketplaces` package (single interface, mock connector, token encryption, HTTP with retry/backoff and rate limiting), stores connected via OAuth (mock), publishing to one or many stores through a BullMQ queue in the worker, trackable status and retries, automatic token renewal.
+- **Phase 1:** domain schema (region, suppliers, stores, listings, orders, webhooks, support), deterministic seeds, onboarding by CEP (cache + BrasilAPI + ViaCEP), suppliers filtered by region, and a catalog with search, filters, sorting, and pagination in the URL.
+- **Phase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, base layout (collapsible sidebar, light/dark mode), and authentication (sign-up, login, logout, one organization per user, admin role).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, follow [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Haniel Fialho
