@@ -1,3 +1,4 @@
+import { assertBillingCapacity } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
@@ -11,6 +12,7 @@ import { listings, listingTargets, storeConnections, supplierProducts } from "..
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface NewListingInput {
+  billingEnabled?: boolean;
   supplierProductId: string;
   title: string;
   description: string;
@@ -36,9 +38,11 @@ export async function createListingWithTargets(
     throw conflictError("Escolha ao menos uma loja de destino");
   }
   return database.transaction(async (transaction) => {
+    const { billingEnabled, ...values } = input;
+    if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
     const [listing] = await transaction
       .insert(listings)
-      .values({ ...input, tenantId })
+      .values({ ...values, tenantId })
       .returning({ id: listings.id });
     if (!listing) {
       throw conflictError("Não foi possível criar o anúncio");
@@ -343,7 +347,8 @@ const liveStock =
 
 /**
  * Live listings whose stock or price differs from what was last sent to the marketplace
- * (all tenants; used by the worker sync job).
+ * (all tenants; used by the worker sync job). Never-attempted targets come first and the
+ * rest follow the oldest attempt, so targets that keep failing cannot starve the others.
  */
 export async function findTargetsNeedingSync(
   database: Database,
@@ -370,6 +375,7 @@ export async function findTargetsNeedingSync(
           or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
       ),
     )
+    .orderBy(sql`${listingTargets.syncAttemptedAt} asc nulls first`, asc(listingTargets.id))
     .limit(limit);
   return rows.flatMap((row) => (row.externalId ? [{ ...row, externalId: row.externalId }] : []));
 }
@@ -379,8 +385,41 @@ export async function markTargetSynced(
   listingTargetId: string,
   synced: { stock: number; priceCents: number },
 ): Promise<void> {
+  const now = new Date();
   await database
     .update(listingTargets)
-    .set({ syncedStock: synced.stock, syncedPriceCents: synced.priceCents, syncedAt: new Date() })
+    .set({
+      syncedStock: synced.stock,
+      syncedPriceCents: synced.priceCents,
+      syncedAt: now,
+      syncAttemptedAt: now,
+      syncError: null,
+    })
     .where(eq(listingTargets.id, listingTargetId));
+}
+
+/** Records a failed sync attempt so the target moves to the back of the sync queue. */
+export async function markTargetSyncFailed(
+  database: Database,
+  listingTargetId: string,
+  reason: string,
+): Promise<void> {
+  await database
+    .update(listingTargets)
+    .set({ syncAttemptedAt: new Date(), syncError: reason })
+    .where(eq(listingTargets.id, listingTargetId));
+}
+
+/** Persisted before the remote POST; survives a worker crash or a lost response. */
+export async function setTargetCreationStarted(
+  database: Database,
+  listingTargetId: string,
+  started: boolean,
+): Promise<void> {
+  const rows = await database
+    .update(listingTargets)
+    .set({ creationStartedAt: started ? new Date() : null })
+    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "publishing")))
+    .returning({ id: listingTargets.id });
+  if (rows.length !== 1) throw conflictError("A publicação não está mais em processamento");
 }

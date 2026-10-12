@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -71,6 +72,7 @@ export const supplierProducts = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })

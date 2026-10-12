@@ -45,11 +45,17 @@ export const listingTargets = pgTable(
     errorReason: text(),
     attempts: integer().notNull().default(0),
     idempotencyKey: text().notNull(),
+    /** Durable guard against repeating an uncertain non-idempotent item creation. */
+    creationStartedAt: timestamp({ withTimezone: true }),
     publishedAt: timestamp({ withTimezone: true }),
     /** Stock and price last sent to the marketplace (used by the sync job). */
     syncedStock: integer(),
     syncedPriceCents: integer(),
     syncedAt: timestamp({ withTimezone: true }),
+    /** Last sync attempt (success or failure); failing targets rotate to the back of the queue. */
+    syncAttemptedAt: timestamp({ withTimezone: true }),
+    /** Error of the last failed sync attempt, cleared on success. */
+    syncError: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()

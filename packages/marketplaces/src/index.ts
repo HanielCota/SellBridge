@@ -13,3 +13,4 @@ export {
 export { MOCK_REVOKED_REFRESH_TOKEN } from "./mock/scenarios.ts";
 export { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
 export { mapMercadoLivreOrder } from "./mercado-livre/orders.ts";
+export { getMercadoLivreShipping, getMercadoLivreLabel } from "./mercado-livre/shipping.ts";

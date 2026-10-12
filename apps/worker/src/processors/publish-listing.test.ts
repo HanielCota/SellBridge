@@ -1,7 +1,7 @@
 import { UnrecoverableError } from "bullmq";
 import { eq } from "drizzle-orm";
 import { schema } from "@sellbridge/database";
-import type { MarketplaceConnector } from "@sellbridge/marketplaces";
+import { marketplaceError, type MarketplaceConnector } from "@sellbridge/marketplaces";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestProduct,
@@ -176,6 +176,51 @@ describe("publish-listing processor", () => {
     expect(await processPublish({ ...job, attemptsMade: 1 })).toBe("not_pending");
     expect(publishProduct).toHaveBeenCalledTimes(1);
     expect(await targetRow(targetId)).toMatchObject({ status: "publishing", attempts: 1 });
+  });
+
+  it("persists the remote creation guard and retains it across manual reprocessing", async () => {
+    const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
+    await database
+      .update(schema.supplierProducts)
+      .set({ mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" } })
+      .where(eq(schema.supplierProducts.id, catalog.productId));
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    publishProduct.mockImplementationOnce(async (_credentials, input, options) => {
+      expect(options?.reconcileOnly).toBe(false);
+      expect(input.mercadoLivreAttributes).toEqual({ BRAND: "Acme", MODEL: "A1" });
+      await options?.beforeCreate();
+      expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
+      throw marketplaceError("remote response lost", { retryable: false });
+    });
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
+    await database
+      .update(schema.listingTargets)
+      .set({ status: "pending" })
+      .where(eq(schema.listingTargets.id, targetId));
+    publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
+      expect(options?.reconcileOnly).toBe(true);
+      return { externalId: "MLB-recovered", externalUrl: null };
+    });
+    expect(await processPublish(job)).toBe("published");
+    expect((await targetRow(targetId)).externalId).toBe("MLB-recovered");
+  });
+
+  it("clears the durable guard when creation was definitively refused", async () => {
+    const { tenantId, targetId } = await createTarget("Criação recusada pelo marketplace");
+    publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
+      await options?.beforeCreate();
+      await options?.creationRejected();
+      throw marketplaceError("creation refused", { retryable: false });
+    });
+    await expect(
+      processPublish({
+        data: { tenantId, listingTargetId: targetId },
+        attemptsMade: 0,
+        maxAttempts: 5,
+      }),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+    expect((await targetRow(targetId)).creationStartedAt).toBeNull();
   });
 
   it("rejects malformed payloads", async () => {

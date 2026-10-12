@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { storeConnections } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, testStoreInput } from "../testing/fixtures.ts";
 import {
   consumeOAuthState,
@@ -6,6 +8,9 @@ import {
   disconnectStore,
   findConnectedStores,
   listStoreConnections,
+  markStoreStatus,
+  recordStoreError,
+  updateStoreTokens,
   upsertStoreConnection,
 } from "./stores.ts";
 
@@ -118,5 +123,101 @@ describe("oauth state", () => {
         marketplace: "mock",
       }),
     ).toBeNull();
+  });
+});
+
+async function storeRow(storeConnectionId: string) {
+  const [row] = await database
+    .select({
+      status: storeConnections.status,
+      accessTokenEnc: storeConnections.accessTokenEnc,
+      refreshTokenEnc: storeConnections.refreshTokenEnc,
+      lastError: storeConnections.lastError,
+    })
+    .from(storeConnections)
+    .where(eq(storeConnections.id, storeConnectionId));
+  return row;
+}
+
+async function connectShop(shopId: string) {
+  return (await upsertStoreConnection(database, testStoreInput(tenantA, shopId))).id;
+}
+
+const rotatedTokens = {
+  accessTokenEnc: "enc-access-new",
+  refreshTokenEnc: "enc-refresh-new",
+  expiresAt: new Date(Date.now() + 6 * 3_600_000),
+};
+
+describe("token refresh compare-and-swap", () => {
+  it("rotates the tokens while the refresh token is unchanged", async () => {
+    const storeId = await connectShop(`shop-rotate-${tenantA}`);
+    await recordStoreError(database, storeId, "Instabilidade");
+    const swapped = await updateStoreTokens(database, {
+      storeConnectionId: storeId,
+      previousRefreshTokenEnc: "enc-refresh",
+      tokens: rotatedTokens,
+    });
+    expect(swapped).toBe(true);
+    expect(await storeRow(storeId)).toEqual({
+      status: "connected",
+      accessTokenEnc: "enc-access-new",
+      refreshTokenEnc: "enc-refresh-new",
+      lastError: null,
+    });
+  });
+
+  it("does not reconnect a store the seller disconnected during the refresh", async () => {
+    const storeId = await connectShop(`shop-gone-${tenantA}`);
+    await disconnectStore(database, tenantA, storeId);
+    const swapped = await updateStoreTokens(database, {
+      storeConnectionId: storeId,
+      previousRefreshTokenEnc: "enc-refresh",
+      tokens: rotatedTokens,
+    });
+    expect(swapped).toBe(false);
+    expect(await storeRow(storeId)).toMatchObject({ status: "disconnected", accessTokenEnc: null });
+  });
+
+  it("keeps the tokens of a reconnection made during the refresh", async () => {
+    const storeId = await connectShop(`shop-again-${tenantA}`);
+    await database
+      .update(storeConnections)
+      .set({ refreshTokenEnc: "enc-refresh-oauth" })
+      .where(eq(storeConnections.id, storeId));
+    const swapped = await updateStoreTokens(database, {
+      storeConnectionId: storeId,
+      previousRefreshTokenEnc: "enc-refresh",
+      tokens: rotatedTokens,
+    });
+    expect(swapped).toBe(false);
+    expect(await storeRow(storeId)).toMatchObject({ refreshTokenEnc: "enc-refresh-oauth" });
+  });
+
+  it("does not expire a store over a refresh token already replaced", async () => {
+    const storeId = await connectShop(`shop-stale-${tenantA}`);
+    const change = {
+      storeConnectionId: storeId,
+      status: "expired" as const,
+      lastError: "Revogado",
+    };
+    expect(await markStoreStatus(database, { ...change, refreshTokenEnc: "enc-old" })).toBe(false);
+    expect(await storeRow(storeId)).toMatchObject({ status: "connected" });
+    expect(await markStoreStatus(database, { ...change, refreshTokenEnc: "enc-refresh" })).toBe(
+      true,
+    );
+    expect(await storeRow(storeId)).toMatchObject({ status: "expired", lastError: "Revogado" });
+  });
+
+  it("never marks a disconnected store as expired", async () => {
+    const storeId = await connectShop(`shop-off-${tenantA}`);
+    await disconnectStore(database, tenantA, storeId);
+    const changed = await markStoreStatus(database, {
+      storeConnectionId: storeId,
+      status: "expired",
+      lastError: "Revogado",
+    });
+    expect(changed).toBe(false);
+    expect(await storeRow(storeId)).toMatchObject({ status: "disconnected" });
   });
 });

@@ -40,7 +40,11 @@ export async function expireStore(
   storeId: string,
   message: string,
 ): Promise<void> {
-  await markStoreStatus(database, storeId, "expired", message);
+  await markStoreStatus(database, {
+    storeConnectionId: storeId,
+    status: "expired",
+    lastError: message,
+  });
 }
 
 /** Expires the store when the marketplace rejected its credentials; returns whether it did. */

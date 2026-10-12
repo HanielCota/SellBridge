@@ -1,10 +1,8 @@
-import { normalizeCep } from "@sellbridge/shared/cep";
 import {
   emailSchema,
   MIN_PASSWORD_LENGTH,
   nameSchema,
   newPasswordSchema,
-  optionalParameter,
   signUpSchema,
 } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -17,25 +15,10 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
+import { cepSearchParameter } from "@/lib/cep-search-parameter";
 
-/**
- * `?cep=` vem da landing page: a pessoa digita o CEP lá e o onboarding já abre com ele preenchido.
- * CEP inválido é ignorado em silêncio, como os outros parâmetros de busca.
- */
-const signUpSearchSchema = z.object({
-  // O router lê "?cep=30130010" como número, por isso aceita os dois.
-  cep: optionalParameter(
-    z.union([z.string(), z.number()]).transform((input, context) => {
-      const value = typeof input === "number" ? String(input).padStart(8, "0") : input;
-      const cep = normalizeCep(value);
-      if (cep === null) {
-        context.addIssue({ code: "custom", message: "CEP inválido" });
-        return z.NEVER;
-      }
-      return cep;
-    }),
-  ),
-});
+/** `?cep=` vem da landing page: o onboarding já abre com o CEP preenchido. */
+const signUpSearchSchema = z.object({ cep: cepSearchParameter });
 
 export const Route = createFileRoute("/_auth/cadastro")({
   validateSearch: signUpSearchSchema,

@@ -59,3 +59,31 @@ export const storedOrderNotificationSchema = z.object({
   user_id: z.union([z.string(), z.number()]),
   resource: z.string().min(1),
 });
+
+export const sellerCapabilitiesSchema = z.object({ tags: z.array(z.string()) });
+export const categoryAttributesSchema = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    tags: z
+      .object({
+        required: z.boolean().optional(),
+        new_required: z.boolean().optional(),
+        conditional_required: z.boolean().optional(),
+        read_only: z.boolean().optional(),
+      })
+      .default({}),
+  }),
+);
+export const conditionalAttributesSchema = z.object({
+  required_attributes: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+export const itemSearchSchema = z.object({
+  results: z.array(z.string()),
+  paging: z.object({ total: z.number().int().nonnegative() }),
+});
+export const reconciledItemSchema = createdItemSchema.extend({
+  seller_id: z.union([z.number(), z.string()]),
+  seller_custom_field: z.string().nullable(),
+  status: z.string(),
+});

@@ -8,6 +8,7 @@ import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { database } from "./database.ts";
+import { renderActionEmail } from "./email-layout.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
@@ -91,31 +92,41 @@ function googleProvider() {
 }
 
 async function sendResetPasswordEmail({ user, url }: { user: { email: string }; url: string }) {
-  await sendEmail({
-    to: user.email,
-    subject: "Redefinir sua senha do SellBridge",
-    text: [
-      "Recebemos um pedido para redefinir a senha da sua conta no SellBridge.",
-      "",
-      "Para criar uma nova senha, abra o link abaixo (válido por 1 hora):",
-      url,
-      "",
-      "Se você não fez esse pedido, ignore este e-mail. Sua senha continua a mesma.",
-    ].join("\n"),
-  });
+  const email = renderActionEmail(
+    {
+      subject: "Redefinir sua senha do SellBridge",
+      preview: "Crie uma nova senha para entrar no SellBridge. O link vale por 1 hora.",
+      heading: "Crie uma nova senha",
+      paragraphs: [
+        "Recebemos um pedido para definir uma nova senha na sua conta do SellBridge.",
+        "O botão abaixo vale por 1 hora.",
+      ],
+      actionLabel: "Criar nova senha",
+      actionUrl: url,
+      footnote: "Se você não pediu uma nova senha, pode ignorar este e-mail.",
+    },
+    environment.APP_URL,
+  );
+  await sendEmail({ to: user.email, ...email });
 }
 
 async function sendVerificationEmail({ user, url }: { user: { email: string }; url: string }) {
-  await sendEmail({
-    to: user.email,
-    subject: "Confirme seu e-mail no SellBridge",
-    text: [
-      "Para confirmar o e-mail da sua conta no SellBridge, abra o link abaixo (válido por 1 hora):",
-      url,
-      "",
-      "Se você não criou essa conta, ignore este e-mail.",
-    ].join("\n"),
-  });
+  const email = renderActionEmail(
+    {
+      subject: "Confirme seu e-mail no SellBridge",
+      preview: "Falta só confirmar o seu e-mail. O link vale por 1 hora.",
+      heading: "Confirme o seu e-mail",
+      paragraphs: [
+        "Falta só um passo para confirmar o e-mail da sua conta no SellBridge.",
+        "O botão abaixo vale por 1 hora.",
+      ],
+      actionLabel: "Confirmar e-mail",
+      actionUrl: url,
+      footnote: "Se você não criou uma conta no SellBridge, pode ignorar este e-mail.",
+    },
+    environment.APP_URL,
+  );
+  await sendEmail({ to: user.email, ...email });
 }
 
 function isAdminEmail(email: string): boolean {
@@ -193,6 +204,10 @@ export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,
   secret: environment.BETTER_AUTH_SECRET,
   database: drizzleAdapter(database, { provider: "pg", schema }),
+  // One web instance, so the in-memory store is enough; the default per-path rules
+  // (sign-in, sign-up, password reset) stay in place.
+  rateLimit: { enabled: environment.NODE_ENV === "production" },
+  advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD_LENGTH,

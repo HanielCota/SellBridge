@@ -13,18 +13,13 @@ import { Button } from "@/components/ui/button";
 import { getRegionOverview, updateTenantRegion } from "@/features/region/region.functions";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
+import { cepSearchParameter } from "@/lib/cep-search-parameter";
 import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
   redirect: optionalParameter(z.string().startsWith("/")),
   /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
-  // O router lê "?cep=30130010" como número, por isso aceita os dois.
-  cep: optionalParameter(
-    z
-      .union([z.string(), z.number()])
-      .transform((value) => (typeof value === "number" ? String(value).padStart(8, "0") : value))
-      .pipe(z.string().regex(/^\d{8}$/)),
-  ),
+  cep: cepSearchParameter,
 });
 
 const cepFormSchema = z.object({
