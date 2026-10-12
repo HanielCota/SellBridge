@@ -9,7 +9,11 @@ import type { PublishListingJob } from "@sellbridge/shared/queues";
 
 /** Longer than every retry backoff of a publish job (5 + 10 + 20 + 40 s), with room to spare. */
 export const STALE_PENDING_MILLISECONDS = 10 * 60 * 1000;
-/** Longer than the slowest real publication (rate limit wait plus three marketplace calls). */
+/**
+ * Longer than the slowest live publication: the rate limit wait happens before the claim, and
+ * each of the three marketplace calls is bounded by 4 attempts of 15 s plus 3 waits of up to
+ * 10 s (packages/marketplaces/src/http.ts), about 4.5 minutes in all.
+ */
 export const STALLED_PUBLISHING_MILLISECONDS = 15 * 60 * 1000;
 
 export const STALLED_PUBLISHING_REASON =

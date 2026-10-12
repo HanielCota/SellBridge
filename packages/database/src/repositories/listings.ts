@@ -1,6 +1,6 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, count, desc, eq, ilike, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
@@ -263,6 +263,16 @@ async function recordListingEvent(
   await recordApiEvent(transaction, { tenantId, type, data });
 }
 
+/**
+ * States a late publish result may still land on. "error" is included: the stalled sweeper may
+ * have given up on a call that then succeeded, and the listing is live. A target already
+ * "published" or "paused" belongs to another attempt and is never overwritten.
+ */
+const PUBLISH_RESULT_STATUSES = ["pending", "publishing", "error"] as const;
+
+/** A failure only applies while a publication is in flight, never over a finished one. */
+const FAILURE_STATUSES = ["pending", "publishing"] as const;
+
 export async function markTargetPublished(
   database: Database,
   listingTargetId: string,
@@ -272,19 +282,26 @@ export async function markTargetPublished(
     const [updated] = await transaction
       .update(listingTargets)
       .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
-      .where(eq(listingTargets.id, listingTargetId))
+      .where(
+        and(
+          eq(listingTargets.id, listingTargetId),
+          inArray(listingTargets.status, PUBLISH_RESULT_STATUSES),
+        ),
+      )
       .returning(listingEventColumns);
     if (!updated) {
-      throw notFoundError("Publicação não encontrada");
+      throw notFoundError("Publicação não encontrada ou já publicada por outra tentativa");
     }
     await recordListingEvent(transaction, "listing.published", updated);
   });
 }
 
 /**
- * Records a failed attempt. While retries remain the target goes back to "pending"
- * (with the reason visible); on the final attempt it becomes "error" and integrators hear
- * about it (`listing.failed`). Intermediate failures are not events: they may still succeed.
+ * Records a failed attempt. While retries remain the target goes back to "pending" (with the
+ * reason visible); on the final attempt it becomes "error" and integrators hear about it
+ * (`listing.failed`). Intermediate failures are not events: they may still succeed. A late
+ * failure, after the target was published, paused or ended by the stalled sweeper, changes
+ * nothing.
  */
 export async function markTargetFailed(
   database: Database,
@@ -296,7 +313,12 @@ export async function markTargetFailed(
     const [updated] = await transaction
       .update(listingTargets)
       .set({ status: options.final ? "error" : "pending", errorReason: reason })
-      .where(eq(listingTargets.id, listingTargetId))
+      .where(
+        and(
+          eq(listingTargets.id, listingTargetId),
+          inArray(listingTargets.status, FAILURE_STATUSES),
+        ),
+      )
       .returning(listingEventColumns);
     if (!options.final) {
       return;

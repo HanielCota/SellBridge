@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { apiEvents } from "../schema/index.ts";
+import { apiEvents, listingTargets } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -107,6 +107,18 @@ async function createTarget(title: string) {
   return { listingId: created.listingId, targetId };
 }
 
+async function targetState(listingTargetId: string) {
+  const [row] = await database
+    .select({
+      status: listingTargets.status,
+      externalId: listingTargets.externalId,
+      errorReason: listingTargets.errorReason,
+    })
+    .from(listingTargets)
+    .where(eq(listingTargets.id, listingTargetId));
+  return row;
+}
+
 describe("listing events", () => {
   it("records listing.published with the store and the public url", async () => {
     const { listingId, targetId } = await createTarget("Anúncio publicado");
@@ -138,5 +150,42 @@ describe("listing events", () => {
     const events = await eventsOfTarget(targetId);
     expect(events.map((event) => event.type)).toEqual(["listing.failed"]);
     expect(events[0]?.data).toMatchObject({ status: "error", errorReason: "Categoria inválida" });
+  });
+
+  it("ignores a late failure once the target is published", async () => {
+    const { targetId } = await createTarget("Anúncio publicado antes da falha");
+    await markTargetPublished(database, targetId, { externalId: "EXT-OK", externalUrl: null });
+    await markTargetFailed(database, targetId, "Tempo esgotado", { final: true });
+
+    expect(await targetState(targetId)).toEqual({
+      status: "published",
+      externalId: "EXT-OK",
+      errorReason: null,
+    });
+    expect((await eventsOfTarget(targetId)).map((event) => event.type)).toEqual([
+      "listing.published",
+    ]);
+  });
+
+  it("does not let a second publish result replace the saved listing", async () => {
+    const { targetId } = await createTarget("Anúncio publicado duas vezes");
+    await markTargetPublished(database, targetId, { externalId: "EXT-FIRST", externalUrl: null });
+
+    await expect(
+      markTargetPublished(database, targetId, { externalId: "EXT-LATE", externalUrl: null }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await targetState(targetId)).toMatchObject({ externalId: "EXT-FIRST" });
+  });
+
+  it("saves a late success over the stalled sweeper's error", async () => {
+    const { targetId } = await createTarget("Anúncio criado depois do timeout");
+    await markTargetFailed(database, targetId, "Interrompida", { final: true });
+    await markTargetPublished(database, targetId, { externalId: "EXT-LATE", externalUrl: null });
+
+    expect(await targetState(targetId)).toEqual({
+      status: "published",
+      externalId: "EXT-LATE",
+      errorReason: null,
+    });
   });
 });
