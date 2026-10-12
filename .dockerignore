@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/dist
+**/.turbo
+**/.tanstack
+apps/web/uploads
+apps/web/test-results
+apps/web/playwright-report
+coverage
+.env
+.env.*
+.claude
+.agents
