@@ -124,11 +124,11 @@ export function OrderBreakdown({ row }: { row: OrderFinancialRow }) {
  * A cancelled or returned order still shows a real loss (a refund it paid) in red.
  */
 export function ProfitAmount({
-  row,
+  cents,
   plus = false,
   className,
 }: {
-  row: OrderFinancialRow;
+  cents: number;
   plus?: boolean;
   className?: string;
 }) {
@@ -136,13 +136,13 @@ export function ProfitAmount({
     <span
       className={cn(
         "font-semibold whitespace-nowrap tabular-nums",
-        row.profitCents > 0 && "text-brand-text",
-        row.profitCents < 0 && "text-destructive",
-        row.profitCents === 0 && "font-medium text-muted-foreground",
+        cents > 0 && "text-brand-text",
+        cents < 0 && "text-destructive",
+        cents === 0 && "font-medium text-muted-foreground",
         className,
       )}
     >
-      {signedCents(row.profitCents, { plus })}
+      {signedCents(cents, { plus })}
     </span>
   );
 }

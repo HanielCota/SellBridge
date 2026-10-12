@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withFallback, optionalParameter } from "./fallback.ts";
 import { orderStatusSchema, type OrderStatus } from "./orders.ts";
-import { periodSearchSchema } from "./period.ts";
+import { isoDateSchema, periodSearchSchema } from "./period.ts";
 
 export const FINANCIAL_SORTS = ["orderedAt", "revenue", "profit", "status"] as const;
 export const financialSortSchema = z.enum(FINANCIAL_SORTS);
@@ -27,6 +27,8 @@ export function stageOfStatus(status: OrderStatus): OrderStage | undefined {
 export const financialSearchSchema = periodSearchSchema
   .extend({
     stage: optionalParameter(orderStageSchema),
+    /** One calendar day of the period, picked on the profit chart; ignored when outside it. */
+    day: optionalParameter(isoDateSchema),
     /**
      * The filter used to be `?status=paid`. Old links and bookmarks still filter: the status
      * becomes its stage instead of being dropped, which would show (and export) every order.

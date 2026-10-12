@@ -1,5 +1,12 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
-import { type ComponentProps, type ReactNode, useCallback, useState } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Area,
   Bar,
@@ -11,6 +18,7 @@ import {
   Line,
   LineChart,
   ReferenceLine,
+  useActiveTooltipLabel,
   XAxis,
   YAxis,
 } from "recharts";
@@ -37,6 +45,7 @@ import {
   type MetricPoint,
   type PointGrain,
 } from "@/features/reports/dashboard-metrics";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { cn } from "@/lib/utils";
 
 /** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
@@ -378,9 +387,111 @@ function WaterfallTooltip({
 
 // ── Shared frame ────────────────────────────────────────────────────────────
 
-const CHART_MARGIN = { left: 0, right: 8, top: 24, bottom: 0 };
+// The bottom margin holds the date labels' whole line box inside the plot, not just their glyphs.
+const CHART_MARGIN = { left: 0, right: 8, top: 24, bottom: 4 };
 const LINE_CURSOR = { stroke: "var(--foreground)", strokeOpacity: 0.35, strokeDasharray: "4 4" };
 const BAR_CURSOR = { fill: "var(--muted)", fillOpacity: 0.5 };
+
+/** Clicking a day picks it; clicking the picked day again lets it go. Daily charts only. */
+interface DayPick {
+  picked: string | null;
+  onPick: (date: string | null) => void;
+  /** Told which day the tooltip shows (pointer or arrow keys), for picking it with Enter. */
+  onActiveChange: (date: string | null) => void;
+}
+
+/** Reports the day the tooltip shows; rendered inside the chart to read its state. */
+function ActiveDayTracker({ onChange }: { onChange: (date: string | null) => void }) {
+  const label = useActiveTooltipLabel();
+  useEffect(() => {
+    onChange(typeof label === "string" ? label : null);
+    // A chart without days (another kind) must not leave its last day behind for Enter.
+    return () => onChange(null);
+  }, [label, onChange]);
+  return null;
+}
+
+function renderDayTracker(pick: DayPick | null) {
+  if (!pick) {
+    return null;
+  }
+  return <ActiveDayTracker key="day-tracker" onChange={pick.onActiveChange} />;
+}
+
+/**
+ * Day picking for the chart, when the page asks for it. Recharts' svg takes the focus and moves
+ * the tooltip with the arrow keys; Enter or space then picks the day it shows.
+ */
+function useDayPick(picked: string | null, onPick: ((date: string | null) => void) | undefined) {
+  const active = useRef<string | null>(null);
+  const onActiveChange = useCallback((date: string | null) => {
+    active.current = date;
+  }, []);
+  const figureRef = useCallback(
+    (figure: HTMLElement | null) => {
+      if (!figure || !onPick) {
+        return () => {};
+      }
+      const onKeyDown = (event: globalThis.KeyboardEvent) => {
+        const date = active.current;
+        if (!date || (event.key !== "Enter" && event.key !== " ")) {
+          return;
+        }
+        event.preventDefault();
+        onPick(date === picked ? null : date);
+      };
+      figure.addEventListener("keydown", onKeyDown);
+      return () => figure.removeEventListener("keydown", onKeyDown);
+    },
+    [onPick, picked],
+  );
+  const pick: DayPick | null = onPick ? { picked, onPick, onActiveChange } : null;
+  return { pick, figureRef };
+}
+
+function pickHandler(pick: DayPick | null) {
+  return (state: { activeLabel?: string | number | undefined }) => {
+    const date = state.activeLabel;
+    if (!pick || typeof date !== "string") {
+      return;
+    }
+    pick.onPick(date === pick.picked ? null : date);
+  };
+}
+
+/** The chart's box, filling the figure; the pointer says so when a day can be picked. */
+function PlotContainer({
+  pick,
+  children,
+}: {
+  pick: DayPick | null;
+  children: ComponentProps<typeof ChartContainer>["children"];
+}) {
+  return (
+    <ChartContainer
+      config={chartConfig}
+      className={cn("absolute inset-0 aspect-auto size-full", pick && "cursor-pointer")}
+    >
+      {children}
+    </ChartContainer>
+  );
+}
+
+/** The picked day: a firm guide from top to bottom, so it stays found while the pointer moves. */
+function renderPickedLine(pick: DayPick | null) {
+  if (!pick?.picked) {
+    return null;
+  }
+  return (
+    <ReferenceLine
+      key="picked"
+      x={pick.picked}
+      stroke="var(--foreground)"
+      strokeOpacity={0.55}
+      strokeWidth={1.5}
+    />
+  );
+}
 
 /**
  * Grid and axes every chart shares, so switching kinds never moves the frame. The grid is a
@@ -498,6 +609,20 @@ function renderPreviousLine(
   );
 }
 
+/** One comparison line at a time: the profit's, unless only the revenue is shown. */
+function renderComparison(showProfit: boolean, smooth: boolean) {
+  if (showProfit) {
+    return renderPreviousLine(
+      smooth ? "previousAverageProfit" : "previousProfit",
+      "var(--color-profit)",
+    );
+  }
+  return renderPreviousLine(
+    smooth ? "previousAverageRevenue" : "previousRevenue",
+    "var(--color-revenue)",
+  );
+}
+
 /** The 7-day average, the line that carries the trend once the daily values step back. */
 function renderAverageLine(
   dataKey: "averageRevenue" | "averageProfit",
@@ -567,26 +692,30 @@ function CashAreas({
   grain,
   layers,
   cumulative = false,
+  pick,
 }: {
   data: ChartPoint[];
   series: SeriesKey;
   grain: PointGrain;
   layers: ChartLayers;
   cumulative?: boolean;
+  pick: DayPick | null;
 }) {
   const scale = niceScale(shownValues(data, series, layers));
   const smooth = layers.average && !cumulative;
   const showRevenue = series !== "profit";
   const showProfit = series !== "revenue";
   return (
-    <ChartContainer config={chartConfig} className="absolute inset-0 aspect-auto size-full">
-      <ComposedChart data={data} margin={CHART_MARGIN}>
+    <PlotContainer pick={pick}>
+      <ComposedChart data={data} margin={CHART_MARGIN} onClick={pickHandler(pick)}>
         {renderGradients()}
         {renderFrame({
           scale,
           formatY: formatMoneyTick,
           formatX: (value) => formatAxisDate(value, grain),
         })}
+        {renderPickedLine(pick)}
+        {renderDayTracker(pick)}
         <ChartTooltip
           cursor={LINE_CURSOR}
           content={
@@ -598,19 +727,7 @@ function CashAreas({
             />
           }
         />
-        {/* One comparison line at a time: the profit's, unless only the revenue is shown. */}
-        {layers.compare && !showProfit
-          ? renderPreviousLine(
-              smooth ? "previousAverageRevenue" : "previousRevenue",
-              "var(--color-revenue)",
-            )
-          : null}
-        {layers.compare && showProfit
-          ? renderPreviousLine(
-              smooth ? "previousAverageProfit" : "previousProfit",
-              "var(--color-profit)",
-            )
-          : null}
+        {layers.compare ? renderComparison(showProfit, smooth) : null}
         {showRevenue ? renderDailyArea(DAILY_AREAS.revenue, smooth) : null}
         {showProfit ? renderDailyArea(DAILY_AREAS.profit, smooth) : null}
         {smooth && showRevenue
@@ -618,7 +735,7 @@ function CashAreas({
           : null}
         {smooth && showProfit ? renderAverageLine("averageProfit", "var(--color-profit)", 3) : null}
       </ComposedChart>
-    </ChartContainer>
+    </PlotContainer>
   );
 }
 
@@ -641,25 +758,30 @@ function CompositionBars({
   data,
   series,
   grain,
+  pick,
 }: {
   data: ChartPoint[];
   series: SeriesKey;
   grain: PointGrain;
+  pick: DayPick | null;
 }) {
   const scale = niceScale(stackedValues(data, series));
   return (
-    <ChartContainer config={chartConfig} className="absolute inset-0 aspect-auto size-full">
+    <PlotContainer pick={pick}>
       <BarChart
         data={data}
         margin={CHART_MARGIN}
         stackOffset="sign"
         maxBarSize={grain === "month" ? 56 : 28}
+        onClick={pickHandler(pick)}
       >
         {renderFrame({
           scale,
           formatY: formatMoneyTick,
           formatX: (value) => formatAxisDate(value, grain),
         })}
+        {renderPickedLine(pick)}
+        {renderDayTracker(pick)}
         <ChartTooltip cursor={BAR_CURSOR} content={<CompositionTooltip grain={grain} />} />
         {series === "all" ? (
           <Bar
@@ -688,7 +810,7 @@ function CompositionBars({
           />
         )}
       </BarChart>
-    </ChartContainer>
+    </PlotContainer>
   );
 }
 
@@ -709,22 +831,6 @@ function labelWidth(text: string): number {
 /** Bar labels without the currency, for the narrow layout: "−11,9 mil", "−317". */
 function formatSignedBare(value: unknown): string {
   return formatSignedCompact(value).replace("R$", "").replace(/\s/u, "");
-}
-
-/** The element's width, kept current as it resizes; 0 before the first measure. */
-function useElementWidth() {
-  const [width, setWidth] = useState(0);
-  const ref = useCallback((element: HTMLElement | null) => {
-    if (!element) {
-      return () => {};
-    }
-    // Measured right away too: the observer only reports on the next rendered frame.
-    setWidth(element.getBoundingClientRect().width);
-    const observer = new ResizeObserver(([entry]) => setWidth(entry?.contentRect.width ?? 0));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width] as const;
 }
 
 const VALUE_AXIS_WIDTH = 68;
@@ -926,16 +1032,20 @@ function ChartBody({
   input,
   series,
   layers,
+  pick,
 }: {
   kind: ChartKind;
   input: ChartInput;
   series: SeriesKey;
   layers: ChartLayers;
+  pick: DayPick | null;
 }) {
   const { points, previousPoints, monthlyPoints, bucket, periodDays, summary } = input;
   if (!hasSales(points)) {
     return <EmptyChart />;
   }
+  // Only a chart of single days can pick one: weeks and months span many.
+  const dayPick = bucket === "day" ? pick : null;
   if (kind === "waterfall") {
     return <WaterfallBars summary={summary} />;
   }
@@ -946,6 +1056,7 @@ function ChartBody({
         data={buildChartPoints(monthlyPoints ?? points)}
         series={series}
         grain={monthlyPoints ? "month" : bucket}
+        pick={monthlyPoints ? null : dayPick}
       />
     );
   }
@@ -966,6 +1077,7 @@ function ChartBody({
       grain={bucket}
       layers={layers}
       cumulative={cumulative}
+      pick={dayPick}
     />
   );
 }
@@ -1138,6 +1250,7 @@ function ExportLink({ href }: { href: string }) {
   return (
     <a
       href={href}
+      download
       aria-label="Exportar CSV do período"
       title="Exportar CSV do período"
       className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -1226,6 +1339,12 @@ interface CashFlowChartProps {
   exportUrl: string;
   /** Period and store controls, shown in the chart's header next to the export. */
   filters?: ReactNode;
+  /** A day picked on the chart (daily buckets only), or null for none. */
+  pickedDate?: string | null;
+  /** Makes the days clickable: called with the clicked day, or null when it was already picked. */
+  onPickDate?: (date: string | null) => void;
+  /** Shown under the chart, inside the card. */
+  footer?: ReactNode;
 }
 
 /**
@@ -1244,11 +1363,15 @@ export function CashFlowChart({
   previous,
   exportUrl,
   filters,
+  pickedDate = null,
+  onPickDate,
+  footer,
 }: CashFlowChartProps) {
   const [series, setSeries] = useState<SeriesKey>("all");
   const [card, setCard] = useState<HTMLElement | null>(null);
   const { kind, layers, menu } = useChartMenu({ bucket, previousPoints, boundary: card });
   const tools = <ChartTools menu={menu} exportUrl={exportUrl} />;
+  const { pick, figureRef } = useDayPick(pickedDate, onPickDate);
   return (
     <section
       ref={setCard}
@@ -1273,16 +1396,19 @@ export function CashFlowChart({
       {/* Grows to the height of the tiles beside it; never shorter than a readable chart. Nothing
           drawn may leave it, not even for a frame while the card resizes. */}
       <figure
-        aria-label={`Gráfico: ${KIND_TITLES[kind].toLowerCase()}`}
+        aria-label={`Gráfico: ${KIND_TITLES[kind].toLowerCase()}${pick && bucket === "day" ? ". Use as setas e Enter para ver um dia" : ""}`}
         className="relative mt-5 min-h-72 flex-1 overflow-hidden"
+        ref={figureRef}
       >
         <ChartBody
           kind={kind}
           input={{ points, previousPoints, monthlyPoints, bucket, periodDays, summary }}
           series={series}
           layers={layers}
+          pick={pick}
         />
       </figure>
+      {footer}
     </section>
   );
 }

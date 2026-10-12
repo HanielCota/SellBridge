@@ -8,7 +8,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { DownloadSimpleIcon, MagnifyingGlassIcon, WalletIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, WalletIcon } from "@phosphor-icons/react";
 import { useCallback } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
+import { formatDayHeading } from "@/features/reports/financial-rows";
 import { financialExportUrl, financialsQueryOptions } from "@/features/reports/reports.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -63,21 +64,21 @@ function FinancialPage() {
   );
 }
 
+/** The export lives in the chart's tools, as on the dashboard. */
 function FinancialHeader() {
-  const search = Route.useSearch();
+  return <PageHeader title="Financeiro" description="Lucro por pedido e por período." />;
+}
+
+function FinancialSkeleton() {
   return (
-    <PageHeader
-      title="Financeiro"
-      description="Lucro por pedido e por período."
-      actions={
-        <Button asChild variant="outline">
-          <a href={financialExportUrl(search)} download>
-            <DownloadSimpleIcon aria-hidden="true" />
-            Exportar CSV
-          </a>
-        </Button>
-      }
-    />
+    <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
+      <Skeleton className="h-[26rem] rounded-3xl" />
+      <div className="space-y-px overflow-hidden rounded-3xl">
+        {SKELETON_ROWS.map((key) => (
+          <Skeleton key={key} className="h-[68px] rounded-none" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -87,45 +88,53 @@ function FinancialContent() {
   const query = useQuery(financialsQueryOptions(search));
 
   if (query.isPending) {
-    return (
-      <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
-        <Skeleton className="h-64 rounded-3xl" />
-        <div className="space-y-px overflow-hidden rounded-3xl">
-          {SKELETON_ROWS.map((key) => (
-            <Skeleton key={key} className="h-[68px] rounded-none" />
-          ))}
-        </div>
-      </div>
-    );
+    return <FinancialSkeleton />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { summary, previous, days, orders, stores, period } = query.data;
+  const { summary, periodSummary, previous, days, day, orders, stores, period } = query.data;
   const hasFilters = search.query !== undefined || search.stage !== undefined;
   return (
     <>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <p className="text-sm text-muted-foreground">
-          {formatDateRange(period.fromDate, period.toDate)}
-        </p>
-        <PeriodFilters
-          search={search}
-          stores={stores}
-          resolvedFrom={period.fromDate}
-          resolvedTo={period.toDate}
-          onChange={updateSearch}
-        />
-      </div>
-      <ProfitSummary summary={summary} previous={previous} />
+      <p className="text-sm text-muted-foreground">
+        {formatDateRange(period.fromDate, period.toDate)} · comparado com os {period.days} dias
+        anteriores
+      </p>
+      <ProfitSummary
+        summary={summary}
+        pickedDay={day}
+        onPickDay={(picked) => updateSearch({ day: picked ?? undefined })}
+        chart={{
+          points: query.data.timeseries,
+          previousPoints: query.data.previousTimeseries,
+          monthlyPoints: query.data.monthly,
+          bucket: period.bucket,
+          periodDays: period.days,
+          summary: periodSummary,
+          previous,
+          exportUrl: financialExportUrl(search),
+          filters: (
+            <PeriodFilters
+              search={search}
+              stores={stores}
+              resolvedFrom={period.fromDate}
+              resolvedTo={period.toDate}
+              // Another period has other days: a picked one would not carry over meaningfully.
+              onChange={(patch) => updateSearch({ ...patch, day: undefined })}
+            />
+          ),
+        }}
+      />
       <section aria-labelledby="extrato-heading" className="space-y-4 pt-2">
-        <OrderFilters />
+        <OrderFilters day={day} />
         <FinancialOrders
           orders={orders}
           hasFilters={hasFilters}
+          day={day}
           // A narrowed list would not add up to the whole day, so its headings go without totals.
-          dayTotals={hasFilters ? null : new Map(days.map((day) => [day.date, day]))}
+          dayTotals={hasFilters ? null : new Map(days.map((total) => [total.date, total]))}
           byDay={search.sort === "orderedAt"}
           showStore={stores.length > 1}
           onPageChange={(page) => updateSearch({ page })}
@@ -138,6 +147,7 @@ function FinancialContent() {
 function FinancialOrders({
   orders,
   hasFilters,
+  day,
   dayTotals,
   byDay,
   showStore,
@@ -145,13 +155,14 @@ function FinancialOrders({
 }: {
   readonly orders: Paginated<OrderFinancialRow>;
   readonly hasFilters: boolean;
+  readonly day: string | null;
   readonly dayTotals: ReadonlyMap<string, DayTotal> | null;
   readonly byDay: boolean;
   readonly showStore: boolean;
   readonly onPageChange: (page: number) => void;
 }) {
   if (orders.items.length === 0) {
-    return <FinancialEmptyState hasFilters={hasFilters} />;
+    return <FinancialEmptyState hasFilters={hasFilters} day={day} />;
   }
   return (
     <div className="space-y-4">
@@ -160,6 +171,10 @@ function FinancialOrders({
         dayTotals={dayTotals}
         byDay={byDay}
         showStore={showStore}
+        showDayHeadings={day === null}
+        foldSales={!hasFilters}
+        page={orders.page}
+        totalPages={orders.totalPages}
       />
       <PaginationBar
         page={orders.page}
@@ -221,7 +236,7 @@ function SortSelect() {
 }
 
 /** The statement's title with its tools beside it: what to show, in which order, and a search. */
-function OrderFilters() {
+function OrderFilters({ day }: { day: string | null }) {
   const search = Route.useSearch();
   const updateSearch = useFinancialNavigation();
   const { term, setTerm } = useUrlSearchQuery({
@@ -231,8 +246,14 @@ function OrderFilters() {
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <h2 id="extrato-heading" className="text-xl font-semibold tracking-tight">
+      {/* "Hoje" depends on the clock, so server and browser may disagree right at midnight. */}
+      <h2
+        id="extrato-heading"
+        className="text-xl font-semibold tracking-tight"
+        suppressHydrationWarning
+      >
         Extrato
+        {day ? <span className="text-muted-foreground"> · {formatDayHeading(day)}</span> : null}
       </h2>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <FilterTabs
@@ -256,7 +277,16 @@ function OrderFilters() {
   );
 }
 
-function FinancialEmptyState({ hasFilters }: { hasFilters: boolean }) {
+function FinancialEmptyState({ hasFilters, day }: { hasFilters: boolean; day: string | null }) {
+  if (day && !hasFilters) {
+    return (
+      <EmptyState
+        icon={WalletIcon}
+        title="Nenhuma venda neste dia"
+        description="Escolha outro dia na linha do lucro ou veja o período todo."
+      />
+    );
+  }
   if (hasFilters) {
     return (
       <EmptyState

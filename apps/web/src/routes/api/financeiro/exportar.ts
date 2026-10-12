@@ -4,7 +4,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { financialSearchSchema, ORDER_STAGE_STATUSES } from "@sellbridge/shared/schemas";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
-import { buildReportScope } from "@/features/reports/report-scope.server";
+import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 
@@ -27,7 +27,8 @@ async function handleExport(request: Request): Promise<Response> {
   }
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);
-  const rows = await exportOrderFinancials(database, scope, {
+  const picked = narrowToDay(scope, period, search.day);
+  const rows = await exportOrderFinancials(database, picked.scope, {
     filters: {
       statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
       search: search.query,
@@ -35,7 +36,9 @@ async function handleExport(request: Request): Promise<Response> {
     sort: { field: search.sort, direction: search.direction },
   });
   logger.info("financial.exported", { tenantId: session.tenantId, rows: rows.length });
-  const fileName = `financeiro-${period.fromDate}-a-${period.toDate}.csv`;
+  const fileName = picked.day
+    ? `financeiro-${picked.day}.csv`
+    : `financeiro-${period.fromDate}-a-${period.toDate}.csv`;
   return new Response(buildFinancialCsv(rows), {
     headers: {
       "content-type": "text/csv; charset=utf-8",

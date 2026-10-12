@@ -65,28 +65,6 @@ export function orderMargin(row: Pick<OrderFinancialRow, "revenueCents" | "profi
   return row.profitCents / row.revenueCents;
 }
 
-/**
- * Splits 100 among the parts in proportion, as whole numbers that still add up to 100: the
- * leftover units go to the parts that lost the most in the rounding. All zeros when empty.
- */
-export function perHundred(values: readonly number[]): number[] {
-  const total = values.reduce((sum, value) => sum + value, 0);
-  if (total <= 0) {
-    return values.map(() => 0);
-  }
-  const exact = values.map((value) => (value / total) * 100);
-  const floors = exact.map((share) => Math.floor(share));
-  const leftover = 100 - floors.reduce((sum, share) => sum + share, 0);
-  const winners = new Set(
-    exact
-      .map((share, index) => ({ index, fraction: share - Math.floor(share) }))
-      .toSorted((first, second) => second.fraction - first.fraction)
-      .slice(0, leftover)
-      .map((entry) => entry.index),
-  );
-  return floors.map((share, index) => (winners.has(index) ? share + 1 : share));
-}
-
 const dayKeyFormat = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
 
 /** The calendar day of an instant in Brazil time, as "YYYY-MM-DD" (the timeseries' keys). */
@@ -113,6 +91,64 @@ export function groupOrdersByDay<TRow extends { orderedAt: Date }>(
     days.push({ key, rows: [row] });
     return days;
   }, []);
+}
+
+export interface RowGroup<TRow> {
+  key: string;
+  rows: TRow[];
+}
+
+/**
+ * Rows that share a key folded into one group, each group standing where its first row was, so
+ * a day's eighteen identical sales read as one line without reshuffling the rest.
+ */
+export function foldRows<TRow>(
+  rows: readonly TRow[],
+  keyOf: (row: TRow) => string,
+): RowGroup<TRow>[] {
+  const groups = new Map<string, TRow[]>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const group = groups.get(key);
+    if (group) {
+      group.push(row);
+      continue;
+    }
+    groups.set(key, [row]);
+  }
+  return [...groups].map(([key, grouped]) => ({ key, rows: grouped }));
+}
+
+export interface DaySplit {
+  /** The day started on the previous page. */
+  fromPrevious: boolean;
+  /** The day goes on on the next page. */
+  toNext: boolean;
+}
+
+/**
+ * Whether the page cut a day in two: it shows fewer of the day's sales than the day had. Sorted
+ * by date, only the page's first day can come from the page before and only its last can go on.
+ */
+export function daySplit({
+  salesOnPage,
+  salesInDay,
+  isFirstDay,
+  isLastDay,
+  page,
+  totalPages,
+}: {
+  salesOnPage: number;
+  salesInDay: number;
+  isFirstDay: boolean;
+  isLastDay: boolean;
+  page: number;
+  totalPages: number;
+}): DaySplit {
+  if (salesOnPage >= salesInDay) {
+    return { fromPrevious: false, toNext: false };
+  }
+  return { fromPrevious: isFirstDay && page > 1, toNext: isLastDay && page < totalPages };
 }
 
 const weekdayFormat = new Intl.DateTimeFormat("pt-BR", {

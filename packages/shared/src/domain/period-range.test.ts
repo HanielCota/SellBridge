@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePeriod } from "./period-range.ts";
+import { dayRangeWithin, resolvePeriod } from "./period-range.ts";
 import { periodSearchSchema } from "../schemas/period.ts";
 
 const now = new Date("2026-10-08T15:30:00Z");
@@ -41,6 +41,23 @@ describe("resolvePeriod", () => {
   ])("falls back to 30 days for invalid custom input %j", (search) => {
     expect(resolvePeriod(search, now).days).toBe(30);
   });
+});
+
+describe("dayRangeWithin", () => {
+  const period = resolvePeriod({ period: "7d" }, now);
+
+  it("turns a day of the period into its Brazil-time range", () => {
+    const range = dayRangeWithin(period, "2026-10-05");
+    expect(range?.from.toISOString()).toBe("2026-10-05T03:00:00.000Z");
+    expect(range?.to.toISOString()).toBe("2026-10-06T03:00:00.000Z");
+  });
+
+  it.each([undefined, "2026-10-01", "2026-10-09", "2026-02-30"])(
+    "ignores %s (missing, outside the period or invalid)",
+    (day) => {
+      expect(dayRangeWithin(period, day)).toBeNull();
+    },
+  );
 });
 
 describe("periodSearchSchema", () => {

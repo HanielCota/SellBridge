@@ -13,7 +13,7 @@ export const PERIOD_LABELS: Record<PeriodPreset, string> = {
   custom: "Personalizado",
 };
 
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data no formato AAAA-MM-DD");
+export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data no formato AAAA-MM-DD");
 
 export const periodSearchSchema = z.object({
   period: withFallback(periodPresetSchema.default("30d"), "30d"),

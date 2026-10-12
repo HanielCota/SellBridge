@@ -107,3 +107,18 @@ export function resolvePeriod(
   const today = startOfBrazilDay(now);
   return buildPeriod(new Date(today.getTime() - (days - 1) * DAY_MILLISECONDS), days);
 }
+
+/** One calendar day of the period as its own range, or null when it is invalid or outside. */
+export function dayRangeWithin(
+  period: Pick<ResolvedPeriod, "from" | "to">,
+  day: string | undefined,
+): { from: Date; to: Date } | null {
+  if (!day) {
+    return null;
+  }
+  const from = parseIsoDate(day);
+  if (!from || from.getTime() < period.from.getTime() || from.getTime() >= period.to.getTime()) {
+    return null;
+  }
+  return { from, to: new Date(from.getTime() + DAY_MILLISECONDS) };
+}

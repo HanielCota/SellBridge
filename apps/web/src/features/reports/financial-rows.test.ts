@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  daySplit,
+  foldRows,
   formatDayHeading,
   groupOrdersByDay,
   orderAdjustments,
   orderCostsCents,
   orderSplit,
-  perHundred,
   reportDayKey,
 } from "./financial-rows";
 
@@ -75,19 +76,43 @@ describe("orderSplit", () => {
   });
 });
 
-describe("perHundred", () => {
-  it("rounds the shares so they still add up to 100", () => {
-    const shares = perHundred([125_018, 37_243, 105_393]);
-    expect(shares).toEqual([47, 14, 39]);
-    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+describe("foldRows", () => {
+  it("folds rows with the same key where the first one stood", () => {
+    const rows = ["a1", "b1", "a2", "c1", "a3"];
+    expect(foldRows(rows, (row) => row.charAt(0))).toEqual([
+      { key: "a", rows: ["a1", "a2", "a3"] },
+      { key: "b", rows: ["b1"] },
+      { key: "c", rows: ["c1"] },
+    ]);
   });
 
-  it("gives the leftover unit to the share that lost the most in rounding", () => {
-    expect(perHundred([1, 1, 1])).toEqual([34, 33, 33]);
+  it("returns nothing for no rows", () => {
+    expect(foldRows([], String)).toEqual([]);
+  });
+});
+
+describe("daySplit", () => {
+  const base = { salesInDay: 23, isFirstDay: false, isLastDay: false, page: 1, totalPages: 2 };
+
+  it("says nothing when the whole day is on the page", () => {
+    expect(daySplit({ ...base, salesOnPage: 23, isLastDay: true })).toEqual({
+      fromPrevious: false,
+      toNext: false,
+    });
   });
 
-  it("is all zeros when there is nothing to split", () => {
-    expect(perHundred([0, 0])).toEqual([0, 0]);
+  it("marks the last day as going on and the next page's first day as continued", () => {
+    expect(daySplit({ ...base, salesOnPage: 19, isLastDay: true }).toNext).toBe(true);
+    expect(daySplit({ ...base, salesOnPage: 4, isFirstDay: true, page: 2 }).fromPrevious).toBe(
+      true,
+    );
+  });
+
+  it("never points past the first or the last page", () => {
+    expect(daySplit({ ...base, salesOnPage: 4, isFirstDay: true, page: 1 }).fromPrevious).toBe(
+      false,
+    );
+    expect(daySplit({ ...base, salesOnPage: 4, isLastDay: true, page: 2 }).toNext).toBe(false);
   });
 });
 

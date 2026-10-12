@@ -17,7 +17,10 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { buildReportScope } from "@/features/reports/report-scope.server";
+import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
+
+/** How many orders a picked day loads at once: the schema's largest page. */
+const PICKED_DAY_PAGE_SIZE = 100;
 
 /** Above this many days, the composition chart groups the sales by month. */
 const MONTHLY_FROM_DAYS = 120;
@@ -101,31 +104,62 @@ export const getFinancials = createServerFn({ method: "GET" })
       ...scope,
       range: { from: period.previousFrom, to: period.previousTo },
     };
-    const [summary, previous, days, orders, stores] = await Promise.all([
-      getSalesSummary(database, scope),
+    // A picked day narrows the summary and the statement; the chart keeps the whole period.
+    const picked = narrowToDay(scope, period, data.day);
+    const [
+      summary,
+      periodSummary,
+      previous,
+      days,
+      bucketed,
+      previousTimeseries,
+      monthly,
+      orders,
+      stores,
+    ] = await Promise.all([
+      getSalesSummary(database, picked.scope),
+      picked.day ? getSalesSummary(database, scope) : null,
       getSalesSummary(database, previousScope),
       // Whole-day totals for the statement's day headings, so a day split across pages still
       // shows what it really made.
       getSalesTimeseries(database, scope, "day"),
-      listOrderFinancials(database, scope, {
+      // The chart uses the dashboard's buckets; daily ones are the query above.
+      period.bucket === "day" ? null : getSalesTimeseries(database, scope, period.bucket),
+      getSalesTimeseries(database, previousScope, period.bucket),
+      period.days > MONTHLY_FROM_DAYS ? getSalesTimeseries(database, scope, "month") : null,
+      listOrderFinancials(database, picked.scope, {
         filters: {
           statuses: data.stage ? ORDER_STAGE_STATUSES[data.stage] : undefined,
           search: data.query,
         },
         sort: { field: data.sort, direction: data.direction },
-        pagination: { page: data.page, pageSize: data.pageSize },
+        // A picked day comes whole (up to the page cap), so its identical sales fold together.
+        pagination: picked.day
+          ? { page: data.page, pageSize: PICKED_DAY_PAGE_SIZE }
+          : { page: data.page, pageSize: data.pageSize },
       }),
       listStoreConnections(database, context.tenantId),
     ]);
     return {
-      period: { fromDate: period.fromDate, toDate: period.toDate },
+      period: {
+        fromDate: period.fromDate,
+        toDate: period.toDate,
+        days: period.days,
+        bucket: period.bucket,
+      },
+      day: picked.day,
       summary,
+      /** The whole period, for the chart's headline while a day narrows `summary`. */
+      periodSummary: periodSummary ?? summary,
       previous,
       days: days.map((day) => ({
         date: day.date,
         orders: day.orders,
         profitCents: day.profitCents,
       })),
+      timeseries: bucketed ?? days,
+      previousTimeseries,
+      monthly,
       orders,
       stores: stores.map((store) => ({ id: store.id, name: store.shopName })),
     };
