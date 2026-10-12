@@ -1,7 +1,8 @@
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
-import { getRequestHeaders } from "@tanstack/react-start/server";
+import { getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
 import {
   requireAdminSession,
   requireStaffSession,
@@ -9,14 +10,25 @@ import {
 } from "./tenant-session.ts";
 import { toUserFacingError } from "./user-facing-error.ts";
 
+/** A refused request answers 401 or 403 instead of 500, so clients and monitors see why. */
+function setRefusalStatus(error: unknown): void {
+  if (isAppError(error) && error.code === "FORBIDDEN") {
+    setResponseStatus(403);
+  }
+  if (isAppError(error) && error.code === "UNAUTHORIZED") {
+    setResponseStatus(401);
+  }
+}
+
 /**
- * Wraps every server function behind the tenant and admin middlewares: an unexpected error is
- * logged with its stack here and reaches the browser only as a generic message.
+ * Wraps every server function behind the tenant, admin and staff middlewares: an unexpected
+ * error is logged with its stack here and reaches the browser only as a generic message.
  */
 const userFacingErrors = createMiddleware({ type: "function" }).server(async ({ next }) => {
   try {
     return await next();
   } catch (error) {
+    setRefusalStatus(error);
     const result = toUserFacingError(error);
     if (result.isUnexpected) {
       logger.error("server_fn.unexpected_error", { error });

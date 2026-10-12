@@ -3,6 +3,7 @@ import { createConnectorRegistry } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import {
+  enqueueWebhookEventJob,
   PUBLISH_BACKOFF_MILLISECONDS,
   PUBLISH_JOB_ATTEMPTS,
   QUEUE_NAMES,
@@ -18,6 +19,7 @@ import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.t
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
+import { createWebhookEventSweepProcessor } from "./processors/webhook-event-sweep.ts";
 
 const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
 const database = createDatabase(environment.DATABASE_URL);
@@ -135,6 +137,17 @@ const publishRecoveryWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const webhookEventQueue = new Queue(QUEUE_NAMES.webhookEvents, { connection });
+const processWebhookEventSweep = createWebhookEventSweepProcessor({
+  database,
+  enqueue: async (webhookEventId) => enqueueWebhookEventJob(webhookEventQueue, webhookEventId),
+});
+const webhookEventSweepWorker = new Worker(
+  QUEUE_NAMES.webhookEventSweep,
+  async () => processWebhookEventSweep(),
+  { connection, concurrency: 1 },
+);
+
 const processTicketAutoClose = createTicketAutoCloseProcessor({ database });
 const ticketAutoCloseWorker = new Worker(
   QUEUE_NAMES.ticketAutoClose,
@@ -168,6 +181,16 @@ await publishRecoveryQueue.upsertJobScheduler(
   { every: 5 * 60 * 1000 },
   { name: "recover-publications", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
 );
+const webhookEventSweepQueue = new Queue(QUEUE_NAMES.webhookEventSweep, { connection });
+await webhookEventSweepQueue.upsertJobScheduler(
+  "sweep-unprocessed-webhook-events",
+  { every: 5 * 60 * 1000 },
+  {
+    name: "sweep-unprocessed-webhook-events",
+    data: {},
+    opts: { removeOnComplete: 10, removeOnFail: 50 },
+  },
+);
 const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
 await ticketAutoCloseQueue.upsertJobScheduler(
   "close-idle-tickets",
@@ -187,6 +210,7 @@ const workers = [
   stockPriceSyncWorker,
   webhookDeliveryWorker,
   publishRecoveryWorker,
+  webhookEventSweepWorker,
   ticketAutoCloseWorker,
 ];
 for (const worker of workers) {
@@ -219,6 +243,8 @@ async function shutdown(signal: string): Promise<void> {
     webhookDeliveryQueue.close(),
     publishQueue.close(),
     publishRecoveryQueue.close(),
+    webhookEventQueue.close(),
+    webhookEventSweepQueue.close(),
     ticketAutoCloseQueue.close(),
   ]);
   await database.$client.end();

@@ -28,9 +28,9 @@ export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
     externalOrderId: String(raw.id),
     status: ORDER_STATUS_MAP[raw.status] ?? "pending",
     totalCents: toCents(raw.total_amount),
-    // TODO(sale-fee): the docs only show quantity 1; confirm whether sale_fee is per unit.
+    // Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again.
     marketplaceFeeCents: raw.order_items.reduce(
-      (total, line) => total + toCents((line.sale_fee ?? 0) * line.quantity),
+      (total, line) => total + toCents(line.sale_fee ?? 0) * line.quantity,
       0,
     ),
     buyerName: raw.buyer?.nickname ?? null,

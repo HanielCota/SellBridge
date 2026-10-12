@@ -18,3 +18,4 @@ uploads/
 # Local agent skills (installed per machine, like .claude/)
 .agents/
 skills-lock.json
+.web-assets/

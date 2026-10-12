@@ -35,6 +35,16 @@ export interface PublishProductInput {
   stock: number;
   sku: string;
   imageUrls: readonly string[];
+  /** Category attribute ids (BRAND, MODEL, GTIN...) and their actual values. */
+  mercadoLivreAttributes?: Readonly<Record<string, string>>;
+}
+
+export interface PublishOptions {
+  /** A previous creation may have succeeded; only reconcile, never create again. */
+  reconcileOnly: boolean;
+  beforeCreate: () => Promise<void>;
+  /** Only called when the API definitively refused creation. */
+  creationRejected: () => Promise<void>;
 }
 
 export interface PublishedListing {
@@ -111,6 +121,7 @@ export interface MarketplaceConnector {
   publishProduct(
     credentials: StoreCredentials,
     input: PublishProductInput,
+    options?: PublishOptions,
   ): Promise<PublishedListing>;
   updateStockPrice(credentials: StoreCredentials, update: StockPriceUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrder[]>;

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   listingTargets,
@@ -155,6 +155,42 @@ describe("listing overview", () => {
   it("sorts by units sold when asked", async () => {
     const result = await listListingOverview(database, tenantA, { sort: "best_selling" }, page);
     expect(result.items.map((row) => row.listingId)).toEqual([listingId]);
+  });
+
+  it("ignores sold items recorded under another tenant", async () => {
+    const [order] = await database
+      .insert(orders)
+      .values({
+        tenantId: tenantB,
+        storeConnectionId: storeIds[0] ?? "",
+        externalOrderId: `OV-foreign-${Date.now()}`,
+        status: "paid",
+        totalCents: 2500,
+        orderedAt: new Date(),
+      })
+      .returning({ id: orders.id });
+    await database.insert(orderItems).values({
+      tenantId: tenantB,
+      orderId: order?.id ?? "",
+      listingTargetId: targetIds[0] ?? "",
+      title: "Item de outro tenant",
+      quantity: 5,
+      unitPriceCents: 2500,
+      unitCostCents: 1000,
+    });
+    const [row] = (await listListingOverview(database, tenantA, {}, page)).items;
+    expect(row?.unitsSold).toBe(2);
+  });
+
+  it("reaches the sold items of a listing through an index", async () => {
+    const plan = await database.transaction(async (transaction) => {
+      await transaction.execute(sql`set local enable_seqscan = off`);
+      return transaction.execute(sql`
+        explain select coalesce(sum(oi.quantity), 0) from order_items oi
+        where oi.listing_target_id = ${targetIds[0] ?? ""}::uuid
+      `);
+    });
+    expect(JSON.stringify([...plan])).toContain("order_items_listing_target_idx");
   });
 
   it("filters by the status of any store and hides other tenants", async () => {

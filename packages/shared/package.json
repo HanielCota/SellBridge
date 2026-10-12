@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./money": "./src/domain/money.ts",
+    "./product-csv": "./src/domain/product-csv.ts",
     "./cep": "./src/domain/cep.ts",
     "./cep-providers": "./src/domain/cep-providers.ts",
     "./errors": "./src/runtime/errors.ts",
@@ -26,8 +27,10 @@
     "./webhook-signature": "./src/public-api/webhook-signature.ts",
     "./token-cipher": "./src/runtime/token-cipher.ts",
     "./sleep": "./src/runtime/sleep.ts",
+    "./deadline": "./src/runtime/deadline.ts",
     "./network-address": "./src/runtime/network-address.ts",
-    "./customer-health": "./src/domain/customer-health.ts"
+    "./customer-health": "./src/domain/customer-health.ts",
+    "./billing": "./src/domain/billing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,3 +1,4 @@
+import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, inArray, isNotNull, lt, ne } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -64,6 +65,7 @@ export async function findConnectedStores(
 }
 
 export interface UpsertStoreConnectionInput {
+  billingEnabled?: boolean;
   tenantId: string;
   marketplace: Marketplace;
   externalShopId: string;
@@ -78,23 +80,41 @@ export async function upsertStoreConnection(
   database: Database,
   input: UpsertStoreConnectionInput,
 ): Promise<StoreConnectionSummary> {
-  const values = { ...input, status: "connected" as const, lastError: null };
-  const [row] = await database
-    .insert(storeConnections)
-    .values({ ...values, connectedAt: new Date() })
-    .onConflictDoUpdate({
-      target: [
-        storeConnections.tenantId,
-        storeConnections.marketplace,
-        storeConnections.externalShopId,
-      ],
-      set: values,
-    })
-    .returning(summaryColumns);
-  if (!row) {
-    throw conflictError("Não foi possível salvar a conexão da loja");
-  }
-  return row;
+  return database.transaction(async (executor) => {
+    if (input.billingEnabled) {
+      await lockBillingTenant(executor, input.tenantId);
+      const [existing] = await executor
+        .select()
+        .from(storeConnections)
+        .where(
+          and(
+            eq(storeConnections.tenantId, input.tenantId),
+            eq(storeConnections.marketplace, input.marketplace),
+            eq(storeConnections.externalShopId, input.externalShopId),
+            ne(storeConnections.status, "disconnected"),
+          ),
+        );
+      if (!existing) await assertBillingCapacity(executor, input.tenantId, "stores");
+    }
+    const { billingEnabled: _billingEnabled, ...connection } = input;
+    const values = { ...connection, status: "connected" as const, lastError: null };
+    const [row] = await executor
+      .insert(storeConnections)
+      .values({ ...values, connectedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [
+          storeConnections.tenantId,
+          storeConnections.marketplace,
+          storeConnections.externalShopId,
+        ],
+        set: values,
+      })
+      .returning(summaryColumns);
+    if (!row) {
+      throw conflictError("Não foi possível salvar a conexão da loja");
+    }
+    return row;
+  });
 }
 
 export async function disconnectStore(
@@ -112,27 +132,78 @@ export async function disconnectStore(
   }
 }
 
-export async function updateStoreTokens(
-  database: Database,
-  storeConnectionId: string,
-  tokens: { accessTokenEnc: string; refreshTokenEnc: string | null; expiresAt: Date | null },
-): Promise<void> {
-  await database
-    .update(storeConnections)
-    .set({ ...tokens, status: "connected", lastError: null })
-    .where(eq(storeConnections.id, storeConnectionId));
+export interface StoreTokenRotation {
+  storeConnectionId: string;
+  /** Refresh token the new tokens were obtained with; the swap only happens if it is still saved. */
+  previousRefreshTokenEnc: string;
+  tokens: { accessTokenEnc: string; refreshTokenEnc: string | null; expiresAt: Date | null };
 }
 
+/**
+ * Compare-and-swap of the tokens of a connected store. Returns false, changing nothing, when the
+ * seller disconnected or reconnected the store meanwhile, or another run already rotated them.
+ */
+export async function updateStoreTokens(
+  database: Database,
+  rotation: StoreTokenRotation,
+): Promise<boolean> {
+  const updated = await database
+    .update(storeConnections)
+    .set({ ...rotation.tokens, lastError: null })
+    .where(
+      and(
+        eq(storeConnections.id, rotation.storeConnectionId),
+        eq(storeConnections.status, "connected"),
+        eq(storeConnections.refreshTokenEnc, rotation.previousRefreshTokenEnc),
+      ),
+    )
+    .returning({ id: storeConnections.id });
+  return updated.length > 0;
+}
+
+export interface StoreStatusChange {
+  storeConnectionId: string;
+  status: Exclude<StoreStatus, "connected" | "disconnected">;
+  lastError: string;
+  /** When given, the change only applies while this refresh token is still the saved one. */
+  refreshTokenEnc?: string;
+}
+
+/**
+ * Marks a connected store as failed (the seller has to act). A store the seller disconnected stays
+ * disconnected. Returns whether the store changed.
+ */
 export async function markStoreStatus(
   database: Database,
+  change: StoreStatusChange,
+): Promise<boolean> {
+  const conditions = [
+    eq(storeConnections.id, change.storeConnectionId),
+    eq(storeConnections.status, "connected"),
+  ];
+  if (change.refreshTokenEnc !== undefined) {
+    conditions.push(eq(storeConnections.refreshTokenEnc, change.refreshTokenEnc));
+  }
+  const updated = await database
+    .update(storeConnections)
+    .set({ status: change.status, lastError: change.lastError })
+    .where(and(...conditions))
+    .returning({ id: storeConnections.id });
+  return updated.length > 0;
+}
+
+/** Keeps a connected store usable but shows why the last background call failed. */
+export async function recordStoreError(
+  database: Database,
   storeConnectionId: string,
-  status: Exclude<StoreStatus, "connected">,
   lastError: string,
 ): Promise<void> {
   await database
     .update(storeConnections)
-    .set({ status, lastError })
-    .where(eq(storeConnections.id, storeConnectionId));
+    .set({ lastError })
+    .where(
+      and(eq(storeConnections.id, storeConnectionId), eq(storeConnections.status, "connected")),
+    );
 }
 
 /** Connected stores whose access token expires before `threshold` (worker job, all tenants). */

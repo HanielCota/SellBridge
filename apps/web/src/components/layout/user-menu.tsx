@@ -4,6 +4,7 @@ import { CUSTOMER_ROLE_LABELS } from "@sellbridge/shared/schemas";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
+  CreditCardIcon,
   type Icon,
   MapPinIcon,
   MoonIcon,
@@ -181,6 +182,12 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
         <Link to="/onboarding">
           <MapPinIcon aria-hidden="true" />
           Minha região
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem asChild className={MENU_ROW}>
+        <Link to="/assinatura" search={{ retorno: undefined }}>
+          <CreditCardIcon aria-hidden="true" />
+          Planos e assinatura
         </Link>
       </DropdownMenuItem>
       <DropdownMenuItem asChild className={MENU_ROW}>

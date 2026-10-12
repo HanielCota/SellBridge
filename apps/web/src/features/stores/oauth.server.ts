@@ -1,3 +1,4 @@
+import { billingConfigured } from "@/features/billing/stripe.server";
 import { randomBytes } from "node:crypto";
 import {
   consumeOAuthState,
@@ -96,6 +97,7 @@ async function connectStore(input: ConnectStoreInput) {
     codeVerifier: input.codeVerifier ?? undefined,
   });
   return upsertStoreConnection(database, {
+    billingEnabled: billingConfigured(),
     tenantId: input.tenantId,
     marketplace: input.marketplace,
     externalShopId: shop.externalShopId,

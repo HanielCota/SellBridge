@@ -1,3 +1,4 @@
+CREATE TYPE "public"."customer_issue_kind" AS ENUM('store', 'listings', 'ticket', 'onboarding', 'cooling');--> statement-breakpoint
 CREATE TYPE "public"."ticket_category" AS ENUM('order', 'payment', 'store', 'listing', 'account', 'other');--> statement-breakpoint
 CREATE TYPE "public"."ticket_event_type" AS ENUM('status_changed', 'assigned', 'priority_changed', 'category_changed', 'rated');--> statement-breakpoint
 CREATE TYPE "public"."ticket_priority" AS ENUM('low', 'normal', 'high', 'urgent');--> statement-breakpoint
@@ -19,6 +20,33 @@ CREATE TABLE "ticket_reads" (
 	CONSTRAINT "ticket_reads_ticket_id_user_id_pk" PRIMARY KEY("ticket_id","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "admin_audit_events" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"admin_id" text,
+	"user_id" text NOT NULL,
+	"action" text NOT NULL,
+	"details" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "customer_issue_triage" (
+	"user_id" text NOT NULL,
+	"issue_kind" "customer_issue_kind" NOT NULL,
+	"assignee_id" text,
+	"snoozed_until" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "customer_issue_triage_user_id_issue_kind_pk" PRIMARY KEY("user_id","issue_kind")
+);
+--> statement-breakpoint
+CREATE TABLE "user_activity" (
+	"user_id" text PRIMARY KEY NOT NULL,
+	"last_seen_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "tenant_profile" ADD COLUMN "street" text;--> statement-breakpoint
+ALTER TABLE "tenant_profile" ADD COLUMN "number" text;--> statement-breakpoint
+ALTER TABLE "tenant_profile" ADD COLUMN "complement" text;--> statement-breakpoint
+ALTER TABLE "ticket_messages" ADD COLUMN "is_internal" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "tickets" ADD COLUMN "category" "ticket_category" DEFAULT 'other' NOT NULL;--> statement-breakpoint
 ALTER TABLE "tickets" ADD COLUMN "priority" "ticket_priority" DEFAULT 'normal' NOT NULL;--> statement-breakpoint
 ALTER TABLE "tickets" ADD COLUMN "assignee_id" text;--> statement-breakpoint
@@ -32,10 +60,23 @@ ALTER TABLE "ticket_events" ADD CONSTRAINT "ticket_events_ticket_id_tickets_id_f
 ALTER TABLE "ticket_events" ADD CONSTRAINT "ticket_events_actor_id_user_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ticket_reads" ADD CONSTRAINT "ticket_reads_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ticket_reads" ADD CONSTRAINT "ticket_reads_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "admin_audit_events" ADD CONSTRAINT "admin_audit_events_admin_id_user_id_fk" FOREIGN KEY ("admin_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "admin_audit_events" ADD CONSTRAINT "admin_audit_events_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "customer_issue_triage" ADD CONSTRAINT "customer_issue_triage_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "customer_issue_triage" ADD CONSTRAINT "customer_issue_triage_assignee_id_user_id_fk" FOREIGN KEY ("assignee_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_activity" ADD CONSTRAINT "user_activity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "ticket_events_ticket_idx" ON "ticket_events" USING btree ("ticket_id","id");--> statement-breakpoint
+CREATE INDEX "admin_audit_events_user_idx" ON "admin_audit_events" USING btree ("user_id","created_at");--> statement-breakpoint
 ALTER TABLE "tickets" ADD CONSTRAINT "tickets_assignee_id_user_id_fk" FOREIGN KEY ("assignee_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "tickets_queue_idx" ON "tickets" USING btree ("status","assignee_id");--> statement-breakpoint
 ALTER TABLE "tickets" ADD CONSTRAINT "tickets_rating_range" CHECK ("tickets"."rating" between 1 and 5);--> statement-breakpoint
+-- Seed the last sign-in from the sessions still on record; auth timestamps are stored in UTC.
+INSERT INTO "user_activity" ("user_id", "last_seen_at")
+SELECT "user_id", max("updated_at") AT TIME ZONE 'UTC'
+FROM "session"
+WHERE "impersonated_by" IS NULL
+GROUP BY "user_id";
+--> statement-breakpoint
 -- Backfill: tickets opened before the support desk get the same clocks new tickets keep.
 UPDATE "tickets" t SET "first_response_at" = (
 	SELECT min(m."created_at") FROM "ticket_messages" m

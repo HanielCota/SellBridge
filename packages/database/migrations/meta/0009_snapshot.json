@@ -1,5 +1,5 @@
 {
-  "id": "646be235-269b-4ce5-b9fb-d081f767f301",
+  "id": "a9aa0618-424f-4ca8-b51d-13f29b46a2cc",
   "prevId": "34926267-4b43-46f8-af8a-083b703b2a5e",
   "version": "7",
   "dialect": "postgresql",
@@ -772,24 +772,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "street": {
-          "name": "street",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "number": {
-          "name": "number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "complement": {
-          "name": "complement",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -1514,6 +1496,18 @@
         "synced_at": {
           "name": "synced_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_attempted_at": {
+          "name": "sync_attempted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_error": {
+          "name": "sync_error",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

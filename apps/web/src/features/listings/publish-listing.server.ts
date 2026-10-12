@@ -1,3 +1,4 @@
+import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   createListingWithTargets,
   type CreatedListing,
@@ -44,7 +45,12 @@ export async function publishListing(
   draft: NewListingInput,
   storeIds: readonly string[],
 ): Promise<CreatedListing> {
-  const created = await createListingWithTargets(database, tenantId, draft, storeIds);
+  const created = await createListingWithTargets(
+    database,
+    tenantId,
+    { ...draft, billingEnabled: billingConfigured() },
+    storeIds,
+  );
   await enqueueTargets(tenantId, created.targetIds);
   logger.info("listing.created", {
     tenantId,
@@ -63,7 +69,12 @@ export async function publishListings(
   const targetIds: string[] = [];
   try {
     for (const draft of drafts) {
-      const created = await createListingWithTargets(database, tenantId, draft, storeIds);
+      const created = await createListingWithTargets(
+        database,
+        tenantId,
+        { ...draft, billingEnabled: billingConfigured() },
+        storeIds,
+      );
       targetIds.push(...created.targetIds);
     }
   } finally {

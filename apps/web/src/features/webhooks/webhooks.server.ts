@@ -1,4 +1,5 @@
-import { recordWebhookEvent } from "@sellbridge/database/repositories";
+import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
@@ -6,6 +7,12 @@ import { connectors } from "@/lib/server/marketplaces";
 import { enqueueWebhookEvent } from "@/lib/server/queues";
 
 const MAX_BODY_BYTES = 64 * 1024;
+/**
+ * Mercado Livre wants the 200 within 500 ms. While Redis is down the enqueue would hang on
+ * ioredis retries, so it gets a deadline: the event is already stored, and the worker's
+ * sweeper enqueues it again if this enqueue never lands.
+ */
+const ENQUEUE_DEADLINE_MILLISECONDS = 300;
 
 function reply(status: number, body: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -51,16 +58,37 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     return reply(401, { error: "notificação inválida" });
   }
 
-  const recorded = await recordWebhookEvent(database, {
+  return acknowledgeValidEvent({
     marketplace: marketplace.data,
     externalEventId: verification.event.externalEventId,
     topic: verification.event.topic,
     rawPayload: verification.event.payload,
     signatureValid: true,
   });
-  if (recorded.status === "duplicate") {
+}
+
+/** Logs instead of failing the reply: the stored event is recovered by the worker's sweeper. */
+async function enqueueWithinDeadline(webhookEventId: string): Promise<void> {
+  try {
+    await withDeadline(
+      enqueueWebhookEvent(webhookEventId),
+      ENQUEUE_DEADLINE_MILLISECONDS,
+      "enqueue do webhook",
+    );
+  } catch (error) {
+    logger.error("webhook.enqueue_failed", { webhookEventId, error });
+  }
+}
+
+/**
+ * Stores a verified event and enqueues it. A duplicate still unprocessed is enqueued again:
+ * its first enqueue may have been lost, and the job id keeps a live job from running twice.
+ */
+async function acknowledgeValidEvent(input: RecordWebhookInput): Promise<Response> {
+  const recorded = await recordWebhookEvent(database, input);
+  if (recorded.status === "duplicate" && !recorded.pending) {
     return reply(200, { status: "duplicado" });
   }
-  await enqueueWebhookEvent(recorded.id);
-  return reply(200, { status: "recebido" });
+  await enqueueWithinDeadline(recorded.id);
+  return reply(200, { status: recorded.status === "created" ? "recebido" : "duplicado" });
 }

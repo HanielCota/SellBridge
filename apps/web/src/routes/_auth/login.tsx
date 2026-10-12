@@ -9,6 +9,7 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
+import { shareMeta } from "@/lib/share-meta";
 
 const loginSearchSchema = z.object({
   redirect: z.string().startsWith("/").optional(),
@@ -22,7 +23,12 @@ const passwordRequiredSchema = signInSchema.shape.password;
 
 export const Route = createFileRoute("/_auth/login")({
   validateSearch: loginSearchSchema,
-  head: () => ({ meta: [{ title: "Entrar | SellBridge" }] }),
+  head: () => ({
+    meta: shareMeta({
+      title: "Entrar | SellBridge",
+      description: "Acesse o SellBridge para acompanhar suas lojas, publicações e vendas.",
+    }),
+  }),
   component: LoginPage,
 });
 

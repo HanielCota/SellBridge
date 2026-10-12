@@ -25,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
+  { label: "Fornecedores", to: "/admin/fornecedores", permission: "customers.manage" },
   {
     label: "Chamados",
     to: "/admin/chamados",

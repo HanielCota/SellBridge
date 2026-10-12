@@ -24,10 +24,13 @@ import { regionPreviewQueryOptions } from "@/features/region/region.queries";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { revealAutofill, shakeField } from "@/lib/field-motion";
+import { cepSearchParameter } from "@/lib/cep-search-parameter";
 import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
   redirect: optionalParameter(z.string().startsWith("/")),
+  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
+  cep: cepSearchParameter,
 });
 
 /*
@@ -114,9 +117,17 @@ function PageTitle({ title }: { title: string }) {
   );
 }
 
-function defaultValues(region: TenantRegion): AddressValues {
+/** The saved region wins; before there is one, a CEP typed on the landing page fills the field. */
+function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
+  if (region) {
+    return formatCep(region.cep);
+  }
+  return fromLanding ? formatCep(fromLanding) : "";
+}
+
+function defaultValues(region: TenantRegion, fromLanding: string | undefined): AddressValues {
   return {
-    cep: region ? formatCep(region.cep) : "",
+    cep: initialCep(region, fromLanding),
     street: region?.street ?? "",
     number: region?.number && region.number !== NO_HOUSE_NUMBER ? region.number : "",
     noNumber: region?.number === NO_HOUSE_NUMBER,
@@ -135,7 +146,7 @@ function useAddressForm(region: TenantRegion) {
   const [isSaved, setIsSaved] = useState(false);
 
   const form = useForm({
-    defaultValues: defaultValues(region),
+    defaultValues: defaultValues(region, search.cep),
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
