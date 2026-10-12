@@ -55,6 +55,8 @@ export const orderItems = pgTable(
     index("order_items_order_idx").on(table.orderId),
     /** Units sold per listing ("mais vendidos", daily sales). */
     index("order_items_listing_target_idx").on(table.listingTargetId),
+    /** Supplier reputation and reviews: from a page of suppliers to their sold items. */
+    index("order_items_supplier_product_idx").on(table.supplierProductId),
   ],
 );
 

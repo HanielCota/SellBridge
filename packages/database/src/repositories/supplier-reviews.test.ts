@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { orderItems, orders } from "../schema/index.ts";
 import {
@@ -165,5 +166,24 @@ describe("supplier reviews", () => {
     expect(recent.map((review) => review.comment)).toContain(
       "Atrasou. Fale comigo: [removido] ou [removido]",
     );
+  });
+});
+
+describe("supplier reputation query plan", () => {
+  // Same shape as orderTotals in supplier-reviews.ts.
+  it("reaches the sold items of a page of suppliers through an index", async () => {
+    const plan = await database.transaction(async (transaction) => {
+      await transaction.execute(sql`set local enable_seqscan = off`);
+      return transaction.execute(sql`
+        explain select sp.supplier_id, count(distinct o.id)
+        from orders o
+        join order_items oi on oi.order_id = o.id
+        join supplier_products sp on sp.id = oi.supplier_product_id
+        where sp.supplier_id in (${catalog.supplierId}::uuid)
+          and o.ordered_at >= ${new Date(Date.now() - 90 * DAY).toISOString()}::timestamptz
+        group by sp.supplier_id
+      `);
+    });
+    expect(JSON.stringify([...plan])).toContain("order_items_supplier_product_idx");
   });
 });

@@ -85,6 +85,13 @@
       "when": 1791819217927,
       "tag": "0011_order_item_listing_index",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791819252422,
+      "tag": "0012_order_item_supplier_index",
+      "breakpoints": true
     }
   ]
 }
