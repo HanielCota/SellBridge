@@ -47,16 +47,29 @@ export async function signUp(page: Page, name: string): Promise<string> {
   return email;
 }
 
-/** Turns on admin mode from the profile menu (admins only; it is off by default). */
+/**
+ * Fills the onboarding address from a CEP: waits for the CEP to fill the street, types the
+ * house number and saves.
+ */
+export async function saveAddress(page: Page, cep: string, number = "100"): Promise<void> {
+  await page.getByLabel("CEP").fill(cep);
+  await expect(page.getByLabel("Rua ou avenida")).not.toHaveValue("");
+  await page.getByLabel("Número", { exact: true }).fill(number);
+  await page.getByRole("button", { name: "Salvar endereço" }).click();
+}
+
+/** Turns on admin mode from the profile menu (team accounts only; it is off by default). */
 export async function enableAdminMode(page: Page): Promise<void> {
   // The menu only opens once React owns the page; callers may arrive from a full page load.
   await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
-  const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
+  // Admins see "Modo administrador"; agents and supervisors, "Modo equipe".
+  const toggle = page.getByRole("menuitemcheckbox", { name: /^Modo (administrador|equipe)$/ });
   if ((await toggle.getAttribute("aria-checked")) !== "true") {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-checked", "true");
   }
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("link", { name: "Clientes" })).toBeVisible();
+  // Every team role sees the support inbox; customer accounts are for admins only.
+  await expect(page.getByRole("link", { name: "Chamados" })).toBeVisible();
 }

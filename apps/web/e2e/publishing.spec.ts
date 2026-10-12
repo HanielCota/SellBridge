@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { gotoHydrated, saveAddress, signUp, waitForHydration } from "./helpers";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
@@ -11,8 +11,7 @@ function cardStatus(page: Page, status: string) {
 
 async function onboardInBeloHorizonte(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
-  await page.getByLabel("CEP").fill("30130010");
-  await page.getByRole("button", { name: "Salvar região" }).click();
+  await saveAddress(page, "30130010");
   // Next setup step: connect a store.
   await expect(page).toHaveURL(/\/lojas/);
 }

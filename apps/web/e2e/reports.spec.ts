@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { simulateSale } from "./sales";
 import { DEMO_USER, gotoHydrated, signIn, signUp } from "./helpers";
 
 test.describe("dashboard", () => {
@@ -52,11 +53,20 @@ test.describe("dashboard", () => {
 test.describe("financeiro", () => {
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
+    // The dashboard's chart, with its tools; daily periods pick a day from the keyboard.
+    await gotoHydrated(page, "/financeiro?period=30d");
+    await expect(page.getByText("Lucro no período")).toBeVisible();
+    await expect(page.getByText(/^Você vendeu R\$/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
+    const chart = page.getByRole("figure", { name: /^Gráfico: receita e lucro/ });
+    await chart.locator(".recharts-surface").focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/day=\d{4}-\d{2}-\d{2}/);
+    await page.getByRole("button", { name: "Ver o período todo" }).click();
+    await expect(page).not.toHaveURL(/day=/);
+
     await gotoHydrated(page, "/financeiro?period=180d");
-    const summary = page.getByRole("region", { name: "Resumo do período" });
-    await expect(summary.getByText(/^Lucro líquido: R\$/)).toBeVisible();
-    await expect(summary.getByText(/em vendas$/)).toBeVisible();
-    await expect(summary.getByRole("term").filter({ hasText: "Seu lucro" })).toBeVisible();
     await expect(page.getByText(/pedidos · página 1 de/).filter({ visible: true })).toBeVisible();
 
     await page.getByLabel("Ordenar pedidos").click();
@@ -79,7 +89,7 @@ test.describe("financeiro", () => {
       page.getByLabel("Financeiro por pedido").getByRole("button").first(),
     ).toContainText(/Cancelado|Devolvido/);
 
-    const exportLink = page.getByRole("link", { name: "Exportar CSV" });
+    const exportLink = page.getByRole("link", { name: "Exportar CSV do período" });
     await expect(exportLink).toHaveAttribute("href", /stage=issue/);
     const downloadPromise = page.waitForEvent("download");
     await exportLink.click();
@@ -118,10 +128,16 @@ test.describe("financeiro", () => {
 test.describe("avisos", () => {
   test("o sino lista vendas recentes e zera os não lidos ao abrir", async ({ page }) => {
     await signIn(page, DEMO_USER);
-    await gotoHydrated(page, "/dashboard");
-    await page.getByRole("button", { name: /^Avisos/ }).click();
-    await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible();
+    // Its own sale first: "Limpar tudo" may have emptied the demo account's bell earlier.
+    await simulateSale(page);
+    await expect(async () => {
+      await gotoHydrated(page, "/dashboard");
+      await page.getByRole("button", { name: /^Avisos/ }).click();
+      await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible({
+        timeout: 2000,
+      });
+    }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
   });

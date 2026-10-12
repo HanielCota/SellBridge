@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn, signUp } from "./helpers";
+import { DEMO_USER, gotoHydrated, saveAddress, signIn, signUp } from "./helpers";
 
 test.describe("onboarding de região", () => {
   test("novo usuário informa o CEP e vê fornecedores da região", async ({ page }) => {
@@ -8,13 +8,20 @@ test.describe("onboarding de região", () => {
     await expect(page.getByRole("heading", { name: "Onde você está?" })).toBeVisible();
 
     await page.getByLabel("CEP").fill("123");
-    await page.getByRole("button", { name: "Salvar região" }).click();
+    await page.getByRole("button", { name: "Salvar endereço" }).click();
     await expect(page.getByText("Informe um CEP com 8 dígitos")).toBeVisible();
+    await expect(page.getByText("Informe o número", { exact: true })).toBeVisible();
 
-    // CEP pre-cached by the seed: no external API call.
+    // CEP pre-cached by the seed: no external API call. It fills street, district, city and state.
     await page.getByLabel("CEP").fill("30130010");
     await expect(page.getByLabel("CEP")).toHaveValue("30130-010");
-    await page.getByRole("button", { name: "Salvar região" }).click();
+    await expect(page.getByLabel("Rua ou avenida")).toHaveValue("Avenida Afonso Pena");
+    await expect(page.getByLabel("Cidade")).toHaveValue("Belo Horizonte");
+    await expect(page.getByLabel("UF")).toHaveValue("MG");
+    await expect(page.getByText(/fornecedores entregam em Belo Horizonte · MG/)).toBeVisible();
+    await page.getByLabel("Sem número").check();
+    await page.getByLabel("Complemento (opcional)").fill("Sala 2");
+    await page.getByRole("button", { name: "Salvar endereço" }).click();
 
     // After the region the guide sends to the next step (stores); suppliers follow the region.
     await expect(page).toHaveURL(/\/lojas/);
@@ -32,8 +39,7 @@ test.describe("onboarding de região", () => {
 
   test("mostra estado vazio quando nenhum fornecedor atende a região", async ({ page }) => {
     await signUp(page, "Revendedor Manaus");
-    await page.getByLabel("CEP").fill("69005010");
-    await page.getByRole("button", { name: "Salvar região" }).click();
+    await saveAddress(page, "69005010");
     await expect(page).toHaveURL(/\/lojas/);
     await gotoHydrated(page, "/fornecedores");
     await expect(page.getByText("Ainda não há fornecedores atendendo a sua região.")).toBeVisible();

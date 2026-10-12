@@ -18,7 +18,11 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, `/admin/clientes?query=${encodeURIComponent(email)}`);
-  await page.getByRole("link", { name: "Cliente Painel Admin" }).click();
+  // The name opens the quick view in place; the full record is one link away.
+  await page.getByRole("button", { name: /^Cliente Painel Admin/ }).click();
+  const quickView = page.getByRole("region", { name: "Resumo de Cliente Painel Admin" });
+  await expect(quickView.getByText("Primeiros passos", { exact: true })).toBeVisible();
+  await quickView.getByRole("link", { name: "Ficha completa" }).click();
   await expect(page.getByRole("heading", { name: "Cliente Painel Admin" })).toBeVisible();
 
   await page.getByLabel("Nome", { exact: true }).fill("Cliente Renomeado");
@@ -31,6 +35,39 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   await waitForHydration(page);
   await page.getByRole("button", { name: "Voltar ao admin" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
+
+  // Entering as the customer lands in their timeline.
+  await gotoHydrated(page, `/admin/clientes?query=${encodeURIComponent(email)}`);
+  await page.getByRole("button", { name: /^Cliente Renomeado/ }).click();
+  const renamedView = page.getByRole("region", { name: "Resumo de Cliente Renomeado" });
+  await expect(renamedView.getByText("Entrou como o cliente")).toBeVisible();
+  await expect(renamedView.getByText("Editou nome ou e-mail")).toBeVisible();
+  // The customer's own sign-up counts as a visit; the admin's session as them does not.
+  await expect(renamedView.getByText("Último acesso do cliente")).toBeVisible();
+});
+
+test("admin acha clientes pelo problema e pela jornada", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/clientes");
+  await expect(page.getByRole("navigation", { name: "Filtrar por problema" })).toBeVisible();
+  await page.getByRole("link", { name: /Publicações com erro/ }).click();
+  await expect(page).toHaveURL(/issue=listings/);
+
+  await page.getByRole("button", { name: "Pendências" }).click();
+  const queue = page.getByRole("region", { name: "Pendências" });
+  await expect(queue).toBeVisible();
+
+  // Taking an issue moves it into the admin's own queue; letting it go puts it back.
+  await queue.getByRole("button", { name: "Assumir" }).first().click();
+  await expect(page.getByText("Pendência atribuída a você")).toBeVisible();
+  await page.getByRole("button", { name: /^Comigo/ }).click();
+  await expect(queue.getByText("Com você").first()).toBeVisible();
+  await queue.getByRole("button", { name: "Devolver para a equipe" }).first().click();
+  await expect(page.getByText("Pendência devolvida para a equipe")).toBeVisible();
+  await page.getByRole("button", { name: /^Abertas/ }).click();
+  await page.getByRole("button", { name: "Jornada" }).click();
+  await expect(page.getByRole("region", { name: "Vendendo" })).toBeVisible();
 });
 
 test("revendedor não acessa o painel de clientes", async ({ page }) => {
