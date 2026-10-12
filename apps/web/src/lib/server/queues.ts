@@ -1,9 +1,8 @@
 import {
+  enqueueWebhookEventJob,
   PUBLISH_BACKOFF_MILLISECONDS,
   PUBLISH_JOB_ATTEMPTS,
   QUEUE_NAMES,
-  WEBHOOK_BACKOFF_MILLISECONDS,
-  WEBHOOK_JOB_ATTEMPTS,
   type PublishListingJob,
 } from "@sellbridge/shared/queues";
 import { Queue } from "bullmq";
@@ -43,17 +42,11 @@ function getWebhookQueue(): Queue {
   }
   webhookQueue = new Queue(QUEUE_NAMES.webhookEvents, {
     connection: { url: environment.REDIS_URL },
-    defaultJobOptions: {
-      attempts: WEBHOOK_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: WEBHOOK_BACKOFF_MILLISECONDS },
-      removeOnComplete: 1000,
-      removeOnFail: 5000,
-    },
   });
   return webhookQueue;
 }
 
+/** jobId = event id: even if enqueued twice, BullMQ keeps a single job. */
 export async function enqueueWebhookEvent(webhookEventId: string): Promise<void> {
-  // jobId = event id: even if enqueued twice, BullMQ keeps a single job.
-  await getWebhookQueue().add("webhook", { webhookEventId }, { jobId: webhookEventId });
+  await enqueueWebhookEventJob(getWebhookQueue(), webhookEventId);
 }

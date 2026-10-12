@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -14,11 +14,31 @@ export interface RecordWebhookInput {
   error?: string | undefined;
 }
 
-export type RecordWebhookResult = { status: "created"; id: string } | { status: "duplicate" };
+export type RecordWebhookResult =
+  | { status: "created"; id: string }
+  /** `pending`: the stored copy was never processed, so the caller should enqueue it again. */
+  | { status: "duplicate"; id: string; pending: boolean };
+
+async function findStoredEvent(database: Database, input: RecordWebhookInput) {
+  if (input.externalEventId === null) {
+    return null;
+  }
+  const [row] = await database
+    .select({ id: webhookEvents.id, processedAt: webhookEvents.processedAt })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.marketplace, input.marketplace),
+        eq(webhookEvents.externalEventId, input.externalEventId),
+      ),
+    );
+  return row ?? null;
+}
 
 /**
  * Stores the raw event exactly once per (marketplace, external id). Marketplaces retry
- * deliveries, so a duplicate is acknowledged without being processed again.
+ * deliveries: a duplicate is acknowledged, and reported as pending while the stored copy
+ * is unprocessed (its first enqueue may have been lost).
  */
 export async function recordWebhookEvent(
   database: Database,
@@ -37,10 +57,38 @@ export async function recordWebhookEvent(
     })
     .onConflictDoNothing({ target: [webhookEvents.marketplace, webhookEvents.externalEventId] })
     .returning({ id: webhookEvents.id });
-  if (!row) {
-    return { status: "duplicate" };
+  if (row) {
+    return { status: "created", id: row.id };
   }
-  return { status: "created", id: row.id };
+  const stored = await findStoredEvent(database, input);
+  if (!stored) {
+    throw new Error("Evento de webhook duplicado não encontrado");
+  }
+  return { status: "duplicate", id: stored.id, pending: stored.processedAt === null };
+}
+
+/**
+ * Valid events still unprocessed and received inside the window, oldest first: their job was
+ * lost or ran out of retries. Events older than the window are left for manual inspection.
+ */
+export async function findUnprocessedWebhookEvents(
+  database: Database,
+  window: { receivedAfter: Date; receivedBefore: Date; limit: number },
+): Promise<string[]> {
+  const rows = await database
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(
+      and(
+        isNull(webhookEvents.processedAt),
+        eq(webhookEvents.signatureValid, true),
+        gt(webhookEvents.receivedAt, window.receivedAfter),
+        lt(webhookEvents.receivedAt, window.receivedBefore),
+      ),
+    )
+    .orderBy(asc(webhookEvents.receivedAt))
+    .limit(window.limit);
+  return rows.map((row) => row.id);
 }
 
 export async function getWebhookEvent(database: Database, id: string) {

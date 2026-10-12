@@ -71,6 +71,13 @@
       "when": 1791818823096,
       "tag": "0009_listing_sync_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791818989522,
+      "tag": "0010_webhook_event_sweep",
+      "breakpoints": true
     }
   ]
 }

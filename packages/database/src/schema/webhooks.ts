@@ -1,4 +1,14 @@
-import { boolean, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { marketplaceEnum } from "./enums.ts";
 
 export const webhookEvents = pgTable(
@@ -16,5 +26,9 @@ export const webhookEvents = pgTable(
   },
   (table) => [
     uniqueIndex("webhook_events_external_idx").on(table.marketplace, table.externalEventId),
+    /** The worker's sweeper only looks at unprocessed events, a tiny slice of the table. */
+    index("webhook_events_unprocessed_idx")
+      .on(table.receivedAt)
+      .where(sql`${table.processedAt} is null`),
   ],
 );
