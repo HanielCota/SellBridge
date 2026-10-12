@@ -45,6 +45,8 @@ export const listingTargets = pgTable(
     errorReason: text(),
     attempts: integer().notNull().default(0),
     idempotencyKey: text().notNull(),
+    /** Durable guard against repeating an uncertain non-idempotent item creation. */
+    creationStartedAt: timestamp({ withTimezone: true }),
     publishedAt: timestamp({ withTimezone: true }),
     /** Stock and price last sent to the marketplace (used by the sync job). */
     syncedStock: integer(),

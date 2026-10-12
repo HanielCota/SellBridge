@@ -27,7 +27,8 @@
     "./token-cipher": "./src/runtime/token-cipher.ts",
     "./sleep": "./src/runtime/sleep.ts",
     "./deadline": "./src/runtime/deadline.ts",
-    "./network-address": "./src/runtime/network-address.ts"
+    "./network-address": "./src/runtime/network-address.ts",
+    "./billing": "./src/domain/billing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

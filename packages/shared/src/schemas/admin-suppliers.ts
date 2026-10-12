@@ -62,6 +62,12 @@ export const adminProductValuesSchema = z.object({
   stock: postgresIntegerSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
+  mercadoLivreAttributes: z
+    .record(
+      z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, "Informe o código do atributo, como BRAND"),
+      z.string().trim().min(1, "Informe o valor do atributo").max(255),
+    )
+    .optional(),
 });
 export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
 export const adminSaveProductSchema = adminProductValuesSchema.extend({

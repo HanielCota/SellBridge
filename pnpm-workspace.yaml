@@ -6,3 +6,5 @@ allowBuilds:
   lefthook: true
   # Optional native accelerator for BullMQ's msgpackr; the pure JS fallback is enough.
   msgpackr-extract: false
+  # The CLI uses its platform package directly; no postinstall is required.
+  "@stripe/cli": false

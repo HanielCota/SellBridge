@@ -39,6 +39,7 @@ const product = {
   stock: 1,
   categoryId: null,
   imageUrls: [],
+  mercadoLivreAttributes: {},
   active: true,
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {

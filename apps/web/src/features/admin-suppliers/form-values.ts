@@ -48,6 +48,9 @@ export function productFormValues(product?: AdminSupplierProduct) {
     stock: String(product?.stock ?? 0),
     categoryId: product?.categoryId ?? "",
     images: product?.imageUrls.join("\n") ?? "",
+    mercadoLivreAttributes: Object.entries(product?.mercadoLivreAttributes ?? {})
+      .map(([id, value]) => `${id}=${value}`)
+      .join("\n"),
   };
 }
 
@@ -66,9 +69,27 @@ export function productFormInput(
     suggestedPriceCents: parseCsvMoney(values.suggestedPrice),
     stock: /^\d+$/.test(values.stock) ? Number(values.stock) : null,
     categoryId: values.categoryId || null,
+    mercadoLivreAttributes: parseMercadoLivreAttributes(values.mercadoLivreAttributes),
     imageUrls: values.images
       .split(/\r?\n/)
       .map((url) => url.trim())
       .filter(Boolean),
   };
+}
+
+/** Invalid or duplicate lines remain invalid input for the shared schema. */
+function parseMercadoLivreAttributes(text: string): Record<string, string> | null {
+  const entries: [string, string][] = [];
+  const seen = new Set<string>();
+  for (const line of text
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean)) {
+    const separator = line.indexOf("=");
+    const id = line.slice(0, separator).trim();
+    if (separator < 1 || seen.has(id)) return null;
+    seen.add(id);
+    entries.push([id, line.slice(separator + 1).trim()]);
+  }
+  return Object.fromEntries(entries);
 }

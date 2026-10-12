@@ -8,6 +8,7 @@ test.describe("avaliação de fornecedores", () => {
 
   test("avalia um pedido entregue e edita a avaliação", async ({ page }) => {
     await gotoHydrated(page, "/pedidos");
+    await page.getByRole("button", { name: "Avaliações", exact: true }).click();
     await expect(page.getByRole("button", { name: "Para avaliar" })).toHaveAttribute(
       "aria-pressed",
       "true",

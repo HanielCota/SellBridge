@@ -100,6 +100,26 @@ function ProductFormActions({ isPending, onClose }: { isPending: boolean; onClos
   );
 }
 
+function MercadoLivreAttributesField({
+  value,
+  errors,
+  onChange,
+}: {
+  value: string;
+  errors: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TextareaField
+      id="product-mercado-livre-attributes"
+      label="Atributos do Mercado Livre (um por linha, como BRAND=Marca e MODEL=Modelo)"
+      value={value}
+      errors={errors}
+      onValueChange={onChange}
+    />
+  );
+}
+
 export function ProductForm({ supplierId, product, categories, onClose }: ProductFormProps) {
   const [values, setValues] = useState(() => productFormValues(product));
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -145,6 +165,13 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
             value={values.images}
             errors={errors.imageUrls ?? []}
             onValueChange={(images) => setValues((current) => ({ ...current, images }))}
+          />
+          <MercadoLivreAttributesField
+            value={values.mercadoLivreAttributes}
+            errors={errors.mercadoLivreAttributes ?? []}
+            onChange={(mercadoLivreAttributes) =>
+              setValues((current) => ({ ...current, mercadoLivreAttributes }))
+            }
           />
           <FormErrorAlert message={save.isError ? errorMessage(save.error) : null} />
           <ProductFormActions isPending={save.isPending} onClose={onClose} />
