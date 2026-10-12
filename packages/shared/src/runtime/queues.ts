@@ -10,6 +10,8 @@ export const QUEUE_NAMES = {
   webhookDelivery: "webhook-delivery",
   /** Re-queues lost publish jobs and ends publications stuck mid-call. */
   publishRecovery: "publish-recovery",
+  /** Closes support tickets the reseller left unanswered after support replied. */
+  ticketAutoClose: "ticket-auto-close",
 } as const;
 
 export const publishListingJobSchema = z.object({

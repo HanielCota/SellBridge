@@ -1,4 +1,5 @@
 import { ListIcon } from "@phosphor-icons/react";
+import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -18,12 +19,15 @@ import {
   BADGE_DESCRIPTIONS,
   isActivePath,
   NAV_ITEMS,
+  SUPPORT_NAV_ITEM,
   type NavBadge,
   type NavItem,
 } from "@/features/navigation/nav-items";
-import { AvatarButton } from "@/components/profile/avatar-button";
+import { UserAvatar } from "./user-avatar";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
+import { SupportButton } from "./support-button";
+import { teamModeActiveTag } from "@/features/auth/team-mode";
 import { roleLabel, UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
@@ -35,8 +39,8 @@ function useNavCounts(isAdmin: boolean) {
     counts: {
       failedListings: attention.data?.failedListings ?? 0,
       openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
+      supportReplies: attention.data?.unreadSupportReplies ?? 0,
     } satisfies BadgeCounts,
-    supportReplies: attention.data?.answeredTickets ?? 0,
   };
 }
 
@@ -117,7 +121,7 @@ function MobileNav({
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
-          {items.map((item) => (
+          {[...items, SUPPORT_NAV_ITEM].map((item) => (
             <NavTab
               key={item.to}
               item={item}
@@ -204,9 +208,6 @@ function useAnimateAfterFirstPaint(hasLanded: boolean): boolean {
   return canAnimate;
 }
 
-/** Pages reached from the account menu; the account chip shows as "you are here" on them. */
-const ACCOUNT_PATHS = ["/perfil", "/onboarding", "/suporte"];
-
 function AccountChip({
   user,
   supportReplies,
@@ -216,38 +217,38 @@ function AccountChip({
   supportReplies: number;
   adminMode: boolean;
 }) {
-  const isOnAccountPage = useRouterState({
-    select: (state) => ACCOUNT_PATHS.some((path) => isActivePath(state.location.pathname, path)),
-  });
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-full bg-card p-1.5",
-        isOnAccountPage && "ring-1 ring-brand/60",
-      )}
+    <UserMenu
+      user={user}
+      supportReplies={supportReplies}
+      adminMode={adminMode}
+      className="rounded-full bg-card p-1.5"
     >
-      <AvatarButton name={user.name} image={user.image} />
+      <UserAvatar name={user.name} image={user.image} />
       <span className="hidden min-w-0 leading-tight sm:block">
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
           <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
             <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
-            Modo admin ativo
+            {teamModeActiveTag(user.role)}
           </span>
         ) : (
           <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
         )}
       </span>
-      <UserMenu user={user} supportReplies={supportReplies} adminMode={adminMode} />
-    </div>
+    </UserMenu>
   );
 }
 
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: boolean }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { counts, supportReplies } = useNavCounts(adminMode);
-  const items = adminMode ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
+  const { counts } = useNavCounts(adminMode);
+  const supportReplies = counts.supportReplies;
+  const teamItems = ADMIN_NAV_ITEMS.filter(
+    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
+  );
+  const items = adminMode ? [...NAV_ITEMS, ...teamItems] : NAV_ITEMS;
   return (
     <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
       {/* Equal side columns keep the tab capsule centred on the page, whatever the side widths. */}
@@ -265,6 +266,9 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
         <DesktopNav items={items} pathname={pathname} counts={counts} />
         <div className="flex items-center gap-2 justify-self-end">
           <CommandPalette />
+          <div className="hidden sm:block">
+            <SupportButton unread={supportReplies} />
+          </div>
           <NotificationBell />
           <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
         </div>

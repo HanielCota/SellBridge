@@ -1,3 +1,7 @@
+import { teamModeName } from "@/features/auth/team-mode";
+import { unreadRepliesText } from "@/features/support/response-time";
+import { CUSTOMER_ROLE_LABELS } from "@sellbridge/shared/schemas";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
   type Icon,
@@ -13,6 +17,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
 import { type Theme, useTheme } from "@/components/theme/theme-provider";
 import {
@@ -30,7 +35,7 @@ import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-const ROLE_LABELS: Record<string, string> = { admin: "Administrador", user: "Revendedor" };
+const ROLE_LABELS: Record<string, string> = { ...CUSTOMER_ROLE_LABELS };
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -113,8 +118,9 @@ function ThemeChoice() {
   );
 }
 
-/** Shows or hides the admin tools in the interface; only offered to admin accounts. */
-function AdminModeItem({ enabled }: { enabled: boolean }) {
+/** Shows or hides the team tools in the interface; only offered to team accounts. */
+function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
+  const name = teamModeName(role);
   const router = useRouter();
   const navigate = useNavigate();
   const isOnAdminPage = useRouterState({
@@ -124,10 +130,10 @@ function AdminModeItem({ enabled }: { enabled: boolean }) {
     try {
       await setAdminMode({ data: { enabled: next } });
     } catch {
-      toast.error("Não foi possível alterar o modo administrador.");
+      toast.error(`Não foi possível alterar o ${name.toLowerCase()}.`);
       return;
     }
-    toast.success(next ? "Modo administrador ativado" : "Modo administrador desativado");
+    toast.success(next ? `${name} ativado` : `${name} desativado`);
     if (!next && isOnAdminPage) {
       await navigate({ to: "/dashboard" });
     }
@@ -141,7 +147,7 @@ function AdminModeItem({ enabled }: { enabled: boolean }) {
       className={cn(MENU_ROW, "pr-2.5 *:data-[slot=dropdown-menu-checkbox-item-indicator]:hidden")}
     >
       <ShieldCheckIcon aria-hidden="true" />
-      Modo administrador
+      {name}
       {/* Drawn like the Switch so on/off reads at a glance; the item itself carries the state. */}
       <span
         aria-hidden="true"
@@ -188,8 +194,9 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
           <QuestionIcon aria-hidden="true" />
           Ajuda e suporte
           {supportReplies > 0 ? (
-            <span className="ml-auto rounded-full bg-brand/15 px-2 py-0.5 text-xs font-medium text-brand-text">
-              {supportReplies === 1 ? "1 resposta" : `${supportReplies} respostas`}
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-xs font-medium text-brand-text tabular-nums">
+              {supportReplies}
+              <span className="sr-only">, {unreadRepliesText(supportReplies)}</span>
             </span>
           ) : null}
         </Link>
@@ -202,32 +209,65 @@ interface UserMenuProps {
   user: SessionUser;
   supportReplies: number;
   adminMode: boolean;
+  /** What the chip shows before the caret (avatar, name); the whole chip opens the menu. */
+  children: ReactNode;
+  className?: string;
 }
 
-/** Caret beside the account name: the account pages, the theme and signing out. */
-export function UserMenu({ user, supportReplies, adminMode }: UserMenuProps) {
+/**
+ * The caret at the end of the chip; it flips while the menu is open. On phones, where the
+ * support button is not in the header, it also dots unread support replies.
+ */
+function MenuCaret({ hasSupportReplies }: { hasSupportReplies: boolean }) {
+  return (
+    <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-foreground group-data-[state=open]:text-foreground">
+      <CaretDownIcon
+        className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
+        weight="bold"
+        aria-hidden="true"
+      />
+      {hasSupportReplies ? (
+        <span
+          className="absolute top-2 right-2 size-2 rounded-full bg-brand sm:hidden"
+          aria-hidden="true"
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/** The account chip: a click anywhere on it opens the account pages, the theme and signing out. */
+export function UserMenu({ user, supportReplies, adminMode, children, className }: UserMenuProps) {
   const signOut = useSignOut();
+  // Opened with the mouse, closing should not hand focus back to the chip and light its ring;
+  // from the keyboard it still does, so you know where you are.
+  const openedWithPointer = useRef(false);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Menu do usuário"
-        className="group relative flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-[color,scale] duration-150 outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 active:scale-[0.96] active:duration-100 data-[state=open]:text-foreground motion-reduce:active:scale-100"
+        onPointerDown={() => {
+          openedWithPointer.current = true;
+        }}
+        onKeyDown={() => {
+          openedWithPointer.current = false;
+        }}
+        className={cn(
+          "group flex items-center gap-3 text-left select-none transition-[scale] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/30 active:scale-[0.98] active:duration-100 motion-reduce:active:scale-100",
+          className,
+        )}
       >
-        <CaretDownIcon
-          className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
-          weight="bold"
-          aria-hidden="true"
-        />
-        {supportReplies > 0 ? (
-          <span
-            className="absolute top-2 right-2 size-2 rounded-full bg-brand"
-            aria-hidden="true"
-          />
-        ) : null}
+        {children}
+        <MenuCaret hasSupportReplies={supportReplies > 0} />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         sideOffset={10}
+        onCloseAutoFocus={(event) => {
+          if (openedWithPointer.current) {
+            event.preventDefault();
+          }
+        }}
         className="w-72 rounded-2xl border-0 p-2 shadow-black/15 ring-1 ring-border"
       >
         <DropdownMenuLabel className="px-2.5 pt-1.5 pb-2 font-normal">
@@ -236,7 +276,7 @@ export function UserMenu({ user, supportReplies, adminMode }: UserMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="-mx-2" />
         <AccountLinks supportReplies={supportReplies} />
-        {user.role === "admin" ? <AdminModeItem enabled={adminMode} /> : null}
+        {isStaffRole(user.role) ? <AdminModeItem enabled={adminMode} role={user.role} /> : null}
         <DropdownMenuSeparator className="-mx-2" />
         <ThemeChoice />
         <DropdownMenuSeparator className="-mx-2" />

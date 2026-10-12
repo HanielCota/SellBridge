@@ -1,14 +1,27 @@
-import { addTicketMessage, createTicket, getAttachment } from "@sellbridge/database/repositories";
+import {
+  addTicketMessage,
+  createTicket,
+  findTicketRequester,
+  getAttachment,
+} from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
+import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
-import { createTicketSchema, replyTicketSchema } from "@sellbridge/shared/schemas";
+import {
+  adminTicketMessageSchema,
+  createTicketSchema,
+  replyTicketSchema,
+} from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { handleApi, jsonResponse } from "@/lib/server/http";
+import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
-import { requireAdminSession, requireTenantSession } from "@/lib/server/tenant-session";
+import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
 import { storeAttachments, textField, validateAttachments } from "./attachments.server";
+import { supportReplyEmail } from "./support-reply-email";
 
 const idSchema = z.uuid();
 
@@ -24,12 +37,13 @@ function firstIssue(error: z.ZodError): string {
   return error.issues.at(0)?.message ?? "Dados inválidos";
 }
 
-/** POST /api/suporte/chamados: opens a ticket (multipart: subject, body, files). */
+/** POST /api/suporte/chamados: opens a ticket (multipart: category, subject, body, files). */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     const session = await requireTenantSession(request.headers);
     const formData = await request.formData();
     const input = createTicketSchema.safeParse({
+      category: textField(formData, "category"),
       subject: textField(formData, "subject"),
       body: textField(formData, "body"),
     });
@@ -41,6 +55,7 @@ export function handleCreateTicket(request: Request) {
     const { ticketId } = await createTicket(database, {
       tenantId: session.tenantId,
       userId: session.userId,
+      category: input.data.category,
       subject: input.data.subject,
       body: input.data.body,
       attachments,
@@ -50,15 +65,39 @@ export function handleCreateTicket(request: Request) {
   });
 }
 
+async function readAttachments(formData: FormData, tenantId: string) {
+  const files = await validateAttachments(formData);
+  return storeAttachments(fileStorage, tenantId, files);
+}
+
 async function readReply(request: Request, tenantId: string) {
   const formData = await request.formData();
   const input = replyTicketSchema.safeParse({ body: textField(formData, "body") });
   if (!input.success) {
     throw validationError(firstIssue(input.error));
   }
-  const files = await validateAttachments(formData);
-  const attachments = await storeAttachments(fileStorage, tenantId, files);
+  const attachments = await readAttachments(formData, tenantId);
   return { body: input.data.body, attachments };
+}
+
+function optionalTextField(formData: FormData, name: string): string | undefined {
+  const value = textField(formData, name);
+  return value === "" ? undefined : value;
+}
+
+/** Admin form: `kind` (reply | note), `body`, optional `statusAfter` for replies, files. */
+async function readAdminMessage(request: Request) {
+  const formData = await request.formData();
+  const input = adminTicketMessageSchema.safeParse({
+    kind: textField(formData, "kind"),
+    body: textField(formData, "body"),
+    statusAfter: optionalTextField(formData, "statusAfter"),
+  });
+  if (!input.success) {
+    throw validationError(firstIssue(input.error));
+  }
+  const attachments = await readAttachments(formData, "admin");
+  return { message: input.data, attachments };
 }
 
 /** POST /api/suporte/chamados/:ticketId/mensagens: reseller reply, scoped to the tenant. */
@@ -71,32 +110,59 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
       ticketId,
       tenantId: session.tenantId,
       authorId: session.userId,
-      isAdmin: false,
+      kind: "reseller",
       ...reply,
     });
     return jsonResponse(201, { ok: true });
   });
 }
 
-/** POST /api/admin/chamados/:ticketId/mensagens: support team reply. */
+/**
+ * Tells the reseller by e-mail that support answered. A failed e-mail never fails the reply:
+ * the answer is saved and also shows up in the app.
+ */
+async function notifyRequester(ticketId: string): Promise<void> {
+  try {
+    const requester = await findTicketRequester(database, ticketId);
+    if (!requester) {
+      return;
+    }
+    await sendEmail(supportReplyEmail(requester, ticketId, environment.APP_URL));
+  } catch (error) {
+    logger.warn("support.reply_email_failed", { ticketId, error });
+  }
+}
+
+/** POST /api/admin/chamados/:ticketId/mensagens: support reply or internal note. */
 export function handleAdminReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.admin_reply", async () => {
-    const admin = await requireAdminSession(request.headers);
+    const staff = await requireStaffSession(request.headers, "support.answer");
     const ticketId = parseId(ticketIdParam, "Chamado");
-    const reply = await readReply(request, "admin");
-    await addTicketMessage(database, {
+    const { message, attachments } = await readAdminMessage(request);
+    const { status } = await addTicketMessage(database, {
       ticketId,
       tenantId: null,
-      authorId: admin.userId,
-      isAdmin: true,
-      ...reply,
+      authorId: staff.userId,
+      kind: message.kind,
+      statusAfter: message.kind === "reply" ? message.statusAfter : undefined,
+      body: message.body,
+      attachments,
     });
-    logger.info("support.admin_replied", { ticketId, adminId: admin.userId });
-    return jsonResponse(201, { ok: true });
+    logger.info("support.admin_replied", {
+      ticketId,
+      staffId: staff.userId,
+      kind: message.kind,
+      status,
+    });
+    if (message.kind === "reply") {
+      // Not awaited: the reply is saved, and a slow provider must not hold the agent's request.
+      void notifyRequester(ticketId);
+    }
+    return jsonResponse(201, { ok: true, status });
   });
 }
 
-/** GET /api/suporte/anexos/:attachmentId: download for the owner tenant or an admin. */
+/** GET /api/suporte/anexos/:attachmentId: download for the owner tenant or the support team. */
 export function handleDownloadAttachment(request: Request, attachmentIdParam: string | undefined) {
   return handleApi("support.download", async () => {
     const attachmentId = parseId(attachmentIdParam, "Anexo");
@@ -104,8 +170,9 @@ export function handleDownloadAttachment(request: Request, attachmentIdParam: st
     if (!session) {
       return jsonResponse(401, { error: "Faça login para baixar anexos" });
     }
-    const scope =
-      session.user.role === "admin" ? null : (await requireTenantSession(request.headers)).tenantId;
+    const scope = hasStaffPermission(session.user.role, "support.answer")
+      ? null
+      : (await requireTenantSession(request.headers)).tenantId;
     const attachment = await getAttachment(database, attachmentId, scope);
     const bytes = await fileStorage.get(attachment.storageKey);
     if (!bytes) {

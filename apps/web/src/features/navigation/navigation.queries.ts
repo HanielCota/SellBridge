@@ -3,7 +3,8 @@ import { getAttentionCounts, getOpenTicketCount } from "./navigation.functions";
 
 const REFRESH_MILLISECONDS = 60_000;
 
-// Keys start with "listings"/"tickets" so the existing invalidations also refresh the badges.
+// The key starts with "listings", so invalidating ["listings"] refreshes the badges; after a
+// support change, invalidate ["listings", "tickets", "attention-counts"] by name.
 export const attentionCountsQueryOptions = () =>
   queryOptions({
     queryKey: ["listings", "tickets", "attention-counts"],

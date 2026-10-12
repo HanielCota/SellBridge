@@ -1,5 +1,11 @@
 import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import {
+  hasStaffPermission,
+  staffRoleOf,
+  type StaffPermission,
+  type StaffRole,
+} from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 
@@ -45,4 +51,25 @@ export async function requireAdminSession(headers: Headers): Promise<{ userId: s
     throw forbiddenError();
   }
   return { userId: session.user.id };
+}
+
+export interface StaffSession {
+  userId: string;
+  role: StaffRole;
+}
+
+/** A member of the SellBridge team allowed to do `permission` (see staff-access.ts). */
+export async function requireStaffSession(
+  headers: Headers,
+  permission: StaffPermission,
+): Promise<StaffSession> {
+  const session = await auth.api.getSession({ headers });
+  if (!session) {
+    throw unauthorizedError();
+  }
+  const role = staffRoleOf(session.user.role);
+  if (!role || !hasStaffPermission(role, permission)) {
+    throw forbiddenError();
+  }
+  return { userId: session.user.id, role };
 }

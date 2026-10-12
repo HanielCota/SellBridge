@@ -1,4 +1,5 @@
 import { schema } from "@sellbridge/database";
+import { recordAdminEvent, touchUserActivity } from "@sellbridge/database/repositories";
 import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
 import { and, eq, isNull, ne, or } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
+import { authAccessControl, authRoles } from "../auth-roles.ts";
 import { database } from "./database.ts";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
@@ -118,7 +120,45 @@ async function sendVerificationEmail({ user, url }: { user: { email: string }; u
   });
 }
 
-function isAdminEmail(email: string): boolean {
+/** The admin behind a session opened with "Entrar como cliente", or null for the user's own. */
+function impersonatorOf(session: object): string | null {
+  if (!("impersonatedBy" in session)) {
+    return null;
+  }
+  const { impersonatedBy } = session;
+  return typeof impersonatedBy === "string" && impersonatedBy.length > 0 ? impersonatedBy : null;
+}
+
+/**
+ * Bookkeeping must never block a sign-in: a failure is logged and the session goes on.
+ */
+async function recordActivity(userId: string): Promise<void> {
+  try {
+    await touchUserActivity(database, userId);
+  } catch (error) {
+    logger.warn("user_activity.record_failed", { userId, error });
+  }
+}
+
+/** A user's own sign-in moves their "last seen"; an admin entering as them goes to the trail. */
+async function recordSessionStart(session: { userId: string }): Promise<void> {
+  const impersonator = impersonatorOf(session);
+  if (!impersonator) {
+    await recordActivity(session.userId);
+    return;
+  }
+  try {
+    await recordAdminEvent(database, {
+      adminId: impersonator,
+      userId: session.userId,
+      action: "impersonated",
+    });
+  } catch (error) {
+    logger.warn("admin.audit_record_failed", { userId: session.userId, error });
+  }
+}
+
+export function isAdminEmail(email: string): boolean {
   return environment.ADMIN_EMAILS.includes(email.toLowerCase());
 }
 
@@ -240,11 +280,31 @@ export const auth = betterAuth({
         },
         after: async (session) => {
           await requestAdminVerification(session.userId);
+          await recordSessionStart(session);
+        },
+      },
+      update: {
+        // Sessions are refreshed while the user keeps using the app, which keeps "last seen" fresh.
+        after: async (session) => {
+          if (!session.userId || impersonatorOf(session)) {
+            return;
+          }
+          await recordActivity(session.userId);
         },
       },
     },
   },
-  plugins: [organization(), admin(), tanstackStartCookies()],
+  plugins: [
+    organization(),
+    // Every team role is protected from impersonation, not only admins: signing in as an
+    // agent would let an admin answer customers under that agent's name.
+    admin({
+      ac: authAccessControl,
+      roles: authRoles,
+      adminRoles: ["admin", "supervisor", "agent"],
+    }),
+    tanstackStartCookies(),
+  ],
 });
 
 export type Auth = typeof auth;

@@ -1,12 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
-import { adminMiddleware } from "@/lib/server/middleware";
+import { staffMiddleware } from "@/lib/server/middleware";
 
 /**
- * Admin mode is a display preference: it shows the admin tools in the interface.
- * Permissions still come from the account role, checked on every admin request.
+ * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
+ * interface to anyone on the SellBridge team. Permissions still come from the account role,
+ * checked on every request.
  */
 const ADMIN_MODE_COOKIE = "sellbridge-admin-mode";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
@@ -27,7 +29,7 @@ export interface AppSession {
   tenantId: string | null;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
-  /** True only for admins who turned admin mode on in the profile menu. */
+  /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
   adminMode: boolean;
 }
 
@@ -47,7 +49,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         image: session.user.image ?? null,
         createdAt: new Date(session.user.createdAt).toISOString(),
       },
-      adminMode: role === "admin" && getCookie(ADMIN_MODE_COOKIE) === "on",
+      adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
       impersonatedBy: session.session.impersonatedBy ?? null,
     };
@@ -64,7 +66,7 @@ export const getSignInOptions = createServerFn({ method: "GET" }).handler(
 );
 
 export const setAdminMode = createServerFn({ method: "POST" })
-  .middleware([adminMiddleware])
+  .middleware([staffMiddleware("support.answer")])
   .validator(z.object({ enabled: z.boolean() }))
   .handler(async ({ data }) => {
     setCookie(ADMIN_MODE_COOKIE, data.enabled ? "on" : "off", {

@@ -23,7 +23,7 @@ export function formatBytes(bytes: number): string {
 }
 
 /** Client-side checks for quick feedback; the server validates again (including magic bytes). */
-function validateSelection(current: File[], added: File[]): string | null {
+export function validateSelection(current: File[], added: File[]): string | null {
   if (current.length + added.length > MAX_ATTACHMENTS) {
     return `Envie no máximo ${MAX_ATTACHMENTS} anexos`;
   }

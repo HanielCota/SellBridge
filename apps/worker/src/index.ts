@@ -14,6 +14,7 @@ import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/publish-recovery.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
+import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
@@ -134,6 +135,13 @@ const publishRecoveryWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const processTicketAutoClose = createTicketAutoCloseProcessor({ database });
+const ticketAutoCloseWorker = new Worker(
+  QUEUE_NAMES.ticketAutoClose,
+  async () => processTicketAutoClose(),
+  { connection, concurrency: 1 },
+);
+
 const webhookDeliveryWorker = new Worker(
   QUEUE_NAMES.webhookDelivery,
   async () => processWebhookDeliveries(),
@@ -160,6 +168,12 @@ await publishRecoveryQueue.upsertJobScheduler(
   { every: 5 * 60 * 1000 },
   { name: "recover-publications", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
 );
+const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
+await ticketAutoCloseQueue.upsertJobScheduler(
+  "close-idle-tickets",
+  { every: 60 * 60 * 1000 },
+  { name: "close-idle-tickets", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
+);
 await tokenRefreshQueue.upsertJobScheduler(
   "refresh-expiring-tokens",
   { every: 10 * 60 * 1000 },
@@ -173,6 +187,7 @@ const workers = [
   stockPriceSyncWorker,
   webhookDeliveryWorker,
   publishRecoveryWorker,
+  ticketAutoCloseWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
@@ -204,6 +219,7 @@ async function shutdown(signal: string): Promise<void> {
     webhookDeliveryQueue.close(),
     publishQueue.close(),
     publishRecoveryQueue.close(),
+    ticketAutoCloseQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

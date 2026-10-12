@@ -18,3 +18,4 @@ export * from "./api-events.ts";
 export * from "./order-detail.ts";
 export * from "./webhook-endpoints.ts";
 export * from "./webhook-deliveries.ts";
+export * from "./customer-care.ts";

@@ -1,15 +1,18 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
+  categories,
   listings,
   listingTargets,
   notificationReads,
+  orderItems,
   orders,
   storeConnections,
-  tickets,
+  supplierProducts,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
+import { listUnreadSupportReplies } from "./support.ts";
 import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
@@ -23,11 +26,20 @@ interface EventBase {
   at: Date;
 }
 
+/** The item a sale is shown with: its first item, alphabetically, like the financial statement. */
+export interface SaleProduct {
+  title: string;
+  imageUrl: string | null;
+  categoryName: string | null;
+}
+
 export interface SaleEvent extends EventBase {
   kind: "sale";
   externalOrderId: string;
   totalCents: number;
   storeName: string;
+  /** Null when the order has no items recorded. */
+  product: SaleProduct | null;
 }
 
 export interface ListingErrorEvent extends EventBase {
@@ -90,7 +102,51 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
     )
     .orderBy(desc(orders.orderedAt))
     .limit(SALES_SHOWN);
-  return rows.map((row) => ({ ...row, kind: "sale" as const }));
+  const products = await saleProducts(
+    database,
+    tenantId,
+    rows.map((row) => row.entityId),
+  );
+  return rows.map((row) => ({
+    ...row,
+    kind: "sale" as const,
+    product: products.get(row.entityId) ?? null,
+  }));
+}
+
+/** First item of each order, with its supplier picture and category when it still has them. */
+async function saleProducts(
+  database: Database,
+  tenantId: string,
+  orderIds: string[],
+): Promise<Map<string, SaleProduct>> {
+  const products = new Map<string, SaleProduct>();
+  if (orderIds.length === 0) {
+    return products;
+  }
+  const rows = await database
+    .select({
+      orderId: orderItems.orderId,
+      title: orderItems.title,
+      imageUrls: supplierProducts.imageUrls,
+      categoryName: categories.name,
+    })
+    .from(orderItems)
+    .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
+    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+    .where(and(eq(orderItems.tenantId, tenantId), inArray(orderItems.orderId, orderIds)))
+    .orderBy(asc(orderItems.title));
+  for (const row of rows) {
+    if (products.has(row.orderId)) {
+      continue;
+    }
+    products.set(row.orderId, {
+      title: row.title,
+      imageUrl: row.imageUrls?.[0] ?? null,
+      categoryName: row.categoryName,
+    });
+  }
+  return products;
 }
 
 async function listingErrorEvents(
@@ -133,17 +189,18 @@ async function storeProblemEvents(
   return rows.map((row) => ({ ...row, kind: "store_problem" as const }));
 }
 
+/** Tickets with a support reply this user has not opened yet: opening the thread clears it. */
 async function supportReplyEvents(
   database: Database,
-  tenantId: string,
+  reader: NotificationReader,
 ): Promise<SupportReplyEvent[]> {
-  const rows = await database
-    .select({ entityId: tickets.id, subject: tickets.subject, at: tickets.updatedAt })
-    .from(tickets)
-    .where(and(eq(tickets.tenantId, tenantId), eq(tickets.status, "answered")))
-    .orderBy(desc(tickets.updatedAt))
-    .limit(PER_KIND);
-  return rows.map((row) => ({ ...row, kind: "support_reply" as const }));
+  const rows = await listUnreadSupportReplies(database, reader.tenantId, reader.userId, PER_KIND);
+  return rows.map((row) => ({
+    kind: "support_reply" as const,
+    entityId: row.ticketId,
+    subject: row.subject,
+    at: row.repliedAt,
+  }));
 }
 
 async function reviewPendingEvents(
@@ -195,7 +252,7 @@ export async function listNotificationEvents(
     saleEvents(database, input.tenantId),
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
-    supportReplyEvents(database, input.tenantId),
+    supportReplyEvents(database, input),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     readState(database, input),
   ]);
