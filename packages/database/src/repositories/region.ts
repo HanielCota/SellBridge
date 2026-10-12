@@ -46,7 +46,16 @@ export interface TenantRegion {
   state: string;
   city: string;
   neighborhood: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
 }
+
+/** A resolved CEP plus what only the tenant knows: house number and complement. */
+export type TenantAddress = ResolvedAddress & {
+  number?: string | null;
+  complement?: string | null;
+};
 
 export async function findTenantRegion(
   database: Database,
@@ -64,13 +73,20 @@ export async function findTenantRegion(
     state: row.state,
     city: row.city,
     neighborhood: row.neighborhood,
+    street: row.street,
+    number: row.number,
+    complement: row.complement,
   };
 }
 
+/**
+ * Saves the tenant's address. A CEP-only change (admin, seed) clears the number and complement,
+ * since they belonged to the previous street.
+ */
 export async function saveTenantRegion(
   database: Database,
   tenantId: string,
-  address: ResolvedAddress,
+  address: TenantAddress,
 ): Promise<TenantRegion> {
   const values = {
     tenantId,
@@ -78,6 +94,9 @@ export async function saveTenantRegion(
     state: address.state,
     city: address.city,
     neighborhood: address.neighborhood,
+    street: address.street,
+    number: address.number ?? null,
+    complement: address.complement ?? null,
   };
   await database.insert(tenantProfile).values(values).onConflictDoUpdate({
     target: tenantProfile.tenantId,

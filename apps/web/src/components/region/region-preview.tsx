@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RegionPreview as RegionPreviewData } from "@/features/region/region.functions";
 import { regionPreviewQueryOptions } from "@/features/region/region.queries";
-import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { countLabel } from "./count-label";
 
@@ -111,12 +110,9 @@ export function RegionPreview({ cep, hasRegion }: { cep: string; hasRegion: bool
       </div>
     );
   }
+  // The CEP field shows the lookup error itself.
   if (query.isError) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {errorMessage(query.error)}
-      </p>
-    );
+    return null;
   }
   const preview = query.data;
   const street = [preview.address.street, preview.address.neighborhood].filter(Boolean).join(", ");

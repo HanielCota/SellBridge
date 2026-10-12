@@ -9,6 +9,12 @@ import { RegionMapMark } from "./region-map-mark";
 
 const SUPPLIERS_SHOWN = 5;
 
+/** "Avenida Afonso Pena, 1000 · Sala 2": street, number and complement as one line. */
+function streetLine(region: TenantRegion): string {
+  const street = region.number ? `${region.street}, ${region.number}` : (region.street ?? "");
+  return region.complement ? `${street} · ${region.complement}` : street;
+}
+
 function RegionStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl bg-muted/60 px-4 py-3">
@@ -90,6 +96,7 @@ export function CurrentRegionCard({
           <h2 id="current-region" className="text-xl font-semibold tracking-tight">
             {region.city} · {region.state}
           </h2>
+          {region.street ? <p className="text-sm">{streetLine(region)}</p> : null}
           <p className="text-sm text-muted-foreground">
             {region.neighborhood ? `${region.neighborhood} · ` : null}CEP {formatCep(region.cep)}
           </p>

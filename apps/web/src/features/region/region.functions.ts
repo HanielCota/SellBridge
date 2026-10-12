@@ -8,7 +8,7 @@ import {
 } from "@sellbridge/database/repositories";
 import type { ResolvedAddress } from "@sellbridge/shared/cep";
 import { logger } from "@sellbridge/shared/logger";
-import { updateRegionSchema } from "@sellbridge/shared/schemas";
+import { cepLookupSchema, updateRegionSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
@@ -48,7 +48,7 @@ export interface RegionPreview extends CoverageChange {
 /** What saving this CEP would do, without saving it. */
 export const previewRegionChange = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .validator(updateRegionSchema)
+  .validator(cepLookupSchema)
   .handler(async ({ context, data }): Promise<RegionPreview> => {
     const address = await resolveCep(data.cep);
     const current = await findTenantRegion(database, context.tenantId);
@@ -73,8 +73,15 @@ export const updateTenantRegion = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(updateRegionSchema)
   .handler(async ({ context, data }): Promise<TenantRegion> => {
-    const address = await resolveCep(data.cep);
-    const region = await saveTenantRegion(database, context.tenantId, address);
+    // City and state come from the CEP, never from the form: they decide which suppliers deliver.
+    const resolved = await resolveCep(data.cep);
+    const region = await saveTenantRegion(database, context.tenantId, {
+      ...resolved,
+      street: data.street,
+      number: data.number,
+      complement: data.complement ?? null,
+      neighborhood: data.neighborhood,
+    });
     logger.info("region.updated", { tenantId: context.tenantId, state: region.state });
     return region;
   });
