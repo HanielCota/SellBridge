@@ -193,6 +193,10 @@ export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,
   secret: environment.BETTER_AUTH_SECRET,
   database: drizzleAdapter(database, { provider: "pg", schema }),
+  // One web instance, so the in-memory store is enough; the default per-path rules
+  // (sign-in, sign-up, password reset) stay in place.
+  rateLimit: { enabled: environment.NODE_ENV === "production" },
+  advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: MIN_PASSWORD_LENGTH,
