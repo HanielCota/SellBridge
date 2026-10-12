@@ -1,6 +1,6 @@
 # Lacunas: o que o cliente pede × o que o SellBridge tem
 
-Data: 2026-10-12 · Branch: `feat/region-map-onboarding` (HEAD `6ea80ff` + árvore de trabalho não commitada) · Prompt de execução: [docs/prompts/fase-cliente-1.md](../prompts/fase-cliente-1.md)
+Data: 2026-10-12 · Branch: `feat/region-map-onboarding` (escrito sobre `6ea80ff`; **atualizado depois do merge da `main`, veja a seção ⟳**) · Prompt de execução: [docs/prompts/fase-cliente-1.md](../prompts/fase-cliente-1.md)
 
 **Fontes do cliente**
 
@@ -23,6 +23,78 @@ Data: 2026-10-12 · Branch: `feat/region-map-onboarding` (HEAD `6ea80ff` + árvo
   - **P2**: confiança (100→500).
   - **P3**: escala (500+).
   - **Fora**: o cliente vetou.
+
+---
+
+## ⟳ Atualização de 2026-10-12, depois do merge da `main` (HEAD `c332f8c`)
+
+Este relatório foi escrito sobre `6ea80ff`. A `main` trouxe 38 commits que mudam vários status:
+
+- pedido ao fornecedor por link e etiqueta do Mercado Livre;
+- cadastro e importação de fornecedores no admin;
+- assinatura via Stripe;
+- atributos do Mercado Livre;
+- health check e Docker;
+- registro de erros.
+
+A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece aqui continua como está na sua seção.
+
+| ID                 | Agora            | O que mudou / o que falta                                                                                                                                                                                     |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B2                 | 🟡               | Conciliação por `seller_custom_field`/SKU e `creation_started_at`. Falta conferir duplicidade no fluxo individual.                                                                                            |
+| B4 / A7            | 🟡               | Shipped e delivered vêm dos envios. Faltam returned, refunded e claims; `partially_refunded` ainda vira "paid".                                                                                               |
+| B5                 | 🟡               | Migrations 0000–0015 versionadas. A 0007 tem `when` maior que a 0008: um banco que aplicou a 0007 antes da 0008 existir **pula a 0008** sem erro. Corrigir com uma migration de conferência (Onda 1).         |
+| B9                 | ❌ piorou        | O admin agora desativa produto e fornecedor pela interface, e os anúncios seguem sincronizando.                                                                                                               |
+| A1, A2, A3         | 🟡               | `order_shipments`: um envio por pedido e fornecedor, com estados forwarded→…→delivered/cancelled. O fornecedor recebe um link com token de 30 dias. O encaminhamento é manual e o link é compartilhado à mão. |
+| A4, A10            | 🟡               | O fornecedor cancela com motivo. Não cancela no ML, não estorna, não avisa e não deixa reencaminhar.                                                                                                          |
+| A6, A11            | 🟡               | Diálogo do pedido com envios e linha do tempo; aba "Operação" com filtro por etapa. Ainda não há página `/pedidos/$id`.                                                                                       |
+| A8                 | 🟡               | Varredura reenfileira webhooks não processados. Sem polling no ML.                                                                                                                                            |
+| A9                 | ✅               | Separação por fornecedor com índice único.                                                                                                                                                                    |
+| B-1, K6            | 🟡               | CRUD de fornecedores e produtos em `/admin/fornecedores`, só para admin. Faltam categorias, exclusão e auditoria.                                                                                             |
+| B-5                | ✅ (admin)       | Formulário e CSV com prévia. Sem autosserviço do fornecedor.                                                                                                                                                  |
+| B-6                | 🟡               | Até 20 fotos e atributos do ML livres. Sem colunas de EAN, peso, dimensões, variações e NCM; o CSV não aceita atributos.                                                                                      |
+| B-7                | 🟡               | Estoque atualizado à mão pelo admin, disparando o sync.                                                                                                                                                       |
+| B-15               | 🟡               | Página do link do fornecedor com etapas, rastreio e etiqueta. Sem painel consolidado.                                                                                                                         |
+| C3, C6, C12        | 🟡 só assinatura | Stripe usado direto para a **mensalidade**. Pagamento ao fornecedor, split e custódia (C1–C11) continuam ❌.                                                                                                  |
+| D-1, D-2, D-3      | 🟡               | Envio do ML consultado por botão manual; etiqueta ME2 em PDF; linha do tempo do envio. Sem tópico `shipments`, sem previsão, e pedido dividido fica sem etiqueta.                                             |
+| D-7                | 🟡               | "Entregue" grava `deliveredAt` e libera a avaliação. Não libera pagamento.                                                                                                                                    |
+| E3                 | 🟡               | Atributos obrigatórios validados antes do POST. O preenchimento é manual e a categoria continua adivinhada.                                                                                                   |
+| E13, M1, M2, M4–M7 | 🟡               | Três planos (Gratuito 2/25, Pro 10/500, Business 50/5000), Stripe Checkout e Portal, limite de lojas e anúncios no servidor, página `/assinatura`. Diverge dos 5 planos do PDF.                               |
+| G1                 | ✅               | `sale_fee` tratado como valor por unidade.                                                                                                                                                                    |
+| H7                 | 🟡               | E-mail HTML com marca só na autenticação; o do suporte segue em texto.                                                                                                                                        |
+| I5                 | 🟡               | Linha do tempo do envio, sem previsão de tempo.                                                                                                                                                               |
+| L6, L8             | 🟡               | Rate limit de auth em produção, headers de segurança e HSTS, tags de prévia, CEP vindo da landing externa. `/` ainda redireciona.                                                                             |
+| Q6                 | 🟡               | A landing existe fora deste repositório.                                                                                                                                                                      |
+| R1                 | 🟡               | Registro estruturado de erros do servidor e do navegador. Sem Sentry nem alertas.                                                                                                                             |
+| R2                 | ✅               | `/api/health` e Dockerfile com HEALTHCHECK e migrate no boot.                                                                                                                                                 |
+
+### Decisões do cliente que o código já assumiu (confirmar com ele)
+
+- **D3 (parcial):** Stripe só para a mensalidade. O gateway do split segue aberto.
+- **D10:** três planos com um **Gratuito**, contra os cinco planos pagos do PDF (R$ 97 a R$ 997).
+- **D2:** a receita na prática é só a mensalidade. Não há taxa de 4%.
+- **D6:** o fornecedor trabalha sem login, por um link com token que o revendedor compartilha.
+- **D5:** dropshipping direto, com a etiqueta ME2 da conta do revendedor.
+- **D4 (parcial):** fornecedor, revendedor ou ML podem declarar "entregue". Ainda não há regra de dinheiro.
+
+### Riscos novos trazidos pela `main` (N1–N14)
+
+| #   | Grav. | Problema                                                                                                                                         | Onde                                              |
+| --- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| N1  | 🔴    | Migration 0008 pulada em bancos antigos (ver B5).                                                                                                | `migrations/meta/_journal.json`                   |
+| N2  | 🔴    | Trava de publicação permanente: `creation_started_at` só é limpo em recusa 4xx. Um timeout ou 5xx deixa o anúncio para sempre em "só conciliar". | `mercado-livre/listings.ts`, `publish-listing.ts` |
+| N3  | 🔴    | Envio cancelado prende o pedido em "paid" e não deixa reencaminhar.                                                                              | `fulfillment-status.ts`, `fulfillment.ts`         |
+| N4  | 🔴    | O fornecedor declara "entregue" sozinho pelo link e libera a avaliação. Vira fraude quando o pagamento depender disso.                           | `shared/schemas/fulfillment.ts`, `fulfillment.ts` |
+| N5  | 🟠    | Chamadas ao Stripe dentro de transação com lock da organização: bloqueiam publicação e conexão de loja do tenant por até 45 s.                   | `billing.server.ts`, `webhook.server.ts`          |
+| N6  | 🟠    | Limite de plano contornável: o plugin `organization()` exposto (B8) cria organizações com cota nova.                                             | `auth.ts`                                         |
+| N7  | 🟠    | A cota conta todos os anúncios, inclusive falhos e encerrados, e não há exclusão.                                                                | `repositories/billing.ts`                         |
+| N8  | 🟠    | Sem as variáveis do Stripe, produção roda sem limite nenhum.                                                                                     | `publish-listing.server.ts`, `oauth.server.ts`    |
+| N9  | 🟡    | `past_due` volta na hora para o Gratuito, sem carência.                                                                                          | `shared/domain/billing.ts`                        |
+| N10 | 🟡    | Desativar produto ou fornecedor não pausa anúncios nem dispara sync, e as escritas do catálogo não são auditadas.                                | `suppliers.server.ts`                             |
+| N11 | 🟡    | O token do fornecedor vai em query string (etiqueta e GET) e vaza para logs um link de 30 dias com o endereço do comprador.                      | `fornecedor/pedido/$token.tsx`                    |
+| N12 | 🟡    | O endpoint de diagnóstico tem limite global de 60/min: um cliente cala os relatórios de todos.                                                   | `error-reports.ts`                                |
+| N13 | 🟡    | O rastreio do ML ignora not_delivered, cancelled e devoluções, e só atualiza com clique.                                                         | `fulfillment.ts`                                  |
+| N14 | 🟡    | O CSV não aceita atributos do ML: catálogo importado em massa falha na publicação.                                                               | `product-csv.ts`                                  |
 
 ---
 

@@ -71,7 +71,7 @@ Leia a seção **"Contexto do projeto"** de [docs/prompts/revisao-completa.md](r
 
 ## Onda 1: bugs e riscos (B1–B20)
 
-Corrija na ordem do relatório (🔴 → 🟢), um commit por bug ou grupo coeso, cada um com teste. Notas por item:
+Corrija na ordem do relatório (🔴 → 🟢), **incluindo os riscos N1–N14 da seção ⟳** (trazidos pela `main`), um commit por bug ou grupo coeso, cada um com teste. Os 🔴 de N1–N4 entram junto com B1–B5. Notas por item:
 
 - **B1, venda sem estoque:**
   - criar **reserva/baixa atômica** de estoque do fornecedor na venda (transação + `UPDATE … SET stock = stock - qty WHERE stock >= qty`), com devolução no cancelamento;
