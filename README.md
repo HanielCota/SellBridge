@@ -65,6 +65,14 @@ Postgres 18 and Redis 8 run via Docker Compose. If you already had a local Postg
 
 The email set in `ADMIN_EMAILS` becomes an administrator once ownership of it is proven: when signing up with Google, or through the confirmation link sent after a password sign-up. In that case the chosen password is discarded and a link to set a new one is sent, because whoever signed up may not own the email. Logs are structured JSON; `LOG_LEVEL` sets the minimum level (`debug`, `info`, `warn`, `error`).
 
+### Page error diagnostics
+
+The generic page error screen automatically sends a bounded report to the same application's `/api/diagnostics/errors` endpoint. Find `web.route_error` in the web container's Coolify logs, or search for the reference UUID shown on the screen after successful delivery. Records include the route template (not the concrete URL), UTC occurrence time, error name, redacted message, code locations, and both browser and server build IDs. Different build IDs can identify a tab still running an older deployment. Each build receives a unique ID; Coolify's `SOURCE_COMMIT` is used when available.
+
+Server function failures also emit `web.server_function_error` before production error serialization hides the original cause. Match the function, build and time to browser reports. Request bodies, query parameters, cookies, account identifiers and form contents are not collected. Diagnostic text masks URLs, emails, quoted values and common credential patterns; treat logs as operational data because unexpected error messages can still contain application-specific values.
+
+The receiver does not require a working database or session. It accepts only same-origin JSON, validates its schema, limits bodies to 8 KiB and admits at most 60 reports per minute per server process. The browser coalesces identical failures for 30 seconds and sends at most 10 reports per minute. Reporting failures never block retrying the page; offline, blocked or rate-limited reports are not queued, and the reference appears only after the server accepts the report. Logs follow the container's existing retention policy; this feature does not add a database table or external monitoring service. Browser reports are untrusted diagnostic evidence.
+
 ### Demo accounts (created by the seed)
 
 | Account                  | Password     | What it has                                                                    |
