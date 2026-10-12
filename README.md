@@ -87,6 +87,23 @@ Create an app at developers.mercadolivre.com.br, configure the redirect `{APP_UR
 
 The app UI is in Portuguese. In **Lojas conectadas** (connected stores), use **Conectar Loja simulada** (connect simulated store). In a listing, put `[falha]` in the title to simulate a permanent rejection, or `[instavel]` to simulate instability (the job is retried with backoff until attempts run out). In **Publicações** (publications), the **Simular venda** (simulate sale) button sends a signed webhook that becomes an order in the finances view.
 
+## Managing the supplier catalog
+
+Enable **Modo administrador** in the account menu and open **Fornecedores** (`/admin/fornecedores`). Create a supplier and its state/city coverage, then manage products on `/admin/fornecedores/$supplierId`. An empty coverage city covers the entire state. Product search and pagination are stored in the URL.
+
+The supplier page provides a downloadable UTF-8 CSV model. Files may use semicolons or commas (quote decimal commas in comma-delimited files), with at most 2 MiB and 1,000 products. The preview shows create/update counts and physical line numbers for every invalid row. All errors must be corrected before confirming. Confirmation revalidates the file and catalog revision, then upserts every row in one transaction using `(supplier_id, sku)`, preserving product IDs and listing/order references.
+
+```csv
+sku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido
+EXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90
+```
+
+Required columns: `sku`, `titulo`, `custo`, `estoque`. Optional columns: `descricao`, `categoria` (an existing category slug), `imagens` (HTTP/HTTPS URLs separated by `|`), `ativo` (`sim`/`nao`, `true`/`false`, or `1`/`0`), and `preco_sugerido`. Money accepts `12,90` or `12.90`, without grouping separators, and is stored as integer cents. Blank descriptions, categories, and images clear their values. A blank active flag or suggested price preserves the existing value; new products default to active and the existing 50% markup rule with a retail ending in `,90`.
+
+Supplier and product deactivation only hides items from the reseller catalog. Existing listings and orders remain available, and published listings still receive stock synchronization. Product saves and imports enqueue `stock-price-sync` after committing; if Redis is unavailable, the UI reports deferred synchronization and the worker's existing 15-minute scheduler recovers it from database values. Listing prices remain the reseller's chosen prices; supplier cost changes do not automatically reprice existing listings.
+
+The existing schema already contains `active` columns and the unique supplier/SKU index; this feature requires no migration or production seed.
+
 ## Public API
 
 Other systems (ERPs, spreadsheets, in-house tools) can integrate through a versioned REST API at `/api/v1`. Create a key in **Integrações** (account menu), then:

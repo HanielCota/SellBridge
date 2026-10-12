@@ -22,6 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Clientes", to: "/admin/clientes" },
+  { label: "Fornecedores", to: "/admin/fornecedores" },
   { label: "Chamados", to: "/admin/chamados", badge: "openTickets" },
 ];
 
