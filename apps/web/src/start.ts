@@ -25,6 +25,9 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
   const result = await next();
   // Redirect responses have immutable headers, so the headers go on a copy.
   const response = new Response(result.response.body, result.response);
+  if (response.headers.get("content-type")?.includes("text/html")) {
+    response.headers.set("cache-control", "no-store");
+  }
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     if (!response.headers.has(name)) response.headers.set(name, value);
   }

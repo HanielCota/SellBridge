@@ -5,6 +5,7 @@ import { themeInitScript } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles.css?url";
+import { assetRecoveryScript } from "@/lib/asset-recovery";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -48,6 +49,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <HeadContent />
       </head>

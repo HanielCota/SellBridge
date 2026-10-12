@@ -151,6 +151,11 @@ packages/config        base tsconfig
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, follow [SECURITY.md](SECURITY.md).
 
+## Deployment assets
+
+The production server retains old assets on persistent storage so open tabs continue
+working after deployments. See [deploy-assets.md](docs/deploy-assets.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 Haniel Fialho
