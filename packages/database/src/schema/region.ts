@@ -20,6 +20,10 @@ export const tenantProfile = pgTable("tenant_profile", {
   state: text().notNull(),
   city: text().notNull(),
   neighborhood: text(),
+  // Street address typed or confirmed by the tenant; city and state above always come from the CEP.
+  street: text(),
+  number: text(),
+  complement: text(),
   updatedAt: timestamp({ withTimezone: true })
     .defaultNow()
     .$onUpdate(() => new Date())

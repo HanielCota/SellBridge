@@ -64,6 +64,34 @@
       "when": 1791725626634,
       "tag": "0008_public_api",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791748860000,
+      "tag": "0009_tenant_address",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791751232954,
+      "tag": "0010_admin_customer_care",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791754139685,
+      "tag": "0011_ticket_internal_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791843760013,
+      "tag": "0012_support_desk",
+      "breakpoints": true
     }
   ]
 }

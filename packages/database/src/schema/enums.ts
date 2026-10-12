@@ -40,8 +40,39 @@ export const orderAdjustmentTypeEnum = pgEnum("order_adjustment_type", [
 
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
 
+/** Kept in step with `TICKET_CATEGORIES` in the shared ticket rules. */
+export const ticketCategoryEnum = pgEnum("ticket_category", [
+  "order",
+  "payment",
+  "store",
+  "listing",
+  "account",
+  "other",
+]);
+
+/** Kept in step with `TICKET_PRIORITIES`; declared from the least to the most urgent. */
+export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "normal", "high", "urgent"]);
+
+/** What changed on a ticket, for its history. Messages live in `ticket_messages`. */
+export const ticketEventTypeEnum = pgEnum("ticket_event_type", [
+  "status_changed",
+  "assigned",
+  "priority_changed",
+  "category_changed",
+  "rated",
+]);
+
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "pending",
   "succeeded",
   "failed",
+]);
+
+/** Kept in step with `CUSTOMER_ISSUE_KINDS` in the shared admin schemas. */
+export const customerIssueKindEnum = pgEnum("customer_issue_kind", [
+  "store",
+  "listings",
+  "ticket",
+  "onboarding",
+  "cooling",
 ]);
