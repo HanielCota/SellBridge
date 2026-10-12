@@ -21,7 +21,9 @@ FROM dependencies AS source
 COPY . .
 
 FROM source AS web-build
-RUN pnpm --filter @sellbridge/web build
+# Vite evaluates configuration separately for client and server; generate the ID once here.
+ARG SOURCE_COMMIT
+RUN VITE_BUILD_ID="${SOURCE_COMMIT:-$(node -e 'process.stdout.write(crypto.randomUUID())')}" pnpm --filter @sellbridge/web build
 
 FROM source AS worker
 ENV NODE_ENV=production
