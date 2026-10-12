@@ -8,11 +8,17 @@ import {
   updateSupplierShipmentFn,
 } from "@/features/fulfillment/fulfillment.functions";
 import { errorMessage } from "@/lib/errors";
+import { SHARE_IMAGES, shareMeta } from "@/lib/share-meta";
 
 export const Route = createFileRoute("/fornecedor/pedido/$token")({
   head: () => ({
     meta: [
-      { title: "Ordem de fornecimento | SellBridge" },
+      ...shareMeta({
+        title: "Ordem de fornecimento | SellBridge",
+        description:
+          "Pedido de um revendedor SellBridge para separar e enviar. Abra para ver os itens e o endereço.",
+        image: SHARE_IMAGES.symbol,
+      }),
       { name: "robots", content: "noindex, nofollow" },
       { name: "referrer", content: "no-referrer" },
     ],
