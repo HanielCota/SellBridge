@@ -7,7 +7,6 @@ import {
   PlugIcon,
   SignOutIcon,
   StorefrontIcon,
-  WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { StoreStatusChip, StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -47,25 +46,29 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ConnectionProblem({ store }: { store: StoreWithActivity }) {
-  if (store.status === "connected") {
-    return null;
+type StoreProblem = Exclude<StoreWithActivity["status"], "connected">;
+
+/** Why a store stopped syncing, in its tone: an expired grant warns, a failure is an error. */
+const PROBLEM_TONES: Record<StoreProblem, string> = {
+  expired: "text-amber-700 dark:text-amber-400",
+  error: "text-destructive",
+  disconnected: "text-muted-foreground",
+};
+
+/** What to say when the marketplace left no message of its own. */
+const PROBLEM_FALLBACKS: Record<StoreProblem, string> = {
+  expired: "A autorização da loja expirou",
+  error: "A loja parou de sincronizar",
+  disconnected: "A loja foi desconectada",
+};
+
+/** The store's problem as one sentence, ready to take the "sincronização pausada" suffix. */
+function problemMessage(status: StoreProblem, lastError: string | null) {
+  const message = lastError?.trim().replace(/\.+$/, "");
+  if (!message) {
+    return PROBLEM_FALLBACKS[status];
   }
-  return (
-    <div className="mt-3 flex items-start gap-3 rounded-2xl bg-destructive/10 p-3 text-sm md:ml-20">
-      <WarningCircleIcon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
-      <p className="flex-1">
-        {store.lastError ??
-          "O acesso a esta loja expirou. Reconecte para voltar a sincronizar pedidos e estoque."}
-      </p>
-      <Button asChild size="sm">
-        <a href={`/api/oauth/${store.marketplace}/start`}>
-          <PlugIcon aria-hidden="true" />
-          Reconectar
-        </a>
-      </Button>
-    </div>
-  );
+  return message;
 }
 
 /** A connected store with nothing live and nothing failing: zero figures, and one step to take. */
@@ -74,37 +77,107 @@ function isIdle(store: StoreWithActivity) {
   return store.status === "connected" && liveListings === 0 && failedListings === 0;
 }
 
-/**
- * The store's next step, as a small button beside its name so every row keeps the same height:
- * fix failed listings first, otherwise send an idle store to the catalog. Stores already selling
- * get none.
- */
-function NextStepAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  const { failedListings } = store.activity;
-  if (failedListings > 0) {
+/** Failed listings as a quiet link in the store's subtitle, leading to the listings to fix. */
+function FailedListingsLink({ count, storeName }: { count: number; storeName: string }) {
+  const label = count === 1 ? "1 publicação com erro" : `${count} publicações com erro`;
+  return (
+    <Link
+      to="/publicacoes"
+      search={{ status: "error" }}
+      aria-label={`${label} em ${storeName}`}
+      className="text-destructive underline-offset-4 hover:underline"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function StoreSubtitle({
+  store,
+  storeName,
+  marketplaceLabel,
+}: {
+  store: StoreWithActivity;
+  storeName: string;
+  marketplaceLabel: string;
+}) {
+  if (store.status !== "connected") {
+    const problem = `${problemMessage(store.status, store.lastError)} · sincronização pausada`;
+    // Truncated on wide screens, so the full message stays one hover away.
     return (
-      <Button asChild variant="destructive" size="sm" className="shrink-0">
-        <Link
-          to="/publicacoes"
-          search={{ status: "error" }}
-          aria-label={`${failedListings} ${failedListings === 1 ? "publicação com erro" : "publicações com erro"} em ${storeName}`}
-        >
-          <WarningCircleIcon weight="bold" aria-hidden="true" />
-          {failedListings} com erro
-        </Link>
-      </Button>
+      <p className={cn("text-sm md:truncate", PROBLEM_TONES[store.status])} title={problem}>
+        {problem}
+      </p>
     );
   }
+  const { failedListings } = store.activity;
+  return (
+    <p className="text-sm text-muted-foreground md:truncate">
+      {marketplaceLabel} · Conectada{" "}
+      <time
+        dateTime={store.connectedAt.toISOString()}
+        title={formatAbsoluteTime(store.connectedAt)}
+        suppressHydrationWarning
+      >
+        {formatRelativeTime(store.connectedAt)}
+      </time>
+      {failedListings > 0 && (
+        <>
+          {" · "}
+          <FailedListingsLink count={failedListings} storeName={storeName} />
+        </>
+      )}
+    </p>
+  );
+}
+
+/** An idle store gets one small step beside its name; stores already selling get none. */
+function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
   if (!isIdle(store)) {
     return null;
   }
   return (
-    <Button asChild variant="secondary" size="sm" className="shrink-0">
+    <Button asChild variant="outline" size="sm" className="shrink-0">
       <Link to="/catalogo" aria-label={`Publicar produtos em ${storeName}`}>
         <PackageIcon weight="bold" aria-hidden="true" />
-        Publicar
+        {/* On a phone the label would squeeze the subtitle into a column; the icon carries it. */}
+        <span className="max-md:sr-only">Publicar</span>
       </Link>
     </Button>
+  );
+}
+
+/** Figures a disconnected store can't vouch for give way to the one action that fixes it. */
+function ReconnectAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
+  return (
+    <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
+      <Button asChild variant="outline" size="sm">
+        <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
+          <PlugIcon weight="bold" aria-hidden="true" />
+          Reconectar
+        </a>
+      </Button>
+    </div>
+  );
+}
+
+function StoreFigures({ store }: { store: StoreWithActivity }) {
+  const { activity } = store;
+  return (
+    <>
+      {/* An idle store's zeros are filler, not figures: they step back behind its button. */}
+      <dl
+        className={cn(
+          "col-span-2 row-start-2 grid grid-cols-3 gap-3 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
+          isIdle(store) && "[&_dd]:font-medium [&_dd]:text-muted-foreground",
+        )}
+      >
+        <Stat label="Publicações" value={activity.liveListings.toLocaleString("pt-BR")} />
+        <Stat label="Vendas" value={activity.orders.toLocaleString("pt-BR")} />
+        <Stat label="Receita" value={compactMoney.format(activity.revenueCents / 100)} />
+      </dl>
+      <span className="sr-only">Receita exata: {formatCents(activity.revenueCents)}</span>
+    </>
   );
 }
 
@@ -252,7 +325,6 @@ function StoreRow({
   marketplaceLabel: string;
   onDisconnect: () => void;
 }) {
-  const { activity } = store;
   const name = displayStoreName(store.shopName);
   return (
     <li className="px-5 py-4">
@@ -266,31 +338,15 @@ function StoreRow({
             <h2 className="truncate font-semibold" title={store.shopName}>
               {name}
             </h2>
-            <p className="text-sm text-muted-foreground md:truncate">
-              {marketplaceLabel} · Conectada{" "}
-              <time
-                dateTime={store.connectedAt.toISOString()}
-                title={formatAbsoluteTime(store.connectedAt)}
-                suppressHydrationWarning
-              >
-                {formatRelativeTime(store.connectedAt)}
-              </time>
-            </p>
+            <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
           </div>
-          <NextStepAction store={store} storeName={name} />
+          <PublishAction store={store} storeName={name} />
         </div>
-        {/* An idle store's zeros are filler, not figures: they step back behind its button. */}
-        <dl
-          className={cn(
-            "col-span-2 row-start-2 grid grid-cols-3 gap-3 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
-            isIdle(store) && "[&_dd]:font-medium [&_dd]:text-muted-foreground",
-          )}
-        >
-          <Stat label="Publicações" value={activity.liveListings.toLocaleString("pt-BR")} />
-          <Stat label="Vendas" value={activity.orders.toLocaleString("pt-BR")} />
-          <Stat label="Receita" value={compactMoney.format(activity.revenueCents / 100)} />
-        </dl>
-        <span className="sr-only">Receita exata: {formatCents(activity.revenueCents)}</span>
+        {store.status === "connected" ? (
+          <StoreFigures store={store} />
+        ) : (
+          <ReconnectAction store={store} storeName={name} />
+        )}
         <StoreMenu
           store={store}
           storeName={name}
@@ -298,12 +354,18 @@ function StoreRow({
           onDisconnect={onDisconnect}
         />
       </div>
-      <ConnectionProblem store={store} />
     </li>
   );
 }
 
-/** Connected stores as one grouped list, with the 30-day figures lined up in columns. */
+/** Stores that sync lead the list; the ones waiting on a reconnect settle at the bottom. */
+function byConnectedFirst(stores: StoreWithActivity[]) {
+  return stores.toSorted(
+    (left, right) => Number(left.status !== "connected") - Number(right.status !== "connected"),
+  );
+}
+
+/** Stores as one grouped list, with the 30-day figures lined up in columns. */
 export function StoreList({
   stores,
   labels,
@@ -319,13 +381,13 @@ export function StoreList({
         aria-hidden="true"
         className={`hidden gap-x-4 px-5 text-footnote text-muted-foreground md:grid ${ROW_COLUMNS}`}
       >
-        <span>Conectadas · {stores.length}</span>
+        <span>Lojas · {stores.length}</span>
         <span className="text-right">Publicações</span>
         <span className="text-right">Vendas</span>
         <span className="text-right">Receita</span>
       </div>
       <GroupedList>
-        {stores.map((store) => (
+        {byConnectedFirst(stores).map((store) => (
           <StoreRow
             key={store.id}
             store={store}

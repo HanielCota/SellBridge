@@ -84,7 +84,7 @@ function NewListingPage() {
   const { product, stores } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
           <ArrowLeftIcon aria-hidden="true" />
           {product.supplierName}

@@ -69,7 +69,7 @@ function CatalogPage() {
   const { supplier } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
         <Link to="/fornecedores">
           <ArrowLeftIcon aria-hidden="true" />
           Fornecedores

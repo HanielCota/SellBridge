@@ -18,6 +18,8 @@ interface FloatingFieldProps extends NativeInputProps {
 }
 
 interface FloatingInputProps extends FloatingFieldProps {
+  /** Icon at the start of the field; the label moves over to clear it. */
+  leading?: ReactNode;
   trailing?: ReactNode;
   notice?: ReactNode;
 }
@@ -60,6 +62,7 @@ function FloatingInput({
   onValueChange,
   hint,
   invalid,
+  leading,
   trailing,
   notice,
   className,
@@ -82,14 +85,23 @@ function FloatingInput({
             "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-5 pb-1.5 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
             "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
             "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
+            leading ? "pl-11" : null,
             trailing ? "pr-12" : null,
             className,
           )}
           {...inputProps}
         />
+        {leading ? (
+          <span className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-muted-foreground transition-colors duration-150 peer-focus:text-brand-text">
+            {leading}
+          </span>
+        ) : null}
         <label
           htmlFor={id}
-          className="pointer-events-none absolute top-1/2 left-4 origin-left -translate-y-1/2 text-body text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none"
+          className={cn(
+            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
+            leading ? "left-11" : "left-4",
+          )}
         >
           {label}
         </label>
@@ -101,7 +113,9 @@ function FloatingInput({
   );
 }
 
-export function FloatingTextField(props: FloatingFieldProps) {
+export function FloatingTextField(
+  props: FloatingFieldProps & Pick<FloatingInputProps, "leading" | "trailing">,
+) {
   return <FloatingInput {...props} />;
 }
 

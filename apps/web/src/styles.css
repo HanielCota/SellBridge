@@ -576,14 +576,36 @@ body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
   --glyph-play: glyph-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 380ms both;
 }
 
+/* Onboarding: the rocket lifts off its pad and its flame flickers. */
+.glyph-lift {
+  --glyph-play: glyph-lift 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glyph-flame {
+  transform-origin: 50% 0;
+  --glyph-play: glyph-flame 600ms ease-in-out;
+}
+
+/* Sales drop: the line draws itself downhill and the arrow lands at its end. */
+.glyph-trace {
+  stroke-dasharray: 1;
+  --glyph-play: glyph-draw 500ms ease-out both;
+}
+
+.glyph-land {
+  --glyph-play: glyph-drop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) 350ms both;
+}
+
 /* Hover only where a pointer can hover: on touch, `:hover` sticks after the tap. */
 @media (hover: hover) {
-  a:hover .glyph {
+  a:hover .glyph,
+  [data-glyph-trigger]:hover .glyph {
     animation: var(--glyph-play);
   }
 }
 
-a:focus-visible .glyph {
+a:focus-visible .glyph,
+[data-glyph-trigger]:focus-within .glyph {
   animation: var(--glyph-play);
 }
 
@@ -653,6 +675,22 @@ a:focus-visible .glyph {
   }
 }
 
+@keyframes glyph-lift {
+  40% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes glyph-flame {
+  25%,
+  75% {
+    transform: scaleY(1.5);
+  }
+  50% {
+    transform: scaleY(0.8);
+  }
+}
+
 @keyframes glyph-ring {
   15% {
     transform: rotate(-8deg);
@@ -709,6 +747,9 @@ a:focus-visible .glyph {
   .glyph-draw {
     stroke-dasharray: none;
     animation: glyph-mark-fade 520ms ease-out both;
+  }
+  .glyph-trace {
+    stroke-dasharray: none;
   }
 }
 
