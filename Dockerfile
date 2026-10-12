@@ -32,6 +32,8 @@ CMD ["node", "--import", "tsx", "src/index.ts"]
 FROM web-build AS web
 ENV NODE_ENV=production
 ENV PORT=3000
+# IPv4 explícito: o healthcheck do Coolify consulta 127.0.0.1 dentro do container.
+ENV HOST=0.0.0.0
 ENV UPLOADS_DIR=/data/uploads
 RUN mkdir -p /data/uploads && chown node:node /data/uploads
 USER node
