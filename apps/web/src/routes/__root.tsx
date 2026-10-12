@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles.css?url";
 import { assetRecoveryScript } from "@/lib/asset-recovery";
+import { SITE_SHARE_META, shareMeta } from "@/lib/share-meta";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -16,11 +17,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SellBridge" },
-      {
-        name: "description",
-        content: "Conecte suas lojas, publique produtos de fornecedores e acompanhe suas vendas.",
-      },
+      ...SITE_SHARE_META,
+      ...shareMeta({
+        title: "SellBridge",
+        description:
+          "Conecte suas lojas, publique produtos de fornecedores e acompanhe suas vendas.",
+      }),
     ],
     links: [
       { rel: "stylesheet", href: appCss },

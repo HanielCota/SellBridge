@@ -16,13 +16,20 @@ import { FloatingPasswordField, FloatingTextField } from "@/components/form/floa
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
 import { cepSearchParameter } from "@/lib/cep-search-parameter";
+import { shareMeta } from "@/lib/share-meta";
 
 /** `?cep=` vem da landing page: o onboarding já abre com o CEP preenchido. */
 const signUpSearchSchema = z.object({ cep: cepSearchParameter });
 
 export const Route = createFileRoute("/_auth/cadastro")({
   validateSearch: signUpSearchSchema,
-  head: () => ({ meta: [{ title: "Criar conta | SellBridge" }] }),
+  head: () => ({
+    meta: shareMeta({
+      title: "Criar conta | SellBridge",
+      description:
+        "Crie sua conta, informe seu CEP e veja os atacadistas que entregam na sua região. Publique no Mercado Livre, Shopee e TikTok Shop.",
+    }),
+  }),
   component: SignUpPage,
 });
 
