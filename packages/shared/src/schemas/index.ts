@@ -10,3 +10,4 @@ export * from "./financials.ts";
 export * from "./support.ts";
 export * from "./admin.ts";
 export * from "./reviews.ts";
+export * from "./admin-suppliers.ts";

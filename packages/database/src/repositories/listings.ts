@@ -343,7 +343,8 @@ const liveStock =
 
 /**
  * Live listings whose stock or price differs from what was last sent to the marketplace
- * (all tenants; used by the worker sync job).
+ * (all tenants; used by the worker sync job). Never-attempted targets come first and the
+ * rest follow the oldest attempt, so targets that keep failing cannot starve the others.
  */
 export async function findTargetsNeedingSync(
   database: Database,
@@ -370,6 +371,7 @@ export async function findTargetsNeedingSync(
           or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
       ),
     )
+    .orderBy(sql`${listingTargets.syncAttemptedAt} asc nulls first`, asc(listingTargets.id))
     .limit(limit);
   return rows.flatMap((row) => (row.externalId ? [{ ...row, externalId: row.externalId }] : []));
 }
@@ -379,8 +381,27 @@ export async function markTargetSynced(
   listingTargetId: string,
   synced: { stock: number; priceCents: number },
 ): Promise<void> {
+  const now = new Date();
   await database
     .update(listingTargets)
-    .set({ syncedStock: synced.stock, syncedPriceCents: synced.priceCents, syncedAt: new Date() })
+    .set({
+      syncedStock: synced.stock,
+      syncedPriceCents: synced.priceCents,
+      syncedAt: now,
+      syncAttemptedAt: now,
+      syncError: null,
+    })
+    .where(eq(listingTargets.id, listingTargetId));
+}
+
+/** Records a failed sync attempt so the target moves to the back of the sync queue. */
+export async function markTargetSyncFailed(
+  database: Database,
+  listingTargetId: string,
+  reason: string,
+): Promise<void> {
+  await database
+    .update(listingTargets)
+    .set({ syncAttemptedAt: new Date(), syncError: reason })
     .where(eq(listingTargets.id, listingTargetId));
 }

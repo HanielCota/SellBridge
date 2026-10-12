@@ -64,6 +64,34 @@
       "when": 1791725626634,
       "tag": "0008_public_api",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791818823096,
+      "tag": "0009_listing_sync_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791818989522,
+      "tag": "0010_webhook_event_sweep",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791819217927,
+      "tag": "0011_order_item_listing_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791819252422,
+      "tag": "0012_order_item_supplier_index",
+      "breakpoints": true
     }
   ]
 }

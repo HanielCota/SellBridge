@@ -9,9 +9,12 @@ import {
 } from "../testing/fixtures.ts";
 import {
   createListingWithTargets,
+  findTargetsNeedingSync,
   listListingTargets,
   markTargetFailed,
   markTargetPublished,
+  markTargetSynced,
+  markTargetSyncFailed,
 } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -187,5 +190,48 @@ describe("listing events", () => {
       externalId: "EXT-LATE",
       errorReason: null,
     });
+  });
+});
+
+async function createPublishedTarget(title: string, externalId: string) {
+  const { targetId } = await createTarget(title);
+  await markTargetPublished(database, targetId, { externalId, externalUrl: null });
+  return targetId;
+}
+
+/** Position of each target in the global sync queue (-1 when it is not queued). */
+async function syncQueuePositions(targetIds: readonly string[]) {
+  const queue = (await findTargetsNeedingSync(database, 10_000)).map((target) => target.targetId);
+  return targetIds.map((targetId) => queue.indexOf(targetId));
+}
+
+describe("stock and price sync queue", () => {
+  it("moves a target that failed to sync behind the ones never attempted", async () => {
+    const failing = await createPublishedTarget("Anúncio apagado no marketplace", "EXT-GONE");
+    const fresh = await createPublishedTarget("Anúncio novo", "EXT-NEW");
+    await markTargetSyncFailed(database, failing, "Anúncio não encontrado");
+
+    const [failingPosition, freshPosition] = await syncQueuePositions([failing, fresh]);
+    expect(freshPosition).toBeGreaterThanOrEqual(0);
+    expect(failingPosition).toBeGreaterThan(freshPosition ?? Number.POSITIVE_INFINITY);
+  });
+
+  it("serves the oldest failed attempt first and clears the error on success", async () => {
+    const older = await createPublishedTarget("Falhou primeiro", "EXT-OLD");
+    const newer = await createPublishedTarget("Falhou depois", "EXT-NEWER");
+    await markTargetSyncFailed(database, older, "Tempo esgotado");
+    await markTargetSyncFailed(database, newer, "Tempo esgotado");
+
+    const [olderPosition, newerPosition] = await syncQueuePositions([older, newer]);
+    expect(olderPosition).toBeGreaterThanOrEqual(0);
+    expect(newerPosition).toBeGreaterThan(olderPosition ?? Number.POSITIVE_INFINITY);
+
+    await markTargetSynced(database, older, { stock: 0, priceCents: 2500 });
+    const [row] = await database
+      .select({ syncError: listingTargets.syncError, syncedAt: listingTargets.syncedAt })
+      .from(listingTargets)
+      .where(eq(listingTargets.id, older));
+    expect(row?.syncError).toBeNull();
+    expect(row?.syncedAt).not.toBeNull();
   });
 });

@@ -2,10 +2,12 @@ import type { Database } from "@sellbridge/database";
 import {
   findTargetsNeedingSync,
   markTargetSynced,
+  markTargetSyncFailed,
   type TargetNeedingSync,
 } from "@sellbridge/database/repositories";
 import type { ConnectorRegistry } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
 
@@ -21,6 +23,24 @@ export interface StockPriceSyncSummary {
   failed: number;
 }
 
+const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso";
+
+function syncFailureReason(error: unknown): string {
+  if (isAppError(error)) {
+    return error.userMessage;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function recordSyncFailure(
+  dependencies: StockPriceSyncDependencies,
+  target: TargetNeedingSync,
+  reason: string,
+): Promise<false> {
+  await markTargetSyncFailed(dependencies.database, target.targetId, reason);
+  return false;
+}
+
 async function syncOne(
   dependencies: StockPriceSyncDependencies,
   target: TargetNeedingSync,
@@ -28,7 +48,7 @@ async function syncOne(
   try {
     const credentials = resolveStoreCredentials(dependencies.cipher, target.store);
     if (!credentials) {
-      return false;
+      return await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
     }
     await dependencies.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
     await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
@@ -42,9 +62,9 @@ async function syncOne(
     });
     return true;
   } catch (error) {
-    await expireStoreOnAuthError(dependencies.database, target.store.id, error);
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
-    return false;
+    await expireStoreOnAuthError(dependencies.database, target.store.id, error);
+    return await recordSyncFailure(dependencies, target, syncFailureReason(error));
   }
 }
 

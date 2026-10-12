@@ -112,27 +112,78 @@ export async function disconnectStore(
   }
 }
 
-export async function updateStoreTokens(
-  database: Database,
-  storeConnectionId: string,
-  tokens: { accessTokenEnc: string; refreshTokenEnc: string | null; expiresAt: Date | null },
-): Promise<void> {
-  await database
-    .update(storeConnections)
-    .set({ ...tokens, status: "connected", lastError: null })
-    .where(eq(storeConnections.id, storeConnectionId));
+export interface StoreTokenRotation {
+  storeConnectionId: string;
+  /** Refresh token the new tokens were obtained with; the swap only happens if it is still saved. */
+  previousRefreshTokenEnc: string;
+  tokens: { accessTokenEnc: string; refreshTokenEnc: string | null; expiresAt: Date | null };
 }
 
+/**
+ * Compare-and-swap of the tokens of a connected store. Returns false, changing nothing, when the
+ * seller disconnected or reconnected the store meanwhile, or another run already rotated them.
+ */
+export async function updateStoreTokens(
+  database: Database,
+  rotation: StoreTokenRotation,
+): Promise<boolean> {
+  const updated = await database
+    .update(storeConnections)
+    .set({ ...rotation.tokens, lastError: null })
+    .where(
+      and(
+        eq(storeConnections.id, rotation.storeConnectionId),
+        eq(storeConnections.status, "connected"),
+        eq(storeConnections.refreshTokenEnc, rotation.previousRefreshTokenEnc),
+      ),
+    )
+    .returning({ id: storeConnections.id });
+  return updated.length > 0;
+}
+
+export interface StoreStatusChange {
+  storeConnectionId: string;
+  status: Exclude<StoreStatus, "connected" | "disconnected">;
+  lastError: string;
+  /** When given, the change only applies while this refresh token is still the saved one. */
+  refreshTokenEnc?: string;
+}
+
+/**
+ * Marks a connected store as failed (the seller has to act). A store the seller disconnected stays
+ * disconnected. Returns whether the store changed.
+ */
 export async function markStoreStatus(
   database: Database,
+  change: StoreStatusChange,
+): Promise<boolean> {
+  const conditions = [
+    eq(storeConnections.id, change.storeConnectionId),
+    eq(storeConnections.status, "connected"),
+  ];
+  if (change.refreshTokenEnc !== undefined) {
+    conditions.push(eq(storeConnections.refreshTokenEnc, change.refreshTokenEnc));
+  }
+  const updated = await database
+    .update(storeConnections)
+    .set({ status: change.status, lastError: change.lastError })
+    .where(and(...conditions))
+    .returning({ id: storeConnections.id });
+  return updated.length > 0;
+}
+
+/** Keeps a connected store usable but shows why the last background call failed. */
+export async function recordStoreError(
+  database: Database,
   storeConnectionId: string,
-  status: Exclude<StoreStatus, "connected">,
   lastError: string,
 ): Promise<void> {
   await database
     .update(storeConnections)
-    .set({ status, lastError })
-    .where(eq(storeConnections.id, storeConnectionId));
+    .set({ lastError })
+    .where(
+      and(eq(storeConnections.id, storeConnectionId), eq(storeConnections.status, "connected")),
+    );
 }
 
 /** Connected stores whose access token expires before `threshold` (worker job, all tenants). */

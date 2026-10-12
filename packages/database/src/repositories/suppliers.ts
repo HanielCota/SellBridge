@@ -181,6 +181,11 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
     eq(supplierProducts.supplierId, supplierId),
     eq(supplierProducts.active, true),
   ];
+  conditions.push(
+    exists(
+      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true))})`,
+    ),
+  );
   if (filters.search) {
     const searchCondition = matchesEveryWord(filters.search, [
       supplierProducts.title,
@@ -252,7 +257,14 @@ export async function listSupplierCategories(
     .selectDistinct({ name: categories.name, slug: categories.slug })
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
-    .where(and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.active, true)))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(
+      and(
+        eq(supplierProducts.supplierId, supplierId),
+        eq(supplierProducts.active, true),
+        eq(suppliers.active, true),
+      ),
+    )
     .orderBy(asc(categories.name));
 }
 

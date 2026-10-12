@@ -28,6 +28,7 @@ import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
 import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
@@ -49,6 +50,8 @@ import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/c
 import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
 import { Route as AppAdminClientesIndexRouteImport } from './routes/_app/admin/clientes/index'
 import { Route as AppAdminClientesUserIdRouteImport } from './routes/_app/admin/clientes/$userId'
+import { Route as AppAdminFornecedoresIndexRouteImport } from './routes/_app/admin/fornecedores/index'
+import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_app/admin/fornecedores/$supplierId'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiSuporteAnexosAttachmentIdRouteImport } from './routes/api/suporte/anexos/$attachmentId'
@@ -160,6 +163,11 @@ const AuthRedefinirSenhaRoute = AuthRedefinirSenhaRouteImport.update({
   path: '/redefinir-senha',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -267,6 +275,18 @@ const AppAdminClientesUserIdRoute = AppAdminClientesUserIdRouteImport.update({
   path: '/clientes/$userId',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
+const AppAdminFornecedoresIndexRoute =
+  AppAdminFornecedoresIndexRouteImport.update({
+    id: '/fornecedores/',
+    path: '/fornecedores/',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
+const AppAdminFornecedoresSupplierIdRoute =
+  AppAdminFornecedoresSupplierIdRouteImport.update({
+    id: '/fornecedores/$supplierId',
+    path: '/fornecedores/$supplierId',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const ApiOauthMarketplaceCallbackRoute =
   ApiOauthMarketplaceCallbackRouteImport.update({
     id: '/api/oauth/$marketplace/callback',
@@ -382,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
@@ -401,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/suporte/': typeof AppSuporteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
@@ -409,6 +431,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/admin/clientes/': typeof AppAdminClientesIndexRoute
+  '/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
@@ -438,6 +461,7 @@ export interface FileRoutesByTo {
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
@@ -457,6 +481,7 @@ export interface FileRoutesByTo {
   '/suporte': typeof AppSuporteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
@@ -465,6 +490,7 @@ export interface FileRoutesByTo {
   '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/admin/chamados': typeof AppAdminChamadosIndexRoute
   '/admin/clientes': typeof AppAdminClientesIndexRoute
+  '/admin/fornecedores': typeof AppAdminFornecedoresIndexRoute
   '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders': typeof ApiV1OrdersIndexRoute
@@ -498,6 +524,7 @@ export interface FileRoutesById {
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
+  '/api/health': typeof ApiHealthRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
@@ -517,6 +544,7 @@ export interface FileRoutesById {
   '/_app/suporte/': typeof AppSuporteIndexRoute
   '/_app/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
+  '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/suporte/anexos/$attachmentId': typeof ApiSuporteAnexosAttachmentIdRoute
@@ -525,6 +553,7 @@ export interface FileRoutesById {
   '/api/v1/orders/$orderId': typeof ApiV1OrdersOrderIdRoute
   '/_app/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
+  '/_app/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
@@ -557,6 +586,7 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
+    | '/api/health'
     | '/fornecedores/$supplierId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
@@ -576,6 +606,7 @@ export interface FileRouteTypes {
     | '/suporte/'
     | '/admin/chamados/$ticketId'
     | '/admin/clientes/$userId'
+    | '/admin/fornecedores/$supplierId'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
@@ -584,6 +615,7 @@ export interface FileRouteTypes {
     | '/api/v1/orders/$orderId'
     | '/admin/chamados/'
     | '/admin/clientes/'
+    | '/admin/fornecedores/'
     | '/api/suporte/chamados/'
     | '/api/v1/listings/'
     | '/api/v1/orders/'
@@ -613,6 +645,7 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
+    | '/api/health'
     | '/fornecedores/$supplierId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
@@ -632,6 +665,7 @@ export interface FileRouteTypes {
     | '/suporte'
     | '/admin/chamados/$ticketId'
     | '/admin/clientes/$userId'
+    | '/admin/fornecedores/$supplierId'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
@@ -640,6 +674,7 @@ export interface FileRouteTypes {
     | '/api/v1/orders/$orderId'
     | '/admin/chamados'
     | '/admin/clientes'
+    | '/admin/fornecedores'
     | '/api/suporte/chamados'
     | '/api/v1/listings'
     | '/api/v1/orders'
@@ -672,6 +707,7 @@ export interface FileRouteTypes {
     | '/_auth/esqueci-senha'
     | '/_auth/login'
     | '/_auth/redefinir-senha'
+    | '/api/health'
     | '/_app/fornecedores/$supplierId'
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
@@ -691,6 +727,7 @@ export interface FileRouteTypes {
     | '/_app/suporte/'
     | '/_app/admin/chamados/$ticketId'
     | '/_app/admin/clientes/$userId'
+    | '/_app/admin/fornecedores/$supplierId'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/suporte/anexos/$attachmentId'
@@ -699,6 +736,7 @@ export interface FileRouteTypes {
     | '/api/v1/orders/$orderId'
     | '/_app/admin/chamados/'
     | '/_app/admin/clientes/'
+    | '/_app/admin/fornecedores/'
     | '/api/suporte/chamados/'
     | '/api/v1/listings/'
     | '/api/v1/orders/'
@@ -718,6 +756,7 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
@@ -881,6 +920,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRedefinirSenhaRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/fornecedores/': {
       id: '/_app/fornecedores/'
       path: '/'
@@ -1028,6 +1074,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminClientesUserIdRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/admin/fornecedores/': {
+      id: '/_app/admin/fornecedores/'
+      path: '/fornecedores'
+      fullPath: '/admin/fornecedores/'
+      preLoaderRoute: typeof AppAdminFornecedoresIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/$supplierId': {
+      id: '/_app/admin/fornecedores/$supplierId'
+      path: '/fornecedores/$supplierId'
+      fullPath: '/admin/fornecedores/$supplierId'
+      preLoaderRoute: typeof AppAdminFornecedoresSupplierIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/api/oauth/$marketplace/callback': {
       id: '/api/oauth/$marketplace/callback'
       path: '/api/oauth/$marketplace/callback'
@@ -1153,15 +1213,19 @@ declare module '@tanstack/react-router' {
 interface AppAdminRouteRouteChildren {
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
   AppAdminClientesUserIdRoute: typeof AppAdminClientesUserIdRoute
+  AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
   AppAdminChamadosIndexRoute: typeof AppAdminChamadosIndexRoute
   AppAdminClientesIndexRoute: typeof AppAdminClientesIndexRoute
+  AppAdminFornecedoresIndexRoute: typeof AppAdminFornecedoresIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,
   AppAdminClientesUserIdRoute: AppAdminClientesUserIdRoute,
+  AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
   AppAdminChamadosIndexRoute: AppAdminChamadosIndexRoute,
   AppAdminClientesIndexRoute: AppAdminClientesIndexRoute,
+  AppAdminFornecedoresIndexRoute: AppAdminFornecedoresIndexRoute,
 }
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
@@ -1257,6 +1321,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,
@@ -1293,10 +1358,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

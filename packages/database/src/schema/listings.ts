@@ -50,6 +50,10 @@ export const listingTargets = pgTable(
     syncedStock: integer(),
     syncedPriceCents: integer(),
     syncedAt: timestamp({ withTimezone: true }),
+    /** Last sync attempt (success or failure); failing targets rotate to the back of the queue. */
+    syncAttemptedAt: timestamp({ withTimezone: true }),
+    /** Error of the last failed sync attempt, cleared on success. */
+    syncError: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()

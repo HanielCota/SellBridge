@@ -119,6 +119,7 @@ function unitsSoldInWindow(salesWindow: SalesWindow): SQL<number> {
     from ${orderItems}
     inner join ${orders} on ${orders.id} = ${orderItems.orderId}
     inner join ${listingTargets} on ${listingTargets.id} = ${orderItems.listingTargetId}
+      and ${listingTargets.tenantId} = ${orderItems.tenantId}
     where ${listingTargets.listingId} = ${listings.id}
       and ${orderedWithin(salesWindow)}
       and ${isCountedOrder(orders.status)}
@@ -214,7 +215,13 @@ async function selectDailySales(database: Database, ids: string[], salesWindow: 
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))
-    .innerJoin(listingTargets, eq(listingTargets.id, orderItems.listingTargetId))
+    .innerJoin(
+      listingTargets,
+      and(
+        eq(listingTargets.id, orderItems.listingTargetId),
+        eq(listingTargets.tenantId, orderItems.tenantId),
+      ),
+    )
     .where(
       and(
         inArray(listingTargets.listingId, ids),

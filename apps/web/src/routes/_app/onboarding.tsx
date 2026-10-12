@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { getRegionOverview, updateTenantRegion } from "@/features/region/region.functions";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
+import { cepSearchParameter } from "@/lib/cep-search-parameter";
 import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
   redirect: optionalParameter(z.string().startsWith("/")),
+  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
+  cep: cepSearchParameter,
 });
 
 const cepFormSchema = z.object({
@@ -86,6 +89,13 @@ function OnboardingPage() {
   );
 }
 
+function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
+  if (region) {
+    return formatCep(region.cep);
+  }
+  return fromLanding ? formatCep(fromLanding) : "";
+}
+
 function useRegionForm(region: TenantRegion) {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -94,7 +104,7 @@ function useRegionForm(region: TenantRegion) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
-    defaultValues: { cep: region ? formatCep(region.cep) : "" },
+    defaultValues: { cep: initialCep(region, search.cep) },
     validators: { onSubmit: cepFormSchema },
     onSubmit: async ({ value }) => {
       setSubmitError(null);

@@ -1,0 +1,1 @@
+CREATE INDEX "order_items_listing_target_idx" ON "order_items" USING btree ("listing_target_id");
