@@ -164,3 +164,37 @@ Integradores (ERPs, planilhas, sistemas próprios) passam a acessar os dados da 
 - **Eventos por outbox transacional.** O evento é gravado em `api_events`, com uma linha em `webhook_deliveries` por endpoint inscrito, na mesma transação da mudança (pedido, publicação): nunca há evento de algo que não aconteceu nem mudança sem evento. O worker varre as entregas pendentes e as envia (assinatura HMAC-SHA256 no cabeçalho `SellBridge-Signature`, com timestamp e tolerância de 5 minutos), com retentativas e backoff; `GET /events` serve de alternativa e de rede de segurança.
 - **Erros em `application/problem+json`** (RFC 9457) com um `code` estável, `requestId` e `issues` por campo. Os textos para pessoas ficam em português, como no resto do produto.
 - Versionamento pelo caminho: a v1 só recebe mudanças compatíveis (campos, parâmetros opcionais, eventos e códigos novos); qualquer quebra vira `/api/v2`.
+
+## 2026-10-12: Central de suporte (cargos, filas e prazos)
+
+O suporte sai do "todo admin vê tudo" para uma central com cargos, filas e prazos.
+
+**Cargos.** `user.role` ganha `agent` (atendente) e `supervisor` além de `user` e `admin`, registrados no plugin admin do Better Auth com controle de acesso (`lib/auth-roles.ts`).
+
+- Só `admin` recebe os poderes do plugin (banir, entrar como cliente, mudar cargo).
+- O que cada cargo pode no suporte fica em `@sellbridge/shared/staff-access` e é checado no servidor pelo `staffMiddleware(permissão)`:
+  - atendente responde e faz triagem;
+  - supervisor também passa chamados de outras pessoas e vê métricas;
+  - admin também gerencia clientes.
+- O "modo administrador" vale para toda a equipe, e o menu mostra só o que o cargo pode usar. `PENDENTE CLIENTE (D11)`: matriz inicial assumida; ajustar quando o cliente definir as equipes.
+
+**Prazo de resposta.** O relógio é `tickets.awaiting_since`:
+
+- começa na primeira mensagem do revendedor sem resposta;
+- para em qualquer resposta pública do suporte, inclusive "encaminhado ao fornecedor", que mantém o chamado aberto;
+- volta a correr na reabertura.
+
+O prazo é `awaiting_since` mais as horas da prioridade: urgente 2, alta 8, normal 24, baixa 48 (`RESPONSE_TARGET_HOURS`). São horas corridas; horário comercial e SLA por plano ficam para quando houver planos.
+
+**Responsável.** A primeira resposta pública de quem não tinha o chamado o atribui a essa pessoa. Atendentes só assumem um chamado sem dono ou devolvem o próprio.
+
+**Leitura.** `ticket_reads` guarda até quando cada pessoa leu a conversa. O "não lido" do revendedor considera respostas públicas do suporte; o da equipe, mensagens do revendedor. O aviso de resposta no sino passou a usar isso em vez do status `answered`, que não avisava respostas enviadas com outro status.
+
+**Histórico.** `ticket_events` registra mudanças de status, responsável, prioridade, tema e a avaliação. `actor_id` nulo significa automático. O id é sequencial para manter a ordem de mudanças feitas no mesmo instante.
+
+**Encerramento.**
+
+- O revendedor pode encerrar e avaliar de 1 a 5, uma vez por encerramento (reabrir zera a nota).
+- O job `ticket-auto-close` (worker, de hora em hora) encerra chamados respondidos e sem retorno há 7 dias (`AUTO_CLOSE_AFTER_DAYS`).
+
+**E-mail.** Cada resposta pública dispara um e-mail ao revendedor com o link do chamado, sem copiar o texto da resposta. Uma falha no envio não derruba a resposta.
