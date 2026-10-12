@@ -35,10 +35,11 @@ ENV PORT=3000
 # IPv4 explícito: o healthcheck do Coolify consulta 127.0.0.1 dentro do container.
 ENV HOST=0.0.0.0
 ENV UPLOADS_DIR=/data/uploads
+ENV WEB_ASSETS_DIR=/data/uploads/.web-assets
 RUN mkdir -p /data/uploads && chown node:node /data/uploads
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1
 # Migrations antes de subir: o deploy falha (e o Coolify mantém a versão anterior) se uma delas falhar.
-CMD ["sh", "-c", "cd /app/packages/database && node --import tsx src/migrate.ts && cd /app/apps/web && exec node_modules/.bin/srvx serve --prod --entry ./dist/server/server.js --static ../client"]
+CMD ["sh", "-c", "cd /app/packages/database && node --import tsx src/migrate.ts && cd /app/apps/web && exec node --import tsx server.ts"]
