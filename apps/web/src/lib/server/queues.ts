@@ -50,3 +50,19 @@ function getWebhookQueue(): Queue {
 export async function enqueueWebhookEvent(webhookEventId: string): Promise<void> {
   await enqueueWebhookEventJob(getWebhookQueue(), webhookEventId);
 }
+
+let stockPriceSyncQueue: Queue | null = null;
+
+/** A fresh job avoids losing an update while an earlier sync job is already active. */
+export async function enqueueStockPriceSync(): Promise<void> {
+  stockPriceSyncQueue ??= new Queue(QUEUE_NAMES.stockPriceSync, {
+    connection: { url: environment.REDIS_URL },
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 1000,
+    },
+  });
+  await stockPriceSyncQueue.add("sync-stock-and-price", {});
+}
