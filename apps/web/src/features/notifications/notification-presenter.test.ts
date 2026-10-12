@@ -12,12 +12,33 @@ describe("presentNotification", () => {
       externalOrderId: "MOCK ORD/1",
       totalCents: 4990,
       storeName: "Ana Moda (loja simulada)",
+      product: null,
     });
     expect(notification).toMatchObject({ id: "sale:order-1", kind: "sale", at });
     // Currency formatting puts a no-break space after "R$".
     expect(notification.title).toMatch(/^Nova venda de R\$\s49,90$/);
     expect(notification.detail).toBe("MOCK ORD/1 · Ana Moda");
     expect(notification.href).toBe("/financeiro?query=MOCK%20ORD%2F1");
+  });
+
+  it("names a sale by what it sold and keeps the picture for the bell", () => {
+    const product = {
+      title: "Moletom canguru - Rosa",
+      imageUrl: null,
+      categoryName: "Moda feminina",
+    };
+    const notification = presentNotification({
+      kind: "sale",
+      entityId: "order-2",
+      at,
+      externalOrderId: "MOCK-2",
+      totalCents: 12590,
+      storeName: "Ana Moda (loja simulada)",
+      product,
+    });
+    expect(notification.detail).toBe("Moletom canguru - Rosa · Ana Moda");
+    expect(notification.href).toBe("/financeiro?query=MOCK-2");
+    expect(notification.product).toEqual(product);
   });
 
   it("explains a refused publication, falling back when there is no reason", () => {

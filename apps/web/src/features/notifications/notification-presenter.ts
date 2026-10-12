@@ -1,4 +1,8 @@
-import type { NotificationEvent, NotificationKind } from "@sellbridge/database/repositories";
+import type {
+  NotificationEvent,
+  NotificationKind,
+  SaleProduct,
+} from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { displayStoreName } from "@/features/stores/store-name";
 import type { NotificationFeed } from "./notification-feed";
@@ -15,6 +19,8 @@ export interface AppNotification {
   at: Date;
   /** Where the notification leads. */
   href: string;
+  /** What a sale sold, shown as its picture; only sales carry it. */
+  product?: SaleProduct | null;
 }
 
 export interface PresentedNotifications {
@@ -33,8 +39,10 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         ...base,
         id: `sale:${event.entityId}`,
         title: `Nova venda de ${formatCents(event.totalCents)}`,
-        detail: `${event.externalOrderId} · ${displayStoreName(event.storeName)}`,
+        // The product says more than the order code; the code is still one click away.
+        detail: `${event.product?.title ?? event.externalOrderId} · ${displayStoreName(event.storeName)}`,
         href: `/financeiro?query=${encodeURIComponent(event.externalOrderId)}`,
+        product: event.product,
       };
     case "listing_error":
       return {
