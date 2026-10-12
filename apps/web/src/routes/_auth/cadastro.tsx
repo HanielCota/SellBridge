@@ -1,13 +1,16 @@
+import { normalizeCep } from "@sellbridge/shared/cep";
 import {
   emailSchema,
   MIN_PASSWORD_LENGTH,
   nameSchema,
   newPasswordSchema,
+  optionalParameter,
   signUpSchema,
 } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import { AuthPageHeader, AuthSubmitButton } from "@/components/auth/auth-page";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
@@ -15,7 +18,27 @@ import { FloatingPasswordField, FloatingTextField } from "@/components/form/floa
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
 
+/**
+ * `?cep=` vem da landing page: a pessoa digita o CEP lá e o onboarding já abre com ele preenchido.
+ * CEP inválido é ignorado em silêncio, como os outros parâmetros de busca.
+ */
+const signUpSearchSchema = z.object({
+  // O router lê "?cep=30130010" como número, por isso aceita os dois.
+  cep: optionalParameter(
+    z.union([z.string(), z.number()]).transform((input, context) => {
+      const value = typeof input === "number" ? String(input).padStart(8, "0") : input;
+      const cep = normalizeCep(value);
+      if (cep === null) {
+        context.addIssue({ code: "custom", message: "CEP inválido" });
+        return z.NEVER;
+      }
+      return cep;
+    }),
+  ),
+});
+
 export const Route = createFileRoute("/_auth/cadastro")({
+  validateSearch: signUpSearchSchema,
   head: () => ({ meta: [{ title: "Criar conta | SellBridge" }] }),
   component: SignUpPage,
 });
@@ -39,6 +62,7 @@ function signUpErrorMessage(code: string | undefined): string {
 
 function useSignUpForm() {
   const navigate = useNavigate();
+  const { cep } = Route.useSearch();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
@@ -51,7 +75,7 @@ function useSignUpForm() {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
-      await navigate({ to: "/onboarding" });
+      await navigate({ to: "/onboarding", search: cep ? { cep } : {} });
     },
   });
 
@@ -142,6 +166,7 @@ function TermsConsent() {
 
 function SignUpPage() {
   const signInOptions = authLayoutRoute.useLoaderData();
+  const { cep } = Route.useSearch();
   return (
     <div className="space-y-8">
       <AuthPageHeader
@@ -149,7 +174,9 @@ function SignUpPage() {
         description="Conecte suas lojas e publique produtos de fornecedores da sua região."
       />
       <div className="grid gap-5">
-        {signInOptions.google ? <GoogleSignIn callbackURL="/dashboard" /> : null}
+        {signInOptions.google ? (
+          <GoogleSignIn callbackURL={cep ? `/onboarding?cep=${cep}` : "/dashboard"} />
+        ) : null}
         <SignUpForm />
         <TermsConsent />
       </div>
