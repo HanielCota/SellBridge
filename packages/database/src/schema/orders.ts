@@ -51,7 +51,11 @@ export const orderItems = pgTable(
     unitPriceCents: integer().notNull(),
     unitCostCents: integer().notNull(),
   },
-  (table) => [index("order_items_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_items_order_idx").on(table.orderId),
+    /** Units sold per listing ("mais vendidos", daily sales). */
+    index("order_items_listing_target_idx").on(table.listingTargetId),
+  ],
 );
 
 export const orderAdjustments = pgTable(
