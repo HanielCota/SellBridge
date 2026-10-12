@@ -1,4 +1,5 @@
 import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
+import { serverErrorLogging } from "@/lib/server/error-logging";
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
@@ -46,6 +47,7 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
 });
 
 export const startInstance = createStart(() => ({
+  functionMiddleware: [serverErrorLogging],
   requestMiddleware: [
     createCsrfMiddleware({ filter: (context) => context.handlerType === "serverFn" }),
     securityHeadersMiddleware,
