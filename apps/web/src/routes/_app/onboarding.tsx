@@ -17,6 +17,14 @@ import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
   redirect: optionalParameter(z.string().startsWith("/")),
+  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
+  // O router lê "?cep=30130010" como número, por isso aceita os dois.
+  cep: optionalParameter(
+    z
+      .union([z.string(), z.number()])
+      .transform((value) => (typeof value === "number" ? String(value).padStart(8, "0") : value))
+      .pipe(z.string().regex(/^\d{8}$/)),
+  ),
 });
 
 const cepFormSchema = z.object({
@@ -86,6 +94,13 @@ function OnboardingPage() {
   );
 }
 
+function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
+  if (region) {
+    return formatCep(region.cep);
+  }
+  return fromLanding ? formatCep(fromLanding) : "";
+}
+
 function useRegionForm(region: TenantRegion) {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -94,7 +109,7 @@ function useRegionForm(region: TenantRegion) {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
-    defaultValues: { cep: region ? formatCep(region.cep) : "" },
+    defaultValues: { cep: initialCep(region, search.cep) },
     validators: { onSubmit: cepFormSchema },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
