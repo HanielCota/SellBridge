@@ -12,6 +12,11 @@ const base64Key32 = z.string().refine((value) => Buffer.from(value, "base64").le
 });
 
 const serverEnvironmentShape = z.object({
+  STRIPE_PORTAL_CONFIGURATION_ID: z.string().startsWith("bpc_").optional(),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
+  STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),

@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
 import type { Database } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
+import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
 
 export interface IncomingOrder {
@@ -193,7 +194,8 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     )
     .for("update");
   if (existing) {
-    return updateExistingOrder(write, existing);
+    const status = await reconciledOrderStatus(write.transaction, existing.id, write.order.status);
+    return updateExistingOrder({ ...write, order: { ...write.order, status } }, existing);
   }
   return createOrder(write);
 }

@@ -47,10 +47,12 @@ function fakeApi(routes: Record<string, Responder>) {
       authorization: headers.get("authorization"),
     };
     calls.push(request);
-    const key = Object.keys(routes).find((route) => {
-      const [method, path] = route.split(" ");
-      return method === request.method && path !== undefined && url.startsWith(path);
-    });
+    const key = Object.keys(routes)
+      .toSorted((left, right) => right.length - left.length)
+      .find((route) => {
+        const [method, path] = route.split(" ");
+        return method === request.method && path !== undefined && url.startsWith(path);
+      });
     const responder = key ? routes[key] : undefined;
     if (!responder) {
       return json(404, { message: `rota não mapeada ${request.method} ${url}` });
@@ -64,7 +66,12 @@ const API = "https://api.mercadolibre.com";
 const fixedNow = new Date("2026-01-01T00:00:00Z");
 
 function connector(routes: Record<string, Responder>) {
-  const api = fakeApi(routes);
+  const api = fakeApi({
+    [`GET ${API}/users/999/items/search`]: () => json(200, { results: [], paging: { total: 0 } }),
+    [`GET ${API}/users/999`]: () => json(200, { tags: [] }),
+    [`GET ${API}/categories/`]: () => json(200, []),
+    ...routes,
+  });
   return {
     ...api,
     ml: createMercadoLivreConnector({
@@ -183,6 +190,7 @@ describe("publishing", () => {
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created).toMatchObject({
       category_id: "MLB31447",
+      seller_custom_field: product.idempotencyKey,
       price: 49.9,
       currency_id: "BRL",
       available_quantity: 12,
@@ -347,5 +355,268 @@ describe("notifications", () => {
   it("still processes stored events with the legacy orders topic", () => {
     const { ml } = connector({});
     expect(ml.parseStoredOrderEvent("orders", notification)).toMatchObject({ kind: "order" });
+  });
+});
+
+const publishRoutes: Record<string, Responder> = {
+  [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+  [`POST ${API}/items`]: () => json(201, { id: "MLB1" }),
+  [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+};
+
+function publicationGuard(reconcileOnly = false) {
+  return {
+    reconcileOnly,
+    beforeCreate: vi.fn<() => Promise<void>>(async () => {}),
+    creationRejected: vi.fn<() => Promise<void>>(async () => {}),
+  };
+}
+
+describe("Mercado Livre category requirements", () => {
+  it("sends real category attributes, preserving the product SKU", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () =>
+        json(200, [
+          { id: "BRAND", name: "Marca", tags: { required: true } },
+          { id: "MODEL", name: "Modelo", tags: { new_required: true } },
+        ]),
+    });
+    await ml.publishProduct(store, {
+      ...product,
+      mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1", SELLER_SKU: "override" },
+    });
+    expect(
+      JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}").attributes,
+    ).toEqual([
+      { id: "BRAND", value_name: "Acme" },
+      { id: "MODEL", value_name: "A1" },
+      { id: "SELLER_SKU", value_name: product.sku },
+    ]);
+  });
+
+  it("reports missing required and new_required attributes before creating", async () => {
+    const guard = publicationGuard();
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () =>
+        json(200, [
+          { id: "BRAND", name: "Marca", tags: { required: true } },
+          { id: "MODEL", name: "Modelo", tags: { new_required: true } },
+        ]),
+    });
+    await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringContaining("Marca (BRAND), Modelo (MODEL)"),
+    });
+    expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(false);
+    expect(guard.beforeCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([{ required: [] }, { required: [{ id: "GTIN", name: "Código universal" }] }])(
+    "checks conditional exceptions: %j",
+    async ({ required }) => {
+      const { ml, calls } = connector({
+        ...publishRoutes,
+        [`GET ${API}/categories/MLB1/attributes`]: () =>
+          json(200, [
+            { id: "GTIN", name: "Código universal", tags: { conditional_required: true } },
+          ]),
+        [`POST ${API}/categories/MLB1/attributes/conditional`]: () =>
+          json(200, { required_attributes: required }),
+      });
+      const publication = ml.publishProduct(store, product);
+      let outcome: { id?: string; error?: string };
+      try {
+        outcome = { id: (await publication).externalId };
+      } catch (error) {
+        outcome = { error: String(error) };
+      }
+      expect(outcome.error?.includes("GTIN") ?? false).toBe(required.length > 0);
+      expect(outcome.id).toBe(required.length ? undefined : "MLB1");
+      const validation = calls.find((call) => call.url.endsWith("/attributes/conditional"));
+      expect(JSON.parse(validation?.body ?? "{}")).toMatchObject({
+        category_id: "MLB1",
+        price: 49.9,
+        attributes: [{ id: "SELLER_SKU", value_name: product.sku }],
+      });
+    },
+  );
+
+  it("blocks publication when category metadata is unavailable", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/categories/MLB1/attributes`]: () => json(500, {}),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: { retryable: true },
+    });
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+  });
+});
+
+describe("User Products", () => {
+  it("detects the seller tag and sends family_name without title or variations", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      [`GET ${API}/users/999`]: () => json(200, { tags: ["user_product_seller"] }),
+    });
+    await ml.publishProduct(store, product);
+    const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
+    expect(created.family_name).toBe(product.title.slice(0, 60));
+    expect(created).not.toHaveProperty("title");
+    expect(created).not.toHaveProperty("variations");
+  });
+});
+
+const remoteItem = {
+  id: "MLB1",
+  seller_id: 999,
+  seller_custom_field: product.idempotencyKey,
+  status: "active",
+  permalink: "https://produto/MLB1",
+};
+const recoveryRoutes: Record<string, Responder> = {
+  [`GET ${API}/users/999/items/search`]: () =>
+    json(200, { results: ["MLB1"], paging: { total: 1 } }),
+  [`GET ${API}/items/MLB1`]: () => json(200, remoteItem),
+  [`PUT ${API}/items/MLB1`]: () => json(200, {}),
+  [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+};
+
+describe("publication recovery", () => {
+  it("recovers the exact target and syncs price and stock without creating again", async () => {
+    const guard = publicationGuard(true);
+    const { ml, calls } = connector(recoveryRoutes);
+    await expect(ml.publishProduct(store, product, guard)).resolves.toEqual({
+      externalId: "MLB1",
+      externalUrl: remoteItem.permalink,
+    });
+    expect(
+      calls.filter((call) => call.method === "GET" && call.url.includes("/items/search")),
+    ).toHaveLength(2);
+    expect(
+      calls.some((call) => new URL(call.url).searchParams.get("seller_sku") === product.sku),
+    ).toBe(true);
+    expect(
+      calls.some((call) => new URL(call.url).searchParams.get("sku") === product.idempotencyKey),
+    ).toBe(true);
+    expect(calls.find((call) => call.method === "PUT")?.body).toBe(
+      JSON.stringify({ price: 49.9, available_quantity: 12 }),
+    );
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+    expect(guard.beforeCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not adopt a different SellBridge target with the same product SKU", async () => {
+    const { ml, calls } = connector({
+      ...publishRoutes,
+      ...recoveryRoutes,
+      [`GET ${API}/items/MLB1`]: () =>
+        json(200, { ...remoteItem, seller_custom_field: "another-target" }),
+    });
+    await ml.publishProduct(store, product);
+    expect(calls.some((call) => call.method === "POST" && call.url === `${API}/items`)).toBe(true);
+  });
+
+  it.each([{ seller_id: 123 }, { seller_custom_field: null }, { status: "closed" }])(
+    "refuses unsafe recovery: %j",
+    async (overrides) => {
+      const { ml, calls } = connector({
+        ...recoveryRoutes,
+        [`GET ${API}/items/MLB1`]: () => json(200, { ...remoteItem, ...overrides }),
+      });
+      await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+        details: { retryable: false },
+      });
+      expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+    },
+  );
+
+  it("refuses multiple exact matches", async () => {
+    const { ml } = connector({
+      ...recoveryRoutes,
+      [`GET ${API}/users/999/items/search`]: () =>
+        json(200, { results: ["MLB1", "MLB2"], paging: { total: 2 } }),
+      [`GET ${API}/items/MLB2`]: () => json(200, { ...remoteItem, id: "MLB2" }),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      message: expect.stringContaining("duplicados"),
+    });
+  });
+
+  it("blocks incomplete search results instead of risking duplicates", async () => {
+    const { ml } = connector({
+      [`GET ${API}/users/999/items/search`]: () =>
+        json(200, { results: [], paging: { total: 51 } }),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: { retryable: false },
+    });
+  });
+
+  it("does not create after an uncertain attempt even if search returns no results", async () => {
+    const { ml, calls } = connector(publishRoutes);
+    await expect(ml.publishProduct(store, product, publicationGuard(true))).rejects.toMatchObject({
+      message: expect.stringContaining("criação anterior"),
+    });
+    expect(calls.every((call) => call.method === "GET")).toBe(true);
+  });
+
+  it.each([400, 401, 429, 500])(
+    "clears the guard only for definitive refusal: HTTP %i",
+    async (status) => {
+      const guard = publicationGuard();
+      const { ml, calls } = connector({
+        ...publishRoutes,
+        [`POST ${API}/items`]: () => json(status, {}),
+      });
+      await expect(ml.publishProduct(store, product, guard)).rejects.toBeDefined();
+      expect(guard.beforeCreate).toHaveBeenCalledOnce();
+      expect(guard.creationRejected).toHaveBeenCalledTimes(status === 500 ? 0 : 1);
+      expect(calls.filter((call) => call.url === `${API}/items`)).toHaveLength(
+        status === 429 ? 4 : 1,
+      );
+    },
+  );
+
+  it("retains the guard for network failures and malformed creation responses", async () => {
+    for (const responder of [
+      () => {
+        throw new TypeError("connection lost");
+      },
+      () => json(201, {}),
+    ]) {
+      const guard = publicationGuard();
+      const { ml } = connector({ ...publishRoutes, [`POST ${API}/items`]: responder });
+      await expect(ml.publishProduct(store, product, guard)).rejects.toBeDefined();
+      expect(guard.beforeCreate).toHaveBeenCalledOnce();
+      expect(guard.creationRejected).not.toHaveBeenCalled();
+    }
+  });
+
+  it("never posts if saving the durable guard fails", async () => {
+    const guard = publicationGuard();
+    guard.beforeCreate.mockRejectedValueOnce(new Error("database offline"));
+    const { ml, calls } = connector(publishRoutes);
+    await expect(ml.publishProduct(store, product, guard)).rejects.toThrow("database offline");
+    expect(calls.some((call) => call.url === `${API}/items`)).toBe(false);
+  });
+});
+
+describe("per-unit sale fees", () => {
+  it("adds fees across lines, handles null fees and rounds each unit to cents", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () =>
+        json(200, {
+          ...rawOrder,
+          order_items: [
+            { ...rawOrder.order_items[0], quantity: 3, sale_fee: 6.01 },
+            { ...rawOrder.order_items[0], quantity: 2, sale_fee: 2.33 },
+            { ...rawOrder.order_items[0], quantity: 4, sale_fee: null },
+          ],
+        }),
+    });
+    expect((await ml.fetchOrder(store, "/orders/1")).marketplaceFeeCents).toBe(2269);
   });
 });

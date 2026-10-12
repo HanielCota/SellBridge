@@ -1,3 +1,4 @@
+import { assertBillingCapacity } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
@@ -11,6 +12,7 @@ import { listings, listingTargets, storeConnections, supplierProducts } from "..
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface NewListingInput {
+  billingEnabled?: boolean;
   supplierProductId: string;
   title: string;
   description: string;
@@ -36,9 +38,11 @@ export async function createListingWithTargets(
     throw conflictError("Escolha ao menos uma loja de destino");
   }
   return database.transaction(async (transaction) => {
+    const { billingEnabled, ...values } = input;
+    if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
     const [listing] = await transaction
       .insert(listings)
-      .values({ ...input, tenantId })
+      .values({ ...values, tenantId })
       .returning({ id: listings.id });
     if (!listing) {
       throw conflictError("Não foi possível criar o anúncio");
@@ -404,4 +408,18 @@ export async function markTargetSyncFailed(
     .update(listingTargets)
     .set({ syncAttemptedAt: new Date(), syncError: reason })
     .where(eq(listingTargets.id, listingTargetId));
+}
+
+/** Persisted before the remote POST; survives a worker crash or a lost response. */
+export async function setTargetCreationStarted(
+  database: Database,
+  listingTargetId: string,
+  started: boolean,
+): Promise<void> {
+  const rows = await database
+    .update(listingTargets)
+    .set({ creationStartedAt: started ? new Date() : null })
+    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "publishing")))
+    .returning({ id: listingTargets.id });
+  if (rows.length !== 1) throw conflictError("A publicação não está mais em processamento");
 }

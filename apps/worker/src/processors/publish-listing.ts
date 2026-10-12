@@ -5,6 +5,7 @@ import {
   markTargetFailed,
   markTargetPublished,
   markTargetSynced,
+  setTargetCreationStarted,
   type TargetForPublishing,
 } from "@sellbridge/database/repositories";
 import {
@@ -86,6 +87,7 @@ function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
     stock: row.product.stock,
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
+    mercadoLivreAttributes: row.product.mercadoLivreAttributes,
   };
 }
 
@@ -110,7 +112,11 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
   const { dependencies, row } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
   try {
-    return await connector.publishProduct(attempt.credentials, toPublishProductInput(row));
+    return await connector.publishProduct(attempt.credentials, toPublishProductInput(row), {
+      reconcileOnly: row.target.creationStartedAt != null,
+      beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
+      creationRejected: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
+    });
   } catch (error) {
     return handlePublishFailure(attempt, error);
   }

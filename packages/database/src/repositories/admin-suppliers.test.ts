@@ -51,6 +51,7 @@ const productValues = {
   suggestedPriceCents: 1990,
   categoryId: null,
   imageUrls: [],
+  mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" },
 };
 
 beforeAll(async () => {
@@ -114,6 +115,7 @@ describe("admin suppliers", () => {
       stock: 20,
       costCents: 1290,
       suggestedPriceCents: 1990,
+      mercadoLivreAttributes: productValues.mercadoLivreAttributes,
     });
     await importRows(content, otherSupplierId);
     const other = await listAdminSupplierProducts(database, otherSupplierId, "ADMIN-1", {

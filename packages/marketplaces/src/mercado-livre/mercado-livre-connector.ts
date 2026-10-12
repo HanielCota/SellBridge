@@ -22,7 +22,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     getAuthorizationUrl: (request) => authorizationUrl(config, request),
     exchangeCode: async (exchange) => exchangeCode(context, exchange),
     refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
-    publishProduct: async (store, input) => publishProduct(context, store, input),
+    publishProduct: async (store, input, options) => publishProduct(context, store, input, options),
     updateStockPrice: async (store, update) => updateStockPrice(context, store, update),
     listOrders: async (store, since) => listOrders(context, store, since),
     fetchOrder: async (store, resource) => fetchOrder(context, store, resource),

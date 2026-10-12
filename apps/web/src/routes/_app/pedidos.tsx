@@ -15,6 +15,7 @@ import { SmartDate } from "@/components/data/smart-date";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { Operations } from "@/components/fulfillment/operations";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
@@ -50,14 +51,35 @@ function useOrdersNavigation() {
 
 function OrdersPage() {
   const [target, setTarget] = useState<ReviewTarget | null>(null);
+  const [tab, setTab] = useState<"operations" | "reviews">("operations");
   return (
     <>
       <PageHeader
         title="Pedidos"
-        description="Cada venda aparece por fornecedor. Avalie como ele entregou: as notas formam o score que todos os revendedores veem."
+        description="Encaminhe vendas aos fornecedores, acompanhe a separação, imprima etiquetas e consulte o rastreio."
       />
-      <OrderFilters />
-      <OrderList onReview={setTarget} />
+      <div className="flex gap-2" aria-label="Visão dos pedidos">
+        <Button
+          variant={tab === "operations" ? "default" : "outline"}
+          onClick={() => setTab("operations")}
+        >
+          Operação
+        </Button>
+        <Button
+          variant={tab === "reviews" ? "default" : "outline"}
+          onClick={() => setTab("reviews")}
+        >
+          Avaliações
+        </Button>
+      </div>
+      {tab === "operations" ? (
+        <Operations />
+      ) : (
+        <>
+          <OrderFilters />
+          <OrderList onReview={setTarget} />
+        </>
+      )}
       <ReviewDialog
         target={target}
         onOpenChange={(open) => {

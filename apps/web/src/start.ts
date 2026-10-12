@@ -1,4 +1,4 @@
-import { createMiddleware, createStart } from "@tanstack/react-start";
+import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
@@ -26,7 +26,12 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
   // Redirect responses have immutable headers, so the headers go on a copy.
   const response = new Response(result.response.body, result.response);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    response.headers.set(name, value);
+    if (!response.headers.has(name)) response.headers.set(name, value);
+  }
+  if (new URL(request.url).pathname.startsWith("/fornecedor/pedido/")) {
+    response.headers.set("cache-control", "no-store");
+    response.headers.set("referrer-policy", "no-referrer");
+    response.headers.set("x-robots-tag", "noindex, nofollow");
   }
   if (isHttps(request)) {
     response.headers.set(
@@ -38,5 +43,8 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [securityHeadersMiddleware],
+  requestMiddleware: [
+    createCsrfMiddleware({ filter: (context) => context.handlerType === "serverFn" }),
+    securityHeadersMiddleware,
+  ],
 }));
