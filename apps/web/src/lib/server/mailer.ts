@@ -10,6 +10,8 @@ export interface OutgoingEmail {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML part; `text` stays as the fallback for clients without HTML. */
+  html?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ async function postToResend(apiKey: string, email: OutgoingEmail): Promise<Respo
         to: [email.to],
         subject: email.subject,
         text: email.text,
+        ...(email.html ? { html: email.html } : {}),
       }),
       signal: AbortSignal.timeout(RESEND_TIMEOUT_MILLISECONDS),
     });
