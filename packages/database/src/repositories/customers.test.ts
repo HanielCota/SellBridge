@@ -1,19 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, orders, user } from "../schema/index.ts";
+import { member, orders, session, tickets, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
-import { getCustomer, listCustomers } from "./customers.ts";
+import {
+  getCustomer,
+  getWeeklyOrderCounts,
+  listCustomerSignals,
+  listCustomers,
+} from "./customers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
 const marker = randomUUID().slice(0, 8);
 const userId = randomUUID();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
+let tenantId = "";
+const DAY = 86_400_000;
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
-  const tenantId = tenants.ids[0] ?? "";
+  tenantId = tenants.ids[0] ?? "";
   const now = new Date();
   await database.insert(user).values({
     id: userId,
@@ -54,6 +61,38 @@ beforeAll(async () => {
       marketplaceFeeCents: 0,
       orderedAt: now,
     },
+    {
+      tenantId,
+      storeConnectionId: store.id,
+      externalOrderId: `o3-${marker}`,
+      status: "delivered",
+      totalCents: 7_000,
+      marketplaceFeeCents: 0,
+      orderedAt: new Date(now.getTime() - 40 * DAY),
+    },
+  ]);
+  await database.insert(tickets).values([
+    { tenantId, createdById: userId, subject: "Aguardando", status: "open" },
+    { tenantId, createdById: userId, subject: "Respondido", status: "answered" },
+  ]);
+  await database.insert(session).values([
+    {
+      id: randomUUID(),
+      token: `own-${marker}`,
+      userId,
+      expiresAt: new Date(now.getTime() + DAY),
+      createdAt: now,
+      updatedAt: new Date(now.getTime() - 2 * DAY),
+    },
+    {
+      id: randomUUID(),
+      token: `admin-${marker}`,
+      userId,
+      impersonatedBy: randomUUID(),
+      expiresAt: new Date(now.getTime() + DAY),
+      createdAt: now,
+      updatedAt: now,
+    },
   ]);
 });
 
@@ -75,6 +114,25 @@ describe("customers", () => {
       recentOrders: 1,
       recentRevenueCents: 10_000,
     });
+  });
+
+  it("loads the signals behind the health score", async () => {
+    const [customer] = await listCustomerSignals(database, { search: marker });
+    expect(customer).toMatchObject({
+      hasRegion: false,
+      previousOrders: 1,
+      waitingTickets: 1,
+      stores: [{ marketplace: "mock", shopName: "Loja do cliente", status: "connected" }],
+    });
+    const lastSeen = customer?.lastSeenAt?.getTime() ?? 0;
+    expect(Date.now() - lastSeen).toBeGreaterThan(DAY);
+  });
+
+  it("counts orders per week, oldest first", async () => {
+    const weeks = await getWeeklyOrderCounts(database, tenantId, 8);
+    expect(weeks).toHaveLength(8);
+    expect(weeks.at(-1)).toBe(1);
+    expect(weeks.reduce((total, weekOrders) => total + weekOrders, 0)).toBe(2);
   });
 
   it("returns a single customer and null for unknown ids", async () => {

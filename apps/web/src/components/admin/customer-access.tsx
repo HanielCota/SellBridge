@@ -83,7 +83,7 @@ function RoleSelect({ userId, role, isSelf }: Pick<AccessProps, "userId" | "role
   );
 }
 
-function BanDialogFields({
+export function BanDialogFields({
   reason,
   onReasonChange,
 }: {
