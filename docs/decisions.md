@@ -296,3 +296,9 @@ O mapa segue as tabelas oficiais (`gerenciamento-de-vendas`, `gerenciamento-de-e
 - O histórico do envio segue a linha do tempo do cliente no admin (`CustomerTimeline`): trilho, ponto na cor do status, "por {quem}", nota em cinza e data relativa; o mais recente em cima. O painel é o mesmo na operação do revendedor e no link do fornecedor.
 - A nota gravada nas leituras do Mercado Livre deixou de mostrar o status cru em inglês ("Consulta do marketplace: not_delivered"): o rótulo do status já diz o que houve, e a nota só traz um código de rastreio quando ele chega.
 - O Financeiro não mudou: reembolso e devolução já tinham lugar no detalhe do pedido, no resumo, nos gráficos e no CSV; o 04.b passou a alimentá-los com dados do Mercado Livre.
+
+## 2026-10-13: Reparo da migration 0008 pulada (item 05)
+
+No `_journal.json`, o `when` da 0007 é maior que o da 0008, e o Drizzle só aplica migrations mais novas que a última registrada: um banco que recebeu a 0007 antes de a 0008 existir pulou a 0008 sem erro e ficou sem as tabelas da API pública. A 0021 (`0021_repair_public_api.sql`, escrita à mão) repete tudo o que a 0008 cria, cada comando protegido (`IF NOT EXISTS`, `pg_constraint`, `duplicate_object`), então não faz nada onde a 0008 rodou. O journal das migrations antigas não foi editado. Nenhuma migration entre a 0009 e a 0020 toca essas tabelas, por isso o reparo pode vir no fim.
+
+`src/migrations.test.ts` cria bancos descartáveis no mesmo servidor: M1 aplica tudo do zero duas vezes; M2 aplica 0000–0007 à mão, registra a 0007 com o `when` do journal, roda o migrate e confere tabelas, índices, chaves estrangeiras e colunas iguais às de um banco novo.
