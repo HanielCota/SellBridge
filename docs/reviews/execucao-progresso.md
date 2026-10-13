@@ -10,8 +10,8 @@ _(nenhum)_
 
 | Métrica                                                         | Valor                   | Medido em  |
 | --------------------------------------------------------------- | ----------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 838 passando            | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 314 passando            | 2026-10-13 |
+| Testes unitários e de integração (`pnpm test`)                  | 848 passando            | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 318 passando            | 2026-10-13 |
 | E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando             | 2026-10-13 |
 | Última migration                                                | 0017_stock_reservations | 2026-10-13 |
 | Branch de trabalho                                              | `feat/client-phase-1`   | 2026-10-12 |
@@ -25,7 +25,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | Item | Título                                          | Situação | Commit            | Notas                                                            |
 | ---- | ----------------------------------------------- | -------- | ----------------- | ---------------------------------------------------------------- |
 | 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888 | Árvore herdada revisada duas vezes e commitada (local, sem push) |
-| 01   | Estoque: reserva e baixa na venda               | 🟡       | b828b38           | 01.a ✅ b828b38 · 01.b ⬜                                        |
+| 01   | Estoque: reserva e baixa na venda               | 🟡       | b828b38           | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ⬜                      |
 | 02   | Anúncio duplicado e publicação travada          | ⬜       | —                 |                                                                  |
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                 |                                                                  |
 | 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                 |                                                                  |
@@ -66,6 +66,14 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Item 01.b · Sync imediato, estoque de segurança e "atualizado há X" — ✅ concluído (51273db, commit local)
+
+- Divisão aprovada no ⏸1: 01.b (esta) e 01.c (falta visível ao revendedor + admin vê reservado).
+- Sync na hora após pedido que move estoque (worker, `stockMoves`), envio pela web/link/ML (`shipments.server.ts`) e admin (`requestStockSync` único). `STOCK_SAFETY_UNITS` (padrão 0) no sync e na publicação (`offeredUnits`/`liveStock`). Linha de estoque com "atualizado há X" no catálogo e na página do fornecedor; rodapé dos cards quebra linha no celular.
+- Portões: lint, tipos, formatação, sem else ✅; 848 testes (base 838); build ✅; e2e 24 + 3 ✅ (inclui `stock.spec`: venda simulada reduz o catálogo; data aparece); D2 sem rolagem nas 8 larguras **exceto 1024 px**, que já rolava 21 px antes por causa do cabeçalho (fora do escopo, vale para todas as telas); D4 lado a lado sem perda frente à referência.
+- Revisão independente: e2e instável com specs paralelos (agora só exige que o número caia), pedido de sync do worker sem prazo (agora 3 s e mesma política de retentativa da web), margem com entrada inválida (função única `safetyMargin`), texto da data corrigido nos docs. Mantido e documentado: sem deduplicação de jobs de sync; syncs extras inofensivos.
+- Fora do escopo: cabeçalho rola 21 px na horizontal em 1024 px em todas as páginas (`top-nav.tsx`, layout regular); em 320 px os preços do card de produto do fornecedor ficam colados ("R$ 57,98R$ 125,90", `supplier-product-card.tsx`).
 
 ### 2026-10-13 · Item 01.a · Reserva de estoque na venda — ✅ concluído (b828b38, commit local)
 
