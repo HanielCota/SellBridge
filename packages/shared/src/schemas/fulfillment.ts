@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-export const FULFILLMENT_STATUSES = [
+/**
+ * Statuses the supplier or reseller reach by hand, in the order a parcel moves through them.
+ * The repository enforces it: a manual update only moves to `FULFILLMENT_NEXT` or cancels.
+ */
+export const MANUAL_FULFILLMENT_STATUSES = [
   "forwarded",
   "accepted",
   "picking",
@@ -9,7 +13,31 @@ export const FULFILLMENT_STATUSES = [
   "delivered",
   "cancelled",
 ] as const;
+/** Only the marketplace's tracking reports these: the carrier failed, or the parcel came back. */
+export const MARKETPLACE_ONLY_STATUSES = ["not_delivered", "returned"] as const;
+export const FULFILLMENT_STATUSES = [
+  ...MANUAL_FULFILLMENT_STATUSES,
+  ...MARKETPLACE_ONLY_STATUSES,
+] as const;
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
+/** What a marketplace shipment says about the parcel once it left the supplier. */
+export type MarketplaceTrackingStatus = Extract<
+  FulfillmentStatus,
+  "shipped" | "delivered" | "not_delivered" | "returned" | "cancelled"
+>;
+/** Settled parcels: delivered, back with the seller or cancelled. Nothing moves them again. */
+export const SETTLED_FULFILLMENT_STATUSES: readonly FulfillmentStatus[] = [
+  "delivered",
+  "returned",
+  "cancelled",
+];
+/** The parcel left the supplier: it can no longer be cancelled from here. */
+export const DISPATCHED_FULFILLMENT_STATUSES: readonly FulfillmentStatus[] = [
+  "shipped",
+  "delivered",
+  "not_delivered",
+  "returned",
+];
 export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   forwarded: "Aguardando fornecedor",
   accepted: "Aceito",
@@ -18,6 +46,8 @@ export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   shipped: "Enviado",
   delivered: "Entregue",
   cancelled: "Cancelado",
+  not_delivered: "Não entregue",
+  returned: "Devolvido",
 };
 export const FULFILLMENT_NEXT: Record<FulfillmentStatus, FulfillmentStatus | null> = {
   forwarded: "accepted",
@@ -27,6 +57,8 @@ export const FULFILLMENT_NEXT: Record<FulfillmentStatus, FulfillmentStatus | nul
   shipped: "delivered",
   delivered: null,
   cancelled: null,
+  not_delivered: null,
+  returned: null,
 };
 export const deliveryAddressSchema = z.object({
   recipient: z.string().trim().min(2).max(120),

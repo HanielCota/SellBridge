@@ -1,9 +1,11 @@
 import {
+  DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_LABELS,
   FULFILLMENT_NEXT,
   shipmentUpdateSchema,
   type DeliveryAddress,
   type FulfillmentStatus,
+  SETTLED_FULFILLMENT_STATUSES,
 } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -51,7 +53,7 @@ export function ShipmentPanel({
     mutation,
   } = useShipmentUpdate(shipment, onUpdate);
   const next = FULFILLMENT_NEXT[shipment.status];
-  const closed = shipment.status === "delivered" || shipment.status === "cancelled";
+  const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
       <ShipmentSummary shipment={shipment} />
@@ -131,7 +133,7 @@ function ShipmentActions(props: {
         >
           Registrar ocorrência
         </Button>
-        {["shipped", "delivered"].includes(props.status) ? null : (
+        {DISPATCHED_FULFILLMENT_STATUSES.includes(props.status) ? null : (
           <Button
             variant="destructive"
             disabled={props.pending || !props.note.trim()}

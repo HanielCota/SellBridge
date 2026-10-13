@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { deliveryAddressSchema } from "@sellbridge/shared/schemas";
+import { deliveryAddressSchema, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
@@ -35,6 +35,34 @@ const shippingSchema = z.object({
 const shippingOrderSchema = z.object({
   seller: z.object({ id: z.union([z.string(), z.number()]) }),
 });
+/** Hosted View of `GET /orders/{id}/shipments`: ids and types only; 204 (no body) until created. */
+const shipmentRefsSchema = z
+  .array(z.object({ id: z.union([z.number(), z.string()]), type: z.string() }))
+  .nullable();
+
+/** `not_delivered` substatuses that mean the parcel is back with the seller, not just failed. */
+const RETURNED_SUBSTATUSES = new Set([
+  "returned",
+  "returned_to_warehouse",
+  "returned_to_hub",
+  "returned_to_agency",
+]);
+
+/**
+ * What the shipment says once the parcel left the supplier; null while it has not (pending,
+ * handling, ready_to_ship), when the supplier's own steps are the better account, and for
+ * statuses this table does not know. Source: `GET /shipment_statuses`, gerenciamento-de-envios.
+ */
+export function shipmentTrackingStatus(
+  status: string,
+  substatus: string | null,
+): MarketplaceTrackingStatus | null {
+  if (status === "shipped" || status === "stale_shipped") return "shipped";
+  if (status === "delivered") return "delivered";
+  if (status === "cancelled") return "cancelled";
+  if (status !== "not_delivered") return null;
+  return substatus !== null && RETURNED_SUBSTATUSES.has(substatus) ? "returned" : "not_delivered";
+}
 function shippingContext(config: MercadoLivreConfig): MercadoLivreContext {
   return {
     config,
@@ -57,30 +85,35 @@ export async function getMercadoLivreShipping(
   });
   if (String(order.seller.id) !== store.externalShopId)
     throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
-  // Hosted shipment view, including recipient PII (official Orders docs, 2026-08-07).
-  const response = await requestJson(context, {
-    schema: z.union([shippingSchema, z.array(shippingSchema)]),
-    path: `/orders/${orderId}/shipments?views=destination`,
-    init: {
-      accessToken: store.accessToken,
-      headers: { "x-new-domain": "true", "x-api-version": "2" },
-    },
+  // Hosted View (official Orders docs; the full view was retired at the end of September 2026):
+  // the list holds only ids and types, in no promised order, so the sale is picked by type.
+  const refs = await requestJson(context, {
+    schema: shipmentRefsSchema,
+    path: `/orders/${orderId}/shipments`,
+    init: { accessToken: store.accessToken },
   });
-  const shipments = Array.isArray(response)
-    ? response.filter(
-        (shipment) => shipment.type !== "return" && shipment.type !== "return_to_buyer",
-      )
-    : [response];
-  const raw = shipments[0];
-  if (shipments.length !== 1 || !raw)
+  if (refs === null)
+    throw marketplaceError(
+      "O Mercado Livre ainda não criou o envio deste pedido. Tente de novo em alguns minutos.",
+      { retryable: false },
+    );
+  const forward = refs.filter((ref) => ref.type === "forward");
+  const [sale] = forward;
+  if (forward.length !== 1 || !sale)
     throw marketplaceError("O pedido precisa ter um único envio de compra para esta operação", {
       retryable: false,
     });
+  const raw = await requestJson(context, {
+    schema: shippingSchema,
+    path: `/shipments/${encodeURIComponent(String(sale.id))}`,
+    init: { accessToken: store.accessToken, headers: { "x-format-new": "true" } },
+  });
   const parsedAddress = parseDeliveryAddress(raw);
   return {
     shipmentId: String(raw.id),
     status: raw.status,
     substatus: raw.substatus ?? null,
+    trackingStatus: shipmentTrackingStatus(raw.status, raw.substatus ?? null),
     mode: raw.mode,
     logisticType: raw.logistic_type,
     trackingCode: raw.tracking_number ?? null,

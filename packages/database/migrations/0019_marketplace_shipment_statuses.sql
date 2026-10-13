@@ -1,0 +1,2 @@
+ALTER TABLE "order_shipments" DROP CONSTRAINT "order_shipments_status_check";--> statement-breakpoint
+ALTER TABLE "order_shipments" ADD CONSTRAINT "order_shipments_status_check" CHECK ("order_shipments"."status" in ('forwarded','accepted','picking','ready','shipped','delivered','cancelled','not_delivered','returned'));

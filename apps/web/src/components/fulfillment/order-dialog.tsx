@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deliveryAddressSchema, type DeliveryAddress } from "@sellbridge/shared/schemas";
+import {
+  deliveryAddressSchema,
+  type DeliveryAddress,
+  SETTLED_FULFILLMENT_STATUSES,
+} from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
@@ -100,7 +104,7 @@ function OrderContent({ orderId }: { orderId: string }) {
             <SupplierLink
               shipmentId={shipment.id}
               url={links[shipment.id]}
-              closed={["cancelled", "delivered"].includes(shipment.status)}
+              closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
               onLink={(url) => setLinks((previous) => ({ ...previous, [shipment.id]: url }))}
             />
           </ShipmentPanel>

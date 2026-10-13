@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { orderItems, orders, orderShipments } from "../schema/index.ts";
@@ -126,6 +127,11 @@ afterAll(async () => {
   await supplierB.cleanup();
   await database.$client.end();
 });
+/** A Mercado Livre reading of the parcel, as `loadMarketplaceShipping` returns it. */
+function remote(status: string, trackingStatus: MarketplaceTrackingStatus | null) {
+  return { status, trackingStatus, carrier: "Mercado Envios", trackingCode: "ML-404" };
+}
+
 describe("fulfillment", () => {
   it("splits by supplier, snapshots only their items and stores only a token hash", async () => {
     const order = await createOrder("paid", true);
@@ -146,6 +152,7 @@ describe("fulfillment", () => {
     await expect(
       applyMarketplaceShipment(database, tenants.tenantA, order.id, {
         status: "shipped",
+        trackingStatus: "shipped",
         carrier: null,
         trackingCode: "123",
       }),
@@ -249,11 +256,79 @@ describe("fulfillment", () => {
       code: "NOT_FOUND",
     });
   });
+  it("records a failed delivery and the parcel coming back, and keeps final statuses", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    const shipmentStatus = async () =>
+      (await getFulfillmentDetail(database, tenants.tenantA, order.id)).shipments[0]?.status;
+
+    // Still at the supplier: Mercado Livre's own pre-dispatch steps change nothing.
+    await applyMarketplaceShipment(database, tenants.tenantA, order.id, remote("handling", null));
+    expect(await shipmentStatus()).toBe("forwarded");
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("not_delivered", "not_delivered"),
+    );
+    expect(await shipmentStatus()).toBe("not_delivered");
+    // By hand: an occurrence note is fine, but the parcel left, so no cancel and no new status.
+    const byHand = (status: "not_delivered" | "returned" | "cancelled", note: string) =>
+      updateShipment(
+        database,
+        {
+          shipmentId: link.shipmentId,
+          status,
+          note,
+          carrier: "",
+          trackingCode: "",
+          trackingUrl: "",
+        },
+        { tenantId: tenants.tenantA },
+      );
+    await byHand("not_delivered", "Comprador pediu nova tentativa");
+    await expect(byHand("cancelled", "Desistiu")).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(byHand("returned", "Voltou")).rejects.toMatchObject({ code: "CONFLICT" });
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("not_delivered", "returned"),
+    );
+    expect(await shipmentStatus()).toBe("returned");
+    await expect(byHand("returned", "Mais uma nota")).rejects.toMatchObject({ code: "CONFLICT" });
+    // Back with the seller is final: a late "shipped" reading cannot reopen it.
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("shipped", "shipped"),
+    );
+    expect(await shipmentStatus()).toBe("returned");
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    // Forwarded, the tracking code arriving, the failure, the note, the return.
+    expect(detail.shipments[0]?.events.map((event) => event.status)).toEqual([
+      "forwarded",
+      "forwarded",
+      "not_delivered",
+      "not_delivered",
+      "returned",
+    ]);
+    // The order is not marked shipped or delivered by a parcel that never arrived.
+    expect(detail.order.status).toBe("paid");
+  });
+
   it("records marketplace progress without duplicate history and filters the queue", async () => {
     const order = await createOrder();
     const [link] = await forward(order.id);
     if (!link) throw new Error("No link");
-    const shipping = { status: "delivered", carrier: "Mercado Envios", trackingCode: "ML123" };
+    const shipping = {
+      status: "delivered",
+      trackingStatus: "delivered" as const,
+      carrier: "Mercado Envios",
+      trackingCode: "ML123",
+    };
     await applyMarketplaceShipment(database, tenants.tenantA, order.id, shipping);
     await applyMarketplaceShipment(database, tenants.tenantA, order.id, shipping);
     const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);

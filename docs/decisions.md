@@ -271,3 +271,14 @@ Na tela "Nova publicação", as lojas que já vendem o produto aparecem desativa
 Um timeout ou 5xx em `POST /items` não diz se o anúncio foi criado, então o marcador `creation_started_at` fica e a tentativa seguinte só concilia. Antes, ele nunca saía: sem anúncio encontrado, a publicação ficava em erro para sempre. Agora a ausência só conta como prova depois de uma janela de 10 minutos desde o marcador (o tempo para a busca de itens do vendedor mostrar um anúncio recém-criado). Dentro da janela, nada é criado e o erro pede para aguardar e reprocessar; depois dela, o conector chama `creationAbsent`, o worker limpa o marcador e a criação segue. Se o anúncio aparece, é adotado como antes.
 
 **Por que 10 minutos.** É uma estimativa do atraso de indexação, não um número documentado pelo Mercado Livre; aprovada pelo usuário no ⏸1. Uma janela menor libera antes e aumenta o risco de anúncio duplicado. A conta usa o relógio do conector (`now`), o mesmo que os testes fixam.
+
+## 2026-10-13: Status do pedido e do envio do Mercado Livre (item 04.a)
+
+O mapa segue as tabelas oficiais (`gerenciamento-de-vendas`, `gerenciamento-de-envios`), com um exemplo de resposta por status em `packages/marketplaces/src/mercado-livre/fixtures/`.
+
+- **Pedido com `fraud_risk_detected`** fica pendente mesmo pago: o Mercado Livre manda não enviar, e pendente é o estado que já impede encaminhar ao fornecedor. Status desconhecido também fica pendente, agora com log.
+- **Envio: dois status novos, só do marketplace.** "Não entregue" (`not_delivered`) e "Devolvido" (`not_delivered` com subestado de devolvido). Ninguém os escolhe à mão: a atualização manual só avança para a próxima etapa ou cancela, e cancelar deixa de valer depois do despacho. Registrar uma ocorrência num envio "Não entregue" continua permitido. Antes do despacho (`pending`, `handling`, `ready_to_ship`) o Mercado Livre não muda nada: as etapas do fornecedor são mais precisas.
+- **Entregue, Devolvido e Cancelado são finais** (`SETTLED_FULFILLMENT_STATUSES`): uma leitura atrasada não reabre o envio. Depois do despacho, o envio não pode mais ser cancelado pela tela (`DISPATCHED_FULFILLMENT_STATUSES`).
+- **O pedido não muda por um envio que não chegou.** Ele só sobe para enviado ou entregue quando todos os envios sobem; reembolso e devolução no dinheiro são o item 04.b.
+- **Hosted View.** A visão completa de `GET /orders/{id}/shipments` foi descontinuada no fim de setembro de 2026, e com ela a consulta de envio e a etiqueta quebrariam em loja real. Agora a lista traz só `{ id, type }`, e o envio de venda (`forward`) é lido em `GET /shipments/{id}`.
+- **Migration 0019** amplia a regra `order_shipments_status_check` para os dois status novos. O plano previa não precisar de migration; a regra no banco só apareceu no teste.

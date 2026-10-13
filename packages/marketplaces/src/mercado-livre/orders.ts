@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
 import type { MarketplaceOrder, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
@@ -19,6 +20,24 @@ const ORDER_STATUS_MAP: Record<string, MarketplaceOrder["status"]> = {
   invalid: "cancelled",
 };
 
+/**
+ * Mercado Livre's order status, read with the tags that change what we may do with it:
+ * `fraud_risk_detected` means "do not ship", so the order is held as unpaid and never reaches
+ * the supplier. Statuses from the gerenciamento-de-vendas table; an unknown one is held too.
+ */
+function orderStatus(raw: MercadoLivreOrder): MarketplaceOrder["status"] {
+  const status = ORDER_STATUS_MAP[raw.status];
+  if (status === undefined) {
+    logger.warn("mercado_livre.unknown_order_status", {
+      externalOrderId: String(raw.id),
+      status: raw.status,
+    });
+    return "pending";
+  }
+  if (status === "paid" && raw.tags?.includes("fraud_risk_detected")) return "pending";
+  return status;
+}
+
 function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
@@ -26,7 +45,7 @@ function toCents(amount: number): number {
 export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
   return {
     externalOrderId: String(raw.id),
-    status: ORDER_STATUS_MAP[raw.status] ?? "pending",
+    status: orderStatus(raw),
     totalCents: toCents(raw.total_amount),
     // Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again.
     marketplaceFeeCents: raw.order_items.reduce(

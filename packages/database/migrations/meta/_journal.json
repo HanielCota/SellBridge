@@ -134,6 +134,13 @@
       "when": 1791906146137,
       "tag": "0018_stock_shortages",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791921860339,
+      "tag": "0019_marketplace_shipment_statuses",
+      "breakpoints": true
     }
   ]
 }

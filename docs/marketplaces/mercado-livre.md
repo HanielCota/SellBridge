@@ -39,10 +39,31 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 
 - `GET /orders/{id}`; busca: `GET /orders/search?seller={id}&order.date_created.from=…&sort=date_desc` (paginação `offset`/`limit`).
 - Campos usados: `id`, `status`, `date_created`, `total_amount`, `buyer.nickname`, `order_items[].item.id`, `.item.title`, `.quantity`, `.unit_price`, `.sale_fee`.
-- Status: `confirmed`, `payment_required`, `payment_in_process`, `partially_paid`, `paid`, `partially_refunded`, `pending_cancel`, `cancelled`, `invalid`.
+- Status (tabela oficial, lida em 2026-10-13) e como entram no SellBridge: `confirmed`, `payment_required`, `payment_in_process` e `partially_paid` → pendente; `paid` e `partially_refunded` → pago (o valor devolvido vira ajuste, item 04.b); `pending_cancel`, `cancelled` e `invalid` → cancelado. Um status fora da tabela fica pendente e gera o log `mercado_livre.unknown_order_status`.
+- `tags`: `fraud_risk_detected` significa "não envie, cancele"; o pedido fica pendente mesmo pago e nunca é liberado ao fornecedor. Uma venda marcada como "não concretizada" continua `confirmed` na API (o dinheiro é devolvido sozinho) e, por isso, fica pendente.
+- Exemplos de cada status em `packages/marketplaces/src/mercado-livre/fixtures/orders.ts`.
 - `sale_fee` é a tarifa **por unidade**, conforme [Provisões](https://developers.mercadolivre.com.br/pt_ar/provisoes). Somamos `round(sale_fee × 100) × quantity` por linha. Valores nulos/ausentes contribuem zero. Exemplo: 2 unidades com `sale_fee: 6` resultam em R$ 12,00.
 - Não somamos novamente o custo fixo: [Custos por vender](https://developers.mercadolivre.com.br/pt_br/servicos-gerenciamento-de-contatos/comissao-por-vender) confirma que ele já compõe a taxa. As taxas reais vêm do pedido; não estimamos com uma porcentagem fixa.
 - A semântica foi confirmada documentalmente e coberta por testes com múltiplas unidades/linhas; ainda é necessário comparar com uma venda real da conta antes da ativação em produção.
+
+## Envios (`gerenciamento-de-envios`)
+
+- O envio de um pedido é lido em duas etapas. A visão antiga de `GET /orders/{id}/shipments`, que devolvia o envio completo, foi descontinuada no fim de setembro de 2026. A atual (Hosted View) devolve só `[{ id, type }]`, sem ordem garantida, e `204` sem corpo enquanto o envio não existe. Pegamos o único `type: "forward"`: `return` e `return_to_buyer` são devoluções. Depois, `GET /shipments/{id}` com o cabeçalho `x-format-new: true`.
+- Status do envio (`GET /shipment_statuses`) e como entram no SellBridge:
+
+  | Mercado Livre                                                                                                | SellBridge                               |
+  | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+  | `pending`, `handling`, `ready_to_ship`, `stale_ready_to_ship`                                                | nada muda: valem as etapas do fornecedor |
+  | `shipped`, `stale_shipped`                                                                                   | Enviado                                  |
+  | `delivered`                                                                                                  | Entregue                                 |
+  | `not_delivered` com subestado `returned`, `returned_to_warehouse`, `returned_to_hub` ou `returned_to_agency` | Devolvido                                |
+  | `not_delivered` com qualquer outro subestado (ex.: `returning_to_sender`, `receiver_absent`, `lost`)         | Não entregue                             |
+  | `cancelled`                                                                                                  | Cancelado                                |
+
+- Entregue, Devolvido e Cancelado são finais: uma leitura atrasada não muda o envio de volta. "Não entregue" e "Devolvido" só vêm do marketplace; ninguém os escolhe à mão.
+- Exemplos de cada status em `packages/marketplaces/src/mercado-livre/fixtures/shipments.ts`.
+- A homologar com a conta de teste: se `GET /shipments/{id}` traz o endereço completo do destinatário (a visão antiga pedia `x-api-version: 2` para os dados pessoais). Sem endereço, a tela avisa ("O marketplace não informou o endereço completo") e o endereço é digitado à mão.
+- O envio só é lido quando alguém pede (botão na Operação). Os tópicos `shipments` e `post_purchase` (reclamações e devoluções) ainda não são assinados.
 
 ## Notificações (`produto-receba-notificacoes`)
 

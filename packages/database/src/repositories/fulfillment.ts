@@ -3,8 +3,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, asc, desc, eq, exists, gt, ilike, inArray, notExists, or, sql } from "drizzle-orm";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
+  DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_NEXT,
+  type FulfillmentStatus,
   type forwardOrderSchema,
+  type MarketplaceTrackingStatus,
+  SETTLED_FULFILLMENT_STATUSES,
   type operationsSearchSchema,
   type shipmentUpdateSchema,
 } from "@sellbridge/shared/schemas";
@@ -363,14 +367,15 @@ async function writeShipmentStatus(
     FULFILLMENT_NEXT[shipment.status] !== input.status &&
     !(
       input.status === "cancelled" &&
-      !["shipped", "delivered", "cancelled"].includes(shipment.status)
+      !DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) &&
+      shipment.status !== "cancelled"
     )
   ) {
     throw conflictError(
       "Etapa inválida. Atualize o pedido e siga a sequência de preparação e envio.",
     );
   }
-  if (["cancelled", "delivered"].includes(shipment.status))
+  if (SETTLED_FULFILLMENT_STATUSES.includes(shipment.status))
     throw conflictError("Este envio já foi encerrado");
   if (input.status === shipment.status && !input.note)
     throw conflictError("Informe uma ocorrência ou avance a etapa");
@@ -436,12 +441,30 @@ export async function updateShipment(
   });
 }
 
+/**
+ * The marketplace's tracking, applied over the supplier's progress: null (the parcel has not left)
+ * changes nothing, and a settled shipment keeps its status: later readings lag behind. `status` is the raw marketplace value,
+ * kept in the history note.
+ */
+function trackedShipmentStatus(
+  current: FulfillmentStatus,
+  tracking: MarketplaceTrackingStatus | null,
+): FulfillmentStatus {
+  if (tracking === null || SETTLED_FULFILLMENT_STATUSES.includes(current)) return current;
+  return tracking;
+}
+
 /** One marketplace parcel cannot be assigned to several suppliers' separate parcels. */
 export async function applyMarketplaceShipment(
   database: Database,
   tenantId: string,
   orderId: string,
-  shipping: { status: string; carrier: string | null; trackingCode: string | null },
+  shipping: {
+    status: string;
+    trackingStatus: MarketplaceTrackingStatus | null;
+    carrier: string | null;
+    trackingCode: string | null;
+  },
 ) {
   return database.transaction(async (tx) => {
     const [order] = await tx
@@ -463,14 +486,7 @@ export async function applyMarketplaceShipment(
       );
     const shipment = shipments[0];
     if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");
-    const remoteStatus =
-      shipping.status === "delivered"
-        ? "delivered"
-        : shipping.status === "shipped"
-          ? "shipped"
-          : null;
-    const status =
-      shipment.status === "delivered" ? "delivered" : (remoteStatus ?? shipment.status);
+    const status = trackedShipmentStatus(shipment.status, shipping.trackingStatus);
     await tx
       .update(orderShipments)
       .set({

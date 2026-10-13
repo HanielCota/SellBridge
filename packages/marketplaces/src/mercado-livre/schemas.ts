@@ -29,6 +29,7 @@ export const orderSchema = z.object({
   date_created: z.string(),
   total_amount: z.number(),
   buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
+  tags: z.array(z.string()).optional(),
   order_items: z.array(
     z.object({
       item: z.object({ id: z.string(), title: z.string() }),

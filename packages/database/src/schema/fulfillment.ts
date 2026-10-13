@@ -51,7 +51,7 @@ export const orderShipments = pgTable(
     index("order_shipments_tenant_status_idx").on(table.tenantId, table.status),
     check(
       "order_shipments_status_check",
-      sql`${table.status} in ('forwarded','accepted','picking','ready','shipped','delivered','cancelled')`,
+      sql`${table.status} in ('forwarded','accepted','picking','ready','shipped','delivered','cancelled','not_delivered','returned')`,
     ),
   ],
 );
