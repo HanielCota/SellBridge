@@ -119,10 +119,11 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
       attempt.credentials,
       toPublishProductInput(row, dependencies.safetyUnits),
       {
-        reconcileOnly: row.target.creationStartedAt != null,
+        creationStartedAt: row.target.creationStartedAt,
         beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
         creationRejected: () =>
           setTargetCreationStarted(dependencies.database, row.target.id, false),
+        creationAbsent: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
       },
     );
   } catch (error) {

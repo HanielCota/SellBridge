@@ -198,6 +198,32 @@ async function validateAttributes(
   }
 }
 
+/**
+ * How long a created item may take to show up in the seller's item search. Within it, "not
+ * found" is not proof the earlier creation failed.
+ */
+const CREATION_SETTLE_MILLISECONDS = 10 * 60_000;
+
+/**
+ * After an uncertain creation (a timeout or 5xx on POST /items) the item may exist. Search found
+ * none: within the settle window that may only be indexing lag, so nothing is created; past it,
+ * the creation never landed, the guard is cleared and publishing goes on.
+ */
+async function confirmEarlierCreationAbsent(
+  context: MercadoLivreContext,
+  options: PublishOptions | undefined,
+): Promise<void> {
+  const startedAt = options?.creationStartedAt;
+  if (!options || !startedAt) return;
+  if (context.now().getTime() - startedAt.getTime() < CREATION_SETTLE_MILLISECONDS) {
+    throw marketplaceError(
+      "Uma criação anterior pode ter sido concluída, mas o anúncio ainda não aparece no Mercado Livre. Aguarde alguns minutos e reprocesse: se ele não existir, será criado.",
+      { retryable: false },
+    );
+  }
+  await options.creationAbsent();
+}
+
 /** Only a definitive refusal can clear the durable creation guard. */
 function creationWasRefused(error: unknown): boolean {
   if (!isAppError(error)) return false;
@@ -228,12 +254,7 @@ export async function publishProduct(
     });
     return existing;
   }
-  if (options?.reconcileOnly) {
-    throw marketplaceError(
-      "Uma criação anterior pode ter sido concluída, mas o anúncio ainda não foi localizado. Aguarde e reprocesse para conciliar; confira o Mercado Livre antes de criar outro anúncio.",
-      { retryable: false },
-    );
-  }
+  await confirmEarlierCreationAbsent(context, options);
   const title = input.title.slice(0, MAX_TITLE_LENGTH);
   const categoryId = await predictCategory(context, { title, accessToken: store.accessToken });
   const seller = await requestJson(context, {

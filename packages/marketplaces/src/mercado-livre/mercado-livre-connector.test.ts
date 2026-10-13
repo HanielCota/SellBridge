@@ -364,11 +364,14 @@ const publishRoutes: Record<string, Responder> = {
   [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
 };
 
-function publicationGuard(reconcileOnly = false) {
+/** `minutesAgo`: when an earlier attempt began creating the item; omitted when none did. */
+function publicationGuard(minutesAgo?: number) {
   return {
-    reconcileOnly,
+    creationStartedAt:
+      minutesAgo === undefined ? null : new Date(fixedNow.getTime() - minutesAgo * 60_000),
     beforeCreate: vi.fn<() => Promise<void>>(async () => {}),
     creationRejected: vi.fn<() => Promise<void>>(async () => {}),
+    creationAbsent: vi.fn<() => Promise<void>>(async () => {}),
   };
 }
 
@@ -486,7 +489,7 @@ const recoveryRoutes: Record<string, Responder> = {
 
 describe("publication recovery", () => {
   it("recovers the exact target and syncs price and stock without creating again", async () => {
-    const guard = publicationGuard(true);
+    const guard = publicationGuard(30);
     const { ml, calls } = connector(recoveryRoutes);
     await expect(ml.publishProduct(store, product, guard)).resolves.toEqual({
       externalId: "MLB1",
@@ -555,13 +558,87 @@ describe("publication recovery", () => {
     });
   });
 
-  it("does not create after an uncertain attempt even if search returns no results", async () => {
+  it("does not create within 10 minutes of an uncertain attempt, even if search finds nothing", async () => {
+    const guard = publicationGuard(9);
     const { ml, calls } = connector(publishRoutes);
-    await expect(ml.publishProduct(store, product, publicationGuard(true))).rejects.toMatchObject({
-      message: expect.stringContaining("criação anterior"),
+    await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
+      message: expect.stringMatching(/aguarde alguns minutos/i),
+      details: { retryable: false },
     });
     expect(calls.every((call) => call.method === "GET")).toBe(true);
+    expect(guard.creationAbsent).not.toHaveBeenCalled();
   });
+
+  it("clears the guard and creates once 10 minutes passed with no item found", async () => {
+    const guard = publicationGuard(10);
+    const order: string[] = [];
+    guard.creationAbsent.mockImplementationOnce(async () => {
+      order.push("absent");
+    });
+    guard.beforeCreate.mockImplementationOnce(async () => {
+      order.push("guard");
+    });
+    const { ml, calls } = connector(publishRoutes);
+    await expect(ml.publishProduct(store, product, guard)).resolves.toMatchObject({
+      externalId: "MLB1",
+    });
+    expect(order).toEqual(["absent", "guard"]);
+    expect(
+      calls.filter((call) => call.method === "POST" && call.url === `${API}/items`),
+    ).toHaveLength(1);
+  });
+
+  it("does not report a missing item when a fresh publication finds none", async () => {
+    const guard = publicationGuard();
+    const { ml } = connector(publishRoutes);
+    await ml.publishProduct(store, product, guard);
+    expect(guard.creationAbsent).not.toHaveBeenCalled();
+  });
+
+  const creationFailures: [string, Responder][] = [
+    [
+      "timeout",
+      () => {
+        throw new DOMException("tempo esgotado", "TimeoutError");
+      },
+    ],
+    ["HTTP 500", () => json(500, {})],
+    ["HTTP 502", () => json(502, {})],
+  ];
+  it.each(creationFailures)(
+    "after a %s on creation: waits, then creates or adopts",
+    async (_label, failure) => {
+      const failed = publicationGuard();
+      const first = connector({ ...publishRoutes, [`POST ${API}/items`]: failure });
+      await expect(first.ml.publishProduct(store, product, failed)).rejects.toMatchObject({
+        details: { retryable: false },
+      });
+      expect(failed.beforeCreate).toHaveBeenCalledOnce();
+      expect(failed.creationRejected).not.toHaveBeenCalled();
+      expect(first.calls.filter((call) => call.url === `${API}/items`)).toHaveLength(1);
+
+      const retried = connector(publishRoutes);
+      await expect(
+        retried.ml.publishProduct(store, product, publicationGuard(0)),
+      ).rejects.toBeDefined();
+      expect(retried.calls.some((call) => call.method === "POST")).toBe(false);
+
+      const neverCreated = connector(publishRoutes);
+      await expect(
+        neverCreated.ml.publishProduct(store, product, publicationGuard(15)),
+      ).resolves.toMatchObject({ externalId: "MLB1" });
+
+      const created = publicationGuard(15);
+      const landed = connector({ ...publishRoutes, ...recoveryRoutes });
+      await expect(landed.ml.publishProduct(store, product, created)).resolves.toMatchObject({
+        externalId: "MLB1",
+      });
+      expect(
+        landed.calls.some((call) => call.method === "POST" && call.url === `${API}/items`),
+      ).toBe(false);
+      expect(created.creationAbsent).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([400, 401, 429, 500])(
     "clears the guard only for definitive refusal: HTTP %i",

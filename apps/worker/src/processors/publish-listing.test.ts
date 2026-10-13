@@ -188,7 +188,7 @@ describe("publish-listing processor", () => {
     const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
     publishProduct.mockImplementationOnce(async (_credentials, input, options) => {
-      expect(options?.reconcileOnly).toBe(false);
+      expect(options?.creationStartedAt).toBeNull();
       expect(input.mercadoLivreAttributes).toEqual({ BRAND: "Acme", MODEL: "A1" });
       await options?.beforeCreate();
       expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
@@ -201,11 +201,30 @@ describe("publish-listing processor", () => {
       .set({ status: "pending" })
       .where(eq(schema.listingTargets.id, targetId));
     publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
-      expect(options?.reconcileOnly).toBe(true);
+      expect(options?.creationStartedAt).toBeInstanceOf(Date);
       return { externalId: "MLB-recovered", externalUrl: null };
     });
     expect(await processPublish(job)).toBe("published");
     expect((await targetRow(targetId)).externalId).toBe("MLB-recovered");
+  });
+
+  it("clears the guard when reprocessing confirms the item never landed", async () => {
+    const { tenantId, targetId } = await createTarget("Criação que nunca chegou ao marketplace");
+    const startedAt = new Date(Date.now() - 15 * 60_000);
+    await database
+      .update(schema.listingTargets)
+      .set({ creationStartedAt: startedAt })
+      .where(eq(schema.listingTargets.id, targetId));
+    publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
+      expect(options?.creationStartedAt).toEqual(startedAt);
+      await options?.creationAbsent();
+      expect((await targetRow(targetId)).creationStartedAt).toBeNull();
+      await options?.beforeCreate();
+      return { externalId: "MLB-recreated", externalUrl: null };
+    });
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    expect(await processPublish(job)).toBe("published");
+    expect((await targetRow(targetId)).externalId).toBe("MLB-recreated");
   });
 
   it("clears the durable guard when creation was definitively refused", async () => {

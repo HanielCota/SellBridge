@@ -265,3 +265,9 @@ Publicar de novo um produto numa loja que já tem anúncio dele é recusado no s
 **Por que trava de linha, e não índice único.** O produto está em `listings` e a loja em `listing_targets`, então o banco não consegue impor a regra sem copiar o produto para os destinos e migrar os dados existentes; e o encerramento de anúncio (item 23) vai precisar permitir republicar depois de encerrar. A transação trava as lojas de destino (`FOR UPDATE`, sempre em ordem de id) antes de conferir, então duas publicações simultâneas esperam uma pela outra e a segunda é recusada.
 
 Na tela "Nova publicação", as lojas que já vendem o produto aparecem desativadas com "Já publicado aqui"; se todas já vendem, a tela diz isso e aponta para Publicações.
+
+## 2026-10-13: Criação incerta destrava depois de 10 minutos (item 02.b)
+
+Um timeout ou 5xx em `POST /items` não diz se o anúncio foi criado, então o marcador `creation_started_at` fica e a tentativa seguinte só concilia. Antes, ele nunca saía: sem anúncio encontrado, a publicação ficava em erro para sempre. Agora a ausência só conta como prova depois de uma janela de 10 minutos desde o marcador (o tempo para a busca de itens do vendedor mostrar um anúncio recém-criado). Dentro da janela, nada é criado e o erro pede para aguardar e reprocessar; depois dela, o conector chama `creationAbsent`, o worker limpa o marcador e a criação segue. Se o anúncio aparece, é adotado como antes.
+
+**Por que 10 minutos.** É uma estimativa do atraso de indexação, não um número documentado pelo Mercado Livre; aprovada pelo usuário no ⏸1. Uma janela menor libera antes e aumenta o risco de anúncio duplicado. A conta usa o relógio do conector (`now`), o mesmo que os testes fixam.
