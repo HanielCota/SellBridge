@@ -3,8 +3,9 @@ import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 
 loadRootEnvironmentFile();
 
-const port = 3100;
-const workerHealthPort = 3101;
+/** Overridable so a second checkout (a parallel worktree) runs its own servers side by side. */
+const port = Number(process.env.E2E_PORT ?? 3100);
+const workerHealthPort = Number(process.env.E2E_WORKER_HEALTH_PORT ?? 3101);
 const appUrl = `http://localhost:${port}`;
 
 /**
@@ -13,7 +14,7 @@ const appUrl = `http://localhost:${port}`;
  */
 function isolatedRedisUrl(): string {
   const url = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
-  url.pathname = "/1";
+  url.pathname = `/${process.env.E2E_REDIS_DB ?? "1"}`;
   return url.toString();
 }
 const redisUrl = isolatedRedisUrl();
