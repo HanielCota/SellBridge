@@ -8,13 +8,13 @@ _(nenhum)_
 
 ## Linha de base
 
-| Métrica                                                         | Valor                            | Medido em  |
-| --------------------------------------------------------------- | -------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 795 passando                     | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 314 passando                     | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando                      | 2026-10-13 |
-| Última migration                                                | 0016_ticket_orders_and_followers | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`            | 2026-10-12 |
+| Métrica                                                         | Valor                   | Medido em  |
+| --------------------------------------------------------------- | ----------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 838 passando            | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 314 passando            | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando             | 2026-10-13 |
+| Última migration                                                | 0017_stock_reservations | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1`   | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -25,7 +25,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | Item | Título                                          | Situação | Commit            | Notas                                                            |
 | ---- | ----------------------------------------------- | -------- | ----------------- | ---------------------------------------------------------------- |
 | 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888 | Árvore herdada revisada duas vezes e commitada (local, sem push) |
-| 01   | Estoque: reserva e baixa na venda               | ⬜       | —                 |                                                                  |
+| 01   | Estoque: reserva e baixa na venda               | 🟡       | b828b38           | 01.a ✅ b828b38 · 01.b ⬜                                        |
 | 02   | Anúncio duplicado e publicação travada          | ⬜       | —                 |                                                                  |
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                 |                                                                  |
 | 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                 |                                                                  |
@@ -66,6 +66,15 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Item 01.a · Reserva de estoque na venda — ✅ concluído (b828b38, commit local)
+
+- Modelo prateleira (`stock`, do admin) + `reserved_stock` (pedidos pagos não enviados); disponível = diferença, usado em catálogo, anúncios, publicação e sync. Estado por item em `order_items.stock_state` (migration 0017), regra em `shared/domain/stock-reservation.ts`, aplicada na transação do pedido e no envio marcado pelo fornecedor.
+- Portões: lint, tipos, formatação, sem else ✅; 837 testes (base 795); build ✅; M1 ✅, M2 ✅ (itens antigos `untracked`, check de reservado ≥ 0), M3 ✅; e2e 24 + 16 ✅ (publicação, fornecedores, admin, operação, relatórios).
+- Revisão independente 1: ALTO (CSV do admin apagava reservas) → redesenho para prateleira + reservado, escolhido pelo usuário. Revisão 2: deadlock CSV × venda (`FOR NO KEY UPDATE` em ordem de id), envio do fornecedor sem baixa (corrigido, teste), devolução após envio acima da contagem (sem clamp, teste), seed `untracked`, limite de pedidos antigos documentado. Pendentes para 01.b: admin ver "reservado"; aviso de falta ao revendedor.
+- Revisão de vícios de IA (a pedido do usuário): 1 bug (venda alterava `updated_at` do produto, o que quebraria o "estoque atualizado há X"; teste novo) e 6 vícios corrigidos: `shiftShelf` em vez de 4 updates repetidos, reserva que ignorava o resultado da troca de estado, imports fora do grupo, comentário com verbo ambíguo ("settles"), comentário do seed partindo campos pareados, opção morta e pedido duplicado no teste. 838 testes, build ✅.
+- Fora do escopo: no celular (390 px), a última aba de filtro de Publicações ("Pausadas") encosta na borda; checar no item que mexer nessa tela (regra V5).
+- Achado de ambiente: o servidor da porta 3300 (de outra sessão) não enxerga o export novo `@sellbridge/shared/stock-reservation` sem reiniciar e mostra erro no catálogo; as capturas foram feitas num servidor próprio na 3400.
 
 ### 2026-10-13 · Item 00 · Preparação do dia — ✅ concluído
 
