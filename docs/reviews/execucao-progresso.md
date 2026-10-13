@@ -4,11 +4,11 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 02.b · Guarda de criação e Reprocessar que concilia antes
-- Última etapa concluída: — (02.a ✅ 4925280)
-- Próximo passo: etapa 1 · ler o fluxo de publicação e reconciliação
+- Item/parte: 04 · Status completos do pedido e do rastreio do ML
+- Última etapa concluída: — (02 ✅ 4925280 · d07b7e2)
+- Próximo passo: etapa 1 · ler ORDER_STATUS_MAP e applyMarketplaceShipment; decidir se o item tem partes (seção 9.0)
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 02.a
+- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 02.b
 - Pendências: mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida)
 
 ## Linha de base
@@ -31,7 +31,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | ---- | ----------------------------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------- |
 | 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)        |
 | 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                     |
-| 02   | Anúncio duplicado e publicação travada          | 🟡       | 4925280                     | 02.a ✅ 4925280 · 02.b ⬜                                               |
+| 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a                  |
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                           |                                                                         |
 | 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                           |                                                                         |
