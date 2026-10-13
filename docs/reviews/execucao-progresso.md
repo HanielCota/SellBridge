@@ -1,0 +1,75 @@
+# Andamento da execução tela a tela
+
+Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md). Cada sessão **lê este arquivo antes de começar** e **atualiza o bloco "Em andamento" ao terminar cada etapa** e a tabela ao terminar cada parte. É a memória entre sessões: o que não está aqui não aconteceu.
+
+## Em andamento
+
+_(nenhum)_
+
+## Linha de base
+
+| Métrica                                                         | Valor                            | Medido em  |
+| --------------------------------------------------------------- | -------------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 795 passando                     | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 314 passando                     | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando                      | 2026-10-13 |
+| Última migration                                                | 0016_ticket_orders_and_followers | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1`            | 2026-10-12 |
+
+## Situação dos itens
+
+Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
+
+Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (ex.: `01.a ✅ abc1234 · 01.b ⬜`). O item só vira ✅ quando todas as partes estão ✅.
+
+| Item | Título                                          | Situação | Commit            | Notas                                                            |
+| ---- | ----------------------------------------------- | -------- | ----------------- | ---------------------------------------------------------------- |
+| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888 | Árvore herdada revisada duas vezes e commitada (local, sem push) |
+| 01   | Estoque: reserva e baixa na venda               | ⬜       | —                 |                                                                  |
+| 02   | Anúncio duplicado e publicação travada          | ⬜       | —                 |                                                                  |
+| 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                 |                                                                  |
+| 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                 |                                                                  |
+| 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                 |                                                                  |
+| 06   | Envio cancelado e reencaminhamento              | ⬜       | —                 |                                                                  |
+| 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                 |                                                                  |
+| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                 |                                                                  |
+| 09   | Lucro correto                                   | ⬜       | —                 |                                                                  |
+| 10   | Segurança de contas e da equipe                 | ⬜       | —                 |                                                                  |
+| 11   | Uploads seguros                                 | ⬜       | —                 |                                                                  |
+| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                 |                                                                  |
+| 13   | Erros de publicação claros                      | ⬜       | —                 |                                                                  |
+| 14   | Publicação em massa: validação e progresso      | ⬜       | —                 |                                                                  |
+| 15   | Uma regra só de taxa e margem                   | ⬜       | —                 |                                                                  |
+| 16   | Riscos da assinatura                            | ⬜       | —                 |                                                                  |
+| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                 |                                                                  |
+| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                 |                                                                  |
+| 19   | Pequenos de segurança e status                  | ⬜       | —                 |                                                                  |
+| 20   | Página do pedido                                | ⬜       | —                 |                                                                  |
+| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                 | Depende de D6                                                    |
+| 22   | Rastreio automático e previsão                  | ⬜       | —                 |                                                                  |
+| 23   | Anúncios completos                              | ⬜       | —                 |                                                                  |
+| 24   | Saúde das lojas                                 | ⬜       | —                 |                                                                  |
+| 25   | Central de notificações                         | ⬜       | —                 | WhatsApp depende de D9                                           |
+| 26   | Onboarding previsível e conta completa          | ⬜       | —                 |                                                                  |
+| 27   | Suporte: o que falta                            | ⬜       | —                 |                                                                  |
+| 28   | Admin da plataforma                             | ⬜       | —                 |                                                                  |
+| 29   | Painel do mockup do cliente                     | ⬜       | —                 | Layout depende de D8                                             |
+| 30   | LGPD e proteção da conta                        | ⬜       | —                 |                                                                  |
+| 31   | Planos como no PDF                              | ⬜       | —                 | Depende de D10                                                   |
+| 32   | Infra                                           | ⬜       | —                 |                                                                  |
+| 33   | Shopee                                          | ⛔       | —                 | Sem credenciais de parceiro                                      |
+| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                 | Depende de D1–D4                                                 |
+| 35   | Conquistas digitais e Club                      | ⛔       | —                 | Depende de decisão do cliente                                    |
+| 36   | IA assistente                                   | ⛔       | —                 | Depende de decisão do cliente                                    |
+| 37   | Fiscal e contabilidade                          | ⛔       | —                 | Depende de decisão contábil                                      |
+
+## Histórico
+
+Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Item 00 · Preparação do dia — ✅ concluído
+
+- A árvore tinha, além das correções de design de 12/10, a funcionalidade "ferramentas do chamado" (migration 0016: `ticket_orders`, `ticket_followers`; respostas rápidas, rascunho, painel de contexto, histórico para o revendedor, prévia de imagem). O usuário escolheu revisar e commitar junto.
+- Portões: C1–C6 ✅ (795 testes; base 782), M1 ✅ banco novo, M2 ✅ 0000–0015 à mão + só a 0016 (tabelas novas, sem backfill), M3 ✅, C7 ✅ 15 e2e + support.spec de novo após as correções (6).
+- Revisão independente: 0 crítico/alto. Corrigidos: M1 e-mail para quem saiu da loja ou foi banido (teste novo), M2 colar do Word/Excel virava anexo, L4 resposta rápida passava de 5.000 caracteres (teste novo). Fora do escopo: L1 colega reativa e-mail de quem silenciou, L2 chave de cache sem tenant (o app não troca de organização sem sair, e sair limpa o cache), L3 rascunho por chamado e não por pessoa, L5 vincular pedido em chamado encerrado, L6 índice em `ticket_followers.user_id`, L7 "visto pelo suporte" quando o atendente é da própria loja.
+- Segunda revisão (bugs e vícios de IA, a pedido do usuário): 10 achados, todos corrigidos. Diálogo de colega limpa erro e escolha ao fechar; e-mails com `allSettled` e contagem de falhas; busca de pedidos sem acento e por palavra (`matchesEveryWord`, teste novo); `CopyButton` reaproveitado no código do chamado; `SearchInput` no seletor de pedidos; `ExpectedReplyText` removido; lista de pedidos só leitura para a equipe; "desligado" em texto; regra V2 passa a aceitar o tom de aviso de `ToneStatus`. Portões de novo: lint, tipos, formatação, sem else, 795 testes, build e 18 e2e (suporte, admin, avaliações, acessibilidade, integrações).

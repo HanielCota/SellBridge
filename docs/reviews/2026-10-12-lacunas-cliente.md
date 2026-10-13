@@ -67,6 +67,7 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | Q6                 | 🟡               | A landing existe fora deste repositório.                                                                                                                                                                      |
 | R1                 | 🟡               | Registro estruturado de erros do servidor e do navegador. Sem Sentry nem alertas.                                                                                                                             |
 | R2                 | ✅               | `/api/health` e Dockerfile com HEALTHCHECK e migrate no boot.                                                                                                                                                 |
+| J5                 | 🟡 (13/10)       | Pedidos vinculados ao chamado (`ticket_orders`, migration 0016), visíveis ao revendedor e à equipe. Faltam loja e anúncio, e o botão "Falar com o suporte" nas telas de pedido, loja e anúncio (item 27.a).   |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)
 
