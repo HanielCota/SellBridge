@@ -4,22 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 04.b · Reembolsos e devoluções como order_adjustments idempotentes
-- Última etapa concluída: — (04.a ✅ be3b6f1)
-- Próximo passo: etapa 1 · ler order_adjustments, financeiro e o que o pedido do ML traz de reembolso
+- Item/parte: 04.c · Reflexo no Financeiro e na linha do tempo do envio (tela)
+- Última etapa concluída: — (04.b ✅ 50119db)
+- Próximo passo: etapa 1 · ler Financeiro (linhas e resumo) e o painel do envio; montar a folha D0
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 04.a
+- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 04.b
 - Pendências: mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados; selos coloridos de Não entregue/Devolvido no 04.c
 
 ## Linha de base
 
-| Métrica                                                         | Valor                              | Medido em  |
-| --------------------------------------------------------------- | ---------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 858 passando                       | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 322 passando                       | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando                        | 2026-10-13 |
-| Última migration                                                | 0019_marketplace_shipment_statuses | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`              | 2026-10-12 |
+| Métrica                                                         | Valor                    | Medido em  |
+| --------------------------------------------------------------- | ------------------------ | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 858 passando             | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 322 passando             | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando              | 2026-10-13 |
+| Última migration                                                | 0020_marketplace_refunds | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1`    | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -33,7 +33,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                     |
 | 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a                  |
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 04   | Status completos do pedido e do rastreio do ML  | 🟡       | be3b6f1                     | 04.a ✅ be3b6f1 · 04.b ⬜ · 04.c ⬜                                     |
+| 04   | Status completos do pedido e do rastreio do ML  | 🟡       | be3b6f1                     | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ⬜                             |
 | 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                           |                                                                         |
 | 06   | Envio cancelado e reencaminhamento              | ⬜       | —                           |                                                                         |
 | 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                           |                                                                         |
