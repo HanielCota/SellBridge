@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
+import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { eq } from "drizzle-orm";
 import {
   organization,
@@ -114,7 +115,75 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await popup.close();
   await supplier.getByRole("button", { name: "Entregue", exact: true }).click();
   await expect(supplier.getByRole("button", { name: "Entregue", exact: true })).toHaveCount(0);
+  // Newest first: the delivery heads the history.
+  await expect(
+    supplier.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
+  ).toContainText("Entregue");
   const [order] = await database.select().from(orders).where(eq(orders.id, orderId));
   expect(order?.status).toBe("delivered");
   await supplierContext.close();
+});
+
+test("shows a parcel that failed and came back on the shipment timeline", async ({ page }) => {
+  const returnedId = `E2E-RET-${randomUUID()}`;
+  const [source] = await database.select().from(orders).where(eq(orders.id, orderId));
+  if (!source) throw new Error("Order missing");
+  const [order] = await database
+    .insert(orders)
+    .values({
+      tenantId: source.tenantId,
+      storeConnectionId: source.storeConnectionId,
+      externalOrderId: returnedId,
+      status: "paid",
+      totalCents: 9900,
+      buyerName: "Maria Silva",
+      orderedAt: new Date(),
+    })
+    .returning();
+  if (!order) throw new Error("Order missing");
+  const [item] = await database.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  if (!item) throw new Error("Item missing");
+  await database.insert(orderItems).values({ ...item, id: randomUUID(), orderId: order.id });
+  try {
+    await forwardOrder(database, order.tenantId, {
+      orderId: order.id,
+      address: {
+        recipient: "Maria Silva",
+        street: "Rua das Flores",
+        number: "10",
+        complement: "",
+        neighborhood: "Centro",
+        city: "São Paulo",
+        state: "SP",
+        postalCode: "01001-000",
+      },
+      notes: "",
+    });
+    for (const [status, trackingStatus] of [
+      ["not_delivered", "not_delivered"],
+      ["not_delivered", "returned"],
+    ] as const)
+      await applyMarketplaceShipment(database, order.tenantId, order.id, {
+        status,
+        trackingStatus,
+        buyerReturnDelivered: false,
+        carrier: "Mercado Envios",
+        trackingCode: "ML-E2E",
+      });
+
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(returnedId);
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Operar pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    const history = dialog.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem");
+    await expect(history.nth(0)).toContainText("Devolvido");
+    await expect(history.nth(0)).toContainText("por Mercado Livre");
+    await expect(history.nth(1)).toContainText("Não entregue");
+    await expect(history.last()).toContainText("Aguardando fornecedor");
+  } finally {
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
 });

@@ -10,11 +10,15 @@ import {
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { SmartDate } from "@/components/data/smart-date";
+import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { printShipment } from "@/features/fulfillment/print-shipment";
+import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
 
 export interface ShipmentView {
   id: string;
@@ -209,9 +213,10 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
       {" "}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{shipment.supplierName}</h3>
-        <span className="rounded-full bg-muted px-3 py-1 text-xs">
-          {FULFILLMENT_LABELS[shipment.status]}
-        </span>
+        <ToneStatus
+          tone={FULFILLMENT_TONES[shipment.status]}
+          label={FULFILLMENT_LABELS[shipment.status]}
+        />
       </div>
       <ul className="space-y-1 text-sm">
         {shipment.items.map((item, index) => (
@@ -245,16 +250,34 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   );
 }
 
+/** Newest first on a rail, like the customer timeline: each step in its status color. */
 function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
   return (
-    <ol className="space-y-2 border-t pt-3 text-xs" aria-label="Histórico do envio">
-      {shipment.events.map((event) => (
-        <li key={event.id}>
-          <span className="font-medium">{FULFILLMENT_LABELS[event.status]}</span> · {event.actor} ·{" "}
-          {new Date(event.createdAt).toLocaleString("pt-BR")}
-          {event.note ? <p className="text-muted-foreground">{event.note}</p> : null}
-        </li>
-      ))}
-    </ol>
+    <div className="border-t pt-4">
+      <ol
+        aria-label="Histórico do envio"
+        className="relative space-y-3 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3px] before:w-px before:bg-border"
+      >
+        {shipmentTimeline(shipment.events).map((event) => (
+          <li key={event.id} className="relative grid grid-cols-[7px_minmax(0,1fr)_auto] gap-3">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "mt-1.5 size-[7px] rounded-full ring-2 ring-card",
+                TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]],
+              )}
+            />
+            <span className="min-w-0 text-footnote">
+              <span className="block text-foreground">{FULFILLMENT_LABELS[event.status]}</span>
+              <span className="block text-muted-foreground">por {event.actor}</span>
+              {event.note ? (
+                <span className="block break-words text-muted-foreground">{event.note}</span>
+              ) : null}
+            </span>
+            <SmartDate date={event.createdAt} className="text-footnote text-muted-foreground" />
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

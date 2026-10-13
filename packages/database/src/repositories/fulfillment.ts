@@ -499,15 +499,17 @@ export async function applyMarketplaceShipment(
         updatedAt: new Date(),
       })
       .where(eq(orderShipments.id, shipment.id));
-    if (
-      status !== shipment.status ||
-      (shipping.trackingCode && shipping.trackingCode !== shipment.trackingCode)
-    )
+    const newTrackingCode =
+      shipping.trackingCode && shipping.trackingCode !== shipment.trackingCode
+        ? shipping.trackingCode
+        : null;
+    if (status !== shipment.status || newTrackingCode)
       await tx.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status,
         actor: "Mercado Livre",
-        note: `Consulta do marketplace: ${shipping.status}${shipping.trackingCode ? ` · ${shipping.trackingCode}` : ""}`,
+        // The status label says what happened; the note only adds a tracking code that just arrived.
+        note: newTrackingCode ? `Código de rastreio ${newTrackingCode}` : "",
       });
     await syncOrderFromShipments(tx, order, { buyerReturned: shipping.buyerReturnDelivered });
   });

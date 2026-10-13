@@ -289,3 +289,10 @@ O mapa segue as tabelas oficiais (`gerenciamento-de-vendas`, `gerenciamento-de-e
 - **Como o reembolso conta** segue a regra de lucro da fase 3: num pedido que ainda conta receita, desconta do lucro (`refund`); num pedido devolvido, que não conta receita, aparece em "Devoluções" (`return`); num cancelado, sai.
 - **Pedido devolvido.** O Mercado Livre não tem status de pedido "devolvido": o pedido segue pago. Viramos o pedido para devolvido quando todo envio de venda voltou ao vendedor, ou quando o pacote de devolução do comprador chega. Uma sincronização posterior não o devolve a "pago"; só o cancelamento muda. Consultar o envio de um pedido devolvido não faz nada.
 - **Estoque na devolução (decisão do usuário no ⏸1).** As unidades que já saíram não voltam sozinhas à prateleira do fornecedor: no Mercado Livre a devolução vai para o endereço do vendedor, que é o revendedor. O item é encerrado (`settle`); o fornecedor ajusta a contagem quando receber o produto. Unidades só reservadas continuam liberadas, e o cancelamento continua devolvendo à prateleira.
+
+## 2026-10-13: Envio com selo e linha do tempo (item 04.c)
+
+- O status do envio usa o mesmo `ToneStatus` do status do pedido, com a mesma paleta (`FULFILLMENT_TONES`): aguardando em cinza, etapas em andamento em azul, entregue em verde, não entregue em âmbar, devolvido em vermelho como o pedido devolvido, cancelado em cinza.
+- O histórico do envio segue a linha do tempo do cliente no admin (`CustomerTimeline`): trilho, ponto na cor do status, "por {quem}", nota em cinza e data relativa; o mais recente em cima. O painel é o mesmo na operação do revendedor e no link do fornecedor.
+- A nota gravada nas leituras do Mercado Livre deixou de mostrar o status cru em inglês ("Consulta do marketplace: not_delivered"): o rótulo do status já diz o que houve, e a nota só traz um código de rastreio quando ele chega.
+- O Financeiro não mudou: reembolso e devolução já tinham lugar no detalhe do pedido, no resumo, nos gráficos e no CSV; o 04.b passou a alimentá-los com dados do Mercado Livre.
