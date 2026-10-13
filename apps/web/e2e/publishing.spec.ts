@@ -72,6 +72,23 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   );
 });
 
+test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ page }) => {
+  await signUp(page, "Revendedora Duplicado");
+  await onboardInBeloHorizonte(page);
+  await connectMockStore(page, "Loja Única");
+
+  await openPublishFormForFirstProduct(page);
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(page).toHaveURL(/\/publicacoes/);
+
+  // Same product again: the store that already has it is shown and cannot be chosen.
+  await openPublishFormForFirstProduct(page);
+  const store = page.getByRole("checkbox", { name: /Loja Única/ });
+  await expect(store).toBeDisabled();
+  await expect(store).not.toBeChecked();
+  await expect(page.getByText("Já publicado aqui").filter({ visible: true })).toBeVisible();
+});
+
 test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await signUp(page, "Revendedora Ações");
   await onboardInBeloHorizonte(page);

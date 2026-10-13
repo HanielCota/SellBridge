@@ -4,6 +4,7 @@ import {
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
+  storesListingProduct,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -34,11 +35,19 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const region = await requireTenantRegion(context.tenantId);
-    const [product, stores] = await Promise.all([
+    const [product, stores, listedOn] = await Promise.all([
       getCatalogProductForRegion(database, region, data.productId),
       listStoreConnections(database, context.tenantId),
+      storesListingProduct(database, context.tenantId, data.productId),
     ]);
-    return { product, stores: stores.filter((store) => store.status === "connected") };
+    // One listing per product and store: a store that already sells it is shown, not offered.
+    const listedIds = new Set(listedOn.map((store) => store.storeId));
+    return {
+      product,
+      stores: stores
+        .filter((store) => store.status === "connected")
+        .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
+    };
   });
 
 export const createListing = createServerFn({ method: "POST" })

@@ -257,3 +257,11 @@ Um pedido pago cujo item ficou `short` (o fornecedor não tinha as unidades) apa
 - **Pedidos › Operação**: o selo "Falta estoque" (`ToneStatus`, tom de aviso) empilhado sob o status do pedido.
 
 O admin vê a reserva junto da prateleira na lista de produtos ("22 · 3 reservados"; se a prateleira ficou abaixo das reservas, "2 · 5 reservados · faltam 3"). A busca dos itens em falta usa o índice parcial `order_items_short_idx (tenant_id) WHERE stock_state = 'short'` (migration 0018, que também cria `short_since`), pequeno porque só guarda faltas abertas.
+
+## 2026-10-13: Um anúncio por produto e loja (item 02.a)
+
+Publicar de novo um produto numa loja que já tem anúncio dele é recusado no servidor: "Este produto já está publicado em {loja}. Edite o anúncio existente em Publicações." Publicar o mesmo produto em **outra** loja continua permitido. A regra vive em `createListingWithTargets`, que atende a publicação individual e a em massa.
+
+**Por que trava de linha, e não índice único.** O produto está em `listings` e a loja em `listing_targets`, então o banco não consegue impor a regra sem copiar o produto para os destinos e migrar os dados existentes; e o encerramento de anúncio (item 23) vai precisar permitir republicar depois de encerrar. A transação trava as lojas de destino (`FOR UPDATE`, sempre em ordem de id) antes de conferir, então duas publicações simultâneas esperam uma pela outra e a segunda é recusada.
+
+Na tela "Nova publicação", as lojas que já vendem o produto aparecem desativadas com "Já publicado aqui"; se todas já vendem, a tela diz isso e aponta para Publicações.

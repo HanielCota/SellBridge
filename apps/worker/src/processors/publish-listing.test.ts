@@ -180,11 +180,12 @@ describe("publish-listing processor", () => {
   });
 
   it("persists the remote creation guard and retains it across manual reprocessing", async () => {
-    const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
+    // Before the target: each target lists its own copy of the fixture product.
     await database
       .update(schema.supplierProducts)
       .set({ mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" } })
       .where(eq(schema.supplierProducts.id, catalog.productId));
+    const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
     publishProduct.mockImplementationOnce(async (_credentials, input, options) => {
       expect(options?.reconcileOnly).toBe(false);

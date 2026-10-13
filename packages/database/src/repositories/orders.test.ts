@@ -187,6 +187,11 @@ describe("marketplace orders and sync", () => {
   });
 
   it("lists published listings whose stock or price changed", async () => {
+    // The product is already listed on store A (first test): a second store sells it too.
+    const otherStore = await upsertStoreConnection(
+      database,
+      testStoreInput(tenantA, `shop-sync-${tenantA}`),
+    );
     const created = await createListingWithTargets(
       database,
       tenantA,
@@ -196,7 +201,7 @@ describe("marketplace orders and sync", () => {
         description: "Descrição",
         priceCents: 4500,
       },
-      [storeA],
+      [otherStore.id],
     );
     const [targetId] = created.targetIds;
     if (!targetId) {

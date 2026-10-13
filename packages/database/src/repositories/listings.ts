@@ -3,11 +3,11 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
+import { safetyMargin } from "@sellbridge/shared/stock-reservation";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { availableStock } from "./sql/available-stock.ts";
-import { safetyMargin } from "@sellbridge/shared/stock-reservation";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
@@ -30,6 +30,56 @@ export function listingIdempotencyKey(listingId: string, storeConnectionId: stri
   return `${listingId}:${storeConnectionId}`;
 }
 
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/** The tenant's stores that already carry a listing of this product, by name. */
+export async function storesListingProduct(
+  executor: DatabaseExecutor,
+  tenantId: string,
+  supplierProductId: string,
+): Promise<{ storeId: string; storeName: string }[]> {
+  return executor
+    .selectDistinct({ storeId: storeConnections.id, storeName: storeConnections.shopName })
+    .from(listingTargets)
+    .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .where(
+      and(eq(listingTargets.tenantId, tenantId), eq(listings.supplierProductId, supplierProductId)),
+    )
+    .orderBy(asc(storeConnections.shopName), asc(storeConnections.id));
+}
+
+/**
+ * One listing per product and store. The stores are locked first, always in the same order, so
+ * two publications of the same product wait for each other and the second one sees the first.
+ */
+async function assertNotListedYet(
+  transaction: Transaction,
+  tenantId: string,
+  supplierProductId: string,
+  storeConnectionIds: readonly string[],
+): Promise<void> {
+  await transaction
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        inArray(storeConnections.id, [...storeConnectionIds]),
+      ),
+    )
+    .orderBy(asc(storeConnections.id))
+    .for("update");
+  const listed = (await storesListingProduct(transaction, tenantId, supplierProductId)).find(
+    (store) => storeConnectionIds.includes(store.storeId),
+  );
+  if (listed) {
+    throw conflictError(
+      `Este produto já está publicado em ${listed.storeName}. Edite o anúncio existente em Publicações.`,
+    );
+  }
+}
+
 export async function createListingWithTargets(
   database: Database,
   tenantId: string,
@@ -41,6 +91,7 @@ export async function createListingWithTargets(
   }
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
+    await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
     if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
     const [listing] = await transaction
       .insert(listings)

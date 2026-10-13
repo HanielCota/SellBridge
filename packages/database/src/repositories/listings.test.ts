@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { apiEvents, listingTargets } from "../schema/index.ts";
@@ -25,6 +26,7 @@ let tenantA = "";
 let tenantB = "";
 let storeA = "";
 let productId = "";
+const productCleanups: (() => Promise<void>)[] = [];
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);
@@ -42,6 +44,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
+  for (const cleanup of productCleanups) {
+    await cleanup();
+  }
   await database.$client.end();
 });
 
@@ -96,11 +101,19 @@ async function eventsOfTarget(listingTargetId: string) {
     .orderBy(apiEvents.sequence);
 }
 
+/** A fresh product per target: a store holds one listing per product. */
 async function createTarget(title: string) {
+  const product = await createTestSupplierProduct(database, {
+    sku: `ISO-${randomUUID().slice(0, 8)}`,
+    title,
+    costCents: 1000,
+    suggestedPriceCents: 2500,
+  });
+  productCleanups.push(product.cleanup);
   const created = await createListingWithTargets(
     database,
     tenantA,
-    { supplierProductId: productId, title, description: "Descrição", priceCents: 2500 },
+    { supplierProductId: product.productId, title, description: "Descrição", priceCents: 2500 },
     [storeA],
   );
   const [targetId] = created.targetIds;

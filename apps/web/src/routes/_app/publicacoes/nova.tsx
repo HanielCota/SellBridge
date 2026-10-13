@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { ProductVisual } from "@/components/catalog/product-visual";
+import { ToneStatus } from "@/components/data/tone-status";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -137,6 +138,12 @@ function successMessage(targetCount: number): string {
     : "Publicação enviada para a fila";
 }
 
+/** The only store that can still take the product starts ticked; otherwise the reseller picks. */
+function preselectedStores(stores: readonly ListingStore[]): string[] {
+  const open = stores.filter((store) => !store.listed);
+  return open.length === 1 ? open.map((store) => store.id) : [];
+}
+
 function useListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -173,7 +180,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       title: product.title,
       description: product.description,
       price: formatCentsForInput(product.suggestedPriceCents),
-      storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : [],
+      storeConnectionIds: preselectedStores(stores),
     },
     validators: { onSubmit: listingFormSchema },
     onSubmit: ({ value }) => submit(value),
@@ -529,6 +536,17 @@ function storeSubtitle(store: ListingStore): string | null {
   return displayStoreName(store.shopName) === store.shopName ? null : "Loja simulada";
 }
 
+/** Under the store name: that it already sells the product, or what kind of store it is. */
+function StoreNote({ listed, subtitle }: { listed: boolean; subtitle: string | null }) {
+  if (listed) {
+    return <ToneStatus tone="success" label="Já publicado aqui" />;
+  }
+  if (subtitle === null) {
+    return null;
+  }
+  return <span className="block text-xs text-muted-foreground">{subtitle}</span>;
+}
+
 function StoreOption({
   store,
   checked,
@@ -542,16 +560,20 @@ function StoreOption({
   return (
     <Label
       htmlFor={`store-${store.id}`}
-      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand"
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand",
+        store.listed ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+      )}
     >
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{displayStoreName(store.shopName)}</span>
-        {subtitle ? <span className="block text-xs text-muted-foreground">{subtitle}</span> : null}
+        <StoreNote listed={store.listed} subtitle={subtitle} />
       </span>
       <Checkbox
         id={`store-${store.id}`}
         checked={checked}
+        disabled={store.listed}
         onCheckedChange={(next) => onCheckedChange(next === true)}
       />
     </Label>
@@ -570,14 +592,15 @@ function StoreSelection({
   readonly onChange: (storeConnectionIds: string[]) => void;
 }) {
   const message = firstErrorMessage(errors);
-  const allSelected = selectedIds.length === stores.length;
+  const open = stores.filter((store) => !store.listed);
+  const allSelected = selectedIds.length === open.length;
   return (
     <fieldset>
       <legend className="float-left mb-3 text-sm font-medium">Publicar em</legend>
-      {stores.length > 1 ? (
+      {open.length > 1 ? (
         <button
           type="button"
-          onClick={() => onChange(allSelected ? [] : stores.map((store) => store.id))}
+          onClick={() => onChange(allSelected ? [] : open.map((store) => store.id))}
           className="float-right rounded-md text-xs font-medium text-brand-text transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {allSelected ? "Limpar seleção" : "Selecionar todas"}
@@ -597,7 +620,17 @@ function StoreSelection({
           />
         ))}
       </div>
-      {message ? <p className="mt-2 text-sm text-destructive">{message}</p> : null}
+      {open.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Este produto já está publicado em todas as suas lojas. Para mudar preço ou texto, edite o
+          anúncio em Publicações.
+        </p>
+      ) : null}
+      {message ? (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {message}
+        </p>
+      ) : null}
     </fieldset>
   );
 }
