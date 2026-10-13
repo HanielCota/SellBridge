@@ -143,3 +143,36 @@ export function assertCanRate(status: TicketStatus, ratedAt: Date | null): void 
     throw conflictError("Você já avaliou este atendimento");
   }
 }
+
+/** Short code people can read out or paste in a chat ("#A3F2C1"); the full id stays in the URL. */
+export function ticketCode(ticketId: string): string {
+  return ticketId.replaceAll("-", "").slice(0, 6).toUpperCase();
+}
+
+const DAY_MILLISECONDS = 24 * HOUR_MILLISECONDS;
+
+/**
+ * When the auto-close job will close the ticket if the reseller stays quiet: only answered
+ * tickets with nothing owed by support, counted from their last change.
+ */
+export function autoCloseAt(
+  status: TicketStatus,
+  awaitingSince: Date | null,
+  updatedAt: Date,
+): Date | null {
+  if (status !== "answered" || awaitingSince !== null) {
+    return null;
+  }
+  return new Date(updatedAt.getTime() + AUTO_CLOSE_AFTER_DAYS * DAY_MILLISECONDS);
+}
+
+/** Share (0–1) of the response window already used up, for a progress bar. */
+export function responseWindowUsed(
+  awaitingSince: Date,
+  priority: TicketPriority,
+  now: Date,
+): number {
+  const window = RESPONSE_TARGET_HOURS[priority] * HOUR_MILLISECONDS;
+  const used = (now.getTime() - awaitingSince.getTime()) / window;
+  return Math.min(1, Math.max(0, used));
+}

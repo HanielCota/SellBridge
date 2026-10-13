@@ -1,6 +1,7 @@
 import {
   addTicketMessage,
   createTicket,
+  findTicketEmailRecipients,
   findTicketRequester,
   getAttachment,
 } from "@sellbridge/database/repositories";
@@ -118,16 +119,40 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
 }
 
 /**
- * Tells the reseller by e-mail that support answered. A failed e-mail never fails the reply:
- * the answer is saved and also shows up in the app.
+ * Tells the store by e-mail that support answered: the requester and the colleagues following
+ * the ticket, minus whoever turned the e-mails off. A failed e-mail never fails the reply: the
+ * answer is saved and also shows up in the app.
  */
-async function notifyRequester(ticketId: string): Promise<void> {
+async function notifyFollowers(ticketId: string): Promise<void> {
   try {
     const requester = await findTicketRequester(database, ticketId);
     if (!requester) {
       return;
     }
-    await sendEmail(supportReplyEmail(requester, ticketId, environment.APP_URL));
+    const recipients = await findTicketEmailRecipients(database, ticketId);
+    const results = await Promise.allSettled(
+      recipients.map((recipient) =>
+        sendEmail(
+          supportReplyEmail(
+            { ...recipient, subject: requester.subject },
+            ticketId,
+            environment.APP_URL,
+          ),
+        ),
+      ),
+    );
+    // One bad address must not hide who did get the answer.
+    const failures = results.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (failures.length > 0) {
+      logger.warn("support.reply_email_failed", {
+        ticketId,
+        failed: failures.length,
+        sent: results.length - failures.length,
+        error: failures[0]?.reason,
+      });
+    }
   } catch (error) {
     logger.warn("support.reply_email_failed", { ticketId, error });
   }
@@ -156,10 +181,22 @@ export function handleAdminReply(request: Request, ticketIdParam: string | undef
     });
     if (message.kind === "reply") {
       // Not awaited: the reply is saved, and a slow provider must not hold the agent's request.
-      void notifyRequester(ticketId);
+      void notifyFollowers(ticketId);
     }
     return jsonResponse(201, { ok: true, status });
   });
+}
+
+/**
+ * `?inline=1` lets an image open in the browser for the thread's preview. Only images: their
+ * type was checked by magic bytes on upload, and `nosniff` keeps the browser to that type.
+ */
+function dispositionOf(request: Request, mimeType: string): "inline" | "attachment" {
+  const wantsInline = new URL(request.url).searchParams.get("inline") === "1";
+  if (wantsInline && mimeType.startsWith("image/")) {
+    return "inline";
+  }
+  return "attachment";
 }
 
 /** GET /api/suporte/anexos/:attachmentId: download for the owner tenant or the support team. */
@@ -181,7 +218,7 @@ export function handleDownloadAttachment(request: Request, attachmentIdParam: st
     return new Response(Buffer.from(bytes), {
       headers: {
         "content-type": attachment.mimeType,
-        "content-disposition": `attachment; filename="${attachment.fileName}"`,
+        "content-disposition": `${dispositionOf(request, attachment.mimeType)}; filename="${attachment.fileName}"`,
         "x-content-type-options": "nosniff",
         "cache-control": "private, no-store",
       },

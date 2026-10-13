@@ -762,3 +762,10 @@ a:focus-visible .glyph,
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* Printing a page (a support ticket saved as PDF) keeps the content, not the app chrome. */
+@media print {
+  header.sticky {
+    display: none;
+  }
+}

@@ -103,8 +103,8 @@ export const ticketsSearchSchema = z.object({
 });
 export type TicketsSearch = z.infer<typeof ticketsSearchSchema>;
 
-/** Slices of the support inbox, from what nobody took yet to what is past its deadline. */
-export const TICKET_QUEUES = ["unassigned", "mine", "overdue", "all"] as const;
+/** Slices of the support inbox; the default (all) comes first, then what needs someone. */
+export const TICKET_QUEUES = ["all", "unassigned", "mine", "overdue"] as const;
 export const ticketQueueSchema = z.enum(TICKET_QUEUES);
 export type TicketQueue = z.infer<typeof ticketQueueSchema>;
 
@@ -138,6 +138,29 @@ export const setTicketPrioritySchema = z.object({
 export const setTicketCategorySchema = z.object({
   ticketId: ticketIdSchema,
   category: ticketCategorySchema,
+});
+
+/** Orders the reseller can pin to a ticket, searched by order number or buyer. */
+export const linkableOrdersSchema = z.object({
+  ticketId: ticketIdSchema,
+  query: z.string().trim().max(100).optional(),
+});
+
+export const ticketOrderLinkSchema = z.object({
+  ticketId: ticketIdSchema,
+  orderId: z.uuid(),
+});
+
+/** Turns support e-mails about this ticket on or off for the person asking. */
+export const ticketNotificationsSchema = z.object({
+  ticketId: ticketIdSchema,
+  notify: z.boolean(),
+});
+
+/** A colleague of the same store who should also get the e-mails about this ticket. */
+export const addTicketFollowerSchema = z.object({
+  ticketId: ticketIdSchema,
+  userId: z.string().min(1, "Escolha um colega"),
 });
 
 export const rateTicketSchema = z.object({

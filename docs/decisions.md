@@ -198,3 +198,15 @@ O prazo é `awaiting_since` mais as horas da prioridade: urgente 2, alta 8, norm
 - O job `ticket-auto-close` (worker, de hora em hora) encerra chamados respondidos e sem retorno há 7 dias (`AUTO_CLOSE_AFTER_DAYS`).
 
 **E-mail.** Cada resposta pública dispara um e-mail ao revendedor com o link do chamado, sem copiar o texto da resposta. Uma falha no envio não derruba a resposta.
+
+## 2026-10-13: Ferramentas da página do chamado (revendedor)
+
+A conversa do chamado ganhou contexto e atalhos para o revendedor.
+
+- **Pedidos vinculados.** `ticket_orders` liga pedidos da mesma loja ao chamado. Vincular e desvincular entram no histórico (`order_linked`, `order_unlinked`). O suporte vê os pedidos ao lado da conversa.
+- **Quem recebe e-mail.** `ticket_followers` guarda exceções: quem abriu o chamado recebe sem linha própria; uma linha com `notify = false` silencia alguém, e colegas da loja entram com `notify = true` (evento `follower_added`). A resposta pública do suporte manda um e-mail para cada seguidor ativo.
+- **Histórico para o revendedor.** A conversa mostra as mudanças que importam a ele (quem assumiu, encerramento, reabertura, tema, pedidos, colegas). Mudanças de prioridade e devolução para a fila ficam só para a equipe.
+- **Visto pelo suporte.** Vem de `ticket_reads` de quem é da equipe; nada novo é gravado.
+- **Código curto.** `#A3F2C1` são os 6 primeiros hexadecimais do id (`ticketCode`), só para citar; a URL continua usando o id completo.
+- **Rascunho.** A resposta não enviada fica no `localStorage` do navegador, por chamado. É conveniência: some em janela anônima e nunca vai ao servidor.
+- **Imagens anexadas.** `?inline=1` abre a imagem no navegador para a prévia; só vale para tipos `image/*`, que já são verificados pelos bytes no envio.

@@ -13,6 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth.ts";
+import { orders } from "./orders.ts";
 import {
   ticketCategoryEnum,
   ticketEventTypeEnum,
@@ -132,6 +133,45 @@ export const ticketReads = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     readAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.ticketId, table.userId] })],
+);
+
+/** Orders the reseller pinned to a ticket, so support sees what the conversation is about. */
+export const ticketOrders = pgTable(
+  "ticket_orders",
+  {
+    ticketId: uuid()
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    orderId: uuid()
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    linkedById: text().references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ticketId, table.orderId] }),
+    index("ticket_orders_order_idx").on(table.orderId),
+  ],
+);
+
+/**
+ * Who gets an e-mail when support answers. The requester follows without a row; a row with
+ * `notify = false` mutes someone, and colleagues of the store are added with `notify = true`.
+ */
+export const ticketFollowers = pgTable(
+  "ticket_followers",
+  {
+    ticketId: uuid()
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    notify: boolean().notNull().default(true),
+    addedById: text().references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.ticketId, table.userId] })],
 );

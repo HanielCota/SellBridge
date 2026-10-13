@@ -120,8 +120,13 @@ export interface TicketThread {
     createdAt: Date;
     attachments: { id: string; fileName: string; mimeType: string; sizeBytes: number }[];
   }[];
-  /** History of status, assignee, priority and category changes; empty for resellers. */
+  /**
+   * What changed on the ticket. Staff get everything; resellers get what concerns them (no
+   * priority changes, no handing back to the queue).
+   */
   events: TicketEventView[];
+  /** The latest moment someone from the other side opened the thread (support for resellers). */
+  seenByOtherSideAt: Date | null;
 }
 
 /** Which side reads the thread: resellers wait for support, support waits for resellers. */
@@ -922,7 +927,10 @@ async function findMessageAttachments(database: Database, messageIds: readonly s
     .where(inArray(ticketAttachments.messageId, [...messageIds]));
 }
 
-/** Names of the people an "assigned" event points at (its values are user ids). */
+/** Event types whose values are user ids, shown as names. */
+const PERSON_EVENTS: ReadonlySet<TicketEventType> = new Set(["assigned", "follower_added"]);
+
+/** Names of the people an "assigned" or "follower_added" event points at. */
 async function namesOf(database: Database, ids: readonly string[]): Promise<Map<string, string>> {
   if (ids.length === 0) {
     return new Map();
@@ -932,6 +940,17 @@ async function namesOf(database: Database, ids: readonly string[]): Promise<Map<
     .from(user)
     .where(inArray(user.id, [...ids]));
   return new Map(rows.map((row) => [row.id, row.name]));
+}
+
+/** A reseller sees who handles the ticket and what changed for them, not the team's triage. */
+function isCustomerVisible(event: TicketEventView): boolean {
+  if (event.type === "priority_changed") {
+    return false;
+  }
+  if (event.type === "assigned") {
+    return event.toValue !== null;
+  }
+  return true;
 }
 
 async function findThreadEvents(database: Database, ticketId: string): Promise<TicketEventView[]> {
@@ -951,27 +970,47 @@ async function findThreadEvents(database: Database, ticketId: string): Promise<T
     .where(eq(ticketEvents.ticketId, ticketId))
     .orderBy(asc(ticketEvents.id));
   const assignedIds = rows
-    .filter((row) => row.type === "assigned")
+    .filter((row) => PERSON_EVENTS.has(row.type))
     .flatMap((row) => [row.fromValue, row.toValue])
     .filter((id): id is string => id !== null);
   const names = await namesOf(database, [...new Set(assignedIds)]);
   return rows.map(({ actorId, ...row }) => {
-    if (row.type !== "assigned") {
+    if (!PERSON_EVENTS.has(row.type)) {
       return { ...row, isSelfAssignment: false };
     }
+    const fallback = row.type === "assigned" ? "Ex-membro da equipe" : "Usuário removido";
     return {
       ...row,
-      isSelfAssignment: actorId !== null && row.toValue === actorId,
-      fromValue:
-        row.fromValue === null ? null : (names.get(row.fromValue) ?? "Ex-membro da equipe"),
-      toValue: row.toValue === null ? null : (names.get(row.toValue) ?? "Ex-membro da equipe"),
+      isSelfAssignment: row.type === "assigned" && actorId !== null && row.toValue === actorId,
+      fromValue: row.fromValue === null ? null : (names.get(row.fromValue) ?? fallback),
+      toValue: row.toValue === null ? null : (names.get(row.toValue) ?? fallback),
     };
   });
 }
 
+/** Last time anyone from the other side read the thread: support for resellers, and back. */
+async function findSeenByOtherSideAt(
+  database: Database,
+  ticketId: string,
+  side: TicketSide,
+): Promise<Date | null> {
+  const isStaffReader = sql`coalesce(${user.role} in (${STAFF_ROLE_LIST}), false)`;
+  const [row] = await database
+    .select({ readAt: sql<Date | null>`max(${ticketReads.readAt})`.mapWith(ticketReads.readAt) })
+    .from(ticketReads)
+    .innerJoin(user, eq(user.id, ticketReads.userId))
+    .where(
+      and(
+        eq(ticketReads.ticketId, ticketId),
+        side === "customer" ? isStaffReader : sql`not ${isStaffReader}`,
+      ),
+    );
+  return row?.readAt ?? null;
+}
+
 /**
  * Loads a full thread; pass the tenant to scope reseller access, or null for staff.
- * Internal notes and the change history are only part of the staff thread.
+ * Internal notes are only part of the staff thread; resellers get a trimmed history.
  */
 export async function getTicketThread(
   database: Database,
@@ -980,10 +1019,12 @@ export async function getTicketThread(
 ): Promise<TicketThread> {
   const ticket = await findThreadTicket(database, ticketId, tenantId);
   const isStaff = tenantId === null;
-  const [messages, events] = await Promise.all([
+  const [messages, allEvents, seenByOtherSideAt] = await Promise.all([
     findThreadMessages(database, ticket.id, isStaff),
-    isStaff ? findThreadEvents(database, ticket.id) : Promise.resolve([]),
+    findThreadEvents(database, ticket.id),
+    findSeenByOtherSideAt(database, ticket.id, isStaff ? "staff" : "customer"),
   ]);
+  const events = isStaff ? allEvents : allEvents.filter(isCustomerVisible);
   const attachments = await findMessageAttachments(
     database,
     messages.map((message) => message.id),
@@ -997,6 +1038,7 @@ export async function getTicketThread(
         .map(({ messageId: _messageId, ...attachment }) => attachment),
     })),
     events,
+    seenByOtherSideAt,
   };
 }
 

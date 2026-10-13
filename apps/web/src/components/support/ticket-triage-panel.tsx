@@ -280,6 +280,15 @@ function describeEvent(event: TicketEventView): string {
   if (event.type === "category_changed") {
     return `${actor}: tema ${labelOf(TICKET_CATEGORY_LABELS, event.fromValue)} → ${labelOf(TICKET_CATEGORY_LABELS, event.toValue)}`;
   }
+  if (event.type === "order_linked") {
+    return `${actor} vinculou o pedido #${event.toValue ?? ""}`;
+  }
+  if (event.type === "order_unlinked") {
+    return `${actor} desvinculou o pedido #${event.fromValue ?? ""}`;
+  }
+  if (event.type === "follower_added") {
+    return `${actor} adicionou ${event.toValue ?? "um colega"} ao chamado`;
+  }
   return `${actor} avaliou com ${event.toValue ?? "?"} de ${MAX_RATING}`;
 }
 

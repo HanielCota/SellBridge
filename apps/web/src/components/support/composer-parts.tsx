@@ -4,7 +4,14 @@ import {
   MAX_ATTACHMENTS,
 } from "@sellbridge/shared/schemas";
 import { PaperclipIcon, XIcon } from "@phosphor-icons/react";
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useRef,
+  useState,
+  type ComponentProps,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { formatBytes, validateSelection } from "@/components/support/attachment-input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,6 +43,78 @@ export function submitOnModEnter(event: KeyboardEvent<HTMLTextAreaElement>, onSu
   onSubmit();
 }
 
+const CLIPBOARD_EXTENSIONS: Readonly<Record<string, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+/**
+ * Images pasted from the clipboard (a screenshot). Browsers name them all "image.png", so each
+ * gets a name that tells them apart in the message.
+ */
+export function filesFromClipboard(data: DataTransfer, now: Date = new Date()): File[] {
+  const stamp = now.toISOString().slice(0, 19).replaceAll(":", "-");
+  return Array.from(data.files).map((file, index) => {
+    const extension = CLIPBOARD_EXTENSIONS[file.type];
+    if (!extension) {
+      return file;
+    }
+    const suffix = index === 0 ? "" : `-${index + 1}`;
+    return new File([file], `print-${stamp}${suffix}.${extension}`, { type: file.type });
+  });
+}
+
+function carriesFiles(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer.types).includes("Files");
+}
+
+/**
+ * Drag-and-drop of files onto the composer. Counts enter/leave pairs, since moving over the
+ * textarea inside the box fires a leave on the box itself.
+ */
+export function useFileDrop(onFiles: (files: File[]) => void) {
+  const depth = useRef(0);
+  const [isOver, setIsOver] = useState(false);
+  return {
+    isOver,
+    handlers: {
+      onDragEnter: (event: DragEvent) => {
+        if (!carriesFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+        depth.current += 1;
+        setIsOver(true);
+      },
+      onDragOver: (event: DragEvent) => {
+        if (!carriesFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+      },
+      onDragLeave: (event: DragEvent) => {
+        if (!carriesFiles(event)) {
+          return;
+        }
+        depth.current = Math.max(0, depth.current - 1);
+        if (depth.current === 0) {
+          setIsOver(false);
+        }
+      },
+      onDrop: (event: DragEvent) => {
+        if (!carriesFiles(event)) {
+          return;
+        }
+        event.preventDefault();
+        depth.current = 0;
+        setIsOver(false);
+        onFiles(Array.from(event.dataTransfer.files));
+      },
+    },
+  };
+}
+
 /** Files picked for the message, checked on the client before they are kept. */
 export function useComposerFiles() {
   const [files, setFiles] = useState<File[]>([]);
@@ -62,18 +141,19 @@ export function useComposerFiles() {
   return { files, fileError, addFiles, removeFile, clear };
 }
 
-/** Icon-only button whose name shows in a tooltip and doubles as the accessible name. */
+/**
+ * Icon-only button whose name shows in a tooltip and doubles as the accessible name. Extra
+ * props (and the ref) reach the button, so it can also be a popover's `asChild` trigger.
+ */
 export function IconAction({
   label,
   pressed,
   className,
-  onClick,
   children,
-}: {
+  ...buttonProps
+}: Omit<ComponentProps<typeof Button>, "aria-label" | "aria-pressed"> & {
   label: string;
   pressed?: boolean;
-  className?: string;
-  onClick?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -83,10 +163,10 @@ export function IconAction({
           type="button"
           variant="ghost"
           size="icon-sm"
+          {...buttonProps}
           aria-label={label}
           aria-pressed={pressed}
           className={cn("text-muted-foreground hover:text-foreground", className)}
-          onClick={onClick}
         >
           {children}
         </Button>

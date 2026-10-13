@@ -4,11 +4,14 @@ import {
   assertCanRate,
   assertCanReply,
   assertCustomerCanClose,
+  autoCloseAt,
   awaitingAfterMessage,
   awaitingAfterStatus,
   nextTicketStatus,
   responseDueAt,
   responseTiming,
+  responseWindowUsed,
+  ticketCode,
 } from "./ticket-rules.ts";
 
 function errorCodeOf(run: () => void): string | null {
@@ -119,5 +122,38 @@ describe("closing and rating", () => {
     expect(errorCodeOf(() => assertCanRate("closed", null))).toBeNull();
     expect(errorCodeOf(() => assertCanRate("answered", null))).toBe("CONFLICT");
     expect(errorCodeOf(() => assertCanRate("closed", new Date()))).toBe("CONFLICT");
+  });
+});
+
+describe("ticketCode", () => {
+  it("takes the first six hex digits, upper case", () => {
+    expect(ticketCode("a3f2c1d4-0000-4000-8000-000000000000")).toBe("A3F2C1");
+  });
+});
+
+describe("autoCloseAt", () => {
+  const updatedAt = new Date("2026-10-12T12:00:00Z");
+
+  it("counts seven days from the last change of an answered ticket", () => {
+    expect(autoCloseAt("answered", null, updatedAt)).toEqual(new Date("2026-10-19T12:00:00Z"));
+  });
+
+  it("never closes a ticket waiting for support or already closed", () => {
+    expect(autoCloseAt("open", updatedAt, updatedAt)).toBeNull();
+    expect(autoCloseAt("answered", updatedAt, updatedAt)).toBeNull();
+    expect(autoCloseAt("closed", null, updatedAt)).toBeNull();
+  });
+});
+
+describe("responseWindowUsed", () => {
+  const since = new Date("2026-10-12T00:00:00Z");
+
+  it("is the share of the priority's window already gone", () => {
+    expect(responseWindowUsed(since, "normal", new Date("2026-10-12T06:00:00Z"))).toBe(0.25);
+  });
+
+  it("stays between 0 and 1", () => {
+    expect(responseWindowUsed(since, "urgent", new Date("2026-10-13T00:00:00Z"))).toBe(1);
+    expect(responseWindowUsed(since, "normal", new Date("2026-10-11T00:00:00Z"))).toBe(0);
   });
 });

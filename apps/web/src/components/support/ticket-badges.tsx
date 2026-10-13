@@ -8,7 +8,7 @@ import {
 import { responseTiming } from "@sellbridge/shared/ticket-rules";
 import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 import { useNow } from "@/hooks/use-now";
-import { formatDeadline, formatDuration } from "@/features/support/response-time";
+import { formatDuration } from "@/features/support/response-time";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_TONES: Record<TicketPriority, StatusTone> = {
@@ -81,29 +81,5 @@ export function ResponseDeadlineBadge({ status, priority, awaitingSince }: Timin
       label={`Vence em ${formatDuration(timing.remainingMilliseconds)}`}
       timeBased
     />
-  );
-}
-
-/**
- * For the reseller: when to expect an answer. Past the deadline it does not blame anyone,
- * it just says the team is on it.
- */
-export function ExpectedReplyText({ status, priority, awaitingSince }: TimingProps) {
-  const now = useNow();
-  if (status !== "open") {
-    return null;
-  }
-  const timing = responseTiming(awaitingSince, priority, now);
-  if (timing.state === "none") {
-    return null;
-  }
-  const text =
-    timing.state === "overdue"
-      ? "A resposta da equipe está a caminho: já estamos cuidando do seu chamado."
-      : `Resposta prevista até ${formatDeadline(timing.dueAt, now)}.`;
-  return (
-    <p className="text-sm text-muted-foreground" suppressHydrationWarning>
-      {text}
-    </p>
   );
 }

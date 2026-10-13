@@ -60,6 +60,9 @@ export const ticketEventTypeEnum = pgEnum("ticket_event_type", [
   "priority_changed",
   "category_changed",
   "rated",
+  "order_linked",
+  "order_unlinked",
+  "follower_added",
 ]);
 
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [

@@ -1,27 +1,39 @@
 import {
+  addTicketFollower,
   assignTicket,
   closeTicketForCustomer,
   countStaffQueues,
   countUnreadSupportReplies,
   getSupportMetrics,
   getTicketThread,
+  linkTicketOrder,
+  listLinkableOrders,
   listStaffTickets,
   listSupportStaff,
+  listTenantColleagues,
   listTenantTickets,
+  listTicketFollowers,
+  listTicketOrders,
   markTicketRead,
   rateTicket,
   setTicketCategory,
+  setTicketNotifications,
   setTicketPriority,
   setTicketStatus,
+  unlinkTicketOrder,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
+  addTicketFollowerSchema,
   assignTicketSchema,
+  linkableOrdersSchema,
   rateTicketSchema,
   setTicketCategorySchema,
   setTicketPrioritySchema,
   staffTicketsSearchSchema,
   supportMetricsSearchSchema,
+  ticketNotificationsSchema,
+  ticketOrderLinkSchema,
   ticketStatusSchema,
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
@@ -38,6 +50,8 @@ const RELATED_TICKETS_LIMIT = 5;
 /** Tickets listed in the support button's menu. */
 const RECENT_TICKETS_LIMIT = 3;
 const DAY_MILLISECONDS = 86_400_000;
+/** Orders offered at once in the "link an order" picker. */
+const LINKABLE_ORDERS_LIMIT = 8;
 
 const ticketIdInput = z.object({ ticketId: z.uuid() });
 /** The last message on screen when the thread was marked read. */
@@ -77,10 +91,91 @@ export const getMySupportOverview = createServerFn({ method: "GET" })
     return { unread, recent: recent.items, total: recent.total };
   });
 
+/** The thread plus what hangs off it: linked orders and who gets the e-mails. */
 export const getMyTicket = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(ticketIdInput)
-  .handler(async ({ context, data }) => getTicketThread(database, data.ticketId, context.tenantId));
+  .handler(async ({ context, data }) => {
+    const thread = await getTicketThread(database, data.ticketId, context.tenantId);
+    const [orders, followers] = await Promise.all([
+      listTicketOrders(database, thread.ticket.id),
+      listTicketFollowers(database, thread.ticket.id),
+    ]);
+    const me = followers.find((follower) => follower.userId === context.userId);
+    return {
+      ...thread,
+      orders,
+      followers,
+      viewerId: context.userId,
+      notifyMe: me?.notify ?? false,
+    };
+  });
+
+export const listMyLinkableOrders = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .validator(linkableOrdersSchema)
+  .handler(async ({ context, data }) =>
+    listLinkableOrders(database, {
+      tenantId: context.tenantId,
+      ticketId: data.ticketId,
+      search: data.query,
+      limit: LINKABLE_ORDERS_LIMIT,
+    }),
+  );
+
+export const linkMyTicketOrder = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(ticketOrderLinkSchema)
+  .handler(async ({ context, data }) => {
+    await linkTicketOrder(database, {
+      ...data,
+      tenantId: context.tenantId,
+      actorId: context.userId,
+    });
+    return { ok: true };
+  });
+
+export const unlinkMyTicketOrder = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(ticketOrderLinkSchema)
+  .handler(async ({ context, data }) => {
+    await unlinkTicketOrder(database, {
+      ...data,
+      tenantId: context.tenantId,
+      actorId: context.userId,
+    });
+    return { ok: true };
+  });
+
+export const setMyTicketNotifications = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(ticketNotificationsSchema)
+  .handler(async ({ context, data }) => {
+    await setTicketNotifications(database, {
+      ...data,
+      tenantId: context.tenantId,
+      userId: context.userId,
+    });
+    return { ok: true };
+  });
+
+/** People of the store who could also follow a ticket. */
+export const listMyColleagues = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .handler(async ({ context }) => listTenantColleagues(database, context.tenantId));
+
+export const addMyTicketFollower = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(addTicketFollowerSchema)
+  .handler(async ({ context, data }) => {
+    await addTicketFollower(database, {
+      ...data,
+      tenantId: context.tenantId,
+      actorId: context.userId,
+    });
+    logger.info("support.follower_added", { ticketId: data.ticketId });
+    return { ok: true };
+  });
 
 export const markMyTicketRead = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
@@ -153,14 +248,18 @@ export const staffGetTicket = createServerFn({ method: "GET" })
   .validator(ticketIdInput)
   .handler(async ({ data }) => {
     const thread = await getTicketThread(database, data.ticketId, null);
-    const history = await listTenantTickets(
-      database,
-      thread.ticket.tenantId,
-      {},
-      { page: 1, pageSize: RELATED_TICKETS_LIMIT + 1 },
-    );
+    const [history, orders] = await Promise.all([
+      listTenantTickets(
+        database,
+        thread.ticket.tenantId,
+        {},
+        { page: 1, pageSize: RELATED_TICKETS_LIMIT + 1 },
+      ),
+      listTicketOrders(database, thread.ticket.id),
+    ]);
     return {
       ...thread,
+      orders,
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),

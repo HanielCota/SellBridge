@@ -7,6 +7,8 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   getMySupportOverview,
   getMyTicket,
+  listMyColleagues,
+  listMyLinkableOrders,
   listMyTickets,
   listSupportTeam,
   staffGetTicket,
@@ -77,4 +79,18 @@ export const supportMetricsQueryOptions = (search: SupportMetricsSearch) =>
     queryKey: ["tickets", "admin", "metrics", search],
     queryFn: () => staffSupportMetrics({ data: search }),
     placeholderData: keepPreviousData,
+  });
+
+export const myLinkableOrdersQueryOptions = (ticketId: string, query: string) =>
+  queryOptions({
+    queryKey: ["tickets", "mine", "linkable-orders", ticketId, query],
+    queryFn: () => listMyLinkableOrders({ data: { ticketId, query: query || undefined } }),
+    placeholderData: keepPreviousData,
+  });
+
+export const myColleaguesQueryOptions = () =>
+  queryOptions({
+    queryKey: ["tenant-colleagues"],
+    queryFn: () => listMyColleagues(),
+    staleTime: 5 * 60_000,
   });

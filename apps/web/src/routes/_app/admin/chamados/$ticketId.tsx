@@ -19,6 +19,7 @@ import {
   type ComposerMode,
 } from "@/components/support/admin-composer";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
+import { LinkedOrdersCard } from "@/components/support/ticket-context-panel";
 import { TicketThread } from "@/components/support/ticket-thread";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ import { firstName, quoteMessage } from "@/features/support/reply-templates";
 import { staffTicketQueryOptions } from "@/features/support/support.queries";
 import { useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { ticketCode } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -137,6 +139,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             isSelf={ticket.createdById === session.user.id}
             canManageCustomers={hasStaffPermission(session.user.role, "customers.manage")}
           />
+          <LinkedOrdersCard orders={detail.orders} />
           <TicketHistory events={detail.events} />
         </div>
       </div>
@@ -158,7 +161,8 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
         />
       </div>
       <p className="text-sm text-muted-foreground">
-        {ticket.tenantName} · <TicketCategoryLabel category={ticket.category} /> · aberto{" "}
+        <span className="font-mono">#{ticketCode(ticket.id)}</span> · {ticket.tenantName} ·{" "}
+        <TicketCategoryLabel category={ticket.category} /> · aberto{" "}
         <SmartDate date={ticket.createdAt} />
       </p>
     </header>

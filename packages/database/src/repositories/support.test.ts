@@ -512,3 +512,39 @@ describe("support metrics", () => {
     expect(agentRow?.replies).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("reseller view of the thread", () => {
+  it("shows who took the ticket but not the team's triage, and when support last read it", async () => {
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "payment",
+      subject: "Repasse da semana",
+      body: "As vendas de segunda não entraram no Financeiro.",
+      attachments: [],
+      now: at(0),
+    });
+    await setTicketPriority(database, { ticketId, priority: "high", actorId: agent, now: at(1) });
+    await addTicketMessage(database, {
+      ticketId,
+      tenantId: null,
+      authorId: agent,
+      kind: "reply",
+      body: "Os pedidos já foram confirmados e entram na próxima atualização.",
+      attachments: [],
+      now: at(2),
+    });
+
+    const forReseller = await getTicketThread(database, ticketId, tenantA);
+    expect(forReseller.events.map((event) => event.type)).toEqual(["status_changed", "assigned"]);
+    expect(forReseller.seenByOtherSideAt).toEqual(at(2));
+
+    const forStaff = await getTicketThread(database, ticketId, null);
+    expect(forStaff.events.map((event) => event.type)).toEqual([
+      "priority_changed",
+      "status_changed",
+      "assigned",
+    ]);
+    expect(forStaff.seenByOtherSideAt).toBeNull();
+  });
+});
