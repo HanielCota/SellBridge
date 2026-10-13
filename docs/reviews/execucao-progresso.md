@@ -4,22 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 05 · Migration 0008 pulada em bancos antigos
-- Última etapa concluída: — (04 ✅ be3b6f1 · 50119db · ccab61f)
-- Próximo passo: etapa 1 · ler o item 05 no prompt e o journal das migrations
+- Item/parte: 06 · Envio cancelado e reencaminhamento
+- Última etapa concluída: — (05 ✅ acb48dd)
+- Próximo passo: etapa 1 · ler o item 06 no prompt e o fluxo de cancelamento de envio
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 04.c
+- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 05
 - Pendências: mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados
 
 ## Linha de base
 
-| Métrica                                                         | Valor                    | Medido em  |
-| --------------------------------------------------------------- | ------------------------ | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 858 passando             | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 322 passando             | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando              | 2026-10-13 |
-| Última migration                                                | 0020_marketplace_refunds | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`    | 2026-10-12 |
+| Métrica                                                         | Valor                  | Medido em  |
+| --------------------------------------------------------------- | ---------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 858 passando           | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 322 passando           | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando            | 2026-10-13 |
+| Última migration                                                | 0021_repair_public_api | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1`  | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -34,7 +34,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a                  |
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                     |
-| 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                           |                                                                         |
+| 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                         |
 | 06   | Envio cancelado e reencaminhamento              | ⬜       | —                           |                                                                         |
 | 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                           |                                                                         |
 | 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           |                                                                         |
