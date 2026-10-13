@@ -562,12 +562,15 @@ function StoreOption({
       htmlFor={`store-${store.id}`}
       className={cn(
         "flex items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand",
-        store.listed ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+        // Only the name greys out: dimming the whole card too would fade the disabled box twice.
+        store.listed ? "cursor-not-allowed" : "cursor-pointer",
       )}
     >
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{displayStoreName(store.shopName)}</span>
+        <span className={cn("block truncate font-medium", store.listed && "text-muted-foreground")}>
+          {displayStoreName(store.shopName)}
+        </span>
         <StoreNote listed={store.listed} subtitle={subtitle} />
       </span>
       <Checkbox

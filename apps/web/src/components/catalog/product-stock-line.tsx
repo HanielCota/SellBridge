@@ -24,7 +24,7 @@ export function ProductStockLine({
   return (
     <span className="flex flex-col text-xs text-muted-foreground">
       <span className="whitespace-nowrap">{stock} em estoque</span>
-      <span className="text-caption">
+      <span>
         atualizado <SmartDate date={updatedAt} />
       </span>
     </span>

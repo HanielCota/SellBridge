@@ -16,7 +16,7 @@ import {
   adminSetProductActive,
   type adminListProducts,
 } from "@/features/admin-suppliers/suppliers.functions";
-import { shelfLabel } from "@/features/admin-suppliers/shelf-label";
+import { shelfLabel, shelfParts } from "@/features/admin-suppliers/shelf-label";
 import { adminProductsQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
@@ -56,6 +56,17 @@ function ProductActions({
   );
 }
 
+/** The shelf count in the row's color; what paid orders hold, quieter beside it. */
+function ShelfCount({ stock, reservedStock }: { stock: number; reservedStock: number }) {
+  const { shelf, held } = shelfParts(stock, reservedStock);
+  return (
+    <span className="tabular-nums">
+      {shelf}
+      {held === null ? null : <span className="text-muted-foreground"> · {held}</span>}
+    </span>
+  );
+}
+
 const columnHelper = createServerColumnHelper<AdminSupplierProduct>();
 function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
   return columnHelper.columns([
@@ -67,8 +78,12 @@ function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
     }),
     columnHelper.accessor("stock", {
       header: "Estoque",
-      cell: (information) =>
-        shelfLabel(information.getValue(), information.row.original.reservedStock),
+      cell: (information) => (
+        <ShelfCount
+          stock={information.getValue()}
+          reservedStock={information.row.original.reservedStock}
+        />
+      ),
     }),
     columnHelper.accessor("active", {
       header: "Status",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shelfLabel } from "./shelf-label";
+import { shelfLabel, shelfParts } from "./shelf-label";
 
 describe("shelfLabel", () => {
   it("shows only the shelf count when nothing is held", () => {
@@ -13,5 +13,12 @@ describe("shelfLabel", () => {
 
   it("says how many units are missing when holds exceed the shelf", () => {
     expect(shelfLabel(2, 5)).toBe("2 · 5 reservados · faltam 3");
+  });
+});
+
+describe("shelfParts", () => {
+  it("splits the count from the holds", () => {
+    expect(shelfParts(22, 0)).toEqual({ shelf: "22", held: null });
+    expect(shelfParts(2, 5)).toEqual({ shelf: "2", held: "5 reservados · faltam 3" });
   });
 });

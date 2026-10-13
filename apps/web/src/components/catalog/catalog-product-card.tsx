@@ -58,7 +58,10 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
 function StockFooter({ product }: { product: RegionCatalogProduct }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-      <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
+      {/* As tall as the publish button, so published cards keep the price row level. */}
+      <span className="flex min-h-8 items-center">
+        <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
+      </span>
       {product.published ? null : (
         <Button asChild variant="secondary" size="sm">
           <Link to="/publicacoes/nova" search={{ productId: product.id }}>
