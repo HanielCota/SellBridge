@@ -31,6 +31,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
+import { availableStock } from "./sql/available-stock.ts";
 
 /** A supplier is visible when it covers the whole state or the tenant's city. */
 function coversRegion(region: Pick<TenantRegion, "state" | "city">): SQL {
@@ -150,7 +151,7 @@ const PRODUCT_ORDER: Record<ProductSort, SQL[]> = {
     asc(supplierProducts.id),
   ],
   margin_desc: [sql`${suggestedMargin} desc nulls last`, asc(supplierProducts.id)],
-  stock_desc: [desc(supplierProducts.stock), asc(supplierProducts.title), asc(supplierProducts.id)],
+  stock_desc: [desc(availableStock), asc(supplierProducts.title), asc(supplierProducts.id)],
   newest: [desc(supplierProducts.createdAt), asc(supplierProducts.id)],
 };
 
@@ -205,7 +206,7 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
     conditions.push(lte(supplierProducts.costCents, filters.maxCostCents));
   }
   if (filters.inStockOnly) {
-    conditions.push(gte(supplierProducts.stock, 1));
+    conditions.push(gte(availableStock, 1));
   }
   return conditions;
 }
@@ -230,7 +231,7 @@ export async function listCatalogProducts(
       description: supplierProducts.description,
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
-      stock: supplierProducts.stock,
+      stock: availableStock,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,
@@ -282,7 +283,7 @@ export async function getCatalogProductForRegion(
       description: supplierProducts.description,
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
-      stock: supplierProducts.stock,
+      stock: availableStock,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,
@@ -385,7 +386,7 @@ function regionCatalogConditions(
     conditions.push(eq(suppliers.id, filters.supplierId));
   }
   if (filters.inStockOnly) {
-    conditions.push(gte(supplierProducts.stock, 1));
+    conditions.push(gte(availableStock, 1));
   }
   if (filters.unpublishedOnly) {
     conditions.push(sql`not ${isPublishedBy(input.tenantId)}`);
@@ -402,7 +403,7 @@ function selectRegionCatalog(database: Database, tenantId: string) {
       description: supplierProducts.description,
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
-      stock: supplierProducts.stock,
+      stock: availableStock,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,

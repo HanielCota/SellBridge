@@ -355,6 +355,8 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
     quantity: demoOrder.quantity,
     unitPriceCents: sale.listing.priceCents,
     unitCostCents: sale.product.costCents,
+    // Demo history: counted in the seeded shelf already, never held or taken again.
+    stockState: "untracked",
   });
   if (demoOrder.adjustment) {
     await database

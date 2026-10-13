@@ -119,6 +119,7 @@ describe("admin CSV orchestration", () => {
     mocks.saveProduct.mockResolvedValue({
       ...product,
       id: "e937a566-b7bc-4305-b3c0-448e7133fcfe",
+      reservedStock: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

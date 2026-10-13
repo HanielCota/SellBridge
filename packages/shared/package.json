@@ -18,6 +18,7 @@
     "./period-range": "./src/domain/period-range.ts",
     "./listing-rules": "./src/domain/listing-rules.ts",
     "./ticket-rules": "./src/domain/ticket-rules.ts",
+    "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./staff-access": "./src/domain/staff-access.ts",
     "./supplier-score": "./src/domain/supplier-score.ts",
     "./file-signature": "./src/runtime/file-signature.ts",

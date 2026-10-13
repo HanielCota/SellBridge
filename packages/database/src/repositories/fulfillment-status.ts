@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { orders, orderShipments } from "../schema/index.ts";
 import type { DatabaseExecutor } from "../client.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { applyStockMoves } from "./stock-reservations.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 /** Marketplace payment updates must not erase confirmed physical shipment progress. */
@@ -35,6 +36,8 @@ export async function syncOrderFromShipments(
       deliveredAt: status === "delivered" ? (order.deliveredAt ?? new Date()) : order.deliveredAt,
     })
     .where(and(eq(orders.id, order.id), eq(orders.tenantId, order.tenantId)));
+  // Shipped by the supplier: the held units leave the shelf now, not at the next marketplace sync.
+  await applyStockMoves(database, order.id, status);
   await recordApiEvent(database, {
     tenantId: order.tenantId,
     type: "order.status_changed",

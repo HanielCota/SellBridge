@@ -210,3 +210,23 @@ A conversa do chamado ganhou contexto e atalhos para o revendedor.
 - **Código curto.** `#A3F2C1` são os 6 primeiros hexadecimais do id (`ticketCode`), só para citar; a URL continua usando o id completo.
 - **Rascunho.** A resposta não enviada fica no `localStorage` do navegador, por chamado. É conveniência: some em janela anônima e nunca vai ao servidor.
 - **Imagens anexadas.** `?inline=1` abre a imagem no navegador para a prévia; só vale para tipos `image/*`, que já são verificados pelos bytes no envio.
+
+## 2026-10-13: Reserva de estoque na venda (item 01.a)
+
+O estoque do fornecedor é **compartilhado** por todos os revendedores que vendem o produto: o primeiro pedido pago leva as unidades. São duas contas em `supplier_products`:
+
+- `stock`: a contagem da prateleira, como o fornecedor informa (formulário e CSV do admin). O admin continua digitando o número físico.
+- `reserved_stock`: unidades presas por pedidos pagos que ainda não saíram do fornecedor.
+
+O que o revendedor pode vender é `greatest(stock − reserved_stock, 0)` (`repositories/sql/available-stock.ts`, `availableUnits` no domínio). Catálogo, anúncios, publicação e o sync com os marketplaces usam sempre esse valor; nenhuma tela do revendedor lê `stock` direto. Assim, reimportar a contagem física nunca apaga uma reserva (o defeito que a revisão independente achou na primeira versão, que baixava `stock` direto).
+
+Cada item do pedido guarda o que fez em `order_items.stock_state` (regra em `packages/shared/src/domain/stock-reservation.ts`), sempre na mesma transação que grava o pedido (`upsertMarketplaceOrder` → `applyStockMoves`):
+
+- **Pago:** `pending`/`short` → `reserved` com `UPDATE … SET reserved_stock = reserved_stock + qtd WHERE stock − reserved_stock >= qtd`. A trava de linha do Postgres serializa vendas simultâneas. Sem saldo, o item fica `short` (pendência do revendedor) e é tentado de novo enquanto o pedido estiver pago.
+- **Enviado/entregue:** a unidade saiu da prateleira (`consumed`): `stock − qtd` e, se estava reservada, `reserved_stock − qtd`. Vale tanto para o status vindo do marketplace quanto para o envio marcado pelo fornecedor no link (`syncOrderFromShipments`). Se o fornecedor enviou mais do que a contagem dizia, a prateleira fica negativa (ele "deve" unidades até a próxima contagem) e o disponível fica 0; uma devolução devolve exatamente o que saiu.
+- **Cancelado/devolvido:** `reserved` solta a reserva; `consumed` volta para a prateleira (`stock + qtd`); `short` só fecha. Todo passo troca o estado com `WHERE stock_state = <anterior>`, então reenvios do marketplace nunca contam duas vezes.
+- `released` é final (pedido reaberto não reserva de novo). `untracked` são itens gravados antes da migration 0017: nunca mexem no estoque.
+
+Itens que não vêm de um anúncio nosso não mexem em estoque. O pedido nunca é recusado por falta de estoque: ele é gravado e a falta fica visível (telas e aviso na parte 01.b). A importação de CSV trava os produtos do fornecedor em ordem de id (`FOR NO KEY UPDATE`) antes de gravar, a mesma ordem das vendas, para que importação e venda esperem uma pela outra em vez de travar em deadlock. Os pedidos de demonstração do seed nascem `untracked`.
+
+Limites conhecidos: pedidos pagos e ainda não enviados na data da migration ficam `untracked`, então não seguram estoque; o disponível fica acima do real até eles saírem (a contagem seguinte do fornecedor corrige). Se o fornecedor reimporta a contagem depois de enviar e antes de o pedido virar "enviado" aqui, a baixa do envio desconta de novo e o disponível fica menor até a próxima importação (erro para o lado seguro: nunca vende a mais). Se o produto devolvido volta mesmo ao fornecedor no dropshipping é pergunta ao cliente (ligada a D5); por enquanto "devolvido" devolve à prateleira.

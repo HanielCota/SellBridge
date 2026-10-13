@@ -1,4 +1,5 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { STOCK_STATES } from "@sellbridge/shared/stock-reservation";
 
 export const marketplaceEnum = pgEnum("marketplace", [
   "mock",
@@ -31,6 +32,9 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
   "returned",
 ]);
+
+/** What an order item did to the supplier's stock (see shared/domain/stock-reservation.ts). */
+export const orderItemStockStateEnum = pgEnum("order_item_stock_state", STOCK_STATES);
 
 export const orderAdjustmentTypeEnum = pgEnum("order_adjustment_type", [
   "refund",

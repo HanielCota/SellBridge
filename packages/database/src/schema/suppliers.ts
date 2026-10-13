@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -67,7 +68,10 @@ export const supplierProducts = pgTable(
     description: text().notNull().default(""),
     costCents: integer().notNull(),
     suggestedPriceCents: integer().notNull(),
+    /** Shelf count, as the supplier reports it (admin form and CSV). */
     stock: integer().notNull().default(0),
+    /** Units held by paid orders that have not shipped; sellable = stock − reservedStock. */
+    reservedStock: integer().notNull().default(0),
     imageUrls: text()
       .array()
       .notNull()
@@ -84,5 +88,6 @@ export const supplierProducts = pgTable(
     uniqueIndex("supplier_products_sku_idx").on(table.supplierId, table.sku),
     index("supplier_products_supplier_idx").on(table.supplierId),
     index("supplier_products_category_idx").on(table.categoryId),
+    check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
   ],
 );

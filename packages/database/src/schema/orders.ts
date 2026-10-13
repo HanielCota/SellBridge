@@ -1,6 +1,6 @@
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
-import { orderAdjustmentTypeEnum, orderStatusEnum } from "./enums.ts";
+import { orderAdjustmentTypeEnum, orderItemStockStateEnum, orderStatusEnum } from "./enums.ts";
 import { listingTargets } from "./listings.ts";
 import { storeConnections } from "./stores.ts";
 import { supplierProducts } from "./suppliers.ts";
@@ -50,6 +50,8 @@ export const orderItems = pgTable(
     quantity: integer().notNull(),
     unitPriceCents: integer().notNull(),
     unitCostCents: integer().notNull(),
+    /** What this item did to the supplier's stock; items sold before reservations are untracked. */
+    stockState: orderItemStockStateEnum().notNull().default("pending"),
   },
   (table) => [
     index("order_items_order_idx").on(table.orderId),

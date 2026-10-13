@@ -6,6 +6,7 @@ import type { ListingEventData } from "@sellbridge/shared/public-api";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { availableStock } from "./sql/available-stock.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
@@ -341,7 +342,7 @@ export interface TargetNeedingSync {
 
 /** Stock to show on the marketplace: zero while the reseller has the listing paused. */
 const liveStock =
-  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${supplierProducts.stock} end`.mapWith(
+  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${availableStock} end`.mapWith(
     Number,
   );
 

@@ -23,6 +23,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
+import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { daysBefore } from "./time-window.ts";
@@ -162,7 +163,7 @@ async function selectListingDetails(database: Database, ids: string[]) {
       priceCents: listings.priceCents,
       costCents: supplierProducts.costCents,
       sku: supplierProducts.sku,
-      stock: supplierProducts.stock,
+      stock: availableStock,
       imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,
       categorySlug: categories.slug,
       categoryName: categories.name,

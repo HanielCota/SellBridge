@@ -18,6 +18,7 @@ import {
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { availableUnits } from "@sellbridge/shared/stock-reservation";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
@@ -84,7 +85,7 @@ function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
     title: row.listing.title,
     description: row.listing.description,
     priceCents: row.listing.priceCents,
-    stock: row.product.stock,
+    stock: availableUnits(row.product.stock, row.product.reservedStock),
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
@@ -149,7 +150,7 @@ async function recordInitialSync(attempt: PublishAttempt): Promise<void> {
   const { dependencies, row, listingTargetId } = attempt;
   try {
     await markTargetSynced(dependencies.database, listingTargetId, {
-      stock: row.product.stock,
+      stock: availableUnits(row.product.stock, row.product.reservedStock),
       priceCents: row.listing.priceCents,
     });
   } catch (error) {

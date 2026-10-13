@@ -305,6 +305,15 @@ export async function importSupplierProducts(
 ) {
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, input.supplierId);
+    // Sales lock products in id order; taking them in the same order first means an import
+    // and a sale wait for each other instead of deadlocking. "No key update" is enough for the
+    // upsert and does not collide with the key-share locks a new order item takes on insert.
+    await transaction
+      .select({ id: supplierProducts.id })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.supplierId, input.supplierId))
+      .orderBy(asc(supplierProducts.id))
+      .for("no key update");
     const plan = await previewSupplierProductImport(transaction, input.supplierId, input.rows);
     input.validatePreview(plan);
     if (plan.errors.length > 0 || plan.products.length === 0) {

@@ -5,6 +5,7 @@ import type { Database } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { applyStockMoves } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
   externalOrderId: string;
@@ -195,15 +196,23 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     .for("update");
   if (existing) {
     const status = await reconciledOrderStatus(write.transaction, existing.id, write.order.status);
-    return updateExistingOrder({ ...write, order: { ...write.order, status } }, existing);
+    const updated = await updateExistingOrder(
+      { ...write, order: { ...write.order, status } },
+      existing,
+    );
+    await applyStockMoves(write.transaction, existing.id, status);
+    return updated;
   }
-  return createOrder(write);
+  const created = await createOrder(write);
+  await applyStockMoves(write.transaction, created.orderId, write.order.status);
+  return created;
 }
 
 /**
  * Idempotent upsert of a marketplace order: the first delivery creates it with its items,
  * later deliveries (status changes, retries) only update status, totals and fee.
  * Items whose listing is not ours are kept with zero cost so revenue is never lost.
+ * Every write also brings the supplier stock in line with the new status (stock-reservations.ts).
  */
 export async function upsertMarketplaceOrder(
   database: Database,
