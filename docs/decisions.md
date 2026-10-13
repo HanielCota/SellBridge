@@ -248,3 +248,12 @@ Pedir o sync nunca derruba a gravação: se o Redis falhar, fica um aviso no log
 **"Estoque atualizado há X".** O catálogo e a página do fornecedor mostram a data da última alteração do produto pelo admin (`supplier_products.updated_at`): contagem, preço ou dados do produto. Vendas não mexem nessa data (item 01.a). É um sinal de "quão fresco está o cadastro", não exatamente de quando a contagem foi conferida; uma coluna própria para a contagem fica para quando o fornecedor tiver acesso (D6).
 
 **Limites conhecidos.** Cada pedido ou envio que mexe no estoque enfileira um sync; numa rajada de pedidos, o worker roda vários syncs seguidos, quase todos sem nada a enviar (a consulta é indexada e limitada a 200 anúncios, e um sync vazio não chama o marketplace). Deduplicar exigiria cuidado para não perder uma mudança que chega enquanto um sync já está lendo o estoque; fica para quando o volume pedir. O pedido de sync do worker espera no máximo 3 s pelo Redis, como o da web.
+
+## 2026-10-13: Falta de estoque visível (item 01.c)
+
+Um pedido pago cujo item ficou `short` (o fornecedor não tinha as unidades) aparece para o revendedor em dois lugares:
+
+- **Sino**, aba Problemas: "Falta estoque para o pedido #X", com o produto e o que fazer ("Combine com ele ou cancele a venda."). O aviso é datado de quando a falta começou (`order_items.short_since`), então uma falta que chega depois de o revendedor abrir o sino conta como nova. Fica enquanto o pedido estiver pago e com item em falta: "Limpar tudo" não esconde falta aberta (é trabalho a fazer, não notícia). Some sozinho quando o estoque volta e o item é reservado, ou quando o pedido é cancelado. Lista um aviso por pedido, as faltas mais antigas primeiro. Por ora leva para `/pedidos`; o link direto vem com a página do pedido (item 20).
+- **Pedidos › Operação**: o selo "Falta estoque" (`ToneStatus`, tom de aviso) empilhado sob o status do pedido.
+
+O admin vê a reserva junto da prateleira na lista de produtos ("22 · 3 reservados"; se a prateleira ficou abaixo das reservas, "2 · 5 reservados · faltam 3"). A busca dos itens em falta usa o índice parcial `order_items_short_idx (tenant_id) WHERE stock_state = 'short'` (migration 0018, que também cria `short_since`), pequeno porque só guarda faltas abertas.

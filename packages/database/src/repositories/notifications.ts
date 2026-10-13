@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   categories,
@@ -64,9 +64,22 @@ export interface ReviewPendingEvent extends EventBase {
   pending: number;
 }
 
+/** A paid order with an item the supplier's stock could not cover (see stock-reservations.ts). */
+export interface StockShortageEvent extends EventBase {
+  kind: "stock_shortage";
+  externalOrderId: string;
+  /** The first short item, alphabetically, like a sale's product. */
+  productTitle: string;
+}
+
 /** Something that happened in the tenant and deserves the reseller's attention. */
 export type NotificationEvent =
-  SaleEvent | ListingErrorEvent | StoreProblemEvent | SupportReplyEvent | ReviewPendingEvent;
+  | SaleEvent
+  | ListingErrorEvent
+  | StoreProblemEvent
+  | SupportReplyEvent
+  | ReviewPendingEvent
+  | StockShortageEvent;
 
 export type NotificationKind = NotificationEvent["kind"];
 
@@ -147,6 +160,42 @@ async function saleProducts(
     });
   }
   return products;
+}
+
+/**
+ * Paid orders still short of stock, one entry per order, oldest shortage first: those have been
+ * waiting longest. Dated when the shortage began, so a late one still counts as new.
+ */
+async function stockShortageEvents(
+  database: Database,
+  tenantId: string,
+): Promise<StockShortageEvent[]> {
+  // Items short before the date existed fall back to their order's date.
+  const shortSince =
+    sql<Date>`min(coalesce(${orderItems.shortSince}, ${orders.orderedAt}))`.mapWith(
+      orderItems.shortSince,
+    );
+  const rows = await database
+    .select({
+      entityId: orders.id,
+      externalOrderId: orders.externalOrderId,
+      at: shortSince,
+      productTitle: sql<string>`min(${orderItems.title})`,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .where(
+      and(
+        eq(orderItems.tenantId, tenantId),
+        eq(orders.tenantId, tenantId),
+        eq(orderItems.stockState, "short"),
+        eq(orders.status, "paid"),
+      ),
+    )
+    .groupBy(orders.id, orders.externalOrderId)
+    .orderBy(asc(shortSince), asc(orders.id))
+    .limit(PER_KIND);
+  return rows.map((row) => ({ ...row, kind: "stock_shortage" as const }));
 }
 
 async function listingErrorEvents(
@@ -248,20 +297,24 @@ export async function listNotificationEvents(
   database: Database,
   input: { tenantId: string; userId: string; reviewableSince: Date },
 ): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [sales, listingErrors, stores, support, reviews, read] = await Promise.all([
+  const [sales, shortages, listingErrors, stores, support, reviews, read] = await Promise.all([
     saleEvents(database, input.tenantId),
+    stockShortageEvents(database, input.tenantId),
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
     supportReplyEvents(database, input),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     readState(database, input),
   ]);
-  const events = [...sales, ...listingErrors, ...stores, ...support, ...reviews];
+  const events = [...sales, ...shortages, ...listingErrors, ...stores, ...support, ...reviews];
   const { clearedAt } = read;
   if (clearedAt === null) {
     return { events, seenAt: read.seenAt };
   }
-  return { events: events.filter((event) => event.at > clearedAt), seenAt: read.seenAt };
+  // An open shortage is a problem still waiting for the reseller: clearing the list hides news,
+  // not work to do, so it stays until the stock or a cancellation resolves it.
+  const kept = events.filter((event) => event.kind === "stock_shortage" || event.at > clearedAt);
+  return { events: kept, seenAt: read.seenAt };
 }
 
 export async function markNotificationsSeen(

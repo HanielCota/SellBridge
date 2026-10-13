@@ -11,6 +11,7 @@ describe("belongsToTab", () => {
     expect(belongsToTab(notificationOf("sale"), "sales")).toBe(true);
     expect(belongsToTab(notificationOf("listing_error"), "problems")).toBe(true);
     expect(belongsToTab(notificationOf("store_problem"), "problems")).toBe(true);
+    expect(belongsToTab(notificationOf("stock_shortage"), "problems")).toBe(true);
     expect(belongsToTab(notificationOf("support_reply"), "messages")).toBe(true);
     expect(belongsToTab(notificationOf("review_pending"), "messages")).toBe(true);
     expect(belongsToTab(notificationOf("sale"), "problems")).toBe(false);

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { orderAdjustmentTypeEnum, orderItemStockStateEnum, orderStatusEnum } from "./enums.ts";
@@ -52,6 +53,8 @@ export const orderItems = pgTable(
     unitCostCents: integer().notNull(),
     /** What this item did to the supplier's stock; items sold before reservations are untracked. */
     stockState: orderItemStockStateEnum().notNull().default("pending"),
+    /** When the item first came up short of supplier stock; dates the reseller's warning. */
+    shortSince: timestamp({ withTimezone: true }),
   },
   (table) => [
     index("order_items_order_idx").on(table.orderId),
@@ -59,6 +62,10 @@ export const orderItems = pgTable(
     index("order_items_listing_target_idx").on(table.listingTargetId),
     /** Supplier reputation and reviews: from a page of suppliers to their sold items. */
     index("order_items_supplier_product_idx").on(table.supplierProductId),
+    /** Paid items the supplier could not cover: the bell and the operations list look them up. */
+    index("order_items_short_idx")
+      .on(table.tenantId)
+      .where(sql`${table.stockState} = 'short'`),
   ],
 );
 

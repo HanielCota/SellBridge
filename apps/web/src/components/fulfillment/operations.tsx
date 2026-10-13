@@ -8,6 +8,7 @@ import {
 import type { z } from "zod";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
+import { ToneStatus } from "@/components/data/tone-status";
 import { ErrorState } from "@/components/feedback/error-state";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,8 @@ function OperationRow({
 }) {
   return (
     <li className="flex flex-wrap items-center gap-3 py-4">
-      <div className="min-w-0 flex-1">
+      {/* At least 15rem for the order's text: on a phone, status and action wrap below it. */}
+      <div className="min-w-0 flex-[1_1_15rem]">
         <p className="font-medium">{row.externalOrderId}</p>
         <p className="text-xs text-muted-foreground">
           {row.buyerName ?? "Comprador não informado"} · {row.storeName} ·{" "}
@@ -135,7 +137,10 @@ function OperationRow({
             : "Ainda não encaminhado ao fornecedor"}
         </p>
       </div>
-      <OrderStatusBadge status={row.status} />
+      <div className="flex flex-col items-start gap-1">
+        <OrderStatusBadge status={row.status} />
+        {row.stockShort ? <ToneStatus tone="warning" label="Falta estoque" /> : null}
+      </div>
       <Button variant="outline" onClick={() => onOpen(row.id)}>
         Operar pedido
       </Button>

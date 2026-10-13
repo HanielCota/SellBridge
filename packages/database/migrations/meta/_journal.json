@@ -127,6 +127,13 @@
       "when": 1791892305302,
       "tag": "0017_stock_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791906146137,
+      "tag": "0018_stock_shortages",
+      "breakpoints": true
     }
   ]
 }

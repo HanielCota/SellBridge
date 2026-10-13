@@ -6,6 +6,7 @@ import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenantPair,
+  createTestUsers,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import {
@@ -14,7 +15,9 @@ import {
   markTargetPublished,
 } from "./listings.ts";
 import { type IncomingOrder, upsertMarketplaceOrder } from "./orders.ts";
+import { listOperationalOrders } from "./fulfillment.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
+import { clearNotifications, listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -69,6 +72,31 @@ async function sharedProduct(stock: number) {
     throw new Error("revendedores");
   }
   return { productId: catalog.productId, supplierId: catalog.supplierId, sku, first, second };
+}
+
+/** Publishes `product` on `seller`'s store too, so one order can carry both products. */
+async function alsoSoldBy(
+  seller: Seller,
+  product: { productId: string; sku: string },
+  externalId: string,
+) {
+  const listing = await createListingWithTargets(
+    database,
+    seller.tenantId,
+    {
+      supplierProductId: product.productId,
+      title: product.sku,
+      description: "Descrição",
+      priceCents: 3990,
+    },
+    [seller.storeId],
+  );
+  const [targetId] = listing.targetIds;
+  if (!targetId) {
+    throw new Error("destino");
+  }
+  await markTargetPublished(database, targetId, { externalId, externalUrl: null });
+  return { externalListingId: externalId, title: product.sku, quantity: 1, unitPriceCents: 3990 };
 }
 
 function orderOf(
@@ -284,33 +312,14 @@ describe("units leaving and coming back", () => {
   it("holds and lets go of every product of a multi-item order", async () => {
     const first = await sharedProduct(4);
     const second = await sharedProduct(4);
-    // The same store also sells the second product.
-    const listing = await createListingWithTargets(
-      database,
-      first.first.tenantId,
-      {
-        supplierProductId: second.productId,
-        title: second.sku,
-        description: "Descrição",
-        priceCents: 3990,
-      },
-      [first.first.storeId],
-    );
-    const [targetId] = listing.targetIds;
     const single = orderOf(first.first, first.sku, { status: "paid", quantity: 1 });
     const [itemA] = single.items;
-    if (!targetId || !itemA) {
+    if (!itemA) {
       throw new Error("itens");
     }
-    await markTargetPublished(database, targetId, {
-      externalId: `MULTI-${second.sku}`,
-      externalUrl: null,
-    });
     const itemB = {
-      externalListingId: `MULTI-${second.sku}`,
-      title: second.sku,
+      ...(await alsoSoldBy(first.first, second, `MULTI-${second.sku}`)),
       quantity: 3,
-      unitPriceCents: 3990,
     };
     const order = {
       ...single,
@@ -377,6 +386,107 @@ describe("units leaving and coming back", () => {
     };
     expect(await stockSent(2)).toEqual([1, 1]);
     expect(await stockSent(10)).toEqual([0, 0]);
+  });
+});
+
+const REVIEWABLE_SINCE = new Date("2026-01-01T00:00:00Z");
+
+/** Shortage warnings in a reader's bell. */
+async function shortagesInBell(tenantId: string, userId = `leitor-${tenantId}`) {
+  const { events } = await listNotificationEvents(database, {
+    tenantId,
+    userId,
+    reviewableSince: REVIEWABLE_SINCE,
+  });
+  return events.flatMap((event) => (event.kind === "stock_shortage" ? [event] : []));
+}
+
+async function shortageWarnings(tenantId: string): Promise<string[]> {
+  return (await shortagesInBell(tenantId)).map((event) => event.entityId);
+}
+
+describe("shortages the reseller sees", () => {
+  it("warns in the bell while a paid order is short, and only its own store", async () => {
+    const product = await sharedProduct(0);
+    const order = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    const result = await sell(product.first, order);
+    expect(await shortageWarnings(product.first.tenantId)).toContain(result.orderId);
+    expect(await shortageWarnings(product.second.tenantId)).not.toContain(result.orderId);
+
+    const shortages = await shortagesInBell(product.first.tenantId);
+    expect(shortages.find((event) => event.entityId === result.orderId)).toMatchObject({
+      kind: "stock_shortage",
+      externalOrderId: order.externalOrderId,
+      productTitle: product.sku,
+    });
+  });
+
+  it("drops the warning once stock comes back and the order is held", async () => {
+    const product = await sharedProduct(0);
+    const order = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    const result = await sell(product.first, order);
+    await setShelf(product.productId, 2);
+    await sell(product.first, order);
+    expect(await shortageWarnings(product.first.tenantId)).not.toContain(result.orderId);
+  });
+
+  it("drops the warning when the short order is cancelled", async () => {
+    const product = await sharedProduct(0);
+    const order = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    const result = await sell(product.first, order);
+    await sell(product.first, { ...order, status: "cancelled" });
+    expect(await shortageWarnings(product.first.tenantId)).not.toContain(result.orderId);
+  });
+
+  it("keeps an open shortage after the reseller clears the bell, dated when it began", async () => {
+    const product = await sharedProduct(0);
+    // Placed days ago; the shortage itself starts now, when the order is paid.
+    const order = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    const before = new Date();
+    const result = await sell(product.first, order);
+    const readers = await createTestUsers(database, 1);
+    cleanups.push(readers.cleanup);
+    const [userId] = readers.ids;
+    if (!userId) {
+      throw new Error("leitor");
+    }
+    await clearNotifications(database, { tenantId: product.first.tenantId, userId });
+    const shortages = await shortagesInBell(product.first.tenantId, userId);
+    const shortage = shortages.find((event) => event.entityId === result.orderId);
+    expect(shortage).toBeDefined();
+    expect(shortage?.at.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+  });
+
+  it("lists one entry per short order, however many of its items are short", async () => {
+    const first = await sharedProduct(0);
+    const second = await sharedProduct(0);
+    const other = await alsoSoldBy(first.first, second, `TWO-${second.sku}`);
+    const order = orderOf(first.first, first.sku, { status: "paid", quantity: 1 });
+    const [ours] = order.items;
+    if (!ours) {
+      throw new Error("item");
+    }
+    const result = await sell(first.first, { ...order, items: [ours, other] });
+    const warnings = await shortageWarnings(first.first.tenantId);
+    expect(warnings.filter((orderId) => orderId === result.orderId)).toHaveLength(1);
+  });
+
+  it("marks the short order in the operations list", async () => {
+    const product = await sharedProduct(1);
+    const held = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    const short = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
+    await sell(product.first, held);
+    await sell(product.first, short);
+    const shortFlag = async (externalOrderId: string) => {
+      const page = await listOperationalOrders(database, product.first.tenantId, {
+        query: externalOrderId,
+        stage: "all",
+        page: 1,
+      });
+      return page.items.map((row) => row.stockShort);
+    };
+    expect(await shortFlag(held.externalOrderId)).toEqual([false]);
+    expect(await shortFlag(short.externalOrderId)).toEqual([true]);
   });
 });
 

@@ -60,6 +60,15 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         detail: "Pedidos e estoque estão parados nesta loja.",
         href: "/lojas",
       };
+    case "stock_shortage":
+      return {
+        ...base,
+        id: `shortage:${event.entityId}`,
+        title: `Falta estoque para o pedido #${event.externalOrderId}`,
+        detail: `${event.productTitle}: o fornecedor está sem unidades. Combine com ele ou cancele a venda.`,
+        // The operations tab marks the order; the order page (item 20) will take a direct link.
+        href: "/pedidos",
+      };
     case "review_pending":
       return {
         ...base,

@@ -16,6 +16,7 @@ import {
   adminSetProductActive,
   type adminListProducts,
 } from "@/features/admin-suppliers/suppliers.functions";
+import { shelfLabel } from "@/features/admin-suppliers/shelf-label";
 import { adminProductsQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
@@ -64,7 +65,11 @@ function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
       header: "Custo",
       cell: (information) => formatCents(information.getValue()),
     }),
-    columnHelper.accessor("stock", { header: "Estoque" }),
+    columnHelper.accessor("stock", {
+      header: "Estoque",
+      cell: (information) =>
+        shelfLabel(information.getValue(), information.row.original.reservedStock),
+    }),
     columnHelper.accessor("active", {
       header: "Status",
       cell: (information) => (
@@ -117,7 +122,8 @@ function ProductTable({
           <div className="space-y-1">
             <p className="font-medium">{row.title}</p>
             <p className="text-sm text-muted-foreground">
-              {row.sku} · {formatCents(row.costCents)} · Estoque: {row.stock}
+              {row.sku} · {formatCents(row.costCents)} · Estoque:{" "}
+              {shelfLabel(row.stock, row.reservedStock)}
             </p>
             <ToneStatus
               tone={row.active ? "success" : "muted"}

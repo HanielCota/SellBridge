@@ -15,7 +15,10 @@ interface StockItem {
   stockState: StockState;
 }
 
-/** Moves the item to its next state; false when another write got there first. */
+/**
+ * Moves the item to its next state; false when another write got there first. Coming up short
+ * also dates the shortage, once: a retry that is still short keeps the warning's original date.
+ */
 async function markItem(
   executor: DatabaseExecutor,
   item: StockItem,
@@ -23,7 +26,10 @@ async function markItem(
 ): Promise<boolean> {
   const marked = await executor
     .update(orderItems)
-    .set({ stockState: next })
+    .set({
+      stockState: next,
+      ...(next === "short" ? { shortSince: sql`coalesce(${orderItems.shortSince}, now())` } : {}),
+    })
     .where(and(eq(orderItems.id, item.id), eq(orderItems.stockState, item.stockState)))
     .returning({ id: orderItems.id });
   return marked.length > 0;

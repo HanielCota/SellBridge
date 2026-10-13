@@ -91,6 +91,8 @@ export async function listOperationalOrders(
         buyerName: orders.buyerName,
         orderedAt: orders.orderedAt,
         storeName: storeConnections.shopName,
+        /** An item is short of supplier stock (the reseller has to sort it out). */
+        stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
       })
       .from(orders)
       .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))

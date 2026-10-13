@@ -4,6 +4,22 @@ import { presentNotification, presentNotificationFeed } from "./notification-pre
 const at = new Date(Date.UTC(2026, 9, 9, 12));
 
 describe("presentNotification", () => {
+  it("tells the reseller which order is short and what to do about it", () => {
+    const notification = presentNotification({
+      kind: "stock_shortage",
+      entityId: "order-9",
+      at,
+      externalOrderId: "ML-9",
+      productTitle: "Moletom canguru - Rosa",
+    });
+    expect(notification).toMatchObject({ id: "shortage:order-9", kind: "stock_shortage" });
+    expect(notification.title).toBe("Falta estoque para o pedido #ML-9");
+    expect(notification.detail).toBe(
+      "Moletom canguru - Rosa: o fornecedor está sem unidades. Combine com ele ou cancele a venda.",
+    );
+    expect(notification.href).toBe("/pedidos");
+  });
+
   it("shows a sale with its total and leads to the order in the financial report", () => {
     const notification = presentNotification({
       kind: "sale",

@@ -2,6 +2,7 @@ import {
   BellIcon,
   ChatCircleTextIcon,
   type Icon,
+  PackageIcon,
   PlugsIcon,
   ShoppingBagIcon,
   SpeakerHighIcon,
@@ -35,6 +36,9 @@ import {
 } from "@/features/notifications/notification-tabs";
 import { useNotificationChime } from "@/features/notifications/use-notification-chime";
 
+/** Problems that wait for the reseller, in the warning tone of `ToneStatus`. */
+const WARNING_TINT = "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+
 const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> = {
   sale: { icon: ShoppingBagIcon, className: "bg-brand/15 text-brand-text" },
   listing_error: {
@@ -43,7 +47,11 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   },
   store_problem: {
     icon: PlugsIcon,
-    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    className: WARNING_TINT,
+  },
+  stock_shortage: {
+    icon: PackageIcon,
+    className: WARNING_TINT,
   },
   support_reply: {
     icon: ChatCircleTextIcon,
@@ -51,7 +59,7 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   },
   review_pending: {
     icon: StarIcon,
-    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    className: WARNING_TINT,
   },
 };
 
