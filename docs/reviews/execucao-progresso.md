@@ -8,13 +8,13 @@ _(nenhum)_
 
 ## Linha de base
 
-| Métrica                                                         | Valor                   | Medido em  |
-| --------------------------------------------------------------- | ----------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 848 passando            | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 318 passando            | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando             | 2026-10-13 |
-| Última migration                                                | 0017_stock_reservations | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`   | 2026-10-12 |
+| Métrica                                                         | Valor                 | Medido em  |
+| --------------------------------------------------------------- | --------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 858 passando          | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 322 passando          | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando           | 2026-10-13 |
+| Última migration                                                | 0018_stock_shortages  | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1` | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -22,50 +22,61 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 
 Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (ex.: `01.a ✅ abc1234 · 01.b ⬜`). O item só vira ✅ quando todas as partes estão ✅.
 
-| Item | Título                                          | Situação | Commit            | Notas                                                            |
-| ---- | ----------------------------------------------- | -------- | ----------------- | ---------------------------------------------------------------- |
-| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888 | Árvore herdada revisada duas vezes e commitada (local, sem push) |
-| 01   | Estoque: reserva e baixa na venda               | 🟡       | b828b38           | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ⬜                      |
-| 02   | Anúncio duplicado e publicação travada          | ⬜       | —                 |                                                                  |
-| 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                 |                                                                  |
-| 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                 |                                                                  |
-| 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                 |                                                                  |
-| 06   | Envio cancelado e reencaminhamento              | ⬜       | —                 |                                                                  |
-| 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                 |                                                                  |
-| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                 |                                                                  |
-| 09   | Lucro correto                                   | ⬜       | —                 |                                                                  |
-| 10   | Segurança de contas e da equipe                 | ⬜       | —                 |                                                                  |
-| 11   | Uploads seguros                                 | ⬜       | —                 |                                                                  |
-| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                 |                                                                  |
-| 13   | Erros de publicação claros                      | ⬜       | —                 |                                                                  |
-| 14   | Publicação em massa: validação e progresso      | ⬜       | —                 |                                                                  |
-| 15   | Uma regra só de taxa e margem                   | ⬜       | —                 |                                                                  |
-| 16   | Riscos da assinatura                            | ⬜       | —                 |                                                                  |
-| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                 |                                                                  |
-| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                 |                                                                  |
-| 19   | Pequenos de segurança e status                  | ⬜       | —                 |                                                                  |
-| 20   | Página do pedido                                | ⬜       | —                 |                                                                  |
-| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                 | Depende de D6                                                    |
-| 22   | Rastreio automático e previsão                  | ⬜       | —                 |                                                                  |
-| 23   | Anúncios completos                              | ⬜       | —                 |                                                                  |
-| 24   | Saúde das lojas                                 | ⬜       | —                 |                                                                  |
-| 25   | Central de notificações                         | ⬜       | —                 | WhatsApp depende de D9                                           |
-| 26   | Onboarding previsível e conta completa          | ⬜       | —                 |                                                                  |
-| 27   | Suporte: o que falta                            | ⬜       | —                 |                                                                  |
-| 28   | Admin da plataforma                             | ⬜       | —                 |                                                                  |
-| 29   | Painel do mockup do cliente                     | ⬜       | —                 | Layout depende de D8                                             |
-| 30   | LGPD e proteção da conta                        | ⬜       | —                 |                                                                  |
-| 31   | Planos como no PDF                              | ⬜       | —                 | Depende de D10                                                   |
-| 32   | Infra                                           | ⬜       | —                 |                                                                  |
-| 33   | Shopee                                          | ⛔       | —                 | Sem credenciais de parceiro                                      |
-| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                 | Depende de D1–D4                                                 |
-| 35   | Conquistas digitais e Club                      | ⛔       | —                 | Depende de decisão do cliente                                    |
-| 36   | IA assistente                                   | ⛔       | —                 | Depende de decisão do cliente                                    |
-| 37   | Fiscal e contabilidade                          | ⛔       | —                 | Depende de decisão contábil                                      |
+| Item | Título                                          | Situação | Commit                      | Notas                                                                   |
+| ---- | ----------------------------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------- |
+| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)        |
+| 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                     |
+| 02   | Anúncio duplicado e publicação travada          | ⬜       | —                           |                                                                         |
+| 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
+| 04   | Status completos do pedido e do rastreio do ML  | ⬜       | —                           |                                                                         |
+| 05   | Migration 0008 pulada em bancos antigos         | ⬜       | —                           |                                                                         |
+| 06   | Envio cancelado e reencaminhamento              | ⬜       | —                           |                                                                         |
+| 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                           |                                                                         |
+| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           |                                                                         |
+| 09   | Lucro correto                                   | ⬜       | —                           |                                                                         |
+| 10   | Segurança de contas e da equipe                 | ⬜       | —                           |                                                                         |
+| 11   | Uploads seguros                                 | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
+| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
+| 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                         |
+| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           |                                                                         |
+| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           |                                                                         |
+| 16   | Riscos da assinatura                            | ⬜       | —                           |                                                                         |
+| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
+| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           |                                                                         |
+| 19   | Pequenos de segurança e status                  | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
+| 20   | Página do pedido                                | ⬜       | —                           |                                                                         |
+| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                           |
+| 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                         |
+| 23   | Anúncios completos                              | ⬜       | —                           |                                                                         |
+| 24   | Saúde das lojas                                 | ⬜       | —                           |                                                                         |
+| 25   | Central de notificações                         | ⬜       | —                           | WhatsApp depende de D9                                                  |
+| 26   | Onboarding previsível e conta completa          | ⬜       | —                           |                                                                         |
+| 27   | Suporte: o que falta                            | ⬜       | —                           |                                                                         |
+| 28   | Admin da plataforma                             | ⬜       | —                           |                                                                         |
+| 29   | Painel do mockup do cliente                     | ⬜       | —                           | Layout depende de D8                                                    |
+| 30   | LGPD e proteção da conta                        | ⬜       | —                           |                                                                         |
+| 31   | Planos como no PDF                              | ⬜       | —                           | Depende de D10                                                          |
+| 32   | Infra                                           | ⬜       | —                           |                                                                         |
+| 33   | Shopee                                          | ⛔       | —                           | Sem credenciais de parceiro                                             |
+| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                           | Depende de D1–D4                                                        |
+| 35   | Conquistas digitais e Club                      | ⛔       | —                           | Depende de decisão do cliente                                           |
+| 36   | IA assistente                                   | ⛔       | —                           | Depende de decisão do cliente                                           |
+| 37   | Fiscal e contabilidade                          | ⛔       | —                           | Depende de decisão contábil                                             |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Item 01.c · Falta de estoque visível e reservado no admin — ✅ concluído (f78b913, commit local)
+
+- Sino (aba Problemas): "Falta estoque para o pedido #X" com produto e o que fazer, enquanto o pedido pago tiver item `short`; some quando o estoque volta ou o pedido cancela. Pedidos › Operação: selo "Falta estoque" empilhado sob o status; o texto do pedido ganhou largura mínima e, no celular, status e botão descem (antes o texto ficava espremido numa coluna estreita). Admin: "22 · 2 reservados".
+- Revisão independente: "Limpar tudo" escondia falta aberta e a falta usava a data do pedido (não contava como nova) → coluna `short_since` e falta isenta da limpeza (testes novos); limite agora agrupado por pedido no SQL, faltas mais antigas primeiro; filtro de tenant também em `orders`; admin mostra "faltam N" quando a reserva passa da prateleira.
+- Migration 0018: `short_since` + índice parcial `order_items_short_idx`; M1 ✅, M2 ✅ (sobre o banco com dados, só a 0018), M3 ✅, `EXPLAIN` usa o índice.
+- Vícios de IA corrigidos (a pedido): helper `alsoSoldBy` no lugar de setup duplicado, data de teste numa constante, teste que refazia a consulta do helper, `?? ""` trocado por checagem explícita, data da falta gravada no mesmo update do estado, tom âmbar do sino numa constante.
+- Portões: lint, tipos, formatação, sem else ✅; 858 testes (base 848); build ✅; e2e 14 + 11 ✅ (sino, admin, operação, acessibilidade, stock).
+- O aviso leva a `/pedidos` sem filtro (a busca da Operação não vive na URL); link direto virá com a página do pedido (item 20).
+- Fora do escopo: quando a busca do sino falha no servidor, o painel mostra "Nenhum problema por aqui" em vez de um erro (`notification-bell.tsx`, falta `ErrorState`, regra V12); visto ao capturar com o servidor de desenvolvimento desatualizado.
+- Dados de demonstração no `sellbridge_desk`: pedidos DEMO-FALTA-01C (em falta) e DEMO-RESERVA-01C (2 reservados).
 
 ### 2026-10-13 · Item 01.b · Sync imediato, estoque de segurança e "atualizado há X" — ✅ concluído (51273db, commit local)
 
