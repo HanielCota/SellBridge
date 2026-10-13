@@ -52,6 +52,11 @@ export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
       (total, line) => total + toCents(line.sale_fee ?? 0) * line.quantity,
       0,
     ),
+    // Each payment says how much of it went back (`transaction_amount_refunded`).
+    refundedCents: (raw.payments ?? []).reduce(
+      (total, payment) => total + toCents(payment.transaction_amount_refunded ?? 0),
+      0,
+    ),
     buyerName: raw.buyer?.nickname ?? null,
     orderedAt: new Date(raw.date_created),
     items: raw.order_items.map((line) => ({

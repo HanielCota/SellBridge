@@ -39,6 +39,12 @@ const UNDO_MOVES: Partial<Record<StockState, StockMove>> = {
   consumed: "restock",
   short: "settle",
 };
+/**
+ * A returned parcel goes to the marketplace seller's address (the reseller), not back to the
+ * supplier's shelf: units that left are closed without adding them back. The supplier counts
+ * them when they arrive.
+ */
+const RETURN_MOVES: Partial<Record<StockState, StockMove>> = { ...UNDO_MOVES, consumed: "settle" };
 
 export function stockMoveFor(status: OrderStatus, state: StockState): StockMove {
   if (status === "paid" && NOT_YET_TAKEN.has(state)) {
@@ -46,6 +52,9 @@ export function stockMoveFor(status: OrderStatus, state: StockState): StockMove 
   }
   if (SHIPPED.has(status) && (NOT_YET_TAKEN.has(state) || state === "reserved")) {
     return "consume";
+  }
+  if (status === "returned") {
+    return RETURN_MOVES[state] ?? "none";
   }
   if (UNDONE.has(status)) {
     return UNDO_MOVES[state] ?? "none";

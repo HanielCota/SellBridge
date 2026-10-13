@@ -299,13 +299,13 @@ describe("units leaving and coming back", () => {
     expect(await stateOf(result.orderId)).toBe("consumed");
   });
 
-  it("counts a shipment beyond the shelf count and gives the same units back on return", async () => {
+  it("counts a shipment beyond the shelf count and gives the same units back on cancel", async () => {
     const product = await sharedProduct(1);
     const order = orderOf(product.first, product.sku, { status: "delivered", quantity: 2 });
     await sell(product.first, order);
     // The supplier shipped 2 although our count said 1: the shelf owes one, nothing to sell.
     expect(await shelfOf(product.productId)).toEqual({ stock: -1, reserved: 0 });
-    await sell(product.first, { ...order, status: "returned" });
+    await sell(product.first, { ...order, status: "cancelled" });
     expect(await shelfOf(product.productId)).toEqual({ stock: 1, reserved: 0 });
   });
 
@@ -348,14 +348,19 @@ describe("units leaving and coming back", () => {
     expect(await shelfOf(product.productId)).toEqual({ stock: 5, reserved: 0 });
   });
 
-  it("puts units back on the shelf when a shipped order is returned", async () => {
+  it("leaves shipped units off the shelf when the order is returned", async () => {
+    // The parcel goes back to the reseller's address: the supplier counts it when it arrives.
     const product = await sharedProduct(5);
     const order = orderOf(product.first, product.sku, { status: "delivered", quantity: 1 });
-    await sell(product.first, order);
+    const result = await sell(product.first, order);
     expect(await shelfOf(product.productId)).toEqual({ stock: 4, reserved: 0 });
     await sell(product.first, { ...order, status: "returned" });
     await sell(product.first, { ...order, status: "returned" });
-    expect(await shelfOf(product.productId)).toEqual({ stock: 5, reserved: 0 });
+    expect(await shelfOf(product.productId)).toEqual({ stock: 4, reserved: 0 });
+    expect(await stateOf(result.orderId)).toBe("released");
+    // Closed for good: a later cancel does not put the units back either.
+    await sell(product.first, { ...order, status: "cancelled" });
+    expect(await shelfOf(product.productId)).toEqual({ stock: 4, reserved: 0 });
   });
 
   it("closes a shortage on cancel without adding units that were never held", async () => {

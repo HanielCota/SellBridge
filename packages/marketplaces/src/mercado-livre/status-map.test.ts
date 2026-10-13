@@ -41,6 +41,26 @@ describe("Mercado Livre order status", () => {
   });
 });
 
+describe("Mercado Livre refunds", () => {
+  it.each([
+    ["paid", 0],
+    ["confirmed", 0],
+    ["partially_refunded", 2000],
+  ] as const)("%s refunded %i cents", (fixture, expected) => {
+    const raw = orderSchema.parse(ORDER_FIXTURES[fixture]);
+    expect(mapMercadoLivreOrder(raw).refundedCents).toBe(expected);
+  });
+
+  it("adds the refunds of every payment of the order", () => {
+    const [payment] = ORDER_FIXTURES.partially_refunded.payments;
+    const raw = orderSchema.parse({
+      ...ORDER_FIXTURES.partially_refunded,
+      payments: [payment, { ...payment, id: 2, transaction_amount_refunded: 5.5 }],
+    });
+    expect(mapMercadoLivreOrder(raw).refundedCents).toBe(2550);
+  });
+});
+
 describe("Mercado Livre shipment status", () => {
   it.each([
     // Before the parcel leaves, the supplier's own steps (accepted, picking, ready) rule.

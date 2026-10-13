@@ -83,7 +83,16 @@ export const orderAdjustments = pgTable(
     /** Positive amount; the type defines how it affects profit (see docs/decisions.md). */
     amountCents: integer().notNull(),
     reason: text(),
+    /**
+     * Set on rows the marketplace sync owns ("refund": the money given back across the order's
+     * payments), so a later sync updates that row instead of adding another. Null on rows entered
+     * by people, which the sync never touches.
+     */
+    marketplaceKey: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("order_adjustments_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_adjustments_order_idx").on(table.orderId),
+    uniqueIndex("order_adjustments_marketplace_key_idx").on(table.orderId, table.marketplaceKey),
+  ],
 );

@@ -5,6 +5,7 @@ import type { Database } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { applyStockMoves } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
@@ -12,6 +13,8 @@ export interface IncomingOrder {
   status: (typeof orders.$inferInsert)["status"];
   totalCents: number;
   marketplaceFeeCents: number;
+  /** Money given back to the buyer so far; omitted when the source does not report it. */
+  refundedCents?: number | undefined;
   buyerName: string | null;
   orderedAt: Date;
   items: { externalListingId: string; title: string; quantity: number; unitPriceCents: number }[];
@@ -187,6 +190,20 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
   return { status: "created", orderId: created.id };
 }
 
+/**
+ * A return is known from the shipments, not from the marketplace's order status, which stays
+ * "paid" (or partially refunded). A returned order keeps that status until it is cancelled.
+ */
+function keptReturned(
+  current: (typeof orders.$inferSelect)["status"],
+  incoming: IncomingOrder["status"],
+): IncomingOrder["status"] {
+  if (current === "returned" && ["paid", "shipped", "delivered"].includes(incoming)) {
+    return "returned";
+  }
+  return incoming;
+}
+
 async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
   // Locked so two syncs of the same order run one after the other: each sees the status the
   // other wrote, and a status change is recorded (and announced) once.
@@ -201,16 +218,32 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     )
     .for("update");
   if (existing) {
-    const status = await reconciledOrderStatus(write.transaction, existing.id, write.order.status);
+    const status = await reconciledOrderStatus(
+      write.transaction,
+      existing.id,
+      keptReturned(existing.status, write.order.status),
+    );
     const updated = await updateExistingOrder(
       { ...write, order: { ...write.order, status } },
       existing,
     );
     const stockMoves = await applyStockMoves(write.transaction, existing.id, status);
+    await syncMarketplaceRefund(write.transaction, {
+      tenantId: write.tenantId,
+      orderId: existing.id,
+      status,
+      refundedCents: write.order.refundedCents,
+    });
     return { ...updated, stockMoves };
   }
   const created = await createOrder(write);
   const stockMoves = await applyStockMoves(write.transaction, created.orderId, write.order.status);
+  await syncMarketplaceRefund(write.transaction, {
+    tenantId: write.tenantId,
+    orderId: created.orderId,
+    status: write.order.status,
+    refundedCents: write.order.refundedCents,
+  });
   return { ...created, stockMoves };
 }
 

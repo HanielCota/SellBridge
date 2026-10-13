@@ -109,7 +109,7 @@ async function restock(executor: DatabaseExecutor, item: StockItem): Promise<voi
   await shiftShelf(executor, item, { stock: sql`${supplierProducts.stock} + ${item.quantity}` });
 }
 
-/** A shortage on an undone order just closes: nothing was held. */
+/** Closes without moving units: a shortage held nothing, a return goes to the reseller. */
 async function settle(executor: DatabaseExecutor, item: StockItem): Promise<void> {
   await markItem(executor, item, "released");
 }

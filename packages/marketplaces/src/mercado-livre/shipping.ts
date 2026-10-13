@@ -70,7 +70,8 @@ function shippingContext(config: MercadoLivreConfig): MercadoLivreContext {
     now: config.now ?? (() => new Date()),
   };
 }
-export async function getMercadoLivreShipping(
+/** The order's sale shipment (and the list it came from), checked to belong to the store. */
+async function loadSaleShipment(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
@@ -109,7 +110,7 @@ export async function getMercadoLivreShipping(
     init: { accessToken: store.accessToken, headers: { "x-format-new": "true" } },
   });
   const parsedAddress = parseDeliveryAddress(raw);
-  return {
+  const shipping = {
     shipmentId: String(raw.id),
     status: raw.status,
     substatus: raw.substatus ?? null,
@@ -120,13 +121,46 @@ export async function getMercadoLivreShipping(
     carrier: raw.tracking_method ?? null,
     address: parsedAddress?.success ? parsedAddress.data : null,
   };
+  return { context, refs, shipping };
+}
+
+/**
+ * Whether a buyer's return parcel (`type: "return"`, sent to the seller) already arrived. Only
+ * read when the order has one; a return re-sent to the buyer (`return_to_buyer`) does not count.
+ */
+async function buyerReturnDelivered(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  refs: readonly { id: number | string; type: string }[],
+): Promise<boolean> {
+  const returns = await Promise.all(
+    refs
+      .filter((ref) => ref.type === "return")
+      .map((ref) =>
+        requestJson(context, {
+          schema: z.object({ status: z.string() }),
+          path: `/shipments/${encodeURIComponent(String(ref.id))}`,
+          init: { accessToken: store.accessToken, headers: { "x-format-new": "true" } },
+        }),
+      ),
+  );
+  return returns.some((parcel) => parcel.status === "delivered");
+}
+
+export async function getMercadoLivreShipping(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  const { context, refs, shipping } = await loadSaleShipment(config, store, orderId);
+  return { ...shipping, buyerReturnDelivered: await buyerReturnDelivered(context, store, refs) };
 }
 export async function getMercadoLivreLabel(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
 ) {
-  const shipping = await getMercadoLivreShipping(config, store, orderId);
+  const { shipping } = await loadSaleShipment(config, store, orderId);
   const allowed = ["drop_off", "xd_drop_off", "cross_docking", "self_service"];
   if (shipping.mode !== "me2" || !allowed.includes(shipping.logisticType))
     throw marketplaceError("Este tipo de envio não permite emitir etiqueta de postagem", {

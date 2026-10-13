@@ -128,8 +128,18 @@ afterAll(async () => {
   await database.$client.end();
 });
 /** A Mercado Livre reading of the parcel, as `loadMarketplaceShipping` returns it. */
-function remote(status: string, trackingStatus: MarketplaceTrackingStatus | null) {
-  return { status, trackingStatus, carrier: "Mercado Envios", trackingCode: "ML-404" };
+function remote(
+  status: string,
+  trackingStatus: MarketplaceTrackingStatus | null,
+  buyerReturnDelivered = false,
+) {
+  return {
+    status,
+    trackingStatus,
+    buyerReturnDelivered,
+    carrier: "Mercado Envios",
+    trackingCode: "ML-404",
+  };
 }
 
 describe("fulfillment", () => {
@@ -153,6 +163,7 @@ describe("fulfillment", () => {
       applyMarketplaceShipment(database, tenants.tenantA, order.id, {
         status: "shipped",
         trackingStatus: "shipped",
+        buyerReturnDelivered: false,
         carrier: null,
         trackingCode: "123",
       }),
@@ -315,8 +326,54 @@ describe("fulfillment", () => {
       "not_delivered",
       "returned",
     ]);
-    // The order is not marked shipped or delivered by a parcel that never arrived.
-    expect(detail.order.status).toBe("paid");
+    // The parcel came back: the order is returned, so it no longer counts as a sale.
+    expect(detail.order.status).toBe("returned");
+  });
+
+  it("keeps a failed delivery out of shipped and delivered until the parcel comes back", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("not_delivered", "not_delivered"),
+    );
+    expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
+      "paid",
+    );
+  });
+
+  it("returns a delivered order once the buyer's return parcel reaches the seller", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("delivered", "delivered"),
+    );
+    expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
+      "delivered",
+    );
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("delivered", "delivered", true),
+    );
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      order.id,
+      remote("delivered", "delivered", true),
+    );
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.order.status).toBe("returned");
+    // The sale parcel itself was delivered; only the order changed.
+    expect(detail.shipments[0]?.status).toBe("delivered");
   });
 
   it("records marketplace progress without duplicate history and filters the queue", async () => {
@@ -326,6 +383,7 @@ describe("fulfillment", () => {
     const shipping = {
       status: "delivered",
       trackingStatus: "delivered" as const,
+      buyerReturnDelivered: false,
       carrier: "Mercado Envios",
       trackingCode: "ML123",
     };

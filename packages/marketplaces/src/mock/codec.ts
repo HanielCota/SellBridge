@@ -22,6 +22,7 @@ const mockOrderSchema = z.object({
   status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled", "returned"]),
   totalCents: z.number().int().nonnegative(),
   marketplaceFeeCents: z.number().int().nonnegative(),
+  refundedCents: z.number().int().nonnegative().default(0),
   buyerName: z.string().nullable(),
   orderedAt: z.string(),
   items: z
@@ -36,7 +37,7 @@ const mockOrderSchema = z.object({
     .min(1),
 });
 
-export type MockOrder = z.infer<typeof mockOrderSchema>;
+export type MockOrder = z.input<typeof mockOrderSchema>;
 
 /** The simulated marketplace encodes the whole order in the webhook resource. */
 export function encodeMockOrderResource(order: MockOrder): string {

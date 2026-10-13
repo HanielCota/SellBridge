@@ -462,6 +462,8 @@ export async function applyMarketplaceShipment(
   shipping: {
     status: string;
     trackingStatus: MarketplaceTrackingStatus | null;
+    /** The buyer's return parcel reached the seller: the order is returned. */
+    buyerReturnDelivered: boolean;
     carrier: string | null;
     trackingCode: string | null;
   },
@@ -473,8 +475,9 @@ export async function applyMarketplaceShipment(
       .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
       .for("update");
     if (!order) throw notFoundError("Pedido não encontrado");
-    if (["cancelled", "returned"].includes(order.status))
-      throw conflictError("Pedido cancelado ou devolvido");
+    if (order.status === "cancelled") throw conflictError("Pedido cancelado");
+    // Settled: a later reading (the return seen again, a lagging "shipped") changes nothing.
+    if (order.status === "returned") return;
     const shipments = await tx
       .select()
       .from(orderShipments)
@@ -506,6 +509,6 @@ export async function applyMarketplaceShipment(
         actor: "Mercado Livre",
         note: `Consulta do marketplace: ${shipping.status}${shipping.trackingCode ? ` · ${shipping.trackingCode}` : ""}`,
       });
-    await syncOrderFromShipments(tx, order);
+    await syncOrderFromShipments(tx, order, { buyerReturned: shipping.buyerReturnDelivered });
   });
 }

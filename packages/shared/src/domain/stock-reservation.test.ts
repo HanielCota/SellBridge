@@ -28,7 +28,8 @@ const cases: [OrderStatus, StockState, StockMove][] = [
   ["cancelled", "reserved", "release"],
   ["returned", "reserved", "release"],
   ["cancelled", "consumed", "restock"],
-  ["returned", "consumed", "restock"],
+  // A return goes to the reseller's address, not the supplier's shelf: closed, nothing added.
+  ["returned", "consumed", "settle"],
   ["cancelled", "short", "settle"],
   ["returned", "short", "settle"],
   ["cancelled", "pending", "none"],

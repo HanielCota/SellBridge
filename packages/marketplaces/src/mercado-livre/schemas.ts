@@ -30,6 +30,10 @@ export const orderSchema = z.object({
   total_amount: z.number(),
   buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
   tags: z.array(z.string()).optional(),
+  payments: z
+    .array(z.object({ transaction_amount_refunded: z.number().nullable().optional() }))
+    .nullable()
+    .optional(),
   order_items: z.array(
     z.object({
       item: z.object({ id: z.string(), title: z.string() }),

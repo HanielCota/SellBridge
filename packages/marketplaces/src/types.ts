@@ -72,6 +72,8 @@ export interface MarketplaceOrder {
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
   totalCents: Cents;
   marketplaceFeeCents: Cents;
+  /** Money already given back to the buyer across the order's payments (latest total). */
+  refundedCents: Cents;
   buyerName: string | null;
   orderedAt: Date;
   items: MarketplaceOrderItem[];

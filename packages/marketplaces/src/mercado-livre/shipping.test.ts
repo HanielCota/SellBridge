@@ -28,7 +28,7 @@ function setup(overrides = {}, refs: unknown = shipmentRefs) {
 }
 describe("Mercado Livre shipping", () => {
   it("lists the order's shipments, then loads the sale shipment with address and tracking", async () => {
-    const { request, config } = setup();
+    const { request, config } = setup({}, [{ id: 123, type: "forward" }]);
     expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
       shipmentId: "123",
       status: "ready_to_ship",
@@ -44,10 +44,37 @@ describe("Mercado Livre shipping", () => {
     expect(headers.get("x-format-new")).toBe("true");
   });
   it("maps the tracking status of the sale shipment", async () => {
-    const { config } = setup({ status: "not_delivered", substatus: "returned" });
+    const { config } = setup({ status: "not_delivered", substatus: "returned" }, [
+      { id: 123, type: "forward" },
+    ]);
     expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
       trackingStatus: "returned",
     });
+  });
+  it("reports the buyer's return parcel once it reached the seller", async () => {
+    const { request, config } = setup();
+    request.mockResolvedValueOnce(
+      Response.json({ ...shipment, id: 9, status: "delivered", substatus: null }),
+    );
+    expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
+      shipmentId: "123",
+      buyerReturnDelivered: true,
+    });
+    expect(request.mock.calls[3]?.[0]).toBe("https://api.mercadolibre.com/shipments/9");
+  });
+  it("does not count a return still on its way", async () => {
+    const { request, config } = setup();
+    request.mockResolvedValueOnce(Response.json({ ...shipment, id: 9, status: "shipped" }));
+    expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
+      buyerReturnDelivered: false,
+    });
+  });
+  it("asks for no return shipment when the order has none", async () => {
+    const { request, config } = setup({}, [{ id: 123, type: "forward" }]);
+    expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
+      buyerReturnDelivered: false,
+    });
+    expect(request).toHaveBeenCalledTimes(3);
   });
   it("says when the order has no shipment yet (HTTP 204)", async () => {
     const request = vi

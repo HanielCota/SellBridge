@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   apiEvents,
   listingTargets,
+  orderAdjustments,
   orderItems,
   orders,
   supplierProducts,
@@ -151,6 +152,57 @@ describe("marketplace orders and sync", () => {
       orderedAt: "2026-02-01T10:00:00.000Z",
     });
     expect(events[1]?.data).toMatchObject({ status: "shipped", previousStatus: "paid" });
+  });
+
+  it("keeps one marketplace refund per order, at the latest total", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "paid" as const,
+      totalCents: 10_000,
+      marketplaceFeeCents: 1200,
+      buyerName: null,
+      orderedAt: new Date(),
+      items: [],
+      refundedCents: 0,
+    };
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    // A commission the supplier paid: entered by hand, never touched by the marketplace sync.
+    await database
+      .insert(orderAdjustments)
+      .values({ tenantId: tenantA, orderId, type: "commission", amountCents: 300 });
+    const adjustments = async () =>
+      (
+        await database
+          .select({ type: orderAdjustments.type, amountCents: orderAdjustments.amountCents })
+          .from(orderAdjustments)
+          .where(eq(orderAdjustments.orderId, orderId))
+      ).toSorted((left, right) => left.type.localeCompare(right.type));
+    const sync = (status: "paid" | "returned" | "cancelled", refundedCents?: number) =>
+      upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status, refundedCents });
+
+    expect(await adjustments()).toEqual([{ type: "commission", amountCents: 300 }]);
+    await sync("paid", 2000);
+    await sync("paid", 2000);
+    expect(await adjustments()).toEqual([
+      { type: "commission", amountCents: 300 },
+      { type: "refund", amountCents: 2000 },
+    ]);
+    await sync("paid", 3500);
+    // Unknown (a source that does not report refunds): the last known total stays.
+    await sync("paid");
+    expect(await adjustments()).toEqual([
+      { type: "commission", amountCents: 300 },
+      { type: "refund", amountCents: 3500 },
+    ]);
+    // Returned: no revenue, so the money back is shown as a return, not taken off profit.
+    await sync("returned", 3500);
+    expect(await adjustments()).toEqual([
+      { type: "commission", amountCents: 300 },
+      { type: "return", amountCents: 3500 },
+    ]);
+    // Cancelled: there is no revenue to correct.
+    await sync("cancelled", 10_000);
+    expect(await adjustments()).toEqual([{ type: "commission", amountCents: 300 }]);
   });
 
   it("dates the delivery on the first sync that sees it", async () => {
