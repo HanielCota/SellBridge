@@ -160,10 +160,9 @@ function CategoryPicker({
             <label
               key={category}
               className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm transition-[background-color,border-color,scale] duration-150 select-none active:scale-[0.98] active:duration-100 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40 motion-reduce:active:scale-100",
-                checked
-                  ? "border-foreground bg-foreground text-background"
-                  : "bg-card hover:bg-muted",
+                "flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm transition-[background-color,border-color,box-shadow,scale] duration-150 select-none active:scale-[0.98] active:duration-100 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40 motion-reduce:active:scale-100",
+                // Chosen like a product card in the catalog: the brand ring, content unchanged.
+                checked ? "border-transparent bg-card ring-2 ring-brand" : "bg-card hover:bg-muted",
               )}
             >
               <input

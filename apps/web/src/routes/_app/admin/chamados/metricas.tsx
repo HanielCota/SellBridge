@@ -36,12 +36,17 @@ const PERIOD_LABELS: Record<Period, string> = { "7": "7 dias", "30": "30 dias", 
 const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const decimal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
+/** Same anatomy as the dashboard's KPI tiles: label, 30px figure, small caption. */
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="surface-card space-y-1 rounded-3xl bg-card p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    <div className="surface-card flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <div className="space-y-1.5">
+        <p className="flex h-9 items-end text-[30px] leading-none font-semibold tabular-nums">
+          {value}
+        </p>
+        {hint ? <p className="min-h-4 text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
     </div>
   );
 }

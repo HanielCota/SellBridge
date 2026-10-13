@@ -4,13 +4,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { FormErrorAlert } from "@/components/form/form-feedback";
+import { StarInput } from "@/components/form/star-input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { rateMyTicket } from "@/features/support/support.functions";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-const RATING_WORDS: readonly string[] = ["", "Ruim", "Fraco", "Ok", "Bom", "Excelente"];
 const STARS = Array.from({ length: MAX_RATING }, (_, index) => index + 1);
 
 /** Read-only stars, for a rating already given. */
@@ -27,44 +27,6 @@ export function RatingStars({ rating, className }: { rating: number; className?:
         />
       ))}
     </span>
-  );
-}
-
-function StarPicker({ value, onChange }: { value: number; onChange: (rating: number) => void }) {
-  return (
-    <fieldset className="flex items-center gap-3">
-      <legend className="sr-only">Nota de 1 a {MAX_RATING}</legend>
-      <div className="flex gap-1">
-        {STARS.map((star) => (
-          <label
-            key={star}
-            className="cursor-pointer rounded-lg p-1 transition-[scale] duration-150 active:scale-90 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40 motion-reduce:active:scale-100"
-          >
-            <input
-              type="radio"
-              name="rating"
-              value={star}
-              checked={value === star}
-              onChange={() => onChange(star)}
-              className="sr-only"
-              aria-label={`${star} ${star === 1 ? "estrela" : "estrelas"}: ${RATING_WORDS[star] ?? ""}`}
-            />
-            <StarIcon
-              weight={star <= value ? "fill" : "regular"}
-              className={cn(
-                "size-7 transition-colors",
-                star <= value ? "text-amber-500" : "text-muted-foreground/50",
-              )}
-              aria-hidden="true"
-            />
-          </label>
-        ))}
-      </div>
-      {/* The radio's own label already says the word to screen readers. */}
-      <span className="text-sm text-muted-foreground" aria-hidden="true">
-        {RATING_WORDS[value] ?? ""}
-      </span>
-    </fieldset>
   );
 }
 
@@ -94,7 +56,7 @@ export function TicketRatingForm({ ticketId }: { ticketId: string }) {
         </h2>
         <p className="text-sm text-muted-foreground">Sua nota ajuda a equipe a melhorar.</p>
       </div>
-      <StarPicker value={rating} onChange={setRating} />
+      <StarInput legend="Nota do atendimento" value={rating} onChange={setRating} />
       {rating > 0 ? (
         <Textarea
           aria-label="Comentário (opcional)"

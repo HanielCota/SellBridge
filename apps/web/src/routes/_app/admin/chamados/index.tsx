@@ -60,6 +60,11 @@ export const Route = createFileRoute("/_app/admin/chamados/")({
 
 const ALL = "__all__";
 
+/** A closed ticket asks nothing of the team: its last message is history, not a to-do. */
+function showsUnread(ticket: StaffTicketSummary): boolean {
+  return ticket.hasUnread && ticket.status !== "closed";
+}
+
 const columnHelper = createServerColumnHelper<StaffTicketSummary>();
 const columns = columnHelper.columns([
   columnHelper.accessor("subject", {
@@ -77,7 +82,7 @@ const columns = columnHelper.columns([
           </Link>
           <p className="flex flex-wrap items-center gap-x-2 text-footnote text-muted-foreground">
             <TicketCategoryLabel category={ticket.category} />
-            {ticket.hasUnread ? <UnreadDot label="Mensagem nova" /> : null}
+            {showsUnread(ticket) ? <UnreadDot label="Mensagem nova" /> : null}
           </p>
         </div>
       );
@@ -106,7 +111,7 @@ const columns = columnHelper.columns([
     cell: (info) => {
       const ticket = info.row.original;
       return (
-        <div className="space-y-1">
+        <div className="flex flex-col items-start gap-1">
           <TicketStatusBadge status={ticket.status} />
           <ResponseDeadlineBadge
             status={ticket.status}
@@ -143,7 +148,7 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
           priority={row.priority}
           awaitingSince={row.awaitingSince}
         />
-        {row.hasUnread ? <UnreadDot label="Mensagem nova" /> : null}
+        {showsUnread(row) ? <UnreadDot label="Mensagem nova" /> : null}
       </div>
       <p className="truncate text-xs text-muted-foreground">
         {row.tenantName} · {row.assigneeName ?? "Sem responsável"} ·{" "}

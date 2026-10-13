@@ -1,4 +1,4 @@
-import { ListIcon } from "@phosphor-icons/react";
+import { ListIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -32,6 +32,34 @@ import { roleLabel, UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
 
+/**
+ * Admin mode adds up to three team tabs, and nine tabs no longer fit a capsule centred
+ * between equal side columns (the row is capped at 1440px). The dense layout sizes the side
+ * columns to their content, trims the tab padding, hides the account name until 2xl and
+ * moves the tabs into the menu sheet below xl. Full class strings, so Tailwind sees them.
+ */
+const LAYOUTS = {
+  regular: {
+    row: "lg:grid-cols-[1fr_auto_1fr]",
+    desktopNav: "lg:flex",
+    sheetTrigger: "lg:hidden",
+    tab: "px-4",
+    accountName: "hidden sm:block",
+    modeBadge: "hidden",
+  },
+  dense: {
+    row: "xl:grid-cols-[auto_1fr_auto]",
+    desktopNav: "justify-self-center xl:flex",
+    sheetTrigger: "xl:hidden",
+    tab: "px-3",
+    // Below 2xl the name and the mode stay readable to screen readers; a badge shows the mode.
+    accountName: "sr-only 2xl:not-sr-only 2xl:block",
+    modeBadge: "flex 2xl:hidden",
+  },
+} as const;
+
+type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
+
 function useNavCounts(isAdmin: boolean) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
@@ -55,6 +83,7 @@ function NavTab({
   paintsOwnPill = true,
   tabRef,
   onNavigate,
+  padding = "px-4",
 }: {
   item: NavItem;
   isActive: boolean;
@@ -63,6 +92,8 @@ function NavTab({
   paintsOwnPill?: boolean;
   tabRef?: Ref<HTMLAnchorElement>;
   onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  /** Horizontal padding from the header layout. */
+  padding?: string;
 }) {
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   return (
@@ -72,11 +103,12 @@ function NavTab({
       aria-current={isActive ? "page" : undefined}
       onClick={onNavigate}
       className={cn(
-        "relative flex h-10 items-center gap-2 rounded-full px-4 text-sm whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
+        "relative flex h-10 items-center gap-2 rounded-full text-sm whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
         isActive
           ? "font-medium text-background"
           : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
         isActive && paintsOwnPill && "bg-foreground",
+        padding,
       )}
     >
       {item.label}
@@ -104,17 +136,22 @@ function MobileNav({
   items,
   pathname,
   counts,
+  layout,
 }: {
   items: NavItem[];
   pathname: string;
   counts: BadgeCounts;
+  layout: Layout;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger
         aria-label="Abrir menu"
-        className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground lg:hidden"
+        className={cn(
+          "flex size-11 items-center justify-center rounded-full bg-muted text-foreground",
+          layout.sheetTrigger,
+        )}
       >
         <ListIcon className="size-5" aria-hidden="true" />
       </SheetTrigger>
@@ -144,10 +181,12 @@ function DesktopNav({
   items,
   pathname,
   counts,
+  layout,
 }: {
   items: NavItem[];
   pathname: string;
   counts: BadgeCounts;
+  layout: Layout;
 }) {
   const activeTo = items.find((item) => isItemActive(item, pathname))?.to ?? null;
   const chosen = useOptimisticChoice(activeTo);
@@ -159,7 +198,10 @@ function DesktopNav({
     <nav
       ref={containerRef}
       aria-label="Principal"
-      className="relative hidden items-center gap-1 rounded-full bg-card p-1.5 lg:flex"
+      className={cn(
+        "relative hidden items-center gap-1 rounded-full bg-card p-1.5",
+        layout.desktopNav,
+      )}
     >
       {indicator && chosen.value !== null ? (
         <TrackPill box={indicator} canAnimate={canAnimate} className="inset-y-1.5" />
@@ -171,6 +213,7 @@ function DesktopNav({
           isActive={item.to === chosen.value}
           count={item.badge ? counts[item.badge] : 0}
           paintsOwnPill={indicator === null}
+          padding={layout.tab}
           tabRef={(node) => {
             if (!node) {
               tabRefs.current.delete(item.to);
@@ -212,10 +255,12 @@ function AccountChip({
   user,
   supportReplies,
   adminMode,
+  layout,
 }: {
   user: SessionUser;
   supportReplies: number;
   adminMode: boolean;
+  layout: Layout;
 }) {
   return (
     <UserMenu
@@ -224,8 +269,21 @@ function AccountChip({
       adminMode={adminMode}
       className="rounded-full bg-card p-1.5"
     >
-      <UserAvatar name={user.name} image={user.image} />
-      <span className="hidden min-w-0 leading-tight sm:block">
+      <span className="relative shrink-0">
+        <UserAvatar name={user.name} image={user.image} />
+        {adminMode ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute -right-0.5 -bottom-0.5 size-5 items-center justify-center rounded-full bg-brand text-primary-foreground ring-2 ring-card",
+              layout.modeBadge,
+            )}
+          >
+            <ShieldCheckIcon className="size-3" weight="bold" />
+          </span>
+        ) : null}
+      </span>
+      <span className={cn("min-w-0 leading-tight", layout.accountName)}>
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
           <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
@@ -249,12 +307,18 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
     (item) => !item.permission || hasStaffPermission(user.role, item.permission),
   );
   const items = adminMode ? [...NAV_ITEMS, ...teamItems] : NAV_ITEMS;
+  const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
   return (
     <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
-      {/* Equal side columns keep the tab capsule centred on the page, whatever the side widths. */}
-      <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 md:px-8 lg:grid-cols-[1fr_auto_1fr]">
+      {/* Equal side columns keep the tab capsule centred on the page (dense: see LAYOUTS). */}
+      <div
+        className={cn(
+          "mx-auto grid max-w-[1440px] grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 md:px-8",
+          layout.row,
+        )}
+      >
         <div className="flex items-center gap-3">
-          <MobileNav items={items} pathname={pathname} counts={counts} />
+          <MobileNav items={items} pathname={pathname} counts={counts} layout={layout} />
           <Link
             to="/dashboard"
             aria-label="SellBridge, visão geral"
@@ -263,14 +327,22 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
             <BrandIcon className="size-10" />
           </Link>
         </div>
-        <DesktopNav items={items} pathname={pathname} counts={counts} />
+        <DesktopNav items={items} pathname={pathname} counts={counts} layout={layout} />
         <div className="flex items-center gap-2 justify-self-end">
           <CommandPalette />
-          <div className="hidden sm:block">
-            <SupportButton unread={supportReplies} />
-          </div>
+          {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
+          {adminMode ? null : (
+            <div className="hidden sm:block">
+              <SupportButton unread={supportReplies} />
+            </div>
+          )}
           <NotificationBell />
-          <AccountChip user={user} supportReplies={supportReplies} adminMode={adminMode} />
+          <AccountChip
+            user={user}
+            supportReplies={supportReplies}
+            adminMode={adminMode}
+            layout={layout}
+          />
         </div>
       </div>
     </header>
