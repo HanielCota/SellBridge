@@ -172,6 +172,8 @@ export interface CatalogProduct {
   costCents: number;
   suggestedPriceCents: number;
   stock: number;
+  /** Last admin change of the product (its shelf count included); sales do not move it. */
+  stockUpdatedAt: Date;
   imageUrl: string | null;
   categoryName: string | null;
   categorySlug: string | null;
@@ -232,6 +234,7 @@ export async function listCatalogProducts(
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
       stock: availableStock,
+      stockUpdatedAt: supplierProducts.updatedAt,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,
@@ -284,6 +287,7 @@ export async function getCatalogProductForRegion(
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
       stock: availableStock,
+      stockUpdatedAt: supplierProducts.updatedAt,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,
@@ -404,6 +408,7 @@ function selectRegionCatalog(database: Database, tenantId: string) {
       costCents: supplierProducts.costCents,
       suggestedPriceCents: supplierProducts.suggestedPriceCents,
       stock: availableStock,
+      stockUpdatedAt: supplierProducts.updatedAt,
       imageUrls: supplierProducts.imageUrls,
       categoryName: categories.name,
       categorySlug: categories.slug,

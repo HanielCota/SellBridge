@@ -17,7 +17,13 @@ export interface IncomingOrder {
   items: { externalListingId: string; title: string; quantity: number; unitPriceCents: number }[];
 }
 
-export type UpsertOrderResult = { status: "created" | "updated"; orderId: string };
+export type UpsertOrderResult = {
+  status: "created" | "updated";
+  orderId: string;
+  /** Order items that moved supplier stock in this write; above zero, sync the marketplaces. */
+  stockMoves: number;
+};
+type OrderWriteResult = Omit<UpsertOrderResult, "stockMoves">;
 
 interface ResolvedListing {
   listingTargetId: string;
@@ -99,7 +105,7 @@ function orderEventData(
 async function updateExistingOrder(
   write: OrderWrite,
   existing: typeof orders.$inferSelect,
-): Promise<UpsertOrderResult> {
+): Promise<OrderWriteResult> {
   if (existing.tenantId !== write.tenantId) {
     throw conflictError("Pedido pertence a outro tenant");
   }
@@ -148,7 +154,7 @@ async function insertOrderItems(write: OrderWrite, orderId: string): Promise<voi
   );
 }
 
-async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
+async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
   const { order } = write;
   const [created] = await write.transaction
     .insert(orders)
@@ -200,12 +206,12 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       { ...write, order: { ...write.order, status } },
       existing,
     );
-    await applyStockMoves(write.transaction, existing.id, status);
-    return updated;
+    const stockMoves = await applyStockMoves(write.transaction, existing.id, status);
+    return { ...updated, stockMoves };
   }
   const created = await createOrder(write);
-  await applyStockMoves(write.transaction, created.orderId, write.order.status);
-  return created;
+  const stockMoves = await applyStockMoves(write.transaction, created.orderId, write.order.status);
+  return { ...created, stockMoves };
 }
 
 /**

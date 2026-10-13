@@ -41,6 +41,7 @@ const processPublish = createPublishListingProcessor({
     mock: { ...environment.connectors.mock, publishProduct },
   },
   acquireRateLimit: async () => {},
+  safetyUnits: 0,
 });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;

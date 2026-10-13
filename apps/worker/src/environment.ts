@@ -23,6 +23,11 @@ const workerEnvironmentSchema = z.object({
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
+  /**
+   * Sellable units kept off the marketplaces, per product, as a buffer against shelf counts
+   * that lag behind reality. 0 (the default) offers everything that is sellable.
+   */
+  STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
   /** When set, exposes GET /health on this port (container probes, E2E readiness). */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
   /**

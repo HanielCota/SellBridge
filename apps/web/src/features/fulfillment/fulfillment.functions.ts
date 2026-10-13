@@ -5,7 +5,6 @@ import {
   listOperationalOrders,
   revokeSupplierLink,
   rotateSupplierLink,
-  updateShipment,
 } from "@sellbridge/database/repositories";
 import {
   forwardOrderSchema,
@@ -18,6 +17,7 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { writeShipmentUpdate } from "./shipments.server";
 
 const idSchema = z.object({ orderId: z.uuid() });
 export const listOperationsFn = createServerFn({ method: "GET" })
@@ -35,7 +35,7 @@ export const forwardOrderFn = createServerFn({ method: "POST" })
 export const updateShipmentFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(shipmentUpdateSchema)
-  .handler(({ context, data }) => updateShipment(database, data, { tenantId: context.tenantId }));
+  .handler(({ context, data }) => writeShipmentUpdate(data, { tenantId: context.tenantId }));
 export const rotateSupplierLinkFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ shipmentId: z.uuid() }))
@@ -59,5 +59,5 @@ export const updateSupplierShipmentFn = createServerFn({ method: "POST" })
   .validator(z.object({ token: supplierTokenSchema, update: shipmentUpdateSchema }))
   .handler(({ data }) => {
     privateResponse();
-    return updateShipment(database, data.update, { token: data.token });
+    return writeShipmentUpdate(data.update, { token: data.token });
   });

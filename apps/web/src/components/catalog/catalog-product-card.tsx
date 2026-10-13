@@ -57,8 +57,8 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
 
 function StockFooter({ product }: { product: RegionCatalogProduct }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-      <ProductStockLine stock={product.stock} />
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+      <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
       {product.published ? null : (
         <Button asChild variant="secondary" size="sm">
           <Link to="/publicacoes/nova" search={{ productId: product.id }}>

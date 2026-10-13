@@ -18,7 +18,7 @@ import {
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { availableUnits } from "@sellbridge/shared/stock-reservation";
+import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
@@ -29,6 +29,8 @@ export interface PublishDependencies {
   cipher: TokenCipher;
   /** Waits for the per-store rate limit before calling the marketplace. */
   acquireRateLimit: (key: string) => Promise<void>;
+  /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
+  safetyUnits: number;
 }
 
 export interface PublishJobContext {
@@ -79,13 +81,13 @@ function publishingCredentials(
   return resolveStoreCredentials(dependencies.cipher, row.store);
 }
 
-function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
+function toPublishProductInput(row: TargetForPublishing, safetyUnits: number): PublishProductInput {
   return {
     idempotencyKey: row.target.idempotencyKey,
     title: row.listing.title,
     description: row.listing.description,
     priceCents: row.listing.priceCents,
-    stock: availableUnits(row.product.stock, row.product.reservedStock),
+    stock: offeredUnits(row.product.stock, row.product.reservedStock, safetyUnits),
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
@@ -113,11 +115,16 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
   const { dependencies, row } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
   try {
-    return await connector.publishProduct(attempt.credentials, toPublishProductInput(row), {
-      reconcileOnly: row.target.creationStartedAt != null,
-      beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
-      creationRejected: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
-    });
+    return await connector.publishProduct(
+      attempt.credentials,
+      toPublishProductInput(row, dependencies.safetyUnits),
+      {
+        reconcileOnly: row.target.creationStartedAt != null,
+        beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
+        creationRejected: () =>
+          setTargetCreationStarted(dependencies.database, row.target.id, false),
+      },
+    );
   } catch (error) {
     return handlePublishFailure(attempt, error);
   }
@@ -150,7 +157,7 @@ async function recordInitialSync(attempt: PublishAttempt): Promise<void> {
   const { dependencies, row, listingTargetId } = attempt;
   try {
     await markTargetSynced(dependencies.database, listingTargetId, {
-      stock: availableUnits(row.product.stock, row.product.reservedStock),
+      stock: offeredUnits(row.product.stock, row.product.reservedStock, dependencies.safetyUnits),
       priceCents: row.listing.priceCents,
     });
   } catch (error) {

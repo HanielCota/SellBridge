@@ -67,7 +67,8 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | Q6                 | 🟡               | A landing existe fora deste repositório.                                                                                                                                                                      |
 | R1                 | 🟡               | Registro estruturado de erros do servidor e do navegador. Sem Sentry nem alertas.                                                                                                                             |
 | R2                 | ✅               | `/api/health` e Dockerfile com HEALTHCHECK e migrate no boot.                                                                                                                                                 |
-| B1 / B-8           | 🟡 (13/10)       | Reserva na venda (prateleira + reservado, migration 0017, `stock-reservations.ts`); disponível usado em catálogo, anúncios e sync. Faltam sync imediato, aviso de falta e "atualizado há X" (item 01.b).      |
+| B1 / B-8           | 🟡 (13/10)       | Reserva na venda (prateleira + reservado, 0017) e sync imediato quando o estoque muda; estoque de segurança configurável. Falta o aviso de falta ao revendedor (01.c).                                        |
+| B-9                | ✅ (13/10)       | "Atualizado há X" no catálogo e na página do fornecedor (`ProductStockLine`).                                                                                                                                 |
 | J5                 | 🟡 (13/10)       | Pedidos vinculados ao chamado (`ticket_orders`, migration 0016), visíveis ao revendedor e à equipe. Faltam loja e anúncio, e o botão "Falar com o suporte" nas telas de pedido, loja e anúncio (item 27.a).   |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)

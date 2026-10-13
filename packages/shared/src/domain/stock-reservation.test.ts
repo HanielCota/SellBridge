@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   availableUnits,
+  offeredUnits,
   stockMoveFor,
   type OrderStatus,
   type StockMove,
@@ -54,5 +55,19 @@ describe("availableUnits", () => {
 
   it("never goes below zero when the shelf count drops under the holds", () => {
     expect(availableUnits(1, 3)).toBe(0);
+  });
+});
+
+describe("offeredUnits", () => {
+  it("keeps the safety margin off the marketplaces, never below zero", () => {
+    expect(offeredUnits(10, 2, 3)).toBe(5);
+    expect(offeredUnits(4, 2, 3)).toBe(0);
+    expect(offeredUnits(4, 2, 0)).toBe(2);
+  });
+
+  it("reads a broken margin as no margin", () => {
+    expect(offeredUnits(4, 0, Number.NaN)).toBe(4);
+    expect(offeredUnits(4, 0, -2)).toBe(4);
+    expect(offeredUnits(4, 0, 1.9)).toBe(3);
   });
 });

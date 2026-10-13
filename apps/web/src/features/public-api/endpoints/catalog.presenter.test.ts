@@ -10,6 +10,7 @@ const product: RegionCatalogProduct = {
   costCents: 2000,
   suggestedPriceCents: 4990,
   stock: 3,
+  stockUpdatedAt: new Date("2026-10-01T12:00:00Z"),
   imageUrl: "https://example.com/1.jpg",
   imageUrls: ["https://example.com/1.jpg", "https://example.com/2.jpg"],
   categoryName: "Moda",

@@ -8,6 +8,7 @@ import {
   PUBLISH_JOB_ATTEMPTS,
   QUEUE_NAMES,
 } from "@sellbridge/shared/queues";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
@@ -41,14 +42,37 @@ const processPublish = createPublishListingProcessor({
   connectors,
   cipher,
   acquireRateLimit,
+  safetyUnits: environment.STOCK_SAFETY_UNITS,
 });
 const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
-const processWebhookEvent = createWebhookEventProcessor({ database, connectors, cipher });
+/** Same retry policy as the web's sync requests (apps/web/src/lib/server/queues.ts). */
+const STOCK_SYNC_JOB_OPTIONS = {
+  attempts: 5,
+  backoff: { type: "exponential", delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 1000,
+} as const;
+const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
+const processWebhookEvent = createWebhookEventProcessor({
+  database,
+  connectors,
+  cipher,
+  // A fresh job each time: one already running may have read the stock before this order.
+  // Bounded wait: this connection retries forever, and a Redis outage must not stall the job.
+  requestStockSync: async () => {
+    await withDeadline(
+      stockPriceSyncQueue.add("sync-stock-and-price", {}, STOCK_SYNC_JOB_OPTIONS),
+      3000,
+      "Sincronização do estoque",
+    );
+  },
+});
 const processStockPriceSync = createStockPriceSyncProcessor({
   database,
   connectors,
   cipher,
   acquireRateLimit,
+  safetyUnits: environment.STOCK_SAFETY_UNITS,
 });
 const processWebhookDeliveries = createWebhookDeliveryProcessor({
   database,
@@ -162,7 +186,6 @@ const webhookDeliveryWorker = new Worker(
 );
 
 const tokenRefreshQueue = new Queue(QUEUE_NAMES.tokenRefresh, { connection });
-const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
 await stockPriceSyncQueue.upsertJobScheduler(
   "sync-stock-and-price",
   { every: 15 * 60 * 1000 },

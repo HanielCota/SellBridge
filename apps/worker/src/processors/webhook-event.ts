@@ -18,6 +18,8 @@ export interface WebhookDependencies {
   database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
+  /** Asks the stock and price sync to run now instead of at its next scheduled run. */
+  requestStockSync: () => Promise<void>;
 }
 
 export interface WebhookJobContext {
@@ -120,6 +122,21 @@ async function prepareOrderSync(
   };
 }
 
+/**
+ * The order is saved either way: when Redis is down, the scheduled sync sends the new count a
+ * few minutes later, so a failed request is logged, not thrown.
+ */
+async function requestStockSyncSafely(
+  dependencies: WebhookDependencies,
+  webhookEventId: string,
+): Promise<void> {
+  try {
+    await dependencies.requestStockSync();
+  } catch (error) {
+    logger.warn("stock.sync_deferred", { webhookEventId, error });
+  }
+}
+
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
   const credentials = decryptStoreCredentials(dependencies.cipher, {
@@ -137,6 +154,9 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     order,
   );
   await markWebhookProcessed(dependencies.database, sync.eventId);
+  if (result.stockMoves > 0) {
+    await requestStockSyncSafely(dependencies, sync.webhookEventId);
+  }
   logger.info("webhook.order_synced", {
     webhookEventId: sync.webhookEventId,
     tenantId: store.tenantId,

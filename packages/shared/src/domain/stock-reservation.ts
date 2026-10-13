@@ -57,3 +57,20 @@ export function stockMoveFor(status: OrderStatus, state: StockState): StockMove 
 export function availableUnits(stock: number, reserved: number): number {
   return Math.max(0, stock - reserved);
 }
+
+/**
+ * Units offered on the marketplaces: what is sellable minus a safety margin, so a shelf count
+ * that lags behind reality does not turn into a sale nobody can ship. Mirrors `liveStock` in
+ * the database package.
+ */
+export function offeredUnits(stock: number, reserved: number, safetyUnits: number): number {
+  return Math.max(0, availableUnits(stock, reserved) - safetyMargin(safetyUnits));
+}
+
+/** A whole, non-negative number of units; anything else (NaN, negative) means no margin. */
+export function safetyMargin(safetyUnits: number): number {
+  if (!Number.isFinite(safetyUnits)) {
+    return 0;
+  }
+  return Math.max(0, Math.trunc(safetyUnits));
+}

@@ -32,10 +32,10 @@ export function SupplierProductCard({ product }: { readonly product: SupplierCat
           <dd className="font-semibold tabular-nums">{formatCents(product.costCents)}</dd>
           <dd className="text-right tabular-nums">{formatCents(product.suggestedPriceCents)}</dd>
         </dl>
-        <div className="flex items-center justify-between gap-2 border-t pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           {/* As tall as the publish button, so sold-out cards keep the price row level. */}
           <span className="flex min-h-8 items-center">
-            <ProductStockLine stock={product.stock} />
+            <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
           </span>
           {product.stock > 0 ? (
             <Button asChild size="sm" variant="secondary">

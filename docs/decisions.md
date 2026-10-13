@@ -230,3 +230,21 @@ Cada item do pedido guarda o que fez em `order_items.stock_state` (regra em `pac
 Itens que não vêm de um anúncio nosso não mexem em estoque. O pedido nunca é recusado por falta de estoque: ele é gravado e a falta fica visível (telas e aviso na parte 01.b). A importação de CSV trava os produtos do fornecedor em ordem de id (`FOR NO KEY UPDATE`) antes de gravar, a mesma ordem das vendas, para que importação e venda esperem uma pela outra em vez de travar em deadlock. Os pedidos de demonstração do seed nascem `untracked`.
 
 Limites conhecidos: pedidos pagos e ainda não enviados na data da migration ficam `untracked`, então não seguram estoque; o disponível fica acima do real até eles saírem (a contagem seguinte do fornecedor corrige). Se o fornecedor reimporta a contagem depois de enviar e antes de o pedido virar "enviado" aqui, a baixa do envio desconta de novo e o disponível fica menor até a próxima importação (erro para o lado seguro: nunca vende a mais). Se o produto devolvido volta mesmo ao fornecedor no dropshipping é pergunta ao cliente (ligada a D5); por enquanto "devolvido" devolve à prateleira.
+
+## 2026-10-13: Sync imediato e estoque de segurança (item 01.b)
+
+**Política de estoque compartilhado.** Um produto de fornecedor pode estar publicado por vários revendedores. O primeiro pedido **pago** leva as unidades (reserva atômica, item 01.a); os outros ficam com o item "em falta" e o aviso chega ao revendedor (item 01.c). Nenhum revendedor tem cota própria do estoque do fornecedor.
+
+**Sync na hora.** Sempre que o estoque muda, o worker recebe um pedido de sync imediato (`stock-price-sync`), além do agendamento de 15 em 15 minutos:
+
+- pedido gravado pelo webhook que movimentou estoque (`upsertMarketplaceOrder` devolve `stockMoves`);
+- envio marcado pelo revendedor, pelo link do fornecedor ou pelo rastreio do Mercado Livre (`features/fulfillment/shipments.server.ts`);
+- edição e importação do admin (já existia; agora usa o mesmo `requestStockSync`).
+
+Pedir o sync nunca derruba a gravação: se o Redis falhar, fica um aviso no log (`stock.sync_deferred`) e o agendamento envia a contagem minutos depois.
+
+**Estoque de segurança.** `STOCK_SAFETY_UNITS` (worker, padrão 0, até 1000) tira N unidades vendáveis de cada produto do que vai para os marketplaces (`liveStock` no banco, `offeredUnits` no domínio, usados no sync e na publicação). O revendedor continua vendo o disponível real no SellBridge: a margem só protege contra contagens do fornecedor que atrasam em relação à prateleira.
+
+**"Estoque atualizado há X".** O catálogo e a página do fornecedor mostram a data da última alteração do produto pelo admin (`supplier_products.updated_at`): contagem, preço ou dados do produto. Vendas não mexem nessa data (item 01.a). É um sinal de "quão fresco está o cadastro", não exatamente de quando a contagem foi conferida; uma coluna própria para a contagem fica para quando o fornecedor tiver acesso (D6).
+
+**Limites conhecidos.** Cada pedido ou envio que mexe no estoque enfileira um sync; numa rajada de pedidos, o worker roda vários syncs seguidos, quase todos sem nada a enviar (a consulta é indexada e limitada a 200 anúncios, e um sync vazio não chama o marketplace). Deduplicar exigiria cuidado para não perder uma mudança que chega enquanto um sync já está lendo o estoque; fica para quando o volume pedir. O pedido de sync do worker espera no máximo 3 s pelo Redis, como o da web.

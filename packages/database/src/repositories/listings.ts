@@ -7,6 +7,7 @@ import type { Database, DatabaseExecutor } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { availableStock } from "./sql/available-stock.ts";
+import { safetyMargin } from "@sellbridge/shared/stock-reservation";
 import { containsPattern } from "./sql/search-pattern.ts";
 import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
 
@@ -340,11 +341,18 @@ export interface TargetNeedingSync {
   store: typeof storeConnections.$inferSelect;
 }
 
-/** Stock to show on the marketplace: zero while the reseller has the listing paused. */
-const liveStock =
-  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${availableStock} end`.mapWith(
+/**
+ * Stock to show on the marketplace: zero while the reseller has the listing paused, and never
+ * the last `safetyUnits` sellable units (a buffer against counts that lag behind the shelf).
+ * The margin is a validated integer from the environment, inlined because a parameter inside
+ * CASE would reach Postgres as text.
+ */
+function liveStock(safetyUnits: number) {
+  const margin = sql.raw(String(safetyMargin(safetyUnits)));
+  return sql<number>`case when ${listingTargets.status} = 'paused' then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
     Number,
   );
+}
 
 /**
  * Live listings whose stock or price differs from what was last sent to the marketplace
@@ -354,12 +362,14 @@ const liveStock =
 export async function findTargetsNeedingSync(
   database: Database,
   limit = 200,
+  safetyUnits = 0,
 ): Promise<TargetNeedingSync[]> {
+  const live = liveStock(safetyUnits);
   const rows = await database
     .select({
       targetId: listingTargets.id,
       externalId: listingTargets.externalId,
-      stock: liveStock,
+      stock: live,
       priceCents: listings.priceCents,
       store: storeConnections,
     })
@@ -372,7 +382,7 @@ export async function findTargetsNeedingSync(
         sql`${listingTargets.status} in ('published', 'paused')`,
         eq(storeConnections.status, "connected"),
         sql`${listingTargets.externalId} is not null`,
-        sql`(${listingTargets.syncedStock} is distinct from ${liveStock}
+        sql`(${listingTargets.syncedStock} is distinct from ${live}
           or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
       ),
     )

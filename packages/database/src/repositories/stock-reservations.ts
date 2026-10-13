@@ -119,13 +119,14 @@ const MOVES: Record<Exclude<StockMove, "none">, typeof reserve> = {
 /**
  * Brings the supplier stock in line with the order's status, inside the transaction that wrote
  * the order. Items are locked in product order, so two orders never wait on each other's rows
- * in opposite order. Items that are not one of our listings are left alone.
+ * in opposite order. Items that are not one of our listings are left alone. Returns how many
+ * items moved stock, so callers know whether the marketplaces need a fresh count.
  */
 export async function applyStockMoves(
   executor: DatabaseExecutor,
   orderId: string,
   status: OrderStatus,
-): Promise<void> {
+): Promise<number> {
   const items = await executor
     .select({
       id: orderItems.id,
@@ -137,6 +138,7 @@ export async function applyStockMoves(
     .where(eq(orderItems.orderId, orderId))
     .orderBy(asc(orderItems.supplierProductId), asc(orderItems.id))
     .for("update");
+  let moved = 0;
   for (const item of items) {
     const move = stockMoveFor(status, item.stockState);
     if (item.supplierProductId === null || move === "none") {
@@ -144,5 +146,7 @@ export async function applyStockMoves(
     }
     // Sequential on purpose: each move writes inside the same transaction.
     await MOVES[move](executor, { ...item, supplierProductId: item.supplierProductId });
+    moved += 1;
   }
+  return moved;
 }

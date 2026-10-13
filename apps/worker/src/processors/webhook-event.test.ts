@@ -3,7 +3,7 @@ import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPublishedTestTarget,
   createTestProduct,
@@ -15,7 +15,8 @@ import { createWebhookEventProcessor } from "./webhook-event.ts";
 
 const environment = createWorkerTestEnvironment();
 const { database } = environment;
-const processWebhook = createWebhookEventProcessor(environment);
+const requestStockSync = vi.fn<() => Promise<void>>();
+const processWebhook = createWebhookEventProcessor({ ...environment, requestStockSync });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
@@ -65,7 +66,12 @@ function job(webhookEventId: string) {
   return { data: { webhookEventId }, attemptsMade: 0, maxAttempts: 5 };
 }
 
-const orderResource = () =>
+beforeEach(() => {
+  requestStockSync.mockReset();
+  requestStockSync.mockResolvedValue(undefined);
+});
+
+const orderResource = (externalListingId = "MOCK-ITEM-WH") =>
   encodeMockOrderResource({
     externalOrderId: `SIM-${randomUUID()}`,
     status: "paid",
@@ -75,7 +81,7 @@ const orderResource = () =>
     orderedAt: new Date().toISOString(),
     items: [
       {
-        externalListingId: "MOCK-ITEM-WH",
+        externalListingId,
         title: "Anúncio webhook",
         quantity: 1,
         unitPriceCents: 4990,
@@ -94,6 +100,24 @@ describe("webhook-event processor", () => {
       .from(schema.orderItems)
       .where(eq(schema.orderItems.tenantId, tenantId));
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
+  });
+
+  it("asks for a stock sync right away when the order moved supplier stock", async () => {
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+    expect(requestStockSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not ask for a sync when the order touched no stock of ours", async () => {
+    const eventId = await recordEvent({ shopId, resource: orderResource("NOT-OURS") });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+    expect(requestStockSync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the order when the sync request fails: the scheduled sync catches up", async () => {
+    requestStockSync.mockRejectedValue(new Error("Redis indisponível"));
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
   });
 
   it("ignores other topics and events from unknown shops", async () => {

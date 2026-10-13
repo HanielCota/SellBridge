@@ -365,6 +365,19 @@ describe("units leaving and coming back", () => {
     const ours = targets.filter((target) => target.externalId.startsWith(`EXT-${product.sku}`));
     expect(ours.map((target) => target.stock)).toEqual([3, 3]);
   });
+
+  it("keeps a safety margin out of what the marketplaces see", async () => {
+    const product = await sharedProduct(5);
+    await sell(product.first, orderOf(product.first, product.sku, { status: "paid", quantity: 2 }));
+    const stockSent = async (safetyUnits: number) => {
+      const targets = await findTargetsNeedingSync(database, 100_000, safetyUnits);
+      return targets
+        .filter((target) => target.externalId.startsWith(`EXT-${product.sku}`))
+        .map((target) => target.stock);
+    };
+    expect(await stockSent(2)).toEqual([1, 1]);
+    expect(await stockSent(10)).toEqual([0, 0]);
+  });
 });
 
 describe("items the reservation leaves alone", () => {

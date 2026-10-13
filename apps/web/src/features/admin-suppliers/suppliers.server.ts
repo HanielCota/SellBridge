@@ -13,8 +13,6 @@ import {
   type SupplierProductImportPlan,
 } from "@sellbridge/database/repositories";
 import { AppError, conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
-import { logger } from "@sellbridge/shared/logger";
-import { withDeadline } from "@sellbridge/shared/deadline";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import type { z } from "zod";
 import type {
@@ -26,7 +24,7 @@ import type {
   adminSetProductActiveSchema,
 } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
-import { enqueueStockPriceSync } from "@/lib/server/queues";
+import { requestStockSync } from "@/lib/server/stock-sync";
 
 export async function loadAdminSuppliers(search: AdminSupplierSearch) {
   return await listAdminSuppliers(database, search.query, search);
@@ -59,13 +57,7 @@ async function catalogWrite<TResult>(write: () => Promise<TResult>): Promise<TRe
 
 /** A committed write remains successful if Redis fails; the scheduled worker retries from the database. */
 async function requestSynchronization(): Promise<boolean> {
-  try {
-    await withDeadline(enqueueStockPriceSync(), 3000, "Sincronização do catálogo");
-    return true;
-  } catch (error) {
-    logger.warn("admin.catalog_sync_deferred", { error });
-    return false;
-  }
+  return await requestStockSync("admin.catalog_sync_deferred");
 }
 
 export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplierSchema>) {

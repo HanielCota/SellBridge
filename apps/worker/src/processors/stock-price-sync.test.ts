@@ -68,6 +68,7 @@ const sync = createStockPriceSyncProcessor({
   connectors: connectorsWithDeletedItem,
   cipher,
   acquireRateLimit: async () => {},
+  safetyUnits: 0,
 });
 
 describe("stock-price-sync processor", () => {

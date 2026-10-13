@@ -16,6 +16,8 @@ export interface StockPriceSyncDependencies {
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
   acquireRateLimit: (key: string) => Promise<void>;
+  /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
+  safetyUnits: number;
 }
 
 export interface StockPriceSyncSummary {
@@ -68,10 +70,17 @@ async function syncOne(
   }
 }
 
+/** Listings pushed per run; the rest wait for the next run, oldest attempt first. */
+const SYNC_BATCH_SIZE = 200;
+
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
 export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDependencies) {
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
-    const targets = await findTargetsNeedingSync(dependencies.database);
+    const targets = await findTargetsNeedingSync(
+      dependencies.database,
+      SYNC_BATCH_SIZE,
+      dependencies.safetyUnits,
+    );
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
     for (const target of targets) {
       const ok = await syncOne(dependencies, target);
