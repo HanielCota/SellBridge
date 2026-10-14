@@ -4,12 +4,12 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 06 · Envio cancelado e reencaminhamento
-- Última etapa concluída: — (05 ✅ acb48dd)
-- Próximo passo: etapa 1 · ler o item 06 no prompt e o fluxo de cancelamento de envio
+- Item/parte: 07 · Fornecedor não declara "entregue" sozinho
+- Última etapa concluída: — (06 ✅ b68dbe5)
+- Próximo passo: etapa 1 · ler o item 07 no prompt e o fluxo do link do fornecedor
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 05
-- Pendências: mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados
+- Decisões tomadas nos pontos de parada: itens 08, 09, 10, 13, 14, 15, 16 e 18 passam ao chat paralelo C (13/10); este chat faz o 07, depois do 20 em diante e "trocar de fornecedor num envio cancelado"
+- Pendências: item novo "trocar de fornecedor num envio cancelado"; mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados
 
 ## Linha de base
 
@@ -35,19 +35,19 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                     |
 | 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                         |
-| 06   | Envio cancelado e reencaminhamento              | ⬜       | —                           |                                                                         |
+| 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                         |
 | 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                           |                                                                         |
-| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           |                                                                         |
-| 09   | Lucro correto                                   | ⬜       | —                           |                                                                         |
-| 10   | Segurança de contas e da equipe                 | ⬜       | —                           |                                                                         |
+| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
+| 09   | Lucro correto                                   | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
+| 10   | Segurança de contas e da equipe                 | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 11   | Uploads seguros                                 | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                         |
-| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           |                                                                         |
-| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           |                                                                         |
-| 16   | Riscos da assinatura                            | ⬜       | —                           |                                                                         |
+| 13   | Erros de publicação claros                      | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
+| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
+| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
+| 16   | Riscos da assinatura                            | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           |                                                                         |
+| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 19   | Pequenos de segurança e status                  | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 20   | Página do pedido                                | ⬜       | —                           |                                                                         |
 | 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                           |
