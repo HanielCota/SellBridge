@@ -74,7 +74,7 @@ beforeEach(() => {
   mocks.enqueue.mockResolvedValue(undefined);
   mocks.importProducts.mockImplementation(async (_database, input) => {
     input.validatePreview(importPlan());
-    return { created: 1, updated: 0 };
+    return { created: 1, updated: 0, pausedTargets: 0 };
   });
 });
 
@@ -84,7 +84,12 @@ describe("admin CSV orchestration", () => {
     expect(preview).toMatchObject({ created: 1, updated: 0, errors: [] });
     await expect(
       confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken }),
-    ).resolves.toEqual({ created: 1, updated: 0, synchronizationQueued: true });
+    ).resolves.toEqual({
+      created: 1,
+      updated: 0,
+      pausedTargets: 0,
+      synchronizationQueued: true,
+    });
     expect(mocks.enqueue).toHaveBeenCalledOnce();
     expect(mocks.importProducts.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
@@ -107,7 +112,7 @@ describe("admin CSV orchestration", () => {
     const preview = await previewAdminProductCsv({ supplierId, content });
     mocks.importProducts.mockImplementation(async (_database, input) => {
       input.validatePreview(importPlan("changed"));
-      return { created: 1, updated: 0 };
+      return { created: 1, updated: 0, pausedTargets: 0 };
     });
     await expect(
       confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken }),
@@ -193,19 +198,26 @@ describe("admin CSV orchestration", () => {
     );
   });
 
-  it("enqueues synchronization when a supplier or product is switched off", async () => {
-    mocks.setSupplierActive.mockResolvedValue({ ...savedSupplier, active: false });
+  it("reports the paused listings and enqueues synchronization when switching off", async () => {
+    mocks.setSupplierActive.mockResolvedValue({
+      supplier: { ...savedSupplier, active: false },
+      pausedTargets: 4,
+    });
     mocks.setProductActive.mockResolvedValue({
-      ...product,
-      id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
-      reservedStock: 0,
-      active: false,
-      createdAt: new Date("2026-10-01T00:00:00Z"),
-      updatedAt: new Date("2026-10-01T00:00:00Z"),
+      product: {
+        ...product,
+        id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
+        reservedStock: 0,
+        active: false,
+        createdAt: new Date("2026-10-01T00:00:00Z"),
+        updatedAt: new Date("2026-10-01T00:00:00Z"),
+      },
+      pausedTargets: 1,
     });
 
     await expect(writeSupplierActive({ supplierId, active: false })).resolves.toMatchObject({
       active: false,
+      pausedTargets: 4,
       synchronizationQueued: true,
     });
     await expect(
@@ -214,7 +226,7 @@ describe("admin CSV orchestration", () => {
         productId: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
         active: false,
       }),
-    ).resolves.toMatchObject({ active: false, synchronizationQueued: true });
+    ).resolves.toMatchObject({ active: false, pausedTargets: 1, synchronizationQueued: true });
     expect(mocks.enqueue).toHaveBeenCalledTimes(2);
   });
 });

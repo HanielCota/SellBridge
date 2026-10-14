@@ -1,4 +1,8 @@
 import type { ListingOverviewRow, ListingStoreStatus } from "@sellbridge/database/repositories";
+import {
+  unavailableListingLabel,
+  unavailableListingMessage,
+} from "@sellbridge/shared/catalog-availability";
 import { displayStoreName } from "@/features/stores/store-name";
 
 export type ListingHealthTone = "live" | "error" | "attention" | "busy" | "paused";
@@ -30,10 +34,18 @@ function whereLabel(stores: readonly ListingStoreStatus[]): string {
 }
 
 /**
- * Problems first: a failed store, then a supplier out of stock, then work in progress and
- * pauses. Only when nothing needs attention does the card say where the product is live.
+ * Problems first: a product the supplier no longer offers (whatever the stores say, it is the
+ * cause), a failed store, a supplier out of stock, then work in progress and pauses. Only when
+ * nothing needs attention does the card say where the product is live.
  */
 export function listingHealth(row: ListingOverviewRow): ListingHealth {
+  if (row.unavailable !== null) {
+    return {
+      tone: "attention",
+      label: unavailableListingLabel(row.unavailable),
+      reason: unavailableListingMessage(row.unavailable),
+    };
+  }
   const failed = storesWith(row.stores, ["error"]);
   if (failed.length > 0) {
     const reason = failed.find((store) => store.errorReason !== null)?.errorReason ?? null;

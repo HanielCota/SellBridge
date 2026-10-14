@@ -6,28 +6,20 @@ import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenants,
+  publishTestProduct,
+  type TestSeller,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  findTargetsNeedingSync,
-  markTargetPublished,
-  markTargetSynced,
-} from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 const cleanups: (() => Promise<void>)[] = [];
 
-interface Seller {
-  tenantId: string;
-  storeId: string;
-}
-
-let mineiro: Seller;
-let paulista: Seller;
-let semRegiao: Seller;
+let mineiro: TestSeller;
+let paulista: TestSeller;
+let semRegiao: TestSeller;
 
 async function seller(tenantId: string, region: { state: string; city: string } | null) {
   if (region) {
@@ -40,7 +32,7 @@ async function seller(tenantId: string, region: { state: string; city: string } 
 /** A product with 5 units whose supplier covers `coverage`, published by every seller given. */
 async function publishedBy(
   coverage: { state: string; city: string | null }[],
-  sellers: readonly Seller[],
+  sellers: readonly TestSeller[],
 ) {
   const sku = `AV-${randomUUID().slice(0, 8)}`;
   const catalog = await createTestSupplierProduct(database, {
@@ -56,29 +48,7 @@ async function publishedBy(
       .insert(supplierCoverage)
       .values(coverage.map((region) => ({ supplierId: catalog.supplierId, ...region })));
   }
-  const targets = new Map<string, string>();
-  for (const { tenantId, storeId } of sellers) {
-    const created = await createListingWithTargets(
-      database,
-      tenantId,
-      {
-        supplierProductId: catalog.productId,
-        title: `Anúncio ${sku}`,
-        description: "Descrição",
-        priceCents: 3990,
-      },
-      [storeId],
-    );
-    const [targetId] = created.targetIds;
-    if (!targetId) {
-      throw new Error("destino não criado");
-    }
-    await markTargetPublished(database, targetId, {
-      externalId: `EXT-${sku}-${tenantId}`,
-      externalUrl: null,
-    });
-    targets.set(tenantId, targetId);
-  }
+  const targets = await publishTestProduct(database, catalog.productId, sellers);
   return { ...catalog, sku, targets };
 }
 

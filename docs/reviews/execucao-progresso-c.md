@@ -5,17 +5,17 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 ## Em andamento
 
 - Item/parte: 08.b · Desativar pausa, sincroniza, notifica, audita e tem e2e
-- Última etapa concluída: 3 · Planejar (aguardando ⏸1; dúvida: auditoria sem migration)
-- Próximo passo: etapa 4 · testes que falham
-- Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: refatoração dos vícios de IA commitada (ffd6571), porta do e2e corrigida (bd13085)
-- Pendências: conflitos esperados na junção com o principal (operations.tsx, order-dialog.tsx, shipment-panel.tsx, migrations.test.ts: ficar com os 60 s do edb1ff4); auditoria do catálogo vai para o item 28 (principal); troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
+- Última etapa concluída: 8 · Documentar (aguardando ⏸3)
+- Próximo passo: etapa 9 · commit local após OK do ⏸3
+- Arquivos tocados: catalog-availability.ts (esqueleto) e teste, testing/fixtures.ts (publishTestProduct), listing-sync-availability.test.ts, catalog-deactivation.test.ts, listing-health.test.ts, notification-presenter.test.ts, notification-tabs.test.ts, e2e/catalog-deactivation.spec.ts
+- Decisões tomadas nos pontos de parada: ⏸1 do 08.b aprovado; auditoria do catálogo adiada para o item 28 (principal); refatoração dos vícios de IA commitada (ffd6571), porta do e2e corrigida (bd13085)
+- Pendências: pedir ao principal o índice em listings.supplier_product_id (migration); conflitos esperados na junção com o principal (operations.tsx, order-dialog.tsx, shipment-panel.tsx, migrations.test.ts: ficar com os 60 s do edb1ff4); auditoria do catálogo vai para o item 28 (principal); troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
 
 ## Linha de base
 
 | Métrica                                        | Valor                   | Medido em  |
 | ---------------------------------------------- | ----------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 959 passando            | 2026-10-13 |
+| Testes unitários e de integração (`pnpm test`) | 981 passando            | 2026-10-13 |
 | E2E completo (`--workers=1`, porta 3160)       | 63 passando             | 2026-10-13 |
 | Última migration                               | 0021_repair_public_api  | 2026-10-13 |
 | Branch de trabalho                             | `feat/client-phase-1-c` | 2026-10-13 |
@@ -24,22 +24,31 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit | Notas                                 |
-| ---- | ---------------------------------------------- | -------- | ------ | ------------------------------------- |
-| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C          |
-| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ⬜             |
-| 09   | Lucro correto                                  | ⬜       | —      |                                       |
-| 10   | Segurança de contas e da equipe                | ⬜       | —      | Passou para o chat B (coordenacao.md) |
-| 13   | Erros de publicação claros                     | ⬜       | —      |                                       |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                                       |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                                       |
-| 16   | Riscos da assinatura                           | ⬜       | —      |                                       |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                                       |
-| 23   | Anúncios completos                             | ⬜       | —      | Veio do principal (coordenacao.md)    |
+| Item | Título                                         | Situação | Commit | Notas                                       |
+| ---- | ---------------------------------------------- | -------- | ------ | ------------------------------------------- |
+| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C                |
+| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ✅ (commit pendente) |
+| 09   | Lucro correto                                  | ⬜       | —      |                                             |
+| 10   | Segurança de contas e da equipe                | ⬜       | —      | Passou para o chat B (coordenacao.md)       |
+| 13   | Erros de publicação claros                     | ⬜       | —      |                                             |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                                             |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                                             |
+| 16   | Riscos da assinatura                           | ⬜       | —      |                                             |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                                             |
+| 23   | Anúncios completos                             | ⬜       | —      | Veio do principal (coordenacao.md)          |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Item 08.b · Desativar pausa, avisa e reativar fica com o revendedor — ✅ concluído (commit local)
+
+- Desativar produto ou fornecedor (botão ou CSV) pausa os anúncios publicados de todos os revendedores na mesma transação e diz ao admin quantos ("Produto desativado · 1 anúncio pausado"). Reativar não reativa: o revendedor decide; o servidor recusa retomar enquanto indisponível, com trava compartilhada contra a corrida com o admin.
+- Card de Publicações: o rodapé vermelho do "esgotado" (`SoldOutFooter`) ganhou rótulo e motivo; preço riscado e foto em cinza sem a faixa "Esgotado"; menu mostra "Indisponível" (ou "Pausar" se ainda está no ar fora da região). Sino: tipo `listing_unavailable` na aba Problemas, permanente até o produto voltar, com link pela busca do título.
+- Achado no D2 e corrigido (U-1 da auditoria): `fieldset` do `SegmentedControl` e do `FilterTabs` sem `min-w-0` estourava 86 px em 320 e 31 px em 375; a opção ativa agora rola para a vista. Restam os 21 px do cabeçalho em 1024 (tarefa separada).
+- Auditoria das escritas do catálogo adiada para o item 28 (principal), por decisão do usuário; índice em `listings.supplier_product_id` pedido ao principal.
+- Revisão independente: 0 crítico/alto; corrigidos a corrida reativar × desativar (teste de concorrência que falha sem a trava), o link do sino, "Pausar" para anúncio indisponível ainda no ar e um comentário órfão. Aceitos: reativação em massa mista pula os indisponíveis sem nomeá-los (a lista corrige no recarregamento); possível deadlock raro entre pausas concorrentes (erro visível, sem dano).
+- Portões: lint, tipos, formatação, sem else ✅; 981 testes (base 959 + 8 da junção com o principal); build ✅; e2e afetados ✅; D1 capturas (card, sino, admin; claro, escuro, celular); D2 0 px em 7 larguras (1024: cabeçalho); D4 lado a lado com o card "Esgotado".
 
 ### 2026-10-13 · Auditoria e remoção dos vícios de IA — ✅ (commit local)
 

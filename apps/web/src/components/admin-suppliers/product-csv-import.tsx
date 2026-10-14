@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { pausedListingsLabel } from "@/features/admin-suppliers/catalog-status";
 import { useProductCsv } from "@/features/admin-suppliers/use-product-csv";
 import { errorMessage } from "@/lib/errors";
 
@@ -142,7 +143,11 @@ export function ProductCsvImport({
           <Alert>
             <AlertDescription>
               Importação concluída: {importer.apply.data.created} criados e{" "}
-              {importer.apply.data.updated} atualizados.
+              {importer.apply.data.updated} atualizados
+              {importer.apply.data.pausedTargets > 0
+                ? ` · ${pausedListingsLabel(importer.apply.data.pausedTargets)}`
+                : null}
+              .
             </AlertDescription>
           </Alert>
         ) : null}

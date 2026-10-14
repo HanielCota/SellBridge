@@ -3,6 +3,7 @@ import type {
   NotificationKind,
   SaleProduct,
 } from "@sellbridge/database/repositories";
+import { unavailableListingMessage } from "@sellbridge/shared/catalog-availability";
 import { formatCents } from "@sellbridge/shared/money";
 import { displayStoreName } from "@/features/stores/store-name";
 import type { NotificationFeed } from "./notification-feed";
@@ -54,6 +55,20 @@ function orderProblem(
   };
 }
 
+/** A listing the supplier keeps off: paused by the deactivation, or outside the region. */
+function listingUnavailable(
+  event: Extract<NotificationEvent, { kind: "listing_unavailable" }>,
+): Pick<AppNotification, "id" | "title" | "detail" | "href"> {
+  const lead = event.reason === "outside_region" ? "Fora da sua região" : "Anúncio pausado";
+  return {
+    id: `unavailable:${event.entityId}`,
+    title: `${lead}: ${event.listingTitle}`,
+    detail: unavailableListingMessage(event.reason),
+    // By title, not by the paused tab: a listing outside the region is still live.
+    href: `/publicacoes?query=${encodeURIComponent(event.listingTitle)}`,
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -88,6 +103,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
     case "stock_shortage":
     case "shipment_cancelled":
       return { ...base, ...orderProblem(event) };
+    case "listing_unavailable":
+      return { ...base, ...listingUnavailable(event) };
     case "review_pending":
       return {
         ...base,

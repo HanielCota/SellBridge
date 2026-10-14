@@ -39,3 +39,27 @@ const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
 export function unavailableMessage(reason: UnavailableReason): string {
   return UNAVAILABLE_MESSAGES[reason];
 }
+
+const LISTING_LABELS: Record<UnavailableReason, string> = {
+  supplier_inactive: "Fornecedor inativo",
+  product_inactive: "Produto fora do catálogo",
+  outside_region: "Fora da sua região",
+};
+
+const LISTING_MESSAGES: Record<UnavailableReason, string> = {
+  supplier_inactive:
+    "O fornecedor está inativo. O anúncio fica pausado; reative quando ele voltar ao catálogo.",
+  product_inactive:
+    "O fornecedor tirou este produto do catálogo. O anúncio fica pausado; reative quando ele voltar.",
+  outside_region: UNAVAILABLE_MESSAGES.outside_region,
+};
+
+/** The cause in a few words, on the listing card. */
+export function unavailableListingLabel(reason: UnavailableReason): string {
+  return LISTING_LABELS[reason];
+}
+
+/** Why a live listing stopped and who brings it back (card and bell). */
+export function unavailableListingMessage(reason: UnavailableReason): string {
+  return LISTING_MESSAGES[reason];
+}

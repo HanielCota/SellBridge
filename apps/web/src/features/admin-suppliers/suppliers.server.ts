@@ -66,12 +66,12 @@ export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplier
   return { ...supplier, synchronizationQueued: await requestSynchronization() };
 }
 
-/** Listings of an inactive supplier drop to zero stock on the next sync, requested right away. */
+/** Deactivating pauses the supplier's live listings; the sync sends their zero stock right away. */
 export async function writeSupplierActive(input: { supplierId: string; active: boolean }) {
-  const supplier = await catalogWrite(
+  const { supplier, pausedTargets } = await catalogWrite(
     async () => await setAdminSupplierActive(database, input.supplierId, input.active),
   );
-  return { ...supplier, synchronizationQueued: await requestSynchronization() };
+  return { ...supplier, pausedTargets, synchronizationQueued: await requestSynchronization() };
 }
 
 export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSchema>) {
@@ -80,10 +80,10 @@ export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSc
 }
 
 export async function writeProductActive(input: z.infer<typeof adminSetProductActiveSchema>) {
-  const product = await catalogWrite(
+  const { product, pausedTargets } = await catalogWrite(
     async () => await setAdminSupplierProductActive(database, input),
   );
-  return { ...product, synchronizationQueued: await requestSynchronization() };
+  return { ...product, pausedTargets, synchronizationQueued: await requestSynchronization() };
 }
 
 function previewToken(content: string, plan: SupplierProductImportPlan): string {

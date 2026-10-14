@@ -7,9 +7,16 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
-import { categories, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  categories,
+  listings,
+  listingTargets,
+  supplierCoverage,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
@@ -91,20 +98,52 @@ export async function saveAdminSupplier(
   });
 }
 
+/**
+ * Pauses the live listings of the supplier's products that can no longer be sold (product or
+ * supplier inactive), for every reseller; returns how many. Paused listings sync zero stock, and
+ * coming back does not resume them: each reseller decides. Never touches a paused listing.
+ */
+async function pauseUnsellableListings(
+  transaction: DatabaseExecutor,
+  supplierId: string,
+): Promise<number> {
+  const unsellable = transaction
+    .select({ id: listings.id })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(
+      and(
+        eq(supplierProducts.supplierId, supplierId),
+        or(eq(supplierProducts.active, false), eq(suppliers.active, false)),
+      ),
+    );
+  const paused = await transaction
+    .update(listingTargets)
+    .set({ status: "paused" })
+    .where(
+      and(eq(listingTargets.status, "published"), inArray(listingTargets.listingId, unsellable)),
+    )
+    .returning({ id: listingTargets.id });
+  return paused.length;
+}
+
 export async function setAdminSupplierActive(
   database: Database,
   supplierId: string,
   active: boolean,
 ) {
-  const [supplier] = await database
-    .update(suppliers)
-    .set({ active })
-    .where(eq(suppliers.id, supplierId))
-    .returning();
-  if (!supplier) {
-    throw notFoundError("Fornecedor não encontrado");
-  }
-  return supplier;
+  return await database.transaction(async (transaction) => {
+    const [supplier] = await transaction
+      .update(suppliers)
+      .set({ active })
+      .where(eq(suppliers.id, supplierId))
+      .returning();
+    if (!supplier) {
+      throw notFoundError("Fornecedor não encontrado");
+    }
+    return { supplier, pausedTargets: await pauseUnsellableListings(transaction, supplierId) };
+  });
 }
 
 export async function listAdminSupplierProducts(
@@ -204,7 +243,7 @@ export async function setAdminSupplierProductActive(
     if (!product) {
       throw notFoundError("Produto não encontrado neste fornecedor");
     }
-    return product;
+    return { product, pausedTargets: await pauseUnsellableListings(transaction, input.supplierId) };
   });
 }
 
@@ -336,6 +375,7 @@ export async function importSupplierProducts(
           updatedAt: new Date(),
         },
       });
-    return { created: plan.created, updated: plan.updated };
+    const pausedTargets = await pauseUnsellableListings(transaction, input.supplierId);
+    return { created: plan.created, updated: plan.updated, pausedTargets };
   });
 }

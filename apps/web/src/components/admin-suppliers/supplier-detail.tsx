@@ -11,13 +11,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { adminSetSupplierActive } from "@/features/admin-suppliers/suppliers.functions";
 import { adminSupplierQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
+import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
 import { errorMessage } from "@/lib/errors";
 import { ProductCsvImport } from "./product-csv-import";
 import { ProductList } from "./product-list";
 import { SupplierForm } from "./supplier-form";
 
 function SupplierHeader({ supplier }: { supplier: AdminSupplier }) {
-  const setActive = useCatalogAction(adminSetSupplierActive, "Status do fornecedor atualizado");
+  const setActive = useCatalogAction(adminSetSupplierActive, (result) =>
+    catalogStatusMessage("Fornecedor", result),
+  );
   return (
     <div className="space-y-4">
       <Link to="/admin/fornecedores" className="text-sm text-muted-foreground underline">
@@ -50,8 +53,8 @@ function SupplierHeader({ supplier }: { supplier: AdminSupplier }) {
       />
       <Alert>
         <AlertDescription>
-          Ao desativar um fornecedor, seus produtos somem do catálogo dos revendedores. Anúncios
-          publicados e pedidos existentes continuam funcionando.
+          Ao desativar um fornecedor, seus produtos saem do catálogo e os anúncios dos revendedores
+          são pausados. Os pedidos existentes continuam.
         </AlertDescription>
       </Alert>
     </div>

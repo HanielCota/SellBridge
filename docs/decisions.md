@@ -343,3 +343,13 @@ Revisão do item 07 (13/10): a trava depende de quem age (`"reseller" | "supplie
 - **Publicação na fila** de um produto que ficou indisponível falha de vez, sem chamar o marketplace, com a frase do motivo no card; o revendedor pode reprocessar quando o produto voltar.
 - **Sincronização na hora** ao salvar um fornecedor no admin (a cobertura pode ter encolhido), ao ativar ou desativar produto ou fornecedor e quando o revendedor troca o CEP. Se o Redis falhar, a sincronização agendada de 15 minutos alcança. A troca de região feita pelo admin (`customers.functions.ts`, item 12 do chat B) ainda não dispara; entra na junção das branches.
 - Pausar os anúncios, avisar cada revendedor e auditar a desativação é o item 08.b.
+
+## 2026-10-13: Desativar produto ou fornecedor pausa os anúncios (item 08.b)
+
+- **Pausar na mesma transação.** Desativar um produto ou fornecedor no admin (botão ou CSV com `ativo = nao`) muda para `paused` os anúncios publicados dele, de todos os revendedores (`pauseUnsellableListings`). A sincronização manda estoque 0, e o admin vê quantos anúncios pausou.
+- **Reativar não reativa sozinho.** Os anúncios continuam pausados até o revendedor decidir. Enquanto o produto estiver indisponível, o servidor recusa retomá-lo (numa ação em massa, pula os indisponíveis), e o menu do card mostra "Indisponível" no lugar de "Reativar".
+- **Aviso no sino** (`listing_unavailable`, aba Problemas): calculado do estado atual, como a falta de estoque, sem tabela nova. Fica até o produto voltar ("Limpar tudo" não o esconde). Também avisa o anúncio de fornecedor que deixou de cobrir a região do revendedor, que não é pausado (o 08.a já zera o estoque).
+- **Card:** o rodapé vermelho do "esgotado" passa a dizer o motivo ("Fornecedor inativo", "Produto fora do catálogo", "Fora da sua região") e o que fazer; preço riscado e foto em cinza, sem a faixa "Esgotado".
+- **Auditoria das escritas do catálogo adiada para o item 28** (decisão do usuário no ⏸1): `admin_audit_events` exige o cliente afetado (`userId`) e só o chat principal cria migrations.
+- **Reativar × desativar ao mesmo tempo:** a reativação lê a disponibilidade com `FOR SHARE` nas linhas do produto e do fornecedor, na mesma transação do update. Se o admin desativa no meio, um espera o outro, e o resultado é sempre "pausado" (teste de concorrência em `catalog-deactivation.test.ts`). Uma publicação em andamento no instante da desativação pode terminar "no ar" com estoque 0 (08.a); o card e o sino mostram o motivo e o menu oferece "Pausar".
+- **Pendente para o dono das migrations (principal):** índice em `listings.supplier_product_id`. Hoje a pausa de um fornecedor grande varre os anúncios de todos os revendedores dentro da trava do fornecedor.

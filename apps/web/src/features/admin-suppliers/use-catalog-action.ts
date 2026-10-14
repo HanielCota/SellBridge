@@ -4,14 +4,14 @@ import { errorMessage } from "@/lib/errors";
 
 export function useCatalogAction<TInput, TResult>(
   action: (input: TInput) => Promise<TResult>,
-  message: string,
+  message: string | ((result: TResult) => string),
   onSuccess?: (result: TResult) => void,
 ) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: action,
     onSuccess: async (result) => {
-      toast.success(message);
+      toast.success(typeof message === "string" ? message : message(result));
       if (
         typeof result === "object" &&
         result !== null &&

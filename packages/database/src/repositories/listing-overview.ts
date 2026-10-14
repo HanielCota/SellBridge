@@ -1,4 +1,9 @@
-import { notFoundError } from "@sellbridge/shared/errors";
+import {
+  unavailableListingMessage,
+  unavailableReason,
+  type UnavailableReason,
+} from "@sellbridge/shared/catalog-availability";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { daysBefore } from "@sellbridge/shared/time";
 import {
   assertSellablePrice,
@@ -12,7 +17,7 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import { and, count, desc, eq, ilike, inArray, sql, sum, type SQL } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   categories,
   listings,
@@ -22,12 +27,14 @@ import {
   storeConnections,
   supplierProducts,
   suppliers,
+  tenantProfile,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { coversTenantRegion } from "./sql/supplier-coverage.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -65,6 +72,8 @@ export interface ListingOverviewRow {
   /** Units sold per day over the sales window, oldest first. */
   dailySales: number[];
   stores: ListingStoreStatus[];
+  /** Why the supplier keeps the product off the marketplaces; null while it can be sold. */
+  unavailable: UnavailableReason | null;
 }
 
 /** How many listings have at least one store in each status (one listing can count twice). */
@@ -155,6 +164,13 @@ async function pageOfListingIds(
   return { ids: rows.map((row) => row.id), total: totals.at(0)?.total ?? 0 };
 }
 
+/** What `unavailableReason` needs; the query joins suppliers and the owner's tenant_profile. */
+const availabilityColumns = {
+  productActive: supplierProducts.active,
+  supplierActive: suppliers.active,
+  regionCovered: sql<boolean>`${coversTenantRegion()}`,
+};
+
 async function selectListingDetails(database: Database, ids: string[]) {
   return database
     .select({
@@ -170,11 +186,13 @@ async function selectListingDetails(database: Database, ids: string[]) {
       categoryName: categories.name,
       supplierName: suppliers.name,
       createdAt: listings.createdAt,
+      ...availabilityColumns,
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(inArray(listings.id, ids));
 }
 
@@ -268,14 +286,18 @@ async function loadOverviewRows(
   ]);
   const detailsById = new Map(details.map((row) => [row.listingId, row]));
   return ids.flatMap((id) => {
-    const detail = detailsById.get(id);
-    if (!detail) {
+    const found = detailsById.get(id);
+    if (!found) {
       return [];
     }
+    const { productActive, supplierActive, regionCovered, ...detail } = found;
+    const unavailable = unavailableReason({ productActive, supplierActive, regionCovered });
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));
-    return [{ ...detail, updatedAt, unitsSold: sumOf(dailySales), dailySales, stores }];
+    return [
+      { ...detail, updatedAt, unitsSold: sumOf(dailySales), dailySales, stores, unavailable },
+    ];
   });
 }
 
@@ -361,8 +383,30 @@ async function requireTenantListings(
 }
 
 /**
+ * Listings among `ids` the supplier keeps off the marketplaces, with the reason. Their product
+ * and supplier rows stay share-locked until the caller's transaction ends, so an admin turning
+ * them off waits for a resume in progress (and then pauses it) or the resume sees them off.
+ */
+async function unavailableAmong(executor: DatabaseExecutor, ids: readonly string[]) {
+  const rows = await executor
+    .select({ listingId: listings.id, ...availabilityColumns })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
+    .where(inArray(listings.id, [...ids]))
+    .for("share", { of: [supplierProducts, suppliers] });
+  return rows.flatMap(({ listingId, ...availability }) => {
+    const reason = unavailableReason(availability);
+    return reason === null ? [] : [{ listingId, reason }];
+  });
+}
+
+/**
  * Pauses or resumes the listings in every store where they are live. Paused listings
- * are kept at zero stock on the marketplace by the sync job. Returns the targets changed.
+ * are kept at zero stock on the marketplace by the sync job. Resuming skips products the
+ * supplier keeps off, and refuses when every listing asked is one of them. Returns the
+ * targets changed.
  */
 export async function setListingsPaused(
   database: Database,
@@ -371,19 +415,30 @@ export async function setListingsPaused(
   paused: boolean,
 ): Promise<number> {
   await requireTenantListings(database, tenantId, listingIds);
-  const transition = pauseTransition(paused);
-  const changed = await database
-    .update(listingTargets)
-    .set({ status: transition.to })
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, transition.from),
-      ),
-    )
-    .returning({ id: listingTargets.id });
-  return changed.length;
+  return await database.transaction(async (transaction) => {
+    const blocked = paused ? [] : await unavailableAmong(transaction, listingIds);
+    const [firstBlocked] = blocked;
+    if (firstBlocked && blocked.length === new Set(listingIds).size) {
+      throw conflictError(unavailableListingMessage(firstBlocked.reason));
+    }
+    const blockedIds = new Set(blocked.map((row) => row.listingId));
+    const transition = pauseTransition(paused);
+    const changed = await transaction
+      .update(listingTargets)
+      .set({ status: transition.to })
+      .where(
+        and(
+          eq(listingTargets.tenantId, tenantId),
+          inArray(
+            listingTargets.listingId,
+            listingIds.filter((id) => !blockedIds.has(id)),
+          ),
+          eq(listingTargets.status, transition.from),
+        ),
+      )
+      .returning({ id: listingTargets.id });
+    return changed.length;
+  });
 }
 
 /** Changes the sale price; the sync job sends it to every store where the listing is live. */

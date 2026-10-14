@@ -104,7 +104,7 @@ describe("admin suppliers", () => {
     expect(
       await previewSupplierProductImport(database, supplierId, parseProductCsv(content).rows),
     ).toMatchObject({ created: 1, updated: 1, errors: [] });
-    expect(await importRows(content)).toEqual({ created: 1, updated: 1 });
+    expect(await importRows(content)).toEqual({ created: 1, updated: 1, pausedTargets: 0 });
     const result = await listAdminSupplierProducts(database, supplierId, "ADMIN-1", {
       page: 1,
       pageSize: 20,

@@ -1,4 +1,5 @@
 import type { ListingOverviewRow, ListingStoreStatus } from "@sellbridge/database/repositories";
+import { unavailableListingMessage } from "@sellbridge/shared/catalog-availability";
 import { describe, expect, it } from "vitest";
 import { listingHealth, listingRunState } from "./listing-health";
 
@@ -20,7 +21,11 @@ function store(
   };
 }
 
-function listing(stores: ListingStoreStatus[], stock = 10): ListingOverviewRow {
+function listing(
+  stores: ListingStoreStatus[],
+  stock = 10,
+  unavailable: ListingOverviewRow["unavailable"] = null,
+): ListingOverviewRow {
   return {
     listingId: "listing-1",
     productId: "product-1",
@@ -38,10 +43,20 @@ function listing(stores: ListingStoreStatus[], stock = 10): ListingOverviewRow {
     unitsSold: 0,
     dailySales: [],
     stores,
+    unavailable,
   };
 }
 
 describe("listingHealth", () => {
+  it("puts an unavailable product first, with the cause and who brings it back", () => {
+    const row = listing([store("Loja A", "paused")], 0, "supplier_inactive");
+    expect(listingHealth(row)).toEqual({
+      tone: "attention",
+      label: "Fornecedor inativo",
+      reason: unavailableListingMessage("supplier_inactive"),
+    });
+  });
+
   it("names the store where the listing is live when there is only one", () => {
     expect(listingHealth(listing([store("Loja A (loja simulada)", "published")]))).toEqual({
       tone: "live",

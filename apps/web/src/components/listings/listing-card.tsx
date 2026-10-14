@@ -26,14 +26,14 @@ function storesSummary(row: ListingOverviewRow): string {
 }
 
 /** Same lines as the catalog card: the price as the headline, cost and margin beneath. */
-function PriceLines({ row }: { row: ListingOverviewRow }) {
+function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolean }) {
   const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent;
   return (
     <div className="min-w-0 space-y-0.5 tabular-nums">
       <p
         className={cn(
           "text-lg leading-tight font-semibold tracking-tight",
-          row.stock <= 0 && "text-muted-foreground line-through decoration-destructive",
+          offSale && "text-muted-foreground line-through decoration-destructive",
         )}
       >
         {formatCents(row.priceCents)}
@@ -142,7 +142,7 @@ function ListingCardBody({
         </h2>
       </div>
       <div className="mt-auto space-y-3">
-        <PriceLines row={row} />
+        <PriceLines row={row} offSale={soldOut} />
         <SalesTrend row={row} />
       </div>
       {showsStatus ? <StatusFooter row={row} /> : null}
@@ -165,9 +165,12 @@ export function ListingCard({
 }) {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const openPriceEditor = () => setIsEditingPrice(true);
-  const soldOut = row.stock <= 0;
+  // Out of the supplier's stock or catalog: either way nothing sells, only the first is "Esgotado".
+  const outOfStock = row.stock <= 0;
+  const soldOut = outOfStock || row.unavailable !== null;
   // A store error outranks the stock: it keeps its own line and the retry button.
-  const showsSoldOutFooter = listingHealth(row).tone === "attention";
+  const health = listingHealth(row);
+  const showsSoldOutFooter = health.tone === "attention";
 
   /** The whole card toggles selection; its own controls (checkbox, menu, retry) keep their behavior. */
   function handleCardClick(event: React.MouseEvent<HTMLElement>) {
@@ -196,7 +199,7 @@ export function ListingCard({
         soldOut={soldOut}
         className="aspect-[16/10]"
       />
-      {soldOut ? <SoldOutRibbon placement="clearOfMenu" /> : null}
+      {outOfStock ? <SoldOutRibbon placement="clearOfMenu" /> : null}
       <Checkbox
         aria-label={`Selecionar ${row.title}`}
         checked={selected}
@@ -205,7 +208,7 @@ export function ListingCard({
       />
       <ListingMenu row={row} onEditPrice={openPriceEditor} />
       <ListingCardBody row={row} soldOut={soldOut} showsStatus={!showsSoldOutFooter} />
-      {showsSoldOutFooter ? <SoldOutFooter /> : null}
+      {showsSoldOutFooter ? <SoldOutFooter label={health.label} detail={health.reason} /> : null}
       <EditPriceDialog open={isEditingPrice} onOpenChange={setIsEditingPrice} listing={row} />
     </article>
   );
