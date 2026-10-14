@@ -335,3 +335,35 @@ Revisão do item 07 (13/10): a trava depende de quem age (`"reseller" | "supplie
 - **Como se chega:** o número do pedido na aba Operação é link para a página, e os avisos de falta de estoque e de envio cancelado abrem a página do pedido.
 - **Acertos no painel do envio, que valem também para o diálogo:** os botões de impressão quebram linha em vez de transbordar em 320 px, e o bloco do link do fornecedor some quando o envio está encerrado e não há link novo (deixava um vão).
 - O transbordo de ~21 px em 1024 px vem do menu da conta no cabeçalho, igual em todas as páginas; ficou como tarefa separada.
+
+## 2026-10-14: Filtros da Operação e avaliação dentro do pedido (item 20.c)
+
+- **Filtros no endereço:** a aba (`view`) e os filtros da Operação (`opQuery`, `stage`, `period`, `from`, `to`, `store`, `opPage`) vivem na URL de `/pedidos` (`operationsUrlSearchSchema`), com nomes próprios para não colidir com os da aba Avaliações (`query`, `page`). O número do pedido abre a página com `?back=operations`, e o "← Pedidos" então volta no histórico: a lista reaparece com a busca, a etapa, o período e a página de antes. Vindo de um aviso ou de um link, o mesmo botão leva a `/pedidos`.
+- **Período "Tudo" é o padrão da Operação:** a fila de trabalho não pode esconder um pedido antigo parado. Os demais períodos são os dos relatórios (7, 30, 90 dias, 6 meses, personalizado), resolvidos no servidor por `resolvePeriod` sobre a data da venda. `PeriodFilters` (relatórios) passou a aceitar a lista de períodos (`presets`) e o rótulo "Tudo"; os relatórios seguem iguais.
+- **Busca sem botão:** a Operação usa o `SearchInput` com o mesmo atraso das outras listas. Uma busca que chega depois de abrir um pedido não puxa a tela de volta (a rota confere o endereço atual antes de navegar).
+- **Avaliação no pedido:** cartão "Avaliação" na lateral, com o mesmo botão e diálogo da aba Avaliações (`ReviewAction`, agora compartilhado) e a mesma regra (`canReviewOrder`). Sem entrega, diz "Disponível depois da entrega". Salvar uma nota atualiza a página do pedido e a lista.
+- **Lista vazia:** estado vazio do sistema ("Nenhum pedido encontrado"), no lugar da frase solta abaixo da lista.
+
+## 2026-10-14: Limites numéricos e de tamanho (auditoria)
+
+- **Pedidos do Mercado Livre fora da faixa são recusados**, com o webhook marcado como falho em vez de gravar errado: valores negativos ou acima de R$ 21.474.836,47 (o teto da coluna `integer` de centavos), quantidade fora de 1..1.000.000, data da venda que não é um instante ISO e id numérico além de 2^53. A soma de taxas ou de reembolsos que não cabe na coluna também recusa o pedido. Sem `payments` no pedido, o reembolso conta como "não informado" e o último valor fica.
+- **Reembolso do marketplace limitado ao total do pedido:** o total do ML inclui o frete pago pelo comprador, que não é receita aqui.
+- **Status não volta para trás com atualização atrasada:** pedido enviado ou entregue não volta a "pendente", e entregue não volta a "enviado". Voltar a "pago" continua possível (envio não entregue volta à fila de trabalho, regra do 04.c); cancelamento e devolução continuam valendo.
+- **Relatórios multiplicam custo e preço por quantidade em `bigint`:** um item de R$ 1 milhão com 22 unidades derrubava todos os relatórios da conta.
+- **Publicação em massa respeita o teto de R$ 1.000.000,00** do anúncio avulso e recusa a chamada listando os produtos acima dele.
+- **Ocorrências por envio:** até 100 registros no histórico de um envio; depois disso o link do fornecedor só avança a etapa.
+- **Corpos de requisição** (API pública, webhook do ML, webhook do Stripe) são lidos com contagem de bytes, também sem `Content-Length`. Evento rejeitado do ML grava o corpo só até 2 KB; acima disso, só o tamanho. O caractere nulo é recusado na API pública (400), retirado das buscas e dos eventos guardados.
+- **Datas na tela em horário de São Paulo** (`relative-time.ts`), também quando o servidor renderiza em UTC.
+
+## 2026-10-14: Revisão de qualidade (sanitização, async, performance, segurança, lógica, padrões do navegador)
+
+Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
+
+- **Link do fornecedor depois do fim:** com o envio encerrado (entregue, devolvido, cancelado) ou o pedido cancelado ou devolvido, o link mostra o histórico, mas não o endereço do comprador nem os botões de imprimir; a etiqueta do marketplace é recusada pelo link. As duas server functions públicas do link passaram a usar o mesmo filtro de erros das outras (`publicMiddleware`): erro de banco nunca chega ao anônimo com consulta e parâmetros.
+- **Encaminhar só pelo botão:** Enter num campo de endereço não envia mais o formulário (um botão de envio desativado vem primeiro e absorve o envio implícito do navegador).
+- **Página além do fim na Operação:** o servidor mostra a última página com pedidos, nunca uma lista vazia sem paginação.
+- **Cartão "Avaliação":** diz por que não dá para avaliar: antes da entrega, prazo de 60 dias encerrado, ou pedido sem venda (cancelado ou devolvido).
+- **Pedidos:** cada aba busca só os próprios dados, e a Operação vem pronta no primeiro carregamento. A página do pedido busca o envio junto com o resto. Salvar uma avaliação atualiza só a página daquele pedido. Uma ocorrência no envio não pede mais sincronização de estoque.
+- **Devolvido continua devolvido** mesmo com um "pendente" atrasado do marketplace.
+- **"Ontem" e "anteontem"** contam dias do calendário de São Paulo, não blocos de 24 horas.
+- **Padrões do navegador (global, `styles.css`):** `color-scheme` por tema (barras de rolagem e controles nativos escuros no tema escuro), sem realce azul de toque, seleção de texto na cor da marca, anel de foco dos links igual ao dos botões, preenchimento automático sem fundo amarelo ou azul, e campos com pelo menos 16 px em telas de toque (o iOS não amplia a página ao focar). O `Button` vem com `type="button"` por padrão. Campos de código e link de rastreio sem maiúscula automática nem correção no celular. Foco volta ao botão "Editar avaliação" depois de avaliar.
