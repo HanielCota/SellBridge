@@ -162,6 +162,28 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* The page never bounces or pulls-to-refresh past its edges; scrolling areas inside it do. */
+    overscroll-behavior-y: none;
+  }
+  /*
+   * A text link with no focus style of its own gets the app's ring instead of the browser's
+   * default outline. `:where` keeps it weaker than any component that styles its own focus.
+   */
+  :where(a):focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+  /*
+   * A fieldset is as wide as its content by default (`min-inline-size: min-content`), so a row of
+   * tabs inside one ignores `max-width` and pushes the page sideways on a phone.
+   */
+  fieldset {
+    min-inline-size: 0;
+  }
+  /* Images are content, not things to drag out of the page. */
+  img {
+    -webkit-user-drag: none;
   }
   html {
     @apply font-sans;
@@ -264,6 +286,12 @@
     --surface-tone-hover: 4.5%;
   }
   transition: transform 160ms ease-out;
+
+  /* Keyboard focus shows on the card itself, like the hover edge but unmistakable. */
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+  }
 
   /* Feedback on press, not on release. */
   &:active {

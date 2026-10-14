@@ -153,7 +153,7 @@ export function FloatingPasswordField({ onBlur, ...props }: Omit<FloatingFieldPr
       onClick={state.toggleVisibility}
       aria-label={state.isVisible ? "Ocultar senha" : "Mostrar senha"}
       aria-pressed={state.isVisible}
-      className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
+      className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
     >
       <ToggleIcon className="size-[18px]" aria-hidden="true" />
     </button>

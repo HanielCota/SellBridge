@@ -37,6 +37,18 @@ const productFields = [
   { name: "stock", label: "Estoque" },
 ] as const;
 
+/** Stock is whole units, money takes a comma; the phone keyboard follows. */
+const FIELD_KEYBOARDS = {
+  sku: "text",
+  title: "text",
+  cost: "decimal",
+  suggestedPrice: "decimal",
+  stock: "numeric",
+} as const;
+
+/** Codes and links are typed as they are: no capital first letter, autocorrect or spell check. */
+const CODE_INPUT = { autoCapitalize: "off", autoCorrect: "off", spellCheck: false } as const;
+
 function ProductTextFields({
   values,
   errors,
@@ -56,7 +68,8 @@ function ProductTextFields({
           value={values[field.name]}
           errors={errors["error" in field ? field.error : field.name] ?? []}
           onValueChange={(next) => onChange({ [field.name]: next })}
-          inputMode={["cost", "suggestedPrice", "stock"].includes(field.name) ? "decimal" : "text"}
+          inputMode={FIELD_KEYBOARDS[field.name]}
+          {...(field.name === "sku" ? CODE_INPUT : {})}
         />
       ))}
     </div>
@@ -125,6 +138,7 @@ function MercadoLivreAttributesField({
   return (
     <TextareaField
       id="product-mercado-livre-attributes"
+      {...CODE_INPUT}
       label="Atributos do Mercado Livre (um por linha, como BRAND=Marca e MODEL=Modelo)"
       value={value}
       errors={errors}
@@ -173,6 +187,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
           <TextareaField
             id="product-images"
             label="URLs de imagem (uma por linha)"
+            {...CODE_INPUT}
             value={values.images}
             errors={errors.imageUrls ?? []}
             onValueChange={(images) => setValues((current) => ({ ...current, images }))}
