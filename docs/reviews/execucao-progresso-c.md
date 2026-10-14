@@ -1,15 +1,15 @@
 # Andamento da execução tela a tela · chat paralelo C
 
-Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md) só para os itens 08, 09, 10, 13, 14, 15, 16 e 18, no worktree `SellBridge-c` (branch `feat/client-phase-1-c`, banco `sellbridge_desk_c`). O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
+Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md) para os itens 08, 09, 13, 14, 15, 16, 18 e 23 (divisão por área em [coordenacao.md](../prompts/coordenacao.md)), no worktree `SellBridge-c` (branch `feat/client-phase-1-c`, banco `sellbridge_desk_c`). O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
 
 ## Em andamento
 
 - Item/parte: 08.b · Desativar pausa, sincroniza, notifica, audita e tem e2e
-- Última etapa concluída: auditoria e remoção dos vícios de IA (aguardando OK do commit)
-- Próximo passo: commit `refactor: remove AI vices`; depois 08.b etapa 1
+- Última etapa concluída: 3 · Planejar (aguardando ⏸1; dúvida: auditoria sem migration)
+- Próximo passo: etapa 4 · testes que falham
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 08.a
-- Pendências: troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
+- Decisões tomadas nos pontos de parada: refatoração dos vícios de IA commitada (ffd6571), porta do e2e corrigida (bd13085)
+- Pendências: conflitos esperados na junção com o principal (operations.tsx, order-dialog.tsx, shipment-panel.tsx, migrations.test.ts: ficar com os 60 s do edb1ff4); auditoria do catálogo vai para o item 28 (principal); troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
 
 ## Linha de base
 
@@ -24,17 +24,18 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit | Notas                        |
-| ---- | ---------------------------------------------- | -------- | ------ | ---------------------------- |
-| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C |
-| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ⬜    |
-| 09   | Lucro correto                                  | ⬜       | —      |                              |
-| 10   | Segurança de contas e da equipe                | ⬜       | —      |                              |
-| 13   | Erros de publicação claros                     | ⬜       | —      |                              |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                              |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                              |
-| 16   | Riscos da assinatura                           | ⬜       | —      |                              |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                              |
+| Item | Título                                         | Situação | Commit | Notas                                 |
+| ---- | ---------------------------------------------- | -------- | ------ | ------------------------------------- |
+| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C          |
+| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ⬜             |
+| 09   | Lucro correto                                  | ⬜       | —      |                                       |
+| 10   | Segurança de contas e da equipe                | ⬜       | —      | Passou para o chat B (coordenacao.md) |
+| 13   | Erros de publicação claros                     | ⬜       | —      |                                       |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                                       |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                                       |
+| 16   | Riscos da assinatura                           | ⬜       | —      |                                       |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                                       |
+| 23   | Anúncios completos                             | ⬜       | —      | Veio do principal (coordenacao.md)    |
 
 ## Histórico
 
