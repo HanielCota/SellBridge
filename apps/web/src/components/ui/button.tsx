@@ -53,6 +53,8 @@ function Button({
 
   return (
     <Comp
+      // A plain button never submits a form it happens to sit in; submit buttons say so.
+      type={asChild ? undefined : "button"}
       data-slot="button"
       data-variant={variant}
       data-size={size}

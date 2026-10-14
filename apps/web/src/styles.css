@@ -769,3 +769,42 @@ a:focus-visible .glyph,
     display: none;
   }
 }
+/*
+ * What the browser would otherwise draw on its own. Native scrollbars, popups and form controls
+ * follow the theme (`color-scheme`); a tap shows the app's own press feedback, not the system's
+ * grey rectangle; selected text and focused links use the brand tones of the rest of the app;
+ * autofill keeps the field's colours (the background change is held off instead of covered with a
+ * box-shadow, which would hide the focus ring); and on touch screens a field is never under 16px,
+ * the size below which iOS zooms the page in on focus and leaves it zoomed.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--brand) 32%, transparent);
+  }
+  a:focus-visible {
+    @apply rounded-sm outline-none ring-3 ring-ring/50;
+  }
+  input:-webkit-autofill,
+  textarea:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    transition:
+      background-color 600000s 0s,
+      color 600000s 0s;
+  }
+  @media (pointer: coarse) {
+    input,
+    textarea {
+      font-size: max(16px, 1em);
+    }
+  }
+}

@@ -237,7 +237,7 @@ function PercentStepper({
       >
         <MinusIcon aria-hidden="true" />
       </Button>
-      <span className="flex items-center text-sm font-medium tabular-nums">
+      <span className="flex items-center rounded-md text-sm font-medium tabular-nums has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
         <input
           aria-label={label}
           inputMode="numeric"
