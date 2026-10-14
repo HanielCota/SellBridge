@@ -19,7 +19,8 @@ const workerEnvironmentSchema = z.object({
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
   MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
-  MOCK_LATENCY_MILLISECONDS: z.coerce.number().int().min(0).default(800),
+  // A simulated delay; past a minute it only stalls jobs (and setTimeout overflows at 2^31 ms).
+  MOCK_LATENCY_MILLISECONDS: z.coerce.number().int().min(0).max(60_000).default(800),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),

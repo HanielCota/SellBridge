@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const MARKETPLACES = ["mock", "mercado_livre", "shopee", "tiktok_shop"] as const;
@@ -33,9 +34,17 @@ export const LISTING_TITLE_MAX_LENGTH = 60;
 export const LISTING_DESCRIPTION_MIN_LENGTH = 20;
 export const LISTING_DESCRIPTION_MAX_LENGTH = 5000;
 
+/** Cuts at `end`, one code unit earlier when that would split an emoji's surrogate pair. */
+function sliceWholeCharacters(text: string, end: number): string {
+  const lastCode = text.charCodeAt(end - 1);
+  const splitsPair = lastCode >= 0xd800 && lastCode <= 0xdbff;
+  return text.slice(0, splitsPair ? end - 1 : end);
+}
+
 /**
  * Fits a supplier title into the marketplace limit: cut at the last word that fits, or
- * mid-word when a single word is already too long. Runs of whitespace become one space.
+ * mid-word when stopping at a space would leave a title shorter than the minimum. Runs of
+ * whitespace become one space, and an emoji is never cut in half.
  */
 export function fitListingTitle(title: string): string {
   const normalized = title.trim().replace(/\s+/g, " ");
@@ -43,8 +52,8 @@ export function fitListingTitle(title: string): string {
     return normalized;
   }
   const lastSpace = normalized.lastIndexOf(" ", LISTING_TITLE_MAX_LENGTH);
-  if (lastSpace <= 0) {
-    return normalized.slice(0, LISTING_TITLE_MAX_LENGTH);
+  if (lastSpace < LISTING_TITLE_MIN_LENGTH) {
+    return sliceWholeCharacters(normalized, LISTING_TITLE_MAX_LENGTH);
   }
   return normalized.slice(0, lastSpace);
 }
@@ -79,12 +88,21 @@ export const listingPriceCentsSchema = z
   .positive("Informe o preço de venda")
   .max(LISTING_MAX_PRICE_CENTS, "O preço de venda pode ser de até R$ 1.000.000,00");
 
+/** Listings one pause, resume or retry acts on at once (the bulk actions bar). */
+export const MAX_LISTING_BATCH = 100;
+
+/** Stores one listing may go to at once; a tenant connects far fewer. */
+export const MAX_LISTING_STORES = 50;
+
 export const createListingSchema = z.object({
   supplierProductId: z.uuid(),
   title: listingTitleSchema,
   description: listingDescriptionSchema,
   priceCents: listingPriceCentsSchema,
-  storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja de destino"),
+  storeConnectionIds: z
+    .array(z.uuid())
+    .min(1, "Escolha ao menos uma loja de destino")
+    .max(MAX_LISTING_STORES),
 });
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 
@@ -113,7 +131,7 @@ export const listingsSearchSchema = z.object({
   status: optionalParameter(z.enum(LISTING_FILTER_STATUSES)),
   query: optionalParameter(z.string().trim().max(100)),
   sort: optionalParameter(listingSortSchema),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(12), 12),
 });
 export type ListingsSearch = z.infer<typeof listingsSearchSchema>;

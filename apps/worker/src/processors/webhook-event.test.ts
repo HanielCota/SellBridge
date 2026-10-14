@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces";
+import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -129,14 +130,14 @@ describe("webhook-event processor", () => {
     ).toBe("unknown_store");
   });
 
-  it("keeps the event pending with the error when the resource is invalid", async () => {
+  it("closes the event with the reason when the marketplace's answer can never be stored", async () => {
     const eventId = await recordEvent({ shopId, resource: "mock-order.invalido" });
-    await expect(processWebhook(job(eventId))).rejects.toThrow(
-      "Pedido simulado em formato inválido",
-    );
+    // No retry and no sweep: the same answer would come back every time.
+    await expect(processWebhook(job(eventId))).rejects.toBeInstanceOf(UnrecoverableError);
     const row = await database.query.webhookEvents.findFirst({
       where: eq(schema.webhookEvents.id, eventId),
     });
-    expect(row).toMatchObject({ processedAt: null, error: "Pedido simulado em formato inválido" });
+    expect(row?.processedAt).toBeInstanceOf(Date);
+    expect(row?.error).toBe("Pedido simulado em formato inválido");
   });
 });

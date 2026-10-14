@@ -8,9 +8,11 @@ import {
 import {
   bulkPublishSchema,
   fitListingTitle,
+  listingPriceCentsSchema,
   priceForRule,
   regionCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
+import { validationError } from "@sellbridge/shared/errors";
 import { createServerFn } from "@tanstack/react-start";
 import { assertConnectedStores, publishListings } from "@/features/listings/publish-listing.server";
 import { database } from "@/lib/server/database";
@@ -70,16 +72,23 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       ...new Set(data.productIds),
     ]);
     const toPublish = products.filter((product) => !product.published);
-    await publishListings(
-      context.tenantId,
-      toPublish.map((product) => ({
-        supplierProductId: product.id,
-        title: fitListingTitle(product.title),
-        description: product.description,
-        priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
-      })),
-      storeIds,
+    const drafts = toPublish.map((product) => ({
+      supplierProductId: product.id,
+      title: fitListingTitle(product.title),
+      description: product.description,
+      priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
+    }));
+    // Checked before anything is written, so one product priced out of range cannot leave
+    // the batch half published.
+    const outOfRange = drafts.find(
+      (draft) => !listingPriceCentsSchema.safeParse(draft.priceCents).success,
     );
+    if (outOfRange) {
+      throw validationError(
+        `O preço de "${outOfRange.title}" ficaria acima de R$ 1.000.000,00. Ajuste a regra de preço.`,
+      );
+    }
+    await publishListings(context.tenantId, drafts, storeIds);
     return {
       published: toPublish.length,
       skipped: data.productIds.length - toPublish.length,

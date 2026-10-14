@@ -5,6 +5,7 @@ import {
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
 } from "../schemas/admin-suppliers.ts";
+import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
   "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90\r\n";
@@ -56,7 +57,7 @@ export function parseCsvMoney(input: string): number | null {
   }
   const [integer = "0", fraction = ""] = input.trim().split(/[,.]/);
   const cents = Number(integer) * 100 + Number(fraction.padEnd(2, "0"));
-  if (!Number.isSafeInteger(cents) || cents > 2_147_483_647) {
+  if (!Number.isSafeInteger(cents) || cents > LISTING_MAX_PRICE_CENTS) {
     return null;
   }
   return cents;
@@ -83,7 +84,16 @@ function finishRecord(cursor: CsvCursor): CsvCursor {
   };
 }
 
+/**
+ * Far above the template's columns. Without a ceiling, one 2 MiB line of delimiters becomes
+ * millions of fields, each copying the ones before it, and the import blocks the server.
+ */
+const MAX_CSV_COLUMNS = 50;
+
 function readUnquoted(cursor: CsvCursor, character: string, delimiter: string): CsvCursor {
+  if (character === delimiter && cursor.fields.length >= MAX_CSV_COLUMNS) {
+    throw validationError(`Cada linha do CSV aceita no máximo ${MAX_CSV_COLUMNS} colunas`);
+  }
   if (character === delimiter) {
     return { ...cursor, fields: [...cursor.fields, cursor.field.trim()], field: "", closed: false };
   }

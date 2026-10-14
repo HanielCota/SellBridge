@@ -1,15 +1,23 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import { stateSchema } from "../domain/cep.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
+import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 
 export const MAX_PRODUCT_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_PRODUCT_CSV_ROWS = 1000;
 const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
+/** Cost and suggested price stay within what a listing may charge, so every rule can sell it. */
+const productPriceCentsSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(LISTING_MAX_PRICE_CENTS, "O valor pode ser de até R$ 1.000.000,00");
 const imageUrlSchema = z.url({ protocol: /^https?$/ });
 
 export const adminSupplierSearchSchema = z.object({
   query: optionalParameter(z.string().trim().max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
 export type AdminSupplierSearch = z.infer<typeof adminSupplierSearchSchema>;
@@ -57,8 +65,8 @@ export const adminProductValuesSchema = z.object({
   sku: z.string().trim().min(1, "Informe o SKU").max(100),
   title: z.string().trim().min(1, "Informe o título").max(300),
   description: z.string().trim().max(20_000),
-  costCents: postgresIntegerSchema,
-  suggestedPriceCents: postgresIntegerSchema,
+  costCents: productPriceCentsSchema,
+  suggestedPriceCents: productPriceCentsSchema,
   stock: postgresIntegerSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
@@ -73,6 +81,8 @@ export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
 export const adminSaveProductSchema = adminProductValuesSchema.extend({
   supplierId: z.uuid(),
   productId: z.uuid().optional(),
+  /** The shelf count the edit form was opened with; sales may have moved it since. */
+  expectedStock: postgresIntegerSchema.optional(),
 });
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),

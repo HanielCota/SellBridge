@@ -126,9 +126,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
   const save = useCatalogAction(adminSaveProduct, "Produto salvo", onClose);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = adminSaveProductSchema.safeParse(
-      productFormInput(values, supplierId, product?.id),
-    );
+    const parsed = adminSaveProductSchema.safeParse(productFormInput(values, supplierId, product));
     setErrors(parsed.success ? {} : catalogFormErrors(parsed.error));
     if (parsed.success) {
       save.mutate({ data: parsed.data });

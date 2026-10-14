@@ -133,7 +133,9 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
       entityId: orders.id,
       externalOrderId: orders.externalOrderId,
       totalCents: orders.totalCents,
-      at: orders.orderedAt,
+      // When the sale reached us, not when the buyer placed it: read and cleared marks are our
+      // clock, and a webhook that arrives late must still show the sale as new.
+      at: orders.createdAt,
       storeName: storeConnections.shopName,
     })
     .from(orders)
@@ -145,7 +147,7 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
         isCountedOrder(orders.status),
       ),
     )
-    .orderBy(desc(orders.orderedAt))
+    .orderBy(desc(orders.createdAt))
     .limit(SALES_SHOWN);
   const products = await saleProducts(
     database,

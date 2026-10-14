@@ -9,7 +9,13 @@ import {
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { webhookEventJobSchema } from "@sellbridge/shared/queues";
-import type { ConnectorRegistry, MarketplaceId } from "@sellbridge/marketplaces";
+import {
+  type ConnectorRegistry,
+  isMarketplaceAuthError,
+  isMarketplaceError,
+  isRetryableError,
+  type MarketplaceId,
+} from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
@@ -160,8 +166,25 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   return result.status === "created" ? "order_created" : "order_updated";
 }
 
+/**
+ * The marketplace answered for good (an order outside what we can store, a resource that no
+ * longer exists): retrying, now or from the sweeper, gets the same answer. Auth failures are
+ * left to retry, so reconnecting the store still brings the order in.
+ */
+function isFinalMarketplaceAnswer(error: unknown): boolean {
+  return isMarketplaceError(error) && !isRetryableError(error) && !isMarketplaceAuthError(error);
+}
+
 async function handleSyncFailure(sync: OrderSync, job: JobContext, error: unknown): Promise<never> {
   const message = userMessageOr(error, "Falha ao processar o evento");
+  if (isFinalMarketplaceAnswer(error)) {
+    await markWebhookProcessed(sync.dependencies.database, sync.webhookEventId, message);
+    logger.error("webhook.rejected_by_marketplace_answer", {
+      webhookEventId: sync.webhookEventId,
+      error,
+    });
+    throw new UnrecoverableError(message);
+  }
   const isFinal = job.attemptsMade + 1 >= job.maxAttempts;
   await markWebhookFailed(sync.dependencies.database, sync.webhookEventId, message);
   logger.warn("webhook.processing_failed", { webhookEventId: sync.webhookEventId, isFinal, error });

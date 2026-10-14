@@ -49,7 +49,9 @@ export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
     totalCents: toCents(raw.total_amount),
     // Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again.
     marketplaceFeeCents: raw.order_items.reduce(
-      (total, line) => total + toCents(line.sale_fee ?? 0) * line.quantity,
+      // Rounded once per line, not per unit: a fee with more than two decimals would
+      // otherwise drift by up to half a cent times the quantity.
+      (total, line) => total + toCents((line.sale_fee ?? 0) * line.quantity),
       0,
     ),
     // Each payment says how much of it went back (`transaction_amount_refunded`).

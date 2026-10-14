@@ -67,4 +67,18 @@ describe("periodSearchSchema", () => {
       period: "30d",
     });
   });
+
+  it("falls back to the last 30 days for a custom period outside 2000–2100", () => {
+    const today = new Date("2026-10-14T12:00:00Z");
+    for (const [from, to] of [
+      ["0001-01-01", "0001-01-31"],
+      ["1999-12-31", "2000-01-05"],
+      ["2100-12-31", "2101-01-02"],
+    ]) {
+      expect(resolvePeriod({ period: "custom", from, to }, today).days).toBe(30);
+    }
+    expect(
+      resolvePeriod({ period: "custom", from: "2000-01-01", to: "2000-01-31" }, today).days,
+    ).toBe(31);
+  });
 });

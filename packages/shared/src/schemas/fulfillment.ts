@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_PAGE } from "./common.ts";
 
 /**
  * Statuses the supplier or reseller reach by hand, in the order a parcel moves through them.
@@ -123,5 +124,5 @@ export const supplierTokenSchema = z.string().regex(/^[a-f0-9]{64}$/);
 export const operationsSearchSchema = z.object({
   query: z.string().trim().max(100).default(""),
   stage: z.enum(["all", "unforwarded", ...FULFILLMENT_STATUSES]).default("all"),
-  page: z.number().int().min(1).default(1),
+  page: z.number().int().min(1).max(MAX_PAGE).default(1),
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import { cepSchema } from "../domain/cep.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
@@ -50,7 +51,7 @@ export const customersSearchSchema = z.object({
   queue: withFallback(issueQueueSchema.default("open"), "open"),
   /** The customer whose quick view is open in the list. */
   open: optionalParameter(z.string().trim().min(1).max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
 export type CustomersSearch = z.infer<typeof customersSearchSchema>;

@@ -68,23 +68,46 @@ async function syncOne(
   }
 }
 
-/** Listings pushed per run; the rest wait for the next run, oldest attempt first. */
+/** Listings read per batch, oldest attempt first. */
 const SYNC_BATCH_SIZE = 200;
+/**
+ * A run keeps taking batches while they come back full, so a CSV that touched thousands of
+ * listings reaches the marketplaces in one run instead of 200 every 15 minutes. It stops at
+ * this budget so it never overlaps the next scheduled run; listings that keep failing go to
+ * the back of the queue and cannot hold it forever.
+ */
+const SYNC_RUN_BUDGET_MILLISECONDS = 4 * 60 * 1000;
+
+async function syncBatch(
+  dependencies: StockPriceSyncDependencies,
+): Promise<StockPriceSyncSummary & { size: number }> {
+  const targets = await findTargetsNeedingSync(
+    dependencies.database,
+    SYNC_BATCH_SIZE,
+    dependencies.safetyUnits,
+  );
+  const batch = { synced: 0, failed: 0, size: targets.length };
+  for (const target of targets) {
+    const ok = await syncOne(dependencies, target);
+    batch[ok ? "synced" : "failed"] += 1;
+  }
+  return batch;
+}
 
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
 export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDependencies) {
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
-    const targets = await findTargetsNeedingSync(
-      dependencies.database,
-      SYNC_BATCH_SIZE,
-      dependencies.safetyUnits,
-    );
+    const deadline = Date.now() + SYNC_RUN_BUDGET_MILLISECONDS;
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
-    for (const target of targets) {
-      const ok = await syncOne(dependencies, target);
-      summary[ok ? "synced" : "failed"] += 1;
+    let batch = await syncBatch(dependencies);
+    summary.synced += batch.synced;
+    summary.failed += batch.failed;
+    while (batch.size === SYNC_BATCH_SIZE && Date.now() < deadline) {
+      batch = await syncBatch(dependencies);
+      summary.synced += batch.synced;
+      summary.failed += batch.failed;
     }
-    if (targets.length > 0) {
+    if (summary.synced + summary.failed > 0) {
       logger.info("listing.sync_run", { ...summary });
     }
     return summary;

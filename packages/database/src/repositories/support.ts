@@ -1078,6 +1078,8 @@ export async function listSupportStaff(
 }
 
 /** Closes tickets support answered and the reseller left alone since `before`. */
+const AUTO_CLOSE_EVENTS_PER_INSERT = 1000;
+
 export async function autoCloseIdleTickets(
   database: Database,
   input: { before: Date; now?: Date },
@@ -1098,17 +1100,22 @@ export async function autoCloseIdleTickets(
     if (closed.length === 0) {
       return 0;
     }
-    await transaction.insert(ticketEvents).values(
-      closed.map((ticket) => ({
-        ticketId: ticket.id,
-        actorId: null,
-        automatic: true,
-        type: "status_changed" as const,
-        fromValue: "answered",
-        toValue: "closed",
-        createdAt: now,
-      })),
-    );
+    const events = closed.map((ticket) => ({
+      ticketId: ticket.id,
+      actorId: null,
+      automatic: true,
+      type: "status_changed" as const,
+      fromValue: "answered",
+      toValue: "closed",
+      createdAt: now,
+    }));
+    // Postgres takes at most 65,535 parameters per statement (7 per event): the first run
+    // after a long pause can close tens of thousands of tickets at once.
+    for (let start = 0; start < events.length; start += AUTO_CLOSE_EVENTS_PER_INSERT) {
+      await transaction
+        .insert(ticketEvents)
+        .values(events.slice(start, start + AUTO_CLOSE_EVENTS_PER_INSERT));
+    }
     return closed.length;
   });
 }

@@ -2,12 +2,14 @@ import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import {
   LISTING_SORT_LABELS,
   LISTING_SORTS,
-  listingsSearchSchema,
   type ListingsSearch,
+  listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MegaphoneIcon } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -177,7 +179,7 @@ function ListingsGrid() {
 function ListingsCards({ data }: { data: ListingsPageData }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const selection = useSelection(listingId);
+  const selection = useSelection(listingId, { limit: MAX_LISTING_BATCH });
   const pageById = new Map(data.items.map((row) => [row.listingId, row]));
   // Prefer the fresh row from the current page so optimistic status changes show up.
   const selectedRows = [...selection.selected.values()].map(
@@ -191,7 +193,15 @@ function ListingsCards({ data }: { data: ListingsPageData }) {
             <ListingCard
               row={row}
               selected={selection.isSelected(row.listingId)}
-              onSelectedChange={(checked) => selection.toggle(row, checked)}
+              onSelectedChange={(checked) => {
+                if (checked && selection.selected.size >= MAX_LISTING_BATCH) {
+                  toast.info(`Dá para selecionar até ${MAX_LISTING_BATCH} publicações por vez`, {
+                    id: "selection-limit",
+                  });
+                  return;
+                }
+                selection.toggle(row, checked);
+              }}
             />
           </li>
         ))}

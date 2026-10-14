@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import { redactContactDetails } from "../domain/contact-details.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
@@ -88,7 +89,7 @@ export const REVIEW_FILTER_LABELS: Record<ReviewFilter, string> = {
 export const orderReviewSearchSchema = z.object({
   review: withFallback(reviewFilterSchema.default("pending"), "pending"),
   query: optionalParameter(z.string().trim().max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(20), 20),
 });
 

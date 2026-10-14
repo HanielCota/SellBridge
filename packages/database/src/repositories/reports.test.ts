@@ -1,4 +1,5 @@
 import { computeOrderFinance, type OrderFinanceInput } from "@sellbridge/shared/finance";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { orderAdjustments, orderItems, orders, storeConnections } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
@@ -215,6 +216,39 @@ describe("sales summary", () => {
       revenueCents: 0,
       profitCents: 0,
       averageTicketCents: null,
+    });
+  });
+});
+
+describe("large orders", () => {
+  it("adds up an item whose cost times quantity passes the database integer", async () => {
+    // 20.000 units at R$ 2.000,00 cost R$ 40 milhões: 4.000.000.000 cents, above int4.
+    const store = await insertStore(tenantB, `Atacado ${tenantB}`);
+    await database.insert(orders).values({
+      tenantId: tenantB,
+      storeConnectionId: store,
+      externalOrderId: "B-ATACADO",
+      status: "paid",
+      totalCents: 2_000_000_000,
+      orderedAt: new Date("2026-03-02T15:00:00Z"),
+    });
+    const [order] = await database
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.externalOrderId, "B-ATACADO"));
+    await database.insert(orderItems).values({
+      tenantId: tenantB,
+      orderId: order?.id ?? "",
+      title: "Caixa atacado",
+      quantity: 20_000,
+      unitPriceCents: 300_000,
+      unitCostCents: 200_000,
+    });
+
+    const wholesale = scope({ tenantId: tenantB, storeConnectionId: store });
+    expect((await getSalesSummary(database, wholesale)).costCents).toBe(4_000_000_000);
+    expect((await getTopProducts(database, wholesale, 5))[0]).toMatchObject({
+      revenueCents: 6_000_000_000,
     });
   });
 });

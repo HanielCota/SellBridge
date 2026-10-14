@@ -1,3 +1,4 @@
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import type { ApiScope } from "@sellbridge/shared/public-api";
 import type { z } from "zod";
 import { type ApiCaller, authenticateApiKey, requireScope } from "./authenticate.server";
@@ -47,14 +48,10 @@ function bodyTooLarge<TValue>(): StepResult<TValue> {
   });
 }
 
-/** Refuses oversized bodies by their declared length first, so they are never read. */
+/** Refuses oversized bodies by their declared length, then by the bytes actually streamed. */
 export async function readBody(request: Request): Promise<StepResult<string>> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) {
-    return bodyTooLarge();
-  }
-  const text = await request.text();
-  if (Buffer.byteLength(text) > MAX_BODY_BYTES) {
+  const text = await readTextWithin(request, MAX_BODY_BYTES);
+  if (text === null) {
     return bodyTooLarge();
   }
   return proceed(text);

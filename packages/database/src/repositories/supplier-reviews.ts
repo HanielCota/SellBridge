@@ -21,6 +21,12 @@ import { containsPattern } from "./sql/search-pattern.ts";
 /** Statuses that close an order: only these count for the cancellation and return rates. */
 const FINISHED_STATUSES = sql.raw("('delivered', 'shipped', 'cancelled', 'returned')");
 
+/**
+ * Cancelled before anyone paid (an unpaid boleto): the items never left "pending". That is the
+ * buyer's doing, so it counts neither as a cancellation nor as a finished order of the supplier.
+ */
+const UNPAID_CANCELLATION = sql.raw("(o.status = 'cancelled' and oi.stock_state = 'pending')");
+
 function uuidList(ids: readonly string[]): SQL {
   return sql.join(
     ids.map((id) => sql`${id}::uuid`),
@@ -76,8 +82,12 @@ async function tagTotals(database: Database, ids: readonly string[], from: Date)
 async function orderTotals(database: Database, ids: readonly string[], from: Date) {
   const rows = await database.execute(sql`
     select sp.supplier_id,
-      count(distinct o.id) filter (where o.status in ${FINISHED_STATUSES}) as finished,
-      count(distinct o.id) filter (where o.status = 'cancelled') as cancelled,
+      count(distinct o.id) filter (
+        where o.status in ${FINISHED_STATUSES} and not ${UNPAID_CANCELLATION}
+      ) as finished,
+      count(distinct o.id) filter (
+        where o.status = 'cancelled' and not ${UNPAID_CANCELLATION}
+      ) as cancelled,
       count(distinct o.id) filter (where o.status = 'returned') as returned
     from orders o
     join order_items oi on oi.order_id = o.id

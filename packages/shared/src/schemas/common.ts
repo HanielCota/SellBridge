@@ -1,7 +1,15 @@
 import { z } from "zod";
 
+/**
+ * Deepest page a list serves. Beyond it the offset only scans rows to return nothing, and at
+ * Number.MAX_SAFE_INTEGER it no longer converts exactly to the database's bigint.
+ */
+export const MAX_PAGE = 10_000;
+
+export const pageNumberSchema = z.coerce.number().int().min(1).max(MAX_PAGE);
+
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
+  page: pageNumberSchema.default(1),
   pageSize: z.coerce.number().int().min(5).max(100).default(20),
 });
 

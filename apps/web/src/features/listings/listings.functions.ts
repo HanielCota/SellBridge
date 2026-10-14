@@ -12,6 +12,7 @@ import {
   createListingSchema,
   listingPriceCentsSchema,
   listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -75,7 +76,9 @@ export const listListings = createServerFn({ method: "GET" })
     ),
   );
 
-const listingIdsSchema = z.object({ listingIds: z.array(z.uuid()).min(1).max(100) });
+const listingIdsSchema = z.object({
+  listingIds: z.array(z.uuid()).min(1).max(MAX_LISTING_BATCH),
+});
 
 /** Puts every failed store of the chosen listings back in the publishing queue. */
 export const retryListings = createServerFn({ method: "POST" })

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 import { orderStatusSchema, type OrderStatus } from "./orders.ts";
 import { isoDateSchema, periodSearchSchema } from "./period.ts";
@@ -37,7 +38,7 @@ export const financialSearchSchema = periodSearchSchema
     query: optionalParameter(z.string().trim().max(100)),
     sort: withFallback(financialSortSchema.default("orderedAt"), "orderedAt"),
     direction: withFallback(z.enum(["asc", "desc"]).default("desc"), "desc"),
-    page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+    page: withFallback(pageNumberSchema.default(1), 1),
     pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(20), 20),
   })
   .transform(({ status, ...search }) => ({

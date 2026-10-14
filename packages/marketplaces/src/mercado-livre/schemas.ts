@@ -23,23 +23,39 @@ export const createdItemSchema = z.object({
   permalink: z.string().nullable().optional(),
 });
 
+/**
+ * A money amount in reais as Mercado Livre sends it. Our money columns hold up to
+ * R$ 21.474.836,47; anything negative or larger is refused here instead of failing (or
+ * crediting the reseller) later.
+ */
+const reaisSchema = z.number().nonnegative().max(21_474_836.47);
+/** Units in one order line; far above any retail sale, low enough that totals stay exact. */
+const MAX_ORDER_LINE_QUANTITY = 100_000;
+
+/**
+ * Numeric ids from the marketplace. Above 2^53 JSON.parse has already rounded them, and a
+ * rounded id names another order: `.int()` (safe integers only) refuses it instead.
+ */
+const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
+
 export const orderSchema = z.object({
-  id: z.union([z.number(), z.string()]),
+  id: externalIdSchema,
   status: z.string(),
-  date_created: z.string(),
-  total_amount: z.number(),
+  // A malformed date would become "Invalid Date" and fail every retry of the webhook job.
+  date_created: z.iso.datetime({ offset: true }),
+  total_amount: reaisSchema,
   buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
   tags: z.array(z.string()).optional(),
   payments: z
-    .array(z.object({ transaction_amount_refunded: z.number().nullable().optional() }))
+    .array(z.object({ transaction_amount_refunded: reaisSchema.nullable().optional() }))
     .nullable()
     .optional(),
   order_items: z.array(
     z.object({
       item: z.object({ id: z.string(), title: z.string() }),
-      quantity: z.number().int().positive(),
-      unit_price: z.number(),
-      sale_fee: z.number().nullable().optional(),
+      quantity: z.number().int().positive().max(MAX_ORDER_LINE_QUANTITY),
+      unit_price: reaisSchema,
+      sale_fee: reaisSchema.nullable().optional(),
     }),
   ),
 });
@@ -54,9 +70,9 @@ export const ordersSearchSchema = z.object({
 export const notificationSchema = z.object({
   _id: z.string().min(1),
   resource: z.string().min(1),
-  user_id: z.union([z.number(), z.string()]),
+  user_id: externalIdSchema,
   topic: z.string().min(1),
-  application_id: z.union([z.number(), z.string()]),
+  application_id: externalIdSchema,
 });
 
 /** Fields of a stored notification that identify the order and the seller it belongs to. */

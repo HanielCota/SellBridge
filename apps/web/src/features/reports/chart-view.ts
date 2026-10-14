@@ -315,7 +315,8 @@ export function niceScale(
 ): { domain: [number, number]; ticks: number[] } {
   const max = Math.max(0, ...values);
   const min = Math.min(0, ...values);
-  const span = max > 0 ? max : -min;
+  // The larger side sets the step: sized by a tiny top, a deep loss would need thousands of ticks.
+  const span = Math.max(max, -min);
   if (span === 0) {
     return { domain: [0, 1], ticks: [0] };
   }

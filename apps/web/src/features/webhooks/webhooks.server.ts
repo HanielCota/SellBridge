@@ -1,5 +1,6 @@
 import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
 import { withDeadline } from "@sellbridge/shared/deadline";
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
@@ -32,12 +33,8 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
   if (!marketplace.success) {
     return reply(404, { error: "marketplace desconhecido" });
   }
-  const declaredLength = Number(request.headers.get("content-length") ?? "0");
-  if (declaredLength > MAX_BODY_BYTES) {
-    return reply(413, { error: "payload muito grande" });
-  }
-  const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
+  const rawBody = await readTextWithin(request, MAX_BODY_BYTES);
+  if (rawBody === null) {
     return reply(413, { error: "payload muito grande" });
   }
 
@@ -46,14 +43,8 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     rawBody,
   });
   if (!verification.valid) {
-    await recordWebhookEvent(database, {
-      marketplace: marketplace.data,
-      externalEventId: null,
-      topic: null,
-      rawPayload: verification.payload,
-      signatureValid: false,
-      error: verification.reason,
-    });
+    // Logged, not stored: the endpoint is public, and storing every forged or garbage post
+    // would let anyone grow the events table without limit.
     logger.warn("webhook.rejected", { marketplace: marketplace.data, reason: verification.reason });
     return reply(401, { error: "notificação inválida" });
   }

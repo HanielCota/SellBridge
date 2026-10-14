@@ -1,5 +1,6 @@
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import {
+  LISTING_MAX_PRICE_CENTS,
   priceForRule,
   toPaginated,
   type AdminProductValues,
@@ -188,11 +189,58 @@ async function assertCategory(
   }
 }
 
+const STOCK_MOVED_MESSAGE =
+  "O estoque deste produto mudou depois que você abriu o formulário (venda ou importação). Recarregue e confira antes de salvar.";
+
+/**
+ * Saves an edit without undoing sales: an untouched shelf count is not written back, and a
+ * changed one only lands while the shelf still holds what the form showed.
+ */
+async function updateProduct(
+  transaction: DatabaseExecutor,
+  ids: { supplierId: string; productId: string },
+  values: AdminProductValues,
+  expectedStock: number | undefined,
+) {
+  const { stock, ...rest } = values;
+  const keepsShelf = expectedStock !== undefined && stock === expectedStock;
+  const [product] = await transaction
+    .update(supplierProducts)
+    .set(keepsShelf ? rest : values)
+    .where(
+      and(
+        eq(supplierProducts.id, ids.productId),
+        eq(supplierProducts.supplierId, ids.supplierId),
+        expectedStock === undefined || keepsShelf
+          ? undefined
+          : eq(supplierProducts.stock, expectedStock),
+      ),
+    )
+    .returning();
+  if (product || expectedStock === undefined) {
+    return product;
+  }
+  const [exists] = await transaction
+    .select({ id: supplierProducts.id })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
+    );
+  if (exists) {
+    throw conflictError(STOCK_MOVED_MESSAGE);
+  }
+  return undefined;
+}
+
 export async function saveAdminSupplierProduct(
   database: Database,
-  input: AdminProductValues & { supplierId: string; productId?: string | undefined },
+  input: AdminProductValues & {
+    supplierId: string;
+    productId?: string | undefined;
+    expectedStock?: number | undefined;
+  },
 ) {
-  const { supplierId, productId, ...values } = input;
+  const { supplierId, productId, expectedStock, ...values } = input;
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);
     await assertCategory(transaction, values.categoryId);
@@ -206,13 +254,7 @@ export async function saveAdminSupplierProduct(
       throw conflictError("Já existe um produto com este SKU neste fornecedor");
     }
     const [product] = productId
-      ? await transaction
-          .update(supplierProducts)
-          .set(values)
-          .where(
-            and(eq(supplierProducts.id, productId), eq(supplierProducts.supplierId, supplierId)),
-          )
-          .returning()
+      ? [await updateProduct(transaction, { supplierId, productId }, values, expectedStock)]
       : await transaction
           .insert(supplierProducts)
           .values({ supplierId, ...values })
@@ -294,7 +336,7 @@ function planImportRows(input: {
         suggestedPriceCents ??
         previous?.suggestedPriceCents ??
         Math.min(
-          2_147_483_647,
+          LISTING_MAX_PRICE_CENTS,
           priceForRule({ ...product, suggestedPriceCents: 0 }, { kind: "markup", percent: 50 }),
         ),
     });

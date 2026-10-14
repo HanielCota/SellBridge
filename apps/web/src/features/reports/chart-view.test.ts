@@ -136,6 +136,13 @@ describe("groupByWeek", () => {
 });
 
 describe("niceScale", () => {
+  it("keeps a handful of ticks when a deep loss dwarfs a tiny gain", () => {
+    const { ticks, domain } = niceScale([1, -500_000]);
+    expect(ticks.length).toBeLessThanOrEqual(8);
+    expect(domain[0]).toBeLessThanOrEqual(-500_000);
+    expect(domain[1]).toBeGreaterThan(1);
+  });
+
   it("starts at zero with round steps", () => {
     expect(niceScale([0, 120_000, 150_000]).ticks).toEqual([0, 50_000, 100_000, 150_000]);
   });

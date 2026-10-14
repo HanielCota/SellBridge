@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageNumberSchema } from "./common.ts";
 import {
   MAX_RATING,
   MIN_RATING,
@@ -98,7 +99,7 @@ export type AdminTicketMessage = z.infer<typeof adminTicketMessageSchema>;
 export const ticketsSearchSchema = z.object({
   status: optionalParameter(ticketStatusSchema),
   query: optionalParameter(z.string().trim().max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(10), 10),
 });
 export type TicketsSearch = z.infer<typeof ticketsSearchSchema>;

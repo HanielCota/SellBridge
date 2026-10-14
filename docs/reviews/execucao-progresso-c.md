@@ -41,6 +41,12 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
+### 2026-10-14 · Auditoria de limites, comparações e valores que explodem — ✅ (commit local)
+
+- Pedido do usuário (prompt de revisão). Cinco frentes de análise (dinheiro, entradas, datas, estoque e contadores, interface) e correções na origem: parser de BRL ("59.90" virava R$ 5.990,00), `::bigint` nas multiplicações do relatório (int4 estourava e derrubava o Financeiro), tetos de preço/custo, página ≤ 10.000, listas com máximo, CSV com no máximo 50 colunas, limites e datas dos pedidos do ML, IDs numéricos inseguros recusados, evento recusado pelo ML encerrado sem repetir, leitura de corpo com limite real de bytes, notificações inválidas do webhook não gravadas, venda no sino pela hora de chegada, datas no fuso de São Paulo e "ontem" por calendário, períodos entre 2000 e 2100, cancelamento sem pagamento fora do score do fornecedor, edição do produto no admin sem desfazer vendas, sincronização que esvazia o backlog em até 4 min, eventos de chamado em lotes de 1.000.
+- Pendências que precisam de migration ou são de outro item: `billing_accounts.last_event_created` int4 (estoura em 2038), CHECKs de faixa nas colunas de dinheiro e quantidade, índices de `api_events.created_at` e `webhook_deliveries.event_id`, cursor da API pública por `xid`, `answeredAt` dos chamados; Stripe dentro da transação e carência na renovação (item 16, chat D); corpo de upload sem limite (item 11, chat B); custo desconhecido (item 09); markup abaixo do ponto de equilíbrio (item 15); validação de título/descrição na publicação em massa (item 14).
+- Portões: lint, tipos, formatação, sem else ✅; 1015 testes (base 982); build ✅; e2e completo 66/66.
+
 ### 2026-10-13 · Item 08.b · Desativar pausa, avisa e reativar fica com o revendedor — ✅ concluído (2135a1b, commit local)
 
 - Desativar produto ou fornecedor (botão ou CSV) pausa os anúncios publicados de todos os revendedores na mesma transação e diz ao admin quantos ("Produto desativado · 1 anúncio pausado"). Reativar não reativa: o revendedor decide; o servidor recusa retomar enquanto indisponível, com trava compartilhada contra a corrida com o admin.

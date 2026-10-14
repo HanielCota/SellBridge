@@ -17,6 +17,23 @@ describe("formatRelativeTime", () => {
   });
 });
 
+describe("calendar days", () => {
+  it("counts days by the calendar in Brazil time, not by 24-hour blocks", () => {
+    // Wednesday 09:00 in Brazil (12:00 UTC); Monday 21:00 in Brazil is 36 hours earlier.
+    const wednesdayMorning = new Date("2026-10-14T12:00:00Z");
+    expect(formatRelativeTime(new Date("2026-10-13T00:00:00Z"), wednesdayMorning)).toBe(
+      "anteontem",
+    );
+    expect(formatRelativeTime(new Date("2026-10-13T06:00:00Z"), wednesdayMorning)).toBe("ontem");
+  });
+
+  it("dates by Brazil's day even when the server runs in UTC", () => {
+    // 23:30 on 9 October in Brazil is already 10 October in UTC.
+    const lateEvening = new Date("2026-10-10T02:30:00Z");
+    expect(formatSmartDate(lateEvening, new Date("2026-11-20T12:00:00Z"))).toBe("9 de out.");
+  });
+});
+
 describe("formatSmartDate", () => {
   it("is relative within the last week", () => {
     expect(formatSmartDate(ago(3 * 3600), now)).toBe("há 3 horas");
