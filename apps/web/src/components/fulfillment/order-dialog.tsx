@@ -61,7 +61,7 @@ export function FulfillmentDialog({
             Encaminhe ao fornecedor e acompanhe cada volume até a entrega.
           </DialogDescription>
         </DialogHeader>
-        {orderId ? <OrderContent key={orderId} orderId={orderId} /> : null}
+        {orderId ? <OrderOperations key={orderId} orderId={orderId} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -109,7 +109,17 @@ function ShipmentList({
     </ShipmentPanel>
   ));
 }
-function OrderContent({ orderId }: { orderId: string }) {
+/**
+ * Forwarding and every parcel of one order, with the reseller's controls. The dialog shows it
+ * under the order number; the order page, which has its own heading, without it.
+ */
+export function OrderOperations({
+  orderId,
+  showOrderNumber = true,
+}: {
+  orderId: string;
+  showOrderNumber?: boolean;
+}) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
   const client = useQueryClient();
   const [links, setLinks] = useState<Record<string, string>>({});
@@ -117,6 +127,7 @@ function OrderContent({ orderId }: { orderId: string }) {
     await Promise.all([
       client.invalidateQueries({ queryKey: fulfillmentQueryOptions(orderId).queryKey }),
       client.invalidateQueries({ queryKey: ["operations"] }),
+      client.invalidateQueries({ queryKey: ["order-page", orderId] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -130,7 +141,9 @@ function OrderContent({ orderId }: { orderId: string }) {
   const blocked = isShippingBlocked(detail.order.status);
   return (
     <div className="space-y-5">
-      <p className="font-medium">Pedido {detail.order.externalOrderId}</p>
+      {showOrderNumber ? (
+        <p className="font-medium">Pedido {detail.order.externalOrderId}</p>
+      ) : null}
       <MarketplaceTools detail={detail} onRefresh={refresh} />
       {blocked ? (
         <p className="text-sm text-destructive">
@@ -203,6 +216,8 @@ function SupplierLink({
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: () => toast.success("Acesso do fornecedor atualizado"),
   });
+  // A settled parcel with no fresh link has nothing to show: no empty row in the toolbar.
+  if (closed && !url) return null;
   return (
     <div className="w-full space-y-2">
       {closed ? null : (

@@ -38,6 +38,15 @@ export const DISPATCHED_FULFILLMENT_STATUSES: readonly FulfillmentStatus[] = [
   "not_delivered",
   "returned",
 ];
+/** Who a shipment history step is credited to, as `shipment_events.actor` stores it. */
+export const SHIPMENT_ACTORS = {
+  reseller: "Revendedor",
+  supplier: "Fornecedor",
+  marketplace: "Mercado Livre",
+} as const;
+/** Why the supplier link stops at dispatch; said by the server and shown on the link alike. */
+export const DELIVERY_CONFIRMED_BY =
+  "Quem confirma a entrega é a loja que fez a venda, ou o rastreio do Mercado Livre quando a venda é de lá.";
 export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   forwarded: "Aguardando fornecedor",
   accepted: "Aceito",

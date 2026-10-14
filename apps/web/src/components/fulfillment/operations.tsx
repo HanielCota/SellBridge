@@ -1,4 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   FULFILLMENT_LABELS,
@@ -121,7 +122,15 @@ function OperationRow({
     <li className="flex flex-wrap items-center gap-3 py-4">
       {/* At least 15rem for the order's text: on a phone, status and action wrap below it. */}
       <div className="min-w-0 flex-[1_1_15rem]">
-        <p className="font-medium">{row.externalOrderId}</p>
+        <p className="font-medium">
+          <Link
+            to="/pedidos/$orderId"
+            params={{ orderId: row.id }}
+            className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {row.externalOrderId}
+          </Link>
+        </p>
         <p className="text-xs text-muted-foreground">
           {row.buyerName ?? "Comprador não informado"} · {row.storeName} ·{" "}
           <SmartDate date={row.orderedAt} />

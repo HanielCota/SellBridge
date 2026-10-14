@@ -5,7 +5,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 
-const ORDER_TONES: Record<OrderStatus, StatusTone> = {
+export const ORDER_TONES: Record<OrderStatus, StatusTone> = {
   pending: "warning",
   paid: "info",
   shipped: "info",

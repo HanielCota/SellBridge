@@ -1,4 +1,5 @@
 import {
+  DELIVERY_CONFIRMED_BY,
   DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_LABELS,
   FULFILLMENT_NEXT,
@@ -32,90 +33,172 @@ export interface ShipmentView {
   trackingUrl: string | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
+type ShipmentActor = "reseller" | "supplier";
+
+/** The supplier's part ends at dispatch: the marketplace or the reseller confirms the delivery. */
+function nextStepFor(status: FulfillmentStatus, actsAs: ShipmentActor): FulfillmentStatus | null {
+  const next = FULFILLMENT_NEXT[status];
+  return actsAs === "supplier" && next === "delivered" ? null : next;
+}
+
 export function ShipmentPanel({
   shipment,
   externalOrderId,
   onUpdate,
   children,
   blocked = false,
+  actsAs = "reseller",
 }: {
   shipment: ShipmentView;
   externalOrderId: string;
   blocked?: boolean;
+  /** Who works the panel: the supplier (by link) cannot declare the delivery. */
+  actsAs?: ShipmentActor;
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
-  const update = useShipmentUpdate(shipment, onUpdate);
-  const next = FULFILLMENT_NEXT[shipment.status];
+  const {
+    carrier,
+    setCarrier,
+    trackingCode,
+    setTrackingCode,
+    trackingUrl,
+    setTrackingUrl,
+    note,
+    setNote,
+    mutation,
+  } = useShipmentUpdate(shipment, onUpdate);
+  const next = nextStepFor(shipment.status, actsAs);
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
       <ShipmentSummary shipment={shipment} />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
-          Imprimir etiqueta de identificação
-        </Button>
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
-          Imprimir ordem de fornecimento
-        </Button>
+      <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId}>
         {children}
-      </div>
+      </ShipmentToolbar>
       {closed ? null : (
-        <ShipmentActions next={blocked ? null : next} status={shipment.status} update={update} />
+        <ShipmentActions
+          next={blocked ? null : next}
+          carrier={carrier}
+          trackingCode={trackingCode}
+          trackingUrl={trackingUrl}
+          note={note}
+          setCarrier={setCarrier}
+          setTrackingCode={setTrackingCode}
+          setTrackingUrl={setTrackingUrl}
+          setNote={setNote}
+          pending={mutation.isPending}
+          status={shipment.status}
+          awaitingDelivery={actsAs === "supplier" && shipment.status === "shipped"}
+          onSubmit={(status) => mutation.mutate(status)}
+        />
       )}
       <ShipmentHistory shipment={shipment} />
     </section>
   );
 }
-function ShipmentActions({
-  next,
-  status,
-  update,
+/** Printing, plus whatever the page adds (the reseller's link, the official label). */
+function ShipmentToolbar({
+  shipment,
+  externalOrderId,
+  children,
 }: {
+  shipment: ShipmentView;
+  externalOrderId: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    // On the narrowest phones a long label wraps inside its button instead of overflowing.
+    <div className="flex flex-wrap gap-2 [&>*]:h-auto [&>*]:min-h-9 [&>*]:max-w-full [&>*]:py-1.5 [&>*]:whitespace-normal">
+      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
+        Imprimir etiqueta de identificação
+      </Button>
+      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
+        Imprimir ordem de fornecimento
+      </Button>
+      {children}
+    </div>
+  );
+}
+
+/** What dispatch needs: carrier and tracking. */
+function DispatchFields(props: {
+  carrier: string;
+  trackingCode: string;
+  trackingUrl: string;
+  setCarrier: (value: string) => void;
+  setTrackingCode: (value: string) => void;
+  setTrackingUrl: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
+      <Field
+        label="Código de rastreio"
+        value={props.trackingCode}
+        onChange={props.setTrackingCode}
+      />
+      <div className="sm:col-span-2">
+        <Field
+          label="Link de rastreio (opcional)"
+          value={props.trackingUrl}
+          onChange={props.setTrackingUrl}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ShipmentActions(props: {
   next: FulfillmentStatus | null;
   status: FulfillmentStatus;
-  update: ReturnType<typeof useShipmentUpdate>;
+  /** Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */
+  awaitingDelivery: boolean;
+  carrier: string;
+  trackingCode: string;
+  trackingUrl: string;
+  note: string;
+  pending: boolean;
+  setCarrier: (value: string) => void;
+  setTrackingCode: (value: string) => void;
+  setTrackingUrl: (value: string) => void;
+  setNote: (value: string) => void;
+  onSubmit: (status: FulfillmentStatus) => void;
 }) {
-  const pending = update.mutation.isPending;
-  const hasNote = update.note.trim() !== "";
   return (
     <div className="space-y-3">
-      {next === "shipped" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
-          <Field
-            label="Código de rastreio"
-            value={update.trackingCode}
-            onChange={update.setTrackingCode}
-          />
-          <div className="sm:col-span-2">
-            <Field
-              label="Link de rastreio (opcional)"
-              value={update.trackingUrl}
-              onChange={update.setTrackingUrl}
-            />
-          </div>
-        </div>
+      {props.awaitingDelivery ? (
+        <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
-      <Field label="Ocorrência ou observação" value={update.note} onChange={update.setNote} />
+      {props.next === "shipped" ? (
+        <DispatchFields
+          carrier={props.carrier}
+          trackingCode={props.trackingCode}
+          trackingUrl={props.trackingUrl}
+          setCarrier={props.setCarrier}
+          setTrackingCode={props.setTrackingCode}
+          setTrackingUrl={props.setTrackingUrl}
+        />
+      ) : null}
+      <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
       <div className="flex flex-wrap gap-2">
-        {next ? (
-          <Button disabled={pending} onClick={() => update.mutation.mutate(next)}>
-            {FULFILLMENT_LABELS[next]}
+        {props.next ? (
+          <Button disabled={props.pending} onClick={() => props.next && props.onSubmit(props.next)}>
+            {FULFILLMENT_LABELS[props.next]}
           </Button>
         ) : null}
         <Button
           variant="outline"
-          disabled={pending || !hasNote}
-          onClick={() => update.mutation.mutate(status)}
+          disabled={props.pending || !props.note.trim()}
+          onClick={() => props.onSubmit(props.status)}
         >
           Registrar ocorrência
         </Button>
-        {DISPATCHED_FULFILLMENT_STATUSES.includes(status) ? null : (
+        {DISPATCHED_FULFILLMENT_STATUSES.includes(props.status) ? null : (
           <Button
             variant="destructive"
-            disabled={pending || !hasNote}
-            onClick={() => update.mutation.mutate("cancelled")}
+            disabled={props.pending || !props.note.trim()}
+            onClick={() => props.onSubmit("cancelled")}
           >
             Cancelar envio
           </Button>
@@ -184,6 +267,7 @@ function useShipmentUpdate(
 function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   return (
     <>
+      {" "}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{shipment.supplierName}</h3>
         <ToneStatus

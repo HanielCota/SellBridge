@@ -17,7 +17,7 @@ describe("presentNotification", () => {
     expect(notification.detail).toBe(
       "Moletom canguru - Rosa: o fornecedor está sem unidades. Combine com ele ou cancele a venda.",
     );
-    expect(notification.href).toBe("/pedidos");
+    expect(notification.href).toBe("/pedidos/order-9");
   });
 
   it("tells the reseller a supplier cancelled, why, and what to do next", () => {
@@ -38,7 +38,7 @@ describe("presentNotification", () => {
     expect(notification.detail).toBe(
       "Motivo: Produto em falta no depósito. Reencaminhe ao fornecedor ou cancele a venda.",
     );
-    expect(notification.href).toBe("/pedidos");
+    expect(notification.href).toBe("/pedidos/order-9");
   });
 
   it("shows a sale with its total and leads to the order in the financial report", () => {

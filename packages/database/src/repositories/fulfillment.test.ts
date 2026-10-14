@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
+import { DELIVERY_CONFIRMED_BY, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { orderItems, orders, orderShipments, user } from "../schema/index.ts";
@@ -250,13 +250,14 @@ describe("fulfillment", () => {
     expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
       "shipped",
     );
-    await advance(first.shipmentId, "delivered", first.token);
+    // Delivery is confirmed by the reseller (or the marketplace), never through the supplier link.
+    await advance(first.shipmentId, "delivered");
     expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
       "shipped",
     );
     const second = links[1];
     if (!second) throw new Error("No second link");
-    await advance(second.shipmentId, "delivered", second.token);
+    await advance(second.shipmentId, "delivered");
     expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
       "delivered",
     );
@@ -403,14 +404,64 @@ describe("fulfillment", () => {
     expect(detail.shipments[0]?.status).toBe("delivered");
   });
 
+  it("never lets the supplier link declare a delivery; the reseller and the marketplace can", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    for (const status of ["accepted", "picking", "ready", "shipped"] as const)
+      await advance(link.shipmentId, status, link.token);
+    await expect(advance(link.shipmentId, "delivered", link.token)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: DELIVERY_CONFIRMED_BY,
+    });
+    const [stored] = await database.select().from(orders).where(eq(orders.id, order.id));
+    expect(stored).toMatchObject({ status: "shipped", deliveredAt: null });
+    // Still free to log an occurrence on the way.
+    await updateShipment(
+      database,
+      {
+        shipmentId: link.shipmentId,
+        status: "shipped",
+        note: "Transportadora reagendou a entrega",
+        carrier: "Correios",
+        trackingCode: "AB123456789BR",
+        trackingUrl: "",
+      },
+      { token: link.token },
+    );
+
+    await advance(link.shipmentId, "delivered");
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.order.status).toBe("delivered");
+    expect(detail.shipments[0]?.events.at(-1)).toMatchObject({
+      status: "delivered",
+      actor: "Revendedor",
+    });
+
+    // The marketplace's own reading also counts, with its name on the step.
+    const other = await createOrder();
+    const [otherLink] = await forward(other.id);
+    if (!otherLink) throw new Error("No link");
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      other.id,
+      remote("delivered", "delivered"),
+    );
+    const otherDetail = await getFulfillmentDetail(database, tenants.tenantA, other.id);
+    expect(otherDetail.order.status).toBe("delivered");
+    expect(otherDetail.shipments[0]?.events.at(-1)?.actor).toBe("Mercado Livre");
+  });
+
   it("does not let a cancelled parcel hold the order back", async () => {
     const order = await createOrder("paid", true);
     const links = await forward(order.id);
     const [first, second] = links;
     if (!first || !second) throw new Error("No links");
     await cancel(second.shipmentId, "Sem estoque da calça", second.token);
-    for (const status of ["accepted", "picking", "ready", "shipped", "delivered"] as const)
+    for (const status of ["accepted", "picking", "ready", "shipped"] as const)
       await advance(first.shipmentId, status, first.token);
+    await advance(first.shipmentId, "delivered");
     expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
       "delivered",
     );

@@ -23,7 +23,6 @@ import { Route as AppFornecedoresRouteRouteImport } from './routes/_app/forneced
 import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
-import { Route as AppPedidosRouteImport } from './routes/_app/pedidos'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
@@ -33,6 +32,8 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
+import { Route as AppPedidosIndexRouteImport } from './routes/_app/pedidos/index'
+import { Route as AppPedidosOrderIdRouteImport } from './routes/_app/pedidos/$orderId'
 import { Route as AppPublicacoesIndexRouteImport } from './routes/_app/publicacoes/index'
 import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoes/nova'
 import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index'
@@ -145,11 +146,6 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppPedidosRoute = AppPedidosRouteImport.update({
-  id: '/pedidos',
-  path: '/pedidos',
-  getParentRoute: () => AppRouteRoute,
-} as any)
 const AppPerfilRoute = AppPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
@@ -196,6 +192,16 @@ const AppFornecedoresSupplierIdRoute =
     path: '/$supplierId',
     getParentRoute: () => AppFornecedoresRouteRoute,
   } as any)
+const AppPedidosIndexRoute = AppPedidosIndexRouteImport.update({
+  id: '/pedidos/',
+  path: '/pedidos/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPedidosOrderIdRoute = AppPedidosOrderIdRouteImport.update({
+  id: '/pedidos/$orderId',
+  path: '/pedidos/$orderId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppPublicacoesIndexRoute = AppPublicacoesIndexRouteImport.update({
   id: '/publicacoes/',
   path: '/publicacoes/',
@@ -441,7 +447,6 @@ export interface FileRoutesByFullPath {
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
-  '/pedidos': typeof AppPedidosRoute
   '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -450,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
@@ -467,6 +473,7 @@ export interface FileRoutesByFullPath {
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/pedidos/': typeof AppPedidosIndexRoute
   '/publicacoes/': typeof AppPublicacoesIndexRoute
   '/suporte/': typeof AppSuporteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
@@ -507,7 +514,6 @@ export interface FileRoutesByTo {
   '/integracoes': typeof AppIntegracoesRoute
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
-  '/pedidos': typeof AppPedidosRoute
   '/perfil': typeof AppPerfilRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -515,6 +521,7 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
@@ -532,6 +539,7 @@ export interface FileRoutesByTo {
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
+  '/pedidos': typeof AppPedidosIndexRoute
   '/publicacoes': typeof AppPublicacoesIndexRoute
   '/suporte': typeof AppSuporteIndexRoute
   '/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
@@ -576,7 +584,6 @@ export interface FileRoutesById {
   '/_app/integracoes': typeof AppIntegracoesRoute
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
-  '/_app/pedidos': typeof AppPedidosRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
@@ -585,6 +592,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
+  '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
@@ -602,6 +610,7 @@ export interface FileRoutesById {
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
   '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
+  '/_app/pedidos/': typeof AppPedidosIndexRoute
   '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
   '/_app/suporte/': typeof AppSuporteIndexRoute
   '/_app/admin/chamados/$ticketId': typeof AppAdminChamadosTicketIdRoute
@@ -645,7 +654,6 @@ export interface FileRouteTypes {
     | '/integracoes'
     | '/lojas'
     | '/onboarding'
-    | '/pedidos'
     | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
@@ -654,6 +662,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/admin/clientes'
     | '/fornecedores/$supplierId'
+    | '/pedidos/$orderId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
@@ -671,6 +680,7 @@ export interface FileRouteTypes {
     | '/fornecedor/pedido/$token'
     | '/oauth/mock/autorizar'
     | '/fornecedores/'
+    | '/pedidos/'
     | '/publicacoes/'
     | '/suporte/'
     | '/admin/chamados/$ticketId'
@@ -711,7 +721,6 @@ export interface FileRouteTypes {
     | '/integracoes'
     | '/lojas'
     | '/onboarding'
-    | '/pedidos'
     | '/perfil'
     | '/cadastro'
     | '/esqueci-senha'
@@ -719,6 +728,7 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/fornecedores/$supplierId'
+    | '/pedidos/$orderId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
@@ -736,6 +746,7 @@ export interface FileRouteTypes {
     | '/fornecedor/pedido/$token'
     | '/oauth/mock/autorizar'
     | '/fornecedores'
+    | '/pedidos'
     | '/publicacoes'
     | '/suporte'
     | '/admin/chamados/$ticketId'
@@ -779,7 +790,6 @@ export interface FileRouteTypes {
     | '/_app/integracoes'
     | '/_app/lojas'
     | '/_app/onboarding'
-    | '/_app/pedidos'
     | '/_app/perfil'
     | '/_auth/cadastro'
     | '/_auth/esqueci-senha'
@@ -788,6 +798,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/_app/admin/clientes'
     | '/_app/fornecedores/$supplierId'
+    | '/_app/pedidos/$orderId'
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
@@ -805,6 +816,7 @@ export interface FileRouteTypes {
     | '/fornecedor/pedido/$token'
     | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
+    | '/_app/pedidos/'
     | '/_app/publicacoes/'
     | '/_app/suporte/'
     | '/_app/admin/chamados/$ticketId'
@@ -973,13 +985,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOnboardingRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/_app/pedidos': {
-      id: '/_app/pedidos'
-      path: '/pedidos'
-      fullPath: '/pedidos'
-      preLoaderRoute: typeof AppPedidosRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
     '/_app/perfil': {
       id: '/_app/perfil'
       path: '/perfil'
@@ -1042,6 +1047,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/fornecedores/$supplierId'
       preLoaderRoute: typeof AppFornecedoresSupplierIdRouteImport
       parentRoute: typeof AppFornecedoresRouteRoute
+    }
+    '/_app/pedidos/': {
+      id: '/_app/pedidos/'
+      path: '/pedidos'
+      fullPath: '/pedidos/'
+      preLoaderRoute: typeof AppPedidosIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/pedidos/$orderId': {
+      id: '/_app/pedidos/$orderId'
+      path: '/pedidos/$orderId'
+      fullPath: '/pedidos/$orderId'
+      preLoaderRoute: typeof AppPedidosOrderIdRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/publicacoes/': {
       id: '/_app/publicacoes/'
@@ -1407,11 +1426,12 @@ interface AppRouteRouteChildren {
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
-  AppPedidosRoute: typeof AppPedidosRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
   AppSuporteNovoRoute: typeof AppSuporteNovoRoute
+  AppPedidosIndexRoute: typeof AppPedidosIndexRoute
   AppPublicacoesIndexRoute: typeof AppPublicacoesIndexRoute
   AppSuporteIndexRoute: typeof AppSuporteIndexRoute
 }
@@ -1426,11 +1446,12 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
-  AppPedidosRoute: AppPedidosRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,
   AppSuporteNovoRoute: AppSuporteNovoRoute,
+  AppPedidosIndexRoute: AppPedidosIndexRoute,
   AppPublicacoesIndexRoute: AppPublicacoesIndexRoute,
   AppSuporteIndexRoute: AppSuporteIndexRoute,
 }

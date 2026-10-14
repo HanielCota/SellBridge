@@ -136,8 +136,10 @@ const expectedObjects = {
   foreignKeys: PUBLIC_API_FOREIGN_KEYS.toSorted(),
 };
 
-// Each case creates databases and runs every migration: 5 s is too tight with all packages in parallel.
-describe("migrations", { timeout: 30_000 }, () => {
+/** Each test creates databases and runs every migration: far slower than a query. */
+const MIGRATION_TEST_TIMEOUT = 60_000;
+
+describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
   it("M1: a new database takes every migration, and a second run changes nothing", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);
