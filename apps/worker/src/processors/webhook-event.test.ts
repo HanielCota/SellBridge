@@ -90,6 +90,13 @@ const orderResource = (externalListingId = "MOCK-ITEM-WH") =>
     ],
   });
 
+async function setStoreStatus(status: "connected" | "expired") {
+  await database
+    .update(schema.storeConnections)
+    .set({ status })
+    .where(eq(schema.storeConnections.externalShopId, shopId));
+}
+
 describe("webhook-event processor", () => {
   it("fetches the order, stores it with our cost and is idempotent", async () => {
     const eventId = await recordEvent({ shopId, resource: orderResource() });
@@ -119,6 +126,24 @@ describe("webhook-event processor", () => {
     requestStockSync.mockRejectedValue(new Error("Redis indisponível"));
     const eventId = await recordEvent({ shopId, resource: orderResource() });
     expect(await processWebhook(job(eventId))).toBe("order_created");
+  });
+
+  it("holds a sale while the store has lost its access, and takes it once reconnected", async () => {
+    await setStoreStatus("expired");
+    try {
+      const eventId = await recordEvent({ shopId, resource: orderResource() });
+      expect(await processWebhook(job(eventId))).toBe("awaiting_reconnection");
+      const held = await database.query.webhookEvents.findFirst({
+        where: eq(schema.webhookEvents.id, eventId),
+      });
+      // Not processed: the sweeper keeps retrying it.
+      expect(held?.processedAt).toBeNull();
+
+      await setStoreStatus("connected");
+      expect(await processWebhook(job(eventId))).toBe("order_created");
+    } finally {
+      await setStoreStatus("connected");
+    }
   });
 
   it("ignores other topics and events from unknown shops", async () => {

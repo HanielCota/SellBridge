@@ -205,12 +205,18 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
  * A return is known from the shipments, not from the marketplace's order status, which stays
  * "paid" (or partially refunded). A returned order keeps that status until it is cancelled.
  */
-function keptReturned(
+function keptFinalStatus(
   current: (typeof orders.$inferSelect)["status"],
   incoming: IncomingOrder["status"],
 ): IncomingOrder["status"] {
   if (current === "returned" && ["paid", "shipped", "delivered"].includes(incoming)) {
     return "returned";
+  }
+  // A cancellation is final on the marketplace. Two notifications of one order run as
+  // separate jobs: the "paid" one fetched before the buyer cancelled can land after the
+  // "cancelled" one, and must not reopen the order for forwarding and shipping.
+  if (current === "cancelled" && ["pending", "paid"].includes(incoming)) {
+    return "cancelled";
   }
   return incoming;
 }
@@ -232,7 +238,7 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     const status = await reconciledOrderStatus(
       write.transaction,
       existing.id,
-      keptReturned(existing.status, write.order.status),
+      keptFinalStatus(existing.status, write.order.status),
     );
     const updated = await updateExistingOrder(
       { ...write, order: { ...write.order, status } },

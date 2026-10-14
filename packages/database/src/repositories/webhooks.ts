@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -113,6 +113,26 @@ export async function markWebhookFailed(
   error: string,
 ): Promise<void> {
   await database.update(webhookEvents).set({ error }).where(eq(webhookEvents.id, id));
+}
+
+/**
+ * A store of the shop that lost its access (token expired or refused) and can come back:
+ * its sales must wait for the reconnection instead of being dropped.
+ */
+export async function findStoreAwaitingReconnection(
+  database: Database,
+  marketplace: Marketplace,
+  externalShopId: string,
+) {
+  const row = await database.query.storeConnections.findFirst({
+    where: and(
+      eq(storeConnections.marketplace, marketplace),
+      eq(storeConnections.externalShopId, externalShopId),
+      inArray(storeConnections.status, ["expired", "error"]),
+    ),
+    columns: { id: true },
+  });
+  return row ?? null;
 }
 
 /** Webhooks identify the shop, not the tenant: resolve the connected store across tenants. */

@@ -1,6 +1,7 @@
 import type { Database } from "@sellbridge/database";
 import {
   findConnectedStoreByShop,
+  findStoreAwaitingReconnection,
   getWebhookEvent,
   markWebhookFailed,
   markWebhookProcessed,
@@ -30,7 +31,12 @@ export interface WebhookDependencies {
 }
 
 export type WebhookOutcome =
-  "order_created" | "order_updated" | "already_processed" | "ignored_topic" | "unknown_store";
+  | "order_created"
+  | "order_updated"
+  | "already_processed"
+  | "ignored_topic"
+  | "unknown_store"
+  | "awaiting_reconnection";
 
 type WebhookEvent = NonNullable<Awaited<ReturnType<typeof getWebhookEvent>>>;
 type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreByShop>>>;
@@ -75,6 +81,33 @@ async function skipEvent(
   return { kind: "skipped", outcome: skipped.outcome };
 }
 
+/**
+ * No usable store for the event. A store that lost its access (expired, refused token) can be
+ * reconnected: the sale stays pending, with the reason, and the sweeper retries it for a day,
+ * so it comes in once the reseller reconnects. A shop we never knew is skipped for good.
+ */
+async function holdOrSkip(
+  dependencies: WebhookDependencies,
+  eventId: string,
+  shop: { marketplace: MarketplaceId; shopId: string },
+): Promise<SyncPreparation> {
+  const awaiting = await findStoreAwaitingReconnection(
+    dependencies.database,
+    shop.marketplace,
+    shop.shopId,
+  );
+  if (awaiting) {
+    await markWebhookFailed(
+      dependencies.database,
+      eventId,
+      "Loja sem acesso: a venda entra quando a loja for reconectada",
+    );
+    return { kind: "skipped", outcome: "awaiting_reconnection" };
+  }
+  const note = "Nenhuma loja conectada corresponde ao evento";
+  return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
+}
+
 /** Resolves the store and resource of an order event, marking unusable events as processed. */
 async function prepareOrderSync(
   dependencies: WebhookDependencies,
@@ -101,8 +134,7 @@ async function prepareOrderSync(
     reference.externalShopId,
   );
   if (!store) {
-    const note = "Nenhuma loja conectada corresponde ao evento";
-    return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
+    return holdOrSkip(dependencies, eventId, { marketplace, shopId: reference.externalShopId });
   }
   if (!store.accessTokenEnc) {
     const note = "Loja sem token de acesso: reconecte a loja";
