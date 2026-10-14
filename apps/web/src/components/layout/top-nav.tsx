@@ -44,7 +44,8 @@ const LAYOUTS = {
     desktopNav: "lg:flex",
     sheetTrigger: "lg:hidden",
     tab: "px-4",
-    accountName: "hidden sm:block",
+    // From lg to xl the capsule and the name no longer fit the row; the avatar alone stays.
+    accountName: "hidden sm:block lg:hidden xl:block",
     modeBadge: "hidden",
   },
   dense: {
