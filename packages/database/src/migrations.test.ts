@@ -136,7 +136,8 @@ const expectedObjects = {
   foreignKeys: PUBLIC_API_FOREIGN_KEYS.toSorted(),
 };
 
-describe("migrations", () => {
+// Each case creates databases and runs every migration: 5 s is too tight with all packages in parallel.
+describe("migrations", { timeout: 30_000 }, () => {
   it("M1: a new database takes every migration, and a second run changes nothing", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);

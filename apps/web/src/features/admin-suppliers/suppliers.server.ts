@@ -60,14 +60,18 @@ async function requestSynchronization(): Promise<boolean> {
   return await requestStockSync("admin.catalog_sync_deferred");
 }
 
+/** Coverage may have changed: listings outside it must drop to zero stock now. */
 export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplierSchema>) {
-  return await catalogWrite(async () => await saveAdminSupplier(database, input));
+  const supplier = await catalogWrite(async () => await saveAdminSupplier(database, input));
+  return { ...supplier, synchronizationQueued: await requestSynchronization() };
 }
 
+/** Listings of an inactive supplier drop to zero stock on the next sync, requested right away. */
 export async function writeSupplierActive(input: { supplierId: string; active: boolean }) {
-  return await catalogWrite(
+  const supplier = await catalogWrite(
     async () => await setAdminSupplierActive(database, input.supplierId, input.active),
   );
+  return { ...supplier, synchronizationQueued: await requestSynchronization() };
 }
 
 export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSchema>) {
@@ -76,7 +80,10 @@ export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSc
 }
 
 export async function writeProductActive(input: z.infer<typeof adminSetProductActiveSchema>) {
-  return await catalogWrite(async () => await setAdminSupplierProductActive(database, input));
+  const product = await catalogWrite(
+    async () => await setAdminSupplierProductActive(database, input),
+  );
+  return { ...product, synchronizationQueued: await requestSynchronization() };
 }
 
 function previewToken(content: string, plan: SupplierProductImportPlan): string {

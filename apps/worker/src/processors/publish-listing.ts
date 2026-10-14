@@ -16,6 +16,7 @@ import {
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
+import { unavailableMessage, unavailableReason } from "@sellbridge/shared/catalog-availability";
 import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { offeredUnits } from "@sellbridge/shared/stock-reservation";
@@ -202,6 +203,17 @@ function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | nu
   return null;
 }
 
+/** A product deactivated or out of the reseller's region after the job was queued is not sent. */
+async function requireSellable(
+  dependencies: PublishDependencies,
+  row: TargetForPublishing,
+): Promise<void> {
+  const reason = unavailableReason(row.availability);
+  if (reason !== null) {
+    await failPermanently(dependencies, row.target.id, unavailableMessage(reason));
+  }
+}
+
 async function requireCredentials(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
@@ -234,6 +246,7 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
     if (skipped) {
       return skipped;
     }
+    await requireSellable(dependencies, row);
     const credentials = await requireCredentials(dependencies, row);
     const claimed = await claimWhenRateAllows(dependencies, row);
     if (!claimed) {

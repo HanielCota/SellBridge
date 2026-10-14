@@ -309,3 +309,11 @@ No `_journal.json`, o `when` da 0007 é maior que o da 0008, e o Drizzle só apl
 - **Reencaminhar ao mesmo fornecedor** (`reforwardShipment`): reabre o envio cancelado de um pedido pago com os mesmos itens e endereço, um link novo (o antigo deixa de valer) e o status "Aguardando fornecedor". O cancelamento e o motivo ficam no histórico. Reaproveita a linha do envio porque há um envio por fornecedor e pedido (`order_shipments_order_supplier_idx`).
 - **Trocar de fornecedor fica para um item próprio** (decisão do usuário no ⏸1): o item do pedido está preso ao produto de um fornecedor, e trocar pede escolher um produto equivalente e recalcular custo, margem e estoque.
 - **Aviso no sino** (`shipment_cancelled`, aba Problemas): só quando quem cancelou foi o fornecedor, com o motivo que ele escreveu. Como a falta de estoque, é trabalho a fazer: "Limpar tudo" não o esconde, e ele some quando o envio é reencaminhado ou o pedido deixa de estar pago.
+
+## 2026-10-13: Produto indisponível não é oferecido no marketplace (item 08.a)
+
+- **"Ignorar" é mandar estoque 0, não pular o anúncio.** Pular deixaria o estoque antigo no Mercado Livre e o anúncio venderia o que ninguém entrega. A sincronização manda 0 (o preço segue normal) enquanto o produto ou o fornecedor está inativo, ou enquanto o fornecedor não cobre a cidade ou a UF do dono do anúncio. A regra está em `shared/domain/catalog-availability.ts` (motivo e frase) e, no SQL, em `repositories/sql/supplier-coverage.ts` (`sellableOnMarketplace`), o mesmo `coversRegion` do catálogo.
+- **Revendedor sem região cadastrada conta como coberto** (aprovado no ⏸1): ninguém publica sem CEP, e zerar anúncios reais por falta de dado faria mais mal do que bem.
+- **Publicação na fila** de um produto que ficou indisponível falha de vez, sem chamar o marketplace, com a frase do motivo no card; o revendedor pode reprocessar quando o produto voltar.
+- **Sincronização na hora** ao salvar um fornecedor no admin (a cobertura pode ter encolhido), ao ativar ou desativar produto ou fornecedor e quando o revendedor troca o CEP. Se o Redis falhar, a sincronização agendada de 15 minutos alcança. A troca de região feita pelo admin (`customers.functions.ts`, item 12 do chat B) ainda não dispara; entra na junção das branches.
+- Pausar os anúncios, avisar cada revendedor e auditar a desativação é o item 08.b.

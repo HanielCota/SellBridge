@@ -219,7 +219,7 @@ describe("admin suppliers", () => {
     expect(imported.items[0]).toMatchObject({ id: product.id, active: false, stock: 5 });
   });
 
-  it("hides inactive suppliers/products but preserves published listings and stock sync", async () => {
+  it("hides inactive suppliers/products, keeps published listings and syncs zero stock", async () => {
     const tenants = await createTestTenants(database, 1);
     const [tenantId] = tenants.ids;
     if (!tenantId) {
@@ -297,7 +297,7 @@ describe("admin suppliers", () => {
         (await findTargetsNeedingSync(database, 10_000)).find(
           (target) => target.targetId === targetId,
         ),
-      ).toMatchObject({ stock: 30, priceCents: 1990 });
+      ).toMatchObject({ stock: 0, priceCents: 1990 });
       expect(
         await database.select().from(listings).where(eq(listings.id, listing.listingId)),
       ).toHaveLength(1);

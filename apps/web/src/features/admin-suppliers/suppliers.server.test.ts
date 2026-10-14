@@ -1,7 +1,10 @@
 import type {
   importSupplierProducts,
   previewSupplierProductImport,
+  saveAdminSupplier,
   saveAdminSupplierProduct,
+  setAdminSupplierActive,
+  setAdminSupplierProductActive,
   SupplierProductImportPlan,
 } from "@sellbridge/database/repositories";
 import { describe, expect, it, beforeEach, vi } from "vitest";
@@ -10,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   preview: vi.fn<typeof previewSupplierProductImport>(),
   importProducts: vi.fn<typeof importSupplierProducts>(),
   saveProduct: vi.fn<typeof saveAdminSupplierProduct>(),
+  saveSupplier: vi.fn<typeof saveAdminSupplier>(),
+  setSupplierActive: vi.fn<typeof setAdminSupplierActive>(),
+  setProductActive: vi.fn<typeof setAdminSupplierProductActive>(),
   enqueue: vi.fn<() => Promise<void>>(),
   warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -17,6 +23,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
   previewSupplierProductImport: mocks.preview,
   importSupplierProducts: mocks.importProducts,
   saveAdminSupplierProduct: mocks.saveProduct,
+  saveAdminSupplier: mocks.saveSupplier,
+  setAdminSupplierActive: mocks.setSupplierActive,
+  setAdminSupplierProductActive: mocks.setProductActive,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
@@ -25,6 +34,9 @@ import {
   confirmAdminProductCsv,
   previewAdminProductCsv,
   writeAdminProduct,
+  writeAdminSupplier,
+  writeProductActive,
+  writeSupplierActive,
 } from "./suppliers.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
@@ -41,6 +53,17 @@ const product = {
   imageUrls: [],
   mercadoLivreAttributes: {},
   active: true,
+};
+const savedSupplier = {
+  id: supplierId,
+  name: "Fornecedor",
+  niche: "Casa",
+  description: "",
+  state: "MG",
+  city: "Belo Horizonte",
+  logoUrl: null,
+  active: true,
+  createdAt: new Date("2026-10-01T00:00:00Z"),
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {
   return { created: 1, updated: 0, errors: [], products: [product], revision };
@@ -148,5 +171,50 @@ describe("admin CSV orchestration", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("enqueues synchronization after saving a supplier, whose coverage may have shrunk", async () => {
+    mocks.saveSupplier.mockResolvedValue(savedSupplier);
+
+    await expect(
+      writeAdminSupplier({
+        supplierId,
+        name: "Fornecedor",
+        niche: "Casa",
+        description: "",
+        state: "MG",
+        city: "Belo Horizonte",
+        logoUrl: null,
+        coverage: [{ state: "MG", city: null }],
+      }),
+    ).resolves.toEqual({ ...savedSupplier, synchronizationQueued: true });
+    expect(mocks.saveSupplier.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("enqueues synchronization when a supplier or product is switched off", async () => {
+    mocks.setSupplierActive.mockResolvedValue({ ...savedSupplier, active: false });
+    mocks.setProductActive.mockResolvedValue({
+      ...product,
+      id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
+      reservedStock: 0,
+      active: false,
+      createdAt: new Date("2026-10-01T00:00:00Z"),
+      updatedAt: new Date("2026-10-01T00:00:00Z"),
+    });
+
+    await expect(writeSupplierActive({ supplierId, active: false })).resolves.toMatchObject({
+      active: false,
+      synchronizationQueued: true,
+    });
+    await expect(
+      writeProductActive({
+        supplierId,
+        productId: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
+        active: false,
+      }),
+    ).resolves.toMatchObject({ active: false, synchronizationQueued: true });
+    expect(mocks.enqueue).toHaveBeenCalledTimes(2);
   });
 });
