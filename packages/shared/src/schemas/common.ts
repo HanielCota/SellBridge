@@ -10,10 +10,12 @@ export function stripControlCharacters(value: string): string {
 
 /**
  * Text typed or pasted by people (and read from CSV): invisible control characters are dropped
- * before any other rule, so a pasted NUL never turns a save into a database error.
+ * before any other rule, so a pasted NUL never turns a save into a database error. NFC makes "É"
+ * typed as one character or as "E" plus an accent the same text (a SKU saved on a Mac and one
+ * typed on Windows must match).
  */
 export function freeText() {
-  return z.string().overwrite(stripControlCharacters);
+  return z.string().overwrite((value) => stripControlCharacters(value).normalize("NFC"));
 }
 
 /**

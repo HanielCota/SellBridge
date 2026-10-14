@@ -5,6 +5,7 @@ import {
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
 } from "../schemas/admin-suppliers.ts";
+import { freeText } from "../schemas/common.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
@@ -161,7 +162,7 @@ function parseActive(value: string): boolean | null | undefined {
 const csvRowSchema = adminProductValuesSchema
   .omit({ categoryId: true, suggestedPriceCents: true })
   .extend({
-    categorySlug: z.string().trim().max(100).nullable(),
+    categorySlug: freeText().trim().max(100).nullable(),
     suggestedPriceCents: adminProductValuesSchema.shape.suggestedPriceCents.optional(),
     active: z.boolean().optional(),
   });
@@ -191,7 +192,8 @@ function validateRecord(
   const values = Object.fromEntries(
     headers.map((header, index) => [header, record.fields[index] ?? ""]),
   );
-  const sku = values.sku ?? "";
+  // Same form the schema stores (trimmed, NFC), so "CAFÉ-01" twice in two encodings is caught.
+  const sku = (values.sku ?? "").trim().normalize("NFC");
   if (seen.has(sku)) {
     return { line: record.line, reason: `SKU duplicado no arquivo: ${sku}` };
   }

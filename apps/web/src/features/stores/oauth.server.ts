@@ -14,6 +14,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { connectors, oauthCallbackUrl, tokenCipher } from "@/lib/server/marketplaces";
 import { requireTenantSession } from "@/lib/server/tenant-session";
+import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
 
@@ -25,8 +26,22 @@ function redirectTo(path: string, params: Record<string, string> = {}): Response
   return Response.redirect(url.toString(), 302);
 }
 
-function storesPageWithError(message: string): Response {
-  return redirectTo("/lojas", { erro: message });
+/**
+ * The stores page shows a fixed message for each code: free text in the URL would let any link
+ * put its own words inside the app's own interface.
+ */
+function storesPageWithError(code: StoreConnectErrorCode): Response {
+  return redirectTo("/lojas", { erro: code });
+}
+
+function connectErrorCode(error: unknown): StoreConnectErrorCode {
+  if (isMarketplaceError(error)) {
+    return "marketplace";
+  }
+  if (isAppError(error) && error.code === "CONFLICT") {
+    return "shop_in_use";
+  }
+  return isAppError(error) && error.code === "FORBIDDEN" ? "plan_limit" : "failed";
 }
 
 function parseMarketplace(value: string | undefined): MarketplaceId | null {
@@ -53,11 +68,11 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {
-    return storesPageWithError("Marketplace desconhecido");
+    return storesPageWithError("unknown_marketplace");
   }
   const connector = connectors[marketplace];
   if (!connector.isConfigured()) {
-    return storesPageWithError(`${connector.displayName} ainda não está disponível`);
+    return storesPageWithError("unavailable");
   }
   const state = randomBytes(24).toString("base64url");
   // PKCE verifier (RFC 7636): ignored by marketplaces that do not use it.
@@ -116,16 +131,16 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
   }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {
-    return storesPageWithError("Marketplace desconhecido");
+    return storesPageWithError("unknown_marketplace");
   }
   const query = callbackQuerySchema.safeParse(
     Object.fromEntries(new URL(request.url).searchParams),
   );
   if (!query.success) {
-    return storesPageWithError("Resposta de autorização inválida");
+    return storesPageWithError("invalid_response");
   }
   if ("error" in query.data) {
-    return storesPageWithError("A conexão foi cancelada no marketplace");
+    return storesPageWithError("cancelled");
   }
   const stateRecord = await consumeOAuthState(database, {
     state: query.data.state,
@@ -133,7 +148,7 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
     marketplace,
   });
   if (!stateRecord) {
-    return storesPageWithError("A solicitação de conexão expirou. Tente conectar novamente.");
+    return storesPageWithError("expired");
   }
 
   try {
@@ -148,12 +163,9 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
       marketplace,
       storeConnectionId: store.id,
     });
-    return redirectTo("/lojas", { conectada: store.shopName });
+    return redirectTo("/lojas", { conectada: store.id });
   } catch (error) {
     logger.warn("store.connect_failed", { tenantId: session.tenantId, marketplace, error });
-    const message = isMarketplaceError(error)
-      ? error.userMessage
-      : "Não foi possível conectar a loja";
-    return storesPageWithError(message);
+    return storesPageWithError(connectErrorCode(error));
   }
 }

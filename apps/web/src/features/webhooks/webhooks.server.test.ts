@@ -123,3 +123,33 @@ describe("webhook body limits", () => {
     });
   });
 });
+
+describe("webhook text", () => {
+  it("keeps an emoji written as an escaped UTF-16 pair", async () => {
+    mocks.recordWebhookEvent.mockResolvedValue({
+      status: "created",
+      id: "event-10",
+      pending: true,
+    });
+    const response = await handleWebhook(
+      new Request("http://localhost/api/webhooks/mock", {
+        method: "POST",
+        body: String.raw`{"_id":"😀"}`,
+      }),
+      "mock",
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("refuses half of a UTF-16 pair on its own before storing anything", async () => {
+    const response = await handleWebhook(
+      new Request("http://localhost/api/webhooks/mock", {
+        method: "POST",
+        body: String.raw`{"_id":"\ud800","topic":"orders_v2"}`,
+      }),
+      "mock",
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
+  });
+});

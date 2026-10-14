@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripControlCharacters } from "./common.ts";
+import { freeText, stripControlCharacters } from "./common.ts";
 import { replyTicketSchema } from "./support.ts";
 
 describe("free text", () => {
@@ -10,5 +10,9 @@ describe("free text", () => {
   it("cleans a pasted NUL out of a ticket reply before it reaches the database", () => {
     const parsed = replyTicketSchema.parse({ body: "O pedido\u0000 chegou aberto, veja a foto." });
     expect(parsed.body).toBe("O pedido chegou aberto, veja a foto.");
+  });
+
+  it("stores an accent typed as two characters the same as the composed one", () => {
+    expect(freeText().parse("CAFÉ")).toBe("CAFÉ");
   });
 });

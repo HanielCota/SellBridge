@@ -17,13 +17,14 @@ import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { handleApi, jsonResponse } from "@/lib/server/http";
+import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
 import {
   storeAttachments,
   readSupportForm,
+  saveWithAttachments,
   textField,
   validateAttachments,
 } from "./attachments.server";
@@ -46,6 +47,7 @@ function firstIssue(error: z.ZodError): string {
 /** POST /api/suporte/chamados: opens a ticket (multipart: category, subject, body, files). */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantSession(request.headers);
     const formData = await readSupportForm(request);
     const input = createTicketSchema.safeParse({
@@ -58,14 +60,16 @@ export function handleCreateTicket(request: Request) {
     }
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
-    const { ticketId } = await createTicket(database, {
-      tenantId: session.tenantId,
-      userId: session.userId,
-      category: input.data.category,
-      subject: input.data.subject,
-      body: input.data.body,
-      attachments,
-    });
+    const { ticketId } = await saveWithAttachments(fileStorage, attachments, () =>
+      createTicket(database, {
+        tenantId: session.tenantId,
+        userId: session.userId,
+        category: input.data.category,
+        subject: input.data.subject,
+        body: input.data.body,
+        attachments,
+      }),
+    );
     logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
     return jsonResponse(201, { ticketId });
   });
@@ -109,16 +113,19 @@ async function readAdminMessage(request: Request) {
 /** POST /api/suporte/chamados/:ticketId/mensagens: reseller reply, scoped to the tenant. */
 export function handleTenantReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.tenant_reply", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantSession(request.headers);
     const ticketId = parseId(ticketIdParam, "Chamado");
     const reply = await readReply(request, session.tenantId);
-    await addTicketMessage(database, {
-      ticketId,
-      tenantId: session.tenantId,
-      authorId: session.userId,
-      kind: "reseller",
-      ...reply,
-    });
+    await saveWithAttachments(fileStorage, reply.attachments, () =>
+      addTicketMessage(database, {
+        ticketId,
+        tenantId: session.tenantId,
+        authorId: session.userId,
+        kind: "reseller",
+        ...reply,
+      }),
+    );
     return jsonResponse(201, { ok: true });
   });
 }
@@ -166,18 +173,21 @@ async function notifyFollowers(ticketId: string): Promise<void> {
 /** POST /api/admin/chamados/:ticketId/mensagens: support reply or internal note. */
 export function handleAdminReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.admin_reply", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const staff = await requireStaffSession(request.headers, "support.answer");
     const ticketId = parseId(ticketIdParam, "Chamado");
     const { message, attachments } = await readAdminMessage(request);
-    const { status } = await addTicketMessage(database, {
-      ticketId,
-      tenantId: null,
-      authorId: staff.userId,
-      kind: message.kind,
-      statusAfter: message.kind === "reply" ? message.statusAfter : undefined,
-      body: message.body,
-      attachments,
-    });
+    const { status } = await saveWithAttachments(fileStorage, attachments, () =>
+      addTicketMessage(database, {
+        ticketId,
+        tenantId: null,
+        authorId: staff.userId,
+        kind: message.kind,
+        statusAfter: message.kind === "reply" ? message.statusAfter : undefined,
+        body: message.body,
+        attachments,
+      }),
+    );
     logger.info("support.admin_replied", {
       ticketId,
       staffId: staff.userId,

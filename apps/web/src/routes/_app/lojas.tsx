@@ -13,14 +13,19 @@ import {
 } from "@/components/stores/disconnect-store-dialog";
 import { StoreList } from "@/components/stores/store-list";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  STORE_CONNECT_ERROR_CODES,
+  STORE_CONNECT_ERROR_MESSAGES,
+} from "@/features/stores/store-connect-errors";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
+/** Codes and ids only: text from the URL is never shown as the app's own message. */
 const storesSearchSchema = z.object({
-  conectada: optionalParameter(z.string()),
-  erro: optionalParameter(z.string()),
+  conectada: optionalParameter(z.uuid()),
+  erro: optionalParameter(z.enum(STORE_CONNECT_ERROR_CODES)),
 });
 
 export const Route = createFileRoute("/_app/lojas")({
@@ -32,10 +37,18 @@ export const Route = createFileRoute("/_app/lojas")({
 
 function useOAuthResultToast() {
   const search = Route.useSearch();
+  const stores = useQuery(storesQueryOptions());
+  const connectedName = stores.data?.stores.find(
+    (store) => store.id === search.conectada,
+  )?.shopName;
   const navigate = useNavigate({ from: Route.fullPath });
   const shownKey = useRef<string | null>(null);
   useEffect(() => {
     if (!search.conectada && !search.erro) {
+      return;
+    }
+    // The store's name comes from the list, not the URL: wait for it before saying it.
+    if (search.conectada && stores.isPending) {
       return;
     }
     const key = `${search.conectada ?? ""}|${search.erro ?? ""}`;
@@ -44,13 +57,13 @@ function useOAuthResultToast() {
     }
     shownKey.current = key;
     if (search.conectada) {
-      toast.success(`Loja "${search.conectada}" conectada`);
+      toast.success(connectedName ? `Loja "${connectedName}" conectada` : "Loja conectada");
     }
     if (search.erro) {
-      toast.error(search.erro);
+      toast.error(STORE_CONNECT_ERROR_MESSAGES[search.erro]);
     }
     void navigate({ search: {}, replace: true });
-  }, [navigate, search.conectada, search.erro]);
+  }, [connectedName, navigate, search.conectada, search.erro, stores.isPending]);
 }
 
 function StoresPage() {

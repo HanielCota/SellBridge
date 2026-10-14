@@ -5,7 +5,7 @@ import {
   type TenantRegion,
 } from "@sellbridge/database/repositories";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { productSortSchema } from "@sellbridge/shared/schemas";
+import { productSortSchema, freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import {
@@ -41,7 +41,7 @@ const catalogQuerySchema = pageQuerySchema.extend({
     .max(100)
     .optional()
     .describe("Busca no título, SKU e fornecedor."),
-  category: z.string().trim().min(1).max(100).optional().describe("Slug da categoria."),
+  category: freeText().trim().min(1).max(100).optional().describe("Slug da categoria."),
   supplierId: z.uuid().optional().describe("Só produtos deste fornecedor."),
   inStock: queryBooleanSchema.optional().describe("`true` para só produtos com estoque."),
   unpublished: queryBooleanSchema

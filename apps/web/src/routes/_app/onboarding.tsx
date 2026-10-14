@@ -1,5 +1,5 @@
 import { formatCep, normalizeCep } from "@sellbridge/shared/cep";
-import { NO_HOUSE_NUMBER, optionalParameter } from "@sellbridge/shared/schemas";
+import { NO_HOUSE_NUMBER, optionalParameter, freeText } from "@sellbridge/shared/schemas";
 import { ArrowSquareOutIcon, CheckCircleIcon, CheckIcon, InfoIcon } from "@phosphor-icons/react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,8 +41,8 @@ const onboardingSearchSchema = z.object({
 const cepFieldSchema = z
   .string()
   .refine((value) => normalizeCep(value) !== null, "Informe um CEP com 8 dígitos");
-const streetFieldSchema = z.string().trim().min(1, "Informe a rua");
-const neighborhoodFieldSchema = z.string().trim().min(1, "Informe o bairro");
+const streetFieldSchema = freeText().trim().min(1, "Informe a rua");
+const neighborhoodFieldSchema = freeText().trim().min(1, "Informe o bairro");
 const optionalFieldSchema = z.string();
 
 interface AddressValues {

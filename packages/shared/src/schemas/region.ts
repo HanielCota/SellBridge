@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { freeText } from "./common.ts";
 import { cepSchema } from "../domain/cep.ts";
+import { freeText } from "./common.ts";
 
 /** Written on the address in place of a house number when the user ticks "Sem número". */
 export const NO_HOUSE_NUMBER = "S/N";

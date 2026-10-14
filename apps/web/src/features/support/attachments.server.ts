@@ -87,3 +87,23 @@ export function textField(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
 }
+
+/**
+ * Runs the write that records the attachments, and deletes their files if it fails (an unknown
+ * ticket, a closed one, a database error): files are stored first, and without this every failed
+ * message would leave its uploads on disk with nothing pointing at them.
+ */
+export async function saveWithAttachments<TResult>(
+  storage: FileStorage,
+  attachments: readonly NewAttachment[],
+  save: () => Promise<TResult>,
+): Promise<TResult> {
+  try {
+    return await save();
+  } catch (error) {
+    await Promise.allSettled(
+      attachments.map((attachment) => storage.delete(attachment.storageKey)),
+    );
+    throw error;
+  }
+}

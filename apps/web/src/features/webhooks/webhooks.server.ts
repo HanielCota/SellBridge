@@ -1,6 +1,6 @@
 import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
 import { withDeadline } from "@sellbridge/shared/deadline";
-import { readTextWithin } from "@sellbridge/shared/http-body";
+import { hasLoneSurrogate, parseJsonText, readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
@@ -37,6 +37,10 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
   const rawBody = await readTextWithin(request, MAX_BODY_BYTES);
   if (rawBody === null) {
     return reply(413, { error: "payload muito grande" });
+  }
+  // Half of a UTF-16 pair on its own parses, but jsonb refuses it: a 400, not a 500.
+  if (hasLoneSurrogate(parseJsonText(rawBody))) {
+    return reply(400, { error: "notificação inválida" });
   }
 
   const verification = await connectors[marketplace.data].verifyWebhook({

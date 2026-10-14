@@ -112,7 +112,10 @@ export const shipmentUpdateSchema = z
     note: freeText().trim().max(1000).default(""),
   })
   .superRefine((data, ctx) => {
-    if (data.status === "shipped" && (!data.carrier || !data.trackingCode)) {
+    // Shipping needs the carrier and code; an occurrence on a parcel already shipped (it has a
+    // note) may come without them: the marketplace may never have said which carrier it was.
+    // The server checks the move into "shipped" itself (fulfillment.ts).
+    if (data.status === "shipped" && !data.note && (!data.carrier || !data.trackingCode)) {
       ctx.addIssue({
         code: "custom",
         message: "Informe transportadora e código de rastreio",

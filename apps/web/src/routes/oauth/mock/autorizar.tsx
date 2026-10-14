@@ -27,6 +27,7 @@ import {
 } from "@/features/stores/stores.functions";
 import { errorMessage } from "@/lib/errors";
 import { rewind } from "@/lib/rewind";
+import { freeText } from "@sellbridge/shared/schemas";
 
 const consentSearchSchema = z.object({
   state: z.string().min(1),
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/oauth/mock/autorizar")({
 });
 
 const shopFormSchema = z.object({
-  shopName: z.string().trim().min(3, "Informe o nome da loja"),
+  shopName: freeText().trim().min(3, "Informe o nome da loja"),
 });
 
 const REQUESTED_PERMISSIONS = [
