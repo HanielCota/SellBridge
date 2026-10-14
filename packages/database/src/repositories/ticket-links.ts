@@ -1,6 +1,6 @@
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { and, asc, desc, eq, ne, notExists, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import {
   member,
@@ -18,7 +18,6 @@ import {
  * the store who get the e-mails. Every write is scoped to the reseller's tenant.
  */
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 type Marketplace = (typeof storeConnections.$inferSelect)["marketplace"];
 

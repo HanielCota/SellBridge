@@ -475,7 +475,7 @@ function BulkPublishForm({
       <div className="space-y-2">
         <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
           {mutation.isPending
-            ? "Publicando..."
+            ? "Publicando…"
             : `Publicar em ${pluralize(storeIds.size, "loja", "lojas")}`}
         </Button>
         <p className="text-center text-xs text-muted-foreground tabular-nums">

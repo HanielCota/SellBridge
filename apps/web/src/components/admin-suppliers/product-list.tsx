@@ -50,7 +50,7 @@ function ProductActions({
           })
         }
       >
-        {setActive.isPending ? "Salvando..." : product.active ? "Desativar" : "Ativar"}
+        {setActive.isPending ? "Salvando…" : product.active ? "Desativar" : "Ativar"}
       </Button>
     </div>
   );

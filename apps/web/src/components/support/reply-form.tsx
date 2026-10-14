@@ -210,7 +210,7 @@ export function ReplyForm({
           aria-label="Sua resposta"
           rows={3}
           maxLength={MAX_BODY_LENGTH}
-          placeholder="Escreva sua resposta para o suporte..."
+          placeholder="Escreva sua resposta para o suporte…"
           value={reply.draft.body}
           className={COMPOSER_TEXTAREA_CLASS}
           onChange={(event) => reply.draft.setBody(event.target.value)}
@@ -267,7 +267,7 @@ function ComposerToolbar({
         className="ml-2 shrink-0"
       >
         {reply.isSending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
-        {reply.isSending ? "Enviando..." : "Enviar resposta"}
+        {reply.isSending ? "Enviando…" : "Enviar resposta"}
       </Button>
     </div>
   );

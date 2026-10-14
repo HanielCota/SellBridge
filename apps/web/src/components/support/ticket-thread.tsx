@@ -2,6 +2,7 @@ import type {
   TicketEventView,
   TicketThread as TicketThreadData,
 } from "@sellbridge/database/repositories";
+import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import {
   CheckIcon,
   ChecksIcon,
@@ -16,43 +17,44 @@ import { formatBytes } from "@/components/support/attachment-input";
 import { describeCustomerEvent } from "@/components/support/ticket-event-text";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { brazilDayKey, nearDayName } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 
 type ThreadMessage = TicketThreadData["messages"][number];
 type Attachment = ThreadMessage["attachments"][number];
 
-const TIME_ZONE = "America/Sao_Paulo";
 const fullFormatter = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeStyle: "short",
-  timeZone: TIME_ZONE,
+  timeZone: REPORT_TIME_ZONE,
 });
 const sameYearFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
-  timeZone: TIME_ZONE,
+  timeZone: REPORT_TIME_ZONE,
 });
 const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
-  timeZone: TIME_ZONE,
+  timeZone: REPORT_TIME_ZONE,
 });
-const yearFormatter = new Intl.DateTimeFormat("pt-BR", { year: "numeric", timeZone: TIME_ZONE });
-const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE });
+const yearFormatter = new Intl.DateTimeFormat("pt-BR", {
+  year: "numeric",
+  timeZone: REPORT_TIME_ZONE,
+});
 const dayLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",
   month: "long",
-  timeZone: TIME_ZONE,
+  timeZone: REPORT_TIME_ZONE,
 });
 const dayLabelWithYearFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",
   month: "long",
   year: "numeric",
-  timeZone: TIME_ZONE,
+  timeZone: REPORT_TIME_ZONE,
 });
-const DAY_MILLISECONDS = 86_400_000;
 
 /** Drops the year for messages of the current year, so the header stays short. */
 function formatMessageDate(date: Date): string {
@@ -64,12 +66,9 @@ function formatMessageDate(date: Date): string {
 
 /** "Hoje", "Ontem", "10 de outubro" — the day separators between messages, in Brasília time. */
 export function formatDayLabel(date: Date, now: Date = new Date()): string {
-  const day = dayKeyFormatter.format(date);
-  if (day === dayKeyFormatter.format(now)) {
-    return "Hoje";
-  }
-  if (day === dayKeyFormatter.format(new Date(now.getTime() - DAY_MILLISECONDS))) {
-    return "Ontem";
+  const nearName = nearDayName(brazilDayKey(date), now);
+  if (nearName !== null) {
+    return nearName;
   }
   if (yearFormatter.format(date) !== yearFormatter.format(now)) {
     return dayLabelWithYearFormatter.format(date);
@@ -347,7 +346,7 @@ export function TicketThread({
   let previousDay = "";
   const items: ReactNode[] = [];
   for (const entry of timeline) {
-    const day = dayKeyFormatter.format(entry.at);
+    const day = brazilDayKey(entry.at);
     if (day !== previousDay) {
       items.push(<DaySeparator key={`day-${day}`} date={entry.at} />);
       previousDay = day;

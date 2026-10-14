@@ -7,9 +7,13 @@ import {
 } from "@sellbridge/database/repositories";
 import type { ConnectorRegistry } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { isAppError } from "@sellbridge/shared/errors";
+import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
+import {
+  expireStoreOnAuthError,
+  resolveStoreCredentials,
+  storeRateKey,
+} from "../lib/store-access.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -26,13 +30,7 @@ export interface StockPriceSyncSummary {
 }
 
 const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso";
-
-function syncFailureReason(error: unknown): string {
-  if (isAppError(error)) {
-    return error.userMessage;
-  }
-  return error instanceof Error ? error.message : String(error);
-}
+const SYNC_FAILURE_REASON = "Falha ao sincronizar estoque e preço";
 
 async function recordSyncFailure(
   dependencies: StockPriceSyncDependencies,
@@ -52,7 +50,7 @@ async function syncOne(
     if (!credentials) {
       return await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
     }
-    await dependencies.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
+    await dependencies.acquireRateLimit(storeRateKey(target.store));
     await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
       externalId: target.externalId,
       stock: target.stock,
@@ -66,7 +64,7 @@ async function syncOne(
   } catch (error) {
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
     await expireStoreOnAuthError(dependencies.database, target.store.id, error);
-    return await recordSyncFailure(dependencies, target, syncFailureReason(error));
+    return await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));
   }
 }
 

@@ -14,6 +14,7 @@ import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { listOperationsFn } from "@/features/fulfillment/fulfillment.functions";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import { errorMessage } from "@/lib/errors";
 import { FulfillmentDialog } from "./order-dialog";
@@ -113,9 +114,7 @@ function OperationRow({
   row,
   onOpen,
 }: {
-  row: Awaited<
-    ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").listOperationsFn>
-  >["items"][number];
+  row: Awaited<ReturnType<typeof listOperationsFn>>["items"][number];
   onOpen: (orderId: string) => void;
 }) {
   return (

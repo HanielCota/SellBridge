@@ -91,7 +91,7 @@ function ProductFormActions({ isPending, onClose }: { isPending: boolean; onClos
       <PendingSubmitButton
         isPending={isPending}
         idleLabel="Salvar produto"
-        pendingLabel="Salvando..."
+        pendingLabel="Salvando…"
       />
       <Button type="button" variant="outline" onClick={onClose}>
         Cancelar

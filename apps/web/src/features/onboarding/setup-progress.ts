@@ -38,10 +38,6 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   },
 ];
 
-export function isSetupComplete(progress: SetupProgress): boolean {
-  return SETUP_STEPS.every((step) => progress[step.key]);
-}
-
 export function countDoneSteps(progress: SetupProgress): number {
   return SETUP_STEPS.filter((step) => progress[step.key]).length;
 }

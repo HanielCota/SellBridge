@@ -34,9 +34,11 @@ import {
   or,
   sql,
   type SQL,
+  type SQLWrapper,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
   organization,
@@ -50,8 +52,6 @@ import {
 
 type TicketStatus = (typeof tickets.$inferSelect)["status"];
 type TicketEventType = (typeof ticketEvents.$inferSelect)["type"];
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-type Executor = Database | Transaction;
 
 export interface NewAttachment {
   storageKey: string;
@@ -139,18 +139,20 @@ export interface TicketReader {
 
 const assignee = alias(user, "assignee");
 
-/** Dates inside raw SQL fragments reach the driver as text, so they are cast explicitly. */
-function timestampOf(date: Date): SQL {
-  return sql`${date.toISOString()}::timestamptz`;
+/**
+ * `base` plus the ticket priority's target hours, in SQL. The hours are inlined: bound as
+ * parameters inside the CASE they would reach Postgres as text.
+ */
+function plusResponseTarget(base: SQLWrapper): SQL {
+  return sql`(${base} + (case ${tickets.priority} ${sql.join(
+    TICKET_PRIORITIES.map((priority) =>
+      sql.raw(`when '${priority}' then ${RESPONSE_TARGET_HOURS[priority]}`),
+    ),
+    sql` `,
+  )} end) * interval '1 hour')`;
 }
 
-/** `awaiting_since` plus the priority's target hours, in SQL. */
-const responseDueAtSql = sql`(${tickets.awaitingSince} + (case ${tickets.priority} ${sql.join(
-  TICKET_PRIORITIES.map((priority) =>
-    sql.raw(`when '${priority}' then ${RESPONSE_TARGET_HOURS[priority]}`),
-  ),
-  sql` `,
-)} end) * interval '1 hour')`;
+const responseDueAtSql = plusResponseTarget(tickets.awaitingSince);
 
 const STAFF_ROLE_LIST = sql.raw(STAFF_ROLES.map((role) => `'${role}'`).join(", "));
 
@@ -206,7 +208,7 @@ const summaryColumns = (reader: TicketReader | undefined) => ({
 });
 
 async function recordEvent(
-  executor: Executor,
+  executor: DatabaseExecutor,
   input: {
     ticketId: string;
     actorId: string | null;
@@ -220,7 +222,12 @@ async function recordEvent(
   await executor.insert(ticketEvents).values(input);
 }
 
-async function markRead(executor: Executor, ticketId: string, userId: string, readAt: Date) {
+async function markRead(
+  executor: DatabaseExecutor,
+  ticketId: string,
+  userId: string,
+  readAt: Date,
+) {
   await executor
     .insert(ticketReads)
     .values({ ticketId, userId, readAt })
@@ -231,7 +238,7 @@ async function markRead(executor: Executor, ticketId: string, userId: string, re
 }
 
 async function insertAttachments(
-  executor: Executor,
+  executor: DatabaseExecutor,
   ticketId: string,
   messageId: string,
   attachments: readonly NewAttachment[],
@@ -563,7 +570,7 @@ export async function assignTicket(
   });
 }
 
-async function isActiveStaff(executor: Executor, userId: string): Promise<boolean> {
+async function isActiveStaff(executor: DatabaseExecutor, userId: string): Promise<boolean> {
   const [row] = await executor
     .select({ role: user.role, banned: user.banned })
     .from(user)
@@ -573,7 +580,7 @@ async function isActiveStaff(executor: Executor, userId: string): Promise<boolea
 }
 
 async function assertOnlyTouchesSelf(
-  executor: Executor,
+  executor: DatabaseExecutor,
   currentAssigneeId: string | null,
   input: { assigneeId: string | null; actorId: string },
 ): Promise<void> {
@@ -1132,12 +1139,7 @@ export interface SupportMetrics {
   }[];
 }
 
-const firstReplyTarget = sql`(${tickets.createdAt} + (case ${tickets.priority} ${sql.join(
-  TICKET_PRIORITIES.map((priority) =>
-    sql.raw(`when '${priority}' then ${RESPONSE_TARGET_HOURS[priority]}`),
-  ),
-  sql` `,
-)} end) * interval '1 hour')`;
+const firstReplyTarget = plusResponseTarget(tickets.createdAt);
 
 function numberOrNull(value: string | number | null): number | null {
   if (value === null) {

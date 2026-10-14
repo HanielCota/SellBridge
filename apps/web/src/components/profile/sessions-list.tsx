@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { activeSessionsQueryOptions } from "@/features/profile/account.queries";
 import { groupSessions, type SessionGroup } from "@/features/profile/session-groups";
 import { authClient } from "@/lib/auth-client";
+import { errorMessage } from "@/lib/errors";
 import { formatAbsoluteTime, formatSmartDate } from "@/lib/relative-time";
 
 const GROUPS_SHOWN = 3;
@@ -35,7 +36,7 @@ function useRevoke() {
           ? "Dispositivo desconectado"
           : `${target.tokens.length} sessões desconectadas`,
       ),
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
   });
   const others = useMutation({
@@ -46,7 +47,7 @@ function useRevoke() {
       }
     },
     onSuccess: () => toast.success("Outros dispositivos desconectados"),
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
   });
   return { group, others };
@@ -106,7 +107,7 @@ function SessionGroupRow({
           }
         >
           <SignOutIcon aria-hidden="true" />
-          {isRevoking ? "Desconectando..." : "Desconectar"}
+          {isRevoking ? "Desconectando…" : "Desconectar"}
         </Button>
       )}
     </li>
@@ -130,7 +131,7 @@ export function SessionsList() {
     );
   }
   if (query.isError) {
-    return <p className="text-sm text-destructive">{query.error.message}</p>;
+    return <p className="text-sm text-destructive">{errorMessage(query.error)}</p>;
   }
   const groups = groupSessions(query.data);
   const visibleGroups = isExpanded ? groups : groups.slice(0, GROUPS_SHOWN);
@@ -160,7 +161,7 @@ export function SessionsList() {
           disabled={revoke.others.isPending}
           onClick={() => revoke.others.mutate()}
         >
-          {revoke.others.isPending ? "Desconectando..." : "Sair de todos os outros dispositivos"}
+          {revoke.others.isPending ? "Desconectando…" : "Sair de todos os outros dispositivos"}
         </Button>
       ) : (
         <p className="text-sm text-muted-foreground">Sua conta está aberta só neste dispositivo.</p>

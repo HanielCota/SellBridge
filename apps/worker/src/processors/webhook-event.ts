@@ -6,12 +6,13 @@ import {
   markWebhookProcessed,
   upsertMarketplaceOrder,
 } from "@sellbridge/database/repositories";
-import { isAppError } from "@sellbridge/shared/errors";
+import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { webhookEventJobSchema } from "@sellbridge/shared/queues";
 import type { ConnectorRegistry, MarketplaceId } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
+import type { JobContext } from "../lib/job-context.ts";
 import { decryptStoreCredentials } from "../lib/store-access.ts";
 
 export interface WebhookDependencies {
@@ -20,12 +21,6 @@ export interface WebhookDependencies {
   cipher: TokenCipher;
   /** Asks the stock and price sync to run now instead of at its next scheduled run. */
   requestStockSync: () => Promise<void>;
-}
-
-export interface WebhookJobContext {
-  data: unknown;
-  attemptsMade: number;
-  maxAttempts: number;
 }
 
 export type WebhookOutcome =
@@ -37,10 +32,9 @@ type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreBy
 interface OrderSync {
   readonly dependencies: WebhookDependencies;
   readonly webhookEventId: string;
-  readonly eventId: string;
   readonly marketplace: MarketplaceId;
   readonly store: ConnectedStore;
-  readonly encryptedAccessToken: string;
+  readonly accessTokenEnc: string;
   readonly resource: string;
 }
 
@@ -48,7 +42,7 @@ type SyncPreparation =
   | { readonly kind: "ready"; readonly sync: OrderSync }
   | { readonly kind: "skipped"; readonly outcome: WebhookOutcome };
 
-function parseWebhookJob(job: WebhookJobContext): string {
+function parseWebhookJob(job: JobContext): string {
   const parsed = webhookEventJobSchema.safeParse(job.data);
   if (!parsed.success) {
     throw new UnrecoverableError("Payload do job de webhook inválido");
@@ -82,7 +76,7 @@ async function prepareOrderSync(
   event: WebhookEvent,
 ): Promise<SyncPreparation> {
   const eventId = event.id;
-  const marketplace: MarketplaceId = event.marketplace;
+  const marketplace = event.marketplace;
   const reference = dependencies.connectors[marketplace].parseStoredOrderEvent(
     event.topic,
     event.rawPayload,
@@ -113,10 +107,9 @@ async function prepareOrderSync(
     sync: {
       dependencies,
       webhookEventId,
-      eventId,
       marketplace,
       store,
-      encryptedAccessToken: store.accessTokenEnc,
+      accessTokenEnc: store.accessTokenEnc,
       resource: reference.resource,
     },
   };
@@ -139,9 +132,10 @@ async function requestStockSyncSafely(
 
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
+  // Decrypted here, inside the caller's try, so a bad token is recorded on the event.
   const credentials = decryptStoreCredentials(dependencies.cipher, {
     externalShopId: store.externalShopId,
-    accessTokenEnc: sync.encryptedAccessToken,
+    accessTokenEnc: sync.accessTokenEnc,
   });
   const order = await dependencies.connectors[sync.marketplace].fetchOrder(
     credentials,
@@ -153,7 +147,7 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     store.id,
     order,
   );
-  await markWebhookProcessed(dependencies.database, sync.eventId);
+  await markWebhookProcessed(dependencies.database, sync.webhookEventId);
   if (result.stockMoves > 0) {
     await requestStockSyncSafely(dependencies, sync.webhookEventId);
   }
@@ -166,20 +160,16 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   return result.status === "created" ? "order_created" : "order_updated";
 }
 
-async function handleSyncFailure(
-  sync: OrderSync,
-  job: WebhookJobContext,
-  error: unknown,
-): Promise<never> {
-  const message = isAppError(error) ? error.userMessage : "Falha ao processar o evento";
+async function handleSyncFailure(sync: OrderSync, job: JobContext, error: unknown): Promise<never> {
+  const message = userMessageOr(error, "Falha ao processar o evento");
   const isFinal = job.attemptsMade + 1 >= job.maxAttempts;
-  await markWebhookFailed(sync.dependencies.database, sync.eventId, message);
+  await markWebhookFailed(sync.dependencies.database, sync.webhookEventId, message);
   logger.warn("webhook.processing_failed", { webhookEventId: sync.webhookEventId, isFinal, error });
   throw error;
 }
 
 export function createWebhookEventProcessor(dependencies: WebhookDependencies) {
-  return async function processWebhookEvent(job: WebhookJobContext): Promise<WebhookOutcome> {
+  return async function processWebhookEvent(job: JobContext): Promise<WebhookOutcome> {
     const webhookEventId = parseWebhookJob(job);
     const event = await loadWebhookEvent(dependencies, webhookEventId);
     if (event.processedAt) {

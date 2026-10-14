@@ -1,3 +1,4 @@
+import { stripAccents } from "../domain/text.ts";
 import type { AttachmentType } from "../schemas/support.ts";
 
 function startsWith(bytes: Uint8Array, signature: readonly number[], offset = 0): boolean {
@@ -33,9 +34,7 @@ export function detectAttachmentType(bytes: Uint8Array): AttachmentType | null {
 /** Keeps letters, numbers, dots, dashes and underscores; never returns an empty name. */
 export function sanitizeFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  const cleaned = base
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  const cleaned = stripAccents(base)
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^[.-]+/, "")
     .slice(0, 80);

@@ -1,4 +1,5 @@
 import { CUSTOMER_ISSUE_KINDS, type CustomerIssueKind } from "../schemas/admin.ts";
+import { DAY_MILLISECONDS } from "./time.ts";
 
 /**
  * How healthy a reseller's account is, as the admin sees it: what is broken right now, how far
@@ -6,16 +7,14 @@ import { CUSTOMER_ISSUE_KINDS, type CustomerIssueKind } from "../schemas/admin.t
  * Everything here is derived from counters the database already keeps, so it needs no storage.
  */
 
-const DAY_MILLISECONDS = 86_400_000;
-
 /** A fresh account gets a few days to finish the first steps before it counts as stalled. */
-export const ONBOARDING_GRACE_DAYS = 3;
+const ONBOARDING_GRACE_DAYS = 3;
 /** No sign-in for this long and the reseller counts as gone quiet. */
-export const INACTIVE_AFTER_DAYS = 30;
+const INACTIVE_AFTER_DAYS = 30;
 /** A drop only counts when the earlier period had at least this many orders. */
-export const DECLINE_MIN_PREVIOUS_ORDERS = 5;
+const DECLINE_MIN_PREVIOUS_ORDERS = 5;
 /** Orders falling by at least this share against the previous period count as a decline. */
-export const DECLINE_THRESHOLD = 0.5;
+const DECLINE_THRESHOLD = 0.5;
 
 /** Points each open issue costs; onboarding costs per missing step instead. */
 const ISSUE_PENALTIES: Record<Exclude<CustomerIssueKind, "onboarding">, number> = {
@@ -35,7 +34,7 @@ export const ONBOARDING_STEP_LABELS: Record<OnboardingStep, string> = {
   listing: "Publicação",
 };
 
-export const ISSUE_SEVERITIES = ["danger", "warning", "info", "muted"] as const;
+const ISSUE_SEVERITIES = ["danger", "warning", "info", "muted"] as const;
 export type IssueSeverity = (typeof ISSUE_SEVERITIES)[number];
 
 export const ISSUE_SEVERITY: Record<CustomerIssueKind, IssueSeverity> = {
@@ -46,7 +45,7 @@ export const ISSUE_SEVERITY: Record<CustomerIssueKind, IssueSeverity> = {
   cooling: "muted",
 };
 
-export const HEALTH_LEVELS = ["critical", "attention", "healthy"] as const;
+const HEALTH_LEVELS = ["critical", "attention", "healthy"] as const;
 export type HealthLevel = (typeof HEALTH_LEVELS)[number];
 
 export const CUSTOMER_STAGES = ["setup", "selling", "at_risk", "cooling"] as const;

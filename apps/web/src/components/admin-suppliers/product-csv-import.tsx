@@ -57,7 +57,7 @@ function CsvPreview({ importer }: { importer: ReturnType<typeof useProductCsv> }
         }
         onClick={importer.confirm}
       >
-        {importer.apply.isPending ? "Importando..." : "Confirmar importação"}
+        {importer.apply.isPending ? "Importando…" : "Confirmar importação"}
       </Button>
     </div>
   );
@@ -135,7 +135,7 @@ export function ProductCsvImport({
           disabled={!importer.canPreview || pending}
           onClick={importer.generatePreview}
         >
-          {pending ? "Processando..." : "Gerar prévia"}
+          {pending ? "Processando…" : "Gerar prévia"}
         </Button>
         <FormErrorAlert message={error} />
         {importer.apply.isSuccess ? (

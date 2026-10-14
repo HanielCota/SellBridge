@@ -1,9 +1,8 @@
 import type { Database } from "@sellbridge/database";
 import { autoCloseIdleTickets } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import { daysBefore } from "@sellbridge/shared/time";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
-
-const DAY_MILLISECONDS = 86_400_000;
 
 export interface TicketAutoCloseDependencies {
   readonly database: Database;
@@ -17,7 +16,7 @@ export interface TicketAutoCloseDependencies {
 export function createTicketAutoCloseProcessor(dependencies: TicketAutoCloseDependencies) {
   return async function processTicketAutoClose(): Promise<{ closed: number }> {
     const now = dependencies.now?.() ?? new Date();
-    const before = new Date(now.getTime() - AUTO_CLOSE_AFTER_DAYS * DAY_MILLISECONDS);
+    const before = daysBefore(AUTO_CLOSE_AFTER_DAYS, now);
     const closed = await autoCloseIdleTickets(dependencies.database, { before, now });
     if (closed > 0) {
       logger.info("support.tickets_auto_closed", { closed });

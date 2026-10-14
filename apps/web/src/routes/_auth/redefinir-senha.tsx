@@ -72,7 +72,7 @@ function ResetPasswordForm({ token }: { token: string }) {
           <AuthSubmitButton
             isPending={isSubmitting}
             idleLabel="Salvar nova senha"
-            pendingLabel="Salvando..."
+            pendingLabel="Salvando…"
           />
         )}
       </form.Subscribe>

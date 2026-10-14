@@ -1,5 +1,5 @@
 /** Up to two initials from the meaningful words of a supplier name ("Casa do Pão" → "CP"). */
-export function supplierInitials(name: string): string {
+function supplierInitials(name: string): string {
   const words = name.split(/\s+/).filter((word) => word.length > 2);
   const initials = words
     .slice(0, 2)

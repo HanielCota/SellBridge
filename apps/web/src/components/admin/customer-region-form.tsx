@@ -73,7 +73,7 @@ export function CustomerRegionForm({ userId, region }: RegionFormProps) {
             save.isPending || normalizeCep(cep) === (region ? normalizeCep(region.cep) : null)
           }
         >
-          {save.isPending ? "Consultando CEP..." : "Salvar região"}
+          {save.isPending ? "Consultando CEP…" : "Salvar região"}
         </Button>
       </form>
     </SectionCard>

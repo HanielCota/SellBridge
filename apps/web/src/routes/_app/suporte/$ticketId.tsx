@@ -157,7 +157,7 @@ function CloseTicketBar({ closeTicket }: { closeTicket: ReturnType<typeof useClo
         onClick={() => closeTicket.mutate()}
       >
         <CheckCircleIcon aria-hidden="true" />
-        {closeTicket.isPending ? "Encerrando..." : "Encerrar chamado"}
+        {closeTicket.isPending ? "Encerrando…" : "Encerrar chamado"}
       </Button>
     </div>
   );

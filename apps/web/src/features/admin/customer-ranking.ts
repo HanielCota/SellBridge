@@ -39,7 +39,7 @@ export type QueueCounts = Record<IssueQueue, number>;
 /** Triage rows by customer and issue kind, for joining onto the derived issues. */
 export type TriageIndex = ReadonlyMap<string, EntryTriage>;
 
-export function triageKey(userId: string, kind: CustomerIssueKind): string {
+function triageKey(userId: string, kind: CustomerIssueKind): string {
   return `${userId}:${kind}`;
 }
 
@@ -48,7 +48,7 @@ export function indexTriage(rows: readonly IssueTriage[]): TriageIndex {
 }
 
 /** How many customers a journey column shows before it only counts the rest. */
-export const JOURNEY_COLUMN_LIMIT = 12;
+const JOURNEY_COLUMN_LIMIT = 12;
 /** The queue shows this many issues at once; filtering by kind narrows the rest down. */
 export const ISSUE_QUEUE_LIMIT = 100;
 
@@ -132,7 +132,7 @@ export function listIssueEntries(
   );
 }
 
-export function isSnoozed(entry: CustomerIssueEntry, now: Date): boolean {
+function isSnoozed(entry: CustomerIssueEntry, now: Date): boolean {
   const until = entry.triage?.snoozedUntil;
   return until !== null && until !== undefined && until > now;
 }

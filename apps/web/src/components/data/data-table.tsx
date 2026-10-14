@@ -19,8 +19,8 @@ import {
  * Every table in the app is server-driven: sorting, filtering and pagination live in
  * the URL search params and are applied by the server. No client-side features needed.
  */
-export const serverTableFeatures = tableFeatures({});
-export type ServerTableFeatures = typeof serverTableFeatures;
+const serverTableFeatures = tableFeatures({});
+type ServerTableFeatures = typeof serverTableFeatures;
 
 export function createServerColumnHelper<TData extends RowData>() {
   return createColumnHelper<ServerTableFeatures, TData>();

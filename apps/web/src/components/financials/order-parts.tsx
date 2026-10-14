@@ -1,6 +1,7 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { orderMargin, orderSplit, type OrderSplitKind } from "@/features/reports/financial-rows";
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 
 /** Same colors as the period summary, so a row's bar reads like the big one above it. */
@@ -18,8 +19,6 @@ const SPLIT_LABELS: Record<OrderSplitKind, string> = {
   profit: "Lucro",
 };
 
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
-
 /** Money with a real minus sign, and a plus when asked, so columns read as math. */
 export function signedCents(cents: number, { plus = false } = {}): string {
   if (cents < 0) {
@@ -30,7 +29,7 @@ export function signedCents(cents: number, { plus = false } = {}): string {
 
 export function marginLabel(row: OrderFinancialRow): string | null {
   const margin = orderMargin(row);
-  return margin === null ? null : percent.format(margin);
+  return margin === null ? null : formatPercent(margin);
 }
 
 /** The order is out of the books (cancelled or returned): its amounts read as void. */

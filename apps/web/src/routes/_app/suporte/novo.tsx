@@ -217,7 +217,7 @@ function NewTicketForm() {
             <PendingSubmitButton
               isPending={isSubmitting}
               idleLabel="Abrir chamado"
-              pendingLabel="Enviando..."
+              pendingLabel="Enviando…"
             />
           )}
         </form.Subscribe>

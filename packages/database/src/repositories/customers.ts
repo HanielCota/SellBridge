@@ -1,12 +1,12 @@
-import type { CustomerStoreSignal } from "@sellbridge/shared/customer-health";
-import { type Pagination, type Paginated, toPaginated } from "@sellbridge/shared/schemas";
-import { and, count, desc, eq, ilike, ne, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import type { CustomerSignals, CustomerStoreSignal } from "@sellbridge/shared/customer-health";
+import { daysBefore } from "@sellbridge/shared/time";
+import { and, desc, eq, ilike, ne, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import { member, tenantProfile, user } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { daysBefore } from "./time-window.ts";
 
 /** How far back the "recent activity" numbers look. */
 const CUSTOMER_ACTIVITY_DAYS = 30;
@@ -18,58 +18,52 @@ export const MAX_CUSTOMERS_RANKED = 5_000;
 const WEEK_DAYS = 7;
 
 const weeklyOrdersRowSchema = z.object({
-  weeks_ago: z.coerce.number().int(),
-  orders: z.coerce.number().int(),
+  weeks_ago: sqlIntegerSchema,
+  orders: sqlIntegerSchema,
 });
 
-export interface CustomerSummary {
+/**
+ * `previousOrders` covers the 30 days before the recent window; `lastSeenAt` comes from the
+ * activity log and, for accounts older than it, their sessions.
+ */
+export interface CustomerSummary extends CustomerSignals {
   id: string;
   name: string;
   email: string;
   role: string;
-  banned: boolean;
   banReason: string | null;
-  createdAt: Date;
   tenantId: string | null;
   city: string | null;
   state: string | null;
   connectedStores: number;
-  publishedListings: number;
-  failedListings: number;
-  recentOrders: number;
   recentRevenueCents: number;
-  /** Orders in the 30 days before the recent window, to spot a drop. */
-  previousOrders: number;
-  hasRegion: boolean;
   /** Stores the reseller has not disconnected, whatever their health. */
   stores: CustomerStoreSignal[];
-  /** Tickets waiting for the support team. */
-  waitingTickets: number;
-  /**
-   * Last sign-in of the customer themself, from the activity log and, for accounts older than
-   * it, their sessions; sessions an admin opened as them never count.
-   */
-  lastSeenAt: Date | null;
 }
 
 function activitySince(now: Date): Date {
   return daysBefore(CUSTOMER_ACTIVITY_DAYS, now);
 }
 
-function isStoreSignal(value: unknown): value is CustomerStoreSignal {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  return "marketplace" in value && "shopName" in value && "status" in value;
-}
+const storeSignalSchema = z.object({
+  marketplace: z.string(),
+  shopName: z.string(),
+  status: z.string(),
+});
+const storeSignalsSchema = z.array(z.unknown());
 
 /** The driver hands `json` back parsed or as text depending on the column type it sees. */
 function parseStores(value: unknown): CustomerStoreSignal[] {
-  const parsed: unknown = typeof value === "string" ? JSON.parse(value) : value;
-  if (!Array.isArray(parsed)) {
+  const parsed = storeSignalsSchema.safeParse(
+    typeof value === "string" ? JSON.parse(value) : value,
+  );
+  if (!parsed.success) {
     return [];
   }
-  return parsed.filter(isStoreSignal);
+  return parsed.data.flatMap((entry) => {
+    const store = storeSignalSchema.safeParse(entry);
+    return store.success ? [store.data] : [];
+  });
 }
 
 function parseOptionalDate(value: unknown): Date | null {
@@ -86,7 +80,7 @@ function parseOptionalDate(value: unknown): Date | null {
 }
 
 function countedOrdersBetween(tenantId: SQLWrapper, from: Date, to: Date): SQL {
-  return sql`o.tenant_id = ${tenantId} and o.ordered_at >= ${from.toISOString()}::timestamptz and o.ordered_at < ${to.toISOString()}::timestamptz and ${isCountedOrder(sql.raw("o.status"))}`;
+  return sql`o.tenant_id = ${tenantId} and o.ordered_at >= ${timestampOf(from)} and o.ordered_at < ${timestampOf(to)} and ${isCountedOrder(sql.raw("o.status"))}`;
 }
 
 /** Per-tenant counters computed in the same query, so the list needs a single round trip. */
@@ -156,24 +150,6 @@ function customersQuery(database: Database, now: Date) {
     .leftJoin(tenantProfile, eq(tenantProfile.tenantId, member.organizationId));
 }
 
-export async function listCustomers(
-  database: Database,
-  filters: { search?: string | undefined },
-  pagination: Pagination,
-  now: Date = new Date(),
-): Promise<Paginated<CustomerSummary>> {
-  const where = customerSearch(filters.search);
-  const [rows, totals] = await Promise.all([
-    customersQuery(database, now)
-      .where(where)
-      .orderBy(desc(user.createdAt))
-      .limit(pagination.pageSize)
-      .offset((pagination.page - 1) * pagination.pageSize),
-    database.select({ total: count() }).from(user).where(where),
-  ]);
-  return toPaginated(rows, totals.at(0)?.total ?? 0, pagination);
-}
-
 /** Every customer matching the search, newest first, for the in-memory health ranking. */
 export async function listCustomerSignals(
   database: Database,
@@ -195,12 +171,12 @@ export async function getWeeklyOrderCounts(
 ): Promise<number[]> {
   const since = daysBefore(weeks * WEEK_DAYS, now);
   const rows = await database.execute(sql`
-    select floor(extract(epoch from (${now.toISOString()}::timestamptz - o.ordered_at)) / ${WEEK_DAYS * 86_400})::int as weeks_ago,
+    select floor(extract(epoch from (${timestampOf(now)} - o.ordered_at)) / ${WEEK_DAYS * 86_400})::int as weeks_ago,
       count(*)::int as orders
     from orders o
     where o.tenant_id = ${tenantId}
-      and o.ordered_at >= ${since.toISOString()}::timestamptz
-      and o.ordered_at < ${now.toISOString()}::timestamptz
+      and o.ordered_at >= ${timestampOf(since)}
+      and o.ordered_at < ${timestampOf(now)}
       and ${isCountedOrder(sql.raw("o.status"))}
     group by 1`);
   const counts = Array.from({ length: weeks }, () => 0);

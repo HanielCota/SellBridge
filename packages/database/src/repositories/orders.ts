@@ -1,7 +1,7 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
@@ -68,8 +68,6 @@ async function resolveListings(
   );
 }
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 interface OrderWrite {
   readonly transaction: Transaction;
   readonly tenantId: string;
@@ -110,7 +108,7 @@ async function updateExistingOrder(
   existing: typeof orders.$inferSelect,
 ): Promise<OrderWriteResult> {
   if (existing.tenantId !== write.tenantId) {
-    throw conflictError("Pedido pertence a outro tenant");
+    throw conflictError("Pedido pertence a outra conta");
   }
   await write.transaction
     .update(orders)

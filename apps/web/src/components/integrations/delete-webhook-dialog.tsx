@@ -22,7 +22,7 @@ export function DeleteWebhookDialog({
       title="Excluir este webhook?"
       description={`${endpoint?.url ?? ""} deixa de receber eventos, e as entregas pendentes são descartadas. Para só pausar, desative o webhook.`}
       confirmLabel="Excluir webhook"
-      pendingLabel="Excluindo..."
+      pendingLabel="Excluindo…"
       destructive
       isPending={mutation.isPending}
       onConfirm={() => {

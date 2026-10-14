@@ -2,28 +2,13 @@ import type { TicketSummary, TicketThread } from "@sellbridge/database/repositor
 import { CopyIcon, IdentificationCardIcon, SignInIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { toast } from "sonner";
 import { SmartDate } from "@/components/data/smart-date";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useImpersonate } from "@/features/admin/use-impersonate";
-
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/);
-  const first = words.at(0)?.at(0) ?? "";
-  const last = words.length > 1 ? (words.at(-1)?.at(0) ?? "") : "";
-  return `${first}${last}`.toUpperCase();
-}
-
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success("E-mail copiado");
-  } catch {
-    toast.error("Não foi possível copiar");
-  }
-}
+import { copyToClipboard } from "@/lib/clipboard";
+import { initials } from "@/lib/initials";
 
 function PanelAction({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -82,7 +67,7 @@ function CustomerActions({
           variant="outline"
           size="icon-sm"
           aria-label="Copiar e-mail do cliente"
-          onClick={() => void copyToClipboard(email)}
+          onClick={() => void copyToClipboard(email, "E-mail copiado")}
         >
           <CopyIcon aria-hidden="true" />
         </Button>

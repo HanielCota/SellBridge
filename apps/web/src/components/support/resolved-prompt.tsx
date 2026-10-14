@@ -27,7 +27,7 @@ export function ResolvedPrompt({
         onClick={onSolved}
       >
         <ThumbsUpIcon aria-hidden="true" />
-        {isClosing ? "Encerrando..." : "Sim, resolveu"}
+        {isClosing ? "Encerrando…" : "Sim, resolveu"}
       </Button>
       <Button type="button" variant="ghost" size="sm" className="h-7" onClick={onNotSolved}>
         <ThumbsDownIcon aria-hidden="true" />

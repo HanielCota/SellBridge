@@ -72,3 +72,11 @@ export function conflictError(message: string): AppError {
 export function configurationError(message: string): AppError {
   return new AppError("CONFIGURATION", message);
 }
+
+/** The message safe to show the user: the AppError's own, or the given fallback otherwise. */
+export function userMessageOr(error: unknown, fallback: string): string {
+  if (isAppError(error)) {
+    return error.userMessage;
+  }
+  return fallback;
+}

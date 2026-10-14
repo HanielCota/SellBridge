@@ -17,12 +17,17 @@ import {
 } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { unavailableMessage, unavailableReason } from "@sellbridge/shared/catalog-availability";
-import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
+import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
-import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
+import {
+  expireStoreOnAuthError,
+  resolveStoreCredentials,
+  storeRateKey,
+} from "../lib/store-access.ts";
+import type { JobContext } from "../lib/job-context.ts";
 
 export interface PublishDependencies {
   database: Database;
@@ -34,29 +39,17 @@ export interface PublishDependencies {
   safetyUnits: number;
 }
 
-export interface PublishJobContext {
-  data: unknown;
-  /** Attempts already made before this one (BullMQ `job.attemptsMade`). */
-  attemptsMade: number;
-  maxAttempts: number;
-}
-
 /** `not_pending`: another job owns the target, or it already failed or is paused. */
 export type PublishOutcome = "published" | "already_published" | "not_pending";
 
-function failureReason(error: unknown): string {
-  if (isAppError(error)) {
-    return error.userMessage;
-  }
-  return "Erro inesperado ao publicar. Tente reprocessar.";
-}
+const UNEXPECTED_FAILURE_REASON = "Erro inesperado ao publicar. Tente reprocessar.";
 
 async function loadTarget(dependencies: PublishDependencies, tenantId: string, targetId: string) {
   try {
     return await getTargetForPublishing(dependencies.database, tenantId, targetId);
   } catch (error) {
     if (hasErrorCode(error, "NOT_FOUND")) {
-      throw new UnrecoverableError(`Publicação ${targetId} não encontrada para o tenant`);
+      throw new UnrecoverableError(`Publicação ${targetId} não encontrada para esta conta`);
     }
     throw error;
   }
@@ -97,14 +90,14 @@ function toPublishProductInput(row: TargetForPublishing, safetyUnits: number): P
 
 interface PublishAttempt {
   readonly dependencies: PublishDependencies;
-  readonly job: PublishJobContext;
+  readonly job: JobContext;
   readonly tenantId: string;
   readonly listingTargetId: string;
   readonly row: TargetForPublishing;
   readonly credentials: StoreCredentials;
 }
 
-function parsePublishJob(job: PublishJobContext): { tenantId: string; listingTargetId: string } {
+function parsePublishJob(job: JobContext): { tenantId: string; listingTargetId: string } {
   const parsed = publishListingJobSchema.safeParse(job.data);
   if (!parsed.success) {
     throw new UnrecoverableError("Payload do job de publicação inválido");
@@ -181,7 +174,7 @@ async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOut
 
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
   const { dependencies, job, tenantId, listingTargetId } = attempt;
-  const reason = failureReason(error);
+  const reason = userMessageOr(error, UNEXPECTED_FAILURE_REASON);
   await expireStoreOnAuthError(dependencies.database, attempt.row.store.id, error);
   const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
   await markTargetFailed(dependencies.database, listingTargetId, reason, { final: isFinal });
@@ -234,12 +227,12 @@ async function claimWhenRateAllows(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
 ): Promise<boolean> {
-  await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
+  await dependencies.acquireRateLimit(storeRateKey(row.store));
   return claimTargetForPublishing(dependencies.database, row.target.id);
 }
 
 export function createPublishListingProcessor(dependencies: PublishDependencies) {
-  return async function processPublishListing(job: PublishJobContext): Promise<PublishOutcome> {
+  return async function processPublishListing(job: JobContext): Promise<PublishOutcome> {
     const { tenantId, listingTargetId } = parsePublishJob(job);
     const row = await loadTarget(dependencies, tenantId, listingTargetId);
     const skipped = outcomeWithoutPublishing(row);

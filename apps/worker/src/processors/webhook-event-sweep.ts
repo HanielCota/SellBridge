@@ -3,9 +3,9 @@ import { findUnprocessedWebhookEvents } from "@sellbridge/database/repositories"
 import { logger } from "@sellbridge/shared/logger";
 
 /** Past the route's enqueue: an event this old without a result lost its job or its retries. */
-export const UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS = 10 * 60 * 1000;
+const UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS = 10 * 60 * 1000;
 /** Older events are left for manual inspection instead of being retried forever. */
-export const UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
+const UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
 const SWEEP_BATCH_SIZE = 500;
 
 export interface WebhookEventSweepDependencies {

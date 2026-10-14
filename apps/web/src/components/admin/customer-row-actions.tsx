@@ -10,7 +10,6 @@ import {
 } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
 import { BanDialogFields } from "@/components/admin/customer-access";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { useIconMotion, type MenuIconMotion } from "@/components/listings/menu-icon-motion";
@@ -28,6 +27,7 @@ import {
 } from "@/features/admin/customers.functions";
 import { useAdminAction } from "@/features/admin/use-admin-action";
 import { useImpersonate } from "@/features/admin/use-impersonate";
+import { copyToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 interface RowCustomer {
@@ -104,15 +104,6 @@ function useActionMotions() {
   };
 }
 
-async function copyEmail(email: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(email);
-    toast.success("E-mail copiado");
-  } catch {
-    toast.error("Não foi possível copiar. Selecione o e-mail e copie manualmente.");
-  }
-}
-
 /** Blocking asks first, with the reason the customer will see; unblocking acts at once. */
 function useBanToggle(customer: RowCustomer) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -138,7 +129,7 @@ function BanDialog({ customer, ban }: { customer: RowCustomer; ban: BanToggle })
       title={`Bloquear ${customer.name}?`}
       description="O cliente sai de todos os dispositivos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
       confirmLabel="Bloquear"
-      pendingLabel="Bloqueando..."
+      pendingLabel="Bloqueando…"
       destructive
       isPending={ban.toggle.isPending}
       onConfirm={() => ban.toggle.mutate(undefined)}
@@ -174,7 +165,7 @@ function AccountItems({
       <ActionItem
         motion={motions.copy}
         label="Copiar e-mail"
-        onSelect={() => void copyEmail(customer.email)}
+        onSelect={() => void copyToClipboard(customer.email, "E-mail copiado")}
       />
       <DropdownMenuSeparator />
       {customer.banned ? (

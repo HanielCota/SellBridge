@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils";
 import { BRIDGE_PATH, SELL_PATH, WORDMARK_VIEW_BOX } from "./brand-wordmark";
 
-export const BRAND_TAGLINE = "A ponte entre quem vende e quem fornece.";
-
 /** Vector master shared by the website and the exported brand assets. */
 export function BrandIcon({ className }: { className?: string | undefined }) {
   return (

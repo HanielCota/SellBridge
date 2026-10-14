@@ -1,3 +1,5 @@
+import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+
 const relative = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
 const absolute = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
@@ -46,4 +48,26 @@ export function formatSmartDate(date: Date, now: Date = new Date()): string {
   return date.getFullYear() === now.getFullYear()
     ? dayMonth.format(date)
     : dayMonthYear.format(date);
+}
+
+const brazilDayKeyFormat = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
+const DAY_MILLISECONDS = 86_400_000;
+
+/** The calendar day of an instant in Brazil time, as "YYYY-MM-DD". */
+export function brazilDayKey(date: Date): string {
+  return brazilDayKeyFormat.format(date);
+}
+
+/**
+ * "Hoje" or "Ontem" for a "YYYY-MM-DD" day in Brazil time, null for any other day: the start of
+ * every day heading, which then spells the date in its own style.
+ */
+export function nearDayName(dayKey: string, now: Date = new Date()): string | null {
+  if (dayKey === brazilDayKey(now)) {
+    return "Hoje";
+  }
+  if (dayKey === brazilDayKey(new Date(now.getTime() - DAY_MILLISECONDS))) {
+    return "Ontem";
+  }
+  return null;
 }

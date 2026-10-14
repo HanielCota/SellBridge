@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deliveryAddressSchema,
@@ -7,6 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
+import { CopyButton } from "@/components/integrations/copy-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { fulfillmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import {
   forwardOrderFn,
+  type getFulfillmentFn,
   revokeSupplierLinkFn,
   reforwardShipmentFn,
   rotateSupplierLinkFn,
@@ -28,12 +30,16 @@ import {
   getMarketplaceShippingFn,
   refreshMarketplaceTrackingFn,
 } from "@/features/fulfillment/marketplace.functions";
+import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { errorMessage } from "@/lib/errors";
 import { Field, ShipmentPanel } from "./shipment-panel";
 
-type Detail = Awaited<
-  ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").getFulfillmentFn>
->;
+type Detail = Awaited<ReturnType<typeof getFulfillmentFn>>;
+
+/** The page a supplier opens with the token, on this same host. */
+function supplierLinkUrl(token: string): string {
+  return new URL(`/fornecedor/pedido/${token}`, window.location.origin).href;
+}
 export function FulfillmentDialog({
   orderId,
   onClose,
@@ -65,13 +71,13 @@ function ShipmentList({
   detail,
   blocked,
   links,
-  setLinks,
+  onLink,
   refresh,
 }: {
   detail: Detail;
   blocked: boolean;
   links: Record<string, string>;
-  setLinks: Dispatch<SetStateAction<Record<string, string>>>;
+  onLink: (shipmentId: string, url: string) => void;
   refresh: () => Promise<void>;
 }) {
   return detail.shipments.map((shipment) => (
@@ -89,7 +95,7 @@ function ShipmentList({
         <ReforwardButton
           shipmentId={shipment.id}
           onLink={async (url) => {
-            setLinks((previous) => ({ ...previous, [shipment.id]: url }));
+            onLink(shipment.id, url);
             await refresh();
           }}
         />
@@ -98,7 +104,7 @@ function ShipmentList({
         shipmentId={shipment.id}
         url={links[shipment.id]}
         closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
-        onLink={(url) => setLinks((previous) => ({ ...previous, [shipment.id]: url }))}
+        onLink={(url) => onLink(shipment.id, url)}
       />
     </ShipmentPanel>
   ));
@@ -109,7 +115,7 @@ function OrderContent({ orderId }: { orderId: string }) {
   const [links, setLinks] = useState<Record<string, string>>({});
   async function refresh() {
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["fulfillment", orderId] }),
+      client.invalidateQueries({ queryKey: fulfillmentQueryOptions(orderId).queryKey }),
       client.invalidateQueries({ queryKey: ["operations"] }),
     ]);
   }
@@ -121,7 +127,7 @@ function OrderContent({ orderId }: { orderId: string }) {
   if (query.isError)
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   const detail = query.data;
-  const blocked = ["cancelled", "returned", "pending"].includes(detail.order.status);
+  const blocked = isShippingBlocked(detail.order.status);
   return (
     <div className="space-y-5">
       <p className="font-medium">Pedido {detail.order.externalOrderId}</p>
@@ -138,7 +144,7 @@ function OrderContent({ orderId }: { orderId: string }) {
           detail={detail}
           blocked={blocked}
           links={links}
-          setLinks={setLinks}
+          onLink={(shipmentId, url) => setLinks((previous) => ({ ...previous, [shipmentId]: url }))}
           refresh={refresh}
         />
       )}
@@ -192,7 +198,7 @@ function SupplierLink({
         return;
       }
       const result = await rotateSupplierLinkFn({ data: { shipmentId } });
-      onLink(new URL(`/fornecedor/pedido/${result.token}`, window.location.origin).href);
+      onLink(supplierLinkUrl(result.token));
     },
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: () => toast.success("Acesso do fornecedor atualizado"),
@@ -232,7 +238,7 @@ function ReforwardButton({
   const mutation = useMutation({
     mutationFn: async () => {
       const result = await reforwardShipmentFn({ data: { shipmentId } });
-      await onLink(new URL(`/fornecedor/pedido/${result.token}`, window.location.origin).href);
+      await onLink(supplierLinkUrl(result.token));
     },
     onError: (error) => toast.error(errorMessage(error)),
     onSuccess: () =>
@@ -327,19 +333,7 @@ function CopySupplierLink({ url }: { url: string }) {
         dias. Um novo link revoga o anterior.
       </p>
       <Input aria-label="Link do fornecedor" readOnly value={url} />
-      <Button
-        variant="outline"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(url);
-            toast.success("Link copiado");
-          } catch {
-            toast.error("Copie o link no campo acima");
-          }
-        }}
-      >
-        Copiar link
-      </Button>
+      <CopyButton value={url} label="Copiar link" />
     </div>
   );
 }
@@ -398,12 +392,7 @@ function ForwardItems({ detail }: { detail: Detail }) {
 }
 
 function supplierLinks(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
-  return Object.fromEntries(
-    result.map((link) => [
-      link.shipmentId,
-      new URL(`/fornecedor/pedido/${link.token}`, window.location.origin).href,
-    ]),
-  );
+  return Object.fromEntries(result.map((link) => [link.shipmentId, supplierLinkUrl(link.token)]));
 }
 
 function AddressFields({
@@ -434,17 +423,13 @@ function MarketplaceTools({
   detail: Detail;
   onRefresh: () => Promise<void>;
 }) {
+  if (detail.order.marketplace === "mercado_livre") {
+    return <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />;
+  }
   return (
-    <>
-      {" "}
-      {detail.order.marketplace === "mercado_livre" ? (
-        <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Registre transportadora e rastreio em cada envio. A etiqueta de postagem é emitida pela
-          transportadora contratada.
-        </p>
-      )}
-    </>
+    <p className="text-xs text-muted-foreground">
+      Registre transportadora e rastreio em cada envio. A etiqueta de postagem é emitida pela
+      transportadora contratada.
+    </p>
   );
 }

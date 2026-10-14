@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getMercadoLivreLabel, getMercadoLivreShipping } from "@sellbridge/marketplaces";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
+import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { tokenCipher } from "@/lib/server/marketplaces";
@@ -58,7 +59,6 @@ export async function loadMarketplaceLabel(tenantId: string, orderId: string) {
       "Este pedido foi dividido entre fornecedores. A etiqueta única do marketplace não pode ser usada em volumes separados; organize a coleta em um único volume ou contrate envios individuais.",
     );
   const access = await shippingAccess(tenantId, orderId);
-  if (["pending", "cancelled", "returned"].includes(access.orderStatus))
-    throw conflictError("Pedido sem liberação para envio");
+  if (isShippingBlocked(access.orderStatus)) throw conflictError("Pedido sem liberação para envio");
   return getMercadoLivreLabel(access.config, access.store, access.externalOrderId);
 }

@@ -5,7 +5,7 @@ export type StatusTone = "success" | "warning" | "danger" | "info" | "muted";
 export const TONE_DOT_CLASSES: Record<StatusTone, string> = {
   success: "bg-emerald-500",
   warning: "bg-amber-500",
-  danger: "bg-red-500",
+  danger: "bg-destructive",
   info: "bg-sky-500",
   muted: "bg-muted-foreground/50",
 };

@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import {
@@ -125,11 +126,6 @@ const wholeReais = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 0,
 });
 
-const percentFormat = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
-
 /** "Você lucrou R$ 1.130 no período, 10% a mais que no anterior, com 37% de margem." */
 function ProfitSentence({ current, previous }: { current: Totals; previous: Totals }) {
   if (current.revenueCents <= 0 && current.profitCents === 0) {
@@ -172,7 +168,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       ) : null}
       {margin === null ? null : (
         <>
-          , com <Strong>{percentFormat.format(margin)} de margem</Strong>
+          , com <Strong>{formatPercent(margin)} de margem</Strong>
         </>
       )}
       .{" "}

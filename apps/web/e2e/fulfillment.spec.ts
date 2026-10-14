@@ -100,7 +100,7 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await supplier.getByLabel("Transportadora", { exact: true }).fill("Correios");
   await supplier.getByLabel("Código de rastreio", { exact: true }).fill("AB123456789BR");
   await supplier
-    .getByLabel("Link de rastreio (HTTPS, opcional)")
+    .getByLabel("Link de rastreio (opcional)")
     .fill("https://rastreamento.correios.com.br");
   await supplier.getByRole("button", { name: "Enviado", exact: true }).click();
   await expect(supplier.getByRole("link", { name: "Consultar rastreio" })).toHaveAttribute(

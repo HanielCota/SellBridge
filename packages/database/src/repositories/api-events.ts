@@ -45,7 +45,7 @@ export async function recordApiEvent<TType extends ApiEventType>(
  * higher one was read; a client polling with `after` would skip it. Transactions here take
  * milliseconds, so a few seconds of delay closes that gap.
  */
-export const EVENT_SETTLE_SECONDS = 5;
+const EVENT_SETTLE_SECONDS = 5;
 
 /** Events after `afterSequence`, oldest first: a client keeps the last sequence it read. */
 export async function listApiEvents(

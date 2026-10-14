@@ -30,10 +30,6 @@ import {
   assertRefreshable,
 } from "./scenarios.ts";
 
-/**
- * Fully functional simulated marketplace, used in development, tests and demos.
- * Behaviour is deterministic so tests can trigger each path (see scenarios.ts).
- */
 export interface MockConnectorConfig {
   appUrl: string;
   webhookSecret: string;
@@ -197,6 +193,10 @@ function parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderE
   };
 }
 
+/**
+ * Fully functional simulated marketplace, used in development, tests and demos.
+ * Behaviour is deterministic so tests can trigger each path (see scenarios.ts).
+ */
 export function createMockConnector(config: MockConnectorConfig): MarketplaceConnector {
   const context: MockContext = {
     config,

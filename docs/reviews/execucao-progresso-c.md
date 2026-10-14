@@ -5,8 +5,8 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 ## Em andamento
 
 - Item/parte: 08.b · Desativar pausa, sincroniza, notifica, audita e tem e2e
-- Última etapa concluída: — (08.a ✅ b2a3331)
-- Próximo passo: etapa 1 · ler o item 08.b e o fluxo de desativação no admin
+- Última etapa concluída: auditoria e remoção dos vícios de IA (aguardando OK do commit)
+- Próximo passo: commit `refactor: remove AI vices`; depois 08.b etapa 1
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 08.a
 - Pendências: troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
@@ -15,7 +15,8 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 
 | Métrica                                        | Valor                   | Medido em  |
 | ---------------------------------------------- | ----------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 955 passando            | 2026-10-13 |
+| Testes unitários e de integração (`pnpm test`) | 959 passando            | 2026-10-13 |
+| E2E completo (`--workers=1`, porta 3160)       | 63 passando             | 2026-10-13 |
 | Última migration                               | 0021_repair_public_api  | 2026-10-13 |
 | Branch de trabalho                             | `feat/client-phase-1-c` | 2026-10-13 |
 
@@ -38,6 +39,16 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-13 · Auditoria e remoção dos vícios de IA — ✅ (commit local)
+
+- Pedido do usuário antes do item 09: auditoria do projeto inteiro (vícios de IA, design, interface, experiência) em `docs/reviews/2026-10-13-auditoria-ia-design-ux.md`; correção só dos vícios de IA, no projeto inteiro e em commit próprio (escolha do usuário).
+- Pacotes e worker: opções de fila e `releaseFinishedJob` compartilhados; `userMessageOr`; `Transaction`, `timestampOf`, `sqlIntegerSchema`, `DAY_MILLISECONDS`/`daysBefore`, `stripAccents` e esquemas de ambiente em um lugar só; `issueSupplierLink`; `JobContext`; `scheduleRecurring` com limpeza de jobs nos 6 agendamentos; código morto removido (`listCustomers`, `assertCanRetryTarget`, barrel do shared, export `marketplaces/http`); "tenant" virou "conta" nas mensagens; motivo de falha da sincronização em português.
+- Web: `copyToClipboard`, `initials`, `formatPercent`, `brazilDayKey`/`nearDayName`, `isShippingBlocked`; `ConfirmDialog` em desconectar loja; 9 arquivos mortos e tokens `--sidebar-*` removidos; "..." → "…" em 47 textos; "dashboard" → "painel" e "Status" → "Situação" na assinatura; `shadcn` e `tw-animate-css` em devDependencies.
+- Não feito: hook único de filtros na URL (exigiria casts inseguros); regra "cancelado não conta" fica para o item 09; telas e design ficam para depois (lista na auditoria).
+- Revisão independente: 0 crítico/alto. Corrigidos: data do fim do período voltou a ser absoluta no fuso de São Paulo; descriptografia do token do webhook voltou para dentro do bloco que registra a falha no evento; expressão de acentos com escapes; fuso do chamado compartilhado.
+- Ambiente: o `playwright.config.ts` tinha porta 3100 e Redis db 1 fixos e ignorava o `.env` deste worktree. Trazido o commit do chat B (`bd13085`, cópia de `57706a5`) e corrigido o `profile.spec.ts` (porta 3100 fixa). **Os e2e do 08.a podem ter rodado no servidor do chat principal**; a suíte completa agora, isolada na 3160, passou 63/63 com o código do 08.a.
+- Portões: lint, tipos, formatação, sem else ✅; 959 testes (base 955); build ✅; e2e completo 63/63.
 
 ### 2026-10-13 · Item 08.a · Produto indisponível fora do marketplace — ✅ concluído (b2a3331, commit local)
 

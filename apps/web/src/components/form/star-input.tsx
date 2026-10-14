@@ -2,7 +2,7 @@ import { StarIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-export const RATING_LABELS = ["Péssimo", "Ruim", "Regular", "Bom", "Excelente"] as const;
+const RATING_LABELS = ["Péssimo", "Ruim", "Regular", "Bom", "Excelente"] as const;
 
 /**
  * Five native radios drawn as stars, so arrow keys and screen readers work as usual;

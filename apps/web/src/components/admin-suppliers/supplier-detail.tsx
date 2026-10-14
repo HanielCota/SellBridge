@@ -40,7 +40,7 @@ function SupplierHeader({ supplier }: { supplier: AdminSupplier }) {
               }
             >
               {setActive.isPending
-                ? "Salvando..."
+                ? "Salvando…"
                 : supplier.active
                   ? "Desativar fornecedor"
                   : "Ativar fornecedor"}

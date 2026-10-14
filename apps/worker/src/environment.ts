@@ -1,7 +1,10 @@
 import {
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
+  mockWebhookSecretEnvironmentSchema,
+  nodeEnvironmentSchema,
   parseEnvironment,
+  tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { z } from "zod";
@@ -9,15 +12,12 @@ import { z } from "zod";
 loadRootEnvironmentFile();
 
 const workerEnvironmentSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
   APP_URL: z.url(),
-  TOKEN_ENCRYPTION_KEY: z.string().refine((value) => Buffer.from(value, "base64").length === 32, {
-    message: "deve ser uma chave de 32 bytes em base64",
-  }),
-  /** Mock connector only: without it the simulated store is shown as not configured. */
-  MOCK_WEBHOOK_SECRET: z.string().min(16).optional(),
+  TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
+  MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
   MOCK_LATENCY_MILLISECONDS: z.coerce.number().int().min(0).default(800),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),

@@ -29,7 +29,7 @@ function ReminderButton({ userId }: { userId: string }) {
       disabled={remind.isPending}
       onClick={() => remind.mutate(undefined)}
     >
-      {remind.isPending ? "Enviando..." : "Enviar lembrete"}
+      {remind.isPending ? "Enviando…" : "Enviar lembrete"}
     </Button>
   );
 }
@@ -61,7 +61,7 @@ export function CustomerIssueAction({ customer, issue }: IssueActionProps) {
       title={customer.banned ? "Desbloqueie a conta para entrar como o cliente" : undefined}
       onClick={() => void impersonate(customer.id, target.path)}
     >
-      {pendingUserId === customer.id ? "Entrando..." : target.label}
+      {pendingUserId === customer.id ? "Entrando…" : target.label}
     </Button>
   );
 }

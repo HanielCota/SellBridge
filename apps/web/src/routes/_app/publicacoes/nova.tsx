@@ -832,7 +832,7 @@ function PublishBar({
               {publishSummary(selected)}
             </p>
             <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando..." : publishLabel(selected.length)}
+              {isSubmitting ? "Enviando…" : publishLabel(selected.length)}
             </Button>
           </section>
         );

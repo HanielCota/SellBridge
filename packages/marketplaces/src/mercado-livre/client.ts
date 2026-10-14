@@ -5,10 +5,6 @@ import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, isIdempotentMethod, type FetchLike, type RetryOptions } from "../http.ts";
 import { errorBodySchema } from "./schemas.ts";
 
-/**
- * Mercado Livre connector. Every endpoint and field used here is documented in
- * docs/marketplaces/mercado-livre.md (official docs, checked on 2026-10-08).
- */
 export interface MercadoLivreConfig {
   clientId: string | undefined;
   clientSecret: string | undefined;

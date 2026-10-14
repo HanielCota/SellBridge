@@ -5,7 +5,7 @@ import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "dr
 import type { ListingEventData } from "@sellbridge/shared/public-api";
 import type { CatalogAvailability } from "@sellbridge/shared/catalog-availability";
 import { safetyMargin } from "@sellbridge/shared/stock-reservation";
-import type { Database, DatabaseExecutor } from "../client.ts";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { availableStock } from "./sql/available-stock.ts";
@@ -38,8 +38,6 @@ export interface CreatedListing {
 export function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
   return `${listingId}:${storeConnectionId}`;
 }
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /** The tenant's stores that already carry a listing of this product, by name. */
 export async function storesListingProduct(

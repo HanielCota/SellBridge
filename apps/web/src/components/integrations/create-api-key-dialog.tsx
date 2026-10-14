@@ -122,7 +122,7 @@ function ApiKeyForm({
             <PendingSubmitButton
               isPending={isSubmitting}
               idleLabel="Criar chave"
-              pendingLabel="Criando..."
+              pendingLabel="Criando…"
             />
           )}
         </form.Subscribe>

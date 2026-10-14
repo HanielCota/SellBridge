@@ -1,4 +1,5 @@
 import { notFoundError } from "@sellbridge/shared/errors";
+import { daysBefore } from "@sellbridge/shared/time";
 import {
   assertSellablePrice,
   pauseTransition,
@@ -25,8 +26,8 @@ import {
 import { hasActiveTargets } from "./active-targets.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { daysBefore } from "./time-window.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -109,8 +110,8 @@ function salesWindowEndingAt(until: Date): SalesWindow {
 }
 
 function orderedWithin(salesWindow: SalesWindow): SQL {
-  return sql`${orders.orderedAt} > ${salesWindow.since.toISOString()}::timestamptz
-    and ${orders.orderedAt} <= ${salesWindow.until.toISOString()}::timestamptz`;
+  return sql`${orders.orderedAt} > ${timestampOf(salesWindow.since)}
+    and ${orders.orderedAt} <= ${timestampOf(salesWindow.until)}`;
 }
 
 /** Units sold in the sales window, as a correlated subquery so the page can sort by it. */

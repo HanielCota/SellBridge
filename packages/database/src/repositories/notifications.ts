@@ -1,3 +1,4 @@
+import { daysBefore } from "@sellbridge/shared/time";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
@@ -16,7 +17,6 @@ import {
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { listUnreadSupportReplies } from "./support.ts";
-import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;

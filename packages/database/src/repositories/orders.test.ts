@@ -109,7 +109,7 @@ describe("marketplace orders and sync", () => {
     expect(items.find((item) => item.title !== "Anúncio F4")?.unitCostCents).toBe(0);
 
     await expect(upsertMarketplaceOrder(database, tenantB, storeA, incoming)).rejects.toThrow(
-      "outro tenant",
+      "outra conta",
     );
   });
 

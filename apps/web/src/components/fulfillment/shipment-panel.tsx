@@ -45,17 +45,7 @@ export function ShipmentPanel({
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
-  const {
-    carrier,
-    setCarrier,
-    trackingCode,
-    setTrackingCode,
-    trackingUrl,
-    setTrackingUrl,
-    note,
-    setNote,
-    mutation,
-  } = useShipmentUpdate(shipment, onUpdate);
+  const update = useShipmentUpdate(shipment, onUpdate);
   const next = FULFILLMENT_NEXT[shipment.status];
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
@@ -71,77 +61,61 @@ export function ShipmentPanel({
         {children}
       </div>
       {closed ? null : (
-        <ShipmentActions
-          next={blocked ? null : next}
-          carrier={carrier}
-          trackingCode={trackingCode}
-          trackingUrl={trackingUrl}
-          note={note}
-          setCarrier={setCarrier}
-          setTrackingCode={setTrackingCode}
-          setTrackingUrl={setTrackingUrl}
-          setNote={setNote}
-          pending={mutation.isPending}
-          status={shipment.status}
-          onSubmit={(status) => mutation.mutate(status)}
-        />
+        <ShipmentActions next={blocked ? null : next} status={shipment.status} update={update} />
       )}
       <ShipmentHistory shipment={shipment} />
     </section>
   );
 }
-function ShipmentActions(props: {
+function ShipmentActions({
+  next,
+  status,
+  update,
+}: {
   next: FulfillmentStatus | null;
   status: FulfillmentStatus;
-  carrier: string;
-  trackingCode: string;
-  trackingUrl: string;
-  note: string;
-  pending: boolean;
-  setCarrier: (value: string) => void;
-  setTrackingCode: (value: string) => void;
-  setTrackingUrl: (value: string) => void;
-  setNote: (value: string) => void;
-  onSubmit: (status: FulfillmentStatus) => void;
+  update: ReturnType<typeof useShipmentUpdate>;
 }) {
+  const pending = update.mutation.isPending;
+  const hasNote = update.note.trim() !== "";
   return (
     <div className="space-y-3">
-      {props.next === "shipped" ? (
+      {next === "shipped" ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
+          <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
           <Field
             label="Código de rastreio"
-            value={props.trackingCode}
-            onChange={props.setTrackingCode}
+            value={update.trackingCode}
+            onChange={update.setTrackingCode}
           />
           <div className="sm:col-span-2">
             <Field
-              label="Link de rastreio (HTTPS, opcional)"
-              value={props.trackingUrl}
-              onChange={props.setTrackingUrl}
+              label="Link de rastreio (opcional)"
+              value={update.trackingUrl}
+              onChange={update.setTrackingUrl}
             />
           </div>
         </div>
       ) : null}
-      <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
+      <Field label="Ocorrência ou observação" value={update.note} onChange={update.setNote} />
       <div className="flex flex-wrap gap-2">
-        {props.next ? (
-          <Button disabled={props.pending} onClick={() => props.next && props.onSubmit(props.next)}>
-            {FULFILLMENT_LABELS[props.next]}
+        {next ? (
+          <Button disabled={pending} onClick={() => update.mutation.mutate(next)}>
+            {FULFILLMENT_LABELS[next]}
           </Button>
         ) : null}
         <Button
           variant="outline"
-          disabled={props.pending || !props.note.trim()}
-          onClick={() => props.onSubmit(props.status)}
+          disabled={pending || !hasNote}
+          onClick={() => update.mutation.mutate(status)}
         >
           Registrar ocorrência
         </Button>
-        {DISPATCHED_FULFILLMENT_STATUSES.includes(props.status) ? null : (
+        {DISPATCHED_FULFILLMENT_STATUSES.includes(status) ? null : (
           <Button
             variant="destructive"
-            disabled={props.pending || !props.note.trim()}
-            onClick={() => props.onSubmit("cancelled")}
+            disabled={pending || !hasNote}
+            onClick={() => update.mutation.mutate("cancelled")}
           >
             Cancelar envio
           </Button>
@@ -210,7 +184,6 @@ function useShipmentUpdate(
 function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   return (
     <>
-      {" "}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{shipment.supplierName}</h3>
         <ToneStatus

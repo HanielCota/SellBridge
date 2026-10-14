@@ -1,4 +1,5 @@
 import type { PeriodPreset, PeriodSearch } from "../schemas/period.ts";
+import { DAY_MILLISECONDS } from "./time.ts";
 
 const PRESET_DAYS: Record<Exclude<PeriodPreset, "custom">, number> = {
   "7d": 7,
@@ -26,7 +27,6 @@ export interface ResolvedPeriod {
   previousToDate: string;
 }
 
-const DAY_MILLISECONDS = 86_400_000;
 const MAX_CUSTOM_DAYS = 366;
 /** Brazil (America/Sao_Paulo) has had no DST since 2019: a fixed UTC−3 offset. */
 const BRAZIL_OFFSET_MILLISECONDS = 3 * 60 * 60 * 1000;

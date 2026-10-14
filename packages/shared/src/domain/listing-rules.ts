@@ -23,12 +23,6 @@ export function canRetryTarget(status: ListingTargetStatus): boolean {
   return status === RETRYABLE_TARGET_STATUS;
 }
 
-export function assertCanRetryTarget(status: ListingTargetStatus): void {
-  if (!canRetryTarget(status)) {
-    throw conflictError("Só é possível reprocessar publicações com erro");
-  }
-}
-
 export interface PauseTransition {
   readonly from: ListingTargetStatus;
   readonly to: ListingTargetStatus;

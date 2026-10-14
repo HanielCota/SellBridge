@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./money": "./src/domain/money.ts",
     "./product-csv": "./src/domain/product-csv.ts",
     "./cep": "./src/domain/cep.ts",
@@ -16,6 +15,8 @@
     "./queues": "./src/runtime/queues.ts",
     "./finance": "./src/domain/finance.ts",
     "./period-range": "./src/domain/period-range.ts",
+    "./time": "./src/domain/time.ts",
+    "./text": "./src/domain/text.ts",
     "./listing-rules": "./src/domain/listing-rules.ts",
     "./ticket-rules": "./src/domain/ticket-rules.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",

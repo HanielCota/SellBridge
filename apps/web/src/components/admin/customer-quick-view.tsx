@@ -104,7 +104,7 @@ function QuickViewHeader({ customer, isSelf }: { customer: RankedCustomer; isSel
           onClick={() => void impersonate(customer.id)}
         >
           <SignInIcon weight="bold" />
-          {pendingUserId === customer.id ? "Entrando..." : "Entrar como cliente"}
+          {pendingUserId === customer.id ? "Entrando…" : "Entrar como cliente"}
         </Button>
       </div>
     </div>

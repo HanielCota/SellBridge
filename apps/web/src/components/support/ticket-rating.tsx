@@ -73,7 +73,7 @@ export function TicketRatingForm({ ticketId }: { ticketId: string }) {
         aria-busy={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? "Enviando..." : "Enviar avaliação"}
+        {mutation.isPending ? "Enviando…" : "Enviar avaliação"}
       </Button>
     </section>
   );
