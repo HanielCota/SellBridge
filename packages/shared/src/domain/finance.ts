@@ -6,8 +6,11 @@ export const ESTIMATED_MARKETPLACE_FEE_BPS = 1400;
 export type FinanceOrderStatus =
   "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
 
-/** Orders that do not generate revenue: cancelled before shipping or returned by the buyer. */
-const NON_REVENUE_STATUSES: readonly FinanceOrderStatus[] = ["cancelled", "returned"];
+/**
+ * Orders that do not generate revenue: not paid yet (awaiting payment, or held by the
+ * marketplace's fraud check), cancelled before shipping, or returned by the buyer.
+ */
+const NON_REVENUE_STATUSES: readonly FinanceOrderStatus[] = ["pending", "cancelled", "returned"];
 
 export interface OrderFinanceInput {
   status: FinanceOrderStatus;

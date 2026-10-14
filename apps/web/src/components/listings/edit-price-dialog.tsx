@@ -1,5 +1,6 @@
 import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { LISTING_MAX_PRICE_CENTS } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +56,9 @@ const TILE_ACTIVE: Record<MarginTone, string> = {
 function priceProblem(priceCents: number | null, costCents: number): string | null {
   if (priceCents === null || priceCents <= 0) {
     return "Informe um preço válido";
+  }
+  if (priceCents > LISTING_MAX_PRICE_CENTS) {
+    return `O preço de venda pode ser de até ${formatCents(LISTING_MAX_PRICE_CENTS)}`;
   }
   if (priceCents <= costCents) {
     return `O preço precisa ser maior que o custo (${formatCents(costCents)})`;

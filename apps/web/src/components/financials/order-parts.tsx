@@ -33,9 +33,9 @@ export function marginLabel(row: OrderFinancialRow): string | null {
   return margin === null ? null : formatPercent(margin);
 }
 
-/** The order is out of the books (cancelled or returned): its amounts read as void. */
+/** The order is out of the books (unpaid, cancelled or returned): its amounts read as void. */
 export function isVoidOrder(row: OrderFinancialRow): boolean {
-  return row.status === "cancelled" || row.status === "returned";
+  return row.status === "pending" || row.status === "cancelled" || row.status === "returned";
 }
 
 /**

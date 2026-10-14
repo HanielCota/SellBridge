@@ -89,18 +89,21 @@ export const listingPriceCentsSchema = z
 /** Listings one pause, resume or retry acts on at once (the bulk actions bar). */
 export const MAX_LISTING_BATCH = 100;
 
-/** Stores one listing may go to at once; a tenant connects far fewer. */
+/** One listing goes to at most this many stores at once; far above any tenant's plan. */
 export const MAX_LISTING_STORES = 50;
+
+/** The stores a listing is published to: at least one, at most `MAX_LISTING_STORES`. */
+export const listingStoreIdsSchema = z
+  .array(z.uuid())
+  .min(1, "Escolha ao menos uma loja de destino")
+  .max(MAX_LISTING_STORES, `Escolha no máximo ${MAX_LISTING_STORES} lojas`);
 
 export const createListingSchema = z.object({
   supplierProductId: z.uuid(),
   title: listingTitleSchema,
   description: listingDescriptionSchema,
   priceCents: listingPriceCentsSchema,
-  storeConnectionIds: z
-    .array(z.uuid())
-    .min(1, "Escolha ao menos uma loja de destino")
-    .max(MAX_LISTING_STORES),
+  storeConnectionIds: listingStoreIdsSchema,
 });
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 

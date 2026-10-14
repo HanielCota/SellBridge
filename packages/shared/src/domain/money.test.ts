@@ -47,6 +47,10 @@ describe("money", () => {
     expect(parseBrlToCents(input)).toBeNull();
   });
 
+  it("reads minus zero as plain zero", () => {
+    expect(Object.is(parseBrlToCents("-0,00"), 0)).toBe(true);
+  });
+
   it("applies basis points with rounding", () => {
     expect(percentOfCents(1000, 1250)).toBe(125);
     expect(percentOfCents(999, 1000)).toBe(100);

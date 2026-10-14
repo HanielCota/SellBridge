@@ -20,6 +20,27 @@ async function findTenantSession(headers: Headers) {
   }
 }
 
+/** The period's rows, or a 422 saying why there is no file (too many orders for one export). */
+async function exportRows(
+  scope: Parameters<typeof exportOrderFinancials>[1],
+  search: ReturnType<typeof financialSearchSchema.parse>,
+) {
+  try {
+    return await exportOrderFinancials(database, scope, {
+      filters: {
+        statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
+        search: search.query,
+      },
+      sort: { field: search.sort, direction: search.direction },
+    });
+  } catch (error) {
+    if (isAppError(error) && error.code === "VALIDATION") {
+      return new Response(error.message, { status: 422 });
+    }
+    throw error;
+  }
+}
+
 async function handleExport(request: Request): Promise<Response> {
   const session = await findTenantSession(request.headers);
   if (!session) {
@@ -28,13 +49,10 @@ async function handleExport(request: Request): Promise<Response> {
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);
   const picked = narrowToDay(scope, period, search.day);
-  const rows = await exportOrderFinancials(database, picked.scope, {
-    filters: {
-      statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
-      search: search.query,
-    },
-    sort: { field: search.sort, direction: search.direction },
-  });
+  const rows = await exportRows(picked.scope, search);
+  if (rows instanceof Response) {
+    return rows;
+  }
   logger.info("financial.exported", { tenantId: session.tenantId, rows: rows.length });
   const fileName = picked.day
     ? `financeiro-${picked.day}.csv`

@@ -11,12 +11,15 @@ const DEFAULT_MARKUP_PERCENT = 60;
 /** Shown under the markup field when the typed percentage is outside what the server accepts. */
 export const MARKUP_RANGE_MESSAGE = `Use um valor entre ${MIN_MARKUP_PERCENT}% e ${MAX_MARKUP_PERCENT}%`;
 
-/** The markup rule for a typed percentage, or null when the server would reject it. */
+/**
+ * The markup rule for a typed percentage, or null when the server would reject it. Only whole
+ * digits count: "12.5" or "30abc" are invalid, never silently read as 12% or 30%.
+ */
 export function parseMarkupPercent(percent: string): PriceRule | null {
+  const typed = percent.trim();
   const parsed = priceRuleSchema.safeParse({
     kind: "markup",
-    // Whole digits only: parseInt would read "12.5" as 12 and "60abc" as 60.
-    percent: /^\d+$/.test(percent.trim()) ? Number(percent) : Number.NaN,
+    percent: /^\d{1,4}$/.test(typed) ? Number(typed) : Number.NaN,
   });
   return parsed.success ? parsed.data : null;
 }

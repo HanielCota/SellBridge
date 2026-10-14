@@ -328,4 +328,36 @@ describe("order financials list", () => {
       expectedSum("profitCents"),
     );
   });
+
+  it("adds item costs past the 32-bit integer without failing the report", async () => {
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja grande");
+      // 1.000 units costing R$ 30.000,00 each: R$ 30 mi, more than an int4 holds.
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "BIG-1",
+        unitPriceCents: 1,
+        items: [{ quantity: 1000, unitCostCents: 3_000_000 }],
+      });
+      const summary = await getSalesSummary(database, scope({ tenantId }));
+      expect(summary.costCents).toBe(3_000_000_000);
+    } finally {
+      await extra.cleanup();
+    }
+  });
+
+  it("exports a period exactly at the row limit and refuses one past it", async () => {
+    const sort = { field: "orderedAt", direction: "asc" } as const;
+    expect(
+      await exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 4 }),
+    ).toHaveLength(4);
+    await expect(
+      exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 3 }),
+    ).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringContaining("mais de 3") });
+  });
 });

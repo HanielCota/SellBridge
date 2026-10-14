@@ -700,4 +700,46 @@ describe("per-unit sale fees", () => {
     });
     expect((await ml.fetchOrder(store, "/orders/1")).marketplaceFeeCents).toBe(2269);
   });
+
+  it("rounds a fee with fractions of a cent once per line, not once per unit", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () =>
+        json(200, {
+          ...rawOrder,
+          // R$ 0,004 × 1.000 units is R$ 4,00; rounding each unit first would give zero.
+          order_items: [{ ...rawOrder.order_items[0], quantity: 1000, sale_fee: 0.004 }],
+        }),
+    });
+    expect((await ml.fetchOrder(store, "/orders/1")).marketplaceFeeCents).toBe(400);
+  });
+});
+
+describe("order amounts out of range", () => {
+  it.each([
+    ["a negative total", { total_amount: -10 }],
+    ["a total past what an order row stores", { total_amount: 21_474_836.48 }],
+    ["an unreadable date", { date_created: "ontem" }],
+  ])("refuses %s as a malformed order", async (_label, change) => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () => json(200, { ...rawOrder, ...change }),
+    });
+    await expect(ml.fetchOrder(store, "/orders/1")).rejects.toThrow("Resposta inesperada");
+  });
+
+  it("refuses a negative fee or price on a line", async () => {
+    for (const line of [{ sale_fee: -1 }, { unit_price: -0.01 }]) {
+      const { ml } = connector({
+        [`GET ${API}/orders/1`]: () =>
+          json(200, { ...rawOrder, order_items: [{ ...rawOrder.order_items[0], ...line }] }),
+      });
+      await expect(ml.fetchOrder(store, "/orders/1")).rejects.toThrow("Resposta inesperada");
+    }
+  });
+
+  it("accepts the largest total an order row stores", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () => json(200, { ...rawOrder, total_amount: 21_474_836.47 }),
+    });
+    expect((await ml.fetchOrder(store, "/orders/1")).totalCents).toBe(2_147_483_647);
+  });
 });

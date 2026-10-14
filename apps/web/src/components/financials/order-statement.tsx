@@ -390,7 +390,8 @@ function StatementCard({
  * "3 vendas" counts only orders that still count as a sale; when the day also lists cancelled or
  * returned orders, it says "válidas" so the number does not read as a count of the rows below.
  */
-const VOID_ROWS_HINT = "Pedidos cancelados ou devolvidos não contam como venda.";
+const VOID_ROWS_HINT =
+  "Pedidos aguardando pagamento, cancelados ou devolvidos não contam como venda.";
 
 function salesLabel(sales: number, hasVoidRows: boolean): string {
   const noun = sales === 1 ? "venda" : "vendas";

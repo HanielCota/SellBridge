@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { freeText, pageNumberSchema } from "./common.ts";
-import { LISTING_MAX_PRICE_CENTS, MAX_LISTING_STORES } from "./stores.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
+import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema } from "./stores.ts";
 
 export const PRODUCT_SORTS = [
   "title",
@@ -87,12 +87,15 @@ export const MAX_BULK_PUBLISH = 50;
 
 export const bulkPublishSchema = z.object({
   productIds: z.array(z.uuid()).min(1).max(MAX_BULK_PUBLISH),
-  storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja").max(MAX_LISTING_STORES),
+  storeConnectionIds: listingStoreIdsSchema,
   priceRule: priceRuleSchema,
   /** Per-product rules that replace `priceRule` for the products they name. */
   priceOverrides: z
     .record(z.uuid(), priceRuleSchema)
-    .refine((overrides) => Object.keys(overrides).length <= MAX_BULK_PUBLISH)
+    .refine(
+      (overrides) => Object.keys(overrides).length <= MAX_BULK_PUBLISH,
+      `Ajuste o preço de no máximo ${MAX_BULK_PUBLISH} produtos`,
+    )
     .optional(),
 });
 

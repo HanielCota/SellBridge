@@ -1,3 +1,4 @@
+import { validationError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { sql, type SQL } from "drizzle-orm";
@@ -475,16 +476,28 @@ export interface FinancialExportQuery {
   readonly maxRows?: number;
 }
 
+/** Orders one CSV export carries: larger periods are refused, never cut short. */
+export const MAX_FINANCIAL_EXPORT_ROWS = 20_000;
+
+/**
+ * Every order of the period, for the CSV. A period with more than `maxRows` orders is refused:
+ * a file cut at the limit would look complete and its totals would not match the report.
+ */
 export async function exportOrderFinancials(
   database: Database,
   scope: ReportScope,
   query: FinancialExportQuery,
 ): Promise<OrderFinancialRow[]> {
-  const { filters, sort, maxRows = 20_000 } = query;
+  const { filters, sort, maxRows = MAX_FINANCIAL_EXPORT_ROWS } = query;
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope, financialConditions(filters))}
-    ${ordersWithProduct(scope.tenantId, sort, sql`limit ${maxRows}`)}
+    ${ordersWithProduct(scope.tenantId, sort, sql`limit ${maxRows + 1}`)}
   `);
+  if (rows.length > maxRows) {
+    throw validationError(
+      `O período tem mais de ${maxRows.toLocaleString("pt-BR")} pedidos. Exporte um período menor.`,
+    );
+  }
   return z
     .array(financialRowSchema)
     .parse([...rows])

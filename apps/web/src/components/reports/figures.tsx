@@ -5,6 +5,17 @@ import { cn } from "@/lib/utils";
 const wholeNumber = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 /**
+ * What a money figure shows. The sign follows the shown amount: −R$ 0,40 keeps it, but
+ * −40 centavos shown in whole reais is "R$ 0", never "−R$ 0".
+ */
+export function moneyFigureParts(cents: number, withCents: boolean) {
+  const absolute = Math.abs(cents);
+  const whole = withCents ? Math.trunc(absolute / 100) : Math.round(absolute / 100);
+  const shownZero = withCents ? absolute === 0 : whole === 0;
+  return { sign: cents < 0 && !shownZero ? "−" : "", whole, absolute };
+}
+
+/**
  * Large figure with the currency raised beside it, like "R$ 9.444". With `withCents` the
  * cents trail in a quieter size ("R$ 3.776,98"), for screens where the exact amount matters.
  */
@@ -17,9 +28,7 @@ export function MoneyFigure({
   withCents?: boolean;
   className?: string;
 }) {
-  const sign = cents < 0 ? "−" : "";
-  const absolute = Math.abs(cents);
-  const whole = withCents ? Math.trunc(absolute / 100) : Math.round(absolute / 100);
+  const { sign, whole, absolute } = moneyFigureParts(cents, withCents);
   return (
     <span className={cn("inline-flex items-start gap-1 font-semibold tracking-tight", className)}>
       <span className="mt-[0.2em] text-[0.38em] font-medium tracking-normal text-muted-foreground">

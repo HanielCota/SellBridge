@@ -91,6 +91,6 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
     await publishListings(context.tenantId, drafts, storeIds);
     return {
       published: toPublish.length,
-      skipped: data.productIds.length - toPublish.length,
+      skipped: new Set(data.productIds).size - toPublish.length,
     };
   });
