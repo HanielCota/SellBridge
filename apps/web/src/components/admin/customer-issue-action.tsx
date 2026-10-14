@@ -53,12 +53,19 @@ export function CustomerIssueAction({ customer, issue }: IssueActionProps) {
     return <ReminderButton userId={customer.id} />;
   }
   const target = IMPERSONATE_TARGETS[issue.kind];
+  // Said on screen: a disabled button's tooltip never shows on touch, nor in some browsers.
+  if (customer.banned) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Desbloqueie a conta para entrar como o cliente
+      </span>
+    );
+  }
   return (
     <Button
       variant="outline"
       size="sm"
-      disabled={customer.banned || pendingUserId !== null}
-      title={customer.banned ? "Desbloqueie a conta para entrar como o cliente" : undefined}
+      disabled={pendingUserId !== null}
       onClick={() => void impersonate(customer.id, target.path)}
     >
       {pendingUserId === customer.id ? "Entrando…" : target.label}

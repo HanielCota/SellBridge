@@ -165,6 +165,24 @@
   }
   html {
     @apply font-sans;
+    /* Native controls, scrollbars and the caret follow the theme instead of staying light. */
+    color-scheme: light;
+    /* The app gives its own touch feedback (active:scale); no grey flash on top of it. */
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /* Autofilled fields keep the theme's field colors instead of the browser's pale blue. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    box-shadow: 0 0 0 1000px var(--field) inset;
+    transition: background-color 9999s ease-out;
   }
 }
 /*

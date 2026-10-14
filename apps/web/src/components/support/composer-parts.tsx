@@ -27,7 +27,7 @@ export const COMPOSER_BOX_CLASS =
 
 /** Text inset (8px box + 12px field) matches the 20px padding of the cards around it. */
 export const COMPOSER_TEXTAREA_CLASS =
-  "field-sizing-content max-h-80 min-h-20 w-full resize-none bg-transparent px-3 py-2.5 text-subhead leading-relaxed outline-none placeholder:text-muted-foreground";
+  "field-sizing-content max-h-80 min-h-20 w-full resize-none bg-transparent px-3 py-2.5 text-body leading-relaxed sm:text-subhead outline-none placeholder:text-muted-foreground";
 
 export const COMPOSER_TOOLBAR_CLASS =
   "flex items-center gap-0.5 border-t border-border/60 px-1 pt-2";

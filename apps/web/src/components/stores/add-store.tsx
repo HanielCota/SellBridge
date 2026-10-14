@@ -16,7 +16,7 @@ function AvailableOption({ option }: { option: MarketplaceOption }) {
       <a
         href={`/api/oauth/${option.id}/start`}
         aria-label={`Conectar ${option.label}`}
-        className="group flex items-center gap-4 px-5 py-3.5 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] active:bg-foreground/[0.06]"
+        className="group flex items-center gap-4 px-5 py-3.5 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset active:bg-foreground/[0.06]"
       >
         <MarkSlot>
           <MarketplaceMark marketplace={option.id} className="size-10" />

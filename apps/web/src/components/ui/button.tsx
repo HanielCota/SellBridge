@@ -53,6 +53,8 @@ function Button({
 
   return (
     <Comp
+      // A button inside a form submits it unless told otherwise; submitting is opted into.
+      type={asChild ? undefined : "button"}
       data-slot="button"
       data-variant={variant}
       data-size={size}

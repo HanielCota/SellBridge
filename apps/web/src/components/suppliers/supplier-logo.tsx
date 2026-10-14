@@ -1,3 +1,4 @@
+import { useState } from "react";
 /** Up to two initials from the meaningful words of a supplier name ("Casa do Pão" → "CP"). */
 function supplierInitials(name: string): string {
   const words = name.split(/\s+/).filter((word) => word.length > 2);
@@ -10,13 +11,15 @@ function supplierInitials(name: string): string {
 
 /** The supplier's logo, or its initials on a tinted square when it has none. */
 export function SupplierLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
-  if (logoUrl) {
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
+  if (logoUrl && logoUrl !== failedLogo) {
     return (
       <img
         src={logoUrl}
         alt=""
         className="size-11 shrink-0 rounded-lg border bg-muted"
         loading="lazy"
+        onError={() => setFailedLogo(logoUrl)}
       />
     );
   }

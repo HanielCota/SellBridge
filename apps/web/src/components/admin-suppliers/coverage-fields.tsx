@@ -2,6 +2,13 @@ import { BRAZILIAN_STATES } from "@sellbridge/shared/cep";
 import { TextField } from "@/components/form/form-field";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CoverageDraft } from "@/features/admin-suppliers/form-values";
 
 export function StateField({
@@ -18,18 +25,18 @@ export function StateField({
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-xl border border-field-border bg-card px-3"
-      >
-        {BRAZILIAN_STATES.map((state) => (
-          <option key={state} value={state}>
-            {state}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {BRAZILIAN_STATES.map((state) => (
+            <SelectItem key={state} value={state}>
+              {state}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

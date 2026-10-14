@@ -7,6 +7,13 @@ import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feed
 import { SectionCard } from "@/components/layout/section-card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { adminSaveProduct } from "@/features/admin-suppliers/suppliers.functions";
 import {
   catalogFormErrors,
@@ -56,6 +63,9 @@ function ProductTextFields({
   );
 }
 
+/** The select needs a value for "no category"; the form keeps it as an empty string. */
+const NO_CATEGORY = "none";
+
 function CategoryField({
   categories,
   value,
@@ -68,19 +78,22 @@ function CategoryField({
   return (
     <div className="grid gap-2">
       <Label htmlFor="product-category">Categoria</Label>
-      <select
-        id="product-category"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-xl border border-field-border bg-card px-3"
+      <Select
+        value={value === "" ? NO_CATEGORY : value}
+        onValueChange={(choice) => onChange(choice === NO_CATEGORY ? "" : choice)}
       >
-        <option value="">Sem categoria</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id="product-category" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={category.id}>
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
