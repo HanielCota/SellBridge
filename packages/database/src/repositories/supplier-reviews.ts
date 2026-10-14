@@ -79,6 +79,19 @@ async function tagTotals(database: Database, ids: readonly string[], from: Date)
   return z.array(tagTotalsSchema).parse([...rows]);
 }
 
+/**
+ * The order was a sale at some point: a buyer who never paid (a cart left at "payment required",
+ * cancelled by the marketplace) says nothing about the supplier. Orders stored before status
+ * changes were recorded have no history to tell, and keep counting as before.
+ */
+const reachedSale = sql`(
+  exists (
+    select 1 from order_status_changes c
+    where c.order_id = o.id and c.status in ('paid', 'shipped', 'delivered')
+  )
+  or not exists (select 1 from order_status_changes c where c.order_id = o.id)
+)`;
+
 async function orderTotals(database: Database, ids: readonly string[], from: Date) {
   const rows = await database.execute(sql`
     select sp.supplier_id,
@@ -93,6 +106,7 @@ async function orderTotals(database: Database, ids: readonly string[], from: Dat
     join order_items oi on oi.order_id = o.id
     join supplier_products sp on sp.id = oi.supplier_product_id
     where sp.supplier_id in (${uuidList(ids)}) and o.ordered_at >= ${timestampOf(from)}
+      and ${reachedSale}
     group by sp.supplier_id
   `);
   return z.array(orderTotalsSchema).parse([...rows]);

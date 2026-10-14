@@ -16,6 +16,7 @@ import {
 } from "./listings.ts";
 import { type IncomingOrder, upsertMarketplaceOrder } from "./orders.ts";
 import { listOperationalOrders } from "./fulfillment.ts";
+import { reserveShortItems } from "./stock-reservations.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { clearNotifications, listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
@@ -222,6 +223,32 @@ describe("holding stock for paid orders", () => {
     await sell(product.first, order);
     expect(await shelfOf(product.productId)).toEqual({ stock: 3, reserved: 1 });
     expect(await stateOf(result.orderId)).toBe("reserved");
+  });
+
+  it("gives restocked units to the oldest shortage before anyone else", async () => {
+    const product = await sharedProduct(0);
+    const older = await sell(
+      product.first,
+      orderOf(product.first, product.sku, { status: "paid", quantity: 2 }),
+    );
+    const newer = await sell(
+      product.second,
+      orderOf(product.second, product.sku, { status: "paid", quantity: 2 }),
+    );
+    expect([await stateOf(older.orderId), await stateOf(newer.orderId)]).toEqual([
+      "short",
+      "short",
+    ]);
+
+    // The admin counts 3 units: only the first order fits, and nothing is left to offer.
+    await setShelf(product.productId, 3);
+    expect(await reserveShortItems(database, [product.productId])).toBe(1);
+    expect(await stateOf(older.orderId)).toBe("reserved");
+    expect(await stateOf(newer.orderId)).toBe("short");
+    expect(await shelfOf(product.productId)).toEqual({ stock: 3, reserved: 2 });
+    // A second pass changes nothing: one unit is still short of the second order's two.
+    expect(await reserveShortItems(database, [product.productId])).toBe(0);
+    expect(await reserveShortItems(database, [])).toBe(0);
   });
 
   it("keeps the supplier's last update date: a sale is not a new stock count", async () => {

@@ -341,8 +341,20 @@ function planImportRows(input: {
         ),
     });
   }
+  // Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
+  // preview and the confirmation must not invalidate it; a new shelf count must.
   plan.revision = JSON.stringify({
-    existing: input.existing,
+    existing: input.existing.map((product) => ({
+      sku: product.sku,
+      title: product.title,
+      description: product.description,
+      costCents: product.costCents,
+      stock: product.stock,
+      categoryId: product.categoryId,
+      imageUrls: product.imageUrls,
+      active: product.active,
+      suggestedPriceCents: product.suggestedPriceCents,
+    })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
     products: plan.products,
   });
@@ -400,7 +412,7 @@ export async function importSupplierProducts(
     if (plan.errors.length > 0 || plan.products.length === 0) {
       throw validationError("Corrija os erros do CSV antes de importar");
     }
-    await transaction
+    const written = await transaction
       .insert(supplierProducts)
       .values(plan.products)
       .onConflictDoUpdate({
@@ -416,8 +428,14 @@ export async function importSupplierProducts(
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
           updatedAt: new Date(),
         },
-      });
+      })
+      .returning({ id: supplierProducts.id });
     const pausedTargets = await pauseUnsellableListings(transaction, input.supplierId);
-    return { created: plan.created, updated: plan.updated, pausedTargets };
+    return {
+      created: plan.created,
+      updated: plan.updated,
+      pausedTargets,
+      productIds: written.map((product) => product.id),
+    };
   });
 }

@@ -13,7 +13,11 @@ const productPriceCentsSchema = z
   .int()
   .min(0)
   .max(LISTING_MAX_PRICE_CENTS, "O valor pode ser de até R$ 1.000.000,00");
-const imageUrlSchema = z.url({ protocol: /^https?$/ });
+const imageUrlSchema = z
+  .url({ protocol: /^https?$/ })
+  .max(2000, "Use um link de imagem mais curto");
+/** Mercado Livre categories ask for a few dozen attributes at most. */
+const MAX_MERCADO_LIVRE_ATTRIBUTES = 100;
 
 export const adminSupplierSearchSchema = z.object({
   query: optionalParameter(freeText().trim().max(100)),
@@ -74,6 +78,10 @@ export const adminProductValuesSchema = z.object({
     .record(
       z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, "Informe o código do atributo, como BRAND"),
       freeText().trim().min(1, "Informe o valor do atributo").max(255),
+    )
+    .refine(
+      (attributes) => Object.keys(attributes).length <= MAX_MERCADO_LIVRE_ATTRIBUTES,
+      `Informe no máximo ${MAX_MERCADO_LIVRE_ATTRIBUTES} atributos`,
     )
     .optional(),
 });

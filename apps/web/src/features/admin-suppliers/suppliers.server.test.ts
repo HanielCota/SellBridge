@@ -2,6 +2,7 @@ import type {
   importSupplierProducts,
   previewSupplierProductImport,
   saveAdminSupplier,
+  reserveShortItems,
   saveAdminSupplierProduct,
   setAdminSupplierActive,
   setAdminSupplierProductActive,
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   saveSupplier: vi.fn<typeof saveAdminSupplier>(),
   setSupplierActive: vi.fn<typeof setAdminSupplierActive>(),
   setProductActive: vi.fn<typeof setAdminSupplierProductActive>(),
+  reserveShort: vi.fn<typeof reserveShortItems>(),
   enqueue: vi.fn<() => Promise<void>>(),
   warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -26,10 +28,11 @@ vi.mock("@sellbridge/database/repositories", () => ({
   saveAdminSupplier: mocks.saveSupplier,
   setAdminSupplierActive: mocks.setSupplierActive,
   setAdminSupplierProductActive: mocks.setProductActive,
+  reserveShortItems: mocks.reserveShort,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
-vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn } }));
+vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn, error: mocks.warn } }));
 import {
   confirmAdminProductCsv,
   previewAdminProductCsv,
@@ -72,9 +75,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.preview.mockResolvedValue(importPlan());
   mocks.enqueue.mockResolvedValue(undefined);
+  mocks.reserveShort.mockResolvedValue(0);
   mocks.importProducts.mockImplementation(async (_database, input) => {
     input.validatePreview(importPlan());
-    return { created: 1, updated: 0, pausedTargets: 0 };
+    return { created: 1, updated: 0, pausedTargets: 0, productIds: ["product-1"] };
   });
 });
 
@@ -92,6 +96,11 @@ describe("admin CSV orchestration", () => {
     });
     expect(mocks.enqueue).toHaveBeenCalledOnce();
     expect(mocks.importProducts.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
+    );
+    // Restocked units go to paid orders that were short before the sync offers them.
+    expect(mocks.reserveShort).toHaveBeenCalledWith({}, ["product-1"]);
+    expect(mocks.reserveShort.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
     );
   });
@@ -112,7 +121,7 @@ describe("admin CSV orchestration", () => {
     const preview = await previewAdminProductCsv({ supplierId, content });
     mocks.importProducts.mockImplementation(async (_database, input) => {
       input.validatePreview(importPlan("changed"));
-      return { created: 1, updated: 0, pausedTargets: 0 };
+      return { created: 1, updated: 0, pausedTargets: 0, productIds: ["product-1"] };
     });
     await expect(
       confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken }),

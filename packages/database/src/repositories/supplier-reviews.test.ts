@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders } from "../schema/index.ts";
+import { orderItems, orderStatusChanges, orders } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -147,6 +147,12 @@ describe("supplier reviews", () => {
       tags: ["dispatch:bad"],
       comment: "",
     });
+    // A buyer who never paid: the marketplace cancelled the cart, the supplier did nothing.
+    const abandoned = await insertOrder(tenantA, storeA, "cancelled");
+    await database.insert(orderStatusChanges).values([
+      { tenantId: tenantA, orderId: abandoned, status: "pending" },
+      { tenantId: tenantA, orderId: abandoned, status: "cancelled" },
+    ]);
     const stats = await getSupplierReputationStats(database, [catalog.supplierId], LONG_AGO);
     expect(stats.get(catalog.supplierId)).toMatchObject({
       reviewCount: 2,

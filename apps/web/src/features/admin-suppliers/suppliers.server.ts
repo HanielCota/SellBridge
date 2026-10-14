@@ -6,6 +6,7 @@ import {
   listAdminSupplierProducts,
   listAdminSuppliers,
   previewSupplierProductImport,
+  reserveShortItems,
   saveAdminSupplier,
   saveAdminSupplierProduct,
   setAdminSupplierActive,
@@ -13,6 +14,7 @@ import {
   type SupplierProductImportPlan,
 } from "@sellbridge/database/repositories";
 import { AppError, conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import type { z } from "zod";
 import type {
@@ -55,6 +57,19 @@ async function catalogWrite<TResult>(write: () => Promise<TResult>): Promise<TRe
   }
 }
 
+/**
+ * Paid items that came up short get the new units first, before the sync offers them to new
+ * buyers. Runs after the catalog write commits: a failure here leaves the shortage as it was
+ * (it is retried on the next count or order update), never the count unsaved.
+ */
+async function reserveRestockedShortages(productIds: readonly string[]): Promise<void> {
+  try {
+    await reserveShortItems(database, productIds);
+  } catch (error) {
+    logger.error("admin.short_reservation_failed", { productIds: productIds.length, error });
+  }
+}
+
 /** A committed write remains successful if Redis fails; the scheduled worker retries from the database. */
 async function requestSynchronization(): Promise<boolean> {
   return await requestStockSync("admin.catalog_sync_deferred");
@@ -76,6 +91,7 @@ export async function writeSupplierActive(input: { supplierId: string; active: b
 
 export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSchema>) {
   const product = await catalogWrite(async () => await saveAdminSupplierProduct(database, input));
+  await reserveRestockedShortages([product.id]);
   return { product, synchronizationQueued: await requestSynchronization() };
 }
 
@@ -122,5 +138,7 @@ export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmP
         },
       }),
   );
-  return { ...result, synchronizationQueued: await requestSynchronization() };
+  const { productIds, ...counts } = result;
+  await reserveRestockedShortages(productIds);
+  return { ...counts, synchronizationQueued: await requestSynchronization() };
 }

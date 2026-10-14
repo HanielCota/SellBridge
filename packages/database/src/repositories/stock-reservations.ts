@@ -4,9 +4,9 @@ import {
   type StockMove,
   type StockState,
 } from "@sellbridge/shared/stock-reservation";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
-import type { DatabaseExecutor } from "../client.ts";
-import { orderItems, supplierProducts } from "../schema/index.ts";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
+import { orderItems, orders, supplierProducts } from "../schema/index.ts";
 
 interface StockItem {
   id: string;
@@ -56,7 +56,7 @@ async function shiftShelf(
  * Holds the units only if they are all still sellable. The row lock of the UPDATE serializes
  * sales of the same product, so two buyers can never both get the last unit.
  */
-async function reserve(executor: DatabaseExecutor, item: StockItem): Promise<void> {
+async function reserve(executor: DatabaseExecutor, item: StockItem): Promise<boolean> {
   const held = await executor
     .update(supplierProducts)
     .set({
@@ -75,6 +75,7 @@ async function reserve(executor: DatabaseExecutor, item: StockItem): Promise<voi
   if (!(await markItem(executor, item, held.length > 0 ? "reserved" : "short"))) {
     throw new Error("O item do pedido mudou durante a reserva de estoque");
   }
+  return held.length > 0;
 }
 
 /** The units left the shelf: the hold (if any) becomes a real decrease of the shelf count. */
@@ -114,7 +115,10 @@ async function settle(executor: DatabaseExecutor, item: StockItem): Promise<void
   await markItem(executor, item, "released");
 }
 
-const MOVES: Record<Exclude<StockMove, "none">, typeof reserve> = {
+const MOVES: Record<
+  Exclude<StockMove, "none">,
+  (executor: DatabaseExecutor, item: StockItem) => Promise<unknown>
+> = {
   reserve,
   consume,
   release,
@@ -155,4 +159,51 @@ export async function applyStockMoves(
     moved += 1;
   }
   return moved;
+}
+
+/**
+ * Tries again to hold units for paid items that came up short, oldest shortage first, after the
+ * admin raised a product's count. Without this a shortage waits for the marketplace to resend
+ * the order, while the restocked units go back on sale to the next buyer. Items another write
+ * holds are skipped (`skip locked`) instead of waited on; their own write settles them. Returns
+ * how many items now hold their units.
+ */
+export async function reserveShortItems(
+  database: Database,
+  supplierProductIds: readonly string[],
+): Promise<number> {
+  if (supplierProductIds.length === 0) {
+    return 0;
+  }
+  return await database.transaction(async (transaction) => {
+    const items = await transaction
+      .select({
+        id: orderItems.id,
+        supplierProductId: orderItems.supplierProductId,
+        quantity: orderItems.quantity,
+        stockState: orderItems.stockState,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          inArray(orderItems.supplierProductId, [...supplierProductIds]),
+          eq(orderItems.stockState, "short"),
+          eq(orders.status, "paid"),
+        ),
+      )
+      .orderBy(asc(orderItems.shortSince), asc(orderItems.id))
+      .for("update", { of: orderItems, skipLocked: true });
+    let reserved = 0;
+    for (const item of items) {
+      if (item.supplierProductId === null) {
+        continue;
+      }
+      // Sequential on purpose: the oldest shortage gets the restocked units first.
+      if (await reserve(transaction, { ...item, supplierProductId: item.supplierProductId })) {
+        reserved += 1;
+      }
+    }
+    return reserved;
+  });
 }

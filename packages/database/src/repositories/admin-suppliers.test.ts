@@ -104,7 +104,7 @@ describe("admin suppliers", () => {
     expect(
       await previewSupplierProductImport(database, supplierId, parseProductCsv(content).rows),
     ).toMatchObject({ created: 1, updated: 1, errors: [] });
-    expect(await importRows(content)).toEqual({ created: 1, updated: 1, pausedTargets: 0 });
+    expect(await importRows(content)).toMatchObject({ created: 1, updated: 1, pausedTargets: 0 });
     const result = await listAdminSupplierProducts(database, supplierId, "ADMIN-1", {
       page: 1,
       pageSize: 20,
@@ -198,6 +198,68 @@ describe("admin suppliers", () => {
     });
     expect(products.items.find((product) => product.sku === "ADMIN-1")?.title).toBe("Atualizado");
     expect(products.items.some((product) => product.sku === "ROLLBACK")).toBe(false);
+  });
+
+  it("never undoes sales that moved the count while the form was open", async () => {
+    const product = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: "LIVE-COUNT",
+    });
+    const stockOf = async () =>
+      (
+        await database
+          .select({ stock: supplierProducts.stock })
+          .from(supplierProducts)
+          .where(eq(supplierProducts.id, product.id))
+      )[0]?.stock;
+    const edit = (stock: number, title: string) =>
+      saveAdminSupplierProduct(database, {
+        supplierId,
+        productId: product.id,
+        ...productValues,
+        sku: "LIVE-COUNT",
+        title,
+        stock,
+        expectedStock: 10,
+      });
+    // The form opened at 10; the supplier shipped 2 meanwhile.
+    await database
+      .update(supplierProducts)
+      .set({ stock: 8 })
+      .where(eq(supplierProducts.id, product.id));
+
+    // Only the title changed: the live count stays.
+    await edit(10, "Novo título");
+    expect(await stockOf()).toBe(8);
+    // A new count typed over a count that moved is refused.
+    await expect(edit(15, "Outro título")).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("O estoque deste produto mudou"),
+    });
+    expect(await stockOf()).toBe(8);
+    // Reopened at the live count, the new count is saved.
+    await saveAdminSupplierProduct(database, {
+      supplierId,
+      productId: product.id,
+      ...productValues,
+      sku: "LIVE-COUNT",
+      stock: 15,
+      expectedStock: 8,
+    });
+    expect(await stockOf()).toBe(15);
+  });
+
+  it("refuses a cost or suggested price above what a listing may cost", async () => {
+    const { adminProductValuesSchema } = await import("@sellbridge/shared/schemas");
+    const atLimit = { ...productValues, costCents: 100_000_000, suggestedPriceCents: 100_000_000 };
+    expect(adminProductValuesSchema.safeParse(atLimit).success).toBe(true);
+    expect(adminProductValuesSchema.safeParse({ ...atLimit, costCents: 100_000_001 }).success).toBe(
+      false,
+    );
+    expect(
+      adminProductValuesSchema.safeParse({ ...atLimit, suggestedPriceCents: 100_000_001 }).success,
+    ).toBe(false);
   });
 
   it("preserves an inactive product when the CSV omits its active flag", async () => {
