@@ -4,22 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 20 concluído (20.c ffff29f; auditoria de limites c326b9e; padrões do navegador 5091935)
-- Última etapa concluída: 10 · Commit local (três prompts de revisão aplicados: limites, qualidade, boas práticas)
-- Próximo passo: confirmar com o usuário a divisão em 5 chats (coordenacao.md 803ec3d), juntar `feat/client-phase-1-c` (08 fechado), rodar testes e e2e, e seguir com X-1 (confirmação de "Cancelar envio"), U-9, 22, trocar de fornecedor (inclui estoque de envio cancelado e reencaminhar com outro envio já despachado) e 21 (atrás de flag até D6)
+- Item/parte: X-1 · confirmação de "Cancelar envio" (com X-3, mesmos botões)
+- Última etapa concluída: 2 · Plano e ficha D0 (⏸1 aguardando OK)
+- Próximo passo: depois do OK, testes falhando (⏸2). Divisão em 5 chats confirmada pelo usuário em 14/10; branch C juntada (36ebac1, 76 e2e verdes); migration 0023 do chat auditoria trazida (29d8514), aplicada no `sellbridge_desk` e senha liberada; próxima migration: 0024
 - Arquivos tocados: shared/schemas/fulfillment.ts, repositories/fulfillment(.test).ts, repositories/order-page(.test).ts, fulfillment.functions.ts, components/fulfillment/operations.tsx, components/orders/{order-page,review-action}.tsx, components/reports/period-filters.tsx (área do chat C: `presets` e "Tudo", relatórios iguais), routes/_app/pedidos/{index,$orderId}.tsx, use-save-review.ts, e2e order-page/fulfillment/reviews
 - Decisões tomadas nos pontos de parada: nova divisão em 5 chats (SellBridge-c/docs/prompts/coordenacao.md, commit 803ec3d, 14/10; confirmação do usuário pendente): este chat fica com 20.c, 22, trocar de fornecedor, 21, X-1, U-3, U-4, U-9 e é o integrador (junta C, B, D e E e faz a revisão final); 25–32 saíram daqui; migrations com "senha da vez" (`C:\Users\Administrator\Projetos\migration-lock.txt`: o chat manda o hash, este chat faz cherry-pick, aplica no `sellbridge_desk` e apaga o lock). Antes: divisão dos chats por área (SellBridge-c/docs/prompts/coordenacao.md, confirmada pelo usuário em 13/10): este chat é dono de pedidos, envio, link do fornecedor e de todas as migrations; itens 20.c, 21, 22, trocar de fornecedor, 28, 25, 26, 29–32; correções X-1, U-3, U-4, U-9. Revisão da sessão paralela "Catálogo error verification" aprovada e commitada à parte (ff726d0, migration 0022 order_status_changes); próxima migration deste chat: 0023
 - Pendências: a sessão paralela aplicou migrations no banco `sellbridge` (até 0022, sem apagar dados; usuário decidiu deixar como está) e o `.env` desta pasta passou a apontar para `sellbridge_desk`; item novo "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; transbordo de 21 px em 1024 px no cabeçalho em tarefa separada; ShipmentActions recebe ~13 props (vício apontado pelo chat C); ao juntar a branch C, conflitos em order-dialog, operations e fornecedor/pedido/$token
 
 ## Linha de base
 
-| Métrica                                                         | Valor                     | Medido em  |
-| --------------------------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 858 passando              | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 322 passando              | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando               | 2026-10-13 |
-| Última migration                                                | 0022_order_status_changes | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`     | 2026-10-12 |
+| Métrica                                                         | Valor                 | Medido em  |
+| --------------------------------------------------------------- | --------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 858 passando          | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 322 passando          | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando           | 2026-10-13 |
+| Última migration                                                | 0023_pending_indexes  | 2026-10-14 |
+| Branch de trabalho                                              | `feat/client-phase-1` | 2026-10-12 |
 
 ## Situação dos itens
 
