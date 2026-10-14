@@ -5,7 +5,8 @@ import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
-import { handleApi, jsonResponse } from "@/lib/server/http";
+import { environment } from "@/lib/server/environment";
+import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
@@ -90,6 +91,7 @@ async function replaceImage(
 /** POST /api/perfil/foto: multipart "file"; replaces the signed-in user's photo. */
 export function handleUploadAvatar(request: Request) {
   return handleApi("profile.upload_avatar", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireSession(request.headers);
     const { bytes, type } = await readAvatarFile(request);
     const fileName = `${randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
@@ -104,6 +106,7 @@ export function handleUploadAvatar(request: Request) {
 /** DELETE /api/perfil/foto: back to the initials. */
 export function handleDeleteAvatar(request: Request) {
   return handleApi("profile.delete_avatar", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireSession(request.headers);
     await replaceImage(request.headers, session.user, null);
     logger.info("profile.avatar_removed", { userId: session.user.id });

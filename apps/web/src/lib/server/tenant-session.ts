@@ -18,7 +18,9 @@ export interface TenantSession {
 /**
  * Resolves the authenticated user and tenant from request headers.
  * Sessions created during sign-up may exist before the organization does, so it
- * falls back to the user's first organization and stores it as the active one.
+ * falls back to the user's first organization and stores it as the active one. The active
+ * organization saved in the session is only trusted while the user is still its member:
+ * someone removed from an organization keeps their session, not its data.
  */
 export async function requireTenantSession(headers: Headers): Promise<TenantSession> {
   const session = await auth.api.getSession({ headers });

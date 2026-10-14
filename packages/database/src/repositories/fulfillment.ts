@@ -17,7 +17,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
   DELIVERY_CONFIRMED_BY,
@@ -374,6 +374,13 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.status, "cancelled")))
       .returning({ id: orderShipments.id, supplierId: orderShipments.supplierId });
     if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
+    // The same rule as the first forward: a supplier turned off by the admin gets no new parcel.
+    const [supplier] = await tx
+      .select({ active: suppliers.active })
+      .from(suppliers)
+      .where(eq(suppliers.id, shipment.supplierId));
+    if (!supplier?.active)
+      throw conflictError("Este fornecedor foi desativado e não recebe mais pedidos");
     await tx.insert(shipmentEvents).values({
       shipmentId,
       status: "forwarded",
@@ -503,12 +510,17 @@ async function writeShipmentStatus(
   if (input.status === shipment.status && !input.note)
     throw conflictError("Informe uma ocorrência ou avance a etapa");
   if (input.status === shipment.status) await assertRoomForNote(tx, shipment.id);
+  const shipsNow = input.status === "shipped" && shipment.status !== "shipped";
+  if (shipsNow && (!input.carrier || !input.trackingCode))
+    throw validationError("Informe transportadora e código de rastreio");
   await tx
     .update(orderShipments)
     .set({
       status: input.status,
       updatedAt: new Date(),
-      ...(input.status === "shipped"
+      ...linkFieldsFor(input.status),
+      // Written when the parcel ships, or when an occurrence brings them; never blanked.
+      ...(shipsNow || (input.status === "shipped" && input.carrier && input.trackingCode)
         ? {
             carrier: input.carrier,
             trackingCode: input.trackingCode,
@@ -523,6 +535,20 @@ async function writeShipmentStatus(
     actor: SHIPMENT_ACTORS[by],
     note: input.note,
   });
+}
+
+/** Parcels the supplier has nothing more to do or see for. */
+const LINK_CLOSING_STATUSES: readonly FulfillmentStatus[] = ["delivered", "returned"];
+
+/**
+ * A delivered or returned parcel needs nothing more from the supplier: its link stops working
+ * instead of showing the buyer's address and label for the rest of its 30 days. A cancelled one
+ * keeps it, so the supplier still sees the cancellation it made; re-forwarding replaces it.
+ */
+function linkFieldsFor(status: FulfillmentStatus) {
+  return LINK_CLOSING_STATUSES.includes(status)
+    ? { supplierTokenHash: null, supplierTokenExpiresAt: null }
+    : {};
 }
 
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
@@ -621,6 +647,7 @@ export async function applyMarketplaceShipment(
         carrier: shipping.carrier ?? shipment.carrier,
         trackingCode: shipping.trackingCode ?? shipment.trackingCode,
         updatedAt: new Date(),
+        ...linkFieldsFor(status),
       })
       .where(eq(orderShipments.id, shipment.id));
     const newTrackingCode =

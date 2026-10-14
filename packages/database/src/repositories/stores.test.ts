@@ -52,6 +52,18 @@ describe("store connections are tenant-scoped", () => {
     expect(found.map((store) => store.id)).toEqual([storeA]);
   });
 
+  it("refuses a shop already connected to another organization, until it disconnects there", async () => {
+    const shopId = `shop-a-${tenantA}`;
+    await expect(
+      upsertStoreConnection(database, testStoreInput(tenantB, shopId)),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const otherShop = `shared-${tenantA}`;
+    const first = await upsertStoreConnection(database, testStoreInput(tenantA, otherShop));
+    await disconnectStore(database, tenantA, first.id);
+    const second = await upsertStoreConnection(database, testStoreInput(tenantB, otherShop));
+    expect(second.id).not.toBe(first.id);
+  });
+
   it("reconnecting the same shop reuses the connection", async () => {
     const again = await upsertStoreConnection(
       database,

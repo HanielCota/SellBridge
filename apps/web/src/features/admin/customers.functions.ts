@@ -1,5 +1,6 @@
 import {
   assignIssue,
+  disableTenantWebhookEndpoints,
   disconnectStore,
   findTenantRegion,
   getCustomer,
@@ -13,6 +14,7 @@ import {
   listTenantTickets,
   MAX_CUSTOMERS_RANKED,
   recordAdminEvent,
+  revokeTenantApiKeys,
   saveTenantRegion,
   snoozeIssue,
   type AdminEventDetails,
@@ -21,6 +23,7 @@ import { assessCustomerHealth } from "@sellbridge/shared/customer-health";
 import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
 import { conflictError, forbiddenError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { staffRoleOf } from "@sellbridge/shared/staff-access";
 import {
   assignCustomerIssueSchema,
   customerIdSchema,
@@ -77,6 +80,23 @@ async function requireCustomerTenant(userId: string): Promise<string> {
     throw notFoundError("Este cliente ainda não tem uma organização");
   }
   return customer.tenantId;
+}
+
+/**
+ * A team account (or one of ADMIN_EMAILS) is only managed by an ADMIN_EMAILS owner: otherwise any
+ * admin could change another admin's e-mail, send the reset link to it and sign in as them.
+ */
+async function requireManageableCustomer(actorId: string, userId: string) {
+  const customer = await requireCustomer(userId);
+  const protectedTarget = staffRoleOf(customer.role) !== null || isAdminEmail(customer.email);
+  if (!protectedTarget) {
+    return customer;
+  }
+  const actor = await getCustomer(database, actorId);
+  if (!actor || !isAdminEmail(actor.email)) {
+    throw forbiddenError("Só um dono da plataforma (ADMIN_EMAILS) gerencia contas da equipe");
+  }
+  return customer;
 }
 
 /** Admins can't lock themselves out by demoting or blocking their own account. */
@@ -199,7 +219,7 @@ export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(updateCustomerProfileSchema)
   .handler(async ({ context, data }) => {
-    await requireCustomer(data.userId);
+    await requireManageableCustomer(context.userId, data.userId);
     const email = data.email.toLowerCase();
     if (await isEmailTakenByOther(database, email, data.userId)) {
       throw conflictError("Já existe outra conta com este e-mail");
@@ -217,7 +237,7 @@ export const adminSetCustomerRole = createServerFn({ method: "POST" })
   .validator(setCustomerRoleSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "alterar o papel de");
-    const customer = await requireCustomer(data.userId);
+    const customer = await requireManageableCustomer(context.userId, data.userId);
     // ADMIN_EMAILS addresses are promoted back on every update (auth.ts), wiping the password
     // and sessions on the way; the role of those accounts is set in the environment instead.
     if (data.role !== "admin" && isAdminEmail(customer.email)) {
@@ -232,6 +252,19 @@ export const adminSetCustomerRole = createServerFn({ method: "POST" })
     await recordAdminAction(context.userId, data.userId, "role_changed", { role: data.role });
     return { ok: true };
   });
+
+/**
+ * A blocked account stops being served everywhere, not only in the app: its API keys keep
+ * working and its webhooks keep receiving data otherwise. Unblocking does not turn them back on:
+ * the owner creates new keys and re-enables the endpoints they still want.
+ */
+async function shutOffIntegrations(tenantId: string): Promise<void> {
+  const [keys, endpoints] = await Promise.all([
+    revokeTenantApiKeys(database, tenantId),
+    disableTenantWebhookEndpoints(database, tenantId),
+  ]);
+  logger.info("admin.integrations_shut_off", { tenantId, keys, endpoints });
+}
 
 async function applyBan(data: { userId: string; banned: boolean; reason?: string | undefined }) {
   const headers = getRequestHeaders();
@@ -250,8 +283,11 @@ export const adminSetCustomerBan = createServerFn({ method: "POST" })
   .validator(setCustomerBanSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "bloquear");
-    await requireCustomer(data.userId);
+    const customer = await requireManageableCustomer(context.userId, data.userId);
     await applyBan(data);
+    if (data.banned && customer.tenantId) {
+      await shutOffIntegrations(customer.tenantId);
+    }
     await recordAdminAction(context.userId, data.userId, "ban_changed", { banned: data.banned });
     return { ok: true };
   });
@@ -260,7 +296,7 @@ export const adminRevokeCustomerSessions = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
-    await requireCustomer(data.userId);
+    await requireManageableCustomer(context.userId, data.userId);
     await auth.api.revokeUserSessions({
       body: { userId: data.userId },
       headers: getRequestHeaders(),
@@ -273,7 +309,7 @@ export const adminSendCustomerPasswordReset = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
-    const customer = await requireCustomer(data.userId);
+    const customer = await requireManageableCustomer(context.userId, data.userId);
     await auth.api.requestPasswordReset({
       body: { email: customer.email, redirectTo: "/redefinir-senha" },
     });

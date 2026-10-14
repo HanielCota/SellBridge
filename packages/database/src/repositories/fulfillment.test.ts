@@ -162,6 +162,59 @@ async function cancelledNotices(userId = `reader-${randomUUID()}`) {
 }
 
 describe("fulfillment", () => {
+  it("asks for carrier and code when a parcel ships, not for an occurrence after it", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    for (const status of ["accepted", "picking", "ready"] as const) {
+      await advance(link.shipmentId, status, link.token);
+    }
+    const write = (status: "shipped", note: string, carrier: string) =>
+      updateShipment(
+        database,
+        {
+          shipmentId: link.shipmentId,
+          status,
+          note,
+          carrier,
+          trackingCode: carrier ? "AB1BR" : "",
+          trackingUrl: "",
+        },
+        { token: link.token },
+      );
+    // A note does not stand in for the carrier when the parcel ships.
+    await expect(write("shipped", "Saiu hoje", "")).rejects.toMatchObject({ code: "VALIDATION" });
+    await write("shipped", "", "Correios");
+    // Once shipped, an occurrence without them is recorded and keeps the carrier.
+    await write("shipped", "Comprador ausente na primeira tentativa", "");
+    const [stored] = await database
+      .select({ carrier: orderShipments.carrier, trackingCode: orderShipments.trackingCode })
+      .from(orderShipments)
+      .where(eq(orderShipments.id, link.shipmentId));
+    expect(stored).toEqual({ carrier: "Correios", trackingCode: "AB1BR" });
+  });
+
+  it("keeps the link through a cancellation and stops it once the parcel is delivered", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    for (const status of ["accepted", "picking", "ready", "shipped"] as const) {
+      await advance(link.shipmentId, status, link.token);
+    }
+    expect((await getSupplierShipment(database, link.token)).status).toBe("shipped");
+    await advance(link.shipmentId, "delivered");
+    await expect(getSupplierShipment(database, link.token)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    // The supplier who cancels still sees its own cancellation.
+    const other = await createOrder();
+    const [otherLink] = await forward(other.id);
+    if (!otherLink) throw new Error("No link");
+    await cancel(otherLink.shipmentId, "Sem o produto no estoque", otherLink.token);
+    expect((await getSupplierShipment(database, otherLink.token)).status).toBe("cancelled");
+  });
+
   it("splits by supplier, snapshots only their items and stores only a token hash", async () => {
     const order = await createOrder("paid", true);
     const links = await forward(order.id);

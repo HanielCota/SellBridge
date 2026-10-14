@@ -1,7 +1,7 @@
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, asc, eq, inArray, isNotNull, lt, ne } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { oauthStates, storeConnections } from "../schema/index.ts";
 
 type StoreConnectionRow = typeof storeConnections.$inferSelect;
@@ -76,11 +76,40 @@ export interface UpsertStoreConnectionInput {
 }
 
 /** Connecting the same shop again reactivates it with fresh tokens. */
+/**
+ * One marketplace shop belongs to one organization at a time. A second organization connecting
+ * the same shop (someone else with access to the seller's account) would split its orders, with
+ * the buyers' data, between both, whichever the webhook happens to find.
+ */
+async function assertShopFreeForTenant(
+  executor: DatabaseExecutor,
+  input: Pick<UpsertStoreConnectionInput, "tenantId" | "marketplace" | "externalShopId">,
+): Promise<void> {
+  const [other] = await executor
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.marketplace, input.marketplace),
+        eq(storeConnections.externalShopId, input.externalShopId),
+        ne(storeConnections.tenantId, input.tenantId),
+        ne(storeConnections.status, "disconnected"),
+      ),
+    )
+    .limit(1);
+  if (other) {
+    throw conflictError(
+      "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui.",
+    );
+  }
+}
+
 export async function upsertStoreConnection(
   database: Database,
   input: UpsertStoreConnectionInput,
 ): Promise<StoreConnectionSummary> {
   return database.transaction(async (executor) => {
+    await assertShopFreeForTenant(executor, input);
     if (input.billingEnabled) {
       await lockBillingTenant(executor, input.tenantId);
       const [existing] = await executor
@@ -167,6 +196,11 @@ export interface StoreStatusChange {
   lastError: string;
   /** When given, the change only applies while this refresh token is still the saved one. */
   refreshTokenEnc?: string;
+  /**
+   * When given, the change only applies while this access token is still the saved one: a call
+   * made with the token from before a reconnection must not expire the new connection.
+   */
+  accessTokenEnc?: string;
 }
 
 /**
@@ -183,6 +217,9 @@ export async function markStoreStatus(
   ];
   if (change.refreshTokenEnc !== undefined) {
     conditions.push(eq(storeConnections.refreshTokenEnc, change.refreshTokenEnc));
+  }
+  if (change.accessTokenEnc !== undefined) {
+    conditions.push(eq(storeConnections.accessTokenEnc, change.accessTokenEnc));
   }
   const updated = await database
     .update(storeConnections)
