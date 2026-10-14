@@ -58,6 +58,7 @@ function SupplierOrderPage() {
           <ShipmentPanel
             shipment={query.data}
             externalOrderId={query.data.externalOrderId}
+            actsAs="supplier"
             blocked={["cancelled", "returned", "pending"].includes(query.data.orderStatus)}
             onUpdate={async (update) => {
               await updateSupplierShipmentFn({ data: { token, update } });

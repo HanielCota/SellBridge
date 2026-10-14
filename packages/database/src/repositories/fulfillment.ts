@@ -403,6 +403,10 @@ async function writeShipmentStatus(
   input: z.infer<typeof shipmentUpdateSchema>,
   actor: string,
 ) {
+  // A delivery the supplier declares about itself is not proof: it releases the reseller's review
+  // and, later, the supplier's payment. Only the marketplace or the reseller confirms it.
+  if (actor === "Fornecedor" && input.status === "delivered" && shipment.status !== "delivered")
+    throw conflictError("A entrega é confirmada pelo marketplace ou pelo revendedor.");
   if (
     input.status !== shipment.status &&
     FULFILLMENT_NEXT[shipment.status] !== input.status &&

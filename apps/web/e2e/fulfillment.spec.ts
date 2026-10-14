@@ -113,15 +113,30 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await expect(popup.getByRole("heading", { name: "Etiqueta de identificação" })).toBeVisible();
   await expect(popup.getByText("Maria Silva", { exact: true })).toBeVisible();
   await popup.close();
-  await supplier.getByRole("button", { name: "Entregue", exact: true }).click();
+  // The supplier's part ends at dispatch: delivery is not theirs to declare.
   await expect(supplier.getByRole("button", { name: "Entregue", exact: true })).toHaveCount(0);
-  // Newest first: the delivery heads the history.
   await expect(
-    supplier.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
-  ).toContainText("Entregue");
+    supplier.getByText("A entrega é confirmada pelo marketplace ou pelo revendedor."),
+  ).toBeVisible();
+  await supplierContext.close();
+
+  // The reseller confirms it.
+  await gotoHydrated(page, "/pedidos");
+  await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Operar pedido" }).click();
+  const reopened = page.getByRole("dialog", { name: "Operar pedido" });
+  await reopened.getByRole("button", { name: "Entregue", exact: true }).click();
+  // Newest first: the delivery heads the history, with who confirmed it.
+  const latest = reopened
+    .getByRole("list", { name: "Histórico do envio" })
+    .getByRole("listitem")
+    .first();
+  await expect(latest).toContainText("Entregue");
+  await expect(latest).toContainText("por Revendedor");
   const [order] = await database.select().from(orders).where(eq(orders.id, orderId));
   expect(order?.status).toBe("delivered");
-  await supplierContext.close();
 });
 
 test("shows a parcel that failed and came back on the shipment timeline", async ({ page }) => {

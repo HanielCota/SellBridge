@@ -32,16 +32,27 @@ export interface ShipmentView {
   trackingUrl: string | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
+/** The supplier's part ends at dispatch: the marketplace or the reseller confirms the delivery. */
+function nextStepFor(status: FulfillmentStatus, actsAs: ShipmentActor): FulfillmentStatus | null {
+  const next = FULFILLMENT_NEXT[status];
+  return actsAs === "supplier" && next === "delivered" ? null : next;
+}
+
+type ShipmentActor = "reseller" | "supplier";
+
 export function ShipmentPanel({
   shipment,
   externalOrderId,
   onUpdate,
   children,
   blocked = false,
+  actsAs = "reseller",
 }: {
   shipment: ShipmentView;
   externalOrderId: string;
   blocked?: boolean;
+  /** Who works the panel: the supplier (by link) cannot declare the delivery. */
+  actsAs?: ShipmentActor;
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
@@ -56,20 +67,14 @@ export function ShipmentPanel({
     setNote,
     mutation,
   } = useShipmentUpdate(shipment, onUpdate);
-  const next = FULFILLMENT_NEXT[shipment.status];
+  const next = nextStepFor(shipment.status, actsAs);
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
       <ShipmentSummary shipment={shipment} />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
-          Imprimir etiqueta de identificação
-        </Button>
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
-          Imprimir ordem de fornecimento
-        </Button>
+      <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId}>
         {children}
-      </div>
+      </ShipmentToolbar>
       {closed ? null : (
         <ShipmentActions
           next={blocked ? null : next}
@@ -83,6 +88,7 @@ export function ShipmentPanel({
           setNote={setNote}
           pending={mutation.isPending}
           status={shipment.status}
+          awaitingDelivery={actsAs === "supplier" && shipment.status === "shipped"}
           onSubmit={(status) => mutation.mutate(status)}
         />
       )}
@@ -90,9 +96,62 @@ export function ShipmentPanel({
     </section>
   );
 }
+/** Printing, plus whatever the page adds (the reseller's link, the official label). */
+function ShipmentToolbar({
+  shipment,
+  externalOrderId,
+  children,
+}: {
+  shipment: ShipmentView;
+  externalOrderId: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
+        Imprimir etiqueta de identificação
+      </Button>
+      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
+        Imprimir ordem de fornecimento
+      </Button>
+      {children}
+    </div>
+  );
+}
+
+/** What dispatch needs: carrier and tracking. */
+function DispatchFields(props: {
+  carrier: string;
+  trackingCode: string;
+  trackingUrl: string;
+  setCarrier: (value: string) => void;
+  setTrackingCode: (value: string) => void;
+  setTrackingUrl: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
+      <Field
+        label="Código de rastreio"
+        value={props.trackingCode}
+        onChange={props.setTrackingCode}
+      />
+      <div className="sm:col-span-2">
+        <Field
+          label="Link de rastreio (HTTPS, opcional)"
+          value={props.trackingUrl}
+          onChange={props.setTrackingUrl}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ShipmentActions(props: {
   next: FulfillmentStatus | null;
   status: FulfillmentStatus;
+  /** Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */
+  awaitingDelivery: boolean;
   carrier: string;
   trackingCode: string;
   trackingUrl: string;
@@ -106,23 +165,7 @@ function ShipmentActions(props: {
 }) {
   return (
     <div className="space-y-3">
-      {props.next === "shipped" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
-          <Field
-            label="Código de rastreio"
-            value={props.trackingCode}
-            onChange={props.setTrackingCode}
-          />
-          <div className="sm:col-span-2">
-            <Field
-              label="Link de rastreio (HTTPS, opcional)"
-              value={props.trackingUrl}
-              onChange={props.setTrackingUrl}
-            />
-          </div>
-        </div>
-      ) : null}
+      {props.next === "shipped" ? <DispatchFields {...props} /> : null}
       <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
       <div className="flex flex-wrap gap-2">
         {props.next ? (
@@ -147,6 +190,11 @@ function ShipmentActions(props: {
           </Button>
         )}
       </div>
+      {props.awaitingDelivery ? (
+        <p className="text-sm text-muted-foreground">
+          A entrega é confirmada pelo marketplace ou pelo revendedor.
+        </p>
+      ) : null}
     </div>
   );
 }

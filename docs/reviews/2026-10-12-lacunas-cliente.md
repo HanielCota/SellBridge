@@ -57,7 +57,7 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B-15               | 🟡               | Página do link do fornecedor com etapas, rastreio e etiqueta. Sem painel consolidado.                                                                                                                         |
 | C3, C6, C12        | 🟡 só assinatura | Stripe usado direto para a **mensalidade**. Pagamento ao fornecedor, split e custódia (C1–C11) continuam ❌.                                                                                                  |
 | D-1, D-2, D-3      | 🟡               | Envio do ML consultado por botão manual; etiqueta ME2 em PDF; linha do tempo do envio. Sem tópico `shipments`, sem previsão, e pedido dividido fica sem etiqueta.                                             |
-| D-7                | 🟡               | "Entregue" grava `deliveredAt` e libera a avaliação. Não libera pagamento.                                                                                                                                    |
+| D-7                | 🟡               | "Entregue" grava `deliveredAt` e libera a avaliação; só o Mercado Livre ou o revendedor o confirmam (item 07). Não libera pagamento.                                                                          |
 | E3                 | 🟡               | Atributos obrigatórios validados antes do POST. O preenchimento é manual e a categoria continua adivinhada.                                                                                                   |
 | E13, M1, M2, M4–M7 | 🟡               | Três planos (Gratuito 2/25, Pro 10/500, Business 50/5000), Stripe Checkout e Portal, limite de lojas e anúncios no servidor, página `/assinatura`. Diverge dos 5 planos do PDF.                               |
 | G1                 | ✅               | `sale_fee` tratado como valor por unidade.                                                                                                                                                                    |
@@ -82,22 +82,22 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 
 ### Riscos novos trazidos pela `main` (N1–N14)
 
-| #   | Grav. | Problema                                                                                                                                         | Onde                                              |
-| --- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| N1  | 🔴    | Migration 0008 pulada em bancos antigos (ver B5).                                                                                                | `migrations/meta/_journal.json`                   |
-| N2  | 🔴    | Trava de publicação permanente: `creation_started_at` só é limpo em recusa 4xx. Um timeout ou 5xx deixa o anúncio para sempre em "só conciliar". | `mercado-livre/listings.ts`, `publish-listing.ts` |
-| N3  | ✅    | Envio cancelado não conta para o status do pedido e pode ser reencaminhado ao mesmo fornecedor (item 06, 13/10).                                 | `fulfillment-status.ts`, `fulfillment.ts`         |
-| N4  | 🔴    | O fornecedor declara "entregue" sozinho pelo link e libera a avaliação. Vira fraude quando o pagamento depender disso.                           | `shared/schemas/fulfillment.ts`, `fulfillment.ts` |
-| N5  | 🟠    | Chamadas ao Stripe dentro de transação com lock da organização: bloqueiam publicação e conexão de loja do tenant por até 45 s.                   | `billing.server.ts`, `webhook.server.ts`          |
-| N6  | 🟠    | Limite de plano contornável: o plugin `organization()` exposto (B8) cria organizações com cota nova.                                             | `auth.ts`                                         |
-| N7  | 🟠    | A cota conta todos os anúncios, inclusive falhos e encerrados, e não há exclusão.                                                                | `repositories/billing.ts`                         |
-| N8  | 🟠    | Sem as variáveis do Stripe, produção roda sem limite nenhum.                                                                                     | `publish-listing.server.ts`, `oauth.server.ts`    |
-| N9  | 🟡    | `past_due` volta na hora para o Gratuito, sem carência.                                                                                          | `shared/domain/billing.ts`                        |
-| N10 | 🟡    | Desativar produto ou fornecedor não pausa anúncios nem dispara sync, e as escritas do catálogo não são auditadas.                                | `suppliers.server.ts`                             |
-| N11 | 🟡    | O token do fornecedor vai em query string (etiqueta e GET) e vaza para logs um link de 30 dias com o endereço do comprador.                      | `fornecedor/pedido/$token.tsx`                    |
-| N12 | 🟡    | O endpoint de diagnóstico tem limite global de 60/min: um cliente cala os relatórios de todos.                                                   | `error-reports.ts`                                |
-| N13 | 🟡    | Não entregue, cancelado e devolvido mapeados (04.a, 13/10). Ainda só atualiza com clique (tópico `shipments` não assinado).                      | `fulfillment.ts`                                  |
-| N14 | 🟡    | O CSV não aceita atributos do ML: catálogo importado em massa falha na publicação.                                                               | `product-csv.ts`                                  |
+| #   | Grav. | Problema                                                                                                                                                   | Onde                                              |
+| --- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| N1  | 🔴    | Migration 0008 pulada em bancos antigos (ver B5).                                                                                                          | `migrations/meta/_journal.json`                   |
+| N2  | 🔴    | Trava de publicação permanente: `creation_started_at` só é limpo em recusa 4xx. Um timeout ou 5xx deixa o anúncio para sempre em "só conciliar".           | `mercado-livre/listings.ts`, `publish-listing.ts` |
+| N3  | ✅    | Envio cancelado não conta para o status do pedido e pode ser reencaminhado ao mesmo fornecedor (item 06, 13/10).                                           | `fulfillment-status.ts`, `fulfillment.ts`         |
+| N4  | ✅    | Pelo link, o fornecedor só avança até "Enviado"; a entrega é confirmada pelo Mercado Livre ou pelo revendedor, com a origem no histórico (item 07, 13/10). | `shared/schemas/fulfillment.ts`, `fulfillment.ts` |
+| N5  | 🟠    | Chamadas ao Stripe dentro de transação com lock da organização: bloqueiam publicação e conexão de loja do tenant por até 45 s.                             | `billing.server.ts`, `webhook.server.ts`          |
+| N6  | 🟠    | Limite de plano contornável: o plugin `organization()` exposto (B8) cria organizações com cota nova.                                                       | `auth.ts`                                         |
+| N7  | 🟠    | A cota conta todos os anúncios, inclusive falhos e encerrados, e não há exclusão.                                                                          | `repositories/billing.ts`                         |
+| N8  | 🟠    | Sem as variáveis do Stripe, produção roda sem limite nenhum.                                                                                               | `publish-listing.server.ts`, `oauth.server.ts`    |
+| N9  | 🟡    | `past_due` volta na hora para o Gratuito, sem carência.                                                                                                    | `shared/domain/billing.ts`                        |
+| N10 | 🟡    | Desativar produto ou fornecedor não pausa anúncios nem dispara sync, e as escritas do catálogo não são auditadas.                                          | `suppliers.server.ts`                             |
+| N11 | 🟡    | O token do fornecedor vai em query string (etiqueta e GET) e vaza para logs um link de 30 dias com o endereço do comprador.                                | `fornecedor/pedido/$token.tsx`                    |
+| N12 | 🟡    | O endpoint de diagnóstico tem limite global de 60/min: um cliente cala os relatórios de todos.                                                             | `error-reports.ts`                                |
+| N13 | 🟡    | Não entregue, cancelado e devolvido mapeados (04.a, 13/10). Ainda só atualiza com clique (tópico `shipments` não assinado).                                | `fulfillment.ts`                                  |
+| N14 | 🟡    | O CSV não aceita atributos do ML: catálogo importado em massa falha na publicação.                                                                         | `product-csv.ts`                                  |
 
 ---
 
