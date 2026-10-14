@@ -5,21 +5,21 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 ## Em andamento
 
 - Item/parte: 20.c · Filtros da aba Operação e avaliação dentro do pedido
-- Última etapa concluída: — (20.b ✅ c6b7987)
-- Próximo passo: etapa 1 · filtros atuais da Operação, schema de busca e diálogo de avaliação; folha D0
-- Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 20.b; ao fechar o item 20, seguir direto para o próximo item da fila
-- Pendências: item novo "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" sem rastreio automático (com o item 22); mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; o chat C ainda não tem o prazo de 60 s do teste de migrations (edb1ff4); transbordo de 21 px em 1024 px no cabeçalho em tarefa separada
+- Última etapa concluída: 4 · Testes (⏸2 aguardando OK; ⏸1 aprovado com "Tudo" como período padrão na Operação)
+- Próximo passo: etapa 5 · filtros de loja e período (com "Tudo") na Operação, filtros e aba na URL, cartão "Avaliação" na página do pedido (com U-4)
+- Arquivos tocados: apps/web/e2e/order-page.spec.ts, packages/database/src/repositories/fulfillment.test.ts
+- Decisões tomadas nos pontos de parada: divisão dos chats por área (SellBridge-c/docs/prompts/coordenacao.md, confirmada pelo usuário em 13/10): este chat é dono de pedidos, envio, link do fornecedor e de todas as migrations; itens 20.c, 21, 22, trocar de fornecedor, 28, 25, 26, 29–32; correções X-1, U-3, U-4, U-9. Revisão da sessão paralela "Catálogo error verification" aprovada e commitada à parte (ff726d0, migration 0022 order_status_changes); próxima migration deste chat: 0023
+- Pendências: a sessão paralela aplicou migrations no banco `sellbridge` (até 0022, sem apagar dados; usuário decidiu deixar como está) e o `.env` desta pasta passou a apontar para `sellbridge_desk`; item novo "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; transbordo de 21 px em 1024 px no cabeçalho em tarefa separada; ShipmentActions recebe ~13 props (vício apontado pelo chat C); ao juntar a branch C, conflitos em order-dialog, operations e fornecedor/pedido/$token
 
 ## Linha de base
 
-| Métrica                                                         | Valor                  | Medido em  |
-| --------------------------------------------------------------- | ---------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 858 passando           | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 322 passando           | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando            | 2026-10-13 |
-| Última migration                                                | 0021_repair_public_api | 2026-10-13 |
-| Branch de trabalho                                              | `feat/client-phase-1`  | 2026-10-12 |
+| Métrica                                                         | Valor                     | Medido em  |
+| --------------------------------------------------------------- | ------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`)                  | 858 passando              | 2026-10-13 |
+| Testes web (`apps/web` vitest)                                  | 322 passando              | 2026-10-13 |
+| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando               | 2026-10-13 |
+| Última migration                                                | 0022_order_status_changes | 2026-10-13 |
+| Branch de trabalho                                              | `feat/client-phase-1`     | 2026-10-12 |
 
 ## Situação dos itens
 
