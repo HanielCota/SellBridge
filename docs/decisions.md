@@ -313,3 +313,11 @@ No `_journal.json`, o `when` da 0007 é maior que o da 0008, e o Drizzle só apl
 ## 2026-10-13: O fornecedor não declara a entrega (item 07)
 
 Pelo link, o fornecedor avança até "Enviado" e registra ocorrências, mas não marca "Entregue": a entrega grava `deliveredAt`, libera a avaliação do revendedor e, no item 34, vai liberar o pagamento do próprio fornecedor, então não pode depender da palavra dele. A regra vive no servidor (`writeShipmentStatus` recusa `delivered` quando quem age é o fornecedor: "A entrega é confirmada pelo marketplace ou pelo revendedor."), e a tela do link segue: depois de "Enviado", no lugar do botão aparece essa frase (`ShipmentPanel` com `actsAs="supplier"`). Quem confirma é o Mercado Livre (leitura do envio) ou o revendedor (painel do pedido); o histórico guarda a origem em `shipment_events.actor`.
+
+## 2026-10-13: Dados da página do pedido (item 20.a)
+
+`getOrderPage` (`repositories/order-page.ts`) junta, para um pedido da conta, o que a página `/pedidos/$orderId` mostra: o pedido com itens e ajustes (`getOrderDetail`), o dinheiro pela mesma regra do Financeiro (`computeOrderFinance`, com a taxa da plataforma do ambiente), a linha do tempo de status, os envios com histórico (`getFulfillmentDetail`) e a avaliação de cada fornecedor do pedido. Pedido de outra conta responde "não encontrado".
+
+- **Linha do tempo** vem dos eventos `order.created` e `order.status_changed` que cada mudança já grava (`api_events`). Pedido sincronizado antes desses eventos aparece como um passo só, no status atual e na data do pedido.
+- **Avaliação** usa `canReviewOrder`, a regra da aba de avaliações, para as duas telas dizerem o mesmo do mesmo pedido.
+- **Link para a venda no Mercado Livre** (`marketplaceOrderUrl`): `mercadolivre.com.br/vendas/{id}/detalhe`, só para número de pedido numérico; loja simulada não tem link. O endereço não está na documentação lida e fica a homologar com a conta de teste.

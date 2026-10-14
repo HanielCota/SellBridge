@@ -89,4 +89,5 @@ O conector fica desligado enquanto `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CL
 - Fotos: todo anúncio precisa de ao menos uma imagem (`pictures`). Hoje os produtos dos fornecedores não têm fotos, então a publicação real será recusada até o catálogo receber imagens.
 - Aplicar a migração `0013_ml_publication.sql` antes de iniciar o worker atualizado.
 - Preencher atributos reais da categoria no cadastro do produto.
+- Confirmar o endereço da página da venda usado na página do pedido: `https://www.mercadolivre.com.br/vendas/{id}/detalhe`.
 - Homologar a conta de teste nos dois fluxos, inclusive a conciliação após falha, e comparar a taxa com um pedido de quantidade maior que 1.
