@@ -66,7 +66,7 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
       join store_connections s on s.id = o.store_connection_id and s.tenant_id = o.tenant_id
       left join lateral (
         select
-          sum(i.unit_cost_cents * i.quantity) as cost,
+          sum(i.unit_cost_cents::bigint * i.quantity) as cost,
           string_agg(i.title || ' (x' || i.quantity || ')', ', ' order by i.title) as titles
         from order_items i
         where i.order_id = o.id and i.tenant_id = o.tenant_id
@@ -280,7 +280,7 @@ export async function getTopProducts(
     select
       i.title,
       sum(i.quantity) as units,
-      sum(i.unit_price_cents * i.quantity) as revenue
+      sum(i.unit_price_cents::bigint * i.quantity) as revenue
     from order_profit f
     join order_items i on i.order_id = f.id and i.tenant_id = ${scope.tenantId}
     where f.counted

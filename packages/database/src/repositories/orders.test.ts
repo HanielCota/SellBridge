@@ -205,6 +205,64 @@ describe("marketplace orders and sync", () => {
     expect(await adjustments()).toEqual([{ type: "commission", amountCents: 300 }]);
   });
 
+  it("never moves a dispatched order back to pending, nor a delivered one back to shipped", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "shipped" as const,
+      totalCents: 3990,
+      marketplaceFeeCents: 0,
+      buyerName: null,
+      orderedAt: new Date(),
+      items: [],
+    };
+    const statusOf = async (orderId: string) =>
+      (await database.query.orders.findFirst({ where: eq(orders.id, orderId) }))?.status;
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "pending" });
+    expect(await statusOf(orderId)).toBe("shipped");
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "delivered" });
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "shipped" });
+    expect(await statusOf(orderId)).toBe("delivered");
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "pending" });
+    expect(await statusOf(orderId)).toBe("delivered");
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "returned" });
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "pending" });
+    expect(await statusOf(orderId)).toBe("returned");
+    // A cancellation still overrides physical progress.
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "cancelled" });
+    expect(await statusOf(orderId)).toBe("cancelled");
+  });
+
+  it("caps the marketplace refund at the order total", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "paid" as const,
+      totalCents: 10_000,
+      marketplaceFeeCents: 0,
+      buyerName: null,
+      orderedAt: new Date(),
+      items: [],
+    };
+    const refundOf = async (orderId: string) =>
+      (
+        await database
+          .select({ amountCents: orderAdjustments.amountCents })
+          .from(orderAdjustments)
+          .where(and(eq(orderAdjustments.orderId, orderId), eq(orderAdjustments.type, "refund")))
+      ).map((row) => row.amountCents);
+    // The buyer's shipping came back too: R$ 125,00 refunded on R$ 100,00 of items.
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, {
+      ...incoming,
+      refundedCents: 12_500,
+    });
+    expect(await refundOf(orderId)).toEqual([10_000]);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, refundedCents: 10_001 });
+    expect(await refundOf(orderId)).toEqual([10_000]);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, refundedCents: 9_999 });
+    expect(await refundOf(orderId)).toEqual([9_999]);
+  });
+
   it("dates the delivery on the first sync that sees it", async () => {
     const orderedAt = new Date("2026-01-05T12:00:00Z");
     const incoming = {

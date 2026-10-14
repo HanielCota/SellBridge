@@ -1,8 +1,13 @@
 import { and, or, sql, type Column, type SQL } from "drizzle-orm";
 
-/** Wraps user input in `%…%` for ILIKE, escaping the LIKE wildcards it may contain. */
+/**
+ * Wraps user input in `%…%` for ILIKE, escaping the LIKE wildcards it may contain. The NUL
+ * character (`?q=a%00`) is dropped: Postgres refuses it in text and the search would fail.
+ */
 export function containsPattern(search: string): string {
-  const escaped = search.replace(/[\\%_]/g, (character) => `\\${character}`);
+  const escaped = search
+    .replaceAll(String.fromCharCode(0), "")
+    .replace(/[\\%_]/g, (character) => `\\${character}`);
   return `%${escaped}%`;
 }
 

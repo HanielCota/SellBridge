@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { redactContactDetails } from "../domain/contact-details.ts";
+import { REDACTED, redactContactDetails } from "../domain/contact-details.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
 export { redactContactDetails };
@@ -53,6 +53,17 @@ export function tagsForRating(rating: number): readonly ReviewTag[] {
   return REVIEW_TAGS.filter((tag) => tag.endsWith(suffix));
 }
 
+/** Cut back to the limit, never leaving half a "[removido]" marker at the end. */
+function fitRedactedComment(comment: string): string {
+  const fitted = comment.slice(0, REVIEW_COMMENT_MAX_LENGTH);
+  const markerStart = fitted.lastIndexOf("[");
+  const tail = fitted.slice(markerStart);
+  const halfMarker = markerStart >= 0 && tail !== REDACTED && REDACTED.startsWith(tail);
+  return halfMarker && fitted.length < comment.length
+    ? fitted.slice(0, markerStart).trimEnd()
+    : fitted;
+}
+
 export const supplierReviewInputSchema = z
   .object({
     orderId: z.uuid(),
@@ -66,10 +77,12 @@ export const supplierReviewInputSchema = z
     path: ["tags"],
   })
   // Other resellers read the comment: contact details (e-mail, phone, store link) are removed.
+  // "[removido]" can be longer than what it replaces ("@ab"), so the stored text is cut back to
+  // the limit the reseller typed against.
   .transform((review) => ({
     ...review,
     tags: [...new Set(review.tags)],
-    comment: redactContactDetails(review.comment),
+    comment: fitRedactedComment(redactContactDetails(review.comment)),
   }));
 
 export type SupplierReviewInput = z.infer<typeof supplierReviewInputSchema>;

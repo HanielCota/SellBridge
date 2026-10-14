@@ -23,23 +23,32 @@ export const createdItemSchema = z.object({
   permalink: z.string().nullable().optional(),
 });
 
+/**
+ * Largest amount, in reais, that fits the integer cents columns (2,147,483,647 cents). A larger or
+ * negative amount is refused here, with the webhook marked failed, instead of overflowing the
+ * order upsert or turning into credit.
+ */
+const MAX_ORDER_AMOUNT = 21_474_836.47;
+const orderAmountSchema = z.number().nonnegative().max(MAX_ORDER_AMOUNT);
+
 export const orderSchema = z.object({
-  id: z.union([z.number(), z.string()]),
+  // A numeric id past 2^53 has already lost digits in JSON.parse: refuse it rather than store it.
+  id: z.union([z.number().int(), z.string()]),
   status: z.string(),
-  date_created: z.string(),
-  total_amount: z.number(),
+  date_created: z.iso.datetime({ offset: true }),
+  total_amount: orderAmountSchema,
   buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
   tags: z.array(z.string()).optional(),
   payments: z
-    .array(z.object({ transaction_amount_refunded: z.number().nullable().optional() }))
+    .array(z.object({ transaction_amount_refunded: orderAmountSchema.nullable().optional() }))
     .nullable()
     .optional(),
   order_items: z.array(
     z.object({
       item: z.object({ id: z.string(), title: z.string() }),
-      quantity: z.number().int().positive(),
-      unit_price: z.number(),
-      sale_fee: z.number().nullable().optional(),
+      quantity: z.number().int().positive().max(1_000_000),
+      unit_price: orderAmountSchema,
+      sale_fee: orderAmountSchema.nullable().optional(),
     }),
   ),
 });

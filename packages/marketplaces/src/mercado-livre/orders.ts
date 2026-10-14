@@ -42,21 +42,46 @@ function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
 
+/** Largest value of the integer cents columns the order is stored in. */
+const MAX_STORED_CENTS = 2_147_483_647;
+
+/** A total built from several lines (fee × quantity, refunds of several payments) must still fit. */
+function storedCents(cents: number, field: string): number {
+  if (cents > MAX_STORED_CENTS) {
+    throw new Error(`Mercado Livre order ${field} is too large to store: ${cents} cents`);
+  }
+  return cents;
+}
+
+/** Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again. */
+function feeCents(raw: MercadoLivreOrder): number {
+  const total = raw.order_items.reduce(
+    (sum, line) => sum + toCents(line.sale_fee ?? 0) * line.quantity,
+    0,
+  );
+  return storedCents(total, "fee");
+}
+
+/**
+ * Each payment says how much of it went back (`transaction_amount_refunded`). No payments in the
+ * payload means "not reported": the last known refund stays.
+ */
+function refundedCents(raw: MercadoLivreOrder): number | undefined {
+  if (!raw.payments) return undefined;
+  const total = raw.payments.reduce(
+    (sum, payment) => sum + toCents(payment.transaction_amount_refunded ?? 0),
+    0,
+  );
+  return storedCents(total, "refund");
+}
+
 export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
   return {
     externalOrderId: String(raw.id),
     status: orderStatus(raw),
     totalCents: toCents(raw.total_amount),
-    // Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again.
-    marketplaceFeeCents: raw.order_items.reduce(
-      (total, line) => total + toCents(line.sale_fee ?? 0) * line.quantity,
-      0,
-    ),
-    // Each payment says how much of it went back (`transaction_amount_refunded`).
-    refundedCents: (raw.payments ?? []).reduce(
-      (total, payment) => total + toCents(payment.transaction_amount_refunded ?? 0),
-      0,
-    ),
+    marketplaceFeeCents: feeCents(raw),
+    refundedCents: refundedCents(raw),
     buyerName: raw.buyer?.nickname ?? null,
     orderedAt: new Date(raw.date_created),
     items: raw.order_items.map((line) => ({

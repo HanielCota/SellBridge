@@ -25,8 +25,9 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 export const catalogSearchSchema = z.object({
   query: optionalParameter(z.string().trim().max(100)),
   category: optionalParameter(z.string().trim().max(100)),
-  minCost: optionalParameter(z.coerce.number().int().min(0)),
-  maxCost: optionalParameter(z.coerce.number().int().min(0)),
+  // Bounded by the integer `cost_cents` column: a larger filter would fail in Postgres.
+  minCost: optionalParameter(z.coerce.number().int().min(0).max(2_147_483_647)),
+  maxCost: optionalParameter(z.coerce.number().int().min(0).max(2_147_483_647)),
   inStock: optionalParameter(z.coerce.boolean()),
   sort: withFallback(productSortSchema.default("title"), "title"),
   page: withFallback(z.coerce.number().int().min(1).default(1), 1),

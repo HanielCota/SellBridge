@@ -5,9 +5,11 @@ import {
   listStoreConnections,
   listSuppliersForRegion,
 } from "@sellbridge/database/repositories";
+import { validationError } from "@sellbridge/shared/errors";
 import {
   bulkPublishSchema,
   fitListingTitle,
+  LISTING_MAX_PRICE_CENTS,
   priceForRule,
   regionCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
@@ -56,6 +58,16 @@ export const getRegionCatalog = createServerFn({ method: "GET" })
     };
   });
 
+/** The same ceiling as a single listing: a markup on an expensive product must not slip past it. */
+function assertWithinListingCeiling(listings: readonly { title: string; priceCents: number }[]) {
+  const overpriced = listings.filter((listing) => listing.priceCents > LISTING_MAX_PRICE_CENTS);
+  if (overpriced.length === 0) return;
+  throw validationError(
+    "O preço de venda pode ser de até R$ 1.000.000,00. Diminua a margem destes produtos.",
+    overpriced.map((listing) => listing.title),
+  );
+}
+
 /**
  * Publishes many catalog products at once with one price rule. Products already listed by
  * the tenant are skipped, so running it twice does not duplicate listings.
@@ -70,16 +82,14 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       ...new Set(data.productIds),
     ]);
     const toPublish = products.filter((product) => !product.published);
-    await publishListings(
-      context.tenantId,
-      toPublish.map((product) => ({
-        supplierProductId: product.id,
-        title: fitListingTitle(product.title),
-        description: product.description,
-        priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
-      })),
-      storeIds,
-    );
+    const listings = toPublish.map((product) => ({
+      supplierProductId: product.id,
+      title: fitListingTitle(product.title),
+      description: product.description,
+      priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
+    }));
+    assertWithinListingCeiling(listings);
+    await publishListings(context.tenantId, listings, storeIds);
     return {
       published: toPublish.length,
       skipped: data.productIds.length - toPublish.length,

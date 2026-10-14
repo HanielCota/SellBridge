@@ -20,7 +20,8 @@ function refundType(status: OrderStatus): "refund" | "return" | null {
 /**
  * Keeps the order's marketplace refund row in line with the latest total and the order's
  * status. `refundedCents` undefined means "not reported this time": the last known total stays.
- * Same input, same row: syncing twice never adds money.
+ * Same input, same row: syncing twice never adds money. The marketplace total also counts the
+ * shipping the buyer paid, which is not revenue here, so the row never passes `totalCents`.
  */
 export async function syncMarketplaceRefund(
   executor: DatabaseExecutor,
@@ -28,6 +29,7 @@ export async function syncMarketplaceRefund(
     tenantId: string;
     orderId: string;
     status: OrderStatus;
+    totalCents: number;
     refundedCents?: number | undefined;
   },
 ): Promise<void> {
@@ -39,7 +41,10 @@ export async function syncMarketplaceRefund(
     .select({ amountCents: orderAdjustments.amountCents })
     .from(orderAdjustments)
     .where(owned);
-  const amountCents = input.refundedCents ?? current?.amountCents ?? 0;
+  const amountCents = Math.min(
+    input.refundedCents ?? current?.amountCents ?? 0,
+    Math.max(0, input.totalCents),
+  );
   const type = refundType(input.status);
   if (type === null || amountCents <= 0) {
     if (current) await executor.delete(orderAdjustments).where(owned);

@@ -203,17 +203,31 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
   return { status: "created", orderId: created.id };
 }
 
+/** Physical progress of an order: a late marketplace update never moves it back down this ladder. */
+const PROGRESS_RANK: Partial<Record<IncomingOrder["status"], number>> = {
+  shipped: 2,
+  delivered: 3,
+};
+
 /**
  * A return is known from the shipments, not from the marketplace's order status, which stays
- * "paid" (or partially refunded). A returned order keeps that status until it is cancelled.
+ * "paid" (or partially refunded). A returned order keeps that status until it is cancelled, even
+ * through a late payment hold ("pending").
+ * A dispatched order never becomes "pending" again (a payment hold reported late), and a delivered
+ * one never goes back to "shipped". Going back to "paid" stays possible: a parcel that failed to
+ * arrive puts the order back in the work queue (see `reconciledOrderStatus`).
  */
-function keptReturned(
+function keptProgress(
   current: (typeof orders.$inferSelect)["status"],
   incoming: IncomingOrder["status"],
 ): IncomingOrder["status"] {
-  if (current === "returned" && ["paid", "shipped", "delivered"].includes(incoming)) {
+  if (current === "returned" && ["pending", "paid", "shipped", "delivered"].includes(incoming)) {
     return "returned";
   }
+  if (current !== "shipped" && current !== "delivered") return incoming;
+  if (incoming === "pending") return current;
+  const incomingRank = PROGRESS_RANK[incoming];
+  if (incomingRank !== undefined && incomingRank < (PROGRESS_RANK[current] ?? 0)) return current;
   return incoming;
 }
 
@@ -231,10 +245,9 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     )
     .for("update");
   if (existing) {
-    const status = await reconciledOrderStatus(
-      write.transaction,
-      existing.id,
-      keptReturned(existing.status, write.order.status),
+    const status = keptProgress(
+      existing.status,
+      await reconciledOrderStatus(write.transaction, existing.id, write.order.status),
     );
     const updated = await updateExistingOrder(
       { ...write, order: { ...write.order, status } },
@@ -245,6 +258,7 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       tenantId: write.tenantId,
       orderId: existing.id,
       status,
+      totalCents: write.order.totalCents,
       refundedCents: write.order.refundedCents,
     });
     return { ...updated, stockMoves };
@@ -255,6 +269,7 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     tenantId: write.tenantId,
     orderId: created.orderId,
     status: write.order.status,
+    totalCents: write.order.totalCents,
     refundedCents: write.order.refundedCents,
   });
   return { ...created, stockMoves };

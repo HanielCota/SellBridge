@@ -51,7 +51,12 @@ export async function syncOrderFromShipments(
   // Shipped by the supplier: the held units leave the shelf now, not at the next marketplace sync.
   await applyStockMoves(database, order.id, status);
   // A returned order has no revenue: money already given back now shows as a return.
-  await syncMarketplaceRefund(database, { tenantId: order.tenantId, orderId: order.id, status });
+  await syncMarketplaceRefund(database, {
+    tenantId: order.tenantId,
+    orderId: order.id,
+    status,
+    totalCents: order.totalCents,
+  });
   await recordOrderStatusChange(database, { tenantId: order.tenantId, orderId: order.id, status });
   await recordApiEvent(database, {
     tenantId: order.tenantId,
