@@ -8,7 +8,9 @@ export const listingsQueryOptions = (search: ListingsSearch) =>
     queryFn: () => listListings({ data: search }),
     placeholderData: keepPreviousData,
     // Poll while something is still queued or publishing, so statuses update by themselves.
-    refetchInterval: (query) => (query.state.data?.hasActive ? 2000 : false),
+    // Every poll reloads the whole page of listings with its sales; publishing goes at the
+    // marketplace's pace (seconds per item), so 5 s shows each change without the load of 2 s.
+    refetchInterval: (query) => (query.state.data?.hasActive ? 5000 : false),
   });
 
 export const newListingQueryOptions = (productId: string) =>

@@ -76,10 +76,27 @@ export async function listApiEvents(
 }
 
 /** Events (and their deliveries) are kept for a while, then pruned by the worker. */
+/** Rows deleted per statement: each delete stays short instead of locking a month at once. */
+const PRUNE_BATCH_SIZE = 5000;
+/** A run stops here; anything left waits for the next hourly run. */
+const PRUNE_MAX_BATCHES = 20;
+
 export async function pruneApiEvents(database: Database, before: Date): Promise<number> {
-  const deleted = await database
-    .delete(apiEvents)
-    .where(lt(apiEvents.createdAt, before))
-    .returning({ id: apiEvents.id });
-  return deleted.length;
+  let total = 0;
+  for (let batch = 0; batch < PRUNE_MAX_BATCHES; batch += 1) {
+    const expired = database
+      .select({ id: apiEvents.id })
+      .from(apiEvents)
+      .where(lt(apiEvents.createdAt, before))
+      .limit(PRUNE_BATCH_SIZE);
+    const deleted = await database
+      .delete(apiEvents)
+      .where(inArray(apiEvents.id, expired))
+      .returning({ id: apiEvents.id });
+    total += deleted.length;
+    if (deleted.length < PRUNE_BATCH_SIZE) {
+      return total;
+    }
+  }
+  return total;
 }

@@ -849,7 +849,10 @@ export async function countStaffQueues(
       overdue: sql<number>`count(*) filter (where ${isOverdue(now)})`.mapWith(Number),
       open: sql<number>`count(*) filter (where ${tickets.status} = 'open')`.mapWith(Number),
     })
-    .from(tickets);
+    .from(tickets)
+    // Every counter is about live tickets: skipping the closed ones (most of the table, and
+    // growing) lets the queue index do the work.
+    .where(active);
   return row ?? { unassigned: 0, mine: 0, overdue: 0, open: 0 };
 }
 
