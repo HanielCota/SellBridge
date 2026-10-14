@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSupplierShipment } from "@sellbridge/database/repositories";
-import { isAppError } from "@sellbridge/shared/errors";
+import { conflictError, isAppError } from "@sellbridge/shared/errors";
 import { supplierTokenSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { orderShipments } from "@sellbridge/database/schema";
@@ -15,6 +15,8 @@ async function labelTenant(request: Request, orderId: string) {
   const validToken = supplierTokenSchema.parse(token);
   const shipment = await getSupplierShipment(database, validToken);
   if (shipment.orderId !== orderId) throw new Error("Acesso inválido");
+  // The label carries the buyer's address: only while this parcel is still on its way out.
+  if (shipment.address === null) throw conflictError("Este envio já foi encerrado");
   const [row] = await database
     .select({ tenantId: orderShipments.tenantId })
     .from(orderShipments)

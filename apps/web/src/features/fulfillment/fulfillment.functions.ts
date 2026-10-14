@@ -13,18 +13,28 @@ import {
   shipmentUpdateSchema,
   supplierTokenSchema,
 } from "@sellbridge/shared/schemas";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import { tenantMiddleware } from "@/lib/server/middleware";
+import { publicMiddleware, tenantMiddleware } from "@/lib/server/middleware";
 import { writeShipmentUpdate } from "./shipments.server";
 
 const idSchema = z.object({ orderId: z.uuid() });
 export const listOperationsFn = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(operationsSearchSchema)
-  .handler(({ context, data }) => listOperationalOrders(database, context.tenantId, data));
+  .handler(({ context, data }) => {
+    const { period, from, to, ...search } = data;
+    // "Tudo" has no date limit; the presets and custom ranges are Brazil calendar days.
+    const range = period === "all" ? null : resolvePeriod({ period, from, to }, new Date());
+    return listOperationalOrders(database, context.tenantId, {
+      ...search,
+      orderedFrom: range?.from,
+      orderedTo: range?.to,
+    });
+  });
 export const getFulfillmentFn = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(idSchema)
@@ -56,12 +66,14 @@ function privateResponse() {
   setResponseHeader("X-Robots-Tag", "noindex, nofollow");
 }
 export const getSupplierShipmentFn = createServerFn({ method: "GET" })
+  .middleware([publicMiddleware])
   .validator(z.object({ token: supplierTokenSchema }))
   .handler(({ data }) => {
     privateResponse();
     return getSupplierShipment(database, data.token);
   });
 export const updateSupplierShipmentFn = createServerFn({ method: "POST" })
+  .middleware([publicMiddleware])
   .validator(z.object({ token: supplierTokenSchema, update: shipmentUpdateSchema }))
   .handler(({ data }) => {
     privateResponse();

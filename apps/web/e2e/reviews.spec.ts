@@ -19,7 +19,10 @@ test.describe("avaliação de fornecedores", () => {
       .getByRole("listitem")
       .filter({ has: page.getByRole("button", { name: "Avaliar" }) })
       .first();
-    const orderId = (await firstRow.textContent())?.match(/MOCK-ORD-\d+/)?.[0];
+    // The order code is the first thing on the row's last line, whatever store numbering it has.
+    const orderId = (await firstRow.getByRole("paragraph").last().textContent())
+      ?.split("·")[0]
+      ?.trim();
     expect(orderId).toBeDefined();
     await firstRow.getByRole("button", { name: "Avaliar" }).click();
 

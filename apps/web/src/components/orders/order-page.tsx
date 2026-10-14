@@ -1,13 +1,16 @@
 import { formatCents } from "@sellbridge/shared/money";
+import { REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
 import { ORDER_STATUS_LABELS } from "@sellbridge/shared/schemas";
 import { ArrowLeftIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
-import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Link, useCanGoBack, useRouter, useSearch } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { SmartDate } from "@/components/data/smart-date";
 import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
+import { ReviewAction } from "@/components/orders/review-action";
+import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { displayBuyerName } from "@/features/orders/buyer-name";
@@ -116,6 +119,55 @@ function OrderProgress({ history }: { history: OrderPageData["history"] }) {
   );
 }
 
+/** Why an order without a rating cannot be rated now: not delivered yet, too late, or no sale. */
+function unavailableReview(status: OrderPageData["order"]["status"]): string {
+  if (status === "cancelled" || status === "returned") return "Sem avaliação neste pedido";
+  if (status === "delivered") return `Prazo de ${REVIEW_WINDOW_DAYS} dias encerrado`;
+  return "Disponível depois da entrega";
+}
+
+/**
+ * Each supplier of the order with its rating, or the call to rate it once delivered: the same
+ * action and dialog as the reviews tab.
+ */
+function SupplierReviews({ page }: { page: OrderPageData }) {
+  const [target, setTarget] = useState<ReviewTarget | null>(null);
+  return (
+    <>
+      <ul className="space-y-3">
+        {page.reviews.map((supplier) => (
+          <li key={supplier.supplierId} className="flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate text-sm">{supplier.supplierName}</span>
+            {supplier.review || supplier.reviewable ? (
+              <ReviewAction
+                target={{
+                  orderId: page.order.id,
+                  externalOrderId: page.order.externalOrderId,
+                  supplierId: supplier.supplierId,
+                  supplierName: supplier.supplierName,
+                  review: supplier.review,
+                }}
+                canReview={supplier.reviewable}
+                onReview={setTarget}
+              />
+            ) : (
+              <span className="text-footnote text-muted-foreground">
+                {unavailableReview(page.order.status)}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <ReviewDialog
+        target={target}
+        onOpenChange={(open) => {
+          if (!open) setTarget(null);
+        }}
+      />
+    </>
+  );
+}
+
 function OrderAside({ page }: { page: OrderPageData }) {
   return (
     <aside
@@ -128,7 +180,39 @@ function OrderAside({ page }: { page: OrderPageData }) {
       <PageSection id="order-progress" title="Andamento do pedido" card>
         <OrderProgress history={page.history} />
       </PageSection>
+      {page.reviews.length > 0 ? (
+        <PageSection id="order-review" title="Avaliação" card>
+          <SupplierReviews page={page} />
+        </PageSection>
+      ) : null}
     </aside>
+  );
+}
+
+/**
+ * Back to the orders list. Opened from operations, it steps back in history so the list keeps its
+ * filters; opened any other way (a notice, a shared link), it goes to the list itself.
+ */
+function BackToOrders() {
+  const { back } = useSearch({ from: "/_app/pedidos/$orderId" });
+  const canGoBack = useCanGoBack();
+  const router = useRouter();
+  return (
+    <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
+      <Link
+        to="/pedidos"
+        onClick={(event) => {
+          if (back !== "operations" || !canGoBack) return;
+          // A new-tab click keeps the plain link.
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+          event.preventDefault();
+          router.history.back();
+        }}
+      >
+        <ArrowLeftIcon aria-hidden="true" />
+        Pedidos
+      </Link>
+    </Button>
   );
 }
 
@@ -136,12 +220,7 @@ function OrderAside({ page }: { page: OrderPageData }) {
 export function OrderPageView({ page }: { page: OrderPageData }) {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
-        <Link to="/pedidos">
-          <ArrowLeftIcon aria-hidden="true" />
-          Pedidos
-        </Link>
-      </Button>
+      <BackToOrders />
       <OrderHeader page={page} />
       {/* The summary comes first in the page, so a phone shows it right under the heading. */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">

@@ -122,7 +122,7 @@ describe("order page", () => {
       {
         supplierId: catalog.supplierId,
         supplierName: expect.any(String),
-        rating: null,
+        review: null,
         reviewable: true,
       },
     ]);
@@ -135,13 +135,16 @@ describe("order page", () => {
       comment: "",
     });
     const reviewed = await getOrderPage(database, tenants.tenantA, orderId, options);
-    expect(reviewed.reviews[0]).toMatchObject({ rating: 5, reviewable: true });
+    expect(reviewed.reviews[0]).toMatchObject({
+      review: { rating: 5, tags: [], comment: "" },
+      reviewable: true,
+    });
   });
 
   it("keeps reviews closed until the order is delivered", async () => {
     const { orderId } = await soldOrder();
     const page = await getOrderPage(database, tenants.tenantA, orderId, options);
-    expect(page.reviews).toEqual([expect.objectContaining({ rating: null, reviewable: false })]);
+    expect(page.reviews).toEqual([expect.objectContaining({ review: null, reviewable: false })]);
   });
 
   it("keeps the history after the public API events are pruned", async () => {

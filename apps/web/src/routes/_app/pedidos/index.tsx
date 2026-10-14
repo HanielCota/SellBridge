@@ -1,13 +1,16 @@
 import {
+  operationsUrlSearchSchema,
   orderReviewSearchSchema,
   REVIEW_FILTER_LABELS,
   REVIEW_FILTERS,
   type OrderReviewSearch,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { PencilSimpleIcon, ReceiptIcon, StarIcon } from "@phosphor-icons/react";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { ReceiptIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
+import type { z } from "zod";
+import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SegmentedControl } from "@/components/data/segmented-control";
@@ -15,12 +18,13 @@ import { SmartDate } from "@/components/data/smart-date";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Operations } from "@/components/fulfillment/operations";
+import { Operations, operationsQuery } from "@/components/fulfillment/operations";
+import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import type { listOrderReviews } from "@/features/orders/orders.functions";
 import { orderReviewsQueryOptions } from "@/features/orders/orders.queries";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -31,11 +35,27 @@ import { cn } from "@/lib/utils";
 
 type OrderReviewRow = Awaited<ReturnType<typeof listOrderReviews>>["items"][number];
 
+const ordersSearchSchema = orderReviewSearchSchema.extend(operationsUrlSearchSchema.shape);
+type OrdersSearch = z.infer<typeof ordersSearchSchema>;
+
+/** Only the reviews tab's own params: an operations filter must not refetch the hidden tab. */
+function reviewsSearch(search: OrdersSearch): OrderReviewSearch {
+  return {
+    review: search.review,
+    query: search.query,
+    page: search.page,
+    pageSize: search.pageSize,
+  };
+}
+
 export const Route = createFileRoute("/_app/pedidos/")({
-  validateSearch: orderReviewSearchSchema,
+  validateSearch: ordersSearchSchema,
   loaderDeps: ({ search }) => search,
+  // Only the visible tab is loaded, and with the same key its list reads.
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, orderReviewsQueryOptions(search)),
+    search.view === "reviews"
+      ? prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)))
+      : prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search))),
   head: () => ({ meta: [{ title: "Pedidos | SellBridge" }] }),
   component: OrdersPage,
 });
@@ -49,31 +69,39 @@ function useOrdersNavigation() {
   );
 }
 
+const VIEW_TABS: readonly FilterTab<OrdersSearch["view"]>[] = [
+  { value: "operations", label: "Operação" },
+  { value: "reviews", label: "Avaliações" },
+];
+
 function OrdersPage() {
   const [target, setTarget] = useState<ReviewTarget | null>(null);
-  const [tab, setTab] = useState<"operations" | "reviews">("operations");
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const router = useRouter();
+  // The tab and the operations filters live in the address: coming back from an order keeps them.
+  const updateOperations = useCallback(
+    (patch: Partial<OrdersSearch>) => {
+      // A search typed just before opening an order lands late: it must not pull the page back.
+      if (!/^\/pedidos\/?$/.test(router.latestLocation.pathname)) return;
+      void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
+    },
+    [navigate, router],
+  );
   return (
     <>
       <PageHeader
         title="Pedidos"
         description="Encaminhe vendas aos fornecedores, acompanhe a separação, imprima etiquetas e consulte o rastreio."
       />
-      <div className="flex gap-2" aria-label="Visão dos pedidos">
-        <Button
-          variant={tab === "operations" ? "default" : "outline"}
-          onClick={() => setTab("operations")}
-        >
-          Operação
-        </Button>
-        <Button
-          variant={tab === "reviews" ? "default" : "outline"}
-          onClick={() => setTab("reviews")}
-        >
-          Avaliações
-        </Button>
-      </div>
-      {tab === "operations" ? (
-        <Operations />
+      <FilterTabs
+        legend="Visão dos pedidos"
+        tabs={VIEW_TABS}
+        value={search.view}
+        onChange={(view) => updateOperations({ view })}
+      />
+      {search.view === "operations" ? (
+        <Operations search={search} onChange={updateOperations} />
       ) : (
         <>
           <OrderFilters />
@@ -119,64 +147,6 @@ function OrderFilters() {
   );
 }
 
-function ReviewAction({
-  row,
-  onReview,
-}: {
-  row: OrderReviewRow;
-  onReview: (target: ReviewTarget) => void;
-}) {
-  const target: ReviewTarget = {
-    orderId: row.orderId,
-    externalOrderId: row.externalOrderId,
-    supplierId: row.supplierId,
-    supplierName: row.supplierName,
-    review: row.review,
-  };
-  if (row.review) {
-    return (
-      <div className="flex items-center gap-1">
-        <span className="inline-flex items-center gap-1 text-sm font-medium tabular-nums">
-          <StarIcon weight="fill" className="size-4 text-amber-500" aria-hidden="true" />
-          <span aria-hidden="true">{row.review.rating}</span>
-          <span className="sr-only">Sua nota: {row.review.rating} de 5</span>
-        </span>
-        {row.canReview ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Editar avaliação de ${row.supplierName}`}
-            onClick={() => onReview(target)}
-          >
-            <PencilSimpleIcon aria-hidden="true" />
-          </Button>
-        ) : null}
-      </div>
-    );
-  }
-  if (!row.canReview) {
-    return null;
-  }
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="group/rate border-amber-500/30 bg-amber-500/[0.06] hover:border-amber-500/50 hover:bg-amber-500/15 group-hover/row:border-amber-500/45"
-      onClick={() => onReview(target)}
-    >
-      <span className="relative size-4" aria-hidden="true">
-        <StarIcon className="absolute inset-0 size-4 text-amber-500 transition-opacity duration-150 group-hover/rate:opacity-0" />
-        {/* The filled star swings in with a little overshoot, like it just got picked. */}
-        <StarIcon
-          weight="fill"
-          className="absolute inset-0 size-4 scale-50 text-amber-500 opacity-0 drop-shadow-[0_0_6px_rgb(245_158_11/0.6)] transition-[opacity,scale,rotate] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover/rate:scale-115 group-hover/rate:-rotate-[18deg] group-hover/rate:opacity-100 motion-reduce:transition-opacity motion-reduce:group-hover/rate:scale-100 motion-reduce:group-hover/rate:rotate-0"
-        />
-      </span>
-      Avaliar
-    </Button>
-  );
-}
-
 function OrderRow({
   row,
   onReview,
@@ -206,7 +176,17 @@ function OrderRow({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
         <OrderStatusBadge status={row.status} />
-        <ReviewAction row={row} onReview={onReview} />
+        <ReviewAction
+          target={{
+            orderId: row.orderId,
+            externalOrderId: row.externalOrderId,
+            supplierId: row.supplierId,
+            supplierName: row.supplierName,
+            review: row.review,
+          }}
+          canReview={row.canReview}
+          onReview={onReview}
+        />
       </div>
     </li>
   );
@@ -232,7 +212,7 @@ const EMPTY_MESSAGES: Record<OrderReviewSearch["review"], { title: string; descr
 function OrderList({ onReview }: { onReview: (target: ReviewTarget) => void }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const query = useQuery(orderReviewsQueryOptions(search));
+  const query = useQuery(orderReviewsQueryOptions(reviewsSearch(search)));
 
   if (query.isPending) {
     return (

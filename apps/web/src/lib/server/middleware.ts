@@ -37,6 +37,15 @@ const userFacingErrors = createMiddleware({ type: "function" }).server(async ({ 
   }
 });
 
+/**
+ * For server functions open without a session (the supplier link): no access check of its own,
+ * but the same error shield, so a database or validation error never reaches an anonymous caller
+ * with its query, schema or parameters.
+ */
+export const publicMiddleware = createMiddleware({ type: "function" }).middleware([
+  userFacingErrors,
+]);
+
 /** Requires an authenticated user with an organization (tenant) and injects `tenantId`. */
 export const tenantMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])

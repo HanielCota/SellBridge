@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DELIVERY_CONFIRMED_BY, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { orderItems, orders, orderShipments, user } from "../schema/index.ts";
+import { orderItems, orders, orderShipments, shipmentEvents, user } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -17,6 +17,7 @@ import {
   getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
+  MAX_SHIPMENT_EVENTS,
   reforwardShipment,
   revokeSupplierLink,
   rotateSupplierLink,
@@ -353,6 +354,58 @@ describe("fulfillment", () => {
     expect(detail.order.status).toBe("returned");
   });
 
+  it("stops showing the buyer's address on a supplier link once the parcel is over", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    expect((await getSupplierShipment(database, link.token)).address).toEqual(testAddress);
+    await cancel(link.shipmentId, "Sem estoque", link.token);
+    const view = await getSupplierShipment(database, link.token);
+    expect(view.status).toBe("cancelled");
+    expect(view.address).toBeNull();
+  });
+
+  it("caps the occurrences of one parcel, and still lets it move on", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    const history = async () =>
+      (
+        await database
+          .select()
+          .from(shipmentEvents)
+          .where(eq(shipmentEvents.shipmentId, link.shipmentId))
+      ).length;
+    const filler = MAX_SHIPMENT_EVENTS - 1 - (await history());
+    await database.insert(shipmentEvents).values(
+      Array.from({ length: filler }, () => ({
+        shipmentId: link.shipmentId,
+        status: "forwarded" as const,
+        actor: "Fornecedor",
+        note: "Ocorrência",
+      })),
+    );
+    const note = () =>
+      updateShipment(
+        database,
+        {
+          shipmentId: link.shipmentId,
+          status: "forwarded",
+          note: "Mais uma ocorrência",
+          carrier: "",
+          trackingCode: "",
+          trackingUrl: "",
+        },
+        { token: link.token },
+      );
+    await note();
+    expect(await history()).toBe(MAX_SHIPMENT_EVENTS);
+    await expect(note()).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await history()).toBe(MAX_SHIPMENT_EVENTS);
+    await advance(link.shipmentId, "accepted", link.token);
+    expect(await history()).toBe(MAX_SHIPMENT_EVENTS + 1);
+  });
+
   it("keeps a failed delivery out of shipped and delivered until the parcel comes back", async () => {
     const order = await createOrder();
     const [link] = await forward(order.id);
@@ -542,6 +595,66 @@ describe("fulfillment", () => {
     if (!link) throw new Error("No link");
     await cancel(link.shipmentId, "Cliente pediu para cancelar");
     expect((await cancelledNotices()).some((event) => event.entityId === order.id)).toBe(false);
+  });
+
+  it("filters operations by store and by sale date, inside the tenant only", async () => {
+    const otherStore = (
+      await upsertStoreConnection(database, testStoreInput(tenants.tenantA, randomUUID()))
+    ).id;
+    const recent = await createOrder();
+    const [old] = await database
+      .insert(orders)
+      .values({
+        tenantId: tenants.tenantA,
+        storeConnectionId: otherStore,
+        externalOrderId: `OLD-${randomUUID()}`,
+        status: "paid",
+        totalCents: 5000,
+        orderedAt: new Date("2026-01-10T15:00:00Z"),
+      })
+      .returning();
+    if (!old) throw new Error("No order");
+    const ids = async (
+      filters: Partial<Parameters<typeof listOperationalOrders>[2]>,
+      tenantId = tenants.tenantA,
+    ) =>
+      (
+        await listOperationalOrders(database, tenantId, {
+          query: "",
+          stage: "all",
+          page: 1,
+          ...filters,
+        })
+      ).items.map((item) => item.id);
+
+    expect(await ids({ store: otherStore })).toEqual([old.id]);
+    const firstStore = await ids({ store: storeId });
+    expect(firstStore).toContain(recent.id);
+    expect(firstStore).not.toContain(old.id);
+    // A day range, start inclusive and end exclusive.
+    const january = await ids({
+      orderedFrom: new Date("2026-01-10T03:00:00Z"),
+      orderedTo: new Date("2026-01-11T03:00:00Z"),
+    });
+    expect(january).toEqual([old.id]);
+    expect(await ids({ orderedFrom: new Date("2026-01-11T03:00:00Z") })).not.toContain(old.id);
+    // Another tenant's store filters nothing in: the tenant still bounds the list.
+    expect(await ids({ store: otherStore }, tenants.tenantB)).toEqual([]);
+    // A page past the end (kept in the address after a forward) shows the last one instead.
+    const pastTheEnd = await listOperationalOrders(database, tenants.tenantA, {
+      query: "",
+      stage: "all",
+      page: 9999,
+      store: otherStore,
+    });
+    expect(pastTheEnd).toMatchObject({ page: 1, totalPages: 1, total: 1 });
+    expect(pastTheEnd.items.map((item) => item.id)).toEqual([old.id]);
+    const nothing = await listOperationalOrders(database, tenants.tenantB, {
+      query: "",
+      stage: "all",
+      page: 5,
+    });
+    expect(nothing).toMatchObject({ page: 1, totalPages: 0, items: [] });
   });
 
   it("records marketplace progress without duplicate history and filters the queue", async () => {

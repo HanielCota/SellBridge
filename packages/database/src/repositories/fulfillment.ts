@@ -1,6 +1,23 @@
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, exists, gt, ilike, inArray, notExists, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  lt,
+  notExists,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
@@ -31,11 +48,18 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 const tokenExpiry = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-function operationalFilter(
-  database: Database,
-  tenantId: string,
-  search: z.infer<typeof operationsSearchSchema>,
-) {
+/** The operations list's filters; dates are already resolved to Brazil calendar days. */
+export interface OperationalSearch {
+  query: string;
+  stage: z.infer<typeof operationsSearchSchema>["stage"];
+  page: number;
+  store?: string | undefined;
+  /** Sale dates from (inclusive) and before (exclusive). */
+  orderedFrom?: Date | undefined;
+  orderedTo?: Date | undefined;
+}
+
+function operationalFilter(database: Database, tenantId: string, search: OperationalSearch) {
   const shipmentMatch = and(
     eq(orderShipments.orderId, orders.id),
     eq(orderShipments.tenantId, tenantId),
@@ -57,13 +81,16 @@ function operationalFilter(
               .from(orderShipments)
               .where(and(shipmentMatch, eq(orderShipments.status, stage))),
           );
-  const term = `%${search.query.replace(/[\\%_]/g, "\\$&")}%`;
+  const term = containsPattern(search.query);
   return and(
     eq(orders.tenantId, tenantId),
     stageFilter,
     search.query
       ? or(ilike(orders.externalOrderId, term), ilike(orders.buyerName, term))
       : undefined,
+    search.store ? eq(orders.storeConnectionId, search.store) : undefined,
+    search.orderedFrom ? gte(orders.orderedAt, search.orderedFrom) : undefined,
+    search.orderedTo ? lt(orders.orderedAt, search.orderedTo) : undefined,
   );
 }
 
@@ -83,49 +110,61 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
     : [];
 }
 
+const OPERATIONS_PAGE_SIZE = 20;
+
+async function countOperationalOrders(database: Database, filter: SQL | undefined) {
+  const [row] = await database
+    .select({ total: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(filter);
+  return row?.total ?? 0;
+}
+
+async function operationalOrderRows(database: Database, filter: SQL | undefined, page: number) {
+  return database
+    .select({
+      id: orders.id,
+      externalOrderId: orders.externalOrderId,
+      status: orders.status,
+      buyerName: orders.buyerName,
+      orderedAt: orders.orderedAt,
+      storeName: storeConnections.shopName,
+      /** An item is short of supplier stock (the reseller has to sort it out). */
+      stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
+    })
+    .from(orders)
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .where(filter)
+    .orderBy(desc(orders.orderedAt), asc(orders.id))
+    .limit(OPERATIONS_PAGE_SIZE)
+    .offset((page - 1) * OPERATIONS_PAGE_SIZE);
+}
+
 export async function listOperationalOrders(
   database: Database,
   tenantId: string,
-  search: z.infer<typeof operationsSearchSchema>,
+  search: OperationalSearch,
 ) {
   const filter = operationalFilter(database, tenantId, search);
-  const [rows, totals] = await Promise.all([
-    database
-      .select({
-        id: orders.id,
-        externalOrderId: orders.externalOrderId,
-        status: orders.status,
-        buyerName: orders.buyerName,
-        orderedAt: orders.orderedAt,
-        storeName: storeConnections.shopName,
-        /** An item is short of supplier stock (the reseller has to sort it out). */
-        stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
-      })
-      .from(orders)
-      .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
-      .where(filter)
-      .orderBy(desc(orders.orderedAt), asc(orders.id))
-      .limit(20)
-      .offset((search.page - 1) * 20),
-    database
-      .select({ total: sql<number>`count(*)::int` })
-      .from(orders)
-      .where(filter),
-  ]);
+  const total = await countOperationalOrders(database, filter);
+  const totalPages = Math.ceil(total / OPERATIONS_PAGE_SIZE);
+  // The page lives in the address: after a forward or a shared link it can point past the end.
+  // The last page with orders is shown then, never an empty list without a pager.
+  const page = Math.min(search.page, Math.max(1, totalPages));
+  const rows = await operationalOrderRows(database, filter, page);
   const shipments = await operationalShipments(
     database,
     tenantId,
     rows.map((row) => row.id),
   );
-  const total = totals[0]?.total ?? 0;
   return {
     items: rows.map((row) => ({
       ...row,
       shipments: shipments.filter((shipment) => shipment.orderId === row.id),
     })),
-    page: search.page,
+    page,
     total,
-    totalPages: Math.ceil(total / 20),
+    totalPages,
   };
 }
 
@@ -390,14 +429,39 @@ export async function getSupplierShipment(database: Database, token: string) {
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, shipment.id))
     .orderBy(asc(shipmentEvents.createdAt));
+  // The buyer's address serves the delivery only: once the parcel is settled or the order is
+  // cancelled or returned, the link still shows what happened, but no longer where it went.
+  const over =
+    SETTLED_FULFILLMENT_STATUSES.includes(shipment.status) ||
+    ["cancelled", "returned"].includes(row.orderStatus);
   return {
     ...shipment,
+    address: over ? null : shipment.address,
     externalOrderId: row.externalOrderId,
     orderStatus: row.orderStatus,
     marketplace: row.marketplace,
     supplierName: row.supplierName,
     events,
   };
+}
+
+/**
+ * History rows one parcel may hold. Steps are few (one per stage), but occurrences can be posted
+ * again and again through a supplier link that anyone holding it can call: without a ceiling, a
+ * script could bloat the history every page of the order loads in full.
+ */
+export const MAX_SHIPMENT_EVENTS = 100;
+
+async function assertRoomForNote(tx: Transaction, shipmentId: string) {
+  const [row] = await tx
+    .select({ events: count() })
+    .from(shipmentEvents)
+    .where(eq(shipmentEvents.shipmentId, shipmentId));
+  if ((row?.events ?? 0) >= MAX_SHIPMENT_EVENTS) {
+    throw conflictError(
+      `Este envio já tem ${MAX_SHIPMENT_EVENTS} registros no histórico, o máximo de ocorrências.`,
+    );
+  }
 }
 
 async function writeShipmentStatus(
@@ -426,6 +490,7 @@ async function writeShipmentStatus(
     throw conflictError("Este envio já foi encerrado");
   if (input.status === shipment.status && !input.note)
     throw conflictError("Informe uma ocorrência ou avance a etapa");
+  if (input.status === shipment.status) await assertRoomForNote(tx, shipment.id);
   await tx
     .update(orderShipments)
     .set({
@@ -483,6 +548,8 @@ export async function updateShipment(
     if (!shipment) throw notFoundError("Link revogado ou expirado");
     await writeShipmentStatus(tx, shipment, input, "tenantId" in access ? "reseller" : "supplier");
     await syncOrderFromShipments(tx, order);
+    // An occurrence note keeps the step: nothing moved, so no stock to push.
+    return { statusChanged: input.status !== shipment.status };
   });
 }
 

@@ -1,5 +1,8 @@
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridge/shared/schemas";
+
+/** The fixed presets, plus "all" (no date limit) on screens of work to do, like operations. */
+type PeriodChoice = PeriodPreset | "all";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useCallback, useRef, useState, type ComponentProps } from "react";
@@ -32,7 +35,8 @@ import {
 const ALL_STORES = "__all__";
 
 /** Short labels for the segmented control (the long ones live in PERIOD_LABELS). */
-const SEGMENT_LABELS: Record<PeriodPreset, string> = {
+const SEGMENT_LABELS: Record<PeriodChoice, string> = {
+  all: "Tudo",
   "7d": "7 dias",
   "30d": "30 dias",
   "90d": "90 dias",
@@ -41,7 +45,8 @@ const SEGMENT_LABELS: Record<PeriodPreset, string> = {
 };
 
 /** Phone labels, so all five fit inside the chart card without a hidden scroll. */
-const COMPACT_LABELS: Record<PeriodPreset, string> = {
+const COMPACT_LABELS: Record<PeriodChoice, string> = {
+  all: "Tudo",
   "7d": "7d",
   "30d": "30d",
   "90d": "90d",
@@ -49,29 +54,39 @@ const COMPACT_LABELS: Record<PeriodPreset, string> = {
   custom: "Personalizado",
 };
 
-interface PeriodFiltersProps {
-  search: PeriodSearch;
+interface PeriodFiltersProps<Period extends PeriodChoice> {
+  search: Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period };
+  /** The periods offered, in order; reports use the fixed presets. */
+  presets?: readonly Period[];
   stores: { id: string; name: string }[];
   resolvedFrom: string;
   resolvedTo: string;
-  onChange: (patch: Partial<PeriodSearch>) => void;
+  onChange: (
+    patch: Partial<Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period }>,
+  ) => void;
 }
 
-export function PeriodFilters({
+export function PeriodFilters<Period extends PeriodChoice>({
   search,
+  presets,
   stores,
   resolvedFrom,
   resolvedTo,
   onChange,
-}: PeriodFiltersProps) {
+}: PeriodFiltersProps<Period>) {
   // Opens the calendar right away when the user picks "Personalizado", not on page load.
   const [openCalendar, setOpenCalendar] = useState(false);
+  const offered: readonly PeriodChoice[] = presets ?? PERIOD_PRESETS;
+  const isOffered = (value: PeriodChoice): value is Period => offered.includes(value);
+  const customPeriod = search.period === "custom" ? search.period : null;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodSegments
           period={search.period}
+          presets={offered}
           onPeriodChange={(period) => {
+            if (!isOffered(period)) return;
             setOpenCalendar(period === "custom");
             onChange(
               period === "custom"
@@ -86,31 +101,45 @@ export function PeriodFilters({
           onStoreChange={(store) => onChange({ store })}
         />
       </div>
-      {search.period === "custom" ? (
+      {customPeriod ? (
         <CustomRange
           key={`${resolvedFrom}-${resolvedTo}`}
           from={resolvedFrom}
           to={resolvedTo}
           defaultOpen={openCalendar}
           onOpenChange={setOpenCalendar}
-          onApply={(from, to) => onChange({ period: "custom", from, to })}
+          onApply={(from, to) => onChange({ period: customPeriod, from, to })}
         />
       ) : null}
     </div>
   );
 }
 
+/** The period's name: in full on wider screens, short on a phone. */
+function SegmentLabel({ preset }: { preset: PeriodChoice }) {
+  return (
+    <>
+      <span className="max-sm:hidden">{SEGMENT_LABELS[preset]}</span>
+      <span className="sm:hidden" aria-hidden="true">
+        {COMPACT_LABELS[preset]}
+      </span>
+    </>
+  );
+}
+
 /** One-click period choice: native radios styled as a segmented control. */
 function PeriodSegments({
   period,
+  presets,
   onPeriodChange,
 }: {
-  period: PeriodSearch["period"];
-  onPeriodChange: (period: PeriodPreset) => void;
+  period: PeriodChoice;
+  presets: readonly PeriodChoice[];
+  onPeriodChange: (period: PeriodChoice) => void;
 }) {
   const chosen = useOptimisticChoice(period);
   const containerRef = useRef<HTMLFieldSetElement>(null);
-  const optionRefs = useRef(new Map<PeriodPreset, HTMLElement>());
+  const optionRefs = useRef(new Map<PeriodChoice, HTMLElement>());
   const indicator = useActiveIndicator(chosen.value, containerRef, optionRefs);
   // Off until the first pick, so the pill lands in place on load instead of sliding in.
   const [canAnimate, setCanAnimate] = useState(false);
@@ -119,7 +148,7 @@ function PeriodSegments({
     <fieldset ref={containerRef} className={cn(TRACK_CLASSES, "w-full sm:inline-flex sm:w-auto")}>
       <legend className="sr-only">Período</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
-      {PERIOD_PRESETS.map((preset) => (
+      {presets.map((preset) => (
         <label
           key={preset}
           ref={(node) => {
@@ -155,10 +184,7 @@ function PeriodSegments({
             aria-label={SEGMENT_LABELS[preset]}
             className="sr-only"
           />
-          <span className="max-sm:hidden">{SEGMENT_LABELS[preset]}</span>
-          <span className="sm:hidden" aria-hidden="true">
-            {COMPACT_LABELS[preset]}
-          </span>
+          <SegmentLabel preset={preset} />
         </label>
       ))}
     </fieldset>
@@ -171,7 +197,7 @@ function StoreSelect({
   onStoreChange,
 }: {
   store: PeriodSearch["store"];
-  stores: PeriodFiltersProps["stores"];
+  stores: PeriodFiltersProps<PeriodChoice>["stores"];
   onStoreChange: (store: string | undefined) => void;
 }) {
   return (

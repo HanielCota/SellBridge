@@ -11,7 +11,7 @@ export interface OrderSupplierReview {
   supplierId: string;
   supplierName: string;
   /** Null until the reseller rates this supplier for the order. */
-  rating: number | null;
+  review: { rating: number; tags: string[]; comment: string } | null;
   /** Delivered within the review window: it can be rated (or rated again) now. */
   reviewable: boolean;
 }
@@ -48,6 +48,8 @@ async function orderReviews(
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       rating: supplierReviews.rating,
+      tags: supplierReviews.tags,
+      comment: supplierReviews.comment,
     })
     .from(orderItems)
     .innerJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
@@ -64,7 +66,11 @@ async function orderReviews(
     .orderBy(asc(suppliers.name), asc(suppliers.id));
   // The reviews tab's own rule, so both say the same about the same order.
   const reviewable = canReviewOrder(order, now);
-  return rows.map((row) => ({ ...row, reviewable }));
+  return rows.map(({ rating, tags, comment, ...supplier }) => ({
+    ...supplier,
+    review: rating === null ? null : { rating, tags: tags ?? [], comment: comment ?? "" },
+    reviewable,
+  }));
 }
 
 /**

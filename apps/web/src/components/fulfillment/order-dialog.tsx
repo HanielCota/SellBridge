@@ -299,6 +299,9 @@ function ForwardForm({
         forward.mutate();
       }}
     >
+      {/* Forwarding creates the supplier orders. Enter in an address field would submit the form
+          through its first submit button; this disabled one comes first, so only a click sends. */}
+      <button type="submit" disabled hidden aria-hidden="true" />
       <ForwardItems detail={detail} />
       {detail.order.marketplace === "mercado_livre" ? (
         <Button

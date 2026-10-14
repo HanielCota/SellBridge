@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { optionalParameter, withFallback } from "./fallback.ts";
+import { isoDateSchema, PERIOD_PRESETS } from "./period.ts";
 
 /**
  * Statuses the supplier or reseller reach by hand, in the order a parcel moves through them.
@@ -102,7 +104,10 @@ export const shipmentUpdateSchema = z
     trackingUrl: z
       .union([
         z.literal(""),
-        z.url().refine((value) => new URL(value).protocol === "https:", "Use um endereço HTTPS"),
+        z
+          .url()
+          .max(2048, "Use um endereço de até 2048 caracteres")
+          .refine((value) => new URL(value).protocol === "https:", "Use um endereço HTTPS"),
       ])
       .default(""),
     note: z.string().trim().max(1000).default(""),
@@ -119,9 +124,34 @@ export const shipmentUpdateSchema = z
       ctx.addIssue({ code: "custom", message: "Informe o motivo do cancelamento", path: ["note"] });
     }
   });
-export const supplierTokenSchema = z.string().regex(/^[a-f0-9]{64}$/);
+export const supplierTokenSchema = z.string().regex(/^[a-f0-9]{64}$/, "Link inválido");
+export const OPERATION_STAGES = ["all", "unforwarded", ...FULFILLMENT_STATUSES] as const;
+/** Operations is work to do: its default is every date, so an old unforwarded sale stays in view. */
+export const OPERATION_PERIODS = ["all", ...PERIOD_PRESETS] as const;
+export type OperationPeriod = (typeof OPERATION_PERIODS)[number];
+
 export const operationsSearchSchema = z.object({
   query: z.string().trim().max(100).default(""),
-  stage: z.enum(["all", "unforwarded", ...FULFILLMENT_STATUSES]).default("all"),
+  stage: z.enum(OPERATION_STAGES).default("all"),
   page: z.number().int().min(1).default(1),
+  period: z.enum(OPERATION_PERIODS).default("all"),
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+  store: z.uuid().optional(),
 });
+
+/**
+ * The Pedidos page's address: which tab is open and the operations filters, so coming back from
+ * an order (or sharing the link) keeps them. The reviews tab keeps its own `query` and `page`.
+ */
+export const operationsUrlSearchSchema = z.object({
+  view: withFallback(z.enum(["operations", "reviews"]).default("operations"), "operations"),
+  opQuery: optionalParameter(z.string().trim().max(100)),
+  stage: withFallback(z.enum(OPERATION_STAGES).default("all"), "all"),
+  period: withFallback(z.enum(OPERATION_PERIODS).default("all"), "all"),
+  from: optionalParameter(isoDateSchema),
+  to: optionalParameter(isoDateSchema),
+  store: optionalParameter(z.uuid()),
+  opPage: withFallback(z.coerce.number().int().min(1).default(1), 1),
+});
+export type OperationsUrlSearch = z.infer<typeof operationsUrlSearchSchema>;

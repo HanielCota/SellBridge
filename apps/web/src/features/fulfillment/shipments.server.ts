@@ -9,14 +9,14 @@ type ShipmentUpdate = z.infer<typeof shipmentUpdateSchema>;
 type ShipmentScope = Parameters<typeof updateShipment>[2];
 
 /*
- * A shipment that leaves (or comes back) moves supplier stock, so every write here asks the
- * worker to push the new count to the marketplaces right away.
+ * A shipment that leaves (or comes back) moves supplier stock, so every status change here asks
+ * the worker to push the new count to the marketplaces right away. An occurrence note does not.
  */
 
 /** Shipment status from the reseller (tenant) or the supplier link (token). */
 export async function writeShipmentUpdate(update: ShipmentUpdate, scope: ShipmentScope) {
   const result = await updateShipment(database, update, scope);
-  await requestStockSync("stock.sync_deferred");
+  if (result.statusChanged) await requestStockSync("stock.sync_deferred");
   return result;
 }
 

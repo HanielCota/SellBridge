@@ -30,7 +30,7 @@ const update = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.enqueue.mockResolvedValue(undefined);
-  mocks.updateShipment.mockResolvedValue(undefined);
+  mocks.updateShipment.mockResolvedValue({ statusChanged: true });
   mocks.applyMarketplaceShipment.mockResolvedValue(undefined);
 });
 
@@ -41,6 +41,12 @@ describe("shipment writes and stock sync", () => {
     expect(mocks.enqueue).toHaveBeenCalledTimes(1);
   });
 
+  it("does not ask for a sync after an occurrence note, which moves no stock", async () => {
+    mocks.updateShipment.mockResolvedValue({ statusChanged: false });
+    await writeShipmentUpdate({ ...update, note: "Cliente ausente" }, { token: "token-de-teste" });
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
   it("asks for a stock sync after the marketplace tracking is refreshed", async () => {
     await refreshMarketplaceShipment("tenant", "4f8f2f0a-6c55-4c1e-9d4e-2a7a2f8f1b12");
     expect(mocks.applyMarketplaceShipment).toHaveBeenCalledTimes(1);
@@ -49,7 +55,9 @@ describe("shipment writes and stock sync", () => {
 
   it("keeps the saved shipment when the sync request fails", async () => {
     mocks.enqueue.mockRejectedValue(new Error("Redis indisponível"));
-    await expect(writeShipmentUpdate(update, { tenantId: "tenant" })).resolves.toBeUndefined();
+    await expect(writeShipmentUpdate(update, { tenantId: "tenant" })).resolves.toEqual({
+      statusChanged: true,
+    });
     expect(mocks.warn).toHaveBeenCalledWith("stock.sync_deferred", { error: expect.any(Error) });
   });
 

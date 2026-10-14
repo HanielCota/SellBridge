@@ -63,7 +63,6 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
   await page.getByRole("button", { name: "Operar pedido" }).click();
   const dialog = page.getByRole("dialog", { name: "Operar pedido" });
@@ -77,8 +76,17 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
     CEP: "01001-000",
   }))
     await dialog.getByLabel(label, { exact: true }).fill(value);
-  await dialog.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" }).click();
+  // Enter in an address field does not forward: only the button creates the supplier orders.
+  const posts: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") posts.push(request.url());
+  });
+  await dialog.getByLabel("CEP", { exact: true }).press("Enter");
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 300)));
+  expect(posts).toEqual([]);
   const link = dialog.getByLabel("Link do fornecedor");
+  await expect(link).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" }).click();
   await expect(link).toBeVisible();
   const supplierUrl = await link.inputValue();
   const supplierContext = await browser.newContext();
@@ -122,7 +130,6 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   // The reseller confirms it.
   await gotoHydrated(page, "/pedidos");
   await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
   await page.getByRole("button", { name: "Operar pedido" }).click();
   const reopened = page.getByRole("dialog", { name: "Operar pedido" });
@@ -188,7 +195,6 @@ test("shows a parcel that failed and came back on the shipment timeline", async 
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/pedidos");
     await page.getByLabel("Buscar por pedido ou comprador").fill(returnedId);
-    await page.getByRole("button", { name: "Buscar", exact: true }).click();
     await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
     await page.getByRole("button", { name: "Operar pedido" }).click();
     const dialog = page.getByRole("dialog", { name: "Operar pedido" });
@@ -246,11 +252,15 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
     const supplierContext = await browser.newContext();
     const supplier = await supplierContext.newPage();
     await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    await expect(supplier.getByText(/CEP \d/)).toBeVisible();
     await supplier.getByLabel("Ocorrência ou observação").fill("Produto em falta no depósito");
     await supplier.getByRole("button", { name: "Cancelar envio" }).click();
     await expect(
       supplier.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
     ).toContainText("Cancelado");
+    // The parcel is over: the link keeps its history but no longer shows the buyer's address.
+    await expect(supplier.getByText(/CEP \d/)).toHaveCount(0);
+    await expect(supplier.getByRole("button", { name: /^Imprimir/ })).toHaveCount(0);
     await supplierContext.close();
 
     // The reseller sees it in the bell, under problems, with the reason.
@@ -265,7 +275,6 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
 
     // And sends it to the supplier again: a new link that opens the parcel from the start.
     await page.getByLabel("Buscar por pedido ou comprador").fill(cancelledId);
-    await page.getByRole("button", { name: "Buscar", exact: true }).click();
     await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
     await page.getByRole("button", { name: "Operar pedido" }).click();
     const dialog = page.getByRole("dialog", { name: "Operar pedido" });

@@ -25,7 +25,8 @@ export interface ShipmentView {
   id: string;
   supplierName: string;
   status: FulfillmentStatus;
-  address: DeliveryAddress;
+  /** Null on a supplier link once the parcel or the order is over: the buyer's data stops there. */
+  address: DeliveryAddress | null;
   items: { title: string; sku: string; quantity: number }[];
   notes: string;
   carrier: string | null;
@@ -112,12 +113,23 @@ function ShipmentToolbar({
   return (
     // On the narrowest phones a long label wraps inside its button instead of overflowing.
     <div className="flex flex-wrap gap-2 [&>*]:h-auto [&>*]:min-h-9 [&>*]:max-w-full [&>*]:py-1.5 [&>*]:whitespace-normal">
-      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
-        Imprimir etiqueta de identificação
-      </Button>
-      <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
-        Imprimir ordem de fornecimento
-      </Button>
+      {/* Both documents carry the buyer's address, which a finished supplier link no longer has. */}
+      {shipment.address ? (
+        <>
+          <Button
+            variant="outline"
+            onClick={() => printShipment(shipment, externalOrderId, "label")}
+          >
+            Imprimir etiqueta de identificação
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => printShipment(shipment, externalOrderId, "order")}
+          >
+            Imprimir ordem de fornecimento
+          </Button>
+        </>
+      ) : null}
       {children}
     </div>
   );
@@ -135,16 +147,25 @@ function DispatchFields(props: {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
+      {/* Codes and links are typed exactly: no capital first letter or "correction" on phones. */}
       <Field
         label="Código de rastreio"
         value={props.trackingCode}
         onChange={props.setTrackingCode}
+        autoCapitalize="characters"
+        autoCorrect="off"
+        spellCheck={false}
       />
       <div className="sm:col-span-2">
         <Field
           label="Link de rastreio (HTTPS, opcional)"
           value={props.trackingUrl}
           onChange={props.setTrackingUrl}
+          type="url"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
         />
       </div>
     </div>
@@ -287,11 +308,13 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
           </li>
         ))}
       </ul>
-      <p className="text-sm text-muted-foreground">
-        {shipment.address.recipient} · {shipment.address.street}, {shipment.address.number}{" "}
-        {shipment.address.complement} · {shipment.address.neighborhood} · {shipment.address.city}/
-        {shipment.address.state} · CEP {shipment.address.postalCode}
-      </p>
+      {shipment.address ? (
+        <p className="text-sm text-muted-foreground">
+          {shipment.address.recipient} · {shipment.address.street}, {shipment.address.number}{" "}
+          {shipment.address.complement} · {shipment.address.neighborhood} · {shipment.address.city}/
+          {shipment.address.state} · CEP {shipment.address.postalCode}
+        </p>
+      ) : null}
       {shipment.notes ? <p className="text-sm">Instruções: {shipment.notes}</p> : null}
       {shipment.trackingCode ? (
         <p className="text-sm">
