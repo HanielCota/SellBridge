@@ -4,12 +4,12 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 20 · Página do pedido
-- Última etapa concluída: — (07 ✅ 4b7eba9)
-- Próximo passo: etapa 1 · ler o item 20 no prompt (e se tem partes na seção 9.0)
+- Item/parte: 20.b · Tela /pedidos/$orderId
+- Última etapa concluída: — (20.a ✅ bbf14fc)
+- Próximo passo: etapa 1 · referências internas (Financeiro, painel do envio, linha do tempo do cliente) e folha D0
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: itens 08, 09, 10, 13, 14, 15, 16 e 18 estão no chat paralelo C; este chat segue do 20 em diante
-- Pendências: item novo "trocar de fornecedor num envio cancelado"; mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados
+- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 20.a
+- Pendências: item novo "trocar de fornecedor num envio cancelado"; mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; o chat C ainda não tem o prazo de 60 s do teste de migrations (edb1ff4)
 
 ## Linha de base
 
@@ -49,7 +49,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
 | 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 19   | Pequenos de segurança e status                  | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 20   | Página do pedido                                | ⬜       | —                           |                                                                         |
+| 20   | Página do pedido                                | 🟡       | bbf14fc                     | 20.a ✅ bbf14fc · 20.b ⬜ · 20.c ⬜                                     |
 | 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                           |
 | 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                         |
 | 23   | Anúncios completos                              | ⬜       | —                           |                                                                         |
