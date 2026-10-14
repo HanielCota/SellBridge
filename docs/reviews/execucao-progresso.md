@@ -4,11 +4,11 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 07 · Fornecedor não declara "entregue" sozinho
-- Última etapa concluída: — (06 ✅ b68dbe5)
-- Próximo passo: etapa 1 · ler o item 07 no prompt e o fluxo do link do fornecedor
+- Item/parte: 20 · Página do pedido
+- Última etapa concluída: — (07 ✅ 4b7eba9)
+- Próximo passo: etapa 1 · ler o item 20 no prompt (e se tem partes na seção 9.0)
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: itens 08, 09, 10, 13, 14, 15, 16 e 18 passam ao chat paralelo C (13/10); este chat faz o 07, depois do 20 em diante e "trocar de fornecedor num envio cancelado"
+- Decisões tomadas nos pontos de parada: itens 08, 09, 10, 13, 14, 15, 16 e 18 estão no chat paralelo C; este chat segue do 20 em diante
 - Pendências: item novo "trocar de fornecedor num envio cancelado"; mensagem de conflito do 02.a usa o nome bruto da loja (só em corrida); confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço; tópicos shipments e post_purchase não assinados
 
 ## Linha de base
@@ -36,7 +36,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                     |
 | 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                         |
 | 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                         |
-| 07   | Fornecedor não declara "entregue" sozinho       | ⬜       | —                           |                                                                         |
+| 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                         |
 | 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 09   | Lucro correto                                   | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
 | 10   | Segurança de contas e da equipe                 | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
