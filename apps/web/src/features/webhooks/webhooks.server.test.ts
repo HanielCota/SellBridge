@@ -101,17 +101,14 @@ describe("webhook body limits", () => {
     expect(mocks.verifyWebhook).toHaveBeenCalledTimes(1);
   });
 
-  it("stores only the size of a large rejected body", async () => {
-    mocks.recordWebhookEvent.mockResolvedValue({ status: "created", id: "wh-2", pending: false });
+  it("never stores a rejected body: the endpoint is public", async () => {
     mocks.verifyWebhook.mockResolvedValue({
       valid: false,
       reason: "forma inválida",
       payload: { body: "a".repeat(10_000) },
     });
     expect((await handleWebhook(notification(), "mock")).status).toBe(401);
-    expect(mocks.recordWebhookEvent.mock.calls[0]?.[1]).toMatchObject({
-      rawPayload: { truncated: true, bytes: 10_011 },
-    });
+    expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
   });
 
   it("drops the NUL escape that jsonb refuses", async () => {

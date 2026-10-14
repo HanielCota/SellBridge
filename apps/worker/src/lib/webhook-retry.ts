@@ -1,6 +1,3 @@
-/** Attempts per delivery, the first included; afterwards the delivery is marked "failed". */
-export const WEBHOOK_MAX_ATTEMPTS = 8;
-
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 
@@ -14,6 +11,9 @@ export const WEBHOOK_RETRY_DELAYS_MILLISECONDS: readonly number[] = [
   3 * HOUR,
   6 * HOUR,
 ];
+
+/** Attempts per delivery, the first included; afterwards the delivery is marked "failed". */
+export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_DELAYS_MILLISECONDS.length + 1;
 
 /**
  * When to try again after `attemptsMade` attempts (the failed one included), or null when

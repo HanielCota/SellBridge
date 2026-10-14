@@ -109,7 +109,7 @@ describe("marketplace orders and sync", () => {
     expect(items.find((item) => item.title !== "Anúncio F4")?.unitCostCents).toBe(0);
 
     await expect(upsertMarketplaceOrder(database, tenantB, storeA, incoming)).rejects.toThrow(
-      "outro tenant",
+      "outra conta",
     );
   });
 
@@ -152,6 +152,29 @@ describe("marketplace orders and sync", () => {
       orderedAt: "2026-02-01T10:00:00.000Z",
     });
     expect(events[1]?.data).toMatchObject({ status: "shipped", previousStatus: "paid" });
+  });
+
+  it("never reopens a cancelled order when an older 'paid' notification lands late", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "paid" as const,
+      totalCents: 5000,
+      marketplaceFeeCents: 500,
+      buyerName: null,
+      orderedAt: new Date("2026-02-01T10:00:00Z"),
+      items: [],
+    };
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "cancelled" });
+    // The job that fetched the order before the buyer cancelled writes last.
+    await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "pending" });
+
+    const [row] = await database
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    expect(row?.status).toBe("cancelled");
   });
 
   it("keeps one marketplace refund per order, at the latest total", async () => {

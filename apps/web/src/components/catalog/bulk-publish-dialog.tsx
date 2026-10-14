@@ -123,7 +123,7 @@ function StoreSummaryRow({
       type="button"
       aria-expanded={expanded}
       onClick={onToggle}
-      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted"
+      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
     >
       <span className="flex shrink-0" aria-hidden="true">
         {chosen.slice(0, 3).map((store) => (
@@ -243,7 +243,8 @@ function PercentStepper({
           inputMode="numeric"
           value={percent}
           onChange={(event) => onPercentChange(event.target.value.replace(/\D/g, ""))}
-          className="w-8 bg-transparent text-right outline-none"
+          // 17px on phones: iOS zooms into any field under 16px when it gets focus.
+          className="w-9 rounded-md bg-transparent text-right text-body outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:w-8 sm:text-sm"
         />
         %
       </span>
@@ -475,7 +476,7 @@ function BulkPublishForm({
       <div className="space-y-2">
         <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
           {mutation.isPending
-            ? "Publicando..."
+            ? "Publicando…"
             : `Publicar em ${pluralize(storeIds.size, "loja", "lojas")}`}
         </Button>
         <p className="text-center text-xs text-muted-foreground tabular-nums">

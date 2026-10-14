@@ -7,7 +7,6 @@ import {
   orderAdjustments,
   orderCostsCents,
   orderSplit,
-  reportDayKey,
 } from "./financial-rows";
 
 describe("orderCostsCents", () => {
@@ -113,13 +112,6 @@ describe("daySplit", () => {
       false,
     );
     expect(daySplit({ ...base, salesOnPage: 4, isLastDay: true, page: 2 }).toNext).toBe(false);
-  });
-});
-
-describe("reportDayKey", () => {
-  it("reads the day in Brazil time, not UTC", () => {
-    expect(reportDayKey(new Date("2026-10-10T02:00:00Z"))).toBe("2026-10-09");
-    expect(reportDayKey(new Date("2026-10-10T03:00:00Z"))).toBe("2026-10-10");
   });
 });
 

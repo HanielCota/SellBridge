@@ -16,6 +16,7 @@ import {
   adminSetProductActive,
   type adminListProducts,
 } from "@/features/admin-suppliers/suppliers.functions";
+import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
 import { shelfLabel, shelfParts } from "@/features/admin-suppliers/shelf-label";
 import { adminProductsQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
@@ -30,7 +31,9 @@ function ProductActions({
   product: AdminSupplierProduct;
   onEdit: (product: AdminSupplierProduct) => void;
 }) {
-  const setActive = useCatalogAction(adminSetProductActive, "Status do produto atualizado");
+  const setActive = useCatalogAction(adminSetProductActive, (result) =>
+    catalogStatusMessage("Produto", result),
+  );
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" size="sm" onClick={() => onEdit(product)}>
@@ -50,7 +53,7 @@ function ProductActions({
           })
         }
       >
-        {setActive.isPending ? "Salvando..." : product.active ? "Desativar" : "Ativar"}
+        {setActive.isPending ? "Salvando…" : product.active ? "Desativar" : "Ativar"}
       </Button>
     </div>
   );
@@ -186,7 +189,8 @@ export function ProductList({
         <Button onClick={() => setSelected(null)}>Novo produto</Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Desativar oculta o produto do catálogo. Anúncios e pedidos existentes continuam disponíveis.
+        Desativar tira o produto do catálogo e pausa os anúncios dos revendedores. Os pedidos
+        existentes continuam.
       </p>
       {selected === undefined ? null : (
         <ProductForm

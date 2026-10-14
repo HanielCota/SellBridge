@@ -64,7 +64,7 @@ export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
         />
         <div>
           <Button type="submit" disabled={isUnchanged || save.isPending}>
-            {save.isPending ? "Salvando..." : "Salvar perfil"}
+            {save.isPending ? "Salvando…" : "Salvar perfil"}
           </Button>
         </div>
       </form>

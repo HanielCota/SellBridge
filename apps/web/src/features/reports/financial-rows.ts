@@ -1,6 +1,6 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import type { Cents } from "@sellbridge/shared/money";
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { brazilDayKey, nearDayName } from "@/lib/relative-time";
 
 type OrderCosts = Pick<OrderFinancialRow, "costCents" | "feeCents" | "platformFeeCents">;
 type OrderMoneyFlows = Pick<OrderFinancialRow, "commissionCents" | "refundCents" | "returnCents">;
@@ -65,13 +65,6 @@ export function orderMargin(row: Pick<OrderFinancialRow, "revenueCents" | "profi
   return row.profitCents / row.revenueCents;
 }
 
-const dayKeyFormat = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
-
-/** The calendar day of an instant in Brazil time, as "YYYY-MM-DD" (the timeseries' keys). */
-export function reportDayKey(date: Date): string {
-  return dayKeyFormat.format(date);
-}
-
 export interface OrderDay<TRow> {
   key: string;
   rows: TRow[];
@@ -82,7 +75,7 @@ export function groupOrdersByDay<TRow extends { orderedAt: Date }>(
   rows: readonly TRow[],
 ): OrderDay<TRow>[] {
   return rows.reduce<OrderDay<TRow>[]>((days, row) => {
-    const key = reportDayKey(row.orderedAt);
+    const key = brazilDayKey(row.orderedAt);
     const last = days.at(-1);
     if (last?.key === key) {
       last.rows.push(row);
@@ -165,17 +158,13 @@ const weekdayWithYearFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 });
 
-const DAY_MILLISECONDS = 86_400_000;
-
 /** A day's heading in the statement: "Hoje", "Ontem", then "Quarta-feira, 8 de out.". */
 export function formatDayHeading(key: string, now: Date = new Date()): string {
-  const today = reportDayKey(now);
-  if (key === today) {
-    return "Hoje";
+  const nearName = nearDayName(key, now);
+  if (nearName !== null) {
+    return nearName;
   }
-  if (key === reportDayKey(new Date(now.getTime() - DAY_MILLISECONDS))) {
-    return "Ontem";
-  }
+  const today = brazilDayKey(now);
   const date = new Date(`${key}T12:00:00Z`);
   const format = key.slice(0, 4) === today.slice(0, 4) ? weekdayFormat : weekdayWithYearFormat;
   const label = format.format(date);

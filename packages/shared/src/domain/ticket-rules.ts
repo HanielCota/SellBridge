@@ -1,4 +1,5 @@
 import { conflictError } from "../runtime/errors.ts";
+import { DAY_MILLISECONDS } from "./time.ts";
 
 /** Mirrors the `ticket_status` enum of the database. */
 export type TicketStatus = "open" | "answered" | "closed";
@@ -148,8 +149,6 @@ export function assertCanRate(status: TicketStatus, ratedAt: Date | null): void 
 export function ticketCode(ticketId: string): string {
   return ticketId.replaceAll("-", "").slice(0, 6).toUpperCase();
 }
-
-const DAY_MILLISECONDS = 24 * HOUR_MILLISECONDS;
 
 /**
  * When the auto-close job will close the ticket if the reseller stays quiet: only answered

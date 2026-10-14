@@ -22,6 +22,7 @@ import { unlinkMyTicketOrder } from "@/features/support/support.functions";
 import { displayStoreName } from "@/features/stores/store-name";
 import { useNow } from "@/hooks/use-now";
 import { errorMessage } from "@/lib/errors";
+import { initials } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 
 interface PanelTicket {
@@ -33,13 +34,6 @@ interface PanelTicket {
   createdAt: Date;
   updatedAt: Date;
   closedAt: Date | null;
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts.at(0)?.at(0) ?? "";
-  const last = parts.length > 1 ? (parts.at(-1)?.at(0) ?? "") : "";
-  return `${first}${last}`.toUpperCase();
 }
 
 function Assignee({ name }: { name: string | null }) {
@@ -56,7 +50,7 @@ function Assignee({ name }: { name: string | null }) {
         className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground"
         aria-hidden="true"
       >
-        {initialsOf(name)}
+        {initials(name)}
       </span>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{name}</p>

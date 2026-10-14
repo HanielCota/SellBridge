@@ -122,7 +122,7 @@ function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "ba
         disabled={toggle.isPending}
         onClick={() => toggle.mutate(undefined)}
       >
-        {toggle.isPending ? "Desbloqueando..." : "Desbloquear"}
+        {toggle.isPending ? "Desbloqueando…" : "Desbloquear"}
       </Button>
     );
   }
@@ -137,7 +137,7 @@ function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "ba
         title="Bloquear esta conta?"
         description="O cliente sai de todos os dispositivos e não consegue mais entrar até ser desbloqueado. Lojas e publicações continuam como estão."
         confirmLabel="Bloquear"
-        pendingLabel="Bloqueando..."
+        pendingLabel="Bloqueando…"
         destructive
         isPending={toggle.isPending}
         onConfirm={() => toggle.mutate(undefined)}
@@ -166,7 +166,7 @@ function SessionsControl({ userId }: { userId: string }) {
         title="Encerrar todas as sessões?"
         description="O cliente precisará entrar de novo em todos os dispositivos."
         confirmLabel="Encerrar sessões"
-        pendingLabel="Encerrando..."
+        pendingLabel="Encerrando…"
         isPending={revoke.isPending}
         onConfirm={() => revoke.mutate(undefined)}
       />
@@ -185,7 +185,7 @@ function PasswordResetButton({ userId }: { userId: string }) {
       disabled={sendReset.isPending}
       onClick={() => sendReset.mutate(undefined)}
     >
-      {sendReset.isPending ? "Enviando..." : "Enviar link de redefinição"}
+      {sendReset.isPending ? "Enviando…" : "Enviar link de redefinição"}
     </Button>
   );
 }

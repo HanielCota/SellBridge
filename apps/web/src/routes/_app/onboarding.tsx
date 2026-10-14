@@ -344,7 +344,7 @@ function SubmitButton({ form, isSaved }: { form: AddressFormApi; isSaved: boolea
               Endereço salvo
             </>
           ) : null}
-          {!isSaved && isSubmitting ? "Salvando..." : null}
+          {!isSaved && isSubmitting ? "Salvando…" : null}
           {!isSaved && !isSubmitting ? "Salvar endereço" : null}
         </Button>
       )}

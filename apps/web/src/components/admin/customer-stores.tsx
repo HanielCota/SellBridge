@@ -1,3 +1,4 @@
+import type { StoreStatus } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 import { StorefrontIcon } from "@phosphor-icons/react";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
@@ -13,7 +14,7 @@ interface CustomerStore {
   shopName: string;
   marketplace: string;
   marketplaceLabel: string;
-  status: "connected" | "expired" | "error" | "disconnected";
+  status: StoreStatus;
 }
 
 function NoStores() {
@@ -79,7 +80,7 @@ export function CustomerStores({
         title={`Desconectar ${target?.shopName ?? "loja"}?`}
         description="Os anúncios já publicados continuam no marketplace, mas o SellBridge deixa de sincronizar estoque, preço e pedidos desta loja."
         confirmLabel="Desconectar"
-        pendingLabel="Desconectando..."
+        pendingLabel="Desconectando…"
         destructive
         isPending={disconnect.isPending}
         onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}

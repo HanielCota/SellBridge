@@ -256,7 +256,7 @@ function ReviewForm({ target, onDone }: { target: ReviewTarget; onDone: () => vo
           Agora não
         </Button>
         <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "Enviando..." : "Enviar avaliação"}
+          {mutation.isPending ? "Enviando…" : "Enviar avaliação"}
         </Button>
       </DialogFooter>
     </form>

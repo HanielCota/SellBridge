@@ -3,6 +3,7 @@ import { ArrowUpRightIcon } from "@phosphor-icons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { displayStoreName } from "@/features/stores/store-name";
+import { formatPercent } from "@/lib/percent";
 
 interface StoreRow {
   storeConnectionId: string;
@@ -17,8 +18,6 @@ interface ProductRow {
   units: number;
   revenueCents: number;
 }
-
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 
 function BreakdownSection({
   title,
@@ -76,13 +75,13 @@ function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: nu
           />
         </div>
         <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-          {percent.format(share)}
+          {formatPercent(share)}
           <span className="sr-only"> da receita</span>
         </span>
       </div>
       <p className="text-xs text-muted-foreground tabular-nums">
         {store.orders} {store.orders === 1 ? "venda" : "vendas"} · lucro{" "}
-        {formatCents(store.profitCents)} · {percent.format(margin)} de margem
+        {formatCents(store.profitCents)} · {formatPercent(margin)} de margem
       </p>
     </li>
   );

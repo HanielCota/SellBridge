@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasErrorCode } from "../runtime/errors.ts";
-import {
-  assertCanRetryTarget,
-  assertSellablePrice,
-  canRetryTarget,
-  pauseTransition,
-} from "./listing-rules.ts";
+import { assertSellablePrice, canRetryTarget, pauseTransition } from "./listing-rules.ts";
 
 function thrownBy(action: () => void): unknown {
   try {
@@ -32,9 +27,6 @@ describe("retry rules", () => {
   it("only lets failed publications go back to the queue", () => {
     expect(canRetryTarget("error")).toBe(true);
     expect(canRetryTarget("published")).toBe(false);
-    expect(() => assertCanRetryTarget("error")).not.toThrow();
-    const error = thrownBy(() => assertCanRetryTarget("pending"));
-    expect(hasErrorCode(error, "CONFLICT")).toBe(true);
   });
 });
 

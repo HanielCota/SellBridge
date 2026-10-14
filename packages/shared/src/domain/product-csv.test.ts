@@ -126,4 +126,21 @@ describe("admin catalog schemas", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("refuses a line with more columns than any import needs, before the import blocks", () => {
+    const columns = "sku;titulo;custo;estoque";
+    expect(() =>
+      parseProductCsv(`${columns}
+A;B;1;1${";".repeat(60)}`),
+    ).toThrow("no máximo 50 colunas");
+    expect(() =>
+      parseProductCsv(`${columns}
+${";".repeat(2_000_000)}`),
+    ).toThrow("no máximo 50 colunas");
+  });
+
+  it("caps cost and suggested price at the listing ceiling", () => {
+    expect(parseCsvMoney("1000000,00")).toBe(100_000_000);
+    expect(parseCsvMoney("1000000,01")).toBeNull();
+  });
 });

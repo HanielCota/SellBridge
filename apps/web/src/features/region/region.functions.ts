@@ -12,6 +12,7 @@ import { cepLookupSchema, updateRegionSchema } from "@sellbridge/shared/schemas"
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { compareSupplierCoverage, type CoverageChange } from "@/features/region/coverage-change";
 import { resolveCep } from "@/features/region/region.server";
 
@@ -83,5 +84,7 @@ export const updateTenantRegion = createServerFn({ method: "POST" })
       neighborhood: data.neighborhood,
     });
     logger.info("region.updated", { tenantId: context.tenantId, state: region.state });
+    // Listings of suppliers that do not deliver to the new region drop to zero stock.
+    await requestStockSync("region.sync_deferred");
     return region;
   });

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
@@ -18,7 +19,6 @@ import { DEMO_STORES } from "./data.ts";
 import type { Random } from "./random.ts";
 import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
 
-const DAY_MILLISECONDS = 86_400_000;
 const SIX_HOURS_MILLISECONDS = 6 * 60 * 60 * 1000;
 const HISTORY_DAYS = 180;
 const DELIVERY_DAYS = 3;

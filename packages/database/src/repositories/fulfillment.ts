@@ -1,5 +1,4 @@
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
-import { containsPattern } from "./sql/search-pattern.ts";
 import { createHash, randomBytes } from "node:crypto";
 import {
   and,
@@ -33,7 +32,7 @@ import {
   type shipmentUpdateSchema,
 } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import {
   orderItems,
   orders,
@@ -43,10 +42,19 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-const tokenExpiry = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+/** A new supplier link: the raw token goes to the reseller, only its hash is stored. */
+function issueSupplierLink(): { token: string; hash: string; expiresAt: Date } {
+  const token = randomBytes(32).toString("hex");
+  return {
+    token,
+    hash: hashToken(token),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  };
+}
 
 /** The operations list's filters; dates are already resolved to Brazil calendar days. */
 export interface OperationalSearch {
@@ -231,6 +239,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
         ),
       ),
   ]);
+  const [store] = stores;
+  if (!store) throw notFoundError("Loja do pedido não encontrada");
   const events = await eventsForShipments(
     database,
     shipments.map((row) => row.id),
@@ -241,7 +251,7 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       externalOrderId: order.externalOrderId,
       status: order.status,
       buyerName: order.buyerName,
-      marketplace: stores[0]?.marketplace ?? "mock",
+      marketplace: store.marketplace,
     },
     items,
     shipments: shipments.map((shipment) => ({
@@ -265,13 +275,15 @@ async function supplierGroups(tx: Transaction, tenantId: string, orderId: string
     .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
     .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
-  if (!items.length || items.some((item) => !item.supplierId || !item.active))
+  const linked = items.filter(
+    (item): item is (typeof items)[number] & { supplierId: string } =>
+      item.supplierId !== null && item.active === true,
+  );
+  if (!items.length || linked.length !== items.length)
     throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
-  const grouped = new Map<string, typeof items>();
-  for (const item of items) {
-    const supplierId = item.supplierId;
-    if (!supplierId) throw conflictError("Item sem fornecedor");
-    grouped.set(supplierId, [...(grouped.get(supplierId) ?? []), item]);
+  const grouped = new Map<string, typeof linked>();
+  for (const item of linked) {
+    grouped.set(item.supplierId, [...(grouped.get(item.supplierId) ?? []), item]);
   }
   return grouped;
 }
@@ -299,7 +311,7 @@ export async function forwardOrder(
     const grouped = await supplierGroups(tx, tenantId, order.id);
     const links: { shipmentId: string; supplierId: string; token: string }[] = [];
     for (const [supplierId, lines] of grouped) {
-      const token = randomBytes(32).toString("hex");
+      const link = issueSupplierLink();
       const [shipment] = await tx
         .insert(orderShipments)
         .values({
@@ -314,8 +326,8 @@ export async function forwardOrder(
             quantity,
             sku: sku ?? "",
           })),
-          supplierTokenHash: hashToken(token),
-          supplierTokenExpiresAt: tokenExpiry(),
+          supplierTokenHash: link.hash,
+          supplierTokenExpiresAt: link.expiresAt,
         })
         .returning({ id: orderShipments.id });
       if (!shipment) throw new Error("Não foi possível encaminhar o pedido");
@@ -325,7 +337,7 @@ export async function forwardOrder(
         actor: SHIPMENT_ACTORS.reseller,
         note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
       });
-      links.push({ shipmentId: shipment.id, supplierId, token });
+      links.push({ shipmentId: shipment.id, supplierId, token: link.token });
     }
     return links;
   });
@@ -350,13 +362,13 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       .for("update");
     if (order?.status !== "paid")
       throw conflictError("Somente pedidos pagos podem ser reencaminhados");
-    const token = randomBytes(32).toString("hex");
+    const link = issueSupplierLink();
     const [shipment] = await tx
       .update(orderShipments)
       .set({
         status: "forwarded",
-        supplierTokenHash: hashToken(token),
-        supplierTokenExpiresAt: tokenExpiry(),
+        supplierTokenHash: link.hash,
+        supplierTokenExpiresAt: link.expiresAt,
         updatedAt: new Date(),
       })
       .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.status, "cancelled")))
@@ -368,15 +380,15 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       actor: SHIPMENT_ACTORS.reseller,
       note: "Reencaminhado ao fornecedor. Compartilhe o novo link com ele.",
     });
-    return { shipmentId, supplierId: shipment.supplierId, token };
+    return { shipmentId, supplierId: shipment.supplierId, token: link.token };
   });
 }
 
 export async function rotateSupplierLink(database: Database, tenantId: string, shipmentId: string) {
-  const token = randomBytes(32).toString("hex");
+  const link = issueSupplierLink();
   const [shipment] = await database
     .update(orderShipments)
-    .set({ supplierTokenHash: hashToken(token), supplierTokenExpiresAt: tokenExpiry() })
+    .set({ supplierTokenHash: link.hash, supplierTokenExpiresAt: link.expiresAt })
     .where(
       and(
         eq(orderShipments.id, shipmentId),
@@ -386,7 +398,7 @@ export async function rotateSupplierLink(database: Database, tenantId: string, s
     )
     .returning({ id: orderShipments.id });
   if (!shipment) throw notFoundError("Envio não encontrado ou encerrado");
-  return { shipmentId, token };
+  return { shipmentId, token: link.token };
 }
 
 export async function revokeSupplierLink(database: Database, tenantId: string, shipmentId: string) {

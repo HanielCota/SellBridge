@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { catalogSearchSchema } from "./catalog.ts";
+import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 import { REVIEW_COMMENT_MAX_LENGTH, supplierReviewInputSchema } from "./reviews.ts";
-
-const INTEGER_MAX = 2_147_483_647;
 
 const parse = (minCost: unknown) => catalogSearchSchema.parse({ minCost }).minCost;
 
 describe("catalog cost filters", () => {
-  it("keeps costs inside the integer column and drops the rest", () => {
+  it("keeps costs up to the listing ceiling and drops the rest", () => {
     expect(parse("0")).toBe(0);
-    expect(parse(String(INTEGER_MAX))).toBe(INTEGER_MAX);
-    expect(parse(String(INTEGER_MAX + 1))).toBeUndefined();
+    expect(parse(String(LISTING_MAX_PRICE_CENTS))).toBe(LISTING_MAX_PRICE_CENTS);
+    expect(parse(String(LISTING_MAX_PRICE_CENTS + 1))).toBeUndefined();
+    expect(parse("3000000000")).toBeUndefined();
     expect(parse("-1")).toBeUndefined();
     expect(parse("10.5")).toBeUndefined();
     expect(parse("1e400")).toBeUndefined();

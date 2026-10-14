@@ -1,3 +1,4 @@
+import { stripAccents } from "@sellbridge/shared/text";
 import { and, or, sql, type Column, type SQL } from "drizzle-orm";
 
 /**
@@ -11,15 +12,12 @@ export function containsPattern(search: string): string {
   return `%${escaped}%`;
 }
 
-/** Combining marks only, so `^`, backtick and other plain symbols in a SKU survive. */
-const COMBINING_MARKS = /[\u0300-\u036f]/g;
-
 /**
  * Lowercased, without accents: how the search text is folded before it meets
  * `lower(unaccent(column))` in Postgres ("Ñ" → "n", "Ångström" → "angstrom").
  */
 export function foldAccents(text: string): string {
-  return text.normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
+  return stripAccents(text).toLowerCase();
 }
 
 /** Needs the `unaccent` extension, created by a migration. */

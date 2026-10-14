@@ -5,7 +5,7 @@ import { apiIdempotencyKeys } from "../schema/index.ts";
 /** Long enough for any client retry loop; afterwards the same key starts a new request. */
 export const IDEMPOTENCY_KEY_TTL_MILLISECONDS = 24 * 60 * 60 * 1000;
 /** A request still "in progress" after this died midway (deploy, crash): its key is freed. */
-export const IDEMPOTENCY_ABANDONED_AFTER_MILLISECONDS = 5 * 60 * 1000;
+const IDEMPOTENCY_ABANDONED_AFTER_MILLISECONDS = 5 * 60 * 1000;
 
 export type IdempotencyReservation =
   | { status: "reserved" }

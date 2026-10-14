@@ -158,7 +158,7 @@ function DispatchFields(props: {
       />
       <div className="sm:col-span-2">
         <Field
-          label="Link de rastreio (HTTPS, opcional)"
+          label="Link de rastreio (opcional)"
           value={props.trackingUrl}
           onChange={props.setTrackingUrl}
           type="url"

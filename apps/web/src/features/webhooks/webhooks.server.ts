@@ -1,19 +1,14 @@
 import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
 import { withDeadline } from "@sellbridge/shared/deadline";
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
-import { readBoundedText } from "@/lib/server/bounded-body";
 import { database } from "@/lib/server/database";
 import { withoutNul } from "@/lib/server/nul-character";
 import { connectors } from "@/lib/server/marketplaces";
 import { enqueueWebhookEvent } from "@/lib/server/queues";
 
 const MAX_BODY_BYTES = 64 * 1024;
-/**
- * A rejected notification is kept for diagnosis, but anyone can send one: only this much of its
- * body is stored, so a flood of forged posts cannot fill the database with 64 KB rows.
- */
-const MAX_REJECTED_PAYLOAD_BYTES = 2 * 1024;
 /**
  * Mercado Livre wants the 200 within 500 ms. While Redis is down the enqueue would hang on
  * ioredis retries, so it gets a deadline: the event is already stored, and the worker's
@@ -28,29 +23,6 @@ function reply(status: number, body: Record<string, string>): Response {
   });
 }
 
-/** The rejected body as stored: whole when small, otherwise only its size. */
-function rejectedPayload(payload: unknown): unknown {
-  const bytes = Buffer.byteLength(JSON.stringify(payload ?? null));
-  if (bytes <= MAX_REJECTED_PAYLOAD_BYTES) return withoutNul(payload);
-  return { truncated: true, bytes };
-}
-
-/** Kept for diagnosis (bounded, see `rejectedPayload`) and logged without the body. */
-async function recordRejectedEvent(
-  marketplace: RecordWebhookInput["marketplace"],
-  rejection: { reason: string; payload: unknown },
-): Promise<void> {
-  await recordWebhookEvent(database, {
-    marketplace,
-    externalEventId: null,
-    topic: null,
-    rawPayload: rejectedPayload(rejection.payload),
-    signatureValid: false,
-    error: rejection.reason,
-  });
-  logger.warn("webhook.rejected", { marketplace, reason: rejection.reason });
-}
-
 /**
  * POST /api/webhooks/:marketplace
  * 1. validates the signature/origin through the connector,
@@ -62,7 +34,7 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
   if (!marketplace.success) {
     return reply(404, { error: "marketplace desconhecido" });
   }
-  const rawBody = await readBoundedText(request, MAX_BODY_BYTES);
+  const rawBody = await readTextWithin(request, MAX_BODY_BYTES);
   if (rawBody === null) {
     return reply(413, { error: "payload muito grande" });
   }
@@ -72,7 +44,9 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     rawBody,
   });
   if (!verification.valid) {
-    await recordRejectedEvent(marketplace.data, verification);
+    // Logged, not stored: the endpoint is public, and storing every forged or garbage post
+    // would let anyone grow the events table without limit.
+    logger.warn("webhook.rejected", { marketplace: marketplace.data, reason: verification.reason });
     return reply(401, { error: "notificação inválida" });
   }
 

@@ -104,7 +104,7 @@ export function RegionPreview({ cep, hasRegion }: { cep: string; hasRegion: bool
   if (query.isPending) {
     return (
       <div className="space-y-2 rounded-2xl bg-muted/60 p-4" aria-busy="true">
-        <span className="sr-only">Consultando CEP...</span>
+        <span className="sr-only">Consultando CEP…</span>
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-4 w-3/4" />
       </div>

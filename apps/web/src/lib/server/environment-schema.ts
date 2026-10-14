@@ -1,15 +1,14 @@
 import {
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
+  mockWebhookSecretEnvironmentSchema,
+  nodeEnvironmentSchema,
+  tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { z } from "zod";
 
 /** The value .env.example ships with: fine locally, never in production. */
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
-
-const base64Key32 = z.string().refine((value) => Buffer.from(value, "base64").length === 32, {
-  message: "deve ser uma chave de 32 bytes em base64",
-});
 
 const serverEnvironmentShape = z.object({
   STRIPE_PORTAL_CONFIGURATION_ID: z.string().startsWith("bpc_").optional(),
@@ -17,13 +16,13 @@ const serverEnvironmentShape = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
   APP_URL: z.url(),
   BETTER_AUTH_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(32, "deve ter ao menos 32 caracteres"),
-  TOKEN_ENCRYPTION_KEY: base64Key32,
+  TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
   PLATFORM_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
@@ -35,8 +34,7 @@ const serverEnvironmentShape = z.object({
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0),
     ),
-  /** Mock connector only: without it the simulated store is shown as not configured. */
-  MOCK_WEBHOOK_SECRET: z.string().min(16).optional(),
+  MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
   /** Transactional e-mail (password reset). Without it, development logs the message. */
   RESEND_API_KEY: z.string().min(1).optional(),

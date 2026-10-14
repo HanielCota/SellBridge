@@ -30,6 +30,21 @@ export const webhookEventJobSchema = z.object({
 export const PUBLISH_JOB_ATTEMPTS = 5;
 export const PUBLISH_BACKOFF_MILLISECONDS = 5_000;
 
+export const PUBLISH_JOB_OPTIONS = {
+  attempts: PUBLISH_JOB_ATTEMPTS,
+  backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
+  removeOnComplete: 1000,
+  removeOnFail: 5000,
+} as const;
+
+/** Stock and price sync, requested by the web app and by order webhooks in the worker. */
+export const STOCK_SYNC_JOB_OPTIONS = {
+  attempts: 5,
+  backoff: { type: "exponential", delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 1000,
+} as const;
+
 /**
  * Webhook processing: marketplaces expect a quick 200, the real work is retried here.
  * 8 attempts with exponential backoff from 30 s cover about an hour of marketplace outage;
@@ -45,11 +60,15 @@ export const WEBHOOK_JOB_OPTIONS = {
   removeOnFail: 5000,
 } as const;
 
-/** The subset of a BullMQ queue used to enqueue webhook events (kept structural: no bullmq here). */
-export interface WebhookEventQueue {
+/** The subset of a BullMQ queue used to look jobs up (kept structural: no bullmq here). */
+export interface JobLookup {
   getJob(
     jobId: string,
   ): Promise<{ getState(): Promise<string>; remove(): Promise<void> } | undefined>;
+}
+
+/** The subset of a BullMQ queue used to enqueue webhook events. */
+export interface WebhookEventQueue extends JobLookup {
   add(
     name: string,
     data: { webhookEventId: string },
@@ -57,8 +76,12 @@ export interface WebhookEventQueue {
   ): Promise<unknown>;
 }
 
-/** Removes a finished job so its id can be reused; false when a live job already holds the id. */
-async function releaseFinishedJob(queue: WebhookEventQueue, jobId: string): Promise<boolean> {
+/**
+ * Removes a finished job so its id can be reused; false when a live job already holds the id.
+ * BullMQ keeps a finished job's id (removeOnComplete/removeOnFail) and silently ignores a new
+ * job with that id.
+ */
+export async function releaseFinishedJob(queue: JobLookup, jobId: string): Promise<boolean> {
   const existing = await queue.getJob(jobId);
   if (!existing) {
     return true;

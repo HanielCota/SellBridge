@@ -1,7 +1,7 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
@@ -69,8 +69,6 @@ async function resolveListings(
   );
 }
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 interface OrderWrite {
   readonly transaction: Transaction;
   readonly tenantId: string;
@@ -111,7 +109,7 @@ async function updateExistingOrder(
   existing: typeof orders.$inferSelect,
 ): Promise<OrderWriteResult> {
   if (existing.tenantId !== write.tenantId) {
-    throw conflictError("Pedido pertence a outro tenant");
+    throw conflictError("Pedido pertence a outra conta");
   }
   await write.transaction
     .update(orders)
@@ -210,20 +208,36 @@ const PROGRESS_RANK: Partial<Record<IncomingOrder["status"], number>> = {
 };
 
 /**
- * A return is known from the shipments, not from the marketplace's order status, which stays
- * "paid" (or partially refunded). A returned order keeps that status until it is cancelled, even
- * through a late payment hold ("pending").
- * A dispatched order never becomes "pending" again (a payment hold reported late), and a delivered
- * one never goes back to "shipped". Going back to "paid" stays possible: a parcel that failed to
- * arrive puts the order back in the work queue (see `reconciledOrderStatus`).
+ * Final statuses the marketplace cannot undo, applied before the parcels are read. A return is
+ * known from the shipments, not from the marketplace's order status, which stays "paid" (or
+ * partially refunded): a returned order keeps that status until it is cancelled. A cancellation is
+ * final on the marketplace: two notifications of one order run as separate jobs, and the "paid"
+ * one fetched before the buyer cancelled can land after the "cancelled" one; it must not reopen
+ * the order for forwarding and shipping.
  */
-function keptProgress(
+function keptFinalStatus(
   current: (typeof orders.$inferSelect)["status"],
   incoming: IncomingOrder["status"],
 ): IncomingOrder["status"] {
   if (current === "returned" && ["pending", "paid", "shipped", "delivered"].includes(incoming)) {
     return "returned";
   }
+  if (current === "cancelled" && ["pending", "paid"].includes(incoming)) {
+    return "cancelled";
+  }
+  return incoming;
+}
+
+/**
+ * Physical progress, applied after the parcels are read: a dispatched order never becomes
+ * "pending" again (a payment hold reported late), and a delivered one never goes back to
+ * "shipped". Going back to "paid" stays possible: a parcel that failed to arrive puts the order
+ * back in the work queue (see `reconciledOrderStatus`).
+ */
+function keptProgress(
+  current: (typeof orders.$inferSelect)["status"],
+  incoming: IncomingOrder["status"],
+): IncomingOrder["status"] {
   if (current !== "shipped" && current !== "delivered") return incoming;
   if (incoming === "pending") return current;
   const incomingRank = PROGRESS_RANK[incoming];
@@ -247,7 +261,11 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
   if (existing) {
     const status = keptProgress(
       existing.status,
-      await reconciledOrderStatus(write.transaction, existing.id, write.order.status),
+      await reconciledOrderStatus(
+        write.transaction,
+        existing.id,
+        keptFinalStatus(existing.status, write.order.status),
+      ),
     );
     const updated = await updateExistingOrder(
       { ...write, order: { ...write.order, status } },

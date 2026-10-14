@@ -1,5 +1,5 @@
 /** Self-contained: rendered inline before module scripts, even if hydration cannot start. */
-export function installAssetRecovery(): void {
+function installAssetRecovery(): void {
   let scheduled = false;
   const recover = (): boolean => {
     if (scheduled) return true;

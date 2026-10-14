@@ -2,6 +2,7 @@ import { UnrecoverableError } from "bullmq";
 import { eq } from "drizzle-orm";
 import { schema } from "@sellbridge/database";
 import { marketplaceError, type MarketplaceConnector } from "@sellbridge/marketplaces";
+import { unavailableMessage } from "@sellbridge/shared/catalog-availability";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestProduct,
@@ -47,6 +48,7 @@ const processPublish = createPublishListingProcessor({
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
 let tenantIds: string[] = [];
+const extraCatalogs: { cleanup: () => Promise<void> }[] = [];
 let connectedStoreId = "";
 let disconnectedStoreId = "";
 
@@ -71,6 +73,18 @@ async function targetRow(targetId: string) {
   return row;
 }
 
+async function productOfTarget(targetId: string) {
+  const [row] = await database
+    .select({ productId: schema.listings.supplierProductId })
+    .from(schema.listingTargets)
+    .innerJoin(schema.listings, eq(schema.listings.id, schema.listingTargets.listingId))
+    .where(eq(schema.listingTargets.id, targetId));
+  if (!row) {
+    throw new Error("produto do destino não encontrado");
+  }
+  return row.productId;
+}
+
 beforeAll(async () => {
   tenants = await createTestTenants(database, 2);
   tenantIds = tenants.ids;
@@ -82,6 +96,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
+  for (const extra of extraCatalogs) {
+    await extra.cleanup();
+  }
   await database.$client.end();
 });
 
@@ -242,6 +259,72 @@ describe("publish-listing processor", () => {
       }),
     ).rejects.toBeInstanceOf(UnrecoverableError);
     expect((await targetRow(targetId)).creationStartedAt).toBeNull();
+  });
+
+  it("refuses a product taken out of the catalog after it was queued", async () => {
+    const { tenantId, targetId } = await createTarget("Produto desativado na fila");
+    await database
+      .update(schema.supplierProducts)
+      .set({ active: false })
+      .where(eq(schema.supplierProducts.id, await productOfTarget(targetId)));
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect(await targetRow(targetId)).toMatchObject({
+      status: "error",
+      errorReason: unavailableMessage("product_inactive"),
+    });
+  });
+
+  it("refuses every product of a supplier deactivated after it was queued", async () => {
+    const own = await createTestProduct(database, {
+      sku: "W-INATIVO",
+      title: "Produto de fornecedor inativo",
+      stock: 3,
+    });
+    extraCatalogs.push(own);
+    const tenantId = tenants.first;
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: own.productId,
+      storeId: connectedStoreId,
+      title: "Produto de fornecedor desativado",
+    });
+    await database
+      .update(schema.suppliers)
+      .set({ active: false })
+      .where(eq(schema.suppliers.id, own.supplierId));
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("supplier_inactive"));
+  });
+
+  it("refuses a product whose supplier does not cover the reseller's region", async () => {
+    const [, tenantId] = tenantIds;
+    if (!tenantId) {
+      throw new Error("tenant ausente");
+    }
+    await database
+      .insert(schema.tenantProfile)
+      .values({ tenantId, cep: "13010000", state: "SP", city: "Campinas" });
+    const store = await createTestStore(environment, tenantId, "connected");
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: catalog.productId,
+      storeId: store.id,
+      title: "Produto fora da região do revendedor",
+    });
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("outside_region"));
   });
 
   it("rejects malformed payloads", async () => {

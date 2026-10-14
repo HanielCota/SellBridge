@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { freeText, pageNumberSchema } from "./common.ts";
+import { LISTING_MAX_PRICE_CENTS, MAX_LISTING_STORES } from "./stores.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const PRODUCT_SORTS = [
@@ -23,14 +25,13 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 
 /** Search params of the supplier catalog page; money filters are in cents. */
 export const catalogSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  category: optionalParameter(z.string().trim().max(100)),
-  // Bounded by the integer `cost_cents` column: a larger filter would fail in Postgres.
-  minCost: optionalParameter(z.coerce.number().int().min(0).max(2_147_483_647)),
-  maxCost: optionalParameter(z.coerce.number().int().min(0).max(2_147_483_647)),
+  query: optionalParameter(freeText().trim().max(100)),
+  category: optionalParameter(freeText().trim().max(100)),
+  minCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
+  maxCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
   inStock: optionalParameter(z.coerce.boolean()),
   sort: withFallback(productSortSchema.default("title"), "title"),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(12), 12),
 });
 
@@ -46,8 +47,8 @@ export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
 };
 
 export const supplierListSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  niche: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
+  niche: optionalParameter(freeText().trim().max(100)),
   sort: withFallback(supplierSortSchema.default("name"), "name"),
 });
 
@@ -55,14 +56,14 @@ export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
 
 /** Search params of the region-wide catalog (every supplier that delivers to the tenant). */
 export const regionCatalogSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  category: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
+  category: optionalParameter(freeText().trim().max(100)),
   supplier: optionalParameter(z.uuid()),
   inStock: optionalParameter(z.coerce.boolean()),
   /** Leaves out products the tenant already listed, so only new ones remain to publish. */
   unpublished: optionalParameter(z.coerce.boolean()),
   sort: withFallback(productSortSchema.default("title"), "title"),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(24), 24),
 });
 
@@ -86,10 +87,13 @@ export const MAX_BULK_PUBLISH = 50;
 
 export const bulkPublishSchema = z.object({
   productIds: z.array(z.uuid()).min(1).max(MAX_BULK_PUBLISH),
-  storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja"),
+  storeConnectionIds: z.array(z.uuid()).min(1, "Escolha ao menos uma loja").max(MAX_LISTING_STORES),
   priceRule: priceRuleSchema,
   /** Per-product rules that replace `priceRule` for the products they name. */
-  priceOverrides: z.record(z.uuid(), priceRuleSchema).optional(),
+  priceOverrides: z
+    .record(z.uuid(), priceRuleSchema)
+    .refine((overrides) => Object.keys(overrides).length <= MAX_BULK_PUBLISH)
+    .optional(),
 });
 
 export type BulkPublishInput = z.infer<typeof bulkPublishSchema>;

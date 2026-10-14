@@ -8,7 +8,11 @@ import { parseStoredOrderEvent, verifyWebhook } from "./webhook.ts";
 export type { MercadoLivreConfig } from "./client.ts";
 export { mapMercadoLivreOrder } from "./orders.ts";
 
-/** Composes the Mercado Livre modules (OAuth, listings, orders, webhooks) into a connector. */
+/**
+ * Composes the Mercado Livre modules (OAuth, listings, orders, webhooks) into a connector.
+ * Every endpoint and field used is documented in docs/marketplaces/mercado-livre.md (official
+ * docs, checked on 2026-10-08).
+ */
 export function createMercadoLivreConnector(config: MercadoLivreConfig): MarketplaceConnector {
   const context: MercadoLivreContext = {
     config,

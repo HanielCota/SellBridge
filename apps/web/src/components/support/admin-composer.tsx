@@ -271,7 +271,7 @@ function SendButton({
     return (
       <Button type="submit" size="sm" disabled={isSending} aria-busy={isSending}>
         {busyIcon}
-        {isSending ? "Salvando..." : "Salvar nota"}
+        {isSending ? "Salvando…" : "Salvar nota"}
       </Button>
     );
   }
@@ -287,7 +287,7 @@ function SendButton({
         className="rounded-r-none"
       >
         {busyIcon}
-        {isSending ? "Enviando..." : idleLabel}
+        {isSending ? "Enviando…" : idleLabel}
       </Button>
       <SendOptionsMenu
         state={state}
@@ -491,7 +491,7 @@ function ComposerBox({
           textareaRef={textareaRef}
           placeholder={
             isNote
-              ? "Contexto para a equipe: o que foi verificado, próximos passos..."
+              ? "Contexto para a equipe: o que foi verificado, próximos passos…"
               : `Responder para ${templateContext.customerName}...`
           }
           onSubmitShortcut={() => formRef.current?.requestSubmit()}

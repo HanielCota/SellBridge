@@ -3,12 +3,7 @@ import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, orders, session, tickets, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
-import {
-  getCustomer,
-  getWeeklyOrderCounts,
-  listCustomerSignals,
-  listCustomers,
-} from "./customers.ts";
+import { getCustomer, getWeeklyOrderCounts, listCustomerSignals } from "./customers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -103,9 +98,9 @@ afterAll(async () => {
 
 describe("customers", () => {
   it("finds the customer by name or e-mail with its activity", async () => {
-    const page = await listCustomers(database, { search: marker }, { page: 1, pageSize: 10 });
-    expect(page.total).toBe(1);
-    const [customer] = page.items;
+    const customers = await listCustomerSignals(database, { search: marker });
+    expect(customers).toHaveLength(1);
+    const [customer] = customers;
     expect(customer).toMatchObject({
       id: userId,
       role: "user",

@@ -62,7 +62,7 @@ export function ProfileNameForm({ name, email }: { name: string; email: string }
       </div>
       <div>
         <Button type="submit" disabled={isUnchanged || isSaving}>
-          {isSaving ? "Salvando..." : "Salvar alterações"}
+          {isSaving ? "Salvando…" : "Salvar alterações"}
         </Button>
       </div>
     </form>

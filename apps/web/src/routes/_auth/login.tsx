@@ -133,11 +133,7 @@ function LoginForm() {
       </Link>
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <AuthSubmitButton
-            isPending={isSubmitting}
-            idleLabel="Entrar"
-            pendingLabel="Entrando..."
-          />
+          <AuthSubmitButton isPending={isSubmitting} idleLabel="Entrar" pendingLabel="Entrando…" />
         )}
       </form.Subscribe>
     </form>

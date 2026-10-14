@@ -37,6 +37,7 @@ import {
   setMyTicketNotifications,
 } from "@/features/support/support.functions";
 import { myColleaguesQueryOptions } from "@/features/support/support.queries";
+import { copyToClipboard } from "@/lib/clipboard";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
@@ -44,15 +45,6 @@ interface MenuTicket {
   id: string;
   subject: string;
   category: TicketCategory;
-}
-
-async function copyLink(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(window.location.href);
-    toast.success("Link do chamado copiado");
-  } catch {
-    toast.error("Não foi possível copiar o link");
-  }
 }
 
 function useNotifications(ticketId: string) {
@@ -196,7 +188,7 @@ function AddColleagueDialog({
               add.mutate(selected);
             }}
           >
-            {add.isPending ? "Adicionando..." : "Adicionar"}
+            {add.isPending ? "Adicionando…" : "Adicionar"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -217,7 +209,9 @@ function MenuItems({
   const code = ticketCode(ticket.id);
   return (
     <DropdownMenuContent align="end" className="w-72">
-      <DropdownMenuItem onSelect={() => void copyLink()}>
+      <DropdownMenuItem
+        onSelect={() => void copyToClipboard(window.location.href, "Link do chamado copiado")}
+      >
         <LinkIcon aria-hidden="true" />
         Copiar link
       </DropdownMenuItem>

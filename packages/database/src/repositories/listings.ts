@@ -3,13 +3,22 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
+import type { CatalogAvailability } from "@sellbridge/shared/catalog-availability";
 import { safetyMargin } from "@sellbridge/shared/stock-reservation";
-import type { Database, DatabaseExecutor } from "../client.ts";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
+import { coversTenantRegion, sellableOnMarketplace } from "./sql/supplier-coverage.ts";
+import {
+  listings,
+  listingTargets,
+  storeConnections,
+  supplierProducts,
+  suppliers,
+  tenantProfile,
+} from "../schema/index.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -29,8 +38,6 @@ export interface CreatedListing {
 export function listingIdempotencyKey(listingId: string, storeConnectionId: string): string {
   return `${listingId}:${storeConnectionId}`;
 }
-
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /** The tenant's stores that already carry a listing of this product, by name. */
 export async function storesListingProduct(
@@ -202,6 +209,7 @@ export interface TargetForPublishing {
   listing: typeof listings.$inferSelect;
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
+  availability: CatalogAvailability;
 }
 
 export async function getTargetForPublishing(
@@ -215,17 +223,25 @@ export async function getTargetForPublishing(
       listing: listings,
       product: supplierProducts,
       store: storeConnections,
+      supplierActive: suppliers.active,
+      regionCovered: sql<boolean>`${coversTenantRegion()}`,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)))
     .limit(1);
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  return row;
+  const { supplierActive, regionCovered, ...target } = row;
+  return {
+    ...target,
+    availability: { productActive: row.product.active, supplierActive, regionCovered },
+  };
 }
 
 /**
@@ -393,14 +409,15 @@ export interface TargetNeedingSync {
 }
 
 /**
- * Stock to show on the marketplace: zero while the reseller has the listing paused, and never
+ * Stock to show on the marketplace: zero while the reseller has the listing paused or the
+ * product can no longer be sold (inactive product or supplier, region not covered), and never
  * the last `safetyUnits` sellable units (a buffer against counts that lag behind the shelf).
  * The margin is a validated integer from the environment, inlined because a parameter inside
  * CASE would reach Postgres as text.
  */
 function liveStock(safetyUnits: number) {
   const margin = sql.raw(String(safetyMargin(safetyUnits)));
-  return sql<number>`case when ${listingTargets.status} = 'paused' then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
+  return sql<number>`case when ${listingTargets.status} = 'paused' or not ${sellableOnMarketplace()} then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
     Number,
   );
 }
@@ -427,7 +444,9 @@ export async function findTargetsNeedingSync(
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(
       and(
         sql`${listingTargets.status} in ('published', 'paused')`,

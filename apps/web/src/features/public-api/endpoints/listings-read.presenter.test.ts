@@ -42,6 +42,7 @@ function listing(stores: ListingStoreStatus[]): ListingOverviewRow {
     unitsSold: 3,
     dailySales: [],
     stores,
+    unavailable: null,
   };
 }
 

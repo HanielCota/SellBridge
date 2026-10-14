@@ -153,7 +153,7 @@ function ChangePasswordForm() {
       <SignOutOthersOption checked={form.signOutOthers} onChange={form.setSignOutOthers} />
       <div>
         <Button type="submit" disabled={form.isEmpty || form.isSaving}>
-          {form.isSaving ? "Salvando..." : "Trocar senha"}
+          {form.isSaving ? "Salvando…" : "Trocar senha"}
         </Button>
       </div>
     </form>

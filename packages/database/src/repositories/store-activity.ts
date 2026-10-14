@@ -1,8 +1,9 @@
+import { daysBefore } from "@sellbridge/shared/time";
 import { and, count, eq, inArray, sql, sum } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingTargets, orders } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { daysBefore } from "./time-window.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 
 const ACTIVITY_WINDOW_DAYS = 30;
 
@@ -56,7 +57,7 @@ async function recentSales(database: Database, tenantId: string, storeIds: strin
       and(
         eq(orders.tenantId, tenantId),
         inArray(orders.storeConnectionId, storeIds),
-        sql`${orders.orderedAt} >= ${since.toISOString()}::timestamptz`,
+        sql`${orders.orderedAt} >= ${timestampOf(since)}`,
         isCountedOrder(orders.status),
       ),
     )

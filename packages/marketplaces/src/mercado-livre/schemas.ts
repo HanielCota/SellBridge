@@ -18,37 +18,60 @@ export const domainDiscoverySchema = z.array(
   z.object({ category_id: z.string().min(1), category_name: z.string().optional() }),
 );
 
+const mercadoLivreLinkSchema = z
+  .url({ protocol: /^https$/, hostname: /(^|\.)mercadoli(vre|bre)\.com(\.[a-z]{2})?$/ })
+  .max(2048);
+
+/**
+ * Shown as a link on the listing card: only an https page of Mercado Livre itself. Anything
+ * else (another host, data: or javascript:) becomes no link instead of failing the publication.
+ */
+function mercadoLivreLink(value: unknown): string | null {
+  const parsed = mercadoLivreLinkSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 export const createdItemSchema = z.object({
   id: z.string().min(1),
-  permalink: z.string().nullable().optional(),
+  permalink: z.unknown().optional().transform(mercadoLivreLink),
 });
 
 /**
- * Largest amount, in reais, that fits the integer cents columns (2,147,483,647 cents). A larger or
- * negative amount is refused here, with the webhook marked failed, instead of overflowing the
- * order upsert or turning into credit.
+ * A money amount in reais as Mercado Livre sends it. Our money columns hold up to
+ * R$ 21.474.836,47; anything negative or larger is refused here instead of failing (or
+ * crediting the reseller) later.
  */
-const MAX_ORDER_AMOUNT = 21_474_836.47;
-const orderAmountSchema = z.number().nonnegative().max(MAX_ORDER_AMOUNT);
+const reaisSchema = z.number().nonnegative().max(21_474_836.47);
+/** Units in one order line; far above any retail sale, low enough that totals stay exact. */
+const MAX_ORDER_LINE_QUANTITY = 100_000;
+
+/**
+ * Numeric ids from the marketplace. Above 2^53 JSON.parse has already rounded them, and a
+ * rounded id names another order: `.int()` (safe integers only) refuses it instead.
+ */
+const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
 
 export const orderSchema = z.object({
-  // A numeric id past 2^53 has already lost digits in JSON.parse: refuse it rather than store it.
-  id: z.union([z.number().int(), z.string()]),
+  id: externalIdSchema,
   status: z.string(),
+  // A malformed date would become "Invalid Date" and fail every retry of the webhook job.
   date_created: z.iso.datetime({ offset: true }),
-  total_amount: orderAmountSchema,
-  buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
+  total_amount: reaisSchema,
+  buyer: z
+    .object({ nickname: z.string().max(255).optional() })
+    .nullable()
+    .optional(),
   tags: z.array(z.string()).optional(),
   payments: z
-    .array(z.object({ transaction_amount_refunded: orderAmountSchema.nullable().optional() }))
+    .array(z.object({ transaction_amount_refunded: reaisSchema.nullable().optional() }))
     .nullable()
     .optional(),
   order_items: z.array(
     z.object({
-      item: z.object({ id: z.string(), title: z.string() }),
-      quantity: z.number().int().positive().max(1_000_000),
-      unit_price: orderAmountSchema,
-      sale_fee: orderAmountSchema.nullable().optional(),
+      item: z.object({ id: z.string().max(64), title: z.string().max(255) }),
+      quantity: z.number().int().positive().max(MAX_ORDER_LINE_QUANTITY),
+      unit_price: reaisSchema,
+      sale_fee: reaisSchema.nullable().optional(),
     }),
   ),
 });
@@ -63,9 +86,9 @@ export const ordersSearchSchema = z.object({
 export const notificationSchema = z.object({
   _id: z.string().min(1),
   resource: z.string().min(1),
-  user_id: z.union([z.number(), z.string()]),
+  user_id: externalIdSchema,
   topic: z.string().min(1),
-  application_id: z.union([z.number(), z.string()]),
+  application_id: externalIdSchema,
 });
 
 /** Fields of a stored notification that identify the order and the seller it belongs to. */

@@ -15,7 +15,8 @@ export const MARKUP_RANGE_MESSAGE = `Use um valor entre ${MIN_MARKUP_PERCENT}% e
 export function parseMarkupPercent(percent: string): PriceRule | null {
   const parsed = priceRuleSchema.safeParse({
     kind: "markup",
-    percent: Number.parseInt(percent, 10),
+    // Whole digits only: parseInt would read "12.5" as 12 and "60abc" as 60.
+    percent: /^\d+$/.test(percent.trim()) ? Number(percent) : Number.NaN,
   });
   return parsed.success ? parsed.data : null;
 }

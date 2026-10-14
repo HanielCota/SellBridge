@@ -55,8 +55,10 @@ function storedCents(cents: number, field: string): number {
 
 /** Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again. */
 function feeCents(raw: MercadoLivreOrder): number {
+  // Rounded once per line, not per unit: a fee with more than two decimals would otherwise
+  // drift by up to half a cent times the quantity.
   const total = raw.order_items.reduce(
-    (sum, line) => sum + toCents(line.sale_fee ?? 0) * line.quantity,
+    (sum, line) => sum + toCents((line.sale_fee ?? 0) * line.quantity),
     0,
   );
   return storedCents(total, "fee");

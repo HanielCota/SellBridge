@@ -105,7 +105,7 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
             <PendingSubmitButton
               isPending={save.isPending}
               idleLabel="Salvar fornecedor"
-              pendingLabel="Salvando..."
+              pendingLabel="Salvando…"
             />
           </div>
         </fieldset>

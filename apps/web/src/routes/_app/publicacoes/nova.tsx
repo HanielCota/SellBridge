@@ -3,6 +3,7 @@ import {
   LISTING_DESCRIPTION_MAX_LENGTH,
   LISTING_TITLE_MAX_LENGTH,
   listingDescriptionSchema,
+  listingPriceCentsSchema,
   listingTitleSchema,
   optionalParameter,
 } from "@sellbridge/shared/schemas";
@@ -120,7 +121,12 @@ type NewListingData = Awaited<ReturnType<typeof getNewListingData>>;
 const listingFormSchema = z.object({
   title: listingTitleSchema,
   description: listingDescriptionSchema,
-  price: z.string().refine((value) => (parseBrlToCents(value) ?? 0) > 0, "Informe um preço válido"),
+  price: z
+    .string()
+    .refine(
+      (value) => listingPriceCentsSchema.safeParse(parseBrlToCents(value)).success,
+      "Informe um preço entre R$ 0,01 e R$ 1.000.000,00",
+    ),
   storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
 });
 
@@ -502,6 +508,8 @@ function PriceField({
           id="price"
           inputMode="decimal"
           autoComplete="off"
+          // "1.000.000,00" plus room for a typo the field can still show and explain.
+          maxLength={16}
           value={value}
           onChange={(event) => onChange(event.target.value.replace(/[^\d.,]/g, ""))}
           onBlur={() => {
@@ -832,7 +840,7 @@ function PublishBar({
               {publishSummary(selected)}
             </p>
             <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando..." : publishLabel(selected.length)}
+              {isSubmitting ? "Enviando…" : publishLabel(selected.length)}
             </Button>
           </section>
         );

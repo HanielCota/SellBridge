@@ -260,7 +260,8 @@ export async function consumeOAuthState(
   if (row.tenantId !== input.tenantId || row.marketplace !== input.marketplace) {
     return null;
   }
-  if (row.expiresAt.getTime() < Date.now()) {
+  // Expired at the exact instant too, like API keys and supplier links.
+  if (row.expiresAt.getTime() <= Date.now()) {
     return null;
   }
   return { codeVerifier: row.codeVerifier };

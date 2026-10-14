@@ -7,7 +7,7 @@ import {
   type StaffRole,
 } from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
-import { findFirstOrganizationId } from "./membership.ts";
+import { findFirstOrganizationId, isMemberOf } from "./membership.ts";
 
 export interface TenantSession {
   tenantId: string;
@@ -27,7 +27,8 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   }
   const base = { userId: session.user.id, role: session.user.role ?? "user" };
   const activeId = session.session.activeOrganizationId;
-  if (activeId) {
+  // The session only remembers the organization; membership is checked every time.
+  if (activeId && (await isMemberOf(session.user.id, activeId))) {
     return { ...base, tenantId: activeId };
   }
   const organizationId = await findFirstOrganizationId(session.user.id);

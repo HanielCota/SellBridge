@@ -24,7 +24,7 @@ describe("Mercado Livre order bounds", () => {
   });
 
   it("refuses a quantity of zero, fractions and absurd counts", () => {
-    for (const quantity of [0, 1.5, 1_000_001]) {
+    for (const quantity of [0, 1.5, 100_001]) {
       const lines = [{ ...line, quantity }];
       expect(orderSchema.safeParse({ ...base, order_items: lines }).success).toBe(false);
     }
@@ -42,7 +42,7 @@ describe("Mercado Livre order bounds", () => {
   });
 
   it("refuses a fee total that no longer fits, even with each line in range", () => {
-    const lines = [{ ...line, quantity: 1_000_000, sale_fee: 30 }];
+    const lines = [{ ...line, quantity: 100_000, sale_fee: 300 }];
     const raw = orderSchema.parse({ ...base, order_items: lines });
     expect(() => mapMercadoLivreOrder(raw)).toThrow("too large");
   });

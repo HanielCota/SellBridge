@@ -32,6 +32,7 @@ test("adiciona, mostra e remove a foto de perfil", async ({ page }) => {
 test("recusa arquivo que não é imagem e esconde fotos de quem não está logado", async ({
   page,
   playwright,
+  baseURL,
 }) => {
   await signUp(page, "Revendedor Foto Falsa");
   const fakeImage = await page.request.post("/api/perfil/foto", {
@@ -46,7 +47,10 @@ test("recusa arquivo que não é imagem e esconde fotos de quem não está logad
   expect(fakeImage.status()).toBe(400);
   expect(await fakeImage.json()).toEqual({ error: "Envie uma imagem PNG, JPG ou WEBP" });
 
-  const anonymous = await playwright.request.newContext({ baseURL: "http://localhost:3100" });
+  if (baseURL === undefined) {
+    throw new Error("baseURL ausente na configuração do Playwright");
+  }
+  const anonymous = await playwright.request.newContext({ baseURL });
   const response = await anonymous.get(
     "/api/perfil/foto/someone/00000000-0000-0000-0000-000000000000.webp",
   );

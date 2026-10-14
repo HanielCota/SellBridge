@@ -292,7 +292,7 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
           Cancelar
         </Button>
         <Button type="submit" disabled={problem !== null || mutation.isPending}>
-          {mutation.isPending ? "Salvando..." : "Salvar preço"}
+          {mutation.isPending ? "Salvando…" : "Salvar preço"}
         </Button>
       </DialogFooter>
     </form>

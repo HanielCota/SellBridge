@@ -128,7 +128,7 @@ function SignUpForm() {
           <AuthSubmitButton
             isPending={isSubmitting}
             idleLabel="Criar conta"
-            pendingLabel="Criando conta..."
+            pendingLabel="Criando conta…"
           />
         )}
       </form.Subscribe>

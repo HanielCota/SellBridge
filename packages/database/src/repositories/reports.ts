@@ -4,6 +4,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import { isCountedOrder, isUncountedOrder } from "./sql/counted-orders.ts";
+import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
 /**
@@ -28,15 +29,15 @@ export interface ReportScope {
   platformFeeBasisPoints: number;
 }
 
-const cents = z.coerce.number().int();
-const count = z.coerce.number().int();
+const cents = sqlIntegerSchema;
+const count = sqlIntegerSchema;
 
 /** CTE with one row per order of the tenant in the range, already with its finances. */
 function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
   const conditions: SQL[] = [
     sql`o.tenant_id = ${scope.tenantId}`,
-    sql`o.ordered_at >= ${scope.range.from.toISOString()}::timestamptz`,
-    sql`o.ordered_at < ${scope.range.to.toISOString()}::timestamptz`,
+    sql`o.ordered_at >= ${timestampOf(scope.range.from)}`,
+    sql`o.ordered_at < ${timestampOf(scope.range.to)}`,
     ...extraConditions,
   ];
   if (scope.storeConnectionId) {
@@ -186,8 +187,8 @@ export async function getSalesTimeseries(
     with ${orderFinanceCte(scope)},
     buckets as (
       select generate_series(
-        date_trunc(${unit}, ${scope.range.from.toISOString()}::timestamptz at time zone ${REPORT_TIME_ZONE}),
-        date_trunc(${unit}, (${scope.range.to.toISOString()}::timestamptz - interval '1 second') at time zone ${REPORT_TIME_ZONE}),
+        date_trunc(${unit}, ${timestampOf(scope.range.from)} at time zone ${REPORT_TIME_ZONE}),
+        date_trunc(${unit}, (${timestampOf(scope.range.to)} - interval '1 second') at time zone ${REPORT_TIME_ZONE}),
         ${step}
       ) as bucket
     ),
@@ -294,7 +295,7 @@ export async function getTopProducts(
     .map((row) => ({ title: row.title, units: row.units, revenueCents: row.revenue }));
 }
 
-export const FINANCIAL_SORT_FIELDS = ["orderedAt", "revenue", "profit", "status"] as const;
+const FINANCIAL_SORT_FIELDS = ["orderedAt", "revenue", "profit", "status"] as const;
 export type FinancialSortField = (typeof FINANCIAL_SORT_FIELDS)[number];
 
 const FINANCIAL_SORT_SQL: Record<FinancialSortField, SQL> = {

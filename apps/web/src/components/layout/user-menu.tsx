@@ -38,14 +38,6 @@ import { cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = { ...CUSTOMER_ROLE_LABELS };
 
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts.at(0)?.charAt(0) ?? "";
-  const last = parts.length > 1 ? (parts.at(-1)?.charAt(0) ?? "") : "";
-  const result = `${first}${last}`.toUpperCase();
-  return result.length > 0 ? result : "?";
-}
-
 export function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
 }

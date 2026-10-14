@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatAbsoluteTime, formatRelativeTime, formatSmartDate } from "./relative-time";
+import {
+  brazilDayKey,
+  formatAbsoluteTime,
+  formatRelativeTime,
+  formatSmartDate,
+  nearDayName,
+} from "./relative-time";
 
 const now = new Date("2026-10-09T12:00:00Z");
 const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
@@ -14,6 +20,23 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime(ago(2 * 3600), now)).toBe("há 2 horas");
     expect(formatRelativeTime(ago(86_400), now)).toBe("ontem");
     expect(formatRelativeTime(ago(14 * 86_400), now)).toBe("há 2 semanas");
+  });
+});
+
+describe("calendar days", () => {
+  it("counts days by the calendar in Brazil time, not by 24-hour blocks", () => {
+    // Wednesday 09:00 in Brazil (12:00 UTC); Monday 21:00 in Brazil is 36 hours earlier.
+    const wednesdayMorning = new Date("2026-10-14T12:00:00Z");
+    expect(formatRelativeTime(new Date("2026-10-13T00:00:00Z"), wednesdayMorning)).toBe(
+      "anteontem",
+    );
+    expect(formatRelativeTime(new Date("2026-10-13T06:00:00Z"), wednesdayMorning)).toBe("ontem");
+  });
+
+  it("dates by Brazil's day even when the server runs in UTC", () => {
+    // 23:30 on 9 October in Brazil is already 10 October in UTC.
+    const lateEvening = new Date("2026-10-10T02:30:00Z");
+    expect(formatSmartDate(lateEvening, new Date("2026-11-20T12:00:00Z"))).toBe("9 de out.");
   });
 });
 
@@ -41,5 +64,27 @@ describe("formatSmartDate", () => {
     expect(formatSmartDate(new Date("2026-09-15T01:30:00Z"), now)).toBe("14 de set.");
     expect(formatSmartDate(new Date("2026-01-01T01:00:00Z"), now)).toBe("31 de dez. de 2025");
     expect(formatAbsoluteTime(new Date("2026-09-15T01:30:00Z"))).toBe("14/09/2026, 22:30");
+  });
+});
+
+describe("brazilDayKey", () => {
+  it("reads the day in Brazil time, not UTC", () => {
+    expect(brazilDayKey(new Date("2026-10-10T02:00:00Z"))).toBe("2026-10-09");
+    expect(brazilDayKey(new Date("2026-10-10T03:00:00Z"))).toBe("2026-10-10");
+  });
+});
+
+describe("nearDayName", () => {
+  const today = new Date("2026-10-10T15:00:00Z");
+
+  it("names today and yesterday in Brazil time", () => {
+    expect(nearDayName("2026-10-10", today)).toBe("Hoje");
+    expect(nearDayName("2026-10-09", today)).toBe("Ontem");
+    expect(nearDayName("2026-10-09", new Date("2026-10-10T02:00:00Z"))).toBe("Hoje");
+  });
+
+  it("leaves any other day to the caller", () => {
+    expect(nearDayName("2026-10-08", today)).toBeNull();
+    expect(nearDayName("2026-10-11", today)).toBeNull();
   });
 });

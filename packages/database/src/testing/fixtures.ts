@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { eq, inArray } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
+import { createListingWithTargets, markTargetPublished } from "../repositories/listings.ts";
 import { organization, supplierProducts, suppliers, user } from "../schema/index.ts";
 
 export function createTestDatabase(): Database {
@@ -100,6 +101,44 @@ export function testStoreInput(tenantId: string, shopId: string) {
     refreshTokenEnc: "enc-refresh",
     expiresAt: new Date(Date.now() + 3_600_000),
   };
+}
+
+/** A reseller with one connected store, as the sync and the bell see it. */
+export interface TestSeller {
+  tenantId: string;
+  storeId: string;
+}
+
+/** Publishes the product in each seller's store; returns the target of each tenant. */
+export async function publishTestProduct(
+  database: Database,
+  productId: string,
+  sellers: readonly TestSeller[],
+): Promise<Map<string, string>> {
+  const targets = new Map<string, string>();
+  for (const { tenantId, storeId } of sellers) {
+    const created = await createListingWithTargets(
+      database,
+      tenantId,
+      {
+        supplierProductId: productId,
+        title: `Anúncio ${productId}`,
+        description: "Descrição",
+        priceCents: 3990,
+      },
+      [storeId],
+    );
+    const [targetId] = created.targetIds;
+    if (!targetId) {
+      throw new Error("destino não criado");
+    }
+    await markTargetPublished(database, targetId, {
+      externalId: `EXT-${productId}-${tenantId}`,
+      externalUrl: null,
+    });
+    targets.set(tenantId, targetId);
+  }
+  return targets;
 }
 
 /** A complete delivery address, as the reseller fills it to forward an order. */

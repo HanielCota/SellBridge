@@ -24,11 +24,26 @@ describe("money", () => {
     ["12", 1200],
     ["R$ 0,99", 99],
     ["-3,10", -310],
+    ["59.90", 5990],
+    ["1.5", 150],
+    ["1.234", 123400],
+    ["21.474.836,47", 2_147_483_647],
+    ["-0,00", 0],
   ])("parses %s", (input, expected) => {
     expect(parseBrlToCents(input)).toBe(expected);
   });
 
-  it.each(["", "abc", "1,234", "12,345"])("returns null for invalid input %j", (input) => {
+  it.each([
+    "",
+    "abc",
+    "1,234",
+    "12,345",
+    "1.2.3",
+    "12.34.567",
+    "1e5",
+    "21.474.836,48",
+    "9999999999999999999",
+  ])("returns null for invalid or oversized input %j", (input) => {
     expect(parseBrlToCents(input)).toBeNull();
   });
 

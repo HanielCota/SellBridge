@@ -57,11 +57,12 @@ export function productFormValues(product?: AdminSupplierProduct) {
 export function productFormInput(
   values: ReturnType<typeof productFormValues>,
   supplierId: string,
-  productId: string | undefined,
+  product: Pick<AdminSupplierProduct, "id" | "stock"> | undefined,
 ) {
   return {
     supplierId,
-    productId,
+    productId: product?.id,
+    expectedStock: product?.stock,
     sku: values.sku,
     title: values.title,
     description: values.description,

@@ -1,3 +1,5 @@
+import { formatCents } from "@sellbridge/shared/money";
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import {
@@ -125,10 +127,10 @@ const wholeReais = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 0,
 });
 
-const percentFormat = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
+/** Whole reais, except under one real, where rounding would say "R$ 0" for a real loss. */
+function sentenceReais(cents: number): string {
+  return Math.abs(cents) < 100 ? formatCents(cents) : wholeReais.format(cents / 100);
+}
 
 /** "Você lucrou R$ 1.130 no período, 10% a mais que no anterior, com 37% de margem." */
 function ProfitSentence({ current, previous }: { current: Totals; previous: Totals }) {
@@ -140,7 +142,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       <>
         Você teve{" "}
         <span className="font-medium text-destructive">
-          prejuízo de {wholeReais.format(-current.profitCents / 100)}
+          prejuízo de {sentenceReais(-current.profitCents)}
         </span>{" "}
         no período.{" "}
       </>
@@ -151,7 +153,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
   const moved = trend !== null && trend.direction !== "flat";
   return (
     <>
-      Você lucrou <Strong>{wholeReais.format(current.profitCents / 100)}</Strong> no período
+      Você lucrou <Strong>{sentenceReais(current.profitCents)}</Strong> no período
       {moved ? (
         <>
           ,{" "}
@@ -172,7 +174,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       ) : null}
       {margin === null ? null : (
         <>
-          , com <Strong>{percentFormat.format(margin)} de margem</Strong>
+          , com <Strong>{formatPercent(margin)} de margem</Strong>
         </>
       )}
       .{" "}

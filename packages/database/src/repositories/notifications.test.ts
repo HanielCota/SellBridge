@@ -115,6 +115,35 @@ describe("notifications", () => {
     expect(cleared.seenAt).toBeInstanceOf(Date);
   });
 
+  it("shows a sale placed before the user cleared the list but received after it", async () => {
+    await clearNotifications(database, { userId, tenantId: tenantA });
+    const [store] = await database
+      .select({ id: orders.storeConnectionId })
+      .from(orders)
+      .where(inArray(orders.tenantId, [tenantA]))
+      .limit(1);
+    // The buyer paid ten minutes ago; the marketplace's webhook only reaches us now.
+    await database.insert(orders).values({
+      tenantId: tenantA,
+      storeConnectionId: store?.id ?? "",
+      externalOrderId: "AV-LATE",
+      status: "paid",
+      totalCents: 1990,
+      orderedAt: new Date(Date.now() - 600_000),
+    });
+
+    const { events, seenAt } = await listNotificationEvents(database, {
+      tenantId: tenantA,
+      userId,
+      reviewableSince: new Date(),
+    });
+    const late = events.find(
+      (event) => event.kind === "sale" && event.externalOrderId === "AV-LATE",
+    );
+    expect(late).toBeDefined();
+    expect(seenAt !== null && late !== undefined && late.at > seenAt).toBe(true);
+  });
+
   it("never shows another tenant's events", async () => {
     const other = await listNotificationEvents(database, {
       tenantId: tenantB,

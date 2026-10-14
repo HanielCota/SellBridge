@@ -7,9 +7,13 @@ import {
 } from "@sellbridge/database/repositories";
 import type { ConnectorRegistry } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { isAppError } from "@sellbridge/shared/errors";
+import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
+import {
+  expireStoreOnAuthError,
+  resolveStoreCredentials,
+  storeRateKey,
+} from "../lib/store-access.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -26,13 +30,7 @@ export interface StockPriceSyncSummary {
 }
 
 const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso";
-
-function syncFailureReason(error: unknown): string {
-  if (isAppError(error)) {
-    return error.userMessage;
-  }
-  return error instanceof Error ? error.message : String(error);
-}
+const SYNC_FAILURE_REASON = "Falha ao sincronizar estoque e preço";
 
 async function recordSyncFailure(
   dependencies: StockPriceSyncDependencies,
@@ -52,7 +50,7 @@ async function syncOne(
     if (!credentials) {
       return await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
     }
-    await dependencies.acquireRateLimit(`${target.store.marketplace}:${target.store.id}`);
+    await dependencies.acquireRateLimit(storeRateKey(target.store));
     await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
       externalId: target.externalId,
       stock: target.stock,
@@ -66,27 +64,50 @@ async function syncOne(
   } catch (error) {
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
     await expireStoreOnAuthError(dependencies.database, target.store.id, error);
-    return await recordSyncFailure(dependencies, target, syncFailureReason(error));
+    return await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));
   }
 }
 
-/** Listings pushed per run; the rest wait for the next run, oldest attempt first. */
+/** Listings read per batch, oldest attempt first. */
 const SYNC_BATCH_SIZE = 200;
+/**
+ * A run keeps taking batches while they come back full, so a CSV that touched thousands of
+ * listings reaches the marketplaces in one run instead of 200 every 15 minutes. It stops at
+ * this budget so it never overlaps the next scheduled run; listings that keep failing go to
+ * the back of the queue and cannot hold it forever.
+ */
+const SYNC_RUN_BUDGET_MILLISECONDS = 4 * 60 * 1000;
+
+async function syncBatch(
+  dependencies: StockPriceSyncDependencies,
+): Promise<StockPriceSyncSummary & { size: number }> {
+  const targets = await findTargetsNeedingSync(
+    dependencies.database,
+    SYNC_BATCH_SIZE,
+    dependencies.safetyUnits,
+  );
+  const batch = { synced: 0, failed: 0, size: targets.length };
+  for (const target of targets) {
+    const ok = await syncOne(dependencies, target);
+    batch[ok ? "synced" : "failed"] += 1;
+  }
+  return batch;
+}
 
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
 export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDependencies) {
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
-    const targets = await findTargetsNeedingSync(
-      dependencies.database,
-      SYNC_BATCH_SIZE,
-      dependencies.safetyUnits,
-    );
+    const deadline = Date.now() + SYNC_RUN_BUDGET_MILLISECONDS;
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
-    for (const target of targets) {
-      const ok = await syncOne(dependencies, target);
-      summary[ok ? "synced" : "failed"] += 1;
+    let batch = await syncBatch(dependencies);
+    summary.synced += batch.synced;
+    summary.failed += batch.failed;
+    while (batch.size === SYNC_BATCH_SIZE && Date.now() < deadline) {
+      batch = await syncBatch(dependencies);
+      summary.synced += batch.synced;
+      summary.failed += batch.failed;
     }
-    if (targets.length > 0) {
+    if (summary.synced + summary.failed > 0) {
       logger.info("listing.sync_run", { ...summary });
     }
     return summary;

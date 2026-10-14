@@ -1,7 +1,7 @@
 import { applyBillingEvent, lockBillingCustomer } from "@sellbridge/database/repositories";
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
-import { readBoundedText } from "@/lib/server/bounded-body";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { billingConfigured, stripeClient } from "./stripe.server";
@@ -24,7 +24,7 @@ const subscriptionSchema = z.object({
 export async function handleBillingWebhook(request: Request) {
   if (!billingConfigured() || !environment.STRIPE_WEBHOOK_SECRET)
     return new Response("Billing unavailable", { status: 503 });
-  const body = await readBoundedText(request, 1048576);
+  const body = await readTextWithin(request, 1048576);
   if (body === null) return new Response("Payload too large", { status: 413 });
   const stripe = stripeClient();
   let event;

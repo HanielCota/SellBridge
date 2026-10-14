@@ -1,4 +1,5 @@
 import type { PeriodPreset, PeriodSearch } from "../schemas/period.ts";
+import { DAY_MILLISECONDS } from "./time.ts";
 
 const PRESET_DAYS: Record<Exclude<PeriodPreset, "custom">, number> = {
   "7d": 7,
@@ -26,8 +27,13 @@ export interface ResolvedPeriod {
   previousToDate: string;
 }
 
-const DAY_MILLISECONDS = 86_400_000;
 const MAX_CUSTOM_DAYS = 366;
+/**
+ * Custom periods stay within these years: "0001-01-01" is a real date, but its comparison
+ * window lands before year 1, which the database cannot store, and no sale predates 2000.
+ */
+const FIRST_REPORT_YEAR = 2000;
+const LAST_REPORT_YEAR = 2100;
 /** Brazil (America/Sao_Paulo) has had no DST since 2019: a fixed UTC−3 offset. */
 const BRAZIL_OFFSET_MILLISECONDS = 3 * 60 * 60 * 1000;
 export const REPORT_TIME_ZONE = "America/Sao_Paulo";
@@ -78,6 +84,11 @@ function resolveCustom(from: string | undefined, to: string | undefined): Resolv
   const start = parseIsoDate(from);
   const end = parseIsoDate(to);
   if (!start || !end || end.getTime() < start.getTime()) {
+    return null;
+  }
+  const firstYear = Number(from.slice(0, 4));
+  const lastYear = Number(to.slice(0, 4));
+  if (firstYear < FIRST_REPORT_YEAR || lastYear > LAST_REPORT_YEAR) {
     return null;
   }
   const days = Math.round((end.getTime() - start.getTime()) / DAY_MILLISECONDS) + 1;

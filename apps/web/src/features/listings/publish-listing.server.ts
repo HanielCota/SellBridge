@@ -5,6 +5,7 @@ import {
   findConnectedStores,
   type NewListingInput,
 } from "@sellbridge/database/repositories";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -23,6 +24,8 @@ export async function assertConnectedStores(
   return uniqueStoreIds;
 }
 
+const ENQUEUE_DEADLINE_MILLISECONDS = 3000;
+
 /**
  * Queues pending targets for the worker. The targets are already saved as "pending", so if
  * Redis is unavailable the worker's recovery job queues them within minutes (see
@@ -33,7 +36,12 @@ export async function enqueueTargets(
   targetIds: readonly string[],
 ): Promise<void> {
   try {
-    await enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId })));
+    // ioredis keeps reconnecting for minutes while Redis is down; the button must not spin.
+    await withDeadline(
+      enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId }))),
+      ENQUEUE_DEADLINE_MILLISECONDS,
+      "Fila de publicação",
+    );
   } catch (error) {
     logger.error("listing.enqueue_failed", { tenantId, targets: targetIds.length, error });
   }

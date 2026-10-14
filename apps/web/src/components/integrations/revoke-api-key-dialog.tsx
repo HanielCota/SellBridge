@@ -22,7 +22,7 @@ export function RevokeApiKeyDialog({
       title={`Revogar a chave “${apiKey?.name ?? ""}”?`}
       description="As integrações que usam esta chave param de funcionar na hora, e isso não pode ser desfeito. Para voltar a integrar, crie uma chave nova."
       confirmLabel="Revogar chave"
-      pendingLabel="Revogando..."
+      pendingLabel="Revogando…"
       destructive
       isPending={mutation.isPending}
       onConfirm={() => {

@@ -1,7 +1,7 @@
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { copyToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 const COPIED_FEEDBACK_MILLISECONDS = 2000;
@@ -27,15 +27,14 @@ export function CopyButton({
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      // A second click restarts the confirmation instead of having the first one cut it short.
-      window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_MILLISECONDS);
-    } catch {
-      toast.error("Não foi possível copiar. Selecione o texto e copie manualmente.");
+    const isCopied = await copyToClipboard(value);
+    if (!isCopied) {
+      return;
     }
+    setCopied(true);
+    // A second click restarts the confirmation instead of having the first one cut it short.
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_MILLISECONDS);
   }
 
   const Icon = copied ? CheckIcon : CopyIcon;

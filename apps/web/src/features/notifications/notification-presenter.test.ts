@@ -4,6 +4,25 @@ import { presentNotification, presentNotificationFeed } from "./notification-pre
 const at = new Date(Date.UTC(2026, 9, 9, 12));
 
 describe("presentNotification", () => {
+  it("tells the reseller which listing was paused, why, and where to see it", () => {
+    const notification = presentNotification({
+      kind: "listing_unavailable",
+      entityId: "listing-4",
+      at,
+      listingTitle: "Moletom canguru - Rosa",
+      reason: "product_inactive",
+    });
+    expect(notification).toMatchObject({
+      id: "unavailable:listing-4",
+      kind: "listing_unavailable",
+    });
+    expect(notification.title).toBe("Anúncio pausado: Moletom canguru - Rosa");
+    expect(notification.detail).toBe(
+      "O fornecedor tirou este produto do catálogo. O anúncio fica pausado; reative quando ele voltar.",
+    );
+    expect(notification.href).toBe("/publicacoes?query=Moletom%20canguru%20-%20Rosa");
+  });
+
   it("tells the reseller which order is short and what to do about it", () => {
     const notification = presentNotification({
       kind: "stock_shortage",

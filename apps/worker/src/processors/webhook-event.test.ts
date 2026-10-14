@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces";
+import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -89,6 +90,13 @@ const orderResource = (externalListingId = "MOCK-ITEM-WH") =>
     ],
   });
 
+async function setStoreStatus(status: "connected" | "expired") {
+  await database
+    .update(schema.storeConnections)
+    .set({ status })
+    .where(eq(schema.storeConnections.externalShopId, shopId));
+}
+
 describe("webhook-event processor", () => {
   it("fetches the order, stores it with our cost and is idempotent", async () => {
     const eventId = await recordEvent({ shopId, resource: orderResource() });
@@ -120,6 +128,24 @@ describe("webhook-event processor", () => {
     expect(await processWebhook(job(eventId))).toBe("order_created");
   });
 
+  it("holds a sale while the store has lost its access, and takes it once reconnected", async () => {
+    await setStoreStatus("expired");
+    try {
+      const eventId = await recordEvent({ shopId, resource: orderResource() });
+      expect(await processWebhook(job(eventId))).toBe("awaiting_reconnection");
+      const held = await database.query.webhookEvents.findFirst({
+        where: eq(schema.webhookEvents.id, eventId),
+      });
+      // Not processed: the sweeper keeps retrying it.
+      expect(held?.processedAt).toBeNull();
+
+      await setStoreStatus("connected");
+      expect(await processWebhook(job(eventId))).toBe("order_created");
+    } finally {
+      await setStoreStatus("connected");
+    }
+  });
+
   it("ignores other topics and events from unknown shops", async () => {
     expect(
       await processWebhook(job(await recordEvent({ shopId, resource: "x" }, "questions"))),
@@ -129,14 +155,14 @@ describe("webhook-event processor", () => {
     ).toBe("unknown_store");
   });
 
-  it("keeps the event pending with the error when the resource is invalid", async () => {
+  it("closes the event with the reason when the marketplace's answer can never be stored", async () => {
     const eventId = await recordEvent({ shopId, resource: "mock-order.invalido" });
-    await expect(processWebhook(job(eventId))).rejects.toThrow(
-      "Pedido simulado em formato inválido",
-    );
+    // No retry and no sweep: the same answer would come back every time.
+    await expect(processWebhook(job(eventId))).rejects.toBeInstanceOf(UnrecoverableError);
     const row = await database.query.webhookEvents.findFirst({
       where: eq(schema.webhookEvents.id, eventId),
     });
-    expect(row).toMatchObject({ processedAt: null, error: "Pedido simulado em formato inválido" });
+    expect(row?.processedAt).toBeInstanceOf(Date);
+    expect(row?.error).toBe("Pedido simulado em formato inválido");
   });
 });

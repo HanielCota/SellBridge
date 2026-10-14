@@ -1,3 +1,5 @@
+import { unavailableReason, type UnavailableReason } from "@sellbridge/shared/catalog-availability";
+import { daysBefore } from "@sellbridge/shared/time";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import type { Database } from "../client.ts";
@@ -13,11 +15,12 @@ import {
   storeConnections,
   supplierProducts,
   suppliers,
+  tenantProfile,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { coversTenantRegion, sellableOnMarketplace } from "./sql/supplier-coverage.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { listUnreadSupportReplies } from "./support.ts";
-import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
@@ -25,6 +28,7 @@ const PER_KIND = 10;
 const STANDING_KINDS: ReadonlySet<NotificationEvent["kind"]> = new Set([
   "stock_shortage",
   "shipment_cancelled",
+  "listing_unavailable",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -91,6 +95,13 @@ export interface ShipmentCancelledEvent extends EventBase {
   reason: string;
 }
 
+/** A live or paused listing whose product the supplier no longer offers (see 08.b). */
+export interface ListingUnavailableEvent extends EventBase {
+  kind: "listing_unavailable";
+  listingTitle: string;
+  reason: UnavailableReason;
+}
+
 /** Something that happened in the tenant and deserves the reseller's attention. */
 export type NotificationEvent =
   | SaleEvent
@@ -99,7 +110,8 @@ export type NotificationEvent =
   | SupportReplyEvent
   | ReviewPendingEvent
   | StockShortageEvent
-  | ShipmentCancelledEvent;
+  | ShipmentCancelledEvent
+  | ListingUnavailableEvent;
 
 export type NotificationKind = NotificationEvent["kind"];
 
@@ -121,7 +133,9 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
       entityId: orders.id,
       externalOrderId: orders.externalOrderId,
       totalCents: orders.totalCents,
-      at: orders.orderedAt,
+      // When the sale reached us, not when the buyer placed it: read and cleared marks are our
+      // clock, and a webhook that arrives late must still show the sale as new.
+      at: orders.createdAt,
       storeName: storeConnections.shopName,
     })
     .from(orders)
@@ -133,7 +147,7 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
         isCountedOrder(orders.status),
       ),
     )
-    .orderBy(desc(orders.orderedAt))
+    .orderBy(desc(orders.createdAt))
     .limit(SALES_SHOWN);
   const products = await saleProducts(
     database,
@@ -261,6 +275,45 @@ async function stockShortageEvents(
   return rows.map((row) => ({ ...row, kind: "stock_shortage" as const }));
 }
 
+/**
+ * Listings the supplier keeps off the marketplaces, dated by their last status change (the
+ * pause, when the admin turned the product off). Gone once the product can be sold again.
+ */
+async function listingUnavailableEvents(
+  database: Database,
+  tenantId: string,
+): Promise<ListingUnavailableEvent[]> {
+  const lastChange = sql<Date>`(select max(${listingTargets.updatedAt}) from ${listingTargets}
+    where ${listingTargets.listingId} = ${listings.id}
+      and ${listingTargets.status} in ('published', 'paused'))`.mapWith(listingTargets.updatedAt);
+  const rows = await database
+    .select({
+      entityId: listings.id,
+      listingTitle: listings.title,
+      at: lastChange,
+      productActive: supplierProducts.active,
+      supplierActive: suppliers.active,
+      regionCovered: sql<boolean>`${coversTenantRegion()}`,
+    })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
+    .where(
+      and(
+        eq(listings.tenantId, tenantId),
+        sql`not ${sellableOnMarketplace()}`,
+        sql`${lastChange} is not null`,
+      ),
+    )
+    .orderBy(desc(lastChange))
+    .limit(PER_KIND);
+  return rows.flatMap(({ productActive, supplierActive, regionCovered, ...row }) => {
+    const reason = unavailableReason({ productActive, supplierActive, regionCovered });
+    return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
+  });
+}
+
 async function listingErrorEvents(
   database: Database,
   tenantId: string,
@@ -360,11 +413,12 @@ export async function listNotificationEvents(
   database: Database,
   input: { tenantId: string; userId: string; reviewableSince: Date },
 ): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [sales, shortages, cancelled, listingErrors, stores, support, reviews, read] =
+  const [sales, shortages, cancelled, unavailable, listingErrors, stores, support, reviews, read] =
     await Promise.all([
       saleEvents(database, input.tenantId),
       stockShortageEvents(database, input.tenantId),
       shipmentCancelledEvents(database, input.tenantId),
+      listingUnavailableEvents(database, input.tenantId),
       listingErrorEvents(database, input.tenantId),
       storeProblemEvents(database, input.tenantId),
       supportReplyEvents(database, input),
@@ -375,6 +429,7 @@ export async function listNotificationEvents(
     ...sales,
     ...shortages,
     ...cancelled,
+    ...unavailable,
     ...listingErrors,
     ...stores,
     ...support,
@@ -384,8 +439,9 @@ export async function listNotificationEvents(
   if (clearedAt === null) {
     return { events, seenAt: read.seenAt };
   }
-  // An open shortage or a parcel the supplier cancelled is work still waiting for the reseller:
-  // clearing the list hides news, not work to do, so they stay until resolved.
+  // An open shortage, a parcel the supplier cancelled or a listing the supplier keeps off is
+  // work still waiting for the reseller: clearing the list hides news, not work to do, so they
+  // stay until resolved.
   const kept = events.filter((event) => STANDING_KINDS.has(event.kind) || event.at > clearedAt);
   return { events: kept, seenAt: read.seenAt };
 }

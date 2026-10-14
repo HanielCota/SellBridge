@@ -64,7 +64,7 @@ function ImpersonateButton({
       onClick={() => void impersonate(userId)}
     >
       <SignInIcon weight="bold" aria-hidden="true" />
-      {pendingUserId ? "Entrando..." : "Entrar como cliente"}
+      {pendingUserId ? "Entrando…" : "Entrar como cliente"}
     </Button>
   );
 }

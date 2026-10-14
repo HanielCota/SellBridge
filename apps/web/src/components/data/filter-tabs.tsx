@@ -54,7 +54,10 @@ export function FilterTabs<TValue>({
   // Off until the first pick, so the pill lands in place on load instead of sliding in.
   const [canAnimate, setCanAnimate] = useState(false);
   return (
-    <fieldset ref={containerRef} className={cn(TRACK_CLASSES, "inline-flex w-fit max-w-full")}>
+    <fieldset
+      ref={containerRef}
+      className={cn(TRACK_CLASSES, "inline-flex w-fit max-w-full min-w-0")}
+    >
       <legend className="sr-only">{legend}</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
       {tabs.map((tab) => {

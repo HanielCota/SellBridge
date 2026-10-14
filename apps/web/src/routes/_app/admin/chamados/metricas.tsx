@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDuration } from "@/features/support/response-time";
 import { supportMetricsQueryOptions } from "@/features/support/support.queries";
 import { errorMessage } from "@/lib/errors";
+import { formatPercent } from "@/lib/percent";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 export const Route = createFileRoute("/_app/admin/chamados/metricas")({
@@ -33,7 +34,6 @@ const PERIOD_OPTIONS = ["7", "30", "90"] as const;
 type Period = (typeof PERIOD_OPTIONS)[number];
 const PERIOD_LABELS: Record<Period, string> = { "7": "7 dias", "30": "30 dias", "90": "90 dias" };
 
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const decimal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
 /** Same anatomy as the dashboard's KPI tiles: label, 30px figure, small caption. */
@@ -68,7 +68,7 @@ function OverviewTiles({ metrics }: { metrics: SupportMetrics }) {
       <Tile label="Primeira resposta" value={firstResponse} hint="tempo médio" />
       <Tile
         label="Respondidos no prazo"
-        value={metrics.withinTargetRate === null ? "—" : percent.format(metrics.withinTargetRate)}
+        value={metrics.withinTargetRate === null ? "—" : formatPercent(metrics.withinTargetRate)}
         hint="primeira resposta dentro do prazo da prioridade"
       />
       <Tile

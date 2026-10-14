@@ -36,7 +36,10 @@ const orderIds: Record<"delivered" | "cancelled" | "returned" | "otherTenant", s
   otherTenant: "",
 };
 
-async function insertOrder(tenantId: string, storeId: string, status: OrderStatus) {
+/** What paying left on the order's items: a never-paid order keeps them "pending". */
+const STOCK_AFTER: Record<string, "consumed" | "released"> = { cancelled: "released" };
+
+async function insertOrder(tenantId: string, storeId: string, status: OrderStatus, paid = true) {
   const [order] = await database
     .insert(orders)
     .values({
@@ -59,6 +62,7 @@ async function insertOrder(tenantId: string, storeId: string, status: OrderStatu
     quantity: 2,
     unitPriceCents: 2500,
     unitCostCents: 1200,
+    stockState: paid ? (STOCK_AFTER[status] ?? "consumed") : "pending",
   });
   return order.id;
 }
@@ -77,6 +81,8 @@ beforeAll(async () => {
   orderIds.delivered = await insertOrder(tenantA, storeA, "delivered");
   orderIds.cancelled = await insertOrder(tenantA, storeA, "cancelled");
   orderIds.returned = await insertOrder(tenantA, storeA, "returned");
+  // A boleto never paid: the marketplace cancels it, and it says nothing about the supplier.
+  await insertOrder(tenantA, storeA, "cancelled", false);
   orderIds.otherTenant = await insertOrder(tenantB, storeB, "delivered");
 });
 

@@ -15,37 +15,16 @@ import {
   gte,
   ilike,
   inArray,
-  isNull,
   lte,
-  or,
   sql,
   type SQL,
 } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
-import {
-  categories,
-  listings,
-  supplierCoverage,
-  supplierProducts,
-  suppliers,
-} from "../schema/index.ts";
+import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
 import type { TenantRegion } from "./region.ts";
 import { availableStock } from "./sql/available-stock.ts";
-
-/** A supplier is visible when it covers the whole state or the tenant's city. */
-function coversRegion(region: Pick<TenantRegion, "state" | "city">): SQL {
-  return exists(
-    sql`(select 1 from ${supplierCoverage} where ${and(
-      eq(supplierCoverage.supplierId, suppliers.id),
-      eq(supplierCoverage.state, region.state),
-      or(
-        isNull(supplierCoverage.city),
-        sql`lower(${supplierCoverage.city}) = lower(${region.city})`,
-      ),
-    )})`,
-  );
-}
+import { coversRegion } from "./sql/supplier-coverage.ts";
 
 export interface SupplierSummary {
   id: string;

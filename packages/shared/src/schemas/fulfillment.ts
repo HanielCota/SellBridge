@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { freeText, MAX_PAGE } from "./common.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { isoDateSchema, PERIOD_PRESETS } from "./period.ts";
 
@@ -74,18 +75,16 @@ export const FULFILLMENT_NEXT: Record<FulfillmentStatus, FulfillmentStatus | nul
   returned: null,
 };
 export const deliveryAddressSchema = z.object({
-  recipient: z.string().trim().min(2).max(120),
-  street: z.string().trim().min(2).max(200),
-  number: z.string().trim().min(1).max(30),
-  complement: z.string().trim().max(150).default(""),
-  neighborhood: z.string().trim().min(2).max(100),
-  city: z.string().trim().min(2).max(100),
-  state: z
-    .string()
+  recipient: freeText().trim().min(2).max(120),
+  street: freeText().trim().min(2).max(200),
+  number: freeText().trim().min(1).max(30),
+  complement: freeText().trim().max(150).default(""),
+  neighborhood: freeText().trim().min(2).max(100),
+  city: freeText().trim().min(2).max(100),
+  state: freeText()
     .trim()
     .regex(/^[A-Z]{2}$/, "Informe a UF com duas letras"),
-  postalCode: z
-    .string()
+  postalCode: freeText()
     .trim()
     .regex(/^\d{5}-?\d{3}$/, "CEP inválido"),
 });
@@ -93,14 +92,14 @@ export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
 export const forwardOrderSchema = z.object({
   orderId: z.uuid(),
   address: deliveryAddressSchema,
-  notes: z.string().trim().max(1000).default(""),
+  notes: freeText().trim().max(1000).default(""),
 });
 export const shipmentUpdateSchema = z
   .object({
     shipmentId: z.uuid(),
     status: z.enum(FULFILLMENT_STATUSES),
-    carrier: z.string().trim().max(100).default(""),
-    trackingCode: z.string().trim().max(100).default(""),
+    carrier: freeText().trim().max(100).default(""),
+    trackingCode: freeText().trim().max(100).default(""),
     trackingUrl: z
       .union([
         z.literal(""),
@@ -110,7 +109,7 @@ export const shipmentUpdateSchema = z
           .refine((value) => new URL(value).protocol === "https:", "Use um endereço HTTPS"),
       ])
       .default(""),
-    note: z.string().trim().max(1000).default(""),
+    note: freeText().trim().max(1000).default(""),
   })
   .superRefine((data, ctx) => {
     if (data.status === "shipped" && (!data.carrier || !data.trackingCode)) {
@@ -131,9 +130,9 @@ export const OPERATION_PERIODS = ["all", ...PERIOD_PRESETS] as const;
 export type OperationPeriod = (typeof OPERATION_PERIODS)[number];
 
 export const operationsSearchSchema = z.object({
-  query: z.string().trim().max(100).default(""),
+  query: freeText().trim().max(100).default(""),
   stage: z.enum(OPERATION_STAGES).default("all"),
-  page: z.number().int().min(1).default(1),
+  page: z.number().int().min(1).max(MAX_PAGE).default(1),
   period: z.enum(OPERATION_PERIODS).default("all"),
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),

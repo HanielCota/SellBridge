@@ -1,15 +1,23 @@
 import { z } from "zod";
+import { freeText, pageNumberSchema } from "./common.ts";
 import { stateSchema } from "../domain/cep.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
+import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 
 export const MAX_PRODUCT_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_PRODUCT_CSV_ROWS = 1000;
 const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
+/** Cost and suggested price stay within what a listing may charge, so every rule can sell it. */
+const productPriceCentsSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(LISTING_MAX_PRICE_CENTS, "O valor pode ser de até R$ 1.000.000,00");
 const imageUrlSchema = z.url({ protocol: /^https?$/ });
 
 export const adminSupplierSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  query: optionalParameter(freeText().trim().max(100)),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
 export type AdminSupplierSearch = z.infer<typeof adminSupplierSearchSchema>;
@@ -20,16 +28,16 @@ export const adminSupplierProductsSchema = adminSupplierSearchSchema.extend({
 
 export const supplierCoverageSchema = z.object({
   state: stateSchema,
-  city: z.string().trim().min(1).max(120).nullable(),
+  city: freeText().trim().min(1).max(120).nullable(),
 });
 
 export const adminSupplierValuesSchema = z
   .object({
-    name: z.string().trim().min(1, "Informe o nome").max(150),
-    niche: z.string().trim().min(1, "Informe o nicho").max(100),
-    description: z.string().trim().max(10_000),
+    name: freeText().trim().min(1, "Informe o nome").max(150),
+    niche: freeText().trim().min(1, "Informe o nicho").max(100),
+    description: freeText().trim().max(10_000),
     state: stateSchema,
-    city: z.string().trim().min(1, "Informe a cidade").max(120),
+    city: freeText().trim().min(1, "Informe a cidade").max(120),
     logoUrl: imageUrlSchema.nullable(),
     coverage: z.array(supplierCoverageSchema).min(1, "Informe ao menos uma região").max(200),
   })
@@ -54,18 +62,18 @@ export const adminSaveSupplierSchema = adminSupplierValuesSchema.safeExtend({
 export const adminSetSupplierActiveSchema = adminSupplierIdSchema.extend({ active: z.boolean() });
 
 export const adminProductValuesSchema = z.object({
-  sku: z.string().trim().min(1, "Informe o SKU").max(100),
-  title: z.string().trim().min(1, "Informe o título").max(300),
-  description: z.string().trim().max(20_000),
-  costCents: postgresIntegerSchema,
-  suggestedPriceCents: postgresIntegerSchema,
+  sku: freeText().trim().min(1, "Informe o SKU").max(100),
+  title: freeText().trim().min(1, "Informe o título").max(300),
+  description: freeText().trim().max(20_000),
+  costCents: productPriceCentsSchema,
+  suggestedPriceCents: productPriceCentsSchema,
   stock: postgresIntegerSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
   mercadoLivreAttributes: z
     .record(
       z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, "Informe o código do atributo, como BRAND"),
-      z.string().trim().min(1, "Informe o valor do atributo").max(255),
+      freeText().trim().min(1, "Informe o valor do atributo").max(255),
     )
     .optional(),
 });
@@ -73,6 +81,8 @@ export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
 export const adminSaveProductSchema = adminProductValuesSchema.extend({
   supplierId: z.uuid(),
   productId: z.uuid().optional(),
+  /** The shelf count the edit form was opened with; sales may have moved it since. */
+  expectedStock: postgresIntegerSchema.optional(),
 });
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),

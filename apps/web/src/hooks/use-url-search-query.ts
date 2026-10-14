@@ -12,7 +12,7 @@ type UrlSearchQueryOptions = {
   debounceMilliseconds?: number;
 };
 
-export function normalizeSearchQuery(term: string): string | undefined {
+function normalizeSearchQuery(term: string): string | undefined {
   const trimmed = term.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }

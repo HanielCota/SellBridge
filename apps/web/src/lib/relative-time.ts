@@ -1,7 +1,7 @@
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 
 const relative = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
-// Pinned to São Paulo: the server renders in UTC, and a 22:30 sale must not read as the next day.
+// Brazil time everywhere: the server renders in UTC, and a 23:30 event must not say tomorrow.
 const absolute = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeStyle: "short",
@@ -18,21 +18,9 @@ const UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
   ["minute", 60],
 ];
 
-const calendarDay = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
-
-/** Midnight (as a UTC instant) of the São Paulo calendar day `value` falls on. */
-function calendarDayStart(value: Date): number {
-  return Date.parse(`${calendarDay.format(value)}T00:00:00Z`);
-}
-
-/** Whole calendar days from `now` to `date` in São Paulo (negative in the past). */
-function calendarDaysBetween(date: Date, now: Date): number {
-  return Math.round((calendarDayStart(date) - calendarDayStart(now)) / 86_400_000);
-}
-
 /**
- * "agora", "há 5 minutos", "ontem", "há 3 semanas"… Days are calendar days in São Paulo, not
- * blocks of 24 hours: a sale on Monday at 10:00 is "ontem" all Tuesday, even at 23:00.
+ * "agora", "há 5 minutos", "ontem", "há 3 semanas"… Days count calendar days in Brazil time:
+ * Monday 21:00 seen on Wednesday 09:00 is "anteontem", not "ontem" (36 hours rounded down).
  */
 export function formatRelativeTime(date: Date, now: Date = new Date()): string {
   const seconds = (date.getTime() - now.getTime()) / 1000;
@@ -41,7 +29,9 @@ export function formatRelativeTime(date: Date, now: Date = new Date()): string {
     return "agora";
   }
   const [unit, size] = match;
-  if (unit === "day") return relative.format(calendarDaysBetween(date, now), "day");
+  if (unit === "day") {
+    return relative.format(calendarDaysBetween(now, date), unit);
+  }
   return relative.format(Math.round(seconds / size), unit);
 }
 
@@ -61,7 +51,6 @@ const dayMonthYear = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
   timeZone: REPORT_TIME_ZONE,
 });
-const yearOnly = new Intl.DateTimeFormat("pt-BR", { year: "numeric", timeZone: REPORT_TIME_ZONE });
 
 /**
  * The one date style of the app: relative within the last week ("há 2 horas", "ontem"),
@@ -72,7 +61,43 @@ export function formatSmartDate(date: Date, now: Date = new Date()): string {
   if (ageDays >= 0 && ageDays < RECENT_DAYS) {
     return formatRelativeTime(date, now);
   }
-  return yearOnly.format(date) === yearOnly.format(now)
+  return brazilDayKey(date).slice(0, 4) === brazilDayKey(now).slice(0, 4)
     ? dayMonth.format(date)
     : dayMonthYear.format(date);
+}
+
+const brazilDayKeyFormat = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
+const DAY_MILLISECONDS = 86_400_000;
+
+/** A "YYYY-MM-DD" key as a UTC midnight, so day arithmetic never meets a clock change. */
+function dayKeyTime(dayKey: string): number {
+  const [year = 0, month = 1, day = 1] = dayKey.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+/** Whole calendar days from `from` to `to` in Brazil time (negative when `to` is earlier). */
+function calendarDaysBetween(from: Date, to: Date): number {
+  return Math.round(
+    (dayKeyTime(brazilDayKey(to)) - dayKeyTime(brazilDayKey(from))) / DAY_MILLISECONDS,
+  );
+}
+
+/** The calendar day of an instant in Brazil time, as "YYYY-MM-DD". */
+export function brazilDayKey(date: Date): string {
+  return brazilDayKeyFormat.format(date);
+}
+
+/**
+ * "Hoje" or "Ontem" for a "YYYY-MM-DD" day in Brazil time, null for any other day: the start of
+ * every day heading, which then spells the date in its own style.
+ */
+export function nearDayName(dayKey: string, now: Date = new Date()): string | null {
+  if (dayKey === brazilDayKey(now)) {
+    return "Hoje";
+  }
+  const yesterday = new Date(dayKeyTime(brazilDayKey(now)) - DAY_MILLISECONDS);
+  if (dayKey === yesterday.toISOString().slice(0, 10)) {
+    return "Ontem";
+  }
+  return null;
 }

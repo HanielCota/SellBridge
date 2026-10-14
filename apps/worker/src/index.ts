@@ -4,13 +4,15 @@ import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import {
   enqueueWebhookEventJob,
-  PUBLISH_BACKOFF_MILLISECONDS,
-  PUBLISH_JOB_ATTEMPTS,
+  PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
+  releaseFinishedJob,
+  STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { withDeadline } from "@sellbridge/shared/deadline";
 import { Queue, Worker } from "bullmq";
 import { startHealthServer } from "./health.ts";
+import { toJobContext } from "./lib/job-context.ts";
 import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
@@ -35,7 +37,7 @@ const connectors = createConnectorRegistry({
   },
 });
 const storeRateLimiter = createRateLimiter({ tokensPerInterval: 5, intervalMilliseconds: 1000 });
-const acquireRateLimit = async (key: string) => storeRateLimiter.acquire(key);
+const acquireRateLimit = storeRateLimiter.acquire;
 
 const processPublish = createPublishListingProcessor({
   database,
@@ -45,13 +47,6 @@ const processPublish = createPublishListingProcessor({
   safetyUnits: environment.STOCK_SAFETY_UNITS,
 });
 const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
-/** Same retry policy as the web's sync requests (apps/web/src/lib/server/queues.ts). */
-const STOCK_SYNC_JOB_OPTIONS = {
-  attempts: 5,
-  backoff: { type: "exponential", delay: 5000 },
-  removeOnComplete: 100,
-  removeOnFail: 1000,
-} as const;
 const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
 const processWebhookEvent = createWebhookEventProcessor({
   database,
@@ -82,12 +77,7 @@ const processWebhookDeliveries = createWebhookDeliveryProcessor({
 
 const publishWorker = new Worker(
   QUEUE_NAMES.publishListing,
-  async (job) =>
-    processPublish({
-      data: job.data,
-      attemptsMade: job.attemptsMade,
-      maxAttempts: job.opts.attempts ?? 1,
-    }),
+  async (job) => processPublish(toJobContext(job)),
   { connection, concurrency: environment.WORKER_CONCURRENCY, limiter: { max: 20, duration: 1000 } },
 );
 
@@ -98,12 +88,7 @@ const tokenRefreshWorker = new Worker(QUEUE_NAMES.tokenRefresh, async () => proc
 
 const webhookWorker = new Worker(
   QUEUE_NAMES.webhookEvents,
-  async (job) =>
-    processWebhookEvent({
-      data: job.data,
-      attemptsMade: job.attemptsMade,
-      maxAttempts: job.opts.attempts ?? 1,
-    }),
+  async (job) => processWebhookEvent(toJobContext(job)),
   { connection, concurrency: environment.WORKER_CONCURRENCY },
 );
 
@@ -119,34 +104,16 @@ const stockPriceSyncWorker = new Worker(
 const publishQueue = new Queue(QUEUE_NAMES.publishListing, { connection });
 
 /**
- * A finished job keeps its id in Redis (removeOnComplete/removeOnFail), and BullMQ silently
- * ignores a new job with that id: a recovery job that failed before touching the target (the
- * database was down) would block every later recovery of the same stale state.
+ * A recovery job that failed before touching the target (the database was down) keeps its id,
+ * so it is released first or it would block every later recovery of the same stale state.
  */
-async function releaseFinishedJob(jobId: string): Promise<void> {
-  const existing = await publishQueue.getJob(jobId);
-  if (!existing) {
-    return;
-  }
-  const state = await existing.getState();
-  if (state === "completed" || state === "failed") {
-    await existing.remove();
-  }
-}
-
 async function enqueueRecoveredPublications(jobs: readonly RecoveryJob[]): Promise<void> {
-  await Promise.all(jobs.map(({ jobId }) => releaseFinishedJob(jobId)));
+  await Promise.all(jobs.map(async ({ jobId }) => releaseFinishedJob(publishQueue, jobId)));
   await publishQueue.addBulk(
     jobs.map(({ data, jobId }) => ({
       name: "publish",
       data,
-      opts: {
-        jobId,
-        attempts: PUBLISH_JOB_ATTEMPTS,
-        backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
-        removeOnComplete: 1000,
-        removeOnFail: 5000,
-      },
+      opts: { ...PUBLISH_JOB_OPTIONS, jobId },
     })),
   );
 }
@@ -185,46 +152,26 @@ const webhookDeliveryWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+/** Each run is a new job: keep only a few finished ones in Redis. */
+async function scheduleRecurring(queue: Queue, id: string, every: number): Promise<void> {
+  await queue.upsertJobScheduler(
+    id,
+    { every },
+    { name: id, data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
+  );
+}
+
 const tokenRefreshQueue = new Queue(QUEUE_NAMES.tokenRefresh, { connection });
-await stockPriceSyncQueue.upsertJobScheduler(
-  "sync-stock-and-price",
-  { every: 15 * 60 * 1000 },
-  { name: "sync-stock-and-price", data: {} },
-);
 const webhookDeliveryQueue = new Queue(QUEUE_NAMES.webhookDelivery, { connection });
-await webhookDeliveryQueue.upsertJobScheduler(
-  "deliver-outbound-webhooks",
-  { every: 10 * 1000 },
-  // Each run is a new job: keep only a few finished ones in Redis.
-  { name: "deliver-outbound-webhooks", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
-);
 const publishRecoveryQueue = new Queue(QUEUE_NAMES.publishRecovery, { connection });
-await publishRecoveryQueue.upsertJobScheduler(
-  "recover-publications",
-  { every: 5 * 60 * 1000 },
-  { name: "recover-publications", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
-);
 const webhookEventSweepQueue = new Queue(QUEUE_NAMES.webhookEventSweep, { connection });
-await webhookEventSweepQueue.upsertJobScheduler(
-  "sweep-unprocessed-webhook-events",
-  { every: 5 * 60 * 1000 },
-  {
-    name: "sweep-unprocessed-webhook-events",
-    data: {},
-    opts: { removeOnComplete: 10, removeOnFail: 50 },
-  },
-);
 const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
-await ticketAutoCloseQueue.upsertJobScheduler(
-  "close-idle-tickets",
-  { every: 60 * 60 * 1000 },
-  { name: "close-idle-tickets", data: {}, opts: { removeOnComplete: 10, removeOnFail: 50 } },
-);
-await tokenRefreshQueue.upsertJobScheduler(
-  "refresh-expiring-tokens",
-  { every: 10 * 60 * 1000 },
-  { name: "refresh-expiring-tokens", data: {} },
-);
+await scheduleRecurring(stockPriceSyncQueue, "sync-stock-and-price", 15 * 60 * 1000);
+await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
+await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
+await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
+await scheduleRecurring(ticketAutoCloseQueue, "close-idle-tickets", 60 * 60 * 1000);
+await scheduleRecurring(tokenRefreshQueue, "refresh-expiring-tokens", 10 * 60 * 1000);
 
 const workers = [
   publishWorker,

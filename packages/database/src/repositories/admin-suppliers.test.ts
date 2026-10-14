@@ -104,7 +104,7 @@ describe("admin suppliers", () => {
     expect(
       await previewSupplierProductImport(database, supplierId, parseProductCsv(content).rows),
     ).toMatchObject({ created: 1, updated: 1, errors: [] });
-    expect(await importRows(content)).toEqual({ created: 1, updated: 1 });
+    expect(await importRows(content)).toEqual({ created: 1, updated: 1, pausedTargets: 0 });
     const result = await listAdminSupplierProducts(database, supplierId, "ADMIN-1", {
       page: 1,
       pageSize: 20,
@@ -219,7 +219,41 @@ describe("admin suppliers", () => {
     expect(imported.items[0]).toMatchObject({ id: product.id, active: false, stock: 5 });
   });
 
-  it("hides inactive suppliers/products but preserves published listings and stock sync", async () => {
+  it("never undoes a sale when the admin saves a product opened before it", async () => {
+    const product = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: `SHELF-${randomUUID().slice(0, 8)}`,
+    });
+    // A shipment takes one unit off the shelf while the admin's form is open.
+    await database
+      .update(supplierProducts)
+      .set({ stock: product.stock - 1 })
+      .where(eq(supplierProducts.id, product.id));
+
+    const renamed = await saveAdminSupplierProduct(database, {
+      supplierId,
+      ...productValues,
+      sku: product.sku,
+      title: "Título corrigido",
+      productId: product.id,
+      expectedStock: product.stock,
+    });
+    expect(renamed).toMatchObject({ title: "Título corrigido", stock: product.stock - 1 });
+
+    await expect(
+      saveAdminSupplierProduct(database, {
+        supplierId,
+        ...productValues,
+        sku: product.sku,
+        stock: 40,
+        productId: product.id,
+        expectedStock: product.stock,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("hides inactive suppliers/products, keeps published listings and syncs zero stock", async () => {
     const tenants = await createTestTenants(database, 1);
     const [tenantId] = tenants.ids;
     if (!tenantId) {
@@ -297,7 +331,7 @@ describe("admin suppliers", () => {
         (await findTargetsNeedingSync(database, 10_000)).find(
           (target) => target.targetId === targetId,
         ),
-      ).toMatchObject({ stock: 30, priceCents: 1990 });
+      ).toMatchObject({ stock: 0, priceCents: 1990 });
       expect(
         await database.select().from(listings).where(eq(listings.id, listing.listingId)),
       ).toHaveLength(1);

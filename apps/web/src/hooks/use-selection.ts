@@ -3,7 +3,7 @@ import { useState } from "react";
 /** Checkbox state for a group of rows: none, all, or some of them selected. */
 export type GroupSelectionState = boolean | "indeterminate";
 
-export function groupSelectionState(selectedCount: number, total: number): GroupSelectionState {
+function groupSelectionState(selectedCount: number, total: number): GroupSelectionState {
   if (selectedCount === 0) {
     return false;
   }

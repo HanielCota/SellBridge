@@ -252,7 +252,7 @@ function ConsentSubmitButton({ status }: { status: StoreBridgeStatus }) {
       <PendingSubmitButton
         isPending={status === "authorizing"}
         idleLabel="Autorizar acesso"
-        pendingLabel="Vinculando..."
+        pendingLabel="Vinculando…"
         className="h-11 w-full text-subhead"
       />
     );

@@ -1,5 +1,5 @@
 import { STORE_STATUS_LABELS, type StoreStatus } from "@sellbridge/shared/schemas";
-import { type StatusTone, TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
+import { type StatusTone, TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 
 const STORE_TONES: Record<StoreStatus, StatusTone> = {
@@ -8,10 +8,6 @@ const STORE_TONES: Record<StoreStatus, StatusTone> = {
   error: "danger",
   disconnected: "muted",
 };
-
-export function StoreStatusBadge({ status }: { status: StoreStatus }) {
-  return <ToneStatus tone={STORE_TONES[status]} label={STORE_STATUS_LABELS[status]} />;
-}
 
 const TONE_CHIP_CLASSES: Record<StatusTone, string> = {
   success: "bg-emerald-500/14 text-emerald-700 dark:text-emerald-400",

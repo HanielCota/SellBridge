@@ -19,7 +19,7 @@ function RecentTicket({ ticket, onNavigate }: { ticket: TicketSummary; onNavigat
         to="/suporte/$ticketId"
         params={{ ticketId: ticket.id }}
         onClick={onNavigate}
-        className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors outline-none hover:bg-muted focus-visible:bg-muted"
+        className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
       >
         <span className="min-w-0 flex-1 space-y-0.5">
           <span className="line-clamp-1 text-sm font-medium">{ticket.subject}</span>
@@ -55,7 +55,7 @@ function RecentTickets({ onNavigate }: { onNavigate: () => void }) {
       <Link
         to="/suporte"
         onClick={onNavigate}
-        className="block rounded-xl px-2.5 py-2 text-sm text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted"
+        className="block rounded-xl px-2.5 py-2 text-sm text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
       >
         {query.data.total > query.data.recent.length
           ? `Ver todos os ${query.data.total} chamados`
