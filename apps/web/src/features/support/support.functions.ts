@@ -34,7 +34,6 @@ import {
   supportMetricsSearchSchema,
   ticketNotificationsSchema,
   ticketOrderLinkSchema,
-  ticketStatusSchema,
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
@@ -285,9 +284,13 @@ export const listSupportTeam = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("support.answer")])
   .handler(async () => listSupportStaff(database));
 
+/**
+ * Reopen or close. "Answered" only comes with a public reply: set on its own it would stop the
+ * response clock and schedule the auto-close while the customer never heard back.
+ */
 export const staffSetTicketStatus = createServerFn({ method: "POST" })
   .middleware([staffMiddleware("support.triage")])
-  .validator(z.object({ ticketId: z.uuid(), status: ticketStatusSchema }))
+  .validator(z.object({ ticketId: z.uuid(), status: z.enum(["open", "closed"]) }))
   .handler(async ({ context, data }) => {
     await setTicketStatus(database, {
       ticketId: data.ticketId,

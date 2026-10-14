@@ -151,4 +151,24 @@ describe("webhook-delivery processor", () => {
     expect(delivery?.lastError).toContain("não público");
     expect(received.filter((item) => item.headers["sellbridge-signature"])).toHaveLength(before);
   });
+
+  it("records a network failure by kind, without the addresses Node puts in its message", async () => {
+    const endpoint = await createEndpoint("/refused");
+    await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
+    const refused = Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:443"), {
+      code: "ECONNREFUSED",
+    });
+    const deliver = createWebhookDeliveryProcessor({
+      database,
+      cipher,
+      allowPrivateUrls: true,
+      tenantId,
+      sendRequest: async () => {
+        throw refused;
+      },
+    });
+    await deliver();
+    const [delivery] = await deliveriesOf(endpoint.id);
+    expect(delivery?.lastError).toBe("Conexão recusada pelo servidor");
+  });
 });
