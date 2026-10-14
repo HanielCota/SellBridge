@@ -88,6 +88,18 @@ export const supplierProducts = pgTable(
     uniqueIndex("supplier_products_sku_idx").on(table.supplierId, table.sku),
     index("supplier_products_supplier_idx").on(table.supplierId),
     index("supplier_products_category_idx").on(table.categoryId),
+    /**
+     * The catalog search ("calca verde" finds "Calça jeans - Verde") matches `sellbridge_fold`
+     * of title and SKU with `like '%word%'`: trigram indexes answer it without a full scan.
+     */
+    index("supplier_products_title_trgm_idx").using(
+      "gin",
+      sql`sellbridge_fold(${table.title}) gin_trgm_ops`,
+    ),
+    index("supplier_products_sku_trgm_idx").using(
+      "gin",
+      sql`sellbridge_fold(${table.sku}) gin_trgm_ops`,
+    ),
     check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
   ],
 );

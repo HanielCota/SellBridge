@@ -14,15 +14,19 @@ export function containsPattern(search: string): string {
 
 /**
  * Lowercased, without accents: how the search text is folded before it meets
- * `lower(unaccent(column))` in Postgres ("Ñ" → "n", "Ångström" → "angstrom").
+ * `sellbridge_fold(column)` in Postgres ("Ñ" → "n", "Ångström" → "angstrom").
  */
 export function foldAccents(text: string): string {
   return stripAccents(text).toLowerCase();
 }
 
-/** Needs the `unaccent` extension, created by a migration. */
+/**
+ * `lower(unaccent(column))` through `sellbridge_fold`, an immutable SQL function (migration
+ * 0023): Postgres only indexes immutable expressions, and the catalog's trigram indexes are on
+ * exactly this one.
+ */
 function foldedColumn(column: Column): SQL {
-  return sql`lower(unaccent(${column}))`;
+  return sql`sellbridge_fold(${column})`;
 }
 
 /**

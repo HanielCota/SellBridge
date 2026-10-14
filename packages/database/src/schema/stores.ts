@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { marketplaceEnum, storeConnectionStatusEnum } from "./enums.ts";
@@ -31,6 +32,13 @@ export const storeConnections = pgTable(
       table.marketplace,
       table.externalShopId,
     ),
+    /**
+     * One marketplace shop belongs to one organization at a time: a second organization
+     * connecting it would split its orders (and the buyers' data) between both.
+     */
+    uniqueIndex("store_connections_live_shop_idx")
+      .on(table.marketplace, table.externalShopId)
+      .where(sql`${table.status} <> 'disconnected'`),
   ],
 );
 

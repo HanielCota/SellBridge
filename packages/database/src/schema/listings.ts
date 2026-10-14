@@ -23,7 +23,13 @@ export const listings = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("listings_tenant_idx").on(table.tenantId)],
+  (table) => [
+    index("listings_tenant_idx").on(table.tenantId),
+    /** "Already published?" per catalog product, and the duplicate check before publishing. */
+    index("listings_tenant_product_idx").on(table.tenantId, table.supplierProductId),
+    /** The foreign key: deactivating or deleting a product checks its listings. */
+    index("listings_product_idx").on(table.supplierProductId),
+  ],
 );
 
 export const listingTargets = pgTable(
@@ -67,5 +73,7 @@ export const listingTargets = pgTable(
     index("listing_targets_listing_idx").on(table.listingId),
     uniqueIndex("listing_targets_idempotency_idx").on(table.idempotencyKey),
     uniqueIndex("listing_targets_listing_store_idx").on(table.listingId, table.storeConnectionId),
+    /** Every incoming order maps the marketplace's listing ids of one store to our targets. */
+    index("listing_targets_store_external_idx").on(table.storeConnectionId, table.externalId),
   ],
 );

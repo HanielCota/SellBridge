@@ -58,6 +58,8 @@ export const orderItems = pgTable(
   },
   (table) => [
     index("order_items_order_idx").on(table.orderId),
+    /** Item lookups scoped to the tenant (the financial search by product title). */
+    index("order_items_tenant_order_idx").on(table.tenantId, table.orderId),
     /** Units sold per listing ("mais vendidos", daily sales). */
     index("order_items_listing_target_idx").on(table.listingTargetId),
     /** Supplier reputation and reviews: from a page of suppliers to their sold items. */
