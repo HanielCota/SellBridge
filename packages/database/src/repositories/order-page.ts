@@ -50,7 +50,11 @@ async function orderHistory(
   order: Pick<OrderDetail, "id" | "status" | "orderedAt">,
 ): Promise<OrderHistoryEntry[]> {
   const rows = await database
-    .select({ status: sql<string>`${apiEvents.data} ->> 'status'`, at: apiEvents.createdAt })
+    .select({
+      type: apiEvents.type,
+      status: sql<string>`${apiEvents.data} ->> 'status'`,
+      at: apiEvents.createdAt,
+    })
     .from(apiEvents)
     .where(
       and(
@@ -62,7 +66,9 @@ async function orderHistory(
     .orderBy(asc(apiEvents.sequence));
   const history = rows.flatMap((row) => {
     const status = orders.status.enumValues.find((value) => value === row.status);
-    return status ? [{ status, at: row.at }] : [];
+    // The first step is the sale itself, dated when it happened, not when the sync recorded it.
+    const at = row.type === "order.created" ? order.orderedAt : row.at;
+    return status ? [{ status, at }] : [];
   });
   return history.length > 0 ? history : [{ status: order.status, at: order.orderedAt }];
 }

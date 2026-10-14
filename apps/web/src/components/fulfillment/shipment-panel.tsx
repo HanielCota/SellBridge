@@ -108,7 +108,8 @@ function ShipmentToolbar({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    // On the narrowest phones a long label wraps inside its button instead of overflowing.
+    <div className="flex flex-wrap gap-2 [&>*]:h-auto [&>*]:min-h-9 [&>*]:max-w-full [&>*]:py-1.5 [&>*]:whitespace-normal">
       <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
         Imprimir etiqueta de identificação
       </Button>

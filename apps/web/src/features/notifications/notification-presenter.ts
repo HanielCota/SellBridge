@@ -34,10 +34,7 @@ type OrderProblemEvent = Extract<
   { kind: "stock_shortage" | "shipment_cancelled" }
 >;
 
-/**
- * An order waiting on the reseller: what went wrong and what to do. Both lead to operations,
- * which lists the order; the order page (item 20) will take a direct link.
- */
+/** An order waiting on the reseller: what went wrong and what to do, on the order's page. */
 function orderProblem(
   event: OrderProblemEvent,
 ): Pick<AppNotification, "id" | "title" | "detail" | "href"> {
@@ -46,14 +43,14 @@ function orderProblem(
       id: `shortage:${event.entityId}`,
       title: `Falta estoque para o pedido #${event.externalOrderId}`,
       detail: `${event.productTitle}: o fornecedor está sem unidades. Combine com ele ou cancele a venda.`,
-      href: "/pedidos",
+      href: `/pedidos/${event.entityId}`,
     };
   }
   return {
     id: `shipment-cancelled:${event.shipmentId}`,
     title: `${event.supplierName} cancelou o envio do pedido #${event.externalOrderId}`,
     detail: `Motivo: ${event.reason.replace(/\.$/, "")}. Reencaminhe ao fornecedor ou cancele a venda.`,
-    href: "/pedidos",
+    href: `/pedidos/${event.entityId}`,
   };
 }
 

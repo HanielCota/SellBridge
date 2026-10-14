@@ -36,5 +36,10 @@ for (const theme of ["dark", "light"] as const) {
       await gotoHydrated(page, path);
       expect(await violations(page), path).toEqual([]);
     }
+    // An order page, reached the way the reseller reaches it: from the operations list.
+    await gotoHydrated(page, "/pedidos");
+    await page.locator('a[href^="/pedidos/"]').first().click();
+    await expect(page.getByRole("heading", { level: 1, name: /^Pedido / })).toBeVisible();
+    expect(await violations(page), "/pedidos/$orderId").toEqual([]);
   });
 }

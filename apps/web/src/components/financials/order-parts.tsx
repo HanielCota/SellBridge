@@ -1,4 +1,17 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
+
+/** An order's money, as both the financial report row and the order page carry it. */
+type OrderMoney = Pick<
+  OrderFinancialRow,
+  | "revenueCents"
+  | "costCents"
+  | "feeCents"
+  | "platformFeeCents"
+  | "refundCents"
+  | "returnCents"
+  | "commissionCents"
+  | "profitCents"
+>;
 import { formatCents } from "@sellbridge/shared/money";
 import { orderMargin, orderSplit, type OrderSplitKind } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
@@ -76,7 +89,7 @@ interface BreakdownEntry {
   color?: string;
 }
 
-function breakdownEntries(row: OrderFinancialRow): BreakdownEntry[] {
+function breakdownEntries(row: OrderMoney): BreakdownEntry[] {
   const entries: BreakdownEntry[] = [
     { label: "Produtos", cents: -row.costCents, color: SPLIT_COLORS.cost },
     { label: "Taxas", cents: -(row.feeCents + row.platformFeeCents), color: SPLIT_COLORS.fee },
@@ -87,7 +100,7 @@ function breakdownEntries(row: OrderFinancialRow): BreakdownEntry[] {
 }
 
 /** The order's arithmetic, line by line: what came in, each thing that went out, what was left. */
-export function OrderBreakdown({ row }: { row: OrderFinancialRow }) {
+export function OrderBreakdown({ row }: { row: OrderMoney }) {
   return (
     <dl className="grid gap-1.5 text-footnote">
       <div className="flex justify-between gap-4">

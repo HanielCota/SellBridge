@@ -323,3 +323,15 @@ Pelo link, o fornecedor avança até "Enviado" e registra ocorrências, mas não
 - **Link para a venda no Mercado Livre** (`marketplaceOrderUrl`): `mercadolivre.com.br/vendas/{id}/detalhe`, só para número de pedido numérico; loja simulada não tem link. O endereço não está na documentação lida e fica a homologar com a conta de teste.
 
 Revisão do item 07 (13/10): a trava depende de quem age (`"reseller" | "supplier"`, pelo escopo da conta ou do link), não do rótulo exibido no histórico; os rótulos (`SHIPMENT_ACTORS`) e a frase de quem confirma a entrega (`DELIVERY_CONFIRMED_BY`) vivem num lugar só, em `shared/schemas/fulfillment.ts`, e o aviso de envio cancelado do item 06 usa a mesma constante. Na tela do link, a frase vem antes da ocorrência e diz "a loja que fez a venda, ou o rastreio do Mercado Livre", sem o jargão "marketplace". Fica para depois (com o item 22): lembrar o revendedor de confirmar a entrega de um envio parado em "Enviado" numa loja sem rastreio automático.
+
+## 2026-10-13: Página do pedido (item 20.b)
+
+`/pedidos/$orderId` segue o esqueleto da página de chamado: link de volta, título com o selo de status, coluna principal e cartões laterais. A rota de Pedidos passou para `pedidos/index.tsx` para caber a página.
+
+- **Coluna principal:** itens (quantidade × preço e custo) e o envio, que é o mesmo `OrderOperations` do diálogo "Operar pedido" (encaminhar, painel com linha do tempo, link do fornecedor, reencaminhar), sem o número do pedido repetido.
+- **Lateral:** "Dinheiro" com o `OrderBreakdown` do Financeiro (o tipo passou a aceitar só os campos de dinheiro, que a linha do relatório e a página têm) e "Andamento do pedido" no desenho das outras linhas do tempo, o mais recente em cima. O primeiro passo usa a data da venda, não a hora em que a sincronização a gravou.
+- **No celular** o resumo (dinheiro e andamento) vem logo depois do título: no HTML ele vem antes da coluna principal, e o grid o leva para a direita no computador.
+- **Cortado do plano D0:** o cartão "Entrega" repetia o endereço que o painel do envio já mostra.
+- **Como se chega:** o número do pedido na aba Operação é link para a página, e os avisos de falta de estoque e de envio cancelado abrem a página do pedido.
+- **Acertos no painel do envio, que valem também para o diálogo:** os botões de impressão quebram linha em vez de transbordar em 320 px, e o bloco do link do fornecedor some quando o envio está encerrado e não há link novo (deixava um vão).
+- O transbordo de ~21 px em 1024 px vem do menu da conta no cabeçalho, igual em todas as páginas; ficou como tarefa separada.

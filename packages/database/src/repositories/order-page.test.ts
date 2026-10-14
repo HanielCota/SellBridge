@@ -120,6 +120,7 @@ describe("order page", () => {
       profitCents: 6300,
     });
     expect(page.history.map((entry) => entry.status)).toEqual(["paid", "shipped", "delivered"]);
+    expect(page.history[0]?.at).toEqual(incoming.orderedAt);
     const times = page.history.map((entry) => entry.at.getTime());
     expect(times).toEqual(times.toSorted((left, right) => left - right));
     expect(page.shipments).toHaveLength(1);

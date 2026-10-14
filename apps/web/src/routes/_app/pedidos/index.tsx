@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 
 type OrderReviewRow = Awaited<ReturnType<typeof listOrderReviews>>["items"][number];
 
-export const Route = createFileRoute("/_app/pedidos")({
+export const Route = createFileRoute("/_app/pedidos/")({
   validateSearch: orderReviewSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
