@@ -136,7 +136,10 @@ const expectedObjects = {
   foreignKeys: PUBLIC_API_FOREIGN_KEYS.toSorted(),
 };
 
-describe("migrations", () => {
+/** Each test creates databases and runs every migration: far slower than a query. */
+const MIGRATION_TEST_TIMEOUT = 60_000;
+
+describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
   it("M1: a new database takes every migration, and a second run changes nothing", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);
