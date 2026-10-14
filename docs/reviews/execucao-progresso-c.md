@@ -4,12 +4,12 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 
 ## Em andamento
 
-- Item/parte: 08.a · Sync ignora inativos e fora da cobertura
-- Última etapa concluída: 8 · Documentar (aguardando ⏸3)
-- Próximo passo: etapa 9 · commit local após OK do ⏸3
-- Arquivos tocados: ver `git status` (shared/domain/catalog-availability, sql/supplier-coverage, listings, suppliers, publish-listing, suppliers.server, region.functions, testes, docs)
-- Decisões tomadas nos pontos de parada: ⏸1 aprovado (revendedor sem CEP conta como coberto; não mexer em customers.functions.ts por causa do chat B)
-- Pendências: —
+- Item/parte: 08.b · Desativar pausa, sincroniza, notifica, audita e tem e2e
+- Última etapa concluída: — (08.a ✅ b2a3331)
+- Próximo passo: etapa 1 · ler o item 08.b e o fluxo de desativação no admin
+- Arquivos tocados: —
+- Decisões tomadas nos pontos de parada: usuário aprovou o ⏸3 do 08.a
+- Pendências: troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
 
 ## Linha de base
 
@@ -23,23 +23,23 @@ Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit | Notas                               |
-| ---- | ---------------------------------------------- | -------- | ------ | ----------------------------------- |
-| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C        |
-| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ (commit pendente) · 08.b ⬜ |
-| 09   | Lucro correto                                  | ⬜       | —      |                                     |
-| 10   | Segurança de contas e da equipe                | ⬜       | —      |                                     |
-| 13   | Erros de publicação claros                     | ⬜       | —      |                                     |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                                     |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                                     |
-| 16   | Riscos da assinatura                           | ⬜       | —      |                                     |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                                     |
+| Item | Título                                         | Situação | Commit | Notas                        |
+| ---- | ---------------------------------------------- | -------- | ------ | ---------------------------- |
+| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C |
+| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ⬜    |
+| 09   | Lucro correto                                  | ⬜       | —      |                              |
+| 10   | Segurança de contas e da equipe                | ⬜       | —      |                              |
+| 13   | Erros de publicação claros                     | ⬜       | —      |                              |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                              |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                              |
+| 16   | Riscos da assinatura                           | ⬜       | —      |                              |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                              |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
-### 2026-10-13 · Item 08.a · Produto indisponível fora do marketplace — ✅ concluído (commit local)
+### 2026-10-13 · Item 08.a · Produto indisponível fora do marketplace — ✅ concluído (b2a3331, commit local)
 
 - A sincronização manda estoque 0 (preço normal) para produto ou fornecedor inativo e para fornecedor que não cobre a região do dono do anúncio; revendedor sem CEP conta como coberto (⏸1). Regra em `shared/domain/catalog-availability.ts`; SQL em `repositories/sql/supplier-coverage.ts` (`coversRegion` saiu de `suppliers.ts`, `sellableOnMarketplace`).
 - Publicação na fila de produto indisponível falha de vez, sem chamar o marketplace, com a frase do motivo. Salvar fornecedor, ativar/desativar produto ou fornecedor e trocar o CEP disparam a sincronização na hora.
