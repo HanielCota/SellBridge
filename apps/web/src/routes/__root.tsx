@@ -51,7 +51,14 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
+        {/*
+          The function's source text differs between the server and the client bundles; the
+          script already ran from the server HTML, so the client's copy is never used.
+        */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: assetRecoveryScript }}
+        />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <HeadContent />
       </head>

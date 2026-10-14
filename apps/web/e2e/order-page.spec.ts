@@ -16,7 +16,13 @@ const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const externalId = `E2E-PAGE-${randomUUID()}`;
 let orderId = "";
 
-test.beforeAll(async () => {
+type SeedOrder = Pick<
+  typeof orders.$inferInsert,
+  "externalOrderId" | "status" | "buyerName" | "orderedAt" | "deliveredAt"
+>;
+
+/** One R$ 99,00 order of the demo tenant with a single item of a seeded product. */
+async function insertOrder(order: SeedOrder): Promise<string> {
   const [tenant] = await database
     .select()
     .from(organization)
@@ -28,29 +34,35 @@ test.beforeAll(async () => {
     .where(eq(storeConnections.tenantId, tenant.id));
   const [product] = await database.select().from(supplierProducts).limit(1);
   if (!store || !product) throw new Error("Seed catalog missing");
-  const [order] = await database
+  const [created] = await database
     .insert(orders)
     .values({
+      ...order,
       tenantId: tenant.id,
       storeConnectionId: store.id,
-      externalOrderId: externalId,
-      status: "paid",
       totalCents: 9900,
       marketplaceFeeCents: 1300,
-      buyerName: "Juliana Costa",
-      orderedAt: new Date(),
     })
     .returning();
-  if (!order) throw new Error("Order missing");
-  orderId = order.id;
+  if (!created) throw new Error("Order missing");
   await database.insert(orderItems).values({
     tenantId: tenant.id,
-    orderId,
+    orderId: created.id,
     supplierProductId: product.id,
     title: product.title,
     quantity: 1,
     unitPriceCents: 9900,
     unitCostCents: product.costCents,
+  });
+  return created.id;
+}
+
+test.beforeAll(async () => {
+  orderId = await insertOrder({
+    externalOrderId: externalId,
+    status: "paid",
+    buyerName: "Juliana Costa",
+    orderedAt: new Date(),
   });
 });
 
@@ -81,11 +93,11 @@ test("opens an order from operations with its items, money, progress and shippin
   await expect(
     page.getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Pedidos" }).first().click();
+  await page.getByRole("main").getByRole("link", { name: "Pedidos", exact: true }).click();
   await expect(page).toHaveURL(/\/pedidos(\?|$)/);
 });
 
-test("says an order of another account does not exist", async ({ page }) => {
+test("says an unknown order does not exist", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/pedidos/${randomUUID()}`);
   await expect(page.getByText("Pedido não encontrado")).toBeVisible();

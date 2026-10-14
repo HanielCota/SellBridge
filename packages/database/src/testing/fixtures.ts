@@ -101,3 +101,15 @@ export function testStoreInput(tenantId: string, shopId: string) {
     expiresAt: new Date(Date.now() + 3_600_000),
   };
 }
+
+/** A complete delivery address, as the reseller fills it to forward an order. */
+export const testAddress = {
+  recipient: "Maria Silva",
+  street: "Rua das Flores",
+  number: "10",
+  complement: "",
+  neighborhood: "Centro",
+  city: "São Paulo",
+  state: "SP",
+  postalCode: "01001-000",
+};

@@ -8,6 +8,7 @@ const detail: OrderDetail = {
   externalOrderId: "ML-1",
   storeConnectionId: "store-1",
   storeName: "Loja da Ana",
+  marketplace: "mercado_livre",
   status: "delivered",
   totalCents: 10_000,
   marketplaceFeeCents: 1400,

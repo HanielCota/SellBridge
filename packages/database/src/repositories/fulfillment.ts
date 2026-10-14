@@ -11,6 +11,7 @@ import {
   type MarketplaceTrackingStatus,
   SETTLED_FULFILLMENT_STATUSES,
   SHIPMENT_ACTORS,
+  type ShipmentOperator,
   type operationsSearchSchema,
   type shipmentUpdateSchema,
 } from "@sellbridge/shared/schemas";
@@ -403,7 +404,7 @@ async function writeShipmentStatus(
   tx: Transaction,
   shipment: typeof orderShipments.$inferSelect,
   input: z.infer<typeof shipmentUpdateSchema>,
-  by: "reseller" | "supplier",
+  by: ShipmentOperator,
 ) {
   // A delivery the supplier declares about itself is not proof: it releases the reseller's review
   // and, later, the supplier's payment. Only the marketplace or the reseller confirms it.

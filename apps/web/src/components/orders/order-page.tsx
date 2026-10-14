@@ -3,15 +3,16 @@ import { ORDER_STATUS_LABELS } from "@sellbridge/shared/schemas";
 import { ArrowLeftIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { SmartDate } from "@/components/data/smart-date";
 import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
 import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
+import { displayBuyerName } from "@/features/orders/buyer-name";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { displayStoreName } from "@/features/stores/store-name";
-import { cn } from "@/lib/utils";
 
 type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
 
@@ -19,16 +20,20 @@ type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
 function PageSection({
   id,
   title,
-  className,
+  card = false,
   children,
 }: {
   id: string;
   title: string;
-  className?: string;
+  /** On its own card, like the summaries; the shipping block keeps the page's background. */
+  card?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className={className}>
+    <section
+      aria-labelledby={id}
+      className={card ? "surface-card rounded-3xl bg-card p-5" : undefined}
+    >
       <h2 id={id} className="mb-3 text-xs text-muted-foreground">
         {title}
       </h2>
@@ -43,13 +48,15 @@ function OrderHeader({ page }: { page: OrderPageData }) {
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance break-all">
-            Pedido {order.externalOrderId}
+          {/* The order number never breaks at its hyphens; only a very long one wraps anywhere. */}
+          <h1 className="min-w-0 text-2xl font-semibold tracking-tight">
+            Pedido{" "}
+            <span className="inline-block max-w-full break-all">{order.externalOrderId}</span>
           </h1>
           <OrderStatusBadge status={order.status} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {displayStoreName(order.storeName)} · {order.buyerName ?? "Comprador não informado"} ·{" "}
+          {displayStoreName(order.storeName)} · {displayBuyerName(order.buyerName)} ·{" "}
           <SmartDate date={order.orderedAt} />
         </p>
       </div>
@@ -68,7 +75,7 @@ function OrderHeader({ page }: { page: OrderPageData }) {
 /** What was sold: each line with its price and what the supplier charges for it. */
 function OrderItems({ items }: { items: OrderPageData["order"]["items"] }) {
   return (
-    <PageSection id="order-items" title="Itens" className="surface-card rounded-3xl bg-card p-5">
+    <PageSection id="order-items" title="Itens" card>
       <ul className="divide-y">
         {items.map((item) => (
           <li
@@ -95,24 +102,17 @@ function OrderItems({ items }: { items: OrderPageData["order"]["items"] }) {
 /** Each status the order went through, newest first, like the shipment's own timeline. */
 function OrderProgress({ history }: { history: OrderPageData["history"] }) {
   return (
-    <ol className="relative space-y-3 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3px] before:w-px before:bg-border">
+    <DotTimeline>
       {history.toReversed().map((entry) => (
-        <li
-          key={`${entry.status}-${new Date(entry.at).getTime()}`}
-          className="relative grid grid-cols-[7px_minmax(0,1fr)_auto] gap-3"
+        <DotTimelineItem
+          key={`${entry.status}-${entry.at.getTime()}`}
+          dotClassName={TONE_DOT_CLASSES[ORDER_TONES[entry.status]]}
+          date={entry.at}
         >
-          <span
-            aria-hidden="true"
-            className={cn(
-              "mt-1.5 size-[7px] rounded-full ring-2 ring-card",
-              TONE_DOT_CLASSES[ORDER_TONES[entry.status]],
-            )}
-          />
-          <span className="text-footnote text-foreground">{ORDER_STATUS_LABELS[entry.status]}</span>
-          <SmartDate date={entry.at} className="text-footnote text-muted-foreground" />
-        </li>
+          <span className="text-foreground">{ORDER_STATUS_LABELS[entry.status]}</span>
+        </DotTimelineItem>
       ))}
-    </ol>
+    </DotTimeline>
   );
 }
 
@@ -122,18 +122,10 @@ function OrderAside({ page }: { page: OrderPageData }) {
       className="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1"
       aria-label="Sobre o pedido"
     >
-      <PageSection
-        id="order-money"
-        title="Dinheiro"
-        className="surface-card rounded-3xl bg-card p-5"
-      >
+      <PageSection id="order-money" title="Dinheiro" card>
         <OrderBreakdown row={page.finance} />
       </PageSection>
-      <PageSection
-        id="order-progress"
-        title="Andamento do pedido"
-        className="surface-card rounded-3xl bg-card p-5"
-      >
+      <PageSection id="order-progress" title="Andamento do pedido" card>
         <OrderProgress history={page.history} />
       </PageSection>
     </aside>
@@ -157,7 +149,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
           <OrderItems items={page.order.items} />
           <PageSection id="order-shipping" title="Envio">
-            <OrderOperations orderId={page.order.id} showOrderNumber={false} />
+            <OrderOperations orderId={page.order.id} />
           </PageSection>
         </div>
       </div>

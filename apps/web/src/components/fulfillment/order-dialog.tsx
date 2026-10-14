@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { type ComponentProps, type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deliveryAddressSchema,
@@ -35,27 +35,27 @@ type Detail = Awaited<
   ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").getFulfillmentFn>
 >;
 export function FulfillmentDialog({
-  orderId,
+  order,
   onClose,
 }: {
-  orderId: string | null;
+  order: { id: string; externalOrderId: string } | null;
   onClose: () => void;
 }) {
   return (
     <Dialog
-      open={Boolean(orderId)}
+      open={Boolean(order)}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Operar pedido</DialogTitle>
+          <DialogTitle>Operar pedido {order?.externalOrderId}</DialogTitle>
           <DialogDescription>
             Encaminhe ao fornecedor e acompanhe cada volume até a entrega.
           </DialogDescription>
         </DialogHeader>
-        {orderId ? <OrderOperations key={orderId} orderId={orderId} /> : null}
+        {order ? <OrderOperations key={order.id} orderId={order.id} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -103,17 +103,8 @@ function ShipmentList({
     </ShipmentPanel>
   ));
 }
-/**
- * Forwarding and every parcel of one order, with the reseller's controls. The dialog shows it
- * under the order number; the order page, which has its own heading, without it.
- */
-export function OrderOperations({
-  orderId,
-  showOrderNumber = true,
-}: {
-  orderId: string;
-  showOrderNumber?: boolean;
-}) {
+/** Forwarding and every parcel of one order, with the reseller's controls. */
+export function OrderOperations({ orderId }: { orderId: string }) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
   const client = useQueryClient();
   const [links, setLinks] = useState<Record<string, string>>({});
@@ -135,18 +126,16 @@ export function OrderOperations({
   const blocked = ["cancelled", "returned", "pending"].includes(detail.order.status);
   return (
     <div className="space-y-5">
-      {showOrderNumber ? (
-        <p className="font-medium">Pedido {detail.order.externalOrderId}</p>
-      ) : null}
       <MarketplaceTools detail={detail} onRefresh={refresh} />
       {blocked ? (
         <p className="text-sm text-destructive">
           Pedido sem liberação para envio: pagamento pendente, cancelamento ou devolução.
         </p>
       ) : null}
-      {detail.shipments.length === 0 ? (
+      {detail.shipments.length === 0 && !blocked ? (
         <ForwardForm detail={detail} onForwarded={onForwarded} />
-      ) : (
+      ) : null}
+      {detail.shipments.length > 0 ? (
         <ShipmentList
           detail={detail}
           blocked={blocked}
@@ -154,7 +143,7 @@ export function OrderOperations({
           setLinks={setLinks}
           refresh={refresh}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -279,6 +268,17 @@ const ADDRESS_LABELS: Record<keyof DeliveryAddress, string> = {
   state: "UF",
   postalCode: "CEP",
 };
+/**
+ * Limits and the phone keyboard for the fields that need them (a house number can be "s/n", so it
+ * keeps the full keyboard). Autofill stays off: the browser would offer the reseller's own
+ * addresses, and this is the buyer's.
+ */
+const ADDRESS_INPUTS: Partial<
+  Record<keyof DeliveryAddress, Pick<ComponentProps<"input">, "inputMode" | "maxLength">>
+> = {
+  state: { maxLength: 2 },
+  postalCode: { inputMode: "numeric", maxLength: 9 },
+};
 function ForwardForm({
   detail,
   onForwarded,
@@ -320,8 +320,10 @@ function ForwardForm({
           Todos os itens precisam estar vinculados a fornecedores antes do encaminhamento.
         </p>
       ) : null}
+      {/* The label is long: on a narrow phone it wraps inside the button instead of overflowing. */}
       <Button
         type="submit"
+        className="h-auto min-h-9 w-full py-2 text-balance whitespace-normal sm:w-auto"
         disabled={forward.isPending || unmapped || detail.order.status !== "paid"}
       >
         {forward.isPending ? "Encaminhando…" : "Criar ordens e encaminhar aos fornecedores"}
@@ -434,6 +436,8 @@ function AddressFields({
         <Field
           key={key}
           label={ADDRESS_LABELS[key]}
+          autoComplete="off"
+          {...ADDRESS_INPUTS[key]}
           value={address[key]}
           onChange={(value) => onChange(key, key === "state" ? value.toUpperCase() : value)}
         />
@@ -449,17 +453,13 @@ function MarketplaceTools({
   detail: Detail;
   onRefresh: () => Promise<void>;
 }) {
+  if (detail.order.marketplace === "mercado_livre") {
+    return <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />;
+  }
   return (
-    <>
-      {" "}
-      {detail.order.marketplace === "mercado_livre" ? (
-        <MarketplaceActions orderId={detail.order.id} onRefresh={onRefresh} />
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Registre transportadora e rastreio em cada envio. A etiqueta de postagem é emitida pela
-          transportadora contratada.
-        </p>
-      )}
-    </>
+    <p className="text-xs text-muted-foreground">
+      Registre transportadora e rastreio em cada envio. A etiqueta de postagem é emitida pela
+      transportadora contratada.
+    </p>
   );
 }

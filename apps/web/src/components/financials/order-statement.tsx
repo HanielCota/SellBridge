@@ -14,6 +14,7 @@ import {
   formatDayHeading,
   groupOrdersByDay,
 } from "@/features/reports/financial-rows";
+import { displayBuyerName } from "@/features/orders/buyer-name";
 import { displayStoreName } from "@/features/stores/store-name";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,7 @@ function OrderDetail({ row }: { row: OrderFinancialRow }) {
         <p className="text-xs text-muted-foreground">
           {formatAbsoluteTime(row.orderedAt)}
           {" · "}
-          {row.buyerName ?? "Comprador não informado"}
+          {displayBuyerName(row.buyerName)}
           {margin ? ` · margem ${margin}` : null}
         </p>
       </div>

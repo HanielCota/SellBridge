@@ -316,9 +316,9 @@ Pelo link, o fornecedor avança até "Enviado" e registra ocorrências, mas não
 
 ## 2026-10-13: Dados da página do pedido (item 20.a)
 
-`getOrderPage` (`repositories/order-page.ts`) junta, para um pedido da conta, o que a página `/pedidos/$orderId` mostra: o pedido com itens e ajustes (`getOrderDetail`), o dinheiro pela mesma regra do Financeiro (`computeOrderFinance`, com a taxa da plataforma do ambiente), a linha do tempo de status, os envios com histórico (`getFulfillmentDetail`) e a avaliação de cada fornecedor do pedido. Pedido de outra conta responde "não encontrado".
+`getOrderPage` (`repositories/order-page.ts`) junta, para um pedido da conta, o que a página `/pedidos/$orderId` mostra: o pedido com itens e ajustes (`getOrderDetail`), o dinheiro pela mesma regra do Financeiro (`computeOrderFinance`, com a taxa da plataforma do ambiente), a linha do tempo de status e a avaliação de cada fornecedor do pedido. Os envios ficam com a própria consulta do painel (`getFulfillmentDetail`), que a página já usa. Pedido de outra conta responde "não encontrado".
 
-- **Linha do tempo** vem dos eventos `order.created` e `order.status_changed` que cada mudança já grava (`api_events`). Pedido sincronizado antes desses eventos aparece como um passo só, no status atual e na data do pedido.
+- **Linha do tempo** vem de `order_status_changes` (migration 0022): uma linha por status, gravada na mesma transação da venda (na data da venda) e de cada mudança, pela sincronização ou pelos envios. Não usa `api_events`, que o worker apaga depois de 30 dias: o histórico de um pedido antigo sumiria ou começaria no meio. A migration copiou o que ainda havia nos eventos; pedido sem nenhuma linha aparece como um passo só, no status atual e na data do pedido.
 - **Avaliação** usa `canReviewOrder`, a regra da aba de avaliações, para as duas telas dizerem o mesmo do mesmo pedido.
 - **Link para a venda no Mercado Livre** (`marketplaceOrderUrl`): `mercadolivre.com.br/vendas/{id}/detalhe`, só para número de pedido numérico; loja simulada não tem link. O endereço não está na documentação lida e fica a homologar com a conta de teste.
 
@@ -328,7 +328,7 @@ Revisão do item 07 (13/10): a trava depende de quem age (`"reseller" | "supplie
 
 `/pedidos/$orderId` segue o esqueleto da página de chamado: link de volta, título com o selo de status, coluna principal e cartões laterais. A rota de Pedidos passou para `pedidos/index.tsx` para caber a página.
 
-- **Coluna principal:** itens (quantidade × preço e custo) e o envio, que é o mesmo `OrderOperations` do diálogo "Operar pedido" (encaminhar, painel com linha do tempo, link do fornecedor, reencaminhar), sem o número do pedido repetido.
+- **Coluna principal:** itens (quantidade × preço e custo) e o envio, que é o mesmo `OrderOperations` do diálogo "Operar pedido" (encaminhar, painel com linha do tempo, link do fornecedor, reencaminhar). O número do pedido fica com quem mostra: o título do diálogo, o cabeçalho da página. Pedido bloqueado (pendente, cancelado, devolvido) sem envio mostra só o aviso, sem o formulário de encaminhar.
 - **Lateral:** "Dinheiro" com o `OrderBreakdown` do Financeiro (o tipo passou a aceitar só os campos de dinheiro, que a linha do relatório e a página têm) e "Andamento do pedido" no desenho das outras linhas do tempo, o mais recente em cima. O primeiro passo usa a data da venda, não a hora em que a sincronização a gravou.
 - **No celular** o resumo (dinheiro e andamento) vem logo depois do título: no HTML ele vem antes da coluna principal, e o grid o leva para a direita no computador.
 - **Cortado do plano D0:** o cartão "Entrega" repetia o endereço que o painel do envio já mostra.

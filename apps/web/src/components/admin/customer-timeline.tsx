@@ -1,7 +1,6 @@
 import type { AdminEvent } from "@sellbridge/database/repositories";
-import { SmartDate } from "@/components/data/smart-date";
+import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { describeAdminEvent } from "@/features/admin/admin-actions";
-import { cn } from "@/lib/utils";
 
 interface TimelineItem {
   key: string;
@@ -63,23 +62,13 @@ export function CustomerTimeline({
 }) {
   const items = timelineItems(customer, events).slice(0, VISIBLE_ITEMS);
   return (
-    <ol className="relative space-y-3 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3px] before:w-px before:bg-border">
+    <DotTimeline>
       {items.map((item) => (
-        <li key={item.key} className="relative grid grid-cols-[7px_minmax(0,1fr)_auto] gap-3">
-          <span
-            aria-hidden="true"
-            className={cn(
-              "mt-1.5 size-[7px] rounded-full ring-2 ring-card",
-              DOT_CLASSES[item.tone],
-            )}
-          />
-          <span className="min-w-0 text-footnote">
-            <span className="block text-foreground">{item.label}</span>
-            {item.by ? <span className="block text-muted-foreground">por {item.by}</span> : null}
-          </span>
-          <SmartDate date={item.date} className="text-footnote text-muted-foreground" />
-        </li>
+        <DotTimelineItem key={item.key} dotClassName={DOT_CLASSES[item.tone]} date={item.date}>
+          <span className="block text-foreground">{item.label}</span>
+          {item.by ? <span className="block text-muted-foreground">por {item.by}</span> : null}
+        </DotTimelineItem>
       ))}
-    </ol>
+    </DotTimeline>
   );
 }

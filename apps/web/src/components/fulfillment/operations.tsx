@@ -14,15 +14,33 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
+import { displayBuyerName } from "@/features/orders/buyer-name";
 import { errorMessage } from "@/lib/errors";
 import { FulfillmentDialog } from "./order-dialog";
 
 type Search = z.infer<typeof operationsSearchSchema>;
+type OperationRowData = Awaited<
+  ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").listOperationsFn>
+>["items"][number];
+
+const STAGE_OPTIONS: { value: Search["stage"]; label: string }[] = [
+  { value: "all", label: "Todas as etapas" },
+  { value: "unforwarded", label: "Pagos para encaminhar" },
+  ...FULFILLMENT_STATUSES.map((status) => ({ value: status, label: FULFILLMENT_LABELS[status] })),
+];
+
 export function Operations() {
   const [search, setSearch] = useState<Search>({ query: "", stage: "all", page: 1 });
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [opened, setOpened] = useState<OperationRowData | null>(null);
   const query = useQuery(operationsQueryOptions(search));
   return (
     <section className="space-y-4" aria-label="Operação dos pedidos">
@@ -38,7 +56,7 @@ export function Operations() {
             aria-busy={query.isFetching}
           >
             {query.data.items.map((row) => (
-              <OperationRow key={row.id} row={row} onOpen={setOrderId} />
+              <OperationRow key={row.id} row={row} onOpen={setOpened} />
             ))}
           </ul>
           {query.data.items.length === 0 ? (
@@ -55,7 +73,7 @@ export function Operations() {
           />
         </>
       )}
-      <FulfillmentDialog orderId={orderId} onClose={() => setOrderId(null)} />
+      <FulfillmentDialog order={opened} onClose={() => setOpened(null)} />
     </section>
   );
 }
@@ -83,26 +101,29 @@ function OperationFilters({
         onChange={(event) => setDraft(event.target.value)}
         className="max-w-sm"
       />
-      <select
-        aria-label="Etapa operacional"
-        className="rounded-lg border border-input bg-background px-3 text-sm"
+      <Select
         value={search.stage}
-        onChange={(event) =>
+        onValueChange={(stage) =>
           setSearch((previous) => ({
             ...previous,
-            stage: operationsSearchSchema.shape.stage.parse(event.target.value),
+            stage: operationsSearchSchema.shape.stage.parse(stage),
             page: 1,
           }))
         }
       >
-        <option value="all">Todas as etapas</option>
-        <option value="unforwarded">Pagos para encaminhar</option>
-        {FULFILLMENT_STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {FULFILLMENT_LABELS[status]}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Etapa operacional">
+          <SelectValue>
+            {STAGE_OPTIONS.find((option) => option.value === search.stage)?.label}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {STAGE_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button variant="outline" type="submit">
         Buscar
       </Button>
@@ -114,10 +135,8 @@ function OperationRow({
   row,
   onOpen,
 }: {
-  row: Awaited<
-    ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").listOperationsFn>
-  >["items"][number];
-  onOpen: (orderId: string) => void;
+  row: OperationRowData;
+  onOpen: (row: OperationRowData) => void;
 }) {
   return (
     <li className="flex flex-wrap items-center gap-3 py-4">
@@ -133,8 +152,7 @@ function OperationRow({
           </Link>
         </p>
         <p className="text-xs text-muted-foreground">
-          {row.buyerName ?? "Comprador não informado"} · {row.storeName} ·{" "}
-          <SmartDate date={row.orderedAt} />
+          {displayBuyerName(row.buyerName)} · {row.storeName} · <SmartDate date={row.orderedAt} />
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {row.shipments.length
@@ -150,7 +168,7 @@ function OperationRow({
         <OrderStatusBadge status={row.status} />
         {row.stockShort ? <ToneStatus tone="warning" label="Falta estoque" /> : null}
       </div>
-      <Button variant="outline" onClick={() => onOpen(row.id)}>
+      <Button variant="outline" onClick={() => onOpen(row)}>
         Operar pedido
       </Button>
     </li>

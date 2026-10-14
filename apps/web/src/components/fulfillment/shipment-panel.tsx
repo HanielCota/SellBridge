@@ -7,17 +7,17 @@ import {
   type DeliveryAddress,
   type FulfillmentStatus,
   SETTLED_FULFILLMENT_STATUSES,
+  type ShipmentOperator,
 } from "@sellbridge/shared/schemas";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { SmartDate } from "@/components/data/smart-date";
+import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/errors";
-import { cn } from "@/lib/utils";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
 
@@ -33,10 +33,12 @@ export interface ShipmentView {
   trackingUrl: string | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
-type ShipmentActor = "reseller" | "supplier";
 
 /** The supplier's part ends at dispatch: the marketplace or the reseller confirms the delivery. */
-function nextStepFor(status: FulfillmentStatus, actsAs: ShipmentActor): FulfillmentStatus | null {
+function nextStepFor(
+  status: FulfillmentStatus,
+  actsAs: ShipmentOperator,
+): FulfillmentStatus | null {
   const next = FULFILLMENT_NEXT[status];
   return actsAs === "supplier" && next === "delivered" ? null : next;
 }
@@ -53,7 +55,7 @@ export function ShipmentPanel({
   externalOrderId: string;
   blocked?: boolean;
   /** Who works the panel: the supplier (by link) cannot declare the delivery. */
-  actsAs?: ShipmentActor;
+  actsAs?: ShipmentOperator;
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
@@ -207,19 +209,22 @@ function ShipmentActions(props: {
     </div>
   );
 }
+
+/** A labelled text field; the rest of the input's attributes (autocomplete, keyboard) pass through. */
 export function Field({
   label,
   value,
   onChange,
+  ...inputProps
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-}) {
+} & Omit<ComponentProps<typeof Input>, "value" | "onChange">) {
   return (
     <Label className="grid gap-2">
       {label}
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input {...inputProps} value={value} onChange={(event) => onChange(event.target.value)} />
     </Label>
   );
 }
@@ -311,30 +316,21 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
 function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
   return (
     <div className="border-t pt-4">
-      <ol
-        aria-label="Histórico do envio"
-        className="relative space-y-3 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3px] before:w-px before:bg-border"
-      >
+      <DotTimeline label="Histórico do envio">
         {shipmentTimeline(shipment.events).map((event) => (
-          <li key={event.id} className="relative grid grid-cols-[7px_minmax(0,1fr)_auto] gap-3">
-            <span
-              aria-hidden="true"
-              className={cn(
-                "mt-1.5 size-[7px] rounded-full ring-2 ring-card",
-                TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]],
-              )}
-            />
-            <span className="min-w-0 text-footnote">
-              <span className="block text-foreground">{FULFILLMENT_LABELS[event.status]}</span>
-              <span className="block text-muted-foreground">por {event.actor}</span>
-              {event.note ? (
-                <span className="block break-words text-muted-foreground">{event.note}</span>
-              ) : null}
-            </span>
-            <SmartDate date={event.createdAt} className="text-footnote text-muted-foreground" />
-          </li>
+          <DotTimelineItem
+            key={event.id}
+            dotClassName={TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]]}
+            date={event.createdAt}
+          >
+            <span className="block text-foreground">{FULFILLMENT_LABELS[event.status]}</span>
+            <span className="block text-muted-foreground">por {event.actor}</span>
+            {event.note ? (
+              <span className="block break-words text-muted-foreground">{event.note}</span>
+            ) : null}
+          </DotTimelineItem>
         ))}
-      </ol>
+      </DotTimeline>
     </div>
   );
 }

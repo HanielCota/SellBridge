@@ -1,26 +1,10 @@
 import { computeOrderFinance, type OrderFinance } from "@sellbridge/shared/finance";
 import { canReviewOrder } from "@sellbridge/shared/supplier-score";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import {
-  apiEvents,
-  orderItems,
-  orders,
-  storeConnections,
-  supplierProducts,
-  supplierReviews,
-  suppliers,
-} from "../schema/index.ts";
-import { getFulfillmentDetail } from "./fulfillment.ts";
+import { orderItems, supplierProducts, supplierReviews, suppliers } from "../schema/index.ts";
 import { getOrderDetail, type OrderDetail } from "./order-detail.ts";
-
-type OrderStatus = (typeof orders.$inferSelect)["status"];
-type Marketplace = (typeof storeConnections.$inferSelect)["marketplace"];
-
-export interface OrderHistoryEntry {
-  status: OrderStatus;
-  at: Date;
-}
+import { listOrderStatusChanges, type OrderStatusChange } from "./order-status-changes.ts";
 
 /** The order's review of one of its suppliers. */
 export interface OrderSupplierReview {
@@ -33,43 +17,22 @@ export interface OrderSupplierReview {
 }
 
 export interface OrderPage {
-  order: OrderDetail & { marketplace: Marketplace };
+  order: OrderDetail;
   finance: OrderFinance;
-  history: OrderHistoryEntry[];
-  shipments: Awaited<ReturnType<typeof getFulfillmentDetail>>["shipments"];
+  history: OrderStatusChange[];
   reviews: OrderSupplierReview[];
 }
 
 /**
- * Each status the order went through, oldest first, from the events recorded on every change.
- * An order synced before those events existed shows as one step: its status at its date.
+ * Each status the order went through, oldest first. An order stored before its changes were
+ * recorded shows as one step: its status at its date.
  */
 async function orderHistory(
   database: Database,
   tenantId: string,
   order: Pick<OrderDetail, "id" | "status" | "orderedAt">,
-): Promise<OrderHistoryEntry[]> {
-  const rows = await database
-    .select({
-      type: apiEvents.type,
-      status: sql<string>`${apiEvents.data} ->> 'status'`,
-      at: apiEvents.createdAt,
-    })
-    .from(apiEvents)
-    .where(
-      and(
-        eq(apiEvents.tenantId, tenantId),
-        sql`${apiEvents.type} in ('order.created', 'order.status_changed')`,
-        sql`${apiEvents.data} ->> 'orderId' = ${order.id}`,
-      ),
-    )
-    .orderBy(asc(apiEvents.sequence));
-  const history = rows.flatMap((row) => {
-    const status = orders.status.enumValues.find((value) => value === row.status);
-    // The first step is the sale itself, dated when it happened, not when the sync recorded it.
-    const at = row.type === "order.created" ? order.orderedAt : row.at;
-    return status ? [{ status, at }] : [];
-  });
+): Promise<OrderStatusChange[]> {
+  const history = await listOrderStatusChanges(database, tenantId, order.id);
   return history.length > 0 ? history : [{ status: order.status, at: order.orderedAt }];
 }
 
@@ -106,7 +69,7 @@ async function orderReviews(
 
 /**
  * Everything the order page shows, for one order of the tenant: the order and its items, its
- * money by the financial report's rule, its status history, its parcels and its supplier reviews.
+ * money by the financial report's rule, its status history and its supplier reviews.
  * Another tenant's order is not found.
  */
 export async function getOrderPage(
@@ -116,16 +79,14 @@ export async function getOrderPage(
   options: { platformFeeBasisPoints: number; now: Date },
 ): Promise<OrderPage> {
   const order = await getOrderDetail(database, tenantId, orderId);
-  const [fulfillment, history, reviews] = await Promise.all([
-    getFulfillmentDetail(database, tenantId, orderId),
+  const [history, reviews] = await Promise.all([
     orderHistory(database, tenantId, order),
     orderReviews(database, tenantId, order, options.now),
   ]);
   return {
-    order: { ...order, marketplace: fulfillment.order.marketplace },
+    order,
     finance: computeOrderFinance(order, options.platformFeeBasisPoints),
     history,
-    shipments: fulfillment.shipments,
     reviews,
   };
 }
