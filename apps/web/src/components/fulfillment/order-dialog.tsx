@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deliveryAddressSchema,
@@ -20,6 +20,7 @@ import { fulfillmentQueryOptions } from "@/features/fulfillment/fulfillment.quer
 import {
   forwardOrderFn,
   revokeSupplierLinkFn,
+  reforwardShipmentFn,
   rotateSupplierLinkFn,
   updateShipmentFn,
 } from "@/features/fulfillment/fulfillment.functions";
@@ -59,6 +60,49 @@ export function FulfillmentDialog({
     </Dialog>
   );
 }
+/** Each supplier's parcel, with the reseller's own controls: the link, and re-forwarding. */
+function ShipmentList({
+  detail,
+  blocked,
+  links,
+  setLinks,
+  refresh,
+}: {
+  detail: Detail;
+  blocked: boolean;
+  links: Record<string, string>;
+  setLinks: Dispatch<SetStateAction<Record<string, string>>>;
+  refresh: () => Promise<void>;
+}) {
+  return detail.shipments.map((shipment) => (
+    <ShipmentPanel
+      key={shipment.id}
+      shipment={shipment}
+      externalOrderId={detail.order.externalOrderId}
+      blocked={blocked}
+      onUpdate={async (input) => {
+        await updateShipmentFn({ data: input });
+        await refresh();
+      }}
+    >
+      {shipment.status === "cancelled" && !blocked ? (
+        <ReforwardButton
+          shipmentId={shipment.id}
+          onLink={async (url) => {
+            setLinks((previous) => ({ ...previous, [shipment.id]: url }));
+            await refresh();
+          }}
+        />
+      ) : null}
+      <SupplierLink
+        shipmentId={shipment.id}
+        url={links[shipment.id]}
+        closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
+        onLink={(url) => setLinks((previous) => ({ ...previous, [shipment.id]: url }))}
+      />
+    </ShipmentPanel>
+  ));
+}
 function OrderContent({ orderId }: { orderId: string }) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
   const client = useQueryClient();
@@ -90,25 +134,13 @@ function OrderContent({ orderId }: { orderId: string }) {
       {detail.shipments.length === 0 ? (
         <ForwardForm detail={detail} onForwarded={onForwarded} />
       ) : (
-        detail.shipments.map((shipment) => (
-          <ShipmentPanel
-            key={shipment.id}
-            shipment={shipment}
-            externalOrderId={detail.order.externalOrderId}
-            blocked={blocked}
-            onUpdate={async (input) => {
-              await updateShipmentFn({ data: input });
-              await refresh();
-            }}
-          >
-            <SupplierLink
-              shipmentId={shipment.id}
-              url={links[shipment.id]}
-              closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
-              onLink={(url) => setLinks((previous) => ({ ...previous, [shipment.id]: url }))}
-            />
-          </ShipmentPanel>
-        ))
+        <ShipmentList
+          detail={detail}
+          blocked={blocked}
+          links={links}
+          setLinks={setLinks}
+          refresh={refresh}
+        />
       )}
     </div>
   );
@@ -187,6 +219,29 @@ function SupplierLink({
       )}
       {url ? <CopySupplierLink url={url} /> : null}
     </div>
+  );
+}
+/** The one way forward for a parcel the supplier cancelled: send it again, with a new link. */
+function ReforwardButton({
+  shipmentId,
+  onLink,
+}: {
+  shipmentId: string;
+  onLink: (url: string) => Promise<void>;
+}) {
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const result = await reforwardShipmentFn({ data: { shipmentId } });
+      await onLink(new URL(`/fornecedor/pedido/${result.token}`, window.location.origin).href);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+    onSuccess: () =>
+      toast.success("Envio reencaminhado. Compartilhe o novo link com o fornecedor."),
+  });
+  return (
+    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+      Reencaminhar ao fornecedor
+    </Button>
   );
 }
 const ADDRESS_KEYS = [

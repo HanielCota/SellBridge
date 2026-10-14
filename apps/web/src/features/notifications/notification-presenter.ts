@@ -29,6 +29,34 @@ export interface PresentedNotifications {
   seenAt: Date | null;
 }
 
+type OrderProblemEvent = Extract<
+  NotificationEvent,
+  { kind: "stock_shortage" | "shipment_cancelled" }
+>;
+
+/**
+ * An order waiting on the reseller: what went wrong and what to do. Both lead to operations,
+ * which lists the order; the order page (item 20) will take a direct link.
+ */
+function orderProblem(
+  event: OrderProblemEvent,
+): Pick<AppNotification, "id" | "title" | "detail" | "href"> {
+  if (event.kind === "stock_shortage") {
+    return {
+      id: `shortage:${event.entityId}`,
+      title: `Falta estoque para o pedido #${event.externalOrderId}`,
+      detail: `${event.productTitle}: o fornecedor está sem unidades. Combine com ele ou cancele a venda.`,
+      href: "/pedidos",
+    };
+  }
+  return {
+    id: `shipment-cancelled:${event.shipmentId}`,
+    title: `${event.supplierName} cancelou o envio do pedido #${event.externalOrderId}`,
+    detail: `Motivo: ${event.reason.replace(/\.$/, "")}. Reencaminhe ao fornecedor ou cancele a venda.`,
+    href: "/pedidos",
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -61,14 +89,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         href: "/lojas",
       };
     case "stock_shortage":
-      return {
-        ...base,
-        id: `shortage:${event.entityId}`,
-        title: `Falta estoque para o pedido #${event.externalOrderId}`,
-        detail: `${event.productTitle}: o fornecedor está sem unidades. Combine com ele ou cancele a venda.`,
-        // The operations tab marks the order; the order page (item 20) will take a direct link.
-        href: "/pedidos",
-      };
+    case "shipment_cancelled":
+      return { ...base, ...orderProblem(event) };
     case "review_pending":
       return {
         ...base,

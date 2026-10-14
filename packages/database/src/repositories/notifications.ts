@@ -7,8 +7,11 @@ import {
   notificationReads,
   orderItems,
   orders,
+  orderShipments,
+  shipmentEvents,
   storeConnections,
   supplierProducts,
+  suppliers,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
@@ -17,6 +20,11 @@ import { daysBefore } from "./time-window.ts";
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
+/** Problems that stay in the list until resolved, whatever the user cleared. */
+const STANDING_KINDS: ReadonlySet<NotificationEvent["kind"]> = new Set([
+  "stock_shortage",
+  "shipment_cancelled",
+]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
 
@@ -72,6 +80,16 @@ export interface StockShortageEvent extends EventBase {
   productTitle: string;
 }
 
+/** A supplier cancelled its parcel of a paid order: re-forward it or cancel the sale. */
+export interface ShipmentCancelledEvent extends EventBase {
+  kind: "shipment_cancelled";
+  shipmentId: string;
+  externalOrderId: string;
+  supplierName: string;
+  /** What the supplier wrote when cancelling. */
+  reason: string;
+}
+
 /** Something that happened in the tenant and deserves the reseller's attention. */
 export type NotificationEvent =
   | SaleEvent
@@ -79,7 +97,8 @@ export type NotificationEvent =
   | StoreProblemEvent
   | SupportReplyEvent
   | ReviewPendingEvent
-  | StockShortageEvent;
+  | StockShortageEvent
+  | ShipmentCancelledEvent;
 
 export type NotificationKind = NotificationEvent["kind"];
 
@@ -160,6 +179,49 @@ async function saleProducts(
     });
   }
   return products;
+}
+
+/**
+ * Parcels of paid orders a supplier cancelled and nobody re-forwarded yet, oldest first. Only
+ * the supplier's own cancellation counts: the reseller already knows about theirs. Dated when
+ * the supplier cancelled.
+ */
+async function shipmentCancelledEvents(
+  database: Database,
+  tenantId: string,
+): Promise<ShipmentCancelledEvent[]> {
+  // The latest cancellation of each parcel: a re-forwarded parcel may have been cancelled before.
+  const rows = await database
+    .selectDistinctOn([orderShipments.id], {
+      shipmentId: orderShipments.id,
+      entityId: orders.id,
+      externalOrderId: orders.externalOrderId,
+      supplierName: suppliers.name,
+      at: shipmentEvents.createdAt,
+      actor: shipmentEvents.actor,
+      reason: shipmentEvents.note,
+    })
+    .from(orderShipments)
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .innerJoin(
+      shipmentEvents,
+      and(eq(shipmentEvents.shipmentId, orderShipments.id), eq(shipmentEvents.status, "cancelled")),
+    )
+    .where(
+      and(
+        eq(orderShipments.tenantId, tenantId),
+        eq(orders.tenantId, tenantId),
+        eq(orderShipments.status, "cancelled"),
+        eq(orders.status, "paid"),
+      ),
+    )
+    .orderBy(asc(orderShipments.id), desc(shipmentEvents.createdAt));
+  return rows
+    .filter((row) => row.actor === "Fornecedor")
+    .toSorted((left, right) => left.at.getTime() - right.at.getTime())
+    .slice(0, PER_KIND)
+    .map(({ actor: _actor, ...row }) => ({ ...row, kind: "shipment_cancelled" as const }));
 }
 
 /**
@@ -297,23 +359,33 @@ export async function listNotificationEvents(
   database: Database,
   input: { tenantId: string; userId: string; reviewableSince: Date },
 ): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [sales, shortages, listingErrors, stores, support, reviews, read] = await Promise.all([
-    saleEvents(database, input.tenantId),
-    stockShortageEvents(database, input.tenantId),
-    listingErrorEvents(database, input.tenantId),
-    storeProblemEvents(database, input.tenantId),
-    supportReplyEvents(database, input),
-    reviewPendingEvents(database, input.tenantId, input.reviewableSince),
-    readState(database, input),
-  ]);
-  const events = [...sales, ...shortages, ...listingErrors, ...stores, ...support, ...reviews];
+  const [sales, shortages, cancelled, listingErrors, stores, support, reviews, read] =
+    await Promise.all([
+      saleEvents(database, input.tenantId),
+      stockShortageEvents(database, input.tenantId),
+      shipmentCancelledEvents(database, input.tenantId),
+      listingErrorEvents(database, input.tenantId),
+      storeProblemEvents(database, input.tenantId),
+      supportReplyEvents(database, input),
+      reviewPendingEvents(database, input.tenantId, input.reviewableSince),
+      readState(database, input),
+    ]);
+  const events = [
+    ...sales,
+    ...shortages,
+    ...cancelled,
+    ...listingErrors,
+    ...stores,
+    ...support,
+    ...reviews,
+  ];
   const { clearedAt } = read;
   if (clearedAt === null) {
     return { events, seenAt: read.seenAt };
   }
-  // An open shortage is a problem still waiting for the reseller: clearing the list hides news,
-  // not work to do, so it stays until the stock or a cancellation resolves it.
-  const kept = events.filter((event) => event.kind === "stock_shortage" || event.at > clearedAt);
+  // An open shortage or a parcel the supplier cancelled is work still waiting for the reseller:
+  // clearing the list hides news, not work to do, so they stay until resolved.
+  const kept = events.filter((event) => STANDING_KINDS.has(event.kind) || event.at > clearedAt);
   return { events: kept, seenAt: read.seenAt };
 }
 

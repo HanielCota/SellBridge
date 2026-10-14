@@ -289,6 +289,47 @@ export async function forwardOrder(
   });
 }
 
+/**
+ * Sends a cancelled parcel to its supplier again: same items and address, a new link (the old
+ * one stops working), and a fresh start at "forwarded". The cancellation stays in its history.
+ */
+export async function reforwardShipment(database: Database, tenantId: string, shipmentId: string) {
+  return database.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ orderId: orderShipments.orderId })
+      .from(orderShipments)
+      .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.tenantId, tenantId)));
+    if (!candidate) throw notFoundError("Envio não encontrado");
+    // The order first, like every other fulfillment write.
+    const [order] = await tx
+      .select({ status: orders.status })
+      .from(orders)
+      .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, tenantId)))
+      .for("update");
+    if (order?.status !== "paid")
+      throw conflictError("Somente pedidos pagos podem ser reencaminhados");
+    const token = randomBytes(32).toString("hex");
+    const [shipment] = await tx
+      .update(orderShipments)
+      .set({
+        status: "forwarded",
+        supplierTokenHash: hashToken(token),
+        supplierTokenExpiresAt: tokenExpiry(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.status, "cancelled")))
+      .returning({ id: orderShipments.id, supplierId: orderShipments.supplierId });
+    if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
+    await tx.insert(shipmentEvents).values({
+      shipmentId,
+      status: "forwarded",
+      actor: "Revendedor",
+      note: "Reencaminhado ao fornecedor. Compartilhe o novo link com ele.",
+    });
+    return { shipmentId, supplierId: shipment.supplierId, token };
+  });
+}
+
 export async function rotateSupplierLink(database: Database, tenantId: string, shipmentId: string) {
   const token = randomBytes(32).toString("hex");
   const [shipment] = await database

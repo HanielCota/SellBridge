@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { orders, orderShipments } from "../schema/index.ts";
 import type { DatabaseExecutor } from "../client.ts";
 import { recordApiEvent } from "./api-events.ts";
@@ -13,10 +13,11 @@ export async function reconciledOrderStatus(
   incoming: OrderStatus,
 ): Promise<OrderStatus> {
   if (incoming !== "paid") return incoming;
+  // A cancelled parcel is waiting to be re-forwarded or dropped: it neither ships nor holds back.
   const shipments = await database
     .select({ status: orderShipments.status })
     .from(orderShipments)
-    .where(eq(orderShipments.orderId, orderId));
+    .where(and(eq(orderShipments.orderId, orderId), ne(orderShipments.status, "cancelled")));
   if (shipments.length === 0) return incoming;
   // Every parcel came back without reaching the buyer: nothing was sold.
   if (shipments.every((shipment) => shipment.status === "returned")) return "returned";

@@ -187,3 +187,85 @@ test("shows a parcel that failed and came back on the shipment timeline", async 
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });
+
+test("the reseller learns a supplier cancelled and re-forwards the parcel", async ({
+  page,
+  browser,
+}) => {
+  const cancelledId = `E2E-CAN-${randomUUID()}`;
+  const [source] = await database.select().from(orders).where(eq(orders.id, orderId));
+  if (!source) throw new Error("Order missing");
+  const [order] = await database
+    .insert(orders)
+    .values({
+      tenantId: source.tenantId,
+      storeConnectionId: source.storeConnectionId,
+      externalOrderId: cancelledId,
+      status: "paid",
+      totalCents: 9900,
+      buyerName: "Maria Silva",
+      orderedAt: new Date(),
+    })
+    .returning();
+  if (!order) throw new Error("Order missing");
+  const [item] = await database.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  if (!item) throw new Error("Item missing");
+  await database.insert(orderItems).values({ ...item, id: randomUUID(), orderId: order.id });
+  try {
+    const [link] = await forwardOrder(database, order.tenantId, {
+      orderId: order.id,
+      address: {
+        recipient: "Maria Silva",
+        street: "Rua das Flores",
+        number: "10",
+        complement: "",
+        neighborhood: "Centro",
+        city: "São Paulo",
+        state: "SP",
+        postalCode: "01001-000",
+      },
+      notes: "",
+    });
+    if (!link) throw new Error("Link missing");
+
+    // The supplier refuses through the link, with a reason.
+    const supplierContext = await browser.newContext();
+    const supplier = await supplierContext.newPage();
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    await supplier.getByLabel("Ocorrência ou observação").fill("Produto em falta no depósito");
+    await supplier.getByRole("button", { name: "Cancelar envio" }).click();
+    await expect(
+      supplier.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
+    ).toContainText("Cancelado");
+    await supplierContext.close();
+
+    // The reseller sees it in the bell, under problems, with the reason.
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    await page.getByRole("tab", { name: /Problemas/ }).click();
+    const notice = page.getByText(`cancelou o envio do pedido #${cancelledId}`);
+    await expect(notice).toBeVisible();
+    await expect(page.getByText("Motivo: Produto em falta no depósito.")).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // And sends it to the supplier again: a new link that opens the parcel from the start.
+    await page.getByLabel("Buscar por pedido ou comprador").fill(cancelledId);
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Operar pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await dialog.getByRole("button", { name: "Reencaminhar ao fornecedor" }).click();
+    const newLink = dialog.getByLabel("Link do fornecedor");
+    await expect(newLink).toBeVisible();
+    const supplierUrl = await newLink.inputValue();
+    expect(supplierUrl).not.toContain(link.token);
+    const again = await browser.newContext();
+    const reopened = await again.newPage();
+    await gotoHydrated(reopened, supplierUrl);
+    await expect(reopened.getByRole("button", { name: "Aceito", exact: true })).toBeVisible();
+    await again.close();
+  } finally {
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});

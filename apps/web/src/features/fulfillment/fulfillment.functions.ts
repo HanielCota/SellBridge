@@ -3,6 +3,7 @@ import {
   getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
+  reforwardShipment,
   revokeSupplierLink,
   rotateSupplierLink,
 } from "@sellbridge/database/repositories";
@@ -40,6 +41,11 @@ export const rotateSupplierLinkFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ shipmentId: z.uuid() }))
   .handler(({ context, data }) => rotateSupplierLink(database, context.tenantId, data.shipmentId));
+/** A cancelled parcel back to its supplier, with a new link. */
+export const reforwardShipmentFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ shipmentId: z.uuid() }))
+  .handler(({ context, data }) => reforwardShipment(database, context.tenantId, data.shipmentId));
 export const revokeSupplierLinkFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ shipmentId: z.uuid() }))

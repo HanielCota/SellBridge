@@ -20,6 +20,27 @@ describe("presentNotification", () => {
     expect(notification.href).toBe("/pedidos");
   });
 
+  it("tells the reseller a supplier cancelled, why, and what to do next", () => {
+    const notification = presentNotification({
+      kind: "shipment_cancelled",
+      entityId: "order-9",
+      shipmentId: "shipment-3",
+      at,
+      externalOrderId: "ML-9",
+      supplierName: "Brás Atacado Masculino",
+      reason: "Produto em falta no depósito",
+    });
+    expect(notification).toMatchObject({
+      id: "shipment-cancelled:shipment-3",
+      kind: "shipment_cancelled",
+    });
+    expect(notification.title).toBe("Brás Atacado Masculino cancelou o envio do pedido #ML-9");
+    expect(notification.detail).toBe(
+      "Motivo: Produto em falta no depósito. Reencaminhe ao fornecedor ou cancele a venda.",
+    );
+    expect(notification.href).toBe("/pedidos");
+  });
+
   it("shows a sale with its total and leads to the order in the financial report", () => {
     const notification = presentNotification({
       kind: "sale",

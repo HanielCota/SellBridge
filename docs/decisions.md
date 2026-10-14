@@ -302,3 +302,10 @@ O mapa segue as tabelas oficiais (`gerenciamento-de-vendas`, `gerenciamento-de-e
 No `_journal.json`, o `when` da 0007 é maior que o da 0008, e o Drizzle só aplica migrations mais novas que a última registrada: um banco que recebeu a 0007 antes de a 0008 existir pulou a 0008 sem erro e ficou sem as tabelas da API pública. A 0021 (`0021_repair_public_api.sql`, escrita à mão) repete tudo o que a 0008 cria, cada comando protegido (`IF NOT EXISTS`, `pg_constraint`, `duplicate_object`), então não faz nada onde a 0008 rodou. O journal das migrations antigas não foi editado. Nenhuma migration entre a 0009 e a 0020 toca essas tabelas, por isso o reparo pode vir no fim.
 
 `src/migrations.test.ts` cria bancos descartáveis no mesmo servidor: M1 aplica tudo do zero duas vezes; M2 aplica 0000–0007 à mão, registra a 0007 com o `when` do journal, roda o migrate e confere tabelas, índices, chaves estrangeiras e colunas iguais às de um banco novo.
+
+## 2026-10-13: Envio cancelado e reencaminhamento (item 06)
+
+- **Envio cancelado não conta** para o status do pedido (`reconciledOrderStatus` ignora os cancelados): com dois fornecedores, um cancelado e o outro entregue, o pedido fica entregue. Se só sobram cancelados, o pedido segue pago, esperando reencaminhamento.
+- **Reencaminhar ao mesmo fornecedor** (`reforwardShipment`): reabre o envio cancelado de um pedido pago com os mesmos itens e endereço, um link novo (o antigo deixa de valer) e o status "Aguardando fornecedor". O cancelamento e o motivo ficam no histórico. Reaproveita a linha do envio porque há um envio por fornecedor e pedido (`order_shipments_order_supplier_idx`).
+- **Trocar de fornecedor fica para um item próprio** (decisão do usuário no ⏸1): o item do pedido está preso ao produto de um fornecedor, e trocar pede escolher um produto equivalente e recalcular custo, margem e estoque.
+- **Aviso no sino** (`shipment_cancelled`, aba Problemas): só quando quem cancelou foi o fornecedor, com o motivo que ele escreveu. Como a falta de estoque, é trabalho a fazer: "Limpar tudo" não o esconde, e ele some quando o envio é reencaminhado ou o pedido deixa de estar pago.

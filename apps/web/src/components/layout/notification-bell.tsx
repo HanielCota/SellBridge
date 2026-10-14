@@ -53,6 +53,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
     icon: PackageIcon,
     className: WARNING_TINT,
   },
+  shipment_cancelled: {
+    icon: PackageIcon,
+    className: WARNING_TINT,
+  },
   support_reply: {
     icon: ChatCircleTextIcon,
     className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",

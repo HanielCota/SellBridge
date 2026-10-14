@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { orderItems, orders, orderShipments } from "../schema/index.ts";
+import { orderItems, orders, orderShipments, user } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -16,10 +16,12 @@ import {
   getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
+  reforwardShipment,
   revokeSupplierLink,
   rotateSupplierLink,
   updateShipment,
 } from "./fulfillment.ts";
+import { clearNotifications, listNotificationEvents } from "./notifications.ts";
 import { upsertMarketplaceOrder } from "./orders.ts";
 
 const database = createTestDatabase();
@@ -140,6 +142,31 @@ function remote(
     carrier: "Mercado Envios",
     trackingCode: "ML-404",
   };
+}
+
+/** Cancels a parcel with a reason, as the supplier (by link token) or the reseller. */
+function cancel(shipmentId: string, reason: string, token?: string) {
+  return updateShipment(
+    database,
+    {
+      shipmentId,
+      status: "cancelled",
+      note: reason,
+      carrier: "",
+      trackingCode: "",
+      trackingUrl: "",
+    },
+    token ? { token } : { tenantId: tenants.tenantA },
+  );
+}
+
+async function cancelledNotices(userId = `reader-${randomUUID()}`) {
+  const { events } = await listNotificationEvents(database, {
+    tenantId: tenants.tenantA,
+    userId,
+    reviewableSince: new Date(0),
+  });
+  return events.filter((event) => event.kind === "shipment_cancelled");
 }
 
 describe("fulfillment", () => {
@@ -374,6 +401,101 @@ describe("fulfillment", () => {
     expect(detail.order.status).toBe("returned");
     // The sale parcel itself was delivered; only the order changed.
     expect(detail.shipments[0]?.status).toBe("delivered");
+  });
+
+  it("does not let a cancelled parcel hold the order back", async () => {
+    const order = await createOrder("paid", true);
+    const links = await forward(order.id);
+    const [first, second] = links;
+    if (!first || !second) throw new Error("No links");
+    await cancel(second.shipmentId, "Sem estoque da calça", second.token);
+    for (const status of ["accepted", "picking", "ready", "shipped", "delivered"] as const)
+      await advance(first.shipmentId, status, first.token);
+    expect((await getFulfillmentDetail(database, tenants.tenantA, order.id)).order.status).toBe(
+      "delivered",
+    );
+  });
+
+  it("re-forwards a parcel the supplier cancelled, with a new link and its history kept", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    // Not cancelled: nothing to re-forward.
+    await expect(
+      reforwardShipment(database, tenants.tenantA, link.shipmentId),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await cancel(link.shipmentId, "Produto em falta no depósito", link.token);
+    await expect(
+      reforwardShipment(database, tenants.tenantB, link.shipmentId),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const again = await reforwardShipment(database, tenants.tenantA, link.shipmentId);
+    expect(again.shipmentId).toBe(link.shipmentId);
+    // The old link stops working; the new one opens the same parcel, ready to start over.
+    await expect(getSupplierShipment(database, link.token)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect((await getSupplierShipment(database, again.token)).status).toBe("forwarded");
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.shipments).toHaveLength(1);
+    expect(detail.shipments[0]?.events.map((event) => event.status)).toEqual([
+      "forwarded",
+      "cancelled",
+      "forwarded",
+    ]);
+    // The supplier can take it from the start again.
+    await advance(link.shipmentId, "accepted", again.token);
+  });
+
+  it("does not re-forward a parcel of an order that is no longer paid", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await cancel(link.shipmentId, "Desistiu", link.token);
+    await database.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
+    await expect(
+      reforwardShipment(database, tenants.tenantA, link.shipmentId),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("tells the reseller when a supplier cancels, until the parcel is re-forwarded", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    const readerId = `reader-${randomUUID()}`;
+    await database
+      .insert(user)
+      .values({ id: readerId, name: "Revendedor", email: `${readerId}@sellbridge.test` });
+
+    await cancel(link.shipmentId, "Produto em falta no depósito", link.token);
+    const notices = (await cancelledNotices(readerId)).filter(
+      (event) => event.entityId === order.id,
+    );
+    expect(notices).toEqual([
+      expect.objectContaining({
+        kind: "shipment_cancelled",
+        externalOrderId: order.externalOrderId,
+        supplierName: expect.any(String),
+        reason: "Produto em falta no depósito",
+      }),
+    ]);
+    // Work to do, not news: clearing the list keeps it.
+    await clearNotifications(database, { tenantId: tenants.tenantA, userId: readerId });
+    expect((await cancelledNotices(readerId)).some((event) => event.entityId === order.id)).toBe(
+      true,
+    );
+
+    await reforwardShipment(database, tenants.tenantA, link.shipmentId);
+    expect((await cancelledNotices()).some((event) => event.entityId === order.id)).toBe(false);
+    await database.delete(user).where(eq(user.id, readerId));
+  });
+
+  it("does not notify the reseller about a parcel they cancelled themselves", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await cancel(link.shipmentId, "Cliente pediu para cancelar");
+    expect((await cancelledNotices()).some((event) => event.entityId === order.id)).toBe(false);
   });
 
   it("records marketplace progress without duplicate history and filters the queue", async () => {
