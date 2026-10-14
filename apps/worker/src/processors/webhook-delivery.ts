@@ -195,6 +195,26 @@ async function pruneExpiredRecords(database: Database, now: Date): Promise<void>
   }
 }
 
+/** How long one run keeps claiming full batches; a little under the 10 s between runs. */
+const DRAIN_MILLISECONDS = 8000;
+
+async function deliverBatch(
+  dependencies: WebhookDeliveryDependencies,
+  now: Date,
+): Promise<WebhookDeliverySummary> {
+  const deliveries = await claimDueWebhookDeliveries(dependencies.database, {
+    tenantId: dependencies.tenantId,
+    now,
+    limit: BATCH_SIZE,
+    leaseMilliseconds: LEASE_MILLISECONDS,
+  });
+  const results = await Promise.all(
+    deliveries.map(async (delivery) => attemptDeliverySafely(dependencies, delivery, now)),
+  );
+  const delivered = results.filter(Boolean).length;
+  return { delivered, failed: results.length - delivered };
+}
+
 /**
  * Sends due outbound webhooks of every tenant (signed POSTs), records each attempt with its
  * retry time, and now and then prunes old events and idempotency keys.
@@ -209,16 +229,20 @@ export function createWebhookDeliveryProcessor(dependencies: WebhookDeliveryDepe
       lastPrunedAt = now.getTime();
       await pruneExpiredRecords(dependencies.database, now);
     }
-    const deliveries = await claimDueWebhookDeliveries(dependencies.database, {
-      tenantId: dependencies.tenantId,
-      now,
-      limit: BATCH_SIZE,
-      leaseMilliseconds: LEASE_MILLISECONDS,
-    });
-    const results = await Promise.all(
-      deliveries.map(async (delivery) => attemptDeliverySafely(dependencies, delivery, now)),
-    );
-    const delivered = results.filter(Boolean).length;
-    return { delivered, failed: results.length - delivered };
+    const summary: WebhookDeliverySummary = { delivered: 0, failed: 0 };
+    const startedAt = Date.now();
+    // Full batches mean more are due: keep claiming for a while instead of waiting 10 s for the
+    // next run, so a burst of events drains at more than 25 per run.
+    for (;;) {
+      const batch = await deliverBatch(dependencies, now);
+      summary.delivered += batch.delivered;
+      summary.failed += batch.failed;
+      const keepGoing =
+        batch.delivered + batch.failed === BATCH_SIZE &&
+        Date.now() - startedAt < DRAIN_MILLISECONDS;
+      if (!keepGoing) {
+        return summary;
+      }
+    }
   };
 }

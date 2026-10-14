@@ -199,31 +199,34 @@ export async function listCatalogProducts(
   pagination: Pagination,
 ): Promise<Paginated<CatalogProduct>> {
   const where = and(...catalogConditions(supplierId, filters));
-  const [totalRow] = await database
-    .select({ total: count() })
-    .from(supplierProducts)
-    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(where);
-  const rows = await database
-    .select({
-      id: supplierProducts.id,
-      sku: supplierProducts.sku,
-      title: supplierProducts.title,
-      description: supplierProducts.description,
-      costCents: supplierProducts.costCents,
-      suggestedPriceCents: supplierProducts.suggestedPriceCents,
-      stock: availableStock,
-      stockUpdatedAt: supplierProducts.updatedAt,
-      imageUrls: supplierProducts.imageUrls,
-      categoryName: categories.name,
-      categorySlug: categories.slug,
-    })
-    .from(supplierProducts)
-    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(where)
-    .orderBy(...PRODUCT_ORDER[filters.sort])
-    .limit(pagination.pageSize)
-    .offset((pagination.page - 1) * pagination.pageSize);
+  // The count and the page are independent reads: run them together.
+  const [[totalRow], rows] = await Promise.all([
+    database
+      .select({ total: count() })
+      .from(supplierProducts)
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(where),
+    database
+      .select({
+        id: supplierProducts.id,
+        sku: supplierProducts.sku,
+        title: supplierProducts.title,
+        description: supplierProducts.description,
+        costCents: supplierProducts.costCents,
+        suggestedPriceCents: supplierProducts.suggestedPriceCents,
+        stock: availableStock,
+        stockUpdatedAt: supplierProducts.updatedAt,
+        imageUrls: supplierProducts.imageUrls,
+        categoryName: categories.name,
+        categorySlug: categories.slug,
+      })
+      .from(supplierProducts)
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(where)
+      .orderBy(...PRODUCT_ORDER[filters.sort])
+      .limit(pagination.pageSize)
+      .offset((pagination.page - 1) * pagination.pageSize),
+  ]);
 
   const items = rows.map(({ imageUrls, ...row }) => ({
     ...row,
@@ -408,17 +411,20 @@ export async function listRegionCatalog(
   pagination: Pagination,
 ): Promise<Paginated<RegionCatalogProduct>> {
   const where = and(...regionCatalogConditions(input, filters));
-  const [totalRow] = await database
-    .select({ total: count() })
-    .from(supplierProducts)
-    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(where);
-  const rows = await selectRegionCatalog(database, input.tenantId)
-    .where(where)
-    .orderBy(...PRODUCT_ORDER[filters.sort])
-    .limit(pagination.pageSize)
-    .offset((pagination.page - 1) * pagination.pageSize);
+  // The count and the page are independent reads: run them together.
+  const [[totalRow], rows] = await Promise.all([
+    database
+      .select({ total: count() })
+      .from(supplierProducts)
+      .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(where),
+    selectRegionCatalog(database, input.tenantId)
+      .where(where)
+      .orderBy(...PRODUCT_ORDER[filters.sort])
+      .limit(pagination.pageSize)
+      .offset((pagination.page - 1) * pagination.pageSize),
+  ]);
   const items = rows.map((row) => ({ ...row, imageUrl: row.imageUrls.at(0) ?? null }));
   return toPaginated(items, totalRow?.total ?? 0, pagination);
 }
