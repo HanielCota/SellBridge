@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { NewAttachment } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
-import { detectAttachmentType, sanitizeFileName } from "@sellbridge/shared/file-signature";
+import {
+  detectAttachmentType,
+  hasAcceptableImageSize,
+  sanitizeFileName,
+} from "@sellbridge/shared/file-signature";
+import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@sellbridge/shared/schemas";
 import type { FileStorage } from "@/lib/server/storage";
 
@@ -10,6 +15,18 @@ export interface ValidatedFile {
   fileName: string;
   mimeType: string;
   sizeBytes: number;
+}
+
+/** Every attachment at its limit, plus the text fields and the multipart framing. */
+const MAX_SUPPORT_FORM_BYTES = MAX_ATTACHMENTS * MAX_ATTACHMENT_BYTES + 256 * 1024;
+
+/** A support form, refused before it is parsed when it cannot fit its attachments' limits. */
+export async function readSupportForm(request: Request): Promise<FormData> {
+  const form = await readFormDataWithin(request, MAX_SUPPORT_FORM_BYTES);
+  if (!form) {
+    throw validationError(`Envie no máximo ${MAX_ATTACHMENTS} anexos de até 5 MB cada`);
+  }
+  return form;
 }
 
 function filesFrom(formData: FormData): File[] {
@@ -33,6 +50,9 @@ export async function validateAttachments(formData: FormData): Promise<Validated
     const mimeType = detectAttachmentType(bytes);
     if (!mimeType) {
       throw validationError(`"${file.name}" não é um formato aceito (PNG, JPG, WEBP ou PDF)`);
+    }
+    if (mimeType !== "application/pdf" && !hasAcceptableImageSize(bytes, mimeType)) {
+      throw validationError(`"${file.name}" é uma imagem grande demais (máximo de 64 megapixels)`);
     }
     validated.push({
       bytes,

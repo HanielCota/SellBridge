@@ -2,6 +2,7 @@ import {
   enqueueWebhookEventJob,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
+  STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
   type PublishListingJob,
 } from "@sellbridge/shared/queues";
@@ -48,11 +49,10 @@ export async function enqueueWebhookEvent(webhookEventId: string): Promise<void>
 
 let stockPriceSyncQueue: Queue | null = null;
 
-/** A fresh job avoids losing an update while an earlier sync job is already active. */
+/** One follow-up at most per running sync (see `STOCK_SYNC_JOB_OPTIONS`). */
 export async function enqueueStockPriceSync(): Promise<void> {
   stockPriceSyncQueue ??= new Queue(QUEUE_NAMES.stockPriceSync, {
     connection: { url: environment.REDIS_URL },
-    defaultJobOptions: STOCK_SYNC_JOB_OPTIONS,
   });
-  await stockPriceSyncQueue.add("sync-stock-and-price", {});
+  await stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
 }

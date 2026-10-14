@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -50,7 +50,9 @@ export async function recordWebhookEvent(
       marketplace: input.marketplace,
       externalEventId: input.externalEventId ?? `invalid:${randomUUID()}`,
       topic: input.topic ?? "unknown",
-      rawPayload: input.rawPayload ?? {},
+      // A rejected event keeps only why it was rejected: anyone can post to the route, and
+      // storing their 64 KB bodies would let them grow the table at will.
+      rawPayload: input.signatureValid ? (input.rawPayload ?? {}) : {},
       signatureValid: input.signatureValid,
       error: input.error ?? null,
       processedAt: input.signatureValid ? null : new Date(),
@@ -149,4 +151,25 @@ export async function findConnectedStoreByShop(
     ),
   });
   return row ?? null;
+}
+
+/**
+ * Deletes events finished (processed or rejected) before `before`, at most `limit` at a time:
+ * the table only needs recent events for duplicates and inspection, and grows with every
+ * notification otherwise. Unprocessed events are never deleted. Returns how many went.
+ */
+export async function pruneWebhookEvents(
+  database: Database,
+  window: { before: Date; limit: number },
+): Promise<number> {
+  const oldest = database
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(and(lt(webhookEvents.receivedAt, window.before), isNotNull(webhookEvents.processedAt)))
+    .limit(window.limit);
+  const deleted = await database
+    .delete(webhookEvents)
+    .where(inArray(webhookEvents.id, oldest))
+    .returning({ id: webhookEvents.id });
+  return deleted.length;
 }

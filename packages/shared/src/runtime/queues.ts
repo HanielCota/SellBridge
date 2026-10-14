@@ -37,12 +37,19 @@ export const PUBLISH_JOB_OPTIONS = {
   removeOnFail: 5000,
 } as const;
 
-/** Stock and price sync, requested by the web app and by order webhooks in the worker. */
+/**
+ * Every request for a stock and price sync, from the web and from the worker. One sync reads
+ * every target that changed, so requests made while one is waiting add nothing; requests made
+ * while one runs keep exactly one follow-up (it may have read the stock before them). Without
+ * this, a marketplace outage that slows each run to hours piles up a job per order in Redis.
+ */
+export const STOCK_SYNC_JOB_NAME = "sync-stock-and-price";
 export const STOCK_SYNC_JOB_OPTIONS = {
   attempts: 5,
   backoff: { type: "exponential", delay: 5000 },
   removeOnComplete: 100,
   removeOnFail: 1000,
+  deduplication: { id: "stock-price-sync-request", keepLastIfActive: true },
 } as const;
 
 /**

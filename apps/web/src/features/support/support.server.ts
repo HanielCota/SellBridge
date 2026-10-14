@@ -21,7 +21,12 @@ import { handleApi, jsonResponse } from "@/lib/server/http";
 import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
-import { storeAttachments, textField, validateAttachments } from "./attachments.server";
+import {
+  storeAttachments,
+  readSupportForm,
+  textField,
+  validateAttachments,
+} from "./attachments.server";
 import { supportReplyEmail } from "./support-reply-email";
 
 const idSchema = z.uuid();
@@ -42,7 +47,7 @@ function firstIssue(error: z.ZodError): string {
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     const session = await requireTenantSession(request.headers);
-    const formData = await request.formData();
+    const formData = await readSupportForm(request);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),
       subject: textField(formData, "subject"),
@@ -72,7 +77,7 @@ async function readAttachments(formData: FormData, tenantId: string) {
 }
 
 async function readReply(request: Request, tenantId: string) {
-  const formData = await request.formData();
+  const formData = await readSupportForm(request);
   const input = replyTicketSchema.safeParse({ body: textField(formData, "body") });
   if (!input.success) {
     throw validationError(firstIssue(input.error));
@@ -88,7 +93,7 @@ function optionalTextField(formData: FormData, name: string): string | undefined
 
 /** Admin form: `kind` (reply | note), `body`, optional `statusAfter` for replies, files. */
 async function readAdminMessage(request: Request) {
-  const formData = await request.formData();
+  const formData = await readSupportForm(request);
   const input = adminTicketMessageSchema.safeParse({
     kind: textField(formData, "kind"),
     body: textField(formData, "body"),

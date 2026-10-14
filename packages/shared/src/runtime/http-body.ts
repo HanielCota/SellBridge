@@ -22,26 +22,28 @@ export function parseJsonText(text: string): unknown {
 }
 
 /**
- * A request body as text, or null when it is larger than `maxBytes`. The declared
- * content-length is checked first, and the stream is read with a running byte count, so a
- * chunked upload without a length (or with a false one) is cut off at the limit instead of
- * being held in memory whole.
+ * The request body as bytes, reading at most `maxBytes`; null when it is larger. The declared
+ * length is only a first check: a chunked body has none, so the stream itself is counted and
+ * reading stops at the limit instead of buffering whatever the sender keeps sending.
  */
-export async function readTextWithin(request: Request, maxBytes: number): Promise<string | null> {
+export async function readBodyWithin(
+  request: Request,
+  maxBytes: number,
+): Promise<Uint8Array<ArrayBuffer> | null> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (declared > maxBytes) {
     return null;
   }
   const reader = request.body?.getReader();
   if (!reader) {
-    return "";
+    return new Uint8Array();
   }
   const chunks: Uint8Array[] = [];
   let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) {
-      return Buffer.concat(chunks).toString("utf8");
+      break;
     }
     size += value.byteLength;
     if (size > maxBytes) {
@@ -50,4 +52,36 @@ export async function readTextWithin(request: Request, maxBytes: number): Promis
     }
     chunks.push(value);
   }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+/** A request body as UTF-8 text within `maxBytes` (see `readBodyWithin`); null when larger. */
+export async function readTextWithin(request: Request, maxBytes: number): Promise<string | null> {
+  const body = await readBodyWithin(request, maxBytes);
+  if (body === null) {
+    return null;
+  }
+  return new TextDecoder().decode(body);
+}
+
+/**
+ * A multipart form read within `maxBytes` (see `readBodyWithin`); null when it is larger. The
+ * whole form is never parsed before its size is known.
+ */
+export async function readFormDataWithin(
+  request: Request,
+  maxBytes: number,
+): Promise<FormData | null> {
+  const body = await readBodyWithin(request, maxBytes);
+  if (!body) {
+    return null;
+  }
+  const contentType = request.headers.get("content-type") ?? "";
+  return new Response(body, { headers: { "content-type": contentType } }).formData();
 }

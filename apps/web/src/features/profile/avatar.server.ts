@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { unauthorizedError, validationError } from "@sellbridge/shared/errors";
-import { detectAttachmentType } from "@sellbridge/shared/file-signature";
+import { detectAttachmentType, hasAcceptableImageSize } from "@sellbridge/shared/file-signature";
+import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
@@ -43,7 +44,12 @@ function avatarStorageKey(imageUrl: string | null | undefined, ownerId: string):
 }
 
 async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; type: AvatarType }> {
-  const file = (await request.formData()).get("file");
+  // Room for the multipart framing around a photo at the size limit.
+  const form = await readFormDataWithin(request, MAX_AVATAR_BYTES + 64 * 1024);
+  if (!form) {
+    throw validationError("A foto deve ter no máximo 2 MB");
+  }
+  const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw validationError("Escolha uma imagem para enviar");
   }
@@ -54,6 +60,9 @@ async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; ty
   const type = detectAttachmentType(bytes);
   if (!isAvatarType(type)) {
     throw validationError("Envie uma imagem PNG, JPG ou WEBP");
+  }
+  if (!hasAcceptableImageSize(bytes, type)) {
+    throw validationError("A foto é grande demais: envie uma imagem de até 64 megapixels");
   }
   return { bytes, type };
 }

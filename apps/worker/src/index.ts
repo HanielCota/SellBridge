@@ -7,6 +7,7 @@ import {
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
   releaseFinishedJob,
+  STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { withDeadline } from "@sellbridge/shared/deadline";
@@ -22,7 +23,10 @@ import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.t
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
-import { createWebhookEventSweepProcessor } from "./processors/webhook-event-sweep.ts";
+import {
+  createWebhookEventPruneProcessor,
+  createWebhookEventSweepProcessor,
+} from "./processors/webhook-event-sweep.ts";
 
 const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
 const database = createDatabase(environment.DATABASE_URL);
@@ -52,11 +56,12 @@ const processWebhookEvent = createWebhookEventProcessor({
   database,
   connectors,
   cipher,
-  // A fresh job each time: one already running may have read the stock before this order.
-  // Bounded wait: this connection retries forever, and a Redis outage must not stall the job.
+  // A follow-up job when one is running (it may have read the stock before this order), and
+  // never more than one waiting (STOCK_SYNC_JOB_OPTIONS). Bounded wait: this connection
+  // retries forever, and a Redis outage must not stall the job.
   requestStockSync: async () => {
     await withDeadline(
-      stockPriceSyncQueue.add("sync-stock-and-price", {}, STOCK_SYNC_JOB_OPTIONS),
+      stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS),
       3000,
       "Sincronização do estoque",
     );
@@ -133,9 +138,12 @@ const processWebhookEventSweep = createWebhookEventSweepProcessor({
   database,
   enqueue: async (webhookEventId) => enqueueWebhookEventJob(webhookEventQueue, webhookEventId),
 });
+const processWebhookEventPrune = createWebhookEventPruneProcessor({ database });
+const WEBHOOK_EVENT_PRUNE_JOB = "prune-webhook-events";
 const webhookEventSweepWorker = new Worker(
   QUEUE_NAMES.webhookEventSweep,
-  async () => processWebhookEventSweep(),
+  async (job) =>
+    job.name === WEBHOOK_EVENT_PRUNE_JOB ? processWebhookEventPrune() : processWebhookEventSweep(),
   { connection, concurrency: 1 },
 );
 
@@ -166,10 +174,11 @@ const webhookDeliveryQueue = new Queue(QUEUE_NAMES.webhookDelivery, { connection
 const publishRecoveryQueue = new Queue(QUEUE_NAMES.publishRecovery, { connection });
 const webhookEventSweepQueue = new Queue(QUEUE_NAMES.webhookEventSweep, { connection });
 const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
-await scheduleRecurring(stockPriceSyncQueue, "sync-stock-and-price", 15 * 60 * 1000);
+await scheduleRecurring(stockPriceSyncQueue, STOCK_SYNC_JOB_NAME, 15 * 60 * 1000);
 await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
 await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
 await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
+await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 24 * 60 * 60 * 1000);
 await scheduleRecurring(ticketAutoCloseQueue, "close-idle-tickets", 60 * 60 * 1000);
 await scheduleRecurring(tokenRefreshQueue, "refresh-expiring-tokens", 10 * 60 * 1000);
 

@@ -50,6 +50,15 @@ describe("sendWebhookRequest", () => {
     expect(await sendWebhookRequest(webhookTo(true))).toBe(204);
   });
 
+  it("closes the connection once the status arrives, even if the body never ends", async () => {
+    const status = await sendWebhookRequest({
+      ...webhookTo(true),
+      url: `http://localhost:${port}/trickle`,
+    });
+    expect(status).toBe(200);
+    await trickleClosed;
+  });
+
   it("refuses at connection time a host that resolves to a private address", async () => {
     const before = received;
     await expect(sendWebhookRequest(webhookTo(false))).rejects.toThrow("não público");

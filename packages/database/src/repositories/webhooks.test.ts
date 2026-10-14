@@ -8,6 +8,7 @@ import {
   findConnectedStoreByShop,
   findUnprocessedWebhookEvents,
   markWebhookProcessed,
+  pruneWebhookEvents,
   recordWebhookEvent,
 } from "./webhooks.ts";
 
@@ -57,7 +58,8 @@ describe("webhook events", () => {
       marketplace: "mock",
       externalEventId: null,
       topic: null,
-      rawPayload: null,
+      // Whatever an anonymous sender posted is not kept.
+      rawPayload: { filler: "x".repeat(60_000) },
       signatureValid: false,
       error: "Assinatura inválida",
     });
@@ -69,6 +71,7 @@ describe("webhook events", () => {
       where: eq(webhookEvents.id, result.id),
     });
     expect(row).toMatchObject({ signatureValid: false, error: "Assinatura inválida" });
+    expect(row?.rawPayload).toEqual({});
     expect(row?.processedAt).not.toBeNull();
     await database.delete(webhookEvents).where(eq(webhookEvents.id, result.id));
   });
@@ -117,5 +120,30 @@ describe("unprocessed webhook sweep", () => {
     await database
       .delete(webhookEvents)
       .where(inArray(webhookEvents.id, [older, stale, recent, processed, abandoned]));
+  });
+});
+
+describe("webhook event retention", () => {
+  it("deletes finished events before the cut, in batches, and never unprocessed ones", async () => {
+    // Far in the past, so nothing else in the database is old enough to be touched.
+    const longAgo = new Date("2001-01-01T00:00:00Z");
+    const finished = [];
+    for (let index = 0; index < 3; index += 1) {
+      const id = await recordValidEvent(longAgo);
+      await markWebhookProcessed(database, id);
+      finished.push(id);
+    }
+    const unprocessed = await recordValidEvent(longAgo);
+    const cut = new Date("2001-06-01T00:00:00Z");
+
+    expect(await pruneWebhookEvents(database, { before: cut, limit: 2 })).toBe(2);
+    expect(await pruneWebhookEvents(database, { before: cut, limit: 2 })).toBe(1);
+    expect(await pruneWebhookEvents(database, { before: cut, limit: 2 })).toBe(0);
+    const left = await database
+      .select({ id: webhookEvents.id })
+      .from(webhookEvents)
+      .where(inArray(webhookEvents.id, [...finished, unprocessed]));
+    expect(left.map((row) => row.id)).toEqual([unprocessed]);
+    await database.delete(webhookEvents).where(eq(webhookEvents.id, unprocessed));
   });
 });
