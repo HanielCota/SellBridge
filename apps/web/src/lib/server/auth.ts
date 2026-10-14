@@ -38,10 +38,31 @@ const OWNER_ONLY_PATHS = new Set([
   "/revoke-other-sessions",
 ]);
 
+/** Sign-up takes the same name rules as the profile, so a name is never megabytes or blank. */
+const signUpBodySchema = z.object({ name: nameSchema }).passthrough();
+
+/**
+ * One organization per account, created by the server at sign-up. The browser never calls the
+ * plugin's own routes: from it they would create extra organizations (a fresh free plan each),
+ * delete one with all its orders, or invite members, so they are closed to HTTP requests.
+ */
+function isOrganizationRoute(context: { path: string; request?: Request | undefined }): boolean {
+  return context.request !== undefined && context.path.startsWith("/organization/");
+}
+
 const updateUserBodySchema = z.object({
   name: nameSchema.optional(),
   image: z.string().nullish(),
 });
+
+function assertSignUpName(body: unknown): void {
+  const parsed = signUpBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new APIError("BAD_REQUEST", {
+      message: parsed.error.issues[0]?.message ?? "Dados inválidos",
+    });
+  }
+}
 
 /**
  * The profile page hides password and session controls while impersonating and
@@ -50,6 +71,13 @@ const updateUserBodySchema = z.object({
  * deletes someone else's file.
  */
 const guardAccountRoutes = createAuthMiddleware(async (context) => {
+  if (isOrganizationRoute(context)) {
+    throw new APIError("NOT_FOUND", { message: "Rota indisponível" });
+  }
+  if (context.path === "/sign-up/email") {
+    assertSignUpName(context.body);
+    return;
+  }
   const isOwnerOnly = OWNER_ONLY_PATHS.has(context.path);
   const isUpdateUser = context.path === "/update-user";
   if (!isOwnerOnly && !isUpdateUser) {
@@ -310,7 +338,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    organization(),
+    organization({ allowUserToCreateOrganization: false, disableOrganizationDeletion: true }),
     // Every team role is protected from impersonation, not only admins: signing in as an
     // agent would let an admin answer customers under that agent's name.
     admin({
