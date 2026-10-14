@@ -1,5 +1,5 @@
 import type { ApiScope } from "@sellbridge/shared/public-api";
-import { MAX_PAGE } from "@sellbridge/shared/schemas";
+import { MAX_PAGE, pageNumberSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 
 export type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -107,13 +107,7 @@ export function pageEnvelope<TItem extends z.ZodType>(item: TItem) {
 
 /** Query parameters every paged list accepts. */
 export const pageQuerySchema = z.object({
-  page: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_PAGE)
-    .default(1)
-    .describe(`Página, de 1 a ${MAX_PAGE}.`),
+  page: pageNumberSchema.default(1).describe(`Página, de 1 a ${MAX_PAGE}.`),
   pageSize: z.coerce
     .number()
     .int()

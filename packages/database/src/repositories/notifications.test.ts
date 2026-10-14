@@ -115,33 +115,34 @@ describe("notifications", () => {
     expect(cleared.seenAt).toBeInstanceOf(Date);
   });
 
-  it("shows a sale placed before the user cleared the list but received after it", async () => {
-    await clearNotifications(database, { userId, tenantId: tenantA });
+  it("shows a sale that arrives after the list was cleared, even if it was made before", async () => {
+    // The list was cleared by the previous test; a webhook delivers two orders now.
     const [store] = await database
       .select({ id: orders.storeConnectionId })
       .from(orders)
-      .where(inArray(orders.tenantId, [tenantA]))
-      .limit(1);
-    // The buyer paid ten minutes ago; the marketplace's webhook only reaches us now.
-    await database.insert(orders).values({
+      .where(inArray(orders.tenantId, [tenantA]));
+    const arriving = (externalOrderId: string, minutesAgo: number) => ({
       tenantId: tenantA,
       storeConnectionId: store?.id ?? "",
-      externalOrderId: "AV-LATE",
-      status: "paid",
-      totalCents: 1990,
-      orderedAt: new Date(Date.now() - 600_000),
+      externalOrderId,
+      status: "paid" as const,
+      totalCents: 1000,
+      orderedAt: new Date(Date.now() - minutesAgo * 60_000),
     });
-
-    const { events, seenAt } = await listNotificationEvents(database, {
+    // Made 5 minutes ago, delivered late by the webhook: new to the reader.
+    // Made 3 days ago, brought by a first sync of past orders: not news.
+    await database
+      .insert(orders)
+      .values([arriving("AV-LATE", 5), arriving("AV-PAST", 3 * 24 * 60)]);
+    const listed = await listNotificationEvents(database, {
       tenantId: tenantA,
       userId,
       reviewableSince: new Date(),
     });
-    const late = events.find(
-      (event) => event.kind === "sale" && event.externalOrderId === "AV-LATE",
+    const sales = listed.events.flatMap((event) =>
+      event.kind === "sale" ? [event.externalOrderId] : [],
     );
-    expect(late).toBeDefined();
-    expect(seenAt !== null && late !== undefined && late.at > seenAt).toBe(true);
+    expect(sales).toEqual(["AV-LATE"]);
   });
 
   it("never shows another tenant's events", async () => {

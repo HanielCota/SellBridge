@@ -88,3 +88,18 @@ describe("nearDayName", () => {
     expect(nearDayName("2026-10-11", today)).toBeNull();
   });
 });
+
+describe("dates in Brasília time, whatever the server's zone", () => {
+  it("dates an order of 22:30 in Brasília on its own day, not the next one in UTC", () => {
+    // 01:30 UTC on Oct 9 is 22:30 of Oct 8 in Brasília.
+    const late = new Date("2026-09-09T01:30:00Z");
+    expect(formatSmartDate(late, now)).toBe("8 de set.");
+    expect(formatAbsoluteTime(late)).toBe("08/09/2026, 22:30");
+  });
+
+  it("decides the year in Brasília at New Year's Eve", () => {
+    // 01:00 UTC on Jan 1 2026 is still 2025 in Brasília.
+    const newYearsEve = new Date("2026-01-01T01:00:00Z");
+    expect(formatSmartDate(newYearsEve, now)).toBe("31 de dez. de 2025");
+  });
+});

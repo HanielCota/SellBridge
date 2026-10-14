@@ -27,6 +27,15 @@ describe("resolvePeriod", () => {
     expect(resolvePeriod({ period: "180d" }, now).bucket).toBe("week");
   });
 
+  it("accepts the first and last years a custom range may use", () => {
+    expect(
+      resolvePeriod({ period: "custom", from: "2000-01-01", to: "2000-01-31" }, now),
+    ).toMatchObject({ fromDate: "2000-01-01", previousFromDate: "1999-12-01" });
+    expect(
+      resolvePeriod({ period: "custom", from: "2100-12-01", to: "2100-12-31" }, now),
+    ).toMatchObject({ toDate: "2100-12-31" });
+  });
+
   it("resolves a valid custom range inclusively", () => {
     const period = resolvePeriod({ period: "custom", from: "2026-09-01", to: "2026-09-30" }, now);
     expect(period).toMatchObject({ days: 30, fromDate: "2026-09-01", toDate: "2026-09-30" });
@@ -38,6 +47,10 @@ describe("resolvePeriod", () => {
     [{ period: "custom" as const, from: "2026-09-30", to: "2026-09-01" }],
     [{ period: "custom" as const, from: "2026-02-30", to: "2026-03-05" }],
     [{ period: "custom" as const, from: "2020-01-01", to: "2026-01-01" }],
+    [{ period: "custom" as const, from: "0001-01-01", to: "0001-01-30" }],
+    [{ period: "custom" as const, from: "1999-12-31", to: "2000-01-05" }],
+    [{ period: "custom" as const, from: "2101-01-01", to: "2101-01-02" }],
+    [{ period: "custom" as const, from: "9999-12-31", to: "9999-12-31" }],
   ])("falls back to 30 days for invalid custom input %j", (search) => {
     expect(resolvePeriod(search, now).days).toBe(30);
   });

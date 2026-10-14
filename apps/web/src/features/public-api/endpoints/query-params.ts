@@ -1,5 +1,10 @@
 import { validationError } from "@sellbridge/shared/errors";
-import { resolvePeriod, type ResolvedPeriod } from "@sellbridge/shared/period-range";
+import {
+  MAX_REPORT_YEAR,
+  MIN_REPORT_YEAR,
+  resolvePeriod,
+  type ResolvedPeriod,
+} from "@sellbridge/shared/period-range";
 import { z } from "zod";
 
 /**
@@ -51,7 +56,7 @@ export function resolveApiPeriod(
   const period = resolvePeriod(search, now);
   if (period.fromDate !== query.from || period.toDate !== query.to) {
     throw validationError(
-      "Período inválido: use datas reais, `to` igual ou depois de `from` e no máximo 366 dias.",
+      `Período inválido: use datas reais entre ${MIN_REPORT_YEAR} e ${MAX_REPORT_YEAR}, \`to\` igual ou depois de \`from\` e no máximo 366 dias.`,
     );
   }
   return { search, period };

@@ -127,15 +127,24 @@ function since(): Date {
   return daysBefore(WINDOW_DAYS);
 }
 
+/**
+ * When a sale reached the reseller, compared with "seen" and "cleared": the marketplace's order
+ * date can be minutes older than the webhook that brought it, and a sale dated before the bell
+ * was opened would never count as new (nor ring). Capped at an hour after the order date, so a
+ * store's first sync of past weeks does not flood the bell with old sales marked new.
+ */
+const saleArrivedAt =
+  sql<Date>`least(${orders.createdAt}, ${orders.orderedAt} + interval '1 hour')`.mapWith(
+    orders.createdAt,
+  );
+
 async function saleEvents(database: Database, tenantId: string): Promise<SaleEvent[]> {
   const rows = await database
     .select({
       entityId: orders.id,
       externalOrderId: orders.externalOrderId,
       totalCents: orders.totalCents,
-      // When the sale reached us, not when the buyer placed it: read and cleared marks are our
-      // clock, and a webhook that arrives late must still show the sale as new.
-      at: orders.createdAt,
+      at: saleArrivedAt,
       storeName: storeConnections.shopName,
     })
     .from(orders)
@@ -147,7 +156,7 @@ async function saleEvents(database: Database, tenantId: string): Promise<SaleEve
         isCountedOrder(orders.status),
       ),
     )
-    .orderBy(desc(orders.createdAt))
+    .orderBy(desc(saleArrivedAt))
     .limit(SALES_SHOWN);
   const products = await saleProducts(
     database,

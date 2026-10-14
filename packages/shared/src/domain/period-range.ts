@@ -29,11 +29,11 @@ export interface ResolvedPeriod {
 
 const MAX_CUSTOM_DAYS = 366;
 /**
- * Custom periods stay within these years: "0001-01-01" is a real date, but its comparison
- * window lands before year 1, which the database cannot store, and no sale predates 2000.
+ * Custom ranges stay inside these years. Outside them the comparison window or the exclusive end
+ * reaches year 0 or 10000, which the database rejects (an error instead of a report).
  */
-const FIRST_REPORT_YEAR = 2000;
-const LAST_REPORT_YEAR = 2100;
+export const MIN_REPORT_YEAR = 2000;
+export const MAX_REPORT_YEAR = 2100;
 /** Brazil (America/Sao_Paulo) has had no DST since 2019: a fixed UTC−3 offset. */
 const BRAZIL_OFFSET_MILLISECONDS = 3 * 60 * 60 * 1000;
 export const REPORT_TIME_ZONE = "America/Sao_Paulo";
@@ -86,9 +86,7 @@ function resolveCustom(from: string | undefined, to: string | undefined): Resolv
   if (!start || !end || end.getTime() < start.getTime()) {
     return null;
   }
-  const firstYear = Number(from.slice(0, 4));
-  const lastYear = Number(to.slice(0, 4));
-  if (firstYear < FIRST_REPORT_YEAR || lastYear > LAST_REPORT_YEAR) {
+  if (Number(from.slice(0, 4)) < MIN_REPORT_YEAR || Number(to.slice(0, 4)) > MAX_REPORT_YEAR) {
     return null;
   }
   const days = Math.round((end.getTime() - start.getTime()) / DAY_MILLISECONDS) + 1;
