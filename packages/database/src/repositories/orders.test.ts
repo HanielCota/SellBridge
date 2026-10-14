@@ -177,6 +177,24 @@ describe("marketplace orders and sync", () => {
     expect(row?.status).toBe("cancelled");
   });
 
+  it("takes two simultaneous first notifications of an order as one order", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "paid" as const,
+      totalCents: 5000,
+      marketplaceFeeCents: 500,
+      buyerName: null,
+      orderedAt: new Date("2026-02-01T10:00:00Z"),
+      items: [],
+    };
+    const results = await Promise.all([
+      upsertMarketplaceOrder(database, tenantA, storeA, incoming),
+      upsertMarketplaceOrder(database, tenantA, storeA, incoming),
+    ]);
+    expect(results.map((result) => result.status).toSorted()).toEqual(["created", "updated"]);
+    expect(new Set(results.map((result) => result.orderId)).size).toBe(1);
+  });
+
   it("keeps one marketplace refund per order, at the latest total", async () => {
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,

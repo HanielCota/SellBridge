@@ -329,6 +329,26 @@ describe("order financials list", () => {
     );
   });
 
+  it("counts an order awaiting payment neither as a sale nor as cancelled", async () => {
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja pendente");
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "PEND-1",
+        status: "pending",
+      });
+      const summary = await getSalesSummary(database, scope({ tenantId }));
+      expect(summary).toMatchObject({ orders: 0, cancelledOrders: 0, revenueCents: 0 });
+    } finally {
+      await extra.cleanup();
+    }
+  });
+
   it("adds item costs past the 32-bit integer without failing the report", async () => {
     const extra = await createTestTenants(database, 1);
     const [tenantId] = extra.ids;

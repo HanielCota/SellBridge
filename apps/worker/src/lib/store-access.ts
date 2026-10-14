@@ -37,21 +37,23 @@ export function storeRateKey(store: { readonly marketplace: string; readonly id:
 }
 
 /**
- * Expires the store when the marketplace rejected its credentials (the seller has to
- * reconnect it); returns whether it did.
+ * Expires the store when the marketplace rejected its credentials (the seller has to reconnect
+ * it); returns whether it did. Only while the token that was refused is still the saved one: a
+ * long sync run still holding the old token must not expire a store the seller reconnected
+ * meanwhile.
  */
 export async function expireStoreOnAuthError(
   database: Database,
-  storeId: string,
+  store: { id: string; accessTokenEnc: string | null },
   error: unknown,
 ): Promise<boolean> {
   if (!isMarketplaceAuthError(error)) {
     return false;
   }
-  await markStoreStatus(database, {
-    storeConnectionId: storeId,
+  return markStoreStatus(database, {
+    storeConnectionId: store.id,
     status: "expired",
     lastError: error.userMessage,
+    ...(store.accessTokenEnc === null ? {} : { accessTokenEnc: store.accessTokenEnc }),
   });
-  return true;
 }

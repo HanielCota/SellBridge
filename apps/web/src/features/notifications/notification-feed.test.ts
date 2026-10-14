@@ -34,4 +34,18 @@ describe("buildNotificationFeed", () => {
     const seenAt = new Date(Date.UTC(2026, 9, 9, 12) - 10 * 60_000);
     expect(buildNotificationFeed(events, seenAt)).toMatchObject({ unread: 1, seenAt });
   });
+
+  it("keeps an open problem however many newer events arrived after it", () => {
+    const shortage: NotificationEvent = {
+      kind: "stock_shortage",
+      entityId: "order-short",
+      externalOrderId: "MLB-1",
+      productTitle: "Vestido",
+      at: new Date(Date.UTC(2026, 9, 4, 12)),
+    };
+    const newer = Array.from({ length: MAX_NOTIFICATIONS + 5 }, (_, index) => supportReply(index));
+    const feed = buildNotificationFeed([...newer, shortage], null);
+    expect(feed.events).toHaveLength(MAX_NOTIFICATIONS);
+    expect(feed.events.at(-1)?.entityId).toBe("order-short");
+  });
 });

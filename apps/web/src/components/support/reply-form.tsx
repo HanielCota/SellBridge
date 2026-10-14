@@ -62,14 +62,20 @@ function useReplySubmission({
   const attachments = useComposerFiles();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  // State updates land after the next render; two quick submits would both see "not sending".
+  const sendingRef = useRef(false);
 
   async function submit() {
+    if (sendingRef.current) {
+      return;
+    }
     setSubmitError(null);
     if (draft.body.trim().length < MIN_BODY_LENGTH) {
       setSubmitError("Escreva ao menos 10 caracteres");
       return;
     }
     const formData = buildReplyFormData(draft.body, attachments.files);
+    sendingRef.current = true;
     setIsSending(true);
     try {
       await postMultipart(endpoint, formData);
@@ -79,6 +85,7 @@ function useReplySubmission({
     } catch (error) {
       setSubmitError(errorMessage(error));
     } finally {
+      sendingRef.current = false;
       setIsSending(false);
     }
   }

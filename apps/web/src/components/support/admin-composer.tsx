@@ -435,8 +435,13 @@ function useComposerSubmit(
 ) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  // State updates land after the next render; two quick submits would both see "not sending".
+  const sendingRef = useRef(false);
 
   async function submit() {
+    if (sendingRef.current) {
+      return;
+    }
     const body = state.body.trim();
     const problem = validationProblem(state.mode, body);
     setSubmitError(problem);
@@ -444,6 +449,7 @@ function useComposerSubmit(
       return;
     }
     const { mode, statusAfter } = state;
+    sendingRef.current = true;
     setIsSending(true);
     try {
       const formData = buildFormData(mode, body, statusAfter, state.files);
@@ -453,6 +459,7 @@ function useComposerSubmit(
     } catch (error) {
       setSubmitError(errorMessage(error));
     } finally {
+      sendingRef.current = false;
       setIsSending(false);
     }
   }

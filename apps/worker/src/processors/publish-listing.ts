@@ -175,7 +175,7 @@ async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOut
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
   const { dependencies, job, tenantId, listingTargetId } = attempt;
   const reason = userMessageOr(error, UNEXPECTED_FAILURE_REASON);
-  await expireStoreOnAuthError(dependencies.database, attempt.row.store.id, error);
+  await expireStoreOnAuthError(dependencies.database, attempt.row.store, error);
   const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
   await markTargetFailed(dependencies.database, listingTargetId, reason, { final: isFinal });
   logger.warn("listing.publish_failed", { tenantId, listingTargetId, reason, isFinal, error });

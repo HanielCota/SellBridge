@@ -85,7 +85,8 @@ function ShipmentList({
         await refresh();
       }}
     >
-      {shipment.status === "cancelled" && !blocked ? (
+      {/* The server re-forwards only parcels of a paid order: offered only then. */}
+      {shipment.status === "cancelled" && detail.order.status === "paid" ? (
         <ReforwardButton
           shipmentId={shipment.id}
           onLink={async (url) => {
@@ -113,6 +114,11 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["fulfillment", orderId] }),
       client.invalidateQueries({ queryKey: ["operations"] }),
       client.invalidateQueries({ queryKey: ["order-page", orderId] }),
+      // A parcel can move the order itself (shipped, delivered, returned): its money and its
+      // review show elsewhere too.
+      client.invalidateQueries({ queryKey: ["order-reviews"] }),
+      client.invalidateQueries({ queryKey: ["financials"] }),
+      client.invalidateQueries({ queryKey: ["dashboard"] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -320,7 +326,7 @@ function ForwardForm({
       <Field label="Instruções para o fornecedor" value={notes} onChange={setNotes} />
       {unmapped ? (
         <p className="text-sm text-destructive">
-          Todos os itens precisam estar vinculados a fornecedores antes do encaminhamento.
+          Um item deste pedido não é de um fornecedor ativo do SellBridge: encaminhe-o por fora.
         </p>
       ) : null}
       {/* The label is long: on a narrow phone it wraps inside the button instead of overflowing. */}

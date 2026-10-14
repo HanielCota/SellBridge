@@ -357,7 +357,12 @@ async function applyMessageToTicket(
 ): Promise<TicketStatus> {
   const status = nextTicketStatus(ticket.status, message.kind, message.statusAfter);
   const isFirstResponse = message.kind === "reply" && ticket.firstResponseAt === null;
-  const takesTicket = message.kind === "reply" && ticket.assigneeId === null;
+  // Same rule as the "unassigned" queue: an assignee who left the team (or was blocked) counts
+  // as nobody, so the first reply from the team takes the ticket out of that queue.
+  const takesTicket =
+    message.kind === "reply" &&
+    message.authorId !== ticket.assigneeId &&
+    (ticket.assigneeId === null || !(await isActiveStaff(transaction, ticket.assigneeId)));
   await transaction
     .update(tickets)
     .set({

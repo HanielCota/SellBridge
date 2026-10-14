@@ -7,6 +7,7 @@ import {
 import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { requireTenantRegion } from "@/features/region/region.server";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
 import { assertConnectedStores, publishListing } from "./publish-listing.server";
@@ -45,6 +46,8 @@ export async function updateListingPriceForTenant(
 ): Promise<void> {
   await updateListingPrice(database, tenantId, listingId, priceCents);
   logger.info("listing.price_updated", { tenantId, listingId });
+  // The marketplaces get the new price now, as the screen promises, not at the next scheduled run.
+  await requestStockSync("listing.sync_deferred");
 }
 
 /** Pauses (zero stock on the marketplace) or resumes listings; returns the stores changed. */
@@ -55,5 +58,9 @@ export async function setListingsPausedForTenant(
 ): Promise<number> {
   const changed = await setListingsPaused(database, tenantId, listingIds, paused);
   logger.info(paused ? "listing.paused" : "listing.resumed", { tenantId, targets: changed });
+  // A paused listing must show zero stock right away, or sales keep coming in for up to 15 min.
+  if (changed > 0) {
+    await requestStockSync("listing.sync_deferred");
+  }
   return changed;
 }

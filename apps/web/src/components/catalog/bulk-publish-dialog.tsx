@@ -428,6 +428,8 @@ function useBulkPublish(onDone: () => void) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
         queryClient.invalidateQueries({ queryKey: ["region-catalog"] }),
+        // The page it opens next lists them: a cached list from 30 s ago would not.
+        queryClient.invalidateQueries({ queryKey: ["listings"] }),
       ]);
       await navigate({ to: "/publicacoes" });
     },

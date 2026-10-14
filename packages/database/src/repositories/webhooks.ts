@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -149,6 +149,8 @@ export async function findConnectedStoreByShop(
       eq(storeConnections.externalShopId, externalShopId),
       eq(storeConnections.status, "connected"),
     ),
+    // Deterministic if the shop was ever connected twice: the latest connection wins.
+    orderBy: [desc(storeConnections.connectedAt)],
   });
   return row ?? null;
 }

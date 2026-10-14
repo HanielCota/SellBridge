@@ -63,7 +63,7 @@ async function syncOne(
     return true;
   } catch (error) {
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
-    await expireStoreOnAuthError(dependencies.database, target.store.id, error);
+    await expireStoreOnAuthError(dependencies.database, target.store, error);
     return await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));
   }
 }

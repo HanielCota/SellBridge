@@ -40,6 +40,10 @@ export function submitOnModEnter(event: KeyboardEvent<HTMLTextAreaElement>, onSu
     return;
   }
   event.preventDefault();
+  // A held key repeats the shortcut: only the first press sends.
+  if (event.repeat) {
+    return;
+  }
   onSubmit();
 }
 

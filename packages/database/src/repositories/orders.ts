@@ -161,7 +161,8 @@ async function insertOrderItems(write: OrderWrite, orderId: string): Promise<voi
   );
 }
 
-async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
+/** Null when another write created the same order a moment earlier (see `writeOrder`). */
+async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> {
   const { order } = write;
   const [created] = await write.transaction
     .insert(orders)
@@ -176,10 +177,10 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult> {
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
     })
+    .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
     .returning({ id: orders.id });
   if (!created) {
-    // An insert that returns no row is an unexpected write failure, not a business conflict.
-    throw new Error("Não foi possível gravar o pedido");
+    return null;
   }
   await insertOrderItems(write, created.id);
   // The first step is the sale itself, dated when it happened, not when the sync saw it.
@@ -282,6 +283,11 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     return { ...updated, stockMoves };
   }
   const created = await createOrder(write);
+  if (!created) {
+    // Two notifications of a new order: the other one inserted it first (no row existed to lock).
+    // Read it again, now locked, and apply this one as an update instead of failing on the key.
+    return writeOrder(write);
+  }
   const stockMoves = await applyStockMoves(write.transaction, created.orderId, write.order.status);
   await syncMarketplaceRefund(write.transaction, {
     tenantId: write.tenantId,

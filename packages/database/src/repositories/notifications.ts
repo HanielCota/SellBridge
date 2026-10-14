@@ -25,7 +25,7 @@ import { listUnreadSupportReplies } from "./support.ts";
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
 /** Problems that stay in the list until resolved, whatever the user cleared. */
-const STANDING_KINDS: ReadonlySet<NotificationEvent["kind"]> = new Set([
+export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]> = new Set([
   "stock_shortage",
   "shipment_cancelled",
   "listing_unavailable",
@@ -448,10 +448,11 @@ export async function listNotificationEvents(
   if (clearedAt === null) {
     return { events, seenAt: read.seenAt };
   }
-  // An open shortage, a parcel the supplier cancelled or a listing the supplier keeps off is
-  // work still waiting for the reseller: clearing the list hides news, not work to do, so they
-  // stay until resolved.
-  const kept = events.filter((event) => STANDING_KINDS.has(event.kind) || event.at > clearedAt);
+  // An open shortage or a parcel the supplier cancelled is work still waiting for the reseller:
+  // clearing the list hides news, not work to do, so they stay until resolved.
+  const kept = events.filter(
+    (event) => STANDING_NOTIFICATION_KINDS.has(event.kind) || event.at > clearedAt,
+  );
   return { events: kept, seenAt: read.seenAt };
 }
 

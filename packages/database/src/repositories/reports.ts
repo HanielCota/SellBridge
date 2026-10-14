@@ -128,7 +128,9 @@ export async function getSalesSummary(
     with ${orderFinanceCte(scope)}
     select
       count(*) filter (where counted) as orders,
-      count(*) filter (where not counted) as cancelled,
+      -- Cancelled or returned only: an order still awaiting payment is not counted as a sale,
+      -- but it was not cancelled either.
+      count(*) filter (where status in ('cancelled', 'returned')) as cancelled,
       coalesce(sum(revenue), 0) as revenue,
       coalesce(sum(cost), 0) as cost,
       coalesce(sum(fee), 0) as fees,
@@ -404,7 +406,8 @@ function financialConditions(filters: FinancialFilters): SQL[] {
     const term = containsPattern(filters.search);
     conditions.push(
       sql`(o.external_order_id ilike ${term} or coalesce(o.buyer_name, '') ilike ${term}
-        or exists (select 1 from order_items si where si.order_id = o.id and si.title ilike ${term}))`,
+        or exists (select 1 from order_items si
+          where si.order_id = o.id and si.tenant_id = o.tenant_id and si.title ilike ${term}))`,
     );
   }
   return conditions;
