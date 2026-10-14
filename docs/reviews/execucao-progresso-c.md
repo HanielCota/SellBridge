@@ -41,6 +41,17 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
+### 2026-10-14 · Revisão de sanitização, async, performance, segurança, lógica e padrões de navegador — ✅ (commits locais)
+
+- Prompt novo em `docs/prompts/revisao-sanitizacao-async-performance.md`, aplicado em seis frentes. Regras de código do usuário também no `CLAUDE.md` da raiz.
+- Segurança: rotas HTTP `/organization/*` do Better Auth fechadas e criação/exclusão de organização desligadas (dava plano grátis infinito e exclusão em cascata); sessão confere membership; nome validado no cadastro. Parte do item 10.b do chat B, adiantada por ser grave.
+- Sanitização: logger não grava parâmetros de consulta nem campos pessoais; `freeText()` remove caracteres de controle em todo texto livre; `permalink` do ML só https do próprio ML; textos do ML com tamanho máximo; erro de entrega de webhook em mensagens fixas.
+- Async e lógica: pedido cancelado não volta a pago com webhook atrasado; venda de loja expirada fica pendente e entra após reconectar; entregas de webhook isoladas por item; fila de publicação com prazo; "respondido" só com resposta.
+- Performance: contadores da fila de suporte só sobre chamados ativos; polling de Publicações 5 s; limpeza de eventos em lotes.
+- Padrões de navegador: `color-scheme`, autofill, toque e barras de rolagem no tema; `Button` com `type="button"` padrão; campos com 17 px no celular; `Select` do projeto no admin; seletor de arquivo e `<details>` estilizados; imagens quebradas caem no mosaico; anéis de foco visíveis.
+- Pendências: índices (migration), mensagem de Lojas por código (chat B), uploads (item 11, B), pedido dividido com cancelamento e pedido cancelado com envios ativos (principal), `pending` como receita (item 09), lote "já publicado" (item 14), CSP completa, rate limit por IP confiável.
+- Portões: lint, tipos, formatação, sem else ✅; 1030 testes (base 1015); build ✅; e2e completo 72/72 (6 novos).
+
 ### 2026-10-14 · Auditoria de limites, comparações e valores que explodem — ✅ (commit local)
 
 - Pedido do usuário (prompt de revisão). Cinco frentes de análise (dinheiro, entradas, datas, estoque e contadores, interface) e correções na origem: parser de BRL ("59.90" virava R$ 5.990,00), `::bigint` nas multiplicações do relatório (int4 estourava e derrubava o Financeiro), tetos de preço/custo, página ≤ 10.000, listas com máximo, CSV com no máximo 50 colunas, limites e datas dos pedidos do ML, IDs numéricos inseguros recusados, evento recusado pelo ML encerrado sem repetir, leitura de corpo com limite real de bytes, notificações inválidas do webhook não gravadas, venda no sino pela hora de chegada, datas no fuso de São Paulo e "ontem" por calendário, períodos entre 2000 e 2100, cancelamento sem pagamento fora do score do fornecedor, edição do produto no admin sem desfazer vendas, sincronização que esvazia o backlog em até 4 min, eventos de chamado em lotes de 1.000.
