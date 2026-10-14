@@ -69,6 +69,26 @@ export const orderItems = pgTable(
   ],
 );
 
+/**
+ * Each status an order went into, for the order page's progress. Unlike the public API events,
+ * which are pruned after their retention window, these rows live as long as the order.
+ */
+export const orderStatusChanges = pgTable(
+  "order_status_changes",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    tenantId: text()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    orderId: uuid()
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    status: orderStatusEnum().notNull(),
+    changedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("order_status_changes_order_idx").on(table.orderId, table.changedAt)],
+);
+
 export const orderAdjustments = pgTable(
   "order_adjustments",
   {

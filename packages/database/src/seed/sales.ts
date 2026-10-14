@@ -11,6 +11,7 @@ import {
   orderAdjustments,
   orderItems,
   orders,
+  orderStatusChanges,
   storeConnections,
   supplierProducts,
 } from "../schema/index.ts";
@@ -363,6 +364,22 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
       .insert(orderAdjustments)
       .values({ tenantId, orderId: order.id, ...demoOrder.adjustment });
   }
+  await database
+    .insert(orderStatusChanges)
+    .values(
+      demoStatusChanges(demoOrder).map((change) => ({ tenantId, orderId: order.id, ...change })),
+    );
+}
+
+/** The order page's progress: the sale, then where the order ended up (when it moved on). */
+function demoStatusChanges(demoOrder: DemoOrder) {
+  if (demoOrder.status === "pending" || demoOrder.status === "paid") {
+    return [{ status: demoOrder.status, changedAt: demoOrder.orderedAt }];
+  }
+  return [
+    { status: "paid" as const, changedAt: demoOrder.orderedAt },
+    { status: demoOrder.status, changedAt: demoOrder.deliveredAt ?? demoOrder.orderedAt },
+  ];
 }
 
 async function seedOrderHistory(

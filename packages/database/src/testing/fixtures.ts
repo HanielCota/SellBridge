@@ -140,3 +140,15 @@ export async function publishTestProduct(
   }
   return targets;
 }
+
+/** A complete delivery address, as the reseller fills it to forward an order. */
+export const testAddress = {
+  recipient: "Maria Silva",
+  street: "Rua das Flores",
+  number: "10",
+  complement: "",
+  neighborhood: "Centro",
+  city: "São Paulo",
+  state: "SP",
+  postalCode: "01001-000",
+};

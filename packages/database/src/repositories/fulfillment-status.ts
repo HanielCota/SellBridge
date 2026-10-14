@@ -3,6 +3,7 @@ import { orders, orderShipments } from "../schema/index.ts";
 import type { DatabaseExecutor } from "../client.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
+import { recordOrderStatusChange } from "./order-status-changes.ts";
 import { applyStockMoves } from "./stock-reservations.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
@@ -51,6 +52,7 @@ export async function syncOrderFromShipments(
   await applyStockMoves(database, order.id, status);
   // A returned order has no revenue: money already given back now shows as a return.
   await syncMarketplaceRefund(database, { tenantId: order.tenantId, orderId: order.id, status });
+  await recordOrderStatusChange(database, { tenantId: order.tenantId, orderId: order.id, status });
   await recordApiEvent(database, {
     tenantId: order.tenantId,
     type: "order.status_changed",

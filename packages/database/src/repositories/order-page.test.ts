@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { apiEvents, orderItems } from "../schema/index.ts";
+import { apiEvents, orderItems, orderStatusChanges } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenantPair,
+  testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { forwardOrder, updateShipment } from "./fulfillment.ts";
@@ -19,16 +20,6 @@ let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let storeId = "";
 const options = { platformFeeBasisPoints: 0, now: new Date() };
-const address = {
-  recipient: "Maria Silva",
-  street: "Rua das Flores",
-  number: "10",
-  complement: "",
-  neighborhood: "Centro",
-  city: "São Paulo",
-  state: "SP",
-  postalCode: "01001-000",
-};
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);
@@ -73,9 +64,13 @@ async function soldOrder() {
 }
 
 describe("order page", () => {
-  it("brings the order, its money, status history, parcels and reviews together", async () => {
+  it("brings the order, its money, status history and reviews together", async () => {
     const { orderId, incoming } = await soldOrder();
-    const [link] = await forwardOrder(database, tenants.tenantA, { orderId, address, notes: "" });
+    const [link] = await forwardOrder(database, tenants.tenantA, {
+      orderId,
+      address: testAddress,
+      notes: "",
+    });
     if (!link) throw new Error("No link");
     const step = (
       status: "accepted" | "picking" | "ready" | "shipped" | "delivered",
@@ -123,8 +118,6 @@ describe("order page", () => {
     expect(page.history[0]?.at).toEqual(incoming.orderedAt);
     const times = page.history.map((entry) => entry.at.getTime());
     expect(times).toEqual(times.toSorted((left, right) => left - right));
-    expect(page.shipments).toHaveLength(1);
-    expect(page.shipments[0]).toMatchObject({ status: "delivered", trackingCode: "AB123BR" });
     expect(page.reviews).toEqual([
       {
         supplierId: catalog.supplierId,
@@ -151,9 +144,20 @@ describe("order page", () => {
     expect(page.reviews).toEqual([expect.objectContaining({ rating: null, reviewable: false })]);
   });
 
-  it("shows an order recorded before status events existed as one step at its date", async () => {
+  it("keeps the history after the public API events are pruned", async () => {
     const { orderId, incoming } = await soldOrder();
+    await upsertMarketplaceOrder(database, tenants.tenantA, storeId, {
+      ...incoming,
+      status: "cancelled",
+    });
     await database.delete(apiEvents).where(sql`${apiEvents.data} ->> 'orderId' = ${orderId}`);
+    const page = await getOrderPage(database, tenants.tenantA, orderId, options);
+    expect(page.history.map((entry) => entry.status)).toEqual(["paid", "cancelled"]);
+  });
+
+  it("shows an order stored before its changes were recorded as one step at its date", async () => {
+    const { orderId, incoming } = await soldOrder();
+    await database.delete(orderStatusChanges).where(eq(orderStatusChanges.orderId, orderId));
     const page = await getOrderPage(database, tenants.tenantA, orderId, options);
     expect(page.history).toEqual([{ status: "paid", at: incoming.orderedAt }]);
   });

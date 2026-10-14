@@ -7,6 +7,7 @@ import {
   createTestDatabase,
   createTestSupplierProduct,
   createTestTenantPair,
+  testAddress,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { upsertStoreConnection } from "./stores.ts";
@@ -29,16 +30,6 @@ let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplierA: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let supplierB: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let storeId = "";
-const address = {
-  recipient: "Maria Silva",
-  street: "Rua das Flores",
-  number: "10",
-  complement: "",
-  neighborhood: "Centro",
-  city: "São Paulo",
-  state: "SP",
-  postalCode: "01001-000",
-};
 async function createOrder(
   status: "paid" | "pending" = "paid",
   secondSupplier = false,
@@ -85,7 +76,7 @@ async function createOrder(
 const forward = (orderId: string) =>
   forwardOrder(database, tenants.tenantA, {
     orderId,
-    address,
+    address: testAddress,
     notes: "Sem identificação do fornecedor",
   });
 async function advance(
@@ -178,7 +169,7 @@ describe("fulfillment", () => {
     if (!link) throw new Error("No link");
     const supplierView = await getSupplierShipment(database, link.token);
     expect(supplierView.items).toHaveLength(1);
-    expect(supplierView.address).toEqual(address);
+    expect(supplierView.address).toEqual(testAddress);
     expect(supplierView).not.toHaveProperty("tenantId");
     expect(supplierView).not.toHaveProperty("supplierTokenHash");
     const [stored] = await database
@@ -204,7 +195,11 @@ describe("fulfillment", () => {
       code: "NOT_FOUND",
     });
     await expect(
-      forwardOrder(database, tenants.tenantB, { orderId: order.id, address, notes: "" }),
+      forwardOrder(database, tenants.tenantB, {
+        orderId: order.id,
+        address: testAddress,
+        notes: "",
+      }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(
       updateShipment(

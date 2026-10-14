@@ -8,6 +8,7 @@ import {
   orders,
   storeConnections,
 } from "../schema/index.ts";
+import type { Marketplace } from "./stores.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 type OrderAdjustmentType = (typeof orderAdjustments.$inferSelect)["type"];
@@ -37,6 +38,7 @@ export interface OrderDetail {
   externalOrderId: string;
   storeConnectionId: string;
   storeName: string;
+  marketplace: Marketplace;
   status: OrderStatus;
   totalCents: number;
   marketplaceFeeCents: number;
@@ -54,6 +56,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       externalOrderId: orders.externalOrderId,
       storeConnectionId: orders.storeConnectionId,
       storeName: storeConnections.shopName,
+      marketplace: storeConnections.marketplace,
       status: orders.status,
       totalCents: orders.totalCents,
       marketplaceFeeCents: orders.marketplaceFeeCents,
