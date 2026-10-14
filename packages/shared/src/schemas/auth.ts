@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { freeText } from "./common.ts";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
 export const MAX_NAME_LENGTH = 100;
 
-export const nameSchema = z
-  .string()
+export const nameSchema = freeText()
   .trim()
   .min(2, "Informe seu nome")
   .max(MAX_NAME_LENGTH, `O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);

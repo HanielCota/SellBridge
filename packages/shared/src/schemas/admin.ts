@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema } from "./common.ts";
 import { cepSchema } from "../domain/cep.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
@@ -45,25 +45,25 @@ export const SNOOZE_DAYS = [1, 3, 7] as const;
 
 export const customersSearchSchema = z.object({
   view: withFallback(customerViewSchema.default("list"), "list"),
-  query: withFallback(z.string().trim().max(100).optional(), undefined),
+  query: withFallback(freeText().trim().max(100).optional(), undefined),
   issue: optionalParameter(customerIssueKindSchema),
   sort: withFallback(customerSortSchema.default("health"), "health"),
   queue: withFallback(issueQueueSchema.default("open"), "open"),
   /** The customer whose quick view is open in the list. */
-  open: optionalParameter(z.string().trim().min(1).max(100)),
+  open: optionalParameter(freeText().trim().min(1).max(100)),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
 export type CustomersSearch = z.infer<typeof customersSearchSchema>;
 
 export const customerIssuesSearchSchema = z.object({
-  query: withFallback(z.string().trim().max(100).optional(), undefined),
+  query: withFallback(freeText().trim().max(100).optional(), undefined),
   issue: optionalParameter(customerIssueKindSchema),
   queue: withFallback(issueQueueSchema.default("open"), "open"),
 });
 export type CustomerIssuesSearch = z.infer<typeof customerIssuesSearchSchema>;
 
-const customerIdField = { userId: z.string().trim().min(1) };
+const customerIdField = { userId: freeText().trim().min(1) };
 
 export const customerIdSchema = z.object(customerIdField);
 
@@ -79,7 +79,7 @@ export const setCustomerRoleSchema = z.object({ ...customerIdField, role: custom
 export const setCustomerBanSchema = z.object({
   ...customerIdField,
   banned: z.boolean(),
-  reason: z.string().trim().max(200).optional(),
+  reason: freeText().trim().max(200).optional(),
 });
 
 export const updateCustomerRegionSchema = z.object({ ...customerIdField, cep: cepSchema });

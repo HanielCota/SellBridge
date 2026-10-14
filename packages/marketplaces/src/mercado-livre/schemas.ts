@@ -18,9 +18,22 @@ export const domainDiscoverySchema = z.array(
   z.object({ category_id: z.string().min(1), category_name: z.string().optional() }),
 );
 
+const mercadoLivreLinkSchema = z
+  .url({ protocol: /^https$/, hostname: /(^|\.)mercadoli(vre|bre)\.com(\.[a-z]{2})?$/ })
+  .max(2048);
+
+/**
+ * Shown as a link on the listing card: only an https page of Mercado Livre itself. Anything
+ * else (another host, data: or javascript:) becomes no link instead of failing the publication.
+ */
+function mercadoLivreLink(value: unknown): string | null {
+  const parsed = mercadoLivreLinkSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 export const createdItemSchema = z.object({
   id: z.string().min(1),
-  permalink: z.string().nullable().optional(),
+  permalink: z.unknown().optional().transform(mercadoLivreLink),
 });
 
 /**
@@ -44,7 +57,10 @@ export const orderSchema = z.object({
   // A malformed date would become "Invalid Date" and fail every retry of the webhook job.
   date_created: z.iso.datetime({ offset: true }),
   total_amount: reaisSchema,
-  buyer: z.object({ nickname: z.string().optional() }).nullable().optional(),
+  buyer: z
+    .object({ nickname: z.string().max(255).optional() })
+    .nullable()
+    .optional(),
   tags: z.array(z.string()).optional(),
   payments: z
     .array(z.object({ transaction_amount_refunded: reaisSchema.nullable().optional() }))
@@ -52,7 +68,7 @@ export const orderSchema = z.object({
     .optional(),
   order_items: z.array(
     z.object({
-      item: z.object({ id: z.string(), title: z.string() }),
+      item: z.object({ id: z.string().max(64), title: z.string().max(255) }),
       quantity: z.number().int().positive().max(MAX_ORDER_LINE_QUANTITY),
       unit_price: reaisSchema,
       sale_fee: reaisSchema.nullable().optional(),

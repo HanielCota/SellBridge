@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+/** C0 controls and DEL, except tab and line breaks; NUL alone makes Postgres refuse the row. */
+// oxlint-disable-next-line no-control-regex -- matching control characters is the point
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+
+export function stripControlCharacters(value: string): string {
+  return value.replace(CONTROL_CHARACTERS, "");
+}
+
+/**
+ * Text typed or pasted by people (and read from CSV): invisible control characters are dropped
+ * before any other rule, so a pasted NUL never turns a save into a database error.
+ */
+export function freeText() {
+  return z.string().overwrite(stripControlCharacters);
+}
+
 /**
  * Deepest page a list serves. Beyond it the offset only scans rows to return nothing, and at
  * Number.MAX_SAFE_INTEGER it no longer converts exactly to the database's bigint.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema } from "./common.ts";
 import {
   MAX_RATING,
   MIN_RATING,
@@ -51,14 +51,12 @@ export const ALLOWED_ATTACHMENT_TYPES = [
 ] as const;
 export type AttachmentType = (typeof ALLOWED_ATTACHMENT_TYPES)[number];
 
-export const ticketSubjectSchema = z
-  .string()
+export const ticketSubjectSchema = freeText()
   .trim()
   .min(5, "O assunto deve ter ao menos 5 caracteres")
   .max(120, "O assunto deve ter no máximo 120 caracteres");
 
-export const ticketBodySchema = z
-  .string()
+export const ticketBodySchema = freeText()
   .trim()
   .min(10, "Descreva com ao menos 10 caracteres")
   .max(5000, "A mensagem deve ter no máximo 5.000 caracteres");
@@ -72,15 +70,14 @@ export const createTicketSchema = z.object({
 /** Prefills the new-ticket form from a page that links to it (an error card, a listing). */
 export const newTicketSearchSchema = z.object({
   categoria: optionalParameter(ticketCategorySchema),
-  assunto: optionalParameter(z.string().trim().max(120)),
+  assunto: optionalParameter(freeText().trim().max(120)),
 });
 export type NewTicketSearch = z.infer<typeof newTicketSearchSchema>;
 
 export const replyTicketSchema = z.object({ body: ticketBodySchema });
 
 /** Internal notes are quick jottings for the team, so they only need to be non-empty. */
-export const internalNoteBodySchema = z
-  .string()
+export const internalNoteBodySchema = freeText()
   .trim()
   .min(2, "Escreva a nota")
   .max(5000, "A nota deve ter no máximo 5.000 caracteres");
@@ -98,7 +95,7 @@ export type AdminTicketMessage = z.infer<typeof adminTicketMessageSchema>;
 
 export const ticketsSearchSchema = z.object({
   status: optionalParameter(ticketStatusSchema),
-  query: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(10), 10),
 });
@@ -144,7 +141,7 @@ export const setTicketCategorySchema = z.object({
 /** Orders the reseller can pin to a ticket, searched by order number or buyer. */
 export const linkableOrdersSchema = z.object({
   ticketId: ticketIdSchema,
-  query: z.string().trim().max(100).optional(),
+  query: freeText().trim().max(100).optional(),
 });
 
 export const ticketOrderLinkSchema = z.object({
@@ -167,8 +164,7 @@ export const addTicketFollowerSchema = z.object({
 export const rateTicketSchema = z.object({
   ticketId: ticketIdSchema,
   rating: z.number().int().min(MIN_RATING).max(MAX_RATING),
-  comment: z
-    .string()
+  comment: freeText()
     .trim()
     .max(1000, "O comentário deve ter no máximo 1.000 caracteres")
     .optional(),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema } from "./common.ts";
 import { LISTING_MAX_PRICE_CENTS, MAX_LISTING_STORES } from "./stores.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
@@ -25,8 +25,8 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 
 /** Search params of the supplier catalog page; money filters are in cents. */
 export const catalogSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  category: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
+  category: optionalParameter(freeText().trim().max(100)),
   minCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
   maxCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
   inStock: optionalParameter(z.coerce.boolean()),
@@ -47,8 +47,8 @@ export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
 };
 
 export const supplierListSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  niche: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
+  niche: optionalParameter(freeText().trim().max(100)),
   sort: withFallback(supplierSortSchema.default("name"), "name"),
 });
 
@@ -56,8 +56,8 @@ export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
 
 /** Search params of the region-wide catalog (every supplier that delivers to the tenant). */
 export const regionCatalogSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
-  category: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
+  category: optionalParameter(freeText().trim().max(100)),
   supplier: optionalParameter(z.uuid()),
   inStock: optionalParameter(z.coerce.boolean()),
   /** Leaves out products the tenant already listed, so only new ones remain to publish. */

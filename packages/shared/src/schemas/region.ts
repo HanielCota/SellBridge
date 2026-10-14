@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { freeText } from "./common.ts";
 import { cepSchema } from "../domain/cep.ts";
 
 /** Written on the address in place of a house number when the user ticks "Sem número". */
 export const NO_HOUSE_NUMBER = "S/N";
 
 function requiredText(message: string, max: number) {
-  return z.string().trim().min(1, message).max(max, `Use até ${max} caracteres`);
+  return freeText().trim().min(1, message).max(max, `Use até ${max} caracteres`);
 }
 
 /** Only the CEP: what the region preview needs to resolve the city before anything is saved. */
@@ -20,8 +21,7 @@ export const updateRegionSchema = z.object({
   cep: cepSchema,
   street: requiredText("Informe a rua", 200),
   number: requiredText("Informe o número", 20),
-  complement: z
-    .string()
+  complement: freeText()
     .trim()
     .max(100, "Use até 100 caracteres")
     .transform((value) => (value.length > 0 ? value : null))

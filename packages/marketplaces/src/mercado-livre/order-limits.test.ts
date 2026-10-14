@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ORDER_FIXTURES } from "./fixtures/orders.ts";
 import { mapMercadoLivreOrder } from "./orders.ts";
-import { orderSchema } from "./schemas.ts";
+import { createdItemSchema, orderSchema } from "./schemas.ts";
 
 const paid = ORDER_FIXTURES.paid;
 const [line] = paid.order_items;
@@ -34,5 +34,19 @@ describe("Mercado Livre order limits", () => {
       orderSchema.parse(withLine({ quantity: 3, unit_price: 10, sale_fee: 0.125 })),
     );
     expect(order.marketplaceFeeCents).toBe(38);
+  });
+});
+
+describe("published item link", () => {
+  it.each([
+    [
+      "https://produto.mercadolivre.com.br/MLB-123-camiseta",
+      "https://produto.mercadolivre.com.br/MLB-123-camiseta",
+    ],
+    ["javascript:alert(1)", null],
+    ["https://phishing.example/MLB-123", null],
+    ["http://produto.mercadolivre.com.br/MLB-123", null],
+  ])("keeps only https links of Mercado Livre: %s", (permalink, expected) => {
+    expect(createdItemSchema.parse({ id: "MLB123", permalink }).permalink).toBe(expected);
   });
 });

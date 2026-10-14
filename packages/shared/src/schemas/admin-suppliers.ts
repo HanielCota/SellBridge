@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema } from "./common.ts";
 import { stateSchema } from "../domain/cep.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
@@ -16,7 +16,7 @@ const productPriceCentsSchema = z
 const imageUrlSchema = z.url({ protocol: /^https?$/ });
 
 export const adminSupplierSearchSchema = z.object({
-  query: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
@@ -28,16 +28,16 @@ export const adminSupplierProductsSchema = adminSupplierSearchSchema.extend({
 
 export const supplierCoverageSchema = z.object({
   state: stateSchema,
-  city: z.string().trim().min(1).max(120).nullable(),
+  city: freeText().trim().min(1).max(120).nullable(),
 });
 
 export const adminSupplierValuesSchema = z
   .object({
-    name: z.string().trim().min(1, "Informe o nome").max(150),
-    niche: z.string().trim().min(1, "Informe o nicho").max(100),
-    description: z.string().trim().max(10_000),
+    name: freeText().trim().min(1, "Informe o nome").max(150),
+    niche: freeText().trim().min(1, "Informe o nicho").max(100),
+    description: freeText().trim().max(10_000),
     state: stateSchema,
-    city: z.string().trim().min(1, "Informe a cidade").max(120),
+    city: freeText().trim().min(1, "Informe a cidade").max(120),
     logoUrl: imageUrlSchema.nullable(),
     coverage: z.array(supplierCoverageSchema).min(1, "Informe ao menos uma região").max(200),
   })
@@ -62,9 +62,9 @@ export const adminSaveSupplierSchema = adminSupplierValuesSchema.safeExtend({
 export const adminSetSupplierActiveSchema = adminSupplierIdSchema.extend({ active: z.boolean() });
 
 export const adminProductValuesSchema = z.object({
-  sku: z.string().trim().min(1, "Informe o SKU").max(100),
-  title: z.string().trim().min(1, "Informe o título").max(300),
-  description: z.string().trim().max(20_000),
+  sku: freeText().trim().min(1, "Informe o SKU").max(100),
+  title: freeText().trim().min(1, "Informe o título").max(300),
+  description: freeText().trim().max(20_000),
   costCents: productPriceCentsSchema,
   suggestedPriceCents: productPriceCentsSchema,
   stock: postgresIntegerSchema,
@@ -73,7 +73,7 @@ export const adminProductValuesSchema = z.object({
   mercadoLivreAttributes: z
     .record(
       z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, "Informe o código do atributo, como BRAND"),
-      z.string().trim().min(1, "Informe o valor do atributo").max(255),
+      freeText().trim().min(1, "Informe o valor do atributo").max(255),
     )
     .optional(),
 });

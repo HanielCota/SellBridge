@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const MARKETPLACES = ["mock", "mercado_livre", "shopee", "tiktok_shop"] as const;
@@ -58,8 +58,7 @@ export function fitListingTitle(title: string): string {
   return normalized.slice(0, lastSpace);
 }
 
-export const listingTitleSchema = z
-  .string()
+export const listingTitleSchema = freeText()
   .trim()
   .min(
     LISTING_TITLE_MIN_LENGTH,
@@ -70,8 +69,7 @@ export const listingTitleSchema = z
     `O título deve ter no máximo ${LISTING_TITLE_MAX_LENGTH} caracteres`,
   );
 
-export const listingDescriptionSchema = z
-  .string()
+export const listingDescriptionSchema = freeText()
   .trim()
   .min(
     LISTING_DESCRIPTION_MIN_LENGTH,
@@ -129,7 +127,7 @@ export type ListingFilterStatus = (typeof LISTING_FILTER_STATUSES)[number];
 /** Listings show as a three-column grid, so a page holds a multiple of three. */
 export const listingsSearchSchema = z.object({
   status: optionalParameter(z.enum(LISTING_FILTER_STATUSES)),
-  query: optionalParameter(z.string().trim().max(100)),
+  query: optionalParameter(freeText().trim().max(100)),
   sort: optionalParameter(listingSortSchema),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(12), 12),

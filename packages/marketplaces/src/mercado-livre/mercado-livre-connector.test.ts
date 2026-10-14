@@ -183,10 +183,14 @@ describe("publishing", () => {
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () =>
         json(200, [{ category_id: "MLB31447" }]),
       [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
-      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: "https://produto/MLB1" }),
+      [`POST ${API}/items`]: () =>
+        json(201, { id: "MLB1", permalink: "https://produto.mercadolivre.com.br/MLB-1" }),
     });
     const result = await ml.publishProduct(store, product);
-    expect(result).toEqual({ externalId: "MLB1", externalUrl: "https://produto/MLB1" });
+    expect(result).toEqual({
+      externalId: "MLB1",
+      externalUrl: "https://produto.mercadolivre.com.br/MLB-1",
+    });
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created).toMatchObject({
       category_id: "MLB31447",
@@ -477,7 +481,7 @@ const remoteItem = {
   seller_id: 999,
   seller_custom_field: product.idempotencyKey,
   status: "active",
-  permalink: "https://produto/MLB1",
+  permalink: "https://produto.mercadolivre.com.br/MLB-1",
 };
 const recoveryRoutes: Record<string, Responder> = {
   [`GET ${API}/users/999/items/search`]: () =>
