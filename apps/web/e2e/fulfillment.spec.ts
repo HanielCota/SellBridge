@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
+import { DELIVERY_CONFIRMED_BY } from "@sellbridge/shared/schemas";
 import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { eq } from "drizzle-orm";
 import {
@@ -115,9 +116,7 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await popup.close();
   // The supplier's part ends at dispatch: delivery is not theirs to declare.
   await expect(supplier.getByRole("button", { name: "Entregue", exact: true })).toHaveCount(0);
-  await expect(
-    supplier.getByText("A entrega é confirmada pelo marketplace ou pelo revendedor."),
-  ).toBeVisible();
+  await expect(supplier.getByText(DELIVERY_CONFIRMED_BY)).toBeVisible();
   await supplierContext.close();
 
   // The reseller confirms it.

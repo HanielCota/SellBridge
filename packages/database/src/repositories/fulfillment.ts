@@ -4,11 +4,13 @@ import { and, asc, desc, eq, exists, gt, ilike, inArray, notExists, or, sql } fr
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
+  DELIVERY_CONFIRMED_BY,
   FULFILLMENT_NEXT,
   type FulfillmentStatus,
   type forwardOrderSchema,
   type MarketplaceTrackingStatus,
   SETTLED_FULFILLMENT_STATUSES,
+  SHIPMENT_ACTORS,
   type operationsSearchSchema,
   type shipmentUpdateSchema,
 } from "@sellbridge/shared/schemas";
@@ -280,7 +282,7 @@ export async function forwardOrder(
       await tx.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status: "forwarded",
-        actor: "Revendedor",
+        actor: SHIPMENT_ACTORS.reseller,
         note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
       });
       links.push({ shipmentId: shipment.id, supplierId, token });
@@ -323,7 +325,7 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
     await tx.insert(shipmentEvents).values({
       shipmentId,
       status: "forwarded",
-      actor: "Revendedor",
+      actor: SHIPMENT_ACTORS.reseller,
       note: "Reencaminhado ao fornecedor. Compartilhe o novo link com ele.",
     });
     return { shipmentId, supplierId: shipment.supplierId, token };
@@ -401,12 +403,11 @@ async function writeShipmentStatus(
   tx: Transaction,
   shipment: typeof orderShipments.$inferSelect,
   input: z.infer<typeof shipmentUpdateSchema>,
-  actor: string,
+  by: "reseller" | "supplier",
 ) {
   // A delivery the supplier declares about itself is not proof: it releases the reseller's review
   // and, later, the supplier's payment. Only the marketplace or the reseller confirms it.
-  if (actor === "Fornecedor" && input.status === "delivered" && shipment.status !== "delivered")
-    throw conflictError("A entrega é confirmada pelo marketplace ou pelo revendedor.");
+  if (by === "supplier" && input.status === "delivered") throw conflictError(DELIVERY_CONFIRMED_BY);
   if (
     input.status !== shipment.status &&
     FULFILLMENT_NEXT[shipment.status] !== input.status &&
@@ -438,9 +439,12 @@ async function writeShipmentStatus(
         : {}),
     })
     .where(eq(orderShipments.id, shipment.id));
-  await tx
-    .insert(shipmentEvents)
-    .values({ shipmentId: shipment.id, status: input.status, actor, note: input.note });
+  await tx.insert(shipmentEvents).values({
+    shipmentId: shipment.id,
+    status: input.status,
+    actor: SHIPMENT_ACTORS[by],
+    note: input.note,
+  });
 }
 
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
@@ -476,12 +480,7 @@ export async function updateShipment(
       .where(and(eq(orderShipments.id, candidate.id), accessFilter))
       .for("update");
     if (!shipment) throw notFoundError("Link revogado ou expirado");
-    await writeShipmentStatus(
-      tx,
-      shipment,
-      input,
-      "tenantId" in access ? "Revendedor" : "Fornecedor",
-    );
+    await writeShipmentStatus(tx, shipment, input, "tenantId" in access ? "reseller" : "supplier");
     await syncOrderFromShipments(tx, order);
   });
 }
@@ -552,7 +551,7 @@ export async function applyMarketplaceShipment(
       await tx.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status,
-        actor: "Mercado Livre",
+        actor: SHIPMENT_ACTORS.marketplace,
         // The status label says what happened; the note only adds a tracking code that just arrived.
         note: newTrackingCode ? `Código de rastreio ${newTrackingCode}` : "",
       });

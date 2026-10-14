@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
+import { DELIVERY_CONFIRMED_BY, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { orderItems, orders, orderShipments, user } from "../schema/index.ts";
@@ -412,7 +412,7 @@ describe("fulfillment", () => {
       await advance(link.shipmentId, status, link.token);
     await expect(advance(link.shipmentId, "delivered", link.token)).rejects.toMatchObject({
       code: "CONFLICT",
-      message: expect.stringContaining("marketplace ou pelo revendedor"),
+      message: DELIVERY_CONFIRMED_BY,
     });
     const [stored] = await database.select().from(orders).where(eq(orders.id, order.id));
     expect(stored).toMatchObject({ status: "shipped", deliveredAt: null });

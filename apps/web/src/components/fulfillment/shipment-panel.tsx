@@ -1,4 +1,5 @@
 import {
+  DELIVERY_CONFIRMED_BY,
   DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_LABELS,
   FULFILLMENT_NEXT,
@@ -32,13 +33,13 @@ export interface ShipmentView {
   trackingUrl: string | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
+type ShipmentActor = "reseller" | "supplier";
+
 /** The supplier's part ends at dispatch: the marketplace or the reseller confirms the delivery. */
 function nextStepFor(status: FulfillmentStatus, actsAs: ShipmentActor): FulfillmentStatus | null {
   const next = FULFILLMENT_NEXT[status];
   return actsAs === "supplier" && next === "delivered" ? null : next;
 }
-
-type ShipmentActor = "reseller" | "supplier";
 
 export function ShipmentPanel({
   shipment,
@@ -165,7 +166,19 @@ function ShipmentActions(props: {
 }) {
   return (
     <div className="space-y-3">
-      {props.next === "shipped" ? <DispatchFields {...props} /> : null}
+      {props.awaitingDelivery ? (
+        <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
+      ) : null}
+      {props.next === "shipped" ? (
+        <DispatchFields
+          carrier={props.carrier}
+          trackingCode={props.trackingCode}
+          trackingUrl={props.trackingUrl}
+          setCarrier={props.setCarrier}
+          setTrackingCode={props.setTrackingCode}
+          setTrackingUrl={props.setTrackingUrl}
+        />
+      ) : null}
       <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
       <div className="flex flex-wrap gap-2">
         {props.next ? (
@@ -190,11 +203,6 @@ function ShipmentActions(props: {
           </Button>
         )}
       </div>
-      {props.awaitingDelivery ? (
-        <p className="text-sm text-muted-foreground">
-          A entrega é confirmada pelo marketplace ou pelo revendedor.
-        </p>
-      ) : null}
     </div>
   );
 }

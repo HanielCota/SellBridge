@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import type { Database } from "../client.ts";
 import {
   categories,
@@ -218,7 +219,7 @@ async function shipmentCancelledEvents(
     )
     .orderBy(asc(orderShipments.id), desc(shipmentEvents.createdAt));
   return rows
-    .filter((row) => row.actor === "Fornecedor")
+    .filter((row) => row.actor === SHIPMENT_ACTORS.supplier)
     .toSorted((left, right) => left.at.getTime() - right.at.getTime())
     .slice(0, PER_KIND)
     .map(({ actor: _actor, ...row }) => ({ ...row, kind: "shipment_cancelled" as const }));
