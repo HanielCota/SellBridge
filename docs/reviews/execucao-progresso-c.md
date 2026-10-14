@@ -1,47 +1,47 @@
 # Andamento da execução tela a tela · chat paralelo C
 
-Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md) para os itens 08, 09, 13, 14, 15, 16, 18 e 23 (divisão por área em [coordenacao.md](../prompts/coordenacao.md)), no worktree `SellBridge-c` (branch `feat/client-phase-1-c`, banco `sellbridge_desk_c`). O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
+Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md) para os itens 08, 09, 15, 13, 14, 18 e 23 (divisão por área em [coordenacao.md](../prompts/coordenacao.md)), no worktree `SellBridge-c` (branch `feat/client-phase-1-c`, banco `sellbridge_desk_c`). O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
 
 ## Em andamento
 
-- Item/parte: 08.b · Desativar pausa, sincroniza, notifica, audita e tem e2e
-- Última etapa concluída: 8 · Documentar (aguardando ⏸3)
-- Próximo passo: etapa 9 · commit local após OK do ⏸3
-- Arquivos tocados: catalog-availability.ts (esqueleto) e teste, testing/fixtures.ts (publishTestProduct), listing-sync-availability.test.ts, catalog-deactivation.test.ts, listing-health.test.ts, notification-presenter.test.ts, notification-tabs.test.ts, e2e/catalog-deactivation.spec.ts
-- Decisões tomadas nos pontos de parada: ⏸1 do 08.b aprovado; auditoria do catálogo adiada para o item 28 (principal); refatoração dos vícios de IA commitada (ffd6571), porta do e2e corrigida (bd13085)
-- Pendências: pedir ao principal o índice em listings.supplier_product_id (migration); conflitos esperados na junção com o principal (operations.tsx, order-dialog.tsx, shipment-panel.tsx, migrations.test.ts: ficar com os 60 s do edb1ff4); auditoria do catálogo vai para o item 28 (principal); troca de região pelo admin (customers.functions.ts, chat B) deve chamar requestStockSync na junção
+- Item/parte: 09 · Lucro correto
+- Última etapa concluída: — (08 ✅ 2135a1b; junção com o principal 3f909a7)
+- Próximo passo: etapa 1 · ler o item 09 e os IDs B10 e G4 do relatório
+- Arquivos tocados: —
+- Decisões tomadas nos pontos de parada: 5 chats por área e os 3 ajustes (senha da vez, menos paradas sem tela, recursos isolados), aprovados em 2026-10-14
+- Pendências: índice em listings.supplier_product_id (migration, chat E ou principal); troca de região pelo admin (customers.functions.ts) deve chamar requestStockSync
 
 ## Linha de base
 
-| Métrica                                        | Valor                   | Medido em  |
-| ---------------------------------------------- | ----------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 981 passando            | 2026-10-13 |
-| E2E completo (`--workers=1`, porta 3160)       | 63 passando             | 2026-10-13 |
-| Última migration                               | 0021_repair_public_api  | 2026-10-13 |
-| Branch de trabalho                             | `feat/client-phase-1-c` | 2026-10-13 |
+| Métrica                                        | Valor                     | Medido em  |
+| ---------------------------------------------- | ------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 982 passando              | 2026-10-14 |
+| E2E completo (`--workers=1`, porta 3160)       | 63 passando               | 2026-10-13 |
+| Última migration                               | 0022_order_status_changes | 2026-10-14 |
+| Branch de trabalho                             | `feat/client-phase-1-c`   | 2026-10-13 |
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit | Notas                                       |
-| ---- | ---------------------------------------------- | -------- | ------ | ------------------------------------------- |
-| 00   | Preparação do dia (chat C)                     | ✅       | —      | Linha de base 937 no banco C                |
-| 08   | Produto ou fornecedor inativo e fora da região | 🟡       | —      | 08.a ✅ b2a3331 · 08.b ✅ (commit pendente) |
-| 09   | Lucro correto                                  | ⬜       | —      |                                             |
-| 10   | Segurança de contas e da equipe                | ⬜       | —      | Passou para o chat B (coordenacao.md)       |
-| 13   | Erros de publicação claros                     | ⬜       | —      |                                             |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —      |                                             |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —      |                                             |
-| 16   | Riscos da assinatura                           | ⬜       | —      |                                             |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —      |                                             |
-| 23   | Anúncios completos                             | ⬜       | —      | Veio do principal (coordenacao.md)          |
+| Item | Título                                         | Situação | Commit            | Notas                                 |
+| ---- | ---------------------------------------------- | -------- | ----------------- | ------------------------------------- |
+| 00   | Preparação do dia (chat C)                     | ✅       | —                 | Linha de base 937 no banco C          |
+| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b | 08.a ✅ b2a3331 · 08.b ✅ 2135a1b     |
+| 09   | Lucro correto                                  | ⬜       | —                 |                                       |
+| 10   | Segurança de contas e da equipe                | ⬜       | —                 | Passou para o chat B (coordenacao.md) |
+| 13   | Erros de publicação claros                     | ⬜       | —                 |                                       |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —                 |                                       |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —                 |                                       |
+| 16   | Riscos da assinatura                           | ⬜       | —                 | Passou para o chat D (coordenacao.md) |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                 |                                       |
+| 23   | Anúncios completos                             | ⬜       | —                 | Veio do principal (coordenacao.md)    |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
-### 2026-10-13 · Item 08.b · Desativar pausa, avisa e reativar fica com o revendedor — ✅ concluído (commit local)
+### 2026-10-13 · Item 08.b · Desativar pausa, avisa e reativar fica com o revendedor — ✅ concluído (2135a1b, commit local)
 
 - Desativar produto ou fornecedor (botão ou CSV) pausa os anúncios publicados de todos os revendedores na mesma transação e diz ao admin quantos ("Produto desativado · 1 anúncio pausado"). Reativar não reativa: o revendedor decide; o servidor recusa retomar enquanto indisponível, com trava compartilhada contra a corrida com o admin.
 - Card de Publicações: o rodapé vermelho do "esgotado" (`SoldOutFooter`) ganhou rótulo e motivo; preço riscado e foto em cinza sem a faixa "Esgotado"; menu mostra "Indisponível" (ou "Pausar" se ainda está no ar fora da região). Sino: tipo `listing_unavailable` na aba Problemas, permanente até o produto voltar, com link pela busca do título.
