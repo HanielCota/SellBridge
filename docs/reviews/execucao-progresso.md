@@ -15,9 +15,9 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 | Métrica                                        | Valor                              | Medido em  |
 | ---------------------------------------------- | ---------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1160 passando                      | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1213 passando                      | 2026-10-15 |
 | Testes web (`apps/web` vitest)                 | 392 passando                       | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 78 passando                        | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 85 passando                        | 2026-10-15 |
 | Última migration                               | 0025_store_supplier_and_unique_cpf | 2026-10-15 |
 | Branch de trabalho                             | `feat/client-phase-1`              | 2026-10-12 |
 
@@ -39,7 +39,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                     |
 | 08   | Produto ou fornecedor inativo e fora da região  | ✅       | b2a3331 · 2135a1b           | Feito no chat C; 08.a ✅ b2a3331 · 08.b ✅ 2135a1b (junção 36ebac1) |
 | 09   | Lucro correto                                   | 🟡       | 118406a                     | Receita só de pedidos pagos veio do audit; falta o custo pendente   |
-| 10   | Segurança de contas e da equipe                 | ⬜       | —                           |                                                                     |
+| 10   | Segurança de contas e da equipe                 | 🟡       | 6c32358 · c29dbc8           | Chat B; 10.a ✅ · 10.b ✅ · 10.c ⬜                                 |
 | 11   | Uploads seguros                                 | ⬜       | —                           |                                                                     |
 | 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           |                                                                     |
 | 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                     |
@@ -71,6 +71,13 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junções: 10.a e 10.b (chat B) e etapa 2 do chat CPF (fim da trava por região)
+
+- 10.a (564a6f4): dono da plataforma (`ADMIN_EMAILS` + e-mail verificado + admin) protegido no hook do Better Auth em 11 rotas `/admin/*`; ficha do cliente com selo "Dono da plataforma". 10.b (8d9fe76): por HTTP, `/api/auth/admin/*` responde 404, exceto entrar e sair como cliente.
+- Etapa 2 do chat CPF (b387940): catálogo, publicação, busca e API pública sem `requireTenantRegion`; `supplier-coverage` virou `sellable` (produto e fornecedor ativos); fornecedores sem selo, filtro e aviso de região, com "Publicar" para qualquer fornecedor ativo; sem `outside_region` no sino.
+- Portões na pasta principal: lint, tipos, formatação, sem else ✅; testes 1213/1213; build ✅; e2e completos 85/85 em série (16,4 min) antes do 10.b e 4/4 do 10.b depois; D2 sem rolagem nas 8 larguras em Fornecedores e Catálogo; 12 capturas conferidas.
+- Achados: o `stock.spec` disputa com o `catalog-deactivation` quando roda em paralelo (avisado ao chat C); o banco `sellbridge_desk` acumulou fornecedores de teste ("Fornecedor W-1", "Fornecedor de teste F4", nicho "Teste") que aparecem nas telas — limpar antes de capturas de entrega.
 
 ### 2026-10-15 · U-9 (com U-3 e U-4) · Link do fornecedor com marca, título, carregando e alerta — ✅ concluído (commit local)
 
