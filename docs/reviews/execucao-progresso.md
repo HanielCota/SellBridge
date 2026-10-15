@@ -27,46 +27,46 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 
 Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (ex.: `01.a ✅ abc1234 · 01.b ⬜`). O item só vira ✅ quando todas as partes estão ✅.
 
-| Item | Título                                          | Situação | Commit                      | Notas                                                               |
-| ---- | ----------------------------------------------- | -------- | --------------------------- | ------------------------------------------------------------------- |
-| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)    |
-| 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                 |
-| 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a              |
-| 03   | Mesma conta do ML em dois revendedores          | ✅       | 558cd66                     | Chat B; junção 3ff71ce                                              |
-| 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                 |
-| 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                     |
-| 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                     |
-| 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                     |
-| 08   | Produto ou fornecedor inativo e fora da região  | ✅       | b2a3331 · 2135a1b           | Feito no chat C; 08.a ✅ b2a3331 · 08.b ✅ 2135a1b (junção 36ebac1) |
-| 09   | Lucro correto                                   | 🟡       | 118406a                     | Receita só de pedidos pagos veio do audit; falta o custo pendente   |
-| 10   | Segurança de contas e da equipe                 | 🟡       | 6c32358 · c29dbc8           | Chat B; 10.a ✅ · 10.b ✅ · 10.c ⬜                                 |
-| 11   | Uploads seguros                                 | ⬜       | —                           |                                                                     |
-| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           |                                                                     |
-| 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                     |
-| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           |                                                                     |
-| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           |                                                                     |
-| 16   | Riscos da assinatura                            | ⬜       | —                           |                                                                     |
-| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           |                                                                     |
-| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           |                                                                     |
-| 19   | Pequenos de segurança e status                  | ⬜       | —                           |                                                                     |
-| 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                 |
-| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                       |
-| 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                     |
-| 23   | Anúncios completos                              | ⬜       | —                           |                                                                     |
-| 24   | Saúde das lojas                                 | ⬜       | —                           |                                                                     |
-| 25   | Central de notificações                         | ⬜       | —                           | WhatsApp depende de D9                                              |
-| 26   | Onboarding previsível e conta completa          | ⬜       | —                           |                                                                     |
-| 27   | Suporte: o que falta                            | ⬜       | —                           |                                                                     |
-| 28   | Admin da plataforma                             | ⬜       | —                           |                                                                     |
-| 29   | Painel do mockup do cliente                     | ⬜       | —                           | Layout depende de D8                                                |
-| 30   | LGPD e proteção da conta                        | ⬜       | —                           |                                                                     |
-| 31   | Planos como no PDF                              | ⬜       | —                           | Depende de D10                                                      |
-| 32   | Infra                                           | ⬜       | —                           |                                                                     |
-| 33   | Shopee                                          | ⛔       | —                           | Sem credenciais de parceiro                                         |
-| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                           | Depende de D1–D4                                                    |
-| 35   | Conquistas digitais e Club                      | ⛔       | —                           | Depende de decisão do cliente                                       |
-| 36   | IA assistente                                   | ⛔       | —                           | Depende de decisão do cliente                                       |
-| 37   | Fiscal e contabilidade                          | ⛔       | —                           | Depende de decisão contábil                                         |
+| Item | Título                                          | Situação | Commit                      | Notas                                                                  |
+| ---- | ----------------------------------------------- | -------- | --------------------------- | ---------------------------------------------------------------------- |
+| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)       |
+| 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                    |
+| 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a                 |
+| 03   | Mesma conta do ML em dois revendedores          | ✅       | 558cd66                     | Chat B; junção 3ff71ce                                                 |
+| 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                    |
+| 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                        |
+| 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                        |
+| 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                        |
+| 08   | Produto ou fornecedor inativo e fora da região  | ✅       | b2a3331 · 2135a1b           | Feito no chat C; 08.a ✅ b2a3331 · 08.b ✅ 2135a1b (junção 36ebac1)    |
+| 09   | Lucro correto                                   | ✅       | 92d2e56 · 7772cb6           | Chat C; receita só de pagos (118406a) e custo pendente; junção 8e4f821 |
+| 10   | Segurança de contas e da equipe                 | 🟡       | 6c32358 · c29dbc8           | Chat B; 10.a ✅ · 10.b ✅ · 10.c ⬜                                    |
+| 11   | Uploads seguros                                 | ⬜       | —                           |                                                                        |
+| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           |                                                                        |
+| 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                        |
+| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           |                                                                        |
+| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           |                                                                        |
+| 16   | Riscos da assinatura                            | ⬜       | —                           |                                                                        |
+| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           |                                                                        |
+| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           |                                                                        |
+| 19   | Pequenos de segurança e status                  | ⬜       | —                           |                                                                        |
+| 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                    |
+| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                          |
+| 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                        |
+| 23   | Anúncios completos                              | ⬜       | —                           |                                                                        |
+| 24   | Saúde das lojas                                 | ⬜       | —                           |                                                                        |
+| 25   | Central de notificações                         | ⬜       | —                           | WhatsApp depende de D9                                                 |
+| 26   | Onboarding previsível e conta completa          | ⬜       | —                           |                                                                        |
+| 27   | Suporte: o que falta                            | ⬜       | —                           |                                                                        |
+| 28   | Admin da plataforma                             | ⬜       | —                           |                                                                        |
+| 29   | Painel do mockup do cliente                     | ⬜       | —                           | Layout depende de D8                                                   |
+| 30   | LGPD e proteção da conta                        | ⬜       | —                           |                                                                        |
+| 31   | Planos como no PDF                              | ⬜       | —                           | Depende de D10                                                         |
+| 32   | Infra                                           | ⬜       | —                           |                                                                        |
+| 33   | Shopee                                          | ⛔       | —                           | Sem credenciais de parceiro                                            |
+| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                           | Depende de D1–D4                                                       |
+| 35   | Conquistas digitais e Club                      | ⛔       | —                           | Depende de decisão do cliente                                          |
+| 36   | IA assistente                                   | ⛔       | —                           | Depende de decisão do cliente                                          |
+| 37   | Fiscal e contabilidade                          | ⛔       | —                           | Depende de decisão contábil                                            |
 
 ## Histórico
 
