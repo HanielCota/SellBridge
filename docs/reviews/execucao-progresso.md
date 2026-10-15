@@ -15,7 +15,7 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 | Métrica                                        | Valor                     | Medido em  |
 | ---------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1316 passando             | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1318 passando             | 2026-10-15 |
 | Testes web (`apps/web` vitest)                 | 392 passando              | 2026-10-14 |
 | E2E completos (`--workers=1`)                  | 91 passando               | 2026-10-15 |
 | Última migration                               | 0027_oauth_state_supplier | 2026-10-15 |
@@ -71,6 +71,11 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: etapa 5 do chat CPF (filtros por UF e cidade, "Vender este fornecedor")
+
+- 5c73a2b (commit a6360cc): Fornecedores com Estado ("Todo o Brasil") e Cidade (cidade sem diferenciar acento e maiúscula), "Limpar filtros" no vazio; página do fornecedor com "Vender este fornecedor" → `/lojas?fornecedor=<id>#adicionar-loja`; o seletor do onboarding filtra UF no servidor. Sem migration.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1318/1318; build ✅; e2e 31/31 (fornecedores, loja e fornecedor, publicação, acessibilidade, mensagens de lojas, login); capturas do chat CPF conferidas (filtro MG + Belo Horizonte mostra só a BH Beauty).
 
 ### 2026-10-15 · Junções: 0027 e etapa 4 (chat CPF), 10.c (chat B) e 15.a (chat C)
 
