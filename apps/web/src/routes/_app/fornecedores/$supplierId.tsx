@@ -94,7 +94,7 @@ function DeliveryNotice({ deliversToRegion }: { deliversToRegion: boolean | null
   if (deliversToRegion === true) {
     return null;
   }
-  if (!region) {
+  if (region === null) {
     return (
       <Alert>
         <TruckIcon aria-hidden="true" />

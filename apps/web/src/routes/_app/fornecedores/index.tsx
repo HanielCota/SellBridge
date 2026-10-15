@@ -134,7 +134,7 @@ function DeliveringOnlyToggle() {
   const search = Route.useSearch();
   const { region } = Route.useRouteContext();
   const navigate = useNavigate({ from: Route.fullPath });
-  if (!region) {
+  if (region === null) {
     return (
       <p className="text-footnote text-muted-foreground">
         <Link to="/onboarding" className="text-brand-text underline-offset-4 hover:underline">
