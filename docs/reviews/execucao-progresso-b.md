@@ -4,23 +4,18 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 11 · Uploads seguros (só servidor: ⏸1 e ⏸2 juntos)
-- Última etapa concluída: 8 · Documentar (⏸1+⏸2 aprovado em 2026-10-15; ⏸3 aguardando OK)
-- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1`, portões de novo e aviso ao principal
-- Arquivos tocados: packages/shared/src/runtime/errors.ts (+RATE_LIMITED), apps/web/src/lib/server/http.ts, features/public-api/problem.ts, lib/server/upload-rate-limit(.test).ts, features/support/support.server(.test).ts, attachments.server(.test).ts, features/profile/avatar.server(.test).ts, packages/database/src/repositories/support(.test).ts, docs
-- Decisões tomadas nos pontos de parada: limite em memória, 30 anexos e 10 fotos a cada 10 min (⏸1+⏸2); depois da revisão, o suporte conta só mensagens com arquivo
-- Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+_(nenhum)_ · próximo: item 12 (admin muda a região e apaga o endereço). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
 | Métrica                                        | Valor                     | Medido em  |
 | ---------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1320 passando             | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 512 passando              | 2026-10-14 |
+| Testes unitários e de integração (`pnpm test`) | 1333 passando             | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 524 passando              | 2026-10-14 |
 | Última migration (branch)                      | 0027_oauth_state_supplier | 2026-10-14 |
 | Branch de trabalho                             | `claude/client-b-47fa05`  | 2026-10-14 |
 
-C5 no banco B depois da junção com `feat/client-phase-1` (93eb43b, f468e1b) e do 10.c completo: shared 340, marketplaces 149, web 512, worker 56, database 256, scripts 7.
+C5 no banco B no item 11 (base feat/client-phase-1 14ab0ae): shared 340, marketplaces 149, web 524, worker 56, database 257, scripts 7.
 
 ## Situação dos itens
 
@@ -30,7 +25,7 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 | ---- | -------------------------------------- | -------- | ------- | --------------------------------------------------------------------- |
 | 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                        |
 | 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas) |
-| 11   | Uploads seguros                        | ⬜       | —       |                                                                       |
+| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                       |
 | 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                                       |
 | 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                                       |
 | 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                       |
@@ -41,10 +36,11 @@ Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X
 
 ## Histórico
 
-### 2026-10-15 · Item 11 · Uploads seguros — aguardando ⏸3
+### 2026-10-15 · Item 11 · Uploads seguros — ✅ concluído (3859be6, commit local; junção 0d5b74e)
 
 - Teto do corpo já vinha do audit. Agora o chamado é conferido antes de gravar o anexo (outro tenant 404, equipe em chamado encerrado 409, sem arquivo no disco), um anexo que falha no meio apaga os já gravados, e há limite de envios por conta em memória (429): 30 mensagens com arquivo e 10 fotos a cada 10 min.
 - Revisão independente: 2 médios corrigidos (arquivo órfão quando um put falha no meio; limite gastava em resposta só de texto, agora conta só mensagem com arquivo) e 2 baixos (chaves paradas removidas do limitador; arquivo inválido em loop agora também gasta o limite). `Retry-After` no 429 ficou de fora.
+- Portões: C1–C4 ✅, C5 1333/1333, C6 ✅, C7 15/15 (support, profile, admin, impersonation) + 9/9 depois do último ajuste. A junção seguinte (0d5b74e) trouxe só documentos.
 
 ### 2026-10-15 · Item 10.c · Parte de lojas — ✅ concluído (3742f08, commit local; junção 104c604)
 
