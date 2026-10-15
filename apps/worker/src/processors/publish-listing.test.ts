@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { schema } from "@sellbridge/database";
 import { marketplaceError, type MarketplaceConnector } from "@sellbridge/marketplaces";
 import { unavailableMessage } from "@sellbridge/shared/catalog-availability";
+import { STORE_SUPPLIER_CHANGED_MESSAGE } from "@sellbridge/shared/store-supplier";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestProduct,
@@ -323,6 +324,33 @@ describe("publish-listing processor", () => {
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
     expect(await processPublish(job)).toBe("published");
     expect((await targetRow(targetId)).errorReason).toBeNull();
+  });
+
+  it("refuses a publication whose shop moved to another supplier after it was queued", async () => {
+    const other = await createTestProduct(database, {
+      sku: "W-OUTRO",
+      title: "Produto de outro fornecedor",
+      stock: 3,
+    });
+    extraCatalogs.push(other);
+    const tenantId = tenants.first;
+    const store = await createTestStore(environment, tenantId, "connected");
+    await database
+      .update(schema.storeConnections)
+      .set({ supplierId: other.supplierId })
+      .where(eq(schema.storeConnections.id, store.id));
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: catalog.productId,
+      storeId: store.id,
+      title: "Produto de fornecedor que a loja deixou de vender",
+    });
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect((await targetRow(targetId)).errorReason).toBe(STORE_SUPPLIER_CHANGED_MESSAGE);
   });
 
   it("rejects malformed payloads", async () => {

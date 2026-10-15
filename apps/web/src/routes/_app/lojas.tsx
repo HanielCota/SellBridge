@@ -4,14 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { optionalParameter } from "@sellbridge/shared/schemas";
+import { WarningCircleIcon } from "@phosphor-icons/react";
+import type { StoreSupplier } from "@sellbridge/database/repositories";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { AddStore } from "@/components/stores/add-store";
+import type { PickableSupplier } from "@/components/onboarding/supplier-picker";
+import { AddStore, type NewStoreSupplier } from "@/components/stores/add-store";
 import {
   DisconnectStoreDialog,
   type StoreToDisconnect,
 } from "@/components/stores/disconnect-store-dialog";
-import { StoreList } from "@/components/stores/store-list";
+import { StoreList, type StoreWithActivity } from "@/components/stores/store-list";
+import {
+  NewStoreSupplierDialog,
+  StoreSupplierDialog,
+  type StoreSupplierTarget,
+} from "@/components/stores/store-supplier-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   STORE_CONNECT_ERROR_CODES,
@@ -19,6 +28,7 @@ import {
 } from "@/features/stores/store-connect-errors";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
+import { storeSuppliersQueryOptions } from "@/features/stores/store-suppliers.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -30,7 +40,11 @@ const storesSearchSchema = z.object({
 
 export const Route = createFileRoute("/_app/lojas")({
   validateSearch: storesSearchSchema,
-  loader: ({ context }) => prefetchOnServer(context.queryClient, storesQueryOptions()),
+  loader: ({ context }) =>
+    Promise.all([
+      prefetchOnServer(context.queryClient, storesQueryOptions()),
+      prefetchOnServer(context.queryClient, storeSuppliersQueryOptions()),
+    ]),
   head: () => ({ meta: [{ title: "Lojas | SellBridge" }] }),
   component: StoresPage,
 });
@@ -81,11 +95,22 @@ function StoresPage() {
 
 const ONBOARDING_STEPS = [
   "Autorize o SellBridge na sua conta do marketplace.",
-  "Escolha produtos dos fornecedores e publique na loja.",
+  "Cada loja vende um fornecedor: escolha os produtos dele e publique.",
   "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
 ] as const;
 
-function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
+interface NewStoreChoice {
+  supplier: NewStoreSupplier | null;
+  onChooseSupplier: () => void;
+}
+
+function FirstStoreOnboarding({
+  marketplaces,
+  choice,
+}: {
+  marketplaces: MarketplaceOption[];
+  choice: NewStoreChoice;
+}) {
   return (
     <section
       aria-labelledby="first-store"
@@ -109,7 +134,11 @@ function FirstStoreOnboarding({ marketplaces }: { marketplaces: MarketplaceOptio
           ))}
         </ol>
       </div>
-      <AddStore marketplaces={marketplaces} />
+      <AddStore
+        marketplaces={marketplaces}
+        supplier={choice.supplier}
+        onChooseSupplier={choice.onChooseSupplier}
+      />
     </section>
   );
 }
@@ -133,7 +162,13 @@ function useScrollIntoViewOnHash(anchor: string) {
   return ref;
 }
 
-function AddStoreSection({ marketplaces }: { marketplaces: MarketplaceOption[] }) {
+function AddStoreSection({
+  marketplaces,
+  choice,
+}: {
+  marketplaces: MarketplaceOption[];
+  choice: NewStoreChoice;
+}) {
   const ref = useScrollIntoViewOnHash(ADD_STORE_ANCHOR);
   return (
     <section
@@ -145,14 +180,93 @@ function AddStoreSection({ marketplaces }: { marketplaces: MarketplaceOption[] }
       <h2 id="add-store" className="px-5 text-footnote font-normal text-muted-foreground">
         Adicionar loja
       </h2>
-      <AddStore marketplaces={marketplaces} />
+      <AddStore
+        marketplaces={marketplaces}
+        supplier={choice.supplier}
+        onChooseSupplier={choice.onChooseSupplier}
+      />
     </section>
   );
 }
 
+function toNewStoreSupplier(supplier: StoreSupplier | PickableSupplier): NewStoreSupplier {
+  return {
+    id: supplier.id,
+    name: supplier.name,
+    logoUrl: supplier.logoUrl,
+    place: `${supplier.niche} · ${supplier.city} - ${supplier.state}`,
+  };
+}
+
+/**
+ * The supplier the next shop sells: the one picked here, else, for a first shop, the one picked
+ * during onboarding. Further shops ask, since each one sells a single supplier.
+ */
+function useNewStoreChoice(hasStores: boolean) {
+  const suppliers = useQuery(storeSuppliersQueryOptions());
+  const [picked, setPicked] = useState<NewStoreSupplier | null>(null);
+  const [isPicking, setIsPicking] = useState(false);
+  const starter = suppliers.data?.starterSupplier ?? null;
+  const fallback = !hasStores && starter !== null ? toNewStoreSupplier(starter) : null;
+  const choice: NewStoreChoice = {
+    supplier: picked ?? fallback,
+    onChooseSupplier: () => setIsPicking(true),
+  };
+  const dialog = (
+    <NewStoreSupplierDialog
+      open={isPicking}
+      currentSupplierId={choice.supplier?.id ?? null}
+      onPicked={(supplier) => {
+        setPicked(toNewStoreSupplier(supplier));
+        setIsPicking(false);
+      }}
+      onClose={() => setIsPicking(false)}
+    />
+  );
+  return { choice, dialog };
+}
+
+function supplierLabels(suppliers: readonly StoreSupplier[] | undefined) {
+  return new Map(
+    (suppliers ?? []).map((supplier) => [
+      supplier.id,
+      { name: supplier.name, active: supplier.active },
+    ]),
+  );
+}
+
+/** Shops connected before the one-supplier rule, or whose supplier was deleted, wait for one. */
+function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[] }) {
+  const pending = stores.filter(
+    (store) => store.supplierId === null && store.status !== "disconnected",
+  ).length;
+  if (pending === 0) {
+    return null;
+  }
+  return (
+    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+      <WarningCircleIcon weight="fill" aria-hidden="true" />
+      <AlertDescription className="text-current">
+        {pending === 1
+          ? "1 loja ainda não tem fornecedor."
+          : `${pending.toLocaleString("pt-BR")} lojas ainda não têm fornecedor.`}{" "}
+        Cada loja vende os produtos de um único fornecedor: escolha o de cada uma para continuar
+        publicando. Os anúncios no ar seguem vendendo.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function supplierTargetOf(store: StoreWithActivity): StoreSupplierTarget {
+  return { storeId: store.id, storeName: store.shopName, currentSupplierId: store.supplierId };
+}
+
 function StoresContent() {
   const query = useQuery(storesQueryOptions());
+  const suppliers = useQuery(storeSuppliersQueryOptions());
   const [pendingDisconnect, setPendingDisconnect] = useState<StoreToDisconnect | null>(null);
+  const [supplierTarget, setSupplierTarget] = useState<StoreSupplierTarget | null>(null);
+  const newStore = useNewStoreChoice((query.data?.stores.length ?? 0) > 0);
   if (query.isPending) {
     return (
       <div className="space-y-8" aria-busy="true" aria-label="Carregando lojas">
@@ -166,20 +280,30 @@ function StoresContent() {
   }
   const { stores, marketplaces } = query.data;
   if (stores.length === 0) {
-    return <FirstStoreOnboarding marketplaces={marketplaces} />;
+    return (
+      <>
+        <FirstStoreOnboarding marketplaces={marketplaces} choice={newStore.choice} />
+        {newStore.dialog}
+      </>
+    );
   }
   const labels = new Map(marketplaces.map((option) => [option.id, option.label]));
   return (
     <>
-      <section aria-label="Suas lojas">
+      <section aria-label="Suas lojas" className="space-y-4">
+        <PendingSupplierNotice stores={stores} />
         <StoreList
           stores={stores}
           labels={labels}
+          suppliers={supplierLabels(suppliers.data?.suppliers)}
           onDisconnect={(store) => setPendingDisconnect({ id: store.id, name: store.shopName })}
+          onChangeSupplier={(store) => setSupplierTarget(supplierTargetOf(store))}
         />
       </section>
-      <AddStoreSection marketplaces={marketplaces} />
+      <AddStoreSection marketplaces={marketplaces} choice={newStore.choice} />
       <DisconnectStoreDialog store={pendingDisconnect} onClose={() => setPendingDisconnect(null)} />
+      <StoreSupplierDialog target={supplierTarget} onClose={() => setSupplierTarget(null)} />
+      {newStore.dialog}
     </>
   );
 }

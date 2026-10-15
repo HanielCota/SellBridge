@@ -29,3 +29,7 @@ const REFUSAL_MESSAGES: Record<StoreSupplierRefusal, string> = {
 export function storeSupplierRefusalMessage(refusal: StoreSupplierRefusal): string {
   return REFUSAL_MESSAGES[refusal];
 }
+
+/** Error left on publications a shop stopped selling when its supplier changed. */
+export const STORE_SUPPLIER_CHANGED_MESSAGE =
+  "Esta loja passou a vender os produtos de outro fornecedor. Publique este produto em uma loja do fornecedor dele.";

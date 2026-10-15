@@ -1,6 +1,6 @@
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, asc, eq, inArray, isNotNull, lt, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { oauthStates, storeConnections } from "../schema/index.ts";
@@ -77,6 +77,11 @@ export interface UpsertStoreConnectionInput {
   accessTokenEnc: string;
   refreshTokenEnc: string | null;
   expiresAt: Date | null;
+  /**
+   * The supplier a new shop sells. Reconnecting a shop keeps the one it already has; null leaves
+   * a new shop pending until the seller picks one.
+   */
+  supplierId?: string | null;
 }
 
 const SHOP_IN_USE_MESSAGE =
@@ -150,18 +155,19 @@ async function saveStoreConnection(
       );
     if (!existing) await assertBillingCapacity(executor, input.tenantId, "stores");
   }
-  const { billingEnabled: _billingEnabled, ...connection } = input;
+  const { billingEnabled: _billingEnabled, supplierId = null, ...connection } = input;
   const values = { ...connection, status: "connected" as const, lastError: null };
   const [row] = await executor
     .insert(storeConnections)
-    .values({ ...values, connectedAt: new Date() })
+    .values({ ...values, supplierId, connectedAt: new Date() })
     .onConflictDoUpdate({
       target: [
         storeConnections.tenantId,
         storeConnections.marketplace,
         storeConnections.externalShopId,
       ],
-      set: values,
+      // A reconnected shop keeps its supplier; a pending one takes the supplier just picked.
+      set: { ...values, supplierId: sql`coalesce(${storeConnections.supplierId}, ${supplierId})` },
     })
     .returning(summaryColumns);
   if (!row) {
@@ -292,6 +298,8 @@ export async function createOAuthState(
     marketplace: Marketplace;
     codeVerifier: string | null;
     ttlMilliseconds: number;
+    /** The supplier the shop connected with this state sells. */
+    supplierId?: string | null;
   },
 ): Promise<void> {
   await database.insert(oauthStates).values({
@@ -299,6 +307,7 @@ export async function createOAuthState(
     tenantId: input.tenantId,
     marketplace: input.marketplace,
     codeVerifier: input.codeVerifier,
+    supplierId: input.supplierId ?? null,
     expiresAt: new Date(Date.now() + input.ttlMilliseconds),
   });
 }
@@ -310,7 +319,7 @@ export async function createOAuthState(
 export async function consumeOAuthState(
   database: Database,
   input: { state: string; tenantId: string; marketplace: Marketplace },
-): Promise<{ codeVerifier: string | null } | null> {
+): Promise<{ codeVerifier: string | null; supplierId: string | null } | null> {
   const [row] = await database
     .delete(oauthStates)
     .where(eq(oauthStates.state, input.state))
@@ -325,5 +334,5 @@ export async function consumeOAuthState(
   if (row.expiresAt.getTime() <= Date.now()) {
     return null;
   }
-  return { codeVerifier: row.codeVerifier };
+  return { codeVerifier: row.codeVerifier, supplierId: row.supplierId };
 }

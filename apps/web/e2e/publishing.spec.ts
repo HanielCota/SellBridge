@@ -204,7 +204,8 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Lote");
 
-  await gotoHydrated(page, "/catalogo");
+  // The store sells BH Beauty only: pick two of its products.
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
   const boxes = page.getByRole("checkbox", { name: /^Selecionar / });
   await boxes.nth(0).click();
@@ -229,7 +230,7 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
     timeout: STATUS_TIMEOUT,
   });
 
-  await gotoHydrated(page, "/catalogo");
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   await expect(page.getByText("Publicado", { exact: true }).filter({ visible: true })).toHaveCount(
     2,
   );
@@ -240,7 +241,8 @@ test("publica em lote com margem própria para um dos produtos", async ({ page }
   await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Margem");
 
-  await gotoHydrated(page, "/catalogo");
+  // The store sells BH Beauty only: pick two of its products.
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   const boxes = page.getByRole("checkbox", { name: /^Selecionar / });
   await boxes.nth(0).click();
   await boxes.nth(1).click();

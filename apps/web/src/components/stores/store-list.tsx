@@ -2,11 +2,13 @@ import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useRef } from "react";
 import {
+  ArrowsLeftRightIcon,
   DotsThreeIcon,
   PackageIcon,
   PlugIcon,
   SignOutIcon,
   StorefrontIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { StoreStatusChip, StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -26,6 +28,12 @@ import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
+
+/** The supplier a shop sells, as its row names it. */
+export interface StoreSupplierLabel {
+  name: string;
+  active: boolean;
+}
 
 /** Identity, three figures and the row menu; the figures fold under the name on small screens. */
 const ROW_COLUMNS =
@@ -131,6 +139,36 @@ function StoreSubtitle({
   );
 }
 
+/** Who the shop sells; a shop with no supplier yet asks for one before it can publish again. */
+function StoreSupplierLine({
+  store,
+  supplier,
+  onChangeSupplier,
+}: {
+  store: StoreWithActivity;
+  supplier: StoreSupplierLabel | undefined;
+  onChangeSupplier: () => void;
+}) {
+  if (store.supplierId === null || supplier === undefined) {
+    return (
+      <button
+        type="button"
+        onClick={onChangeSupplier}
+        className="flex items-center gap-1.5 rounded-md text-left text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none dark:text-amber-400"
+      >
+        <WarningCircleIcon weight="fill" className="size-4 shrink-0" aria-hidden="true" />
+        Escolha o fornecedor desta loja
+      </button>
+    );
+  }
+  return (
+    <p className="text-sm text-muted-foreground md:truncate">
+      Vende <span className="font-medium text-foreground">{supplier.name}</span>
+      {supplier.active ? null : " · fornecedor inativo"}
+    </p>
+  );
+}
+
 /** An idle store gets one small step beside its name; stores already selling get none. */
 function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
   if (!isIdle(store)) {
@@ -186,6 +224,8 @@ const MENU_TILE_TONES = {
   publish:
     "bg-emerald-500/14 text-emerald-600 group-data-highlighted/dropdown-menu-item:bg-emerald-500/22 dark:text-emerald-400",
   view: "bg-sky-500/14 text-sky-600 group-data-highlighted/dropdown-menu-item:bg-sky-500/22 dark:text-sky-400",
+  supplier:
+    "bg-violet-500/14 text-violet-600 group-data-highlighted/dropdown-menu-item:bg-violet-500/22 dark:text-violet-400",
   danger: "bg-destructive/12 group-data-highlighted/dropdown-menu-item:bg-destructive/22",
 } as const;
 
@@ -211,16 +251,21 @@ function MenuTile({ tone, children }: { tone: keyof typeof MENU_TILE_TONES; chil
 }
 
 /** What the store menu offers: who it is, where to go next and, set apart, disconnecting. */
+interface StoreRowActions {
+  onDisconnect: () => void;
+  onChangeSupplier: () => void;
+}
+
 function StoreMenuEntries({
   store,
   storeName,
   marketplaceLabel,
-  onDisconnect,
+  actions,
 }: {
   store: StoreWithActivity;
   storeName: string;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  actions: StoreRowActions;
 }) {
   return (
     <>
@@ -248,10 +293,16 @@ function StoreMenuEntries({
           Ver publicações
         </Link>
       </DropdownMenuItem>
+      <DropdownMenuItem onSelect={actions.onChangeSupplier} className="gap-2.5 py-1.5 pl-1.5">
+        <MenuTile tone="supplier">
+          <ArrowsLeftRightIcon weight="bold" />
+        </MenuTile>
+        {store.supplierId === null ? "Escolher fornecedor" : "Trocar fornecedor"}
+      </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
-        onSelect={onDisconnect}
+        onSelect={actions.onDisconnect}
         className={cn("gap-2.5 py-1.5 pl-1.5", NEUTRAL_DESTRUCTIVE_HIGHLIGHT)}
       >
         <MenuTile tone="danger">
@@ -267,12 +318,12 @@ function StoreMenu({
   store,
   storeName,
   marketplaceLabel,
-  onDisconnect,
+  actions,
 }: {
   store: StoreWithActivity;
   storeName: string;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  actions: StoreRowActions;
 }) {
   // Opened with the mouse, the menu leaves focus where it is on close; returning it to the
   // trigger would light up its keyboard focus ring for a pointer user.
@@ -309,7 +360,7 @@ function StoreMenu({
           store={store}
           storeName={storeName}
           marketplaceLabel={marketplaceLabel}
-          onDisconnect={onDisconnect}
+          actions={actions}
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -319,11 +370,13 @@ function StoreMenu({
 function StoreRow({
   store,
   marketplaceLabel,
-  onDisconnect,
+  supplier,
+  actions,
 }: {
   store: StoreWithActivity;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  supplier: StoreSupplierLabel | undefined;
+  actions: StoreRowActions;
 }) {
   const name = displayStoreName(store.shopName);
   return (
@@ -339,6 +392,11 @@ function StoreRow({
               {name}
             </h2>
             <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
+            <StoreSupplierLine
+              store={store}
+              supplier={supplier}
+              onChangeSupplier={actions.onChangeSupplier}
+            />
           </div>
           <PublishAction store={store} storeName={name} />
         </div>
@@ -351,7 +409,7 @@ function StoreRow({
           store={store}
           storeName={name}
           marketplaceLabel={marketplaceLabel}
-          onDisconnect={onDisconnect}
+          actions={actions}
         />
       </div>
     </li>
@@ -369,11 +427,15 @@ function byConnectedFirst(stores: StoreWithActivity[]) {
 export function StoreList({
   stores,
   labels,
+  suppliers,
   onDisconnect,
+  onChangeSupplier,
 }: {
   stores: StoreWithActivity[];
   labels: Map<string, string>;
+  suppliers: Map<string, StoreSupplierLabel>;
   onDisconnect: (store: StoreWithActivity) => void;
+  onChangeSupplier: (store: StoreWithActivity) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -392,7 +454,11 @@ export function StoreList({
             key={store.id}
             store={store}
             marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-            onDisconnect={() => onDisconnect(store)}
+            supplier={store.supplierId === null ? undefined : suppliers.get(store.supplierId)}
+            actions={{
+              onDisconnect: () => onDisconnect(store),
+              onChangeSupplier: () => onChangeSupplier(store),
+            }}
           />
         ))}
       </GroupedList>
