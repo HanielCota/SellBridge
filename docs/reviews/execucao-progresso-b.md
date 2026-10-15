@@ -4,7 +4,12 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-_(nenhum)_ · próximo: item 12 (admin muda a região e apaga o endereço). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+- Item/parte: — (17 concluído; próximo é o 19, aguardando "Próximo")
+- Última etapa concluída: —
+- Próximo passo: item 19 · Pequenos de segurança e status
+- Arquivos tocados: —
+- Decisões tomadas nos pontos de parada: —
+- Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
@@ -21,20 +26,27 @@ C5 no banco B no item 11 (base feat/client-phase-1 14ab0ae): shared 340, marketp
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 
-| Item | Título                                 | Situação | Commit  | Notas                                                                 |
-| ---- | -------------------------------------- | -------- | ------- | --------------------------------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                        |
-| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas) |
-| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                       |
-| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                                       |
-| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                                       |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                       |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                                                       |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                           |
+| Item | Título                                 | Situação | Commit  | Notas                                                                                |
+| ---- | -------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------ |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                                       |
+| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas)                |
+| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                      |
+| 12   | Admin muda a região e apaga o endereço | ⛔       | —       | Parado em `wip/b-item-12-address` (ec5bfc8): etapa 6 do CPF tira o endereço do admin |
+| 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                      |
+| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                                      |
+| 24   | Saúde das lojas                        | ⬜       | —       |                                                                                      |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                          |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-15 · Item 17 · Link do fornecedor e diagnóstico — ✅ concluído (93b97c3, commit local; junção 105b46a)
+
+- N11: o token do fornecedor saiu das URLs. A etiqueta abre por um formulário POST (token no corpo, teto de 1 KB), o link antigo com `?token=` recebe 400 sem ler o token e `getSupplierShipmentFn` passou de GET para POST. O GET da etiqueta segue só pela sessão do revendedor.
+- N12: o diagnóstico conta por cliente (30 por minuto, pelo primeiro hop de `CLIENT_IP_HEADER`) e no total (600 por minuto), então um navegador em loop não silencia os outros.
+- Revisão independente: sem crítico ou alto. 3 baixos corrigidos (varredura do teste agora divide por função e trata `createServerFn()` sem método como GET; comentário sobre ler o env cru; log `web.label_refused` sem token). Nota de UX: recarregar a aba do PDF pede reenvio do formulário.
+- Portões: C1–C4 ✅, C5 1356/1356, C6 ✅, C7 17/17 (fulfillment, order-page, accessibility).
 
 ### 2026-10-15 · Item 11 · Uploads seguros — ✅ concluído (3859be6, commit local; junção 0d5b74e)
 

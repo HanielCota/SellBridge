@@ -43,6 +43,9 @@ async function newSupplier() {
     state: "SP",
     city: "São Paulo",
     logoUrl: null,
+    contactEmail: null,
+    acceptWithinHours: 24,
+    dispatchWithinHours: 48,
   });
   supplierIds.push(supplier.id);
   return supplier.id;

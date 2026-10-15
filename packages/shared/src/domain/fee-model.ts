@@ -3,8 +3,8 @@ import {
   ESTIMATED_MARKETPLACE_FEE_BPS,
   type OrderFinance,
 } from "./finance.ts";
-import { validationError } from "../runtime/errors.ts";
-import { MAX_STORED_CENTS, percentOfCents, type Cents } from "./money.ts";
+import { conflictError, validationError } from "../runtime/errors.ts";
+import { formatCents, MAX_STORED_CENTS, percentOfCents, type Cents } from "./money.ts";
 
 /**
  * Everything a sale pays before it becomes profit, as the previews estimate it. The financial
@@ -135,4 +135,99 @@ export function priceForMargin(
     keepsMargin({ ...input, priceCents: candidate }, marginBasisPoints, schedule),
   );
   return priceCents > MAX_STORED_CENTS ? null : priceCents;
+}
+
+/**
+ * Lowest price the reseller may ask: the one that keeps the configured minimum margin after
+ * every fee (with 0%, the break-even price), and never the cost itself. Null when the fees
+ * take the whole price, so no price pays.
+ */
+export function minimumPriceCents(
+  input: Omit<SaleEstimateInput, "priceCents">,
+  schedule: FeeSchedule,
+): Cents | null {
+  const keepingMargin = priceForMargin(input, schedule.minimumMarginPercent, schedule);
+  if (keepingMargin === null) {
+    return null;
+  }
+  return Math.max(keepingMargin, input.costCents + 1);
+}
+
+/** What the reseller reads when a price is under the floor: the lowest price that pays. */
+function belowMinimumMessage(minimumCents: Cents, schedule: FeeSchedule): string {
+  if (schedule.minimumMarginPercent === 0) {
+    return `Com as taxas, o preço mínimo para não ter prejuízo é ${formatCents(minimumCents)}`;
+  }
+  return `Com as taxas, o preço mínimo para ${schedule.minimumMarginPercent}% de margem é ${formatCents(minimumCents)}`;
+}
+
+/** When no price can pay: the fees alone, or the fees together with the minimum margin. */
+function noPriceMessage(schedule: FeeSchedule): string {
+  if (schedule.minimumMarginPercent === 0) {
+    return "As taxas configuradas não deixam lucro para este produto";
+  }
+  return `As taxas e a margem mínima de ${schedule.minimumMarginPercent}% não deixam um preço possível para este produto`;
+}
+
+/**
+ * Why a price is under the floor, in the words the screens and the server both show; null when
+ * the price pays every fee and keeps the minimum margin.
+ */
+export function priceFloorProblem(
+  priceCents: Cents,
+  input: Omit<SaleEstimateInput, "priceCents">,
+  schedule: FeeSchedule,
+): string | null {
+  if (priceCents <= input.costCents) {
+    return "O preço de venda precisa ser maior que o custo do fornecedor";
+  }
+  const minimumCents = minimumPriceCents(input, schedule);
+  if (minimumCents === null) {
+    return noPriceMessage(schedule);
+  }
+  return priceCents < minimumCents ? belowMinimumMessage(minimumCents, schedule) : null;
+}
+
+/** The server's floor for every price written: creating and editing a listing. */
+export function assertPriceKeepsMargin(
+  priceCents: Cents,
+  input: Omit<SaleEstimateInput, "priceCents">,
+  schedule: FeeSchedule,
+): void {
+  const problem = priceFloorProblem(priceCents, input, schedule);
+  if (problem !== null) {
+    throw conflictError(problem);
+  }
+}
+
+export interface PricedProduct {
+  title: string;
+  priceCents: Cents;
+  costCents: Cents;
+  categoryId?: string | null;
+}
+
+/** The first product of a batch under its floor, named, so the batch can say which; else null. */
+export function batchPriceProblem(
+  products: readonly PricedProduct[],
+  schedule: FeeSchedule,
+): string | null {
+  for (const product of products) {
+    const problem = priceFloorProblem(product.priceCents, product, schedule);
+    if (problem !== null) {
+      return `"${product.title}": ${problem}. Ajuste a regra de preço.`;
+    }
+  }
+  return null;
+}
+
+/** The bulk publication's floor: the whole batch is refused before anything is written. */
+export function assertBatchKeepsMargin(
+  products: readonly PricedProduct[],
+  schedule: FeeSchedule,
+): void {
+  const problem = batchPriceProblem(products, schedule);
+  if (problem !== null) {
+    throw conflictError(problem);
+  }
 }

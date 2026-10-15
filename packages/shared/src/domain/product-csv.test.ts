@@ -119,6 +119,9 @@ describe("admin catalog schemas", () => {
       state: "SP",
       city: "São Paulo",
       logoUrl: null,
+      contactEmail: null,
+      acceptWithinHours: 24,
+      dispatchWithinHours: 48,
     };
     expect(adminSupplierValuesSchema.parse(values)).toEqual(values);
     expect(adminSupplierValuesSchema.safeParse({ ...values, city: " " }).success).toBe(false);

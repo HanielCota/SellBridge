@@ -1,6 +1,7 @@
 import type { AdminSupplier, AdminSupplierProduct } from "@sellbridge/database/repositories";
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
+import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
 
 export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
@@ -24,6 +25,34 @@ export function supplierFormValues(detail?: { supplier: AdminSupplier }) {
     city: supplier?.city ?? "",
     description: supplier?.description ?? "",
     logoUrl: supplier?.logoUrl ?? "",
+    contactEmail: supplier?.contactEmail ?? "",
+    acceptWithinHours: String(
+      supplier?.acceptWithinHours ?? SUPPLIER_SLA_DEFAULTS.acceptWithinHours,
+    ),
+    dispatchWithinHours: String(
+      supplier?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
+    ),
+  };
+}
+
+/** Hours typed in the form: digits only, so "dois dias" is rejected instead of guessed. */
+function hoursInput(text: string): number | string {
+  const trimmed = text.trim();
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
+}
+
+/** What the supplier form sends to `adminSaveSupplierSchema`. */
+export function supplierFormInput(
+  values: ReturnType<typeof supplierFormValues>,
+  supplierId: string | undefined,
+) {
+  return {
+    ...values,
+    supplierId,
+    logoUrl: values.logoUrl.trim() || null,
+    contactEmail: values.contactEmail.trim() || null,
+    acceptWithinHours: hoursInput(values.acceptWithinHours),
+    dispatchWithinHours: hoursInput(values.dispatchWithinHours),
   };
 }
 

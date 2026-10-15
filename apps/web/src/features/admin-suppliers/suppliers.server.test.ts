@@ -202,6 +202,9 @@ describe("admin CSV orchestration", () => {
         state: "MG",
         city: "Belo Horizonte",
         logoUrl: null,
+        contactEmail: null,
+        acceptWithinHours: 24,
+        dispatchWithinHours: 48,
       }),
     ).resolves.toEqual({ ...savedSupplier, synchronizationQueued: true });
     expect(mocks.saveSupplier.mock.invocationCallOrder[0]).toBeLessThan(

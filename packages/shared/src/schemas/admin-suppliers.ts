@@ -30,18 +30,47 @@ export const adminSupplierProductsSchema = adminSupplierSearchSchema.extend({
   supplierId: z.uuid(),
 });
 
+/** New suppliers get one day to accept a forwarded order and two to dispatch it. */
+export const SUPPLIER_SLA_DEFAULTS = { acceptWithinHours: 24, dispatchWithinHours: 48 } as const;
+/** A month is the longest deadline a supplier may have, in hours. */
+const SUPPLIER_DEADLINE_MAX_HOURS = 720;
+const supplierDeadlineSchema = z
+  .number("Informe o prazo em horas")
+  .int("Use horas inteiras")
+  .min(1, "O prazo é de pelo menos 1 hora")
+  .max(SUPPLIER_DEADLINE_MAX_HOURS, "O prazo é de até 720 horas (30 dias)");
+const supplierContactEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email("Informe um e-mail válido").max(254))
+  .nullable();
+
 /**
  * A supplier as the admin registers it. State and city say where it ships from; any reseller in
  * Brazil sells any supplier, so there is no delivery area to fill in.
  */
-export const adminSupplierValuesSchema = z.object({
-  name: freeText().trim().min(1, "Informe o nome").max(150),
-  niche: freeText().trim().min(1, "Informe o nicho").max(100),
-  description: freeText().trim().max(10_000),
-  state: stateSchema,
-  city: freeText().trim().min(1, "Informe a cidade").max(120),
-  logoUrl: imageUrlSchema.nullable(),
-});
+export const adminSupplierValuesSchema = z
+  .object({
+    name: freeText().trim().min(1, "Informe o nome").max(150),
+    niche: freeText().trim().min(1, "Informe o nicho").max(100),
+    description: freeText().trim().max(10_000),
+    state: stateSchema,
+    city: freeText().trim().min(1, "Informe a cidade").max(120),
+    logoUrl: imageUrlSchema.nullable(),
+    contactEmail: supplierContactEmailSchema,
+    acceptWithinHours: supplierDeadlineSchema,
+    dispatchWithinHours: supplierDeadlineSchema,
+  })
+  .superRefine(({ acceptWithinHours, dispatchWithinHours }, context) => {
+    if (acceptWithinHours > dispatchWithinHours) {
+      context.addIssue({
+        code: "custom",
+        path: ["acceptWithinHours"],
+        message: "O prazo para aceitar não pode passar o prazo para despachar",
+      });
+    }
+  });
 export type AdminSupplierValues = z.infer<typeof adminSupplierValuesSchema>;
 export const adminSaveSupplierSchema = adminSupplierValuesSchema.safeExtend({
   supplierId: z.uuid().optional(),

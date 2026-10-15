@@ -4,9 +4,11 @@ import {
   setListingsPaused,
   updateListingPrice,
 } from "@sellbridge/database/repositories";
-import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
+import { assertPriceKeepsMargin } from "@sellbridge/shared/fee-model";
 import { logger } from "@sellbridge/shared/logger";
+import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
 import {
@@ -26,7 +28,8 @@ export interface CreateListingCommand extends DraftOverrides {
 }
 
 /**
- * Sells a catalog product on the tenant's connected stores: checks the price against the cost,
+ * Sells a catalog product on the tenant's connected stores: checks the price against the cost
+ * and every fee (the floor of fee-model.ts),
  * creates the listing and queues one publication per store.
  */
 export async function createListingForTenant(
@@ -35,19 +38,27 @@ export async function createListingForTenant(
 ): Promise<CreatedListing> {
   const product = await getSellableCatalogProduct(database, command.productId);
   const draft = resolveListingDraft(product, command);
-  assertSellablePrice(draft.priceCents, product.costCents);
+  assertPriceKeepsMargin(
+    draft.priceCents,
+    { costCents: product.costCents },
+    feeScheduleFrom(environment),
+  );
   const storeIds = await assertConnectedStores(tenantId, command.storeConnectionIds);
   await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
 
-/** The repository rejects a price at or below cost, the same rule creation applies. */
+/** The repository rejects a price under the fee floor, the same rule creation applies. */
 export async function updateListingPriceForTenant(
   tenantId: string,
   listingId: string,
   priceCents: number,
 ): Promise<void> {
-  await updateListingPrice(database, tenantId, listingId, priceCents);
+  await updateListingPrice(database, tenantId, {
+    listingId,
+    priceCents,
+    feeSchedule: feeScheduleFrom(environment),
+  });
   logger.info("listing.price_updated", { tenantId, listingId });
   // The marketplaces get the new price now, as the screen promises, not at the next scheduled run.
   await requestStockSync("listing.sync_deferred");

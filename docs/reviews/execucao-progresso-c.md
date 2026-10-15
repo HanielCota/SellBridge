@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 15.a · Modelo único de taxa (servidor)
-- Última etapa concluída: 9 · Commit (⏸3 aprovado em 2026-10-15); ⏸1 aprovado em 2026-10-15 (margem mínima padrão 0%, taxa real por categoria como tarefa separada)
-- Próximo passo: a 15.b começa quando o usuário pedir (nova.tsx só depois da etapa 4 do CPF)
-- Arquivos tocados: shared/domain/fee-model(.test).ts (novo), shared/package.json (export), database/repositories/reports.test.ts, web/lib/server/environment-schema(.test).ts, web/features/reports/fee-schedule(.test).ts e fee-schedule.functions.ts (novos), .env.example, docs
+- Item/parte: 15.b · Prévia com o modelo único e piso de margem (telas)
+- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-15); ⏸1 e ⏸2 aprovados em 2026-10-15
+- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1` (traz a 0028: migrate no `sellbridge_desk_c`), portões e aviso ao principal; o item 15 fecha
+- Arquivos tocados: shared/domain/fee-model(.test).ts, listing-rules(.test).ts; database/repositories/listing-overview(.test).ts; web/features/listings/profit(.test).ts, listing-commands.server.ts; web/features/catalog/catalog.functions.ts; web/features/reports/fee-schedule.queries.ts (novo); web/components/catalog/price-receipt.tsx, catalog-product-card.tsx, bulk-publish-dialog.tsx; web/components/listings/listing-card.tsx, edit-price-dialog.tsx, profit-split.tsx; web/routes/_app/catalogo.tsx, publicacoes/index.tsx, publicacoes/nova.tsx; web/features/public-api/endpoints/listings-write.schemas.ts e listings-write.server.ts (só textos); e2e/publishing.spec.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -15,7 +15,7 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 | Métrica                                        | Valor                    | Medido em  |
 | ---------------------------------------------- | ------------------------ | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1263 passando            | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1331 passando            | 2026-10-15 |
 | E2E completo (`--workers=1`, porta 3160)       | 78 passando (principal)  | 2026-10-14 |
 | Última migration                               | 0023_pending_indexes     | 2026-10-15 |
 | Branch de trabalho                             | `claude/client-c-52dc32` | 2026-10-15 |
@@ -39,6 +39,13 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 15.b · Prévia com todas as taxas e piso de preço — ✅ concluído (commit local; item 15 ✅)
+
+- Prévias (cards do catálogo e de anúncio, recibo da massa, Nova publicação, Editar preço) com o modelo de taxa e a linha "Taxa da SellBridge (x%)"; atalhos de margem pelo menor preço correto. Piso no servidor ao criar, editar (e API pública) e na massa, com as mesmas palavras na tela, antes de enviar.
+- Revisão independente: 0 crítico; 1 alto corrigido (o diálogo da massa não conferia o piso e o lote era recusado no servidor: agora mostra o problema e trava o botão; e2e novo), médios corrigidos (Nova publicação confere antes de enviar e esconde preços prontos abaixo do piso; massa com o mesmo código de erro e a mesma mensagem, que cita a margem mínima), baixos corrigidos (textos da API pública, comentário órfão em `listing-rules.ts`, checagens explícitas, atalho abaixo da margem mínima, nome do teste, teste com margem mínima de 10%). Aceitos: categoria fora do piso até haver taxa por categoria; padrão de 14% se a busca do modelo falhar.
+- Portões: lint, tipos, formatação, sem else ✅; 1331 testes (shared 349, web 512, database 258, worker 56, marketplaces 149, scripts 7); build ✅ sem mudança no `routeTree.gen.ts`; e2e publishing, accessibility, suppliers, stock, reports e catalog-deactivation 32/32 em série; D1 20 capturas (Nova publicação, Editar preço com e sem piso, recibo da massa com e sem piso; claro, escuro, celular, com taxa da SellBridge de 4%); D2 0 px em 8 larguras × 3 telas.
+- Dados de demonstração no `sellbridge_desk_c`: a loja "Ana Moda" da conta demo ficou ligada ao Ateliê Divinópolis (depois da 0025, nenhuma loja da conta tinha fornecedor e a Nova publicação não abria).
 
 ### 2026-10-15 · Item 15.a · Modelo único de taxa (servidor) — ✅ concluído (commit local)
 
