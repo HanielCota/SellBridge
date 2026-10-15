@@ -72,7 +72,9 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B-9                | ✅ (13/10)       | "Atualizado há X" no catálogo e na página do fornecedor (`ProductStockLine`).                                                                                                                                 |
 | J5                 | 🟡 (13/10)       | Pedidos vinculados ao chamado (`ticket_orders`, migration 0016), visíveis ao revendedor e à equipe. Faltam loja e anúncio, e o botão "Falar com o suporte" nas telas de pedido, loja e anúncio (item 27.a).   |
 | B3                 | ✅ (14/10)       | Uma loja do marketplace fica em uma organização por vez: índice único (0023) e recusa também na conexão simultânea, com a mesma mensagem (item 03). O webhook acha só o dono atual.                           |
-| B7                 | 🟡 (14/10)       | 10.a: só o dono gerencia a equipe; 10.b: rotas cruas /admin/* fechadas ao navegador (só entrar e sair como cliente). Falta o 10.c.                                                                            |
+| B7                 | ✅ (15/10)       | 10.a dono gerencia a equipe; 10.b rotas cruas /admin/* fechadas; promoção a dono apaga senha e logins sociais (10.c).                                                                                         |
+| B18 / K5           | 🟡 (15/10)       | Entrar como cliente: 1 h, fim registrado, ações bloqueadas e o resto com o nome do admin (10.c). Falta conectar loja.                                                                                         |
+| B19                | ✅ (15/10)       | E-mail trocado pelo admin volta a não confirmado, com link ao novo, aviso ao antigo e auditoria (10.c).                                                                                                       |
 | B8 / N6            | ✅ (14/10)       | Organização sem criação nem exclusão, /organization/* fechado por HTTP e membro reconferido em requireTenantSession (audit + 10.b).                                                                           |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)

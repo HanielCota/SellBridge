@@ -1,17 +1,23 @@
 import { schema } from "@sellbridge/database";
-import { recordAdminEvent, touchUserActivity } from "@sellbridge/database/repositories";
+import {
+  promoteVerifiedOwner,
+  recordAdminEvent,
+  touchUserActivity,
+} from "@sellbridge/database/repositories";
 import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
 import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
-import { and, eq, isNull, ne, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { authAccessControl, authRoles } from "../auth-roles.ts";
 import { ACCOUNT_ACTION_PATHS, assertMayActOnAccount } from "./account-protection.ts";
-import { isClosedToBrowsers } from "./auth-route-policy.ts";
+import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.ts";
+import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
+import { IMPERSONATION_SECONDS, isImpersonationOver } from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "./email-layout.ts";
 import { environment } from "./environment.ts";
@@ -30,16 +36,6 @@ function slugify(value: string): string {
 }
 
 const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
-
-/** Account-security routes an admin impersonating a customer must not reach. */
-const OWNER_ONLY_PATHS = new Set([
-  "/change-password",
-  "/set-password",
-  "/list-sessions",
-  "/revoke-session",
-  "/revoke-sessions",
-  "/revoke-other-sessions",
-]);
 
 /** Sign-up takes the same name rules as the profile, so a name is never megabytes or blank. */
 const signUpBodySchema = z.object({ name: nameSchema }).passthrough();
@@ -115,16 +111,21 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
     assertSignUpName(context.body);
     return;
   }
-  const isOwnerOnly = OWNER_ONLY_PATHS.has(context.path);
+  const isAccountSecurity = ACCOUNT_SECURITY_PATHS.has(context.path);
   const isUpdateUser = context.path === "/update-user";
-  if (!isOwnerOnly && !isUpdateUser) {
+  if (!isAccountSecurity && !isUpdateUser) {
     return;
   }
   const session = await getSessionFromCtx(context);
   if (!session) {
     return;
   }
-  if (isOwnerOnly && session.session.impersonatedBy) {
+  if (session.session.impersonatedBy && isImpersonationOver(new Date(session.session.createdAt))) {
+    throw new APIError("UNAUTHORIZED", {
+      message: "O acesso como cliente terminou. Volte ao admin.",
+    });
+  }
+  if (isAccountSecurity && session.session.impersonatedBy) {
     throw new APIError("FORBIDDEN", { message: "Indisponível durante o acesso como cliente" });
   }
   if (isUpdateUser) {
@@ -139,6 +140,34 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
       throw new APIError("BAD_REQUEST", { message: "Foto inválida" });
     }
   }
+});
+
+/**
+ * What an admin did on Better Auth's own routes during a visit as the customer, once the route
+ * went through: "Voltar ao admin" closes the visit in the timeline, and a name change made there
+ * goes under the admin's name like the server functions (`tenantMiddleware`).
+ */
+const recordVisitEvents = createAuthMiddleware(async (context) => {
+  const isVisitRoute =
+    context.path === "/admin/stop-impersonating" || context.path === "/update-user";
+  if (!isVisitRoute || isAPIError(context.context.returned)) {
+    return;
+  }
+  const session = await getSessionFromCtx(context);
+  if (session === null) {
+    return;
+  }
+  const visit = { userId: session.user.id, impersonatedBy: impersonatorOf(session.session) };
+  if (context.path === "/admin/stop-impersonating") {
+    await recordImpersonationEnded(visit);
+    return;
+  }
+  await recordImpersonatedCall({
+    impersonatedBy: visit.impersonatedBy,
+    customerId: visit.userId,
+    functionName: "profile.update",
+    method: "POST",
+  });
 });
 
 export const isGoogleSignInEnabled = Boolean(
@@ -260,40 +289,21 @@ async function requestAdminVerification(userId: string) {
 }
 
 /**
- * Proving the mailbox doesn't prove who chose the password: it may have been set by someone who
- * registered the address first. So the promotion drops the password and every session, and the
- * owner sets a new password through the reset link.
+ * Proving the mailbox doesn't prove who set the sign-in methods: a password or a social login may
+ * belong to whoever registered the address first. The promotion drops them all with every session
+ * (`promoteVerifiedOwner`); the owner sets a new password through the reset link, or signs in with
+ * Google again.
  */
 async function promoteVerifiedAdmin(user: { id: string; email: string; emailVerified: boolean }) {
   if (!user.emailVerified || !isAdminEmail(user.email)) {
     return;
   }
-  const droppedPasswords = await database.transaction(async (transaction) => {
-    const promoted = await transaction
-      .update(schema.user)
-      .set({ role: "admin" })
-      .where(
-        and(
-          eq(schema.user.id, user.id),
-          or(isNull(schema.user.role), ne(schema.user.role, "admin")),
-        ),
-      )
-      .returning({ id: schema.user.id });
-    if (promoted.length === 0) {
-      return null;
-    }
-    const credentials = await transaction
-      .delete(schema.account)
-      .where(and(eq(schema.account.userId, user.id), eq(schema.account.providerId, "credential")))
-      .returning({ id: schema.account.id });
-    await transaction.delete(schema.session).where(eq(schema.session.userId, user.id));
-    return credentials.length;
-  });
-  if (droppedPasswords === null) {
+  const promotion = await promoteVerifiedOwner(database, user.id);
+  if (!promotion.promoted) {
     return;
   }
-  logger.info("auth.admin_promoted", { userId: user.id, droppedPasswords });
-  if (droppedPasswords === 0) {
+  logger.info("auth.admin_promoted", { userId: user.id, hadPassword: promotion.hadPassword });
+  if (!promotion.hadPassword) {
     return;
   }
   try {
@@ -325,7 +335,7 @@ export const auth = betterAuth({
     sendOnSignUp: false,
   },
   socialProviders: googleProvider(),
-  hooks: { before: guardAccountRoutes },
+  hooks: { before: guardAccountRoutes, after: recordVisitEvents },
   databaseHooks: {
     user: {
       create: {
@@ -346,7 +356,7 @@ export const auth = betterAuth({
         },
       },
       update: {
-        // Covers both the verification link and a Google sign-in linked to an unverified account.
+        // The verification link (Better Auth 1.7 does not link Google to an unverified account).
         after: async (user) => {
           await promoteVerifiedAdmin(user);
         },
@@ -382,6 +392,8 @@ export const auth = betterAuth({
       ac: authAccessControl,
       roles: authRoles,
       adminRoles: ["admin", "supervisor", "agent"],
+      // Explicit, and shown in the banner: a visit to a customer's account ends on its own.
+      impersonationSessionDuration: IMPERSONATION_SECONDS,
     }),
     tanstackStartCookies(),
   ],

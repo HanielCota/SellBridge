@@ -10,6 +10,10 @@ import {
   type ApiKeyToRevoke,
   RevokeApiKeyDialog,
 } from "@/components/integrations/revoke-api-key-dialog";
+import {
+  INTEGRATIONS_LOCKED_REASON,
+  useIntegrationsLocked,
+} from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiKeysQueryOptions } from "@/features/public-api/api-keys.queries";
@@ -23,6 +27,7 @@ function ApiKeysContent({
   onRevoke: (apiKey: ApiKeyToRevoke) => void;
 }) {
   const query = useQuery(apiKeysQueryOptions());
+  const locked = useIntegrationsLocked();
   if (query.isPending) {
     return (
       <Skeleton className="h-40 rounded-3xl" aria-busy="true" aria-label="Carregando chaves" />
@@ -38,7 +43,11 @@ function ApiKeysContent({
         title="Nenhuma chave criada"
         description="Crie uma chave para que seu ERP, planilha ou sistema próprio acesse os dados da sua conta."
         action={
-          <Button onClick={onCreate}>
+          <Button
+            disabled={locked}
+            title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
+            onClick={onCreate}
+          >
             <PlusIcon aria-hidden="true" />
             Nova chave
           </Button>
@@ -58,13 +67,20 @@ function ApiKeysContent({
 export function ApiKeysSection() {
   const [isCreating, setIsCreating] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeyToRevoke | null>(null);
+  const locked = useIntegrationsLocked();
   return (
     <IntegrationsSection
       id="chaves-de-api"
       title="Chaves de API"
       description="Cada chave dá acesso aos dados desta organização com as permissões escolhidas. Use uma chave por integração."
       action={
-        <Button variant="outline" size="sm" onClick={() => setIsCreating(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={locked}
+          title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
+          onClick={() => setIsCreating(true)}
+        >
           <PlusIcon aria-hidden="true" />
           Nova chave
         </Button>

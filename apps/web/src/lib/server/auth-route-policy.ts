@@ -28,6 +28,24 @@ function isOrganizationPluginRoute(path: string): boolean {
 }
 
 /**
+ * The account's own security routes: password, sessions and linked sign-ins (Google). An admin
+ * inside the customer's account must not reach them; the customer can, in their own session.
+ */
+export const ACCOUNT_SECURITY_PATHS: ReadonlySet<string> = new Set([
+  "/change-password",
+  "/set-password",
+  "/list-sessions",
+  "/revoke-session",
+  "/revoke-sessions",
+  "/revoke-other-sessions",
+  "/unlink-account",
+  "/link-social",
+  "/get-access-token",
+  "/refresh-token",
+  "/account-info",
+]);
+
+/**
  * Plugin routes the browser never needs. The app's own server functions call them through
  * `auth.api` (with their checks and the audit trail); over HTTP they would skip both. Admin
  * routes are an allow-list, so a route a new plugin version adds starts closed.

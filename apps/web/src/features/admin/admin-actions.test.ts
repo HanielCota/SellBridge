@@ -13,6 +13,17 @@ describe("describeAdminEvent", () => {
     );
   });
 
+  it("tells the visit as the customer apart, with what the admin did there", () => {
+    expect(describeAdminEvent("impersonation_ended", null)).toBe("Saiu da conta do cliente");
+    expect(describeAdminEvent("email_changed", null)).toBe("Trocou o e-mail (aguarda confirmação)");
+    expect(describeAdminEvent("acted_as_customer", { action: "forwardOrderFn" })).toBe(
+      "Como o cliente: encaminhou um pedido",
+    );
+    expect(describeAdminEvent("acted_as_customer", { action: "someNewFn" })).toBe(
+      "Como o cliente: fez uma alteração",
+    );
+  });
+
   it("falls back for actions it does not know", () => {
     expect(describeAdminEvent("something_new", null)).toBe("Ação do administrador");
   });

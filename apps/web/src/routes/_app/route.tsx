@@ -42,7 +42,12 @@ function AppLayout() {
   const { session } = Route.useRouteContext();
   return (
     <div className="min-h-svh bg-background">
-      {session.impersonatedBy ? <ImpersonationBanner customerName={session.user.name} /> : null}
+      {session.impersonatedBy ? (
+        <ImpersonationBanner
+          customerName={session.user.name}
+          endsAt={session.impersonationEndsAt}
+        />
+      ) : null}
       <TopNav user={session.user} adminMode={session.adminMode} />
       <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-12 md:px-8 md:pt-8">
         <SetupReminder />

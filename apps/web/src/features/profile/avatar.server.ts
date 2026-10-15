@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
+import { assertVisitNotOver } from "@/lib/server/impersonation-window";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
@@ -73,6 +74,7 @@ async function requireSession(headers: Headers) {
   if (!session) {
     throw unauthorizedError();
   }
+  assertVisitNotOver(session.session);
   return session;
 }
 
