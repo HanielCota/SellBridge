@@ -6,20 +6,20 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 - Item/parte: _(nenhum)_. Próximos deste chat: "trocar de fornecedor num envio cancelado", 22, 21, correções das pastas antigas
 - Última etapa concluída: U-9 ✅ (U-3 e U-4 ✅ pelo 20.c)
-- Próximo passo: etapa 1 de "trocar de fornecedor". Próxima migration: 0026 pela "senha da vez"
+- Próximo passo: etapa 1 de "trocar de fornecedor". Próxima migration: 0027 pela "senha da vez"
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
 ## Linha de base
 
-| Métrica                                        | Valor                              | Medido em  |
-| ---------------------------------------------- | ---------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1213 passando                      | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 392 passando                       | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 85 passando                        | 2026-10-15 |
-| Última migration                               | 0025_store_supplier_and_unique_cpf | 2026-10-15 |
-| Branch de trabalho                             | `feat/client-phase-1`              | 2026-10-12 |
+| Métrica                                        | Valor                        | Medido em  |
+| ---------------------------------------------- | ---------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1233 passando                | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 392 passando                 | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 85 passando                  | 2026-10-15 |
+| Última migration                               | 0026_tenant_starter_supplier | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`        | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -71,6 +71,13 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junções: migration 0026 (chat CPF) e item 09 (chat C)
+
+- 0026 (7595f78): `tenant_profile.starter_supplier_id`, o fornecedor escolhido no onboarding; aplicada no `sellbridge_desk`, senha liberada. Próxima livre: 0027.
+- Item 09 (8e4f821, commits 92d2e56 e 7772cb6 do chat C): item sem custo do catálogo vira "custo pendente", fora do lucro, no servidor, no CSV, na API pública e nas telas (Financeiro, gráfico, Painel e página do pedido). Conflito só no fim de `decisions.md` (duas seções mantidas).
+- Correção minha: o `fulfillment.spec.ts:95` ainda esperava o título antigo "Ordem de fornecimento" no link do fornecedor e só passava quando pegava o carregamento; agora espera "Pedido …" (a8e49d2). Achado pelo chat C.
+- Portões: tipos, lint ✅; testes 1233/1233; build ✅; e2e 27/27 (custo pendente, relatórios, página do pedido, envio, acessibilidade).
 
 ### 2026-10-15 · Junções: 10.a e 10.b (chat B) e etapa 2 do chat CPF (fim da trava por região)
 
