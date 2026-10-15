@@ -15,7 +15,7 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 | Métrica                                        | Valor                  | Medido em  |
 | ---------------------------------------------- | ---------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1332 passando          | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1345 passando          | 2026-10-15 |
 | Testes web (`apps/web` vitest)                 | 392 passando           | 2026-10-14 |
 | E2E completos (`--workers=1`)                  | 91 passando            | 2026-10-15 |
 | Última migration                               | 0028_shipment_tracking | 2026-10-15 |
@@ -40,7 +40,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 08   | Produto ou fornecedor inativo e fora da região  | ✅       | b2a3331 · 2135a1b                     | Feito no chat C; 08.a ✅ b2a3331 · 08.b ✅ 2135a1b (junção 36ebac1)    |
 | 09   | Lucro correto                                   | ✅       | 92d2e56 · 7772cb6                     | Chat C; receita só de pagos (118406a) e custo pendente; junção 8e4f821 |
 | 10   | Segurança de contas e da equipe                 | ✅       | 6c32358 · c29dbc8 · 7bd26d1 · 3742f08 | Chat B; 10.a ✅ · 10.b ✅ · 10.c ✅                                    |
-| 11   | Uploads seguros                                 | ⬜       | —                                     |                                                                        |
+| 11   | Uploads seguros                                 | ✅       | 3859be6                               | Chat B; junção dd74a79                                                 |
 | 12   | Admin muda a região e apaga o endereço          | ⬜       | —                                     |                                                                        |
 | 13   | Erros de publicação claros                      | ⬜       | —                                     |                                                                        |
 | 14   | Publicação em massa: validação e progresso      | ⬜       | —                                     |                                                                        |
@@ -51,7 +51,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 19   | Pequenos de segurança e status                  | ⬜       | —                                     |                                                                        |
 | 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f           | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                    |
 | 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                                     | Depende de D6                                                          |
-| 22   | Rastreio automático e previsão                  | 🟡       | (este commit)                         | 22.a ✅ · 22.b ⬜                                                      |
+| 22   | Rastreio automático e previsão                  | 🟡       | 424f7bd                               | 22.a ✅ 424f7bd · 22.b ⬜                                              |
 | 23   | Anúncios completos                              | ⬜       | —                                     |                                                                        |
 | 24   | Saúde das lojas                                 | ⬜       | —                                     |                                                                        |
 | 25   | Central de notificações                         | ⬜       | —                                     | WhatsApp depende de D9                                                 |
@@ -71,6 +71,11 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: item 11 do chat B (uploads seguros)
+
+- dd74a79 (commit 3859be6): o chamado é conferido antes de gravar anexo (outro tenant 404, encerrado 409, nada no disco); anexo que falha no meio apaga o que já gravou; limite em memória de 30 mensagens com arquivo e 10 fotos a cada 10 min por conta (429, código `RATE_LIMITED`). Conflito só no fim de `decisions.md` (blocos mantidos).
+- Portões: tipos, lint ✅; testes 1345/1345; build ✅; e2e 17/17 (suporte, perfil, admin, entrar como cliente, acessibilidade).
 
 ### 2026-10-15 · Item 22.a · Rastreio automático no servidor — ✅ concluído (commit local)
 
