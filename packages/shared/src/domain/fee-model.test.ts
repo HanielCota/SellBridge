@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertPriceKeepsMargin,
   DEFAULT_FEE_SCHEDULE,
   estimatedMarketplaceFeeCents,
   estimateSale,
   type FeeSchedule,
+  assertBatchKeepsMargin,
+  batchPriceProblem,
+  minimumPriceCents,
   priceForMargin,
 } from "./fee-model.ts";
 import { computeOrderFinance } from "./finance.ts";
@@ -125,6 +129,89 @@ describe("priceForMargin", () => {
   it.each([Number.NaN, -1, 100])("refuses a margin of %d%%", (marginPercent) => {
     expect(() => priceForMargin({ costCents: 1_000 }, marginPercent, schedule)).toThrow(
       "A margem deve ficar entre 0% e 100%",
+    );
+  });
+});
+
+describe("minimumPriceCents", () => {
+  it("is the break-even price after every fee when no margin is asked", () => {
+    expect(minimumPriceCents({ costCents: 5_000 }, schedule)).toBe(
+      smallestKeepingPrice(5_000, 0, schedule),
+    );
+  });
+
+  it("keeps the configured minimum margin", () => {
+    const strict = { ...schedule, minimumMarginPercent: 10 };
+    expect(minimumPriceCents({ costCents: 5_000 }, strict)).toBe(
+      smallestKeepingPrice(5_000, 10, strict),
+    );
+  });
+
+  it("stays above the cost even when nothing is charged", () => {
+    const free = { ...schedule, marketplaceFeeBasisPoints: 0, platformFeeBasisPoints: 0 };
+    expect(minimumPriceCents({ costCents: 5_000 }, free)).toBe(5_001);
+  });
+
+  it("is null when the fees take the whole price", () => {
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    expect(minimumPriceCents({ costCents: 5_000 }, greedy)).toBeNull();
+  });
+});
+
+describe("assertPriceKeepsMargin", () => {
+  it("refuses a price above the cost that loses money after the fees", () => {
+    const minimum = minimumPriceCents({ costCents: 5_000 }, schedule) ?? 0;
+    expect(() => assertPriceKeepsMargin(minimum - 1, { costCents: 5_000 }, schedule)).toThrow(
+      /Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/,
+    );
+    expect(() => assertPriceKeepsMargin(minimum, { costCents: 5_000 }, schedule)).not.toThrow();
+  });
+
+  it("names the minimum margin when one is configured", () => {
+    const strict = { ...schedule, minimumMarginPercent: 10 };
+    expect(() => assertPriceKeepsMargin(6_000, { costCents: 5_000 }, strict)).toThrow(
+      /preço mínimo para 10% de margem/,
+    );
+  });
+
+  it("says when the minimum margin, not the fees alone, leaves no possible price", () => {
+    const strict = { ...schedule, minimumMarginPercent: 84 };
+    expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, strict)).toThrow(
+      "As taxas e a margem mínima de 84% não deixam um preço possível para este produto",
+    );
+  });
+
+  it("refuses every price when the fees leave nothing", () => {
+    const greedy = { ...schedule, marketplaceFeeBasisPoints: 9_600 };
+    expect(() => assertPriceKeepsMargin(999_999, { costCents: 5_000 }, greedy)).toThrow(
+      "As taxas configuradas não deixam lucro para este produto",
+    );
+  });
+});
+
+describe("batchPriceProblem", () => {
+  it("names the first product of a batch whose price loses money after the fees", () => {
+    const minimum = minimumPriceCents({ costCents: 5_000 }, schedule) ?? 0;
+    const batch = [
+      { title: "Sérum", priceCents: minimum, costCents: 5_000 },
+      { title: "Batom", priceCents: minimum - 1, costCents: 5_000 },
+      { title: "Base", priceCents: 1, costCents: 5_000 },
+    ];
+    expect(batchPriceProblem(batch, schedule)).toMatch(
+      /^"Batom": Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+\. Ajuste a regra de preço\.$/,
+    );
+  });
+
+  it("is null when every price keeps the margin", () => {
+    expect(
+      batchPriceProblem([{ title: "Sérum", priceCents: 99_999, costCents: 5_000 }], schedule),
+    ).toBeNull();
+  });
+
+  it("refuses the whole batch as a conflict, like one listing at a time", () => {
+    const batch = [{ title: "Batom", priceCents: 5_001, costCents: 5_000 }];
+    expect(() => assertBatchKeepsMargin(batch, schedule)).toThrow(
+      expect.objectContaining({ code: "CONFLICT" }),
     );
   });
 });

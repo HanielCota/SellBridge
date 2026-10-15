@@ -34,6 +34,7 @@ import { sellableCatalogQueryOptions } from "@/features/catalog/catalog.queries"
 import { useSelection, type Selection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { feeScheduleQueryOptions } from "@/features/reports/fee-schedule.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 const ALL = "__all__";
@@ -42,7 +43,11 @@ export const Route = createFileRoute("/_app/catalogo")({
   validateSearch: sellableCatalogSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, sellableCatalogQueryOptions(search)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, sellableCatalogQueryOptions(search)),
+      // The cards' margin and the bulk dialog's receipt count every fee the server charges.
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Catálogo | SellBridge" }] }),
   component: CatalogPage,
 });

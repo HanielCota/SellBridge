@@ -1,3 +1,4 @@
+import { assertPriceKeepsMargin, type FeeSchedule } from "@sellbridge/shared/fee-model";
 import {
   unavailableListingMessage,
   unavailableReason,
@@ -5,11 +6,7 @@ import {
 } from "@sellbridge/shared/catalog-availability";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { daysBefore } from "@sellbridge/shared/time";
-import {
-  assertSellablePrice,
-  pauseTransition,
-  RETRYABLE_TARGET_STATUS,
-} from "@sellbridge/shared/listing-rules";
+import { pauseTransition, RETRYABLE_TARGET_STATUS } from "@sellbridge/shared/listing-rules";
 import {
   toPaginated,
   type ListingSort,
@@ -439,13 +436,20 @@ export async function setListingsPaused(
   });
 }
 
+export interface ListingPriceChange {
+  listingId: string;
+  priceCents: number;
+  /** The fees the price must cover, with the minimum margin (fee-model.ts). */
+  feeSchedule: FeeSchedule;
+}
+
 /** Changes the sale price; the sync job sends it to every store where the listing is live. */
 export async function updateListingPrice(
   database: Database,
   tenantId: string,
-  listingId: string,
-  priceCents: number,
+  change: ListingPriceChange,
 ): Promise<void> {
+  const { listingId, priceCents } = change;
   const [row] = await database
     .select({ costCents: supplierProducts.costCents })
     .from(listings)
@@ -454,7 +458,7 @@ export async function updateListingPrice(
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  assertSellablePrice(priceCents, row.costCents);
+  assertPriceKeepsMargin(priceCents, { costCents: row.costCents }, change.feeSchedule);
   await database
     .update(listings)
     .set({ priceCents })

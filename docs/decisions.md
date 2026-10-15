@@ -448,3 +448,11 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 ## 2026-10-15 · Trocar de fornecedor num envio cancelado: não fazer
 
 Decisão do usuário no ⏸1. Com a regra R3 ("uma loja, um fornecedor", etapa 4 do chat CPF), todo anúncio de uma loja é do fornecedor dela: mandar o pacote de um envio cancelado a outro fornecedor faria a loja anunciar o produto de A e entregar o de B, além de exigir um "produto equivalente" e recalcular custo, margem e estoque. Quando o fornecedor recusa, o revendedor reencaminha ao mesmo fornecedor (item 06) ou cancela a venda. Cancelar direto no marketplace fica para o item 22.
+
+## 2026-10-15: Prévia com todas as taxas e piso de preço (item 15.b)
+
+- **A prévia é a conta do Financeiro:** catálogo, publicação em massa, Nova publicação, card do anúncio e Editar preço usam o modelo de taxa (`getFeeSchedule`, pré-carregado nos loaders de Catálogo, Publicações e Nova publicação). Aparece a linha "Taxa da SellBridge (x%)" quando `PLATFORM_FEE_BASIS_POINTS` > 0, e o frete entra na linha do marketplace quando `ESTIMATED_SHIPPING_CENTS` > 0.
+- **Piso no servidor (E7):** um preço precisa cobrir o custo e todas as taxas, mais `MIN_MARGIN_PERCENT` (padrão 0: só proíbe vender com prejuízo). Vale ao criar, ao editar (também pela API pública) e na publicação em massa, que recusa o lote inteiro antes de gravar e diz qual produto. Mesmo código de erro (conflito) e mesmas palavras nos três caminhos e nas telas: "Com as taxas, o preço mínimo para não ter prejuízo é R$ X".
+- **Na tela, antes de enviar:** a Nova publicação confere o piso antes do pedido e esconde os preços prontos que ficariam abaixo dele; Editar preço avisa "Abaixo de R$ X você tem prejuízo depois das taxas" e não oferece atalhos de margem abaixo da mínima; a publicação em massa mostra o problema e trava o botão.
+- **Anúncios já publicados abaixo do novo piso** continuam no ar (pausar, retomar, sincronizar e reprocessar não conferem preço); só a próxima edição de preço precisa respeitar o piso.
+- **Pendências aceitas:** a categoria do produto ainda não chega ao piso nem à prévia (as taxas por categoria estão vazias; entra com a tarefa da taxa real do Mercado Livre); se a busca do modelo falhar, as telas usam o padrão de 14% sem a taxa da SellBridge, e o servidor continua sendo a regra.

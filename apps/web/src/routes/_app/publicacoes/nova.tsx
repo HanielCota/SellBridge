@@ -22,10 +22,12 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import {
+  FeeLines,
   PROFIT_SPLIT_COLORS,
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
+  totalFeeCents,
 } from "@/components/listings/profit-split";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,13 +38,14 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
+import { type FeeSchedule, priceFloorProblem } from "@sellbridge/shared/fee-model";
 import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
   estimateProfit,
   isThinMargin,
   priceForMargin,
   type ProfitEstimate,
 } from "@/features/listings/profit";
+import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -59,7 +62,10 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
   },
   loaderDeps: ({ search }) => ({ productId: search.productId }),
   loader: ({ context }) =>
-    prefetchOnServer(context.queryClient, newListingQueryOptions(context.productId)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, newListingQueryOptions(context.productId)),
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
@@ -164,12 +170,19 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const schedule = useFeeSchedule();
 
   async function submit(value: ListingFormValues) {
     setSubmitError(null);
     const priceCents = parseBrlToCents(value.price);
     if (priceCents === null) {
       setSubmitError("Informe um preço válido");
+      return;
+    }
+    // The server's own floor and words, said before the request.
+    const floorProblem = priceFloorProblem(priceCents, { costCents: product.costCents }, schedule);
+    if (floorProblem !== null) {
+      setSubmitError(floorProblem);
       return;
     }
     try {
@@ -251,7 +264,7 @@ function ProfitSentence({
   priceCents: number | null;
   costCents: number;
 }) {
-  const estimate = estimateProfit(priceCents, costCents);
+  const estimate = estimateProfit(priceCents, costCents, useFeeSchedule());
   if (!estimate) {
     return (
       <p className="text-sm text-muted-foreground">Informe o preço de venda para ver o lucro.</p>
@@ -412,12 +425,18 @@ interface PricePreset {
 }
 
 /** The supplier's suggestion first, then the margin presets that land above the cost. */
-function pricePresets(product: ListingProduct): PricePreset[] {
+/** A preset the server would refuse is left out: it would only lead to an error. */
+function keepsFloor(product: ListingProduct, schedule: FeeSchedule) {
+  return (preset: PricePreset) =>
+    priceFloorProblem(preset.priceCents, { costCents: product.costCents }, schedule) === null;
+}
+
+function pricePresets(product: ListingProduct, schedule: FeeSchedule): PricePreset[] {
   const presets: PricePreset[] = [
     { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
   ];
   for (const margin of MARGIN_PRESETS) {
-    const priceCents = priceForMargin(product.costCents, margin);
+    const priceCents = priceForMargin(product.costCents, margin, schedule);
     if (priceCents !== null) {
       presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
     }
@@ -463,23 +482,26 @@ function PricePresets({
   readonly priceCents: number | null;
   readonly onPick: (value: string) => void;
 }) {
+  const schedule = useFeeSchedule();
   return (
     <fieldset className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       <legend className="sr-only">Preços prontos</legend>
-      {pricePresets(product).map((preset) => (
-        <button
-          key={preset.key}
-          type="button"
-          aria-pressed={priceCents === preset.priceCents}
-          onClick={() => onPick(formatCentsForInput(preset.priceCents))}
-          className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
-        >
-          {preset.label}
-          <span className="font-normal tabular-nums opacity-80">
-            {formatCents(preset.priceCents)}
-          </span>
-        </button>
-      ))}
+      {pricePresets(product, schedule)
+        .filter(keepsFloor(product, schedule))
+        .map((preset) => (
+          <button
+            key={preset.key}
+            type="button"
+            aria-pressed={priceCents === preset.priceCents}
+            onClick={() => onPick(formatCentsForInput(preset.priceCents))}
+            className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
+          >
+            {preset.label}
+            <span className="font-normal tabular-nums opacity-80">
+              {formatCents(preset.priceCents)}
+            </span>
+          </button>
+        ))}
     </fieldset>
   );
 }
@@ -502,7 +524,7 @@ function PriceField({
   readonly onChange: (value: string) => void;
 }) {
   const priceCents = parseBrlToCents(value);
-  const estimate = estimateProfit(priceCents, product.costCents);
+  const estimate = estimateProfit(priceCents, product.costCents, useFeeSchedule());
   const message = firstErrorMessage(errors);
   return (
     <div className="grid gap-2">
@@ -752,7 +774,8 @@ function ProfitCard({
   priceCents: number | null;
   product: ListingProduct;
 }) {
-  const estimate = estimateProfit(priceCents, product.costCents);
+  const schedule = useFeeSchedule();
+  const estimate = estimateProfit(priceCents, product.costCents, schedule);
   const isLoss = estimate !== null && estimate.profitCents < 0;
   return (
     <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
@@ -766,7 +789,7 @@ function ProfitCard({
         {estimate ? (
           <ProfitSplitBar
             costCents={product.costCents}
-            feeCents={estimate.feeCents}
+            feeCents={totalFeeCents(estimate)}
             profitCents={estimate.profitCents}
           />
         ) : null}
@@ -776,11 +799,7 @@ function ProfitCard({
             label="Custo do fornecedor"
             value={formatCents(product.costCents)}
           />
-          <ProfitSplitLine
-            swatch={PROFIT_SPLIT_COLORS.fee}
-            label={`Taxa estimada (${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})`}
-            value={estimate ? formatCents(estimate.feeCents) : "—"}
-          />
+          <FeeLines estimate={estimate} schedule={schedule} />
           <ProfitSplitLine
             swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
             label={isLoss ? "Seu prejuízo" : "Seu lucro"}

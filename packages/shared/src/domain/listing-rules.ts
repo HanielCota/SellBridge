@@ -1,5 +1,3 @@
-import { conflictError } from "../runtime/errors.ts";
-
 /** Mirrors the `listing_target_status` enum of the database. */
 export type ListingTargetStatus = "pending" | "publishing" | "published" | "error" | "paused";
 
@@ -12,13 +10,7 @@ export const ACTIVE_TARGET_STATUSES = [
 /** The only status a failed publication can be put back in the queue from. */
 export const RETRYABLE_TARGET_STATUS = "error" satisfies ListingTargetStatus;
 
-/** Selling at or below the supplier cost would lose money on every order. */
-export function assertSellablePrice(priceCents: number, costCents: number): void {
-  if (priceCents <= costCents) {
-    throw conflictError("O preço de venda precisa ser maior que o custo do fornecedor");
-  }
-}
-
+/** Whether a publication in this status may go back to the queue. */
 export function canRetryTarget(status: ListingTargetStatus): boolean {
   return status === RETRYABLE_TARGET_STATUS;
 }

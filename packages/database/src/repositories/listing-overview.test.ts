@@ -1,3 +1,4 @@
+import { DEFAULT_FEE_SCHEDULE, minimumPriceCents } from "@sellbridge/shared/fee-model";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -19,6 +20,8 @@ import { createListingWithTargets, findTargetsNeedingSync, markTargetFailed } fr
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
+/** 14% marketplace and 4% SellBridge, no minimum margin: a price must at least break even. */
+const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
 const page = { page: 1, pageSize: 20 };
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantA = "";
@@ -27,6 +30,11 @@ let storeIds: string[] = [];
 let supplierId = "";
 let listingId = "";
 let targetIds: string[] = [];
+
+/** A price change of the shared listing under the test's fees. */
+function change(priceCents: number) {
+  return { listingId, priceCents, feeSchedule };
+}
 
 function storeInput(tenantId: string, shopId: string) {
   return {
@@ -234,15 +242,43 @@ describe("pause, resume and price", () => {
     });
   });
 
-  it("changes the price only above cost and only for the owner", async () => {
-    await expect(updateListingPrice(database, tenantA, listingId, 900)).rejects.toMatchObject({
+  it("changes the price only above the fee floor and only for the owner", async () => {
+    await expect(updateListingPrice(database, tenantA, change(900))).rejects.toMatchObject({
       code: "CONFLICT",
     });
-    await expect(updateListingPrice(database, tenantB, listingId, 3000)).rejects.toMatchObject({
+    await expect(updateListingPrice(database, tenantB, change(3000))).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    await updateListingPrice(database, tenantA, listingId, 3000);
+    await updateListingPrice(database, tenantA, change(3000));
     const [row] = (await listListingOverview(database, tenantA, {}, page)).items;
     expect(row?.priceCents).toBe(3000);
+  });
+
+  it("refuses a price above cost that loses money after the fees", async () => {
+    const [before] = (await listListingOverview(database, tenantA, {}, page)).items;
+    const costCents = before?.costCents ?? 0;
+    const minimum = minimumPriceCents({ costCents }, feeSchedule) ?? 0;
+    await expect(
+      updateListingPrice(database, tenantA, { listingId, priceCents: minimum - 1, feeSchedule }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("preço mínimo para não ter prejuízo"),
+    });
+    await updateListingPrice(database, tenantA, { listingId, priceCents: minimum, feeSchedule });
+    const [after] = (await listListingOverview(database, tenantA, {}, page)).items;
+    expect(after?.priceCents).toBe(minimum);
+  });
+
+  it("keeps the configured minimum margin", async () => {
+    const strict = { ...feeSchedule, minimumMarginPercent: 10 };
+    const [before] = (await listListingOverview(database, tenantA, {}, page)).items;
+    const minimum = minimumPriceCents({ costCents: before?.costCents ?? 0 }, strict) ?? 0;
+    await expect(
+      updateListingPrice(database, tenantA, {
+        listingId,
+        priceCents: minimum - 1,
+        feeSchedule: strict,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("para 10% de margem") });
   });
 });
