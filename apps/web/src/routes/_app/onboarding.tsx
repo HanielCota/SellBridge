@@ -1,6 +1,6 @@
 import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repositories";
 import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
-import { fullNameSchema, optionalParameter } from "@sellbridge/shared/schemas";
+import { fullNameSchema, internalPathSchema } from "@sellbridge/shared/schemas";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 
 const onboardingSearchSchema = z.object({
-  redirect: optionalParameter(z.string().startsWith("/")),
+  redirect: internalPathSchema,
 });
 
 export const Route = createFileRoute("/_app/onboarding")({

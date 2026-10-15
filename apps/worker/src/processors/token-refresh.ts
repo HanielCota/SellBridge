@@ -80,7 +80,11 @@ async function handleRefreshFailure(
     return expired ? "expired" : "superseded";
   }
   const message = userMessageOr(error, TRANSIENT_FAILURE_MESSAGE);
-  await recordStoreError(dependencies.database, connection.id, message);
+  await recordStoreError(dependencies.database, {
+    storeConnectionId: connection.id,
+    lastError: message,
+    refreshTokenEnc: attempt.refreshTokenEnc,
+  });
   logger.warn("store.token_refresh_failed", { storeConnectionId: connection.id, error });
   return "failed";
 }

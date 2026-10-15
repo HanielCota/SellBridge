@@ -4,9 +4,9 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: — (17 concluído; próximo é o 19, aguardando "Próximo")
+- Item/parte: — (19 concluído; próximo é o 24, aguardando "Próximo")
 - Última etapa concluída: —
-- Próximo passo: item 19 · Pequenos de segurança e status
+- Próximo passo: item 24 · Saúde das lojas (inclui o estado "Atenção" na ficha do cliente no admin)
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: —
 - Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
@@ -33,13 +33,19 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 | 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                      |
 | 12   | Admin muda a região e apaga o endereço | ⛔       | —       | Parado em `wip/b-item-12-address` (ec5bfc8): etapa 6 do CPF tira o endereço do admin |
 | 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                      |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                                      |
+| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                      |
 | 24   | Saúde das lojas                        | ⬜       | —       |                                                                                      |
 | 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                          |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-15 · Item 19 · Pequenos de segurança e status — ✅ concluído (bcac77a, commit local; junção 7c84cc2)
+
+- B20: `redirect` do login e do onboarding passa por `internalPathSchema`; `//host`, `/\host`, esquemas, espaço e caracteres de controle são descartados e a tela segue para o destino padrão.
+- B15: a loja conectada com `lastError` aparece em "Atenção" (ponto e chip âmbar, motivo no subtítulo, topo da lista), sem gravar `error`, para continuar renovando e sincronizando.
+- Revisão independente: sem crítico ou alto. 2 médios corrigidos (`recordStoreError` só grava enquanto o refresh token é o mesmo; e2e isolado numa conta nova) e 3 baixos (conexão do banco fechada no e2e, loja em atenção no topo da lista, caso `/\host` no e2e do login). Admin fica para o item 24.
 
 ### 2026-10-15 · Item 17 · Link do fornecedor e diagnóstico — ✅ concluído (93b97c3, commit local; junção 105b46a)
 
