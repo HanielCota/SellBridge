@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, TEST_CPF, gotoHydrated, saveAddress, signIn, signUp } from "./helpers";
+import { DEMO_USER, gotoHydrated, saveAddress, signIn, signUp, testCpf } from "./helpers";
 
 test.describe("cadastro do revendedor", () => {
   test("novo usuário informa nome, CPF e endereço em duas etapas", async ({ page }) => {
+    const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
     await expect(page.getByRole("heading", { name: "Seu cadastro" })).toBeVisible();
@@ -20,7 +21,7 @@ test.describe("cadastro do revendedor", () => {
     await page.getByLabel("CPF").fill("52998224726");
     await expect(page.getByLabel("CPF")).toHaveValue("529.982.247-26");
     await expect(page.getByText("Confira o CPF: os dígitos não batem")).toBeVisible();
-    await page.getByLabel("CPF").fill(TEST_CPF);
+    await page.getByLabel("CPF").fill(cpf);
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await expect(page.getByText("Etapa 2 de 2 · Endereço")).toBeVisible();
@@ -32,7 +33,7 @@ test.describe("cadastro do revendedor", () => {
 
     // Going back keeps what was typed.
     await page.getByRole("button", { name: "Voltar" }).click();
-    await expect(page.getByLabel("CPF")).toHaveValue(TEST_CPF);
+    await expect(page.getByLabel("CPF")).toHaveValue(cpf);
     await page.getByRole("button", { name: "Continuar" }).click();
 
     // CEP pre-cached by the seed: no external API call. It fills street, district, city and state.
@@ -50,7 +51,7 @@ test.describe("cadastro do revendedor", () => {
     await gotoHydrated(page, "/onboarding");
     await expect(page.getByRole("heading", { name: "Alterar seus dados" })).toBeVisible();
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
-    await expect(page.getByLabel("CPF")).toHaveValue(TEST_CPF);
+    await expect(page.getByLabel("CPF")).toHaveValue(cpf);
   });
 });
 
