@@ -9,10 +9,12 @@ import {
   SETTLED_FULFILLMENT_STATUSES,
   type ShipmentOperator,
 } from "@sellbridge/shared/schemas";
+import { SHIPMENT_DELAY_LABELS, type ShipmentDelay } from "@sellbridge/shared/shipment-delay";
 import { type ComponentProps, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
+import { SmartDate } from "@/components/data/smart-date";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { FormErrorAlert } from "@/components/form/form-feedback";
 import { TextareaField } from "@/components/form/textarea-field";
@@ -35,6 +37,10 @@ export interface ShipmentView {
   carrier: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
+  /** The marketplace's dates and what is late; absent on the supplier link. */
+  estimatedDeliveryAt?: Date | null;
+  dispatchDeadlineAt?: Date | null;
+  delay?: ShipmentDelay | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
 
@@ -375,17 +381,43 @@ function useShipmentUpdate(
   };
 }
 
+/** The marketplace's date that matters now: when to dispatch, then when it should arrive. */
+function ShipmentDates({ shipment }: { shipment: ShipmentView }) {
+  if (shipment.status === "shipped" && shipment.estimatedDeliveryAt) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Entrega prevista: <SmartDate date={shipment.estimatedDeliveryAt} />
+      </p>
+    );
+  }
+  const atSupplier = ["forwarded", "accepted", "picking", "ready"].includes(shipment.status);
+  if (atSupplier && shipment.dispatchDeadlineAt) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Despachar até: <SmartDate date={shipment.dispatchDeadlineAt} />
+      </p>
+    );
+  }
+  return null;
+}
+
 function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   return (
     <>
       {" "}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-medium">{shipment.supplierName}</h3>
-        <ToneStatus
-          tone={FULFILLMENT_TONES[shipment.status]}
-          label={FULFILLMENT_LABELS[shipment.status]}
-        />
+        <div className="flex flex-col items-start gap-1 sm:items-end">
+          <ToneStatus
+            tone={FULFILLMENT_TONES[shipment.status]}
+            label={FULFILLMENT_LABELS[shipment.status]}
+          />
+          {shipment.delay ? (
+            <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
+          ) : null}
+        </div>
       </div>
+      <ShipmentDates shipment={shipment} />
       <ul className="space-y-1 text-sm">
         {shipment.items.map((item, index) => (
           <li key={`${item.sku}-${index}`}>

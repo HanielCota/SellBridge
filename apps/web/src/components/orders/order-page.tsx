@@ -237,7 +237,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
       <BackToOrders />
       <OrderHeader page={page} />
       {/* The summary comes first in the page, so a phone shows it right under the heading. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <OrderAside page={page} />
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
           <OrderItems items={page.order.items} costPending={page.finance.costPending} />

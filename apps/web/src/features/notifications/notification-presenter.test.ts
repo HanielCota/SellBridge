@@ -60,6 +60,41 @@ describe("presentNotification", () => {
     expect(notification.href).toBe("/pedidos/order-9");
   });
 
+  it.each([
+    [
+      "dispatch_overdue",
+      "Despacho atrasado no pedido #ML-9",
+      "Brás Atacado Masculino passou do prazo para despachar. Fale com o fornecedor.",
+    ],
+    [
+      "delivery_overdue",
+      "Entrega atrasada no pedido #ML-9",
+      "Passou da data prevista e o pacote de Brás Atacado Masculino não foi entregue. Confira o rastreio.",
+    ],
+    [
+      "awaiting_confirmation",
+      "Confirme a entrega do pedido #ML-9",
+      "O pacote de Brás Atacado Masculino foi enviado há mais de 7 dias. Se chegou, marque como entregue.",
+    ],
+  ] as const)("tells the reseller what is late (%s) and what to do", (delay, title, detail) => {
+    const notification = presentNotification({
+      kind: "shipment_late",
+      entityId: "order-9",
+      shipmentId: "shipment-3",
+      at,
+      externalOrderId: "ML-9",
+      supplierName: "Brás Atacado Masculino",
+      delay,
+    });
+    expect(notification).toMatchObject({
+      id: `shipment-late:shipment-3:${delay}`,
+      kind: "shipment_late",
+    });
+    expect(notification.title).toBe(title);
+    expect(notification.detail).toBe(detail);
+    expect(notification.href).toBe("/pedidos/order-9");
+  });
+
   it("shows a sale with its total and leads to the order in the financial report", () => {
     const notification = presentNotification({
       kind: "sale",

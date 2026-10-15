@@ -29,7 +29,7 @@ function OrderPage() {
   const query = useQuery(orderPageQueryOptions(orderId));
   if (query.isPending) {
     return (
-      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Skeleton className="h-96 rounded-3xl" aria-label="Carregando pedido" />
         <Skeleton className="hidden h-72 rounded-3xl lg:block" />
       </div>

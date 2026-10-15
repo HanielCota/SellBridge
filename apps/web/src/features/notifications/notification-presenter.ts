@@ -55,6 +55,41 @@ function orderProblem(
   };
 }
 
+/** What is late about a parcel, and the reseller's next step. */
+const LATE_COPY: Record<
+  Extract<NotificationEvent, { kind: "shipment_late" }>["delay"],
+  { title: string; detail: (supplierName: string) => string }
+> = {
+  dispatch_overdue: {
+    title: "Despacho atrasado no pedido",
+    detail: (supplierName) =>
+      `${supplierName} passou do prazo para despachar. Fale com o fornecedor.`,
+  },
+  delivery_overdue: {
+    title: "Entrega atrasada no pedido",
+    detail: (supplierName) =>
+      `Passou da data prevista e o pacote de ${supplierName} não foi entregue. Confira o rastreio.`,
+  },
+  awaiting_confirmation: {
+    title: "Confirme a entrega do pedido",
+    detail: (supplierName) =>
+      `O pacote de ${supplierName} foi enviado há mais de 7 dias. Se chegou, marque como entregue.`,
+  },
+};
+
+/** A parcel late to leave, to arrive or to be confirmed, on the order's page. */
+function shipmentLate(
+  event: Extract<NotificationEvent, { kind: "shipment_late" }>,
+): Pick<AppNotification, "id" | "title" | "detail" | "href"> {
+  const copy = LATE_COPY[event.delay];
+  return {
+    id: `shipment-late:${event.shipmentId}:${event.delay}`,
+    title: `${copy.title} #${event.externalOrderId}`,
+    detail: copy.detail(event.supplierName),
+    href: `/pedidos/${event.entityId}`,
+  };
+}
+
 /** A listing the supplier keeps off: paused by the deactivation of the product or supplier. */
 function listingUnavailable(
   event: Extract<NotificationEvent, { kind: "listing_unavailable" }>,
@@ -101,6 +136,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
     case "stock_shortage":
     case "shipment_cancelled":
       return { ...base, ...orderProblem(event) };
+    case "shipment_late":
+      return { ...base, ...shipmentLate(event) };
     case "listing_unavailable":
       return { ...base, ...listingUnavailable(event) };
     case "review_pending":

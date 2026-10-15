@@ -15,6 +15,7 @@ import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
+import { SHIPMENT_DELAY_LABELS } from "@sellbridge/shared/shipment-delay";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
@@ -238,10 +239,20 @@ function OperationRow({
       <div className="flex flex-col items-start gap-1">
         <OrderStatusBadge status={row.status} />
         {row.stockShort ? <ToneStatus tone="warning" label="Falta estoque" /> : null}
+        <ShipmentDelayBadge shipments={row.shipments} />
       </div>
       <Button variant="outline" onClick={() => onOpen(row)}>
         Operar pedido
       </Button>
     </li>
   );
+}
+
+/** The first late parcel of the order, as a warning under its status. */
+function ShipmentDelayBadge({ shipments }: { shipments: OperationRowData["shipments"] }) {
+  const delay = shipments.find((shipment) => shipment.delay !== null)?.delay;
+  if (delay === undefined || delay === null) {
+    return null;
+  }
+  return <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[delay]} />;
 }

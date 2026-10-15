@@ -738,6 +738,76 @@ describe("fulfillment", () => {
     await database.delete(user).where(eq(user.id, readerId));
   });
 
+  it("says how late each parcel is on the order page and in the operations list", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000);
+    await database
+      .update(orderShipments)
+      .set({ status: "shipped", estimatedDeliveryAt: threeDaysAgo })
+      .where(eq(orderShipments.id, link.shipmentId));
+
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.shipments[0]?.delay).toBe("delivery_overdue");
+    const listed = await listOperationalOrders(database, tenants.tenantA, {
+      query: order.externalOrderId,
+      stage: "all",
+      page: 1,
+    });
+    expect(listed.items[0]?.shipments[0]?.delay).toBe("delivery_overdue");
+
+    // On time: no delay.
+    await database
+      .update(orderShipments)
+      .set({ estimatedDeliveryAt: new Date(Date.now() + 3 * 86_400_000) })
+      .where(eq(orderShipments.id, link.shipmentId));
+    const onTime = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(onTime.shipments[0]?.delay).toBeNull();
+  });
+
+  it("warns about a late parcel in the bell until it moves, for its tenant only", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await database
+      .update(orderShipments)
+      .set({ dispatchDeadlineAt: new Date(Date.now() - 2 * 86_400_000) })
+      .where(eq(orderShipments.id, link.shipmentId));
+    const readerId = `reader-${randomUUID()}`;
+    await database
+      .insert(user)
+      .values({ id: readerId, name: "Revendedor", email: `${readerId}@sellbridge.test` });
+    const lateNotices = async (tenantId: string) =>
+      (
+        await listNotificationEvents(database, {
+          tenantId,
+          userId: readerId,
+          reviewableSince: new Date(0),
+        })
+      ).events.filter((event) => event.kind === "shipment_late" && event.entityId === order.id);
+
+    expect(await lateNotices(tenants.tenantA)).toEqual([
+      expect.objectContaining({
+        kind: "shipment_late",
+        externalOrderId: order.externalOrderId,
+        delay: "dispatch_overdue",
+        supplierName: expect.any(String),
+      }),
+    ]);
+    expect(await lateNotices(tenants.tenantB)).toEqual([]);
+    // Work to do, not news: clearing the list keeps it.
+    await clearNotifications(database, { tenantId: tenants.tenantA, userId: readerId });
+    expect(await lateNotices(tenants.tenantA)).toHaveLength(1);
+    // The parcel left: the dispatch is no longer late.
+    await database
+      .update(orderShipments)
+      .set({ status: "shipped" })
+      .where(eq(orderShipments.id, link.shipmentId));
+    expect(await lateNotices(tenants.tenantA)).toEqual([]);
+    await database.delete(user).where(eq(user.id, readerId));
+  });
+
   it("does not notify the reseller about a parcel they cancelled themselves", async () => {
     const order = await createOrder();
     const [link] = await forward(order.id);

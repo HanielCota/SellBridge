@@ -19,6 +19,7 @@ import {
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { sellableOnMarketplace } from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
+import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
 import { listUnreadSupportReplies } from "./support.ts";
 
 const WINDOW_DAYS = 14;
@@ -28,6 +29,7 @@ export const STANDING_NOTIFICATION_KINDS: ReadonlySet<NotificationEvent["kind"]>
   "stock_shortage",
   "shipment_cancelled",
   "listing_unavailable",
+  "shipment_late",
 ]);
 /** Sales are frequent; a handful is enough to show activity without burying problems. */
 const SALES_SHOWN = 5;
@@ -110,7 +112,10 @@ export type NotificationEvent =
   | ReviewPendingEvent
   | StockShortageEvent
   | ShipmentCancelledEvent
+  | ShipmentLateEvent
   | ListingUnavailableEvent;
+
+export type { ShipmentLateEvent };
 
 export type NotificationKind = NotificationEvent["kind"];
 
@@ -419,22 +424,34 @@ export async function listNotificationEvents(
   database: Database,
   input: { tenantId: string; userId: string; reviewableSince: Date },
 ): Promise<{ events: NotificationEvent[]; seenAt: Date | null }> {
-  const [sales, shortages, cancelled, unavailable, listingErrors, stores, support, reviews, read] =
-    await Promise.all([
-      saleEvents(database, input.tenantId),
-      stockShortageEvents(database, input.tenantId),
-      shipmentCancelledEvents(database, input.tenantId),
-      listingUnavailableEvents(database, input.tenantId),
-      listingErrorEvents(database, input.tenantId),
-      storeProblemEvents(database, input.tenantId),
-      supportReplyEvents(database, input),
-      reviewPendingEvents(database, input.tenantId, input.reviewableSince),
-      readState(database, input),
-    ]);
+  const [
+    sales,
+    shortages,
+    cancelled,
+    late,
+    unavailable,
+    listingErrors,
+    stores,
+    support,
+    reviews,
+    read,
+  ] = await Promise.all([
+    saleEvents(database, input.tenantId),
+    stockShortageEvents(database, input.tenantId),
+    shipmentCancelledEvents(database, input.tenantId),
+    shipmentLateEvents(database, { tenantId: input.tenantId, limit: PER_KIND, now: new Date() }),
+    listingUnavailableEvents(database, input.tenantId),
+    listingErrorEvents(database, input.tenantId),
+    storeProblemEvents(database, input.tenantId),
+    supportReplyEvents(database, input),
+    reviewPendingEvents(database, input.tenantId, input.reviewableSince),
+    readState(database, input),
+  ]);
   const events = [
     ...sales,
     ...shortages,
     ...cancelled,
+    ...late,
     ...unavailable,
     ...listingErrors,
     ...stores,
