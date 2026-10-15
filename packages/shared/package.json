@@ -8,6 +8,7 @@
     "./product-csv": "./src/domain/product-csv.ts",
     "./cep": "./src/domain/cep.ts",
     "./cep-providers": "./src/domain/cep-providers.ts",
+    "./cpf": "./src/domain/cpf.ts",
     "./errors": "./src/runtime/errors.ts",
     "./environment": "./src/runtime/environment.ts",
     "./environment-file": "./src/runtime/environment-file.ts",

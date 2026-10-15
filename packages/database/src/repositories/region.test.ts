@@ -63,6 +63,35 @@ describe("tenant region", () => {
       neighborhood: null,
     });
   });
+
+  it("keeps the billing holder when a later save changes only the CEP", async () => {
+    const [tenantA] = tenants.ids;
+    if (!tenantA) {
+      throw new Error("tenant de teste não criado");
+    }
+    const address = {
+      cep: "30130010",
+      state: "MG" as const,
+      city: "Belo Horizonte",
+      neighborhood: "Centro",
+      street: "Avenida Afonso Pena",
+    };
+    await saveTenantRegion(database, tenantA, {
+      ...address,
+      holder: { fullName: "Ana Souza Lima", cpf: "52998224725" },
+    });
+    const afterCepChange = await saveTenantRegion(database, tenantA, {
+      ...address,
+      cep: "01001000",
+      state: "SP",
+      city: "São Paulo",
+    });
+    expect(afterCepChange).toMatchObject({
+      city: "São Paulo",
+      fullName: "Ana Souza Lima",
+      cpf: "52998224725",
+    });
+  });
 });
 
 describe("cep cache", () => {

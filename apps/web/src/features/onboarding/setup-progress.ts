@@ -17,10 +17,10 @@ export interface SetupStep {
 export const SETUP_STEPS: readonly SetupStep[] = [
   {
     key: "hasRegion",
-    title: "Sua região",
-    description: "O CEP define quais fornecedores entregam para você.",
+    title: "Seu cadastro",
+    description: "Nome, CPF e endereço para notas fiscais, cobranças e entrega.",
     to: "/onboarding",
-    cta: "Informar CEP",
+    cta: "Completar cadastro",
   },
   {
     key: "hasStore",

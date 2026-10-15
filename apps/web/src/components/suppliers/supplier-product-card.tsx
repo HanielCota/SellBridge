@@ -9,8 +9,17 @@ export type SupplierCatalogProduct = Awaited<
   ReturnType<typeof getSupplierCatalog>
 >["products"]["items"][number];
 
-/** One product of a supplier's catalog: cost against suggested price, and a publish shortcut. */
-export function SupplierProductCard({ product }: { readonly product: SupplierCatalogProduct }) {
+/**
+ * One product of a supplier's catalog: cost against suggested price, and a publish shortcut when
+ * the supplier delivers to the reseller.
+ */
+export function SupplierProductCard({
+  product,
+  canPublish,
+}: {
+  readonly product: SupplierCatalogProduct;
+  readonly canPublish: boolean;
+}) {
   return (
     <article className="surface-card flex h-full flex-col overflow-hidden rounded-3xl bg-card">
       <ProductVisual
@@ -37,7 +46,7 @@ export function SupplierProductCard({ product }: { readonly product: SupplierCat
           <span className="flex min-h-8 items-center">
             <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
           </span>
-          {product.stock > 0 ? (
+          {canPublish && product.stock > 0 ? (
             <Button asChild size="sm" variant="secondary">
               <Link to="/publicacoes/nova" search={{ productId: product.id }}>
                 Publicar
