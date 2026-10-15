@@ -65,6 +65,9 @@ const savedSupplier = {
   state: "MG",
   city: "Belo Horizonte",
   logoUrl: null,
+  contactEmail: null,
+  acceptWithinHours: 24,
+  dispatchWithinHours: 48,
   active: true,
   createdAt: new Date("2026-10-01T00:00:00Z"),
 };
@@ -187,7 +190,7 @@ describe("admin CSV orchestration", () => {
     }
   });
 
-  it("enqueues synchronization after saving a supplier, whose coverage may have shrunk", async () => {
+  it("enqueues synchronization after saving a supplier", async () => {
     mocks.saveSupplier.mockResolvedValue(savedSupplier);
 
     await expect(
@@ -199,7 +202,6 @@ describe("admin CSV orchestration", () => {
         state: "MG",
         city: "Belo Horizonte",
         logoUrl: null,
-        coverage: [{ state: "MG", city: null }],
       }),
     ).resolves.toEqual({ ...savedSupplier, synchronizationQueued: true });
     expect(mocks.saveSupplier.mock.invocationCallOrder[0]).toBeLessThan(

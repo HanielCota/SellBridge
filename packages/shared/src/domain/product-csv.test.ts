@@ -111,20 +111,17 @@ describe("admin catalog schemas", () => {
       pageSize: 20,
     });
   });
-  it("rejects duplicate coverage regardless of city case", () => {
-    const result = adminSupplierValuesSchema.safeParse({
+  it("asks only where the supplier ships from, with no delivery area", () => {
+    const values = {
       name: "Teste",
       niche: "Teste",
       description: "",
       state: "SP",
       city: "São Paulo",
       logoUrl: null,
-      coverage: [
-        { state: "SP", city: "Santos" },
-        { state: "SP", city: "santos" },
-      ],
-    });
-    expect(result.success).toBe(false);
+    };
+    expect(adminSupplierValuesSchema.parse(values)).toEqual(values);
+    expect(adminSupplierValuesSchema.safeParse({ ...values, city: " " }).success).toBe(false);
   });
 
   it("refuses a line with more columns than any import needs, before the import blocks", () => {

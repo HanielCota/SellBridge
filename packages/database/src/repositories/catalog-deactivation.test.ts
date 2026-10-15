@@ -43,7 +43,6 @@ async function newSupplier() {
     state: "SP",
     city: "São Paulo",
     logoUrl: null,
-    coverage: [{ state: "SP", city: null }],
   });
   supplierIds.push(supplier.id);
   return supplier.id;

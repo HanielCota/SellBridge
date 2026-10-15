@@ -3,7 +3,7 @@ import { conflictError } from "@sellbridge/shared/errors";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listings, supplierProducts, suppliers } from "../schema/index.ts";
+import { listings, storeConnections, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, testStoreInput } from "../testing/fixtures.ts";
 import {
   createListingWithTargets,
@@ -23,6 +23,7 @@ import {
   getAdminSupplier,
   importSupplierProducts,
   listAdminSupplierProducts,
+  listSupplierSellers,
   previewSupplierProductImport,
   saveAdminSupplier,
   saveAdminSupplierProduct,
@@ -40,7 +41,6 @@ const supplierInput = {
   state: "SP" as const,
   city: "São Paulo",
   logoUrl: null,
-  coverage: [{ state: "SP" as const, city: null }],
 };
 const productValues = {
   sku: "ADMIN-1",
@@ -74,28 +74,41 @@ async function importRows(content: string, targetSupplierId = supplierId) {
 }
 
 describe("admin suppliers", () => {
-  it("replaces coverage atomically and rolls back invalid coverage", async () => {
-    await saveAdminSupplier(database, {
-      ...supplierInput,
-      supplierId,
-      coverage: [{ state: "SP", city: "Santos" }],
+  it("saves where the supplier ships from, with no delivery area", async () => {
+    await saveAdminSupplier(database, { ...supplierInput, supplierId, city: "Santos" });
+    expect((await getAdminSupplier(database, supplierId)).supplier).toMatchObject({
+      state: "SP",
+      city: "Santos",
     });
-    expect((await getAdminSupplier(database, supplierId)).coverage).toEqual([
-      { state: "SP", city: "Santos" },
-    ]);
-    await expect(
-      saveAdminSupplier(database, {
-        ...supplierInput,
-        supplierId,
-        name: "Não deve persistir",
-        coverage: [
-          { state: "SP", city: null },
-          { state: "SP", city: null },
-        ],
-      }),
-    ).rejects.toThrow(/Failed query/);
-    expect((await getAdminSupplier(database, supplierId)).supplier.name).toBe(supplierInput.name);
     await saveAdminSupplier(database, { ...supplierInput, supplierId });
+  });
+
+  it("lists the shops that sell the supplier, never disconnected ones", async () => {
+    const tenants = await createTestTenants(database, 1);
+    const [tenantId] = tenants.ids;
+    if (tenantId === undefined) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const live = await upsertStoreConnection(database, {
+        ...testStoreInput(tenantId, `seller-${tenantId}`),
+        supplierId,
+      });
+      const gone = await upsertStoreConnection(database, {
+        ...testStoreInput(tenantId, `gone-${tenantId}`),
+        supplierId,
+      });
+      await database
+        .update(storeConnections)
+        .set({ status: "disconnected" })
+        .where(eq(storeConnections.id, gone.id));
+      const sellers = await listSupplierSellers(database, supplierId);
+      expect(sellers.map((seller) => seller.storeConnectionId)).toEqual([live.id]);
+      expect(sellers[0]).toMatchObject({ tenantId, recentOrders: 0 });
+      expect(await listSupplierSellers(database, otherSupplierId)).toEqual([]);
+    } finally {
+      await tenants.cleanup();
+    }
   });
 
   it("previews and upserts by supplier/SKU while retaining ids and suggested prices", async () => {

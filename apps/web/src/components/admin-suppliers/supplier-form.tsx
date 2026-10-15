@@ -9,10 +9,10 @@ import { adminSaveSupplier } from "@/features/admin-suppliers/suppliers.function
 import { catalogFormErrors, supplierFormValues } from "@/features/admin-suppliers/form-values";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
 import { errorMessage } from "@/lib/errors";
-import { CoverageFields, StateField } from "./coverage-fields";
+import { StateField } from "./state-field";
 
 interface SupplierFormProps {
-  detail?: { supplier: AdminSupplier; coverage: { state: string; city: string | null }[] };
+  detail?: { supplier: AdminSupplier };
   onSaved?: (supplier: AdminSupplier) => void;
 }
 const supplierFields = [
@@ -64,10 +64,6 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
       ...values,
       supplierId: detail?.supplier.id,
       logoUrl: values.logoUrl.trim() || null,
-      coverage: values.coverage.map((region) => ({
-        state: region.state,
-        city: region.city.trim() || null,
-      })),
     });
     setErrors(parsed.success ? {} : catalogFormErrors(parsed.error));
     if (parsed.success) {
@@ -77,7 +73,7 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
   return (
     <SectionCard
       title={detail ? "Dados do fornecedor" : "Novo fornecedor"}
-      description="Fornecedores atendem os revendedores das regiões cadastradas."
+      description="Fornecedores de todo o Brasil: qualquer revendedor vende os produtos deles. Cidade e UF dizem de onde o fornecedor envia."
     >
       <form noValidate onSubmit={submit}>
         <fieldset disabled={save.isPending} className="grid gap-4">
@@ -94,13 +90,7 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
             errors={errors.description ?? []}
             onValueChange={(description) => setValues((current) => ({ ...current, description }))}
           />
-          <CoverageFields
-            values={values.coverage}
-            onChange={(coverage) => setValues((current) => ({ ...current, coverage }))}
-          />
-          <FormErrorAlert
-            message={errors.coverage?.[0] ?? (save.isError ? errorMessage(save.error) : null)}
-          />
+          <FormErrorAlert message={save.isError ? errorMessage(save.error) : null} />
           <div>
             <PendingSubmitButton
               isPending={save.isPending}
