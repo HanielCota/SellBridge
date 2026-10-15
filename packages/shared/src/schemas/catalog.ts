@@ -47,6 +47,7 @@ export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
 };
 
 export const supplierListSearchSchema = z.object({
+  /** A niche or a product the reseller wants to sell. */
   query: optionalParameter(freeText().trim().max(100)),
   niche: optionalParameter(freeText().trim().max(100)),
   sort: withFallback(supplierSortSchema.default("name"), "name"),
@@ -54,8 +55,8 @@ export const supplierListSearchSchema = z.object({
 
 export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
 
-/** Search params of the region-wide catalog (every supplier that delivers to the tenant). */
-export const regionCatalogSearchSchema = z.object({
+/** Search params of the catalog with every product the tenant can sell, from every supplier. */
+export const sellableCatalogSearchSchema = z.object({
   query: optionalParameter(freeText().trim().max(100)),
   category: optionalParameter(freeText().trim().max(100)),
   supplier: optionalParameter(z.uuid()),
@@ -67,7 +68,7 @@ export const regionCatalogSearchSchema = z.object({
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(24), 24),
 });
 
-export type RegionCatalogSearch = z.infer<typeof regionCatalogSearchSchema>;
+export type SellableCatalogSearch = z.infer<typeof sellableCatalogSearchSchema>;
 
 export const MIN_MARKUP_PERCENT = 5;
 export const MAX_MARKUP_PERCENT = 300;

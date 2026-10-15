@@ -30,6 +30,14 @@ interface AccessProps {
   banned: boolean;
   banReason: string | null;
   isSelf: boolean;
+  /** False for an owner or team account seen by an ordinary admin: every control locks. */
+  canManage: boolean;
+  /** Only an owner gives or takes team roles; anyone else sees the role read-only. */
+  canGrantTeamRoles: boolean;
+}
+
+interface Locked {
+  locked: boolean;
 }
 
 function AccessRow({
@@ -52,7 +60,7 @@ function AccessRow({
   );
 }
 
-function RoleSelect({ userId, role, isSelf }: Pick<AccessProps, "userId" | "role" | "isSelf">) {
+function RoleSelect({ userId, role, locked }: Pick<AccessProps, "userId" | "role"> & Locked) {
   const change = useAdminAction(
     (next: CustomerRole) => adminSetCustomerRole({ data: { userId, role: next } }),
     "Papel atualizado",
@@ -61,7 +69,7 @@ function RoleSelect({ userId, role, isSelf }: Pick<AccessProps, "userId" | "role
   return (
     <Select
       value={role}
-      disabled={isSelf || change.isPending}
+      disabled={locked || change.isPending}
       onValueChange={(value) => {
         const next = CUSTOMER_ROLES.find((option) => option === value);
         if (next && next !== role) {
@@ -104,7 +112,7 @@ export function BanDialogFields({
   );
 }
 
-function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "banned" | "isSelf">) {
+function BanControl({ userId, banned, locked }: Pick<AccessProps, "userId" | "banned"> & Locked) {
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState("");
   const toggle = useAdminAction(
@@ -119,7 +127,7 @@ function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "ba
     return (
       <Button
         variant="outline"
-        disabled={toggle.isPending}
+        disabled={locked || toggle.isPending}
         onClick={() => toggle.mutate(undefined)}
       >
         {toggle.isPending ? "Desbloqueando…" : "Desbloquear"}
@@ -128,7 +136,7 @@ function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "ba
   }
   return (
     <>
-      <Button variant="destructive" disabled={isSelf} onClick={() => setIsOpen(true)}>
+      <Button variant="destructive" disabled={locked} onClick={() => setIsOpen(true)}>
         Bloquear conta
       </Button>
       <ConfirmDialog
@@ -148,7 +156,7 @@ function BanControl({ userId, banned, isSelf }: Pick<AccessProps, "userId" | "ba
   );
 }
 
-function SessionsControl({ userId }: { userId: string }) {
+function SessionsControl({ userId, locked }: { userId: string } & Locked) {
   const [isOpen, setIsOpen] = useState(false);
   const revoke = useAdminAction(
     () => adminRevokeCustomerSessions({ data: { userId } }),
@@ -157,7 +165,7 @@ function SessionsControl({ userId }: { userId: string }) {
   );
   return (
     <>
-      <Button variant="outline" onClick={() => setIsOpen(true)}>
+      <Button variant="outline" disabled={locked} onClick={() => setIsOpen(true)}>
         Encerrar sessões
       </Button>
       <ConfirmDialog
@@ -174,7 +182,7 @@ function SessionsControl({ userId }: { userId: string }) {
   );
 }
 
-function PasswordResetButton({ userId }: { userId: string }) {
+function PasswordResetButton({ userId, locked }: { userId: string } & Locked) {
   const sendReset = useAdminAction(
     () => adminSendCustomerPasswordReset({ data: { userId } }),
     "Link de redefinição enviado para o e-mail do cliente",
@@ -182,7 +190,7 @@ function PasswordResetButton({ userId }: { userId: string }) {
   return (
     <Button
       variant="outline"
-      disabled={sendReset.isPending}
+      disabled={locked || sendReset.isPending}
       onClick={() => sendReset.mutate(undefined)}
     >
       {sendReset.isPending ? "Enviando…" : "Enviar link de redefinição"}
@@ -190,21 +198,41 @@ function PasswordResetButton({ userId }: { userId: string }) {
   );
 }
 
-export function CustomerAccess({ userId, role, banned, banReason, isSelf }: AccessProps) {
+function accessDescription({ isSelf, canManage }: Pick<AccessProps, "isSelf" | "canManage">) {
+  if (isSelf && !canManage) {
+    return "Esta é a sua conta: troque a senha e veja os dispositivos conectados no seu Perfil.";
+  }
+  if (!canManage) {
+    return "Conta da equipe: só um dono da plataforma altera papel, bloqueio, sessões e senha.";
+  }
+  if (isSelf) {
+    return "Esta é a sua conta: papel e bloqueio ficam travados.";
+  }
+  return "Permissões e segurança da conta.";
+}
+
+export function CustomerAccess({
+  userId,
+  role,
+  banned,
+  banReason,
+  isSelf,
+  canManage,
+  canGrantTeamRoles,
+}: AccessProps) {
+  const locked = !canManage;
+  const roleLocked = locked || isSelf || !canGrantTeamRoles;
   return (
-    <SectionCard
-      title="Acesso"
-      description={
-        isSelf
-          ? "Esta é a sua conta: papel e bloqueio ficam travados."
-          : "Permissões e segurança da conta."
-      }
-    >
+    <SectionCard title="Acesso" description={accessDescription({ isSelf, canManage })}>
       <div className="divide-y">
         <AccessRow
           title="Papel"
-          description="Administradores veem e editam todos os clientes."
-          action={<RoleSelect userId={userId} role={role} isSelf={isSelf} />}
+          description={
+            canGrantTeamRoles
+              ? "Administradores veem e editam todos os clientes."
+              : "Só um dono da plataforma dá ou tira acesso à equipe."
+          }
+          action={<RoleSelect userId={userId} role={role} locked={roleLocked} />}
         />
         <AccessRow
           title={banned ? "Conta bloqueada" : "Bloquear conta"}
@@ -213,17 +241,17 @@ export function CustomerAccess({ userId, role, banned, banReason, isSelf }: Acce
               ? `Motivo: ${banReason ?? "não informado"}`
               : "Impede o cliente de entrar no app."
           }
-          action={<BanControl userId={userId} banned={banned} isSelf={isSelf} />}
+          action={<BanControl userId={userId} banned={banned} locked={locked || isSelf} />}
         />
         <AccessRow
           title="Sessões"
           description="Desconecta o cliente de todos os dispositivos."
-          action={<SessionsControl userId={userId} />}
+          action={<SessionsControl userId={userId} locked={locked} />}
         />
         <AccessRow
           title="Senha"
           description="Envia ao cliente um link para criar uma nova senha (vale 1 hora)."
-          action={<PasswordResetButton userId={userId} />}
+          action={<PasswordResetButton userId={userId} locked={locked} />}
         />
       </div>
     </SectionCard>

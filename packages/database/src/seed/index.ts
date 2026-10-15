@@ -94,12 +94,11 @@ async function seedDemo(context: SeedContext): Promise<void> {
   if (!demoCep) {
     throw new Error("CEP da conta demo não está no cache de seed");
   }
-  await saveTenantRegion(database, demo.tenantId, { ...demoCep });
+  await saveTenantRegion(database, demo.tenantId, { ...demoCep, holder: DEMO_ACCOUNT.holder });
   const sales = await seedDemoSales({
     database,
     random,
     tenantId: demo.tenantId,
-    region: demoCep,
     cipher,
   });
   const reviews = await seedDemoReviews({ database, random, tenantId: demo.tenantId });

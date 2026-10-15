@@ -1,4 +1,4 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { priceForRule, type PriceRule } from "@sellbridge/shared/schemas";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
@@ -67,9 +67,9 @@ export function PriceReceipt({
   ruleFor,
   adjust,
 }: {
-  products: RegionCatalogProduct[];
-  ruleFor: (product: RegionCatalogProduct) => PriceRule;
-  adjust?: ((product: RegionCatalogProduct) => React.ReactNode) | undefined;
+  products: SellableCatalogProduct[];
+  ruleFor: (product: SellableCatalogProduct) => PriceRule;
+  adjust?: ((product: SellableCatalogProduct) => React.ReactNode) | undefined;
 }) {
   const [index, setIndex] = useState(0);
   const product = products[index % products.length];

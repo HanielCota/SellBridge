@@ -47,15 +47,43 @@ export async function signUp(page: Page, name: string): Promise<string> {
   return email;
 }
 
+function cpfCheckDigit(digits: readonly number[]): number {
+  const weightedSum = digits.reduce(
+    (sum, digit, index) => sum + digit * (digits.length + 1 - index),
+    0,
+  );
+  const remainder = (weightedSum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
+}
+
 /**
- * Fills the onboarding address from a CEP: waits for the CEP to fill the street, types the
- * house number and saves.
+ * A random CPF with valid check digits, formatted as typed (000.000.000-00). Each account needs
+ * its own: the same CPF is refused on a second account.
+ */
+export function testCpf(): string {
+  const base = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  const first = cpfCheckDigit(base);
+  const digits = [...base, first, cpfCheckDigit([...base, first])].join("");
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** First onboarding step: full name and a fresh CPF of the billing holder. */
+export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
+  await page.getByLabel("Nome completo").fill(fullName);
+  await page.getByLabel("CPF").fill(testCpf());
+  await page.getByRole("button", { name: "Continuar" }).click();
+}
+
+/**
+ * Fills the first-visit onboarding: holder step, then the address from a CEP (waits for the CEP
+ * to fill the street, types the house number) and saves.
  */
 export async function saveAddress(page: Page, cep: string, number = "100"): Promise<void> {
+  await fillBillingHolder(page);
   await page.getByLabel("CEP").fill(cep);
   await expect(page.getByLabel("Rua ou avenida")).not.toHaveValue("");
   await page.getByLabel("Número", { exact: true }).fill(number);
-  await page.getByRole("button", { name: "Salvar endereço" }).click();
+  await page.getByRole("button", { name: "Salvar dados" }).click();
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

@@ -10,6 +10,8 @@ interface ProfileFormProps {
   userId: string;
   name: string;
   email: string;
+  /** Only a platform owner edits a team account: the fields stay visible, read-only. */
+  locked: boolean;
 }
 
 function issuesByField(input: { userId: string; name: string; email: string }) {
@@ -25,7 +27,7 @@ function issuesByField(input: { userId: string; name: string; email: string }) {
   return errors;
 }
 
-export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
+export function CustomerProfileForm({ userId, name, email, locked }: ProfileFormProps) {
   const [values, setValues] = useState({ name, email });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const save = useAdminAction(
@@ -45,28 +47,37 @@ export function CustomerProfileForm({ userId, name, email }: ProfileFormProps) {
   }
 
   return (
-    <SectionCard title="Perfil" description="Nome exibido no app e e-mail usado para entrar.">
-      <form noValidate onSubmit={handleSubmit} className="grid gap-4">
-        <TextField
-          id="customer-name"
-          label="Nome"
-          value={values.name}
-          errors={errors.name ?? []}
-          onValueChange={(next) => setValues((current) => ({ ...current, name: next }))}
-        />
-        <TextField
-          id="customer-email"
-          label="E-mail"
-          type="email"
-          value={values.email}
-          errors={errors.email ?? []}
-          onValueChange={(next) => setValues((current) => ({ ...current, email: next }))}
-        />
-        <div>
-          <Button type="submit" disabled={isUnchanged || save.isPending}>
-            {save.isPending ? "Salvando…" : "Salvar perfil"}
-          </Button>
-        </div>
+    <SectionCard
+      title="Perfil"
+      description={
+        locked
+          ? "Só um dono da plataforma altera o nome e o e-mail desta conta."
+          : "Nome exibido no app e e-mail usado para entrar."
+      }
+    >
+      <form noValidate onSubmit={handleSubmit}>
+        <fieldset disabled={locked} className="grid gap-4">
+          <TextField
+            id="customer-name"
+            label="Nome"
+            value={values.name}
+            errors={errors.name ?? []}
+            onValueChange={(next) => setValues((current) => ({ ...current, name: next }))}
+          />
+          <TextField
+            id="customer-email"
+            label="E-mail"
+            type="email"
+            value={values.email}
+            errors={errors.email ?? []}
+            onValueChange={(next) => setValues((current) => ({ ...current, email: next }))}
+          />
+          <div>
+            <Button type="submit" disabled={isUnchanged || save.isPending}>
+              {save.isPending ? "Salvando…" : "Salvar perfil"}
+            </Button>
+          </div>
+        </fieldset>
       </form>
     </SectionCard>
   );

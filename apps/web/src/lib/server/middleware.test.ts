@@ -81,11 +81,12 @@ describe("admin middleware", () => {
     expect(mocks.setResponseStatus).toHaveBeenCalledWith(401);
   });
 
-  it("passes the authenticated admin id to the handler", async () => {
-    mocks.getSession.mockResolvedValue({ user: { id: "administrator", role: "admin" } });
+  it("passes the authenticated admin id and identity to the handler", async () => {
+    const admin = { email: "admin@sellbridge.test", emailVerified: true, role: "admin" };
+    mocks.getSession.mockResolvedValue({ user: { id: "administrator", ...admin } });
     const next = vi.fn<Next>().mockResolvedValue({ ok: true });
     await expect(run(adminMiddleware, next)).resolves.toEqual({ ok: true });
-    expect(next).toHaveBeenCalledWith({ context: { userId: "administrator" } });
+    expect(next).toHaveBeenCalledWith({ context: { userId: "administrator", actor: admin } });
   });
 });
 

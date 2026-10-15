@@ -386,6 +386,27 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Reativar × desativar ao mesmo tempo:** a reativação lê a disponibilidade com `FOR SHARE` nas linhas do produto e do fornecedor, na mesma transação do update. Se o admin desativa no meio, um espera o outro, e o resultado é sempre "pausado" (teste de concorrência em `catalog-deactivation.test.ts`). Uma publicação em andamento no instante da desativação pode terminar "no ar" com estoque 0 (08.a); o card e o sino mostram o motivo e o menu oferece "Pausar".
 - **Pendente para o dono das migrations (principal):** índice em `listings.supplier_product_id`. Hoje a pausa de um fornecedor grande varre os anúncios de todos os revendedores dentro da trava do fornecedor.
 
+## 2026-10-15 · Titular da conta (CPF) e fornecedores abertos a todos
+
+- **Titular:** o cadastro pede nome completo e CPF, guardados em `tenant_profile` (migration 0024, colunas anuláveis) só com os dígitos e validados na borda (`cpfSchema`). Servem para notas fiscais e cobranças; não vão para logs nem para as telas da equipe (`getCustomerDetail` e a troca de região do admin devolvem o endereço sem `cpf` e `fullName`).
+- **Contas antigas sem CPF:** o passo "Seu cadastro" do guia volta a aparecer até o titular ser informado, e a tela "Alterar seus dados" pede nome e CPF para salvar. Escolha consciente: o dado é necessário para cobrar. Publicar não exige o CPF.
+- **Fornecedores:** a lista e a página de cada fornecedor abrem para qualquer revendedor, com ou sem endereço; o endereço só marca quem entrega. Publicar continua exigindo a cobertura no servidor (`getCatalogProductForRegion`, `getRegionProducts`). Custo e preço sugerido de todos os fornecedores ativos ficam visíveis a todo revendedor.
+- **Pendências registradas:** a lista de fornecedores não tem paginação (cresce com o número de fornecedores); `getSupplierForRegion` e `listNichesForRegion` ficaram sem uso fora dos testes; a saúde do cliente no admin ainda considera "tem região" sem olhar o CPF.
+
+## 2026-10-14: Uma loja do marketplace pertence a uma organização por vez (item 03, chat B)
+
+- **Uma conexão viva por loja.** O índice único parcial da 0023 (`store_connections_live_shop_idx`, tudo menos `disconnected`) garante que a mesma conta do Mercado Livre não fica conectada em duas organizações. Conectar uma loja que outra organização tem conectada, expirada ou com erro é recusado com "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui." Reconectar na mesma organização continua permitido.
+- **Conexão simultânea:** quando duas organizações conectam a mesma loja ao mesmo tempo, as duas passam pela checagem e o índice recusa a segunda; `upsertStoreConnection` traduz essa recusa para o mesmo conflito, e a tela de lojas mostra a mesma mensagem (antes, "Não foi possível conectar a loja").
+- **Webhook vai para o dono atual** (aprovado no ⏸1): o evento identifica a loja, não a organização, e `findConnectedStoreByShop` acha a única conexão viva. Uma venda retida enquanto a loja estava expirada em A entra em B se A desconectar e B conectar a mesma conta antes do reprocessamento: B é quem tem o acesso à conta no marketplace.
+
+## 2026-10-14: Dono da plataforma e contas da equipe (item 10.a, chat B)
+
+- **Dono da plataforma** é a conta com e-mail em `ADMIN_EMAILS`, **e-mail verificado** e papel `admin` (aprovado no ⏸1). Uma conta com e-mail da lista ainda não verificado continua protegida, mas não ganha poder de dono. Regra única em `packages/shared/src/domain/platform-owner.ts`.
+- **Só o dono gerencia a equipe.** Conta de atendente, supervisor, admin ou com e-mail da lista só é bloqueada, desbloqueada, rebaixada, removida, editada, tem senha trocada ou sessões listadas e encerradas por um dono. Dar papel da equipe a alguém, trocar o e-mail de uma conta para um e-mail da lista ou criar conta com um deles também exige dono: a mudança é conferida antes e depois.
+- **Vale em todo caminho:** a trava roda no hook `before` do Better Auth (`apps/web/src/lib/server/account-protection.ts`) para todas as rotas do plugin admin que agem sobre uma conta, chamadas pela tela do app ou direto por HTTP. Os papéis são lidos como lista ("user,admin"), como o plugin os concede. As funções do app usam a mesma regra e devolvem à ficha o que quem vê pode fazer (`access`).
+- **Ficha do cliente:** o cabeçalho mostra "Dono da plataforma"; para um admin comum, perfil e acesso de uma conta da equipe ficam visíveis e travados, com a frase do motivo, e o papel só muda pelas mãos de um dono.
+- **Fica para o 10.b:** fechar por HTTP as rotas do plugin que o app não usa (`create-user`, `remove-user`, `set-user-password`, `list-users`…) e auditar o que sobrar. **Para o 10.c:** trocar o e-mail pelo admin pede nova verificação.
+
 ## 2026-10-15: Custo pendente fica fora do lucro (item 09.b)
 
 - **O que é custo pendente:** um item de pedido sem produto do catálogo (`order_items.supplier_product_id` nulo). Hoje isso só acontece quando a venda vem de um anúncio criado fora da SellBridge na mesma loja: não sabemos quanto o produto custou. Antes ele entrava com custo 0 e inflava o lucro.

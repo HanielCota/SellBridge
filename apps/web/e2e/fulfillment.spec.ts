@@ -208,11 +208,9 @@ test("shows a parcel that failed and came back on the shipment timeline", async 
   }
 });
 
-test("the reseller learns a supplier cancelled and re-forwards the parcel", async ({
-  page,
-  browser,
-}) => {
-  const cancelledId = `E2E-CAN-${randomUUID()}`;
+/** A copy of the seeded order, already forwarded: its supplier link is ready to open. */
+async function forwardedOrder(prefix: string) {
+  const externalOrderId = `${prefix}-${randomUUID()}`;
   const [source] = await database.select().from(orders).where(eq(orders.id, orderId));
   if (!source) throw new Error("Order missing");
   const [order] = await database
@@ -220,7 +218,7 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
     .values({
       tenantId: source.tenantId,
       storeConnectionId: source.storeConnectionId,
-      externalOrderId: cancelledId,
+      externalOrderId,
       status: "paid",
       totalCents: 9900,
       buyerName: "Maria Silva",
@@ -231,30 +229,39 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
   const [item] = await database.select().from(orderItems).where(eq(orderItems.orderId, orderId));
   if (!item) throw new Error("Item missing");
   await database.insert(orderItems).values({ ...item, id: randomUUID(), orderId: order.id });
-  try {
-    const [link] = await forwardOrder(database, order.tenantId, {
-      orderId: order.id,
-      address: {
-        recipient: "Maria Silva",
-        street: "Rua das Flores",
-        number: "10",
-        complement: "",
-        neighborhood: "Centro",
-        city: "São Paulo",
-        state: "SP",
-        postalCode: "01001-000",
-      },
-      notes: "",
-    });
-    if (!link) throw new Error("Link missing");
+  const [link] = await forwardOrder(database, order.tenantId, {
+    orderId: order.id,
+    address: {
+      recipient: "Maria Silva",
+      street: "Rua das Flores",
+      number: "10",
+      complement: "",
+      neighborhood: "Centro",
+      city: "São Paulo",
+      state: "SP",
+      postalCode: "01001-000",
+    },
+    notes: "",
+  });
+  if (!link) throw new Error("Link missing");
+  return { order, link, externalOrderId };
+}
 
-    // The supplier refuses through the link, with a reason.
+test("the reseller learns a supplier cancelled and re-forwards the parcel", async ({
+  page,
+  browser,
+}) => {
+  const { order, link, externalOrderId: cancelledId } = await forwardedOrder("E2E-CAN");
+  try {
+    // The supplier refuses through the link, confirming with a reason.
     const supplierContext = await browser.newContext();
     const supplier = await supplierContext.newPage();
     await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
     await expect(supplier.getByText(/CEP \d/)).toBeVisible();
-    await supplier.getByLabel("Ocorrência ou observação").fill("Produto em falta no depósito");
     await supplier.getByRole("button", { name: "Cancelar envio" }).click();
+    const confirm = supplier.getByRole("dialog", { name: "Cancelar este envio?" });
+    await confirm.getByLabel("Motivo do cancelamento").fill("Produto em falta no depósito");
+    await confirm.getByRole("button", { name: "Cancelar envio" }).click();
     await expect(
       supplier.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
     ).toContainText("Cancelado");
@@ -289,6 +296,125 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
     await expect(reopened.getByRole("button", { name: "Aceito", exact: true })).toBeVisible();
     await again.close();
   } finally {
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("a supplier's tap on Cancelar envio asks first and needs a reason", async ({ browser }) => {
+  const { order, link } = await forwardedOrder("E2E-CANASK");
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  const history = supplier.getByRole("list", { name: "Histórico do envio" });
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    // Always available, with nothing typed: the reason is asked in the dialog.
+    const cancel = supplier.getByRole("button", { name: "Cancelar envio" });
+    await expect(cancel).toBeEnabled();
+    await cancel.click();
+    const confirm = supplier.getByRole("dialog", { name: "Cancelar este envio?" });
+    await expect(confirm).toContainText("A loja é avisada com o motivo");
+    // Backing out cancels nothing.
+    await confirm.getByRole("button", { name: "Voltar" }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(history.getByRole("listitem").first()).not.toContainText("Cancelado");
+
+    // The occurrence typed before opens as the reason; erased, the dialog refuses to go on.
+    await supplier.getByLabel("Ocorrência ou observação").fill("Sem estoque da cor pedida");
+    await cancel.click();
+    const reason = confirm.getByLabel("Motivo do cancelamento");
+    await expect(reason).toHaveValue("Sem estoque da cor pedida");
+    await reason.fill("");
+    await confirm.getByRole("button", { name: "Cancelar envio" }).click();
+    await expect(confirm.getByRole("alert")).toHaveText("Informe o motivo do cancelamento");
+    // Refused before reaching the server: the dialog stays open (the page behind it is inert).
+    await expect(confirm).toBeVisible();
+
+    await reason.fill("Sem estoque da cor pedida");
+    await confirm.getByRole("button", { name: "Cancelar envio" }).click();
+    await expect(history.getByRole("listitem").first()).toContainText("Cancelado");
+    await expect(history.getByRole("listitem").first()).toContainText("Sem estoque da cor pedida");
+  } finally {
+    await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("the reseller confirms before cancelling a supplier's parcel", async ({ page }) => {
+  const { order, externalOrderId } = await forwardedOrder("E2E-CANRES");
+  try {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Operar pedido" }).click();
+    const panel = page.getByRole("dialog", { name: "Operar pedido" });
+    await panel.getByRole("button", { name: "Cancelar envio" }).click();
+    const confirm = page.getByRole("dialog", { name: /^Cancelar o envio de .+\?$/ });
+    await expect(confirm).toContainText("reencaminhar");
+    await confirm.getByLabel("Motivo do cancelamento").fill("Comprador desistiu antes do envio");
+    await confirm.getByRole("button", { name: "Cancelar envio" }).click();
+    await expect(
+      panel.getByRole("list", { name: "Histórico do envio" }).getByRole("listitem").first(),
+    ).toContainText("Cancelado");
+  } finally {
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("Registrar ocorrência says what is missing instead of staying grey", async ({ browser }) => {
+  const { order, link } = await forwardedOrder("E2E-OCC");
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    const register = supplier.getByRole("button", { name: "Registrar ocorrência" });
+    await expect(register).toBeEnabled();
+    await register.click();
+    await expect(supplier.getByRole("alert")).toHaveText("Escreva a ocorrência antes de registrar");
+    await expect(supplier.getByLabel("Ocorrência ou observação")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  } finally {
+    await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("the supplier link opens with the brand and the order as its title", async ({ browser }) => {
+  const { order, link, externalOrderId } = await forwardedOrder("E2E-LINK");
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    const header = supplier.getByRole("banner");
+    await expect(header.locator("[data-slot='brand-logo']")).toBeVisible();
+    await expect(header).toContainText("Portal do fornecedor");
+    await expect(supplier.getByRole("heading", { level: 1 })).toHaveText(
+      `Pedido ${externalOrderId}`,
+    );
+  } finally {
+    await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("a parcel of an order on hold warns the supplier and offers no next step", async ({
+  browser,
+}) => {
+  const { order, link } = await forwardedOrder("E2E-HOLD");
+  // The marketplace put the payment on hold after the parcel was forwarded.
+  await database.update(orders).set({ status: "pending" }).where(eq(orders.id, order.id));
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    const warning = supplier.getByRole("alert");
+    await expect(warning).toContainText("Pedido sem liberação para envio");
+    await expect(warning).toContainText("Fale com o revendedor");
+    await expect(supplier.getByRole("button", { name: "Aceito", exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });

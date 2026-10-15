@@ -1,10 +1,5 @@
-import {
-  findTenantRegion,
-  getRegionProducts,
-  listRegionCatalog,
-  type TenantRegion,
-} from "@sellbridge/database/repositories";
-import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import { getSellableProducts, listSellableCatalog } from "@sellbridge/database/repositories";
+import { notFoundError } from "@sellbridge/shared/errors";
 import { productSortSchema, freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -18,20 +13,6 @@ import {
 } from "../endpoint";
 import { catalogProductSchema, presentCatalogProduct } from "./catalog.presenter";
 import { queryBooleanSchema } from "./query-params";
-
-/**
- * The catalog depends on where the organization is. The app answers a missing region with
- * "forbidden", but for an API caller the key is fine: the account is just not set up yet.
- */
-async function requireRegionForApi(tenantId: string): Promise<TenantRegion> {
-  const region = await findTenantRegion(database, tenantId);
-  if (!region) {
-    throw conflictError(
-      "A organização ainda não informou o CEP. Conclua o cadastro no SellBridge para ver o catálogo da sua região.",
-    );
-  }
-  return region;
-}
 
 const catalogQuerySchema = pageQuerySchema.extend({
   search: z
@@ -61,17 +42,16 @@ export const listCatalogProducts = defineApiEndpoint({
   tag: "Catálogo",
   summary: "Listar produtos do catálogo",
   description:
-    "Produtos dos fornecedores que entregam na região da organização. Responde 409 se a organização ainda não informou o CEP no SellBridge.",
+    "Produtos ativos de todos os fornecedores ativos do SellBridge, de qualquer lugar do Brasil.",
   scope: "catalog:read",
   params: noInput,
   query: catalogQuerySchema,
   body: noInput,
   response: pageEnvelope(catalogProductSchema),
   handle: async ({ context, query }) => {
-    const region = await requireRegionForApi(context.tenantId);
-    const page = await listRegionCatalog(
+    const page = await listSellableCatalog(
       database,
-      { region, tenantId: context.tenantId },
+      context.tenantId,
       {
         search: query.search,
         categorySlug: query.category,
@@ -92,19 +72,16 @@ export const getCatalogProduct = defineApiEndpoint({
   operationId: "getCatalogProduct",
   tag: "Catálogo",
   summary: "Ver um produto do catálogo",
-  description: "Um produto disponível na região da organização; 404 se não for vendido nela.",
+  description: "Um produto ativo de um fornecedor ativo; 404 se não existir ou estiver inativo.",
   scope: "catalog:read",
   params: z.object({ productId: z.uuid().describe("Id do produto.") }),
   query: noInput,
   body: noInput,
   response: dataEnvelope(catalogProductSchema),
   handle: async ({ context, params }) => {
-    const region = await requireRegionForApi(context.tenantId);
-    const [product] = await getRegionProducts(database, { region, tenantId: context.tenantId }, [
-      params.productId,
-    ]);
-    if (!product) {
-      throw notFoundError("Produto não encontrado na sua região");
+    const [product] = await getSellableProducts(database, context.tenantId, [params.productId]);
+    if (product === undefined) {
+      throw notFoundError("Produto não encontrado no catálogo");
     }
     return { data: presentCatalogProduct(product) };
   },

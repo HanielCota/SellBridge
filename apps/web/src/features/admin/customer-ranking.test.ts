@@ -19,6 +19,7 @@ function customer(id: string, overrides: Partial<CustomerSummary> = {}): Custome
     id,
     name: `Cliente ${id}`,
     email: `${id}@sellbridge.test`,
+    emailVerified: true,
     role: "user",
     banned: false,
     banReason: null,

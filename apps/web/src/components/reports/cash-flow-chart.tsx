@@ -576,7 +576,8 @@ function renderFrame({
     />,
     <YAxis
       key="y"
-      width={68}
+      // Sized to the widest label, so "R$ 2,5 mil" keeps its "R" and starts on the card's edge.
+      width="auto"
       tickLine={false}
       axisLine={false}
       tickMargin={8}

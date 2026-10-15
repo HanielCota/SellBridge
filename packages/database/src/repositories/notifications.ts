@@ -15,10 +15,9 @@ import {
   storeConnections,
   supplierProducts,
   suppliers,
-  tenantProfile,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { coversTenantRegion, sellableOnMarketplace } from "./sql/supplier-coverage.ts";
+import { sellableOnMarketplace } from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { listUnreadSupportReplies } from "./support.ts";
 
@@ -302,12 +301,10 @@ async function listingUnavailableEvents(
       at: lastChange,
       productActive: supplierProducts.active,
       supplierActive: suppliers.active,
-      regionCovered: sql<boolean>`${coversTenantRegion()}`,
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(
       and(
         eq(listings.tenantId, tenantId),
@@ -317,8 +314,8 @@ async function listingUnavailableEvents(
     )
     .orderBy(desc(lastChange))
     .limit(PER_KIND);
-  return rows.flatMap(({ productActive, supplierActive, regionCovered, ...row }) => {
-    const reason = unavailableReason({ productActive, supplierActive, regionCovered });
+  return rows.flatMap(({ productActive, supplierActive, ...row }) => {
+    const reason = unavailableReason({ productActive, supplierActive });
     return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
   });
 }

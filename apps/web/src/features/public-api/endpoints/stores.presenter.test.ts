@@ -7,6 +7,7 @@ const store: StoreConnectionSummary = {
   marketplace: "mercado_livre",
   shopName: "Loja da Ana",
   externalShopId: "ML-123",
+  supplierId: null,
   status: "connected",
   lastError: "falha antiga",
   expiresAt: new Date("2026-04-01T00:00:00Z"),

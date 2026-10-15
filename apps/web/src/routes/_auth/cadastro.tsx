@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_auth/cadastro")({
     meta: shareMeta({
       title: "Criar conta | SellBridge",
       description:
-        "Crie sua conta, informe seu CEP e veja os atacadistas que entregam na sua região. Publique no Mercado Livre, Shopee e TikTok Shop.",
+        "Crie sua conta, encontre atacadistas de todo o Brasil e veja quem entrega para você. Publique no Mercado Livre, Shopee e TikTok Shop.",
     }),
   }),
   component: SignUpPage,

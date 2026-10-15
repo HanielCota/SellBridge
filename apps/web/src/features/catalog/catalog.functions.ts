@@ -1,9 +1,9 @@
 import {
-  getRegionProducts,
-  listRegionCatalog,
-  listRegionCategories,
+  getSellableProducts,
+  listActiveSuppliers,
+  listSellableCatalog,
+  listSellableCategories,
   listStoreConnections,
-  listSuppliersForRegion,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import {
@@ -11,24 +11,22 @@ import {
   fitListingTitle,
   listingPriceCentsSchema,
   priceForRule,
-  regionCatalogSearchSchema,
+  sellableCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { assertConnectedStores, publishListings } from "@/features/listings/publish-listing.server";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { requireTenantRegion } from "@/features/region/region.server";
 
 /** One list with every product the tenant can sell, plus what the filters and publishing need. */
-export const getRegionCatalog = createServerFn({ method: "GET" })
+export const getSellableCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .validator(regionCatalogSearchSchema)
+  .validator(sellableCatalogSearchSchema)
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
     const [products, categories, suppliers, stores] = await Promise.all([
-      listRegionCatalog(
+      listSellableCatalog(
         database,
-        { region, tenantId: context.tenantId },
+        context.tenantId,
         {
           search: data.query,
           categorySlug: data.category,
@@ -39,12 +37,11 @@ export const getRegionCatalog = createServerFn({ method: "GET" })
         },
         { page: data.page, pageSize: data.pageSize },
       ),
-      listRegionCategories(database, region),
-      listSuppliersForRegion(database, region, {}),
+      listSellableCategories(database),
+      listActiveSuppliers(database, {}),
       listStoreConnections(database, context.tenantId),
     ]);
     return {
-      region,
       products,
       categories,
       suppliers: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
@@ -66,9 +63,8 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(bulkPublishSchema)
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
     const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
-    const products = await getRegionProducts(database, { region, tenantId: context.tenantId }, [
+    const products = await getSellableProducts(database, context.tenantId, [
       ...new Set(data.productIds),
     ]);
     const toPublish = products.filter((product) => !product.published);

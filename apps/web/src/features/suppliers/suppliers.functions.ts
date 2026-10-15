@@ -1,10 +1,10 @@
 import {
-  getSupplierForRegion,
+  getDirectorySupplier,
+  listActiveNiches,
   listCatalogProducts,
-  listNichesForRegion,
   listRecentSupplierReviews,
   listSupplierCategories,
-  listSuppliersForRegion,
+  listSupplierDirectory,
 } from "@sellbridge/database/repositories";
 import { compareReputation } from "@sellbridge/shared/supplier-score";
 import { catalogSearchSchema, supplierListSearchSchema } from "@sellbridge/shared/schemas";
@@ -12,17 +12,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { requireTenantRegion } from "@/features/region/region.server";
 import { loadReputations } from "./reputation.server";
 
 export const listSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(supplierListSearchSchema)
-  .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
+  .handler(async ({ data }) => {
+    // Every active supplier in Brazil: any reseller sells any of them.
     const [found, niches] = await Promise.all([
-      listSuppliersForRegion(database, region, { search: data.query, niche: data.niche }),
-      listNichesForRegion(database, region),
+      listSupplierDirectory(database, { search: data.query, niche: data.niche }),
+      listActiveNiches(database),
     ]);
     const reputationOf = await loadReputations(found.map((supplier) => supplier.id));
     const suppliers = found.map((supplier) => ({
@@ -31,23 +30,21 @@ export const listSuppliers = createServerFn({ method: "GET" })
     }));
     if (data.sort === "reputation") {
       return {
-        region,
         niches,
         suppliers: suppliers.toSorted((first, second) =>
           compareReputation(first.reputation, second.reputation),
         ),
       };
     }
-    return { region, suppliers, niches };
+    return { suppliers, niches };
   });
 
-/** Score, breakdown and latest written reviews of a supplier that serves the tenant. */
+/** Score, breakdown and latest written reviews of any active supplier. */
 export const getSupplierReputation = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ supplierId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    const supplier = await getSupplierForRegion(database, region, data.supplierId);
+  .handler(async ({ data }) => {
+    const supplier = await getDirectorySupplier(database, data.supplierId);
     const [reputationOf, recentReviews] = await Promise.all([
       loadReputations([supplier.id]),
       listRecentSupplierReviews(database, supplier.id),
@@ -60,9 +57,8 @@ const supplierCatalogInputSchema = catalogSearchSchema.extend({ supplierId: z.uu
 export const getSupplierCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(supplierCatalogInputSchema)
-  .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    const supplier = await getSupplierForRegion(database, region, data.supplierId);
+  .handler(async ({ data }) => {
+    const supplier = await getDirectorySupplier(database, data.supplierId);
     const [products, categories] = await Promise.all([
       listCatalogProducts(
         database,

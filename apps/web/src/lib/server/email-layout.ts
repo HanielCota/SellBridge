@@ -91,7 +91,7 @@ ${renderButton(content.actionLabel, content.actionUrl)}
 
 function renderFooter(): string {
   return `<tr><td style="padding:24px 40px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${BRAND.inkSoft};text-align:center;">
-SellBridge · A ponte entre os atacadistas da sua região e as suas lojas.<br>
+SellBridge · A ponte entre os atacadistas de todo o Brasil e as suas lojas.<br>
 Este é um e-mail automático; respostas não são lidas.
 </td></tr>`;
 }

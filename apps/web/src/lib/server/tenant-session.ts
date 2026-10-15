@@ -1,5 +1,6 @@
 import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
 import {
   hasStaffPermission,
   staffRoleOf,
@@ -45,7 +46,13 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   return { ...base, tenantId: organizationId };
 }
 
-export async function requireAdminSession(headers: Headers): Promise<{ userId: string }> {
+export interface AdminSession {
+  userId: string;
+  /** Who is acting, as the owner rules read it (`canManageAccount`). */
+  actor: AccountIdentity;
+}
+
+export async function requireAdminSession(headers: Headers): Promise<AdminSession> {
   const session = await auth.api.getSession({ headers });
   if (!session) {
     throw unauthorizedError();
@@ -53,7 +60,8 @@ export async function requireAdminSession(headers: Headers): Promise<{ userId: s
   if (session.user.role !== "admin") {
     throw forbiddenError();
   }
-  return { userId: session.user.id };
+  const { email, emailVerified, role } = session.user;
+  return { userId: session.user.id, actor: { email, emailVerified, role } };
 }
 
 export interface StaffSession {

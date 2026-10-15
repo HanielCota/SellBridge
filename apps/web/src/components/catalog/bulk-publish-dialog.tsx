@@ -1,4 +1,4 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
 import { CaretDownIcon, MinusIcon, PlusIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -361,16 +361,16 @@ function PriceRulePicker({
   draft,
   overrides,
 }: {
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   draft: ReturnType<typeof usePriceRuleDraft>;
   overrides: ReturnType<typeof usePriceOverrides>;
 }) {
   const isMarkup = draft.kind === "markup";
-  const ruleFor = (product: RegionCatalogProduct) =>
+  const ruleFor = (product: SellableCatalogProduct) =>
     (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule;
   // The markup the preview really applies: a half-typed shared value falls back to the default.
   const sharedPercent = draft.rule.kind === "markup" ? String(draft.rule.percent) : draft.percent;
-  const adjust = (product: RegionCatalogProduct) => (
+  const adjust = (product: SellableCatalogProduct) => (
     <ProductMarkupAdjust
       sharedPercent={sharedPercent}
       percent={overrides.percentFor(product.id)}
@@ -427,7 +427,7 @@ function useBulkPublish(onDone: () => void) {
       onDone();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
-        queryClient.invalidateQueries({ queryKey: ["region-catalog"] }),
+        queryClient.invalidateQueries({ queryKey: ["sellable-catalog"] }),
         // The page it opens next lists them: a cached list from 30 s ago would not.
         queryClient.invalidateQueries({ queryKey: ["listings"] }),
       ]);
@@ -442,7 +442,7 @@ function BulkPublishForm({
   stores,
   onDone,
 }: {
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   stores: PublishStore[];
   onDone: () => void;
 }) {
@@ -492,7 +492,7 @@ function BulkPublishForm({
 }
 
 /** "Bermuda azul, Blusa verde e mais 3": names the selection without listing it all. */
-function selectionSummary(products: RegionCatalogProduct[]): string {
+function selectionSummary(products: SellableCatalogProduct[]): string {
   const named = products.slice(0, 2).map((product) => product.title);
   const rest = products.length - named.length;
   if (rest <= 0) {
@@ -510,7 +510,7 @@ export function BulkPublishDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   stores: PublishStore[];
 }) {
   return (

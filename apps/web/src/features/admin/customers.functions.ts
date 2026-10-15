@@ -16,14 +16,20 @@ import {
   recordAdminEvent,
   revokeTenantApiKeys,
   saveTenantRegion,
+  type TenantRegion,
   snoozeIssue,
   type AdminEventDetails,
+  type CustomerSummary,
 } from "@sellbridge/database/repositories";
 import { assessCustomerHealth } from "@sellbridge/shared/customer-health";
 import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
 import { conflictError, forbiddenError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { staffRoleOf } from "@sellbridge/shared/staff-access";
+import {
+  type AccountIdentity,
+  canManageAccount,
+  isPlatformOwner,
+} from "@sellbridge/shared/platform-owner";
 import {
   assignCustomerIssueSchema,
   customerIdSchema,
@@ -39,6 +45,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
+import { PROTECTED_ACCOUNT_MESSAGE } from "@/lib/server/account-protection";
 import { auth, isAdminEmail } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -83,18 +90,14 @@ async function requireCustomerTenant(userId: string): Promise<string> {
 }
 
 /**
- * A team account (or one of ADMIN_EMAILS) is only managed by an ADMIN_EMAILS owner: otherwise any
+ * A team account (or one of ADMIN_EMAILS) is only managed by a platform owner: otherwise any
  * admin could change another admin's e-mail, send the reset link to it and sign in as them.
+ * The plugin's own routes enforce the same rule (`account-protection.ts`).
  */
-async function requireManageableCustomer(actorId: string, userId: string) {
+async function requireManageableCustomer(actor: AccountIdentity, userId: string) {
   const customer = await requireCustomer(userId);
-  const protectedTarget = staffRoleOf(customer.role) !== null || isAdminEmail(customer.email);
-  if (!protectedTarget) {
-    return customer;
-  }
-  const actor = await getCustomer(database, actorId);
-  if (!actor || !isAdminEmail(actor.email)) {
-    throw forbiddenError("Só um dono da plataforma (ADMIN_EMAILS) gerencia contas da equipe");
+  if (!canManageAccount(actor, customer, environment.ADMIN_EMAILS)) {
+    throw forbiddenError(PROTECTED_ACCOUNT_MESSAGE);
   }
   return customer;
 }
@@ -125,6 +128,12 @@ async function loadRankedCustomers(search: string | undefined) {
     logger.warn("admin.customer_ranking_capped", { limit: MAX_CUSTOMERS_RANKED });
   }
   return rankCustomers(rows, now);
+}
+
+/** The staff screens show where a customer is, never the CPF and legal name kept for invoices. */
+function withoutBillingHolder(region: TenantRegion): Omit<TenantRegion, "cpf" | "fullName"> {
+  const { cpf: _cpf, fullName: _fullName, ...address } = region;
+  return address;
 }
 
 export const adminListCustomers = createServerFn({ method: "GET" })
@@ -165,19 +174,31 @@ export const adminCustomerJourney = createServerFn({ method: "GET" })
   .validator(customerIssuesSearchSchema.pick({ query: true }))
   .handler(async ({ data }) => buildJourney(await loadRankedCustomers(data.query)));
 
+/** What the viewing admin may do on this account, for the screen to lock what the server refuses. */
+function accountAccess(actor: AccountIdentity, customer: CustomerSummary) {
+  return {
+    isPlatformOwner: isPlatformOwner(customer, environment.ADMIN_EMAILS),
+    canManage: canManageAccount(actor, customer, environment.ADMIN_EMAILS),
+    /** Giving a team role is managing the team: only an owner's role picker works. */
+    canGrantTeamRoles: isPlatformOwner(actor, environment.ADMIN_EMAILS),
+  };
+}
+
 export const adminGetCustomer = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(customerIdSchema)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const [customer, events] = await Promise.all([
       requireCustomer(data.userId),
       listAdminEvents(database, data.userId, TIMELINE_EVENTS),
     ]);
     const health = assessCustomerHealth(customer);
+    const access = accountAccess(context.actor, customer);
     if (!customer.tenantId) {
       return {
         customer,
         health,
+        access,
         events,
         region: null,
         stores: [],
@@ -200,9 +221,10 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
     return {
       customer,
       health,
+      access,
       events,
       weeklyOrders,
-      region,
+      region: region === null ? null : withoutBillingHolder(region),
       stores: stores.map((store) => ({
         id: store.id,
         shopName: store.shopName,
@@ -219,7 +241,7 @@ export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(updateCustomerProfileSchema)
   .handler(async ({ context, data }) => {
-    await requireManageableCustomer(context.userId, data.userId);
+    await requireManageableCustomer(context.actor, data.userId);
     const email = data.email.toLowerCase();
     if (await isEmailTakenByOther(database, email, data.userId)) {
       throw conflictError("Já existe outra conta com este e-mail");
@@ -237,13 +259,11 @@ export const adminSetCustomerRole = createServerFn({ method: "POST" })
   .validator(setCustomerRoleSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "alterar o papel de");
-    const customer = await requireManageableCustomer(context.userId, data.userId);
+    const customer = await requireManageableCustomer(context.actor, data.userId);
     // ADMIN_EMAILS addresses are promoted back on every update (auth.ts), wiping the password
     // and sessions on the way; the role of those accounts is set in the environment instead.
     if (data.role !== "admin" && isAdminEmail(customer.email)) {
-      throw conflictError(
-        "Este e-mail está em ADMIN_EMAILS e é sempre administrador. Tire-o da variável para mudar o papel.",
-      );
+      throw conflictError("Este e-mail é de um dono da plataforma e é sempre administrador.");
     }
     await auth.api.setRole({
       body: { userId: data.userId, role: data.role },
@@ -283,7 +303,7 @@ export const adminSetCustomerBan = createServerFn({ method: "POST" })
   .validator(setCustomerBanSchema)
   .handler(async ({ context, data }) => {
     assertNotSelf(context.userId, data.userId, "bloquear");
-    const customer = await requireManageableCustomer(context.userId, data.userId);
+    const customer = await requireManageableCustomer(context.actor, data.userId);
     await applyBan(data);
     if (data.banned && customer.tenantId) {
       await shutOffIntegrations(customer.tenantId);
@@ -296,7 +316,7 @@ export const adminRevokeCustomerSessions = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
-    await requireManageableCustomer(context.userId, data.userId);
+    await requireManageableCustomer(context.actor, data.userId);
     await auth.api.revokeUserSessions({
       body: { userId: data.userId },
       headers: getRequestHeaders(),
@@ -309,7 +329,7 @@ export const adminSendCustomerPasswordReset = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(customerIdSchema)
   .handler(async ({ context, data }) => {
-    const customer = await requireManageableCustomer(context.userId, data.userId);
+    const customer = await requireManageableCustomer(context.actor, data.userId);
     await auth.api.requestPasswordReset({
       body: { email: customer.email, redirectTo: "/redefinir-senha" },
     });
@@ -343,7 +363,7 @@ export const adminUpdateCustomerRegion = createServerFn({ method: "POST" })
     await recordAdminAction(context.userId, data.userId, "region_updated", {
       state: region.state,
     });
-    return region;
+    return withoutBillingHolder(region);
   });
 
 export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })

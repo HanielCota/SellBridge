@@ -149,7 +149,8 @@ export async function findConnectedStoreByShop(
       eq(storeConnections.externalShopId, externalShopId),
       eq(storeConnections.status, "connected"),
     ),
-    // Deterministic if the shop was ever connected twice: the latest connection wins.
+    // The partial unique index keeps one live connection per shop (connecting a shop already
+    // live in another organization is refused); the order only guards rows made before it.
     orderBy: [desc(storeConnections.connectedAt)],
   });
   return row ?? null;

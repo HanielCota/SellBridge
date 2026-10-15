@@ -5,7 +5,8 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -13,7 +14,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -42,20 +42,11 @@ export const Route = createFileRoute("/_app/fornecedores/")({
 
 function SuppliersPage() {
   const search = Route.useSearch();
-  const { region } = Route.useRouteContext();
   return (
     <>
       <PageHeader
         title="Fornecedores"
-        description="Atacadistas que entregam na sua região, com o score dado por quem já vendeu os produtos deles."
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/onboarding">
-              <MapPinIcon aria-hidden="true" />
-              {region.city} - {region.state}
-            </Link>
-          </Button>
-        }
+        description="Atacadistas de todo o Brasil, com o score dado por quem já vendeu os produtos deles."
       />
       <SupplierFilters />
       <SupplierList search={search} />
@@ -71,42 +62,52 @@ function SupplierFilters() {
     commitQuery: (query) =>
       void navigate({ search: (previous) => ({ ...previous, query }), replace: true }),
   });
-  const { data } = useQuery(suppliersQueryOptions(search));
-  const niches = data?.niches ?? [];
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row">
-      <SearchInput
-        label="Buscar fornecedor"
-        placeholder="Buscar fornecedor pelo nome"
-        className="flex-1"
-        value={term}
-        onValueChange={setTerm}
-      />
-      <Select
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <SearchInput
+          label="Buscar por nicho ou produto"
+          placeholder="Qual nicho ou produto você quer vender?"
+          className="flex-1"
+          value={term}
+          onValueChange={setTerm}
+        />
+        <SupplierSortSelect />
+      </div>
+      <NicheTabs />
+    </div>
+  );
+}
+
+/** Niche shortcuts: one tap narrows the list, "Todos" brings everyone back. */
+function NicheTabs() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { data } = useQuery(suppliersQueryOptions(search));
+  const niches = data?.niches ?? [];
+  if (niches.length === 0) {
+    return null;
+  }
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <FilterTabs
+        legend="Nicho"
+        tabs={[
+          { value: ALL_NICHES, label: "Todos" },
+          ...niches.map((niche) => ({ value: niche, label: niche })),
+        ]}
         value={search.niche ?? ALL_NICHES}
-        onValueChange={(value) =>
+        onChange={(value) =>
           void navigate({
             search: (previous) => ({
               ...previous,
               niche: value === ALL_NICHES ? undefined : value,
             }),
+            replace: true,
           })
         }
-      >
-        <SelectTrigger className="sm:w-56" aria-label="Filtrar por nicho">
-          <SelectValue>{search.niche ?? "Todos os nichos"}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_NICHES}>Todos os nichos</SelectItem>
-          {niches.map((niche) => (
-            <SelectItem key={niche} value={niche}>
-              {niche}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <SupplierSortSelect />
+      />
     </div>
   );
 }
@@ -155,8 +156,8 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         title="Nenhum fornecedor encontrado"
         description={
           search.query || search.niche
-            ? "Tente outro nome ou outro nicho."
-            : "Ainda não há fornecedores atendendo a sua região."
+            ? "Tente outro nicho ou produto."
+            : "Ainda não há fornecedores cadastrados."
         }
       />
     );
