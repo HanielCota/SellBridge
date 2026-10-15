@@ -171,3 +171,19 @@ export function explainRevenue(
       : null;
   return { kind: "change", revenue, orders, ticket };
 }
+
+/**
+ * Profit over the revenue whose cost is known (0–1): sales of unknown cost are out of the profit,
+ * so they stay out of the margin too. Null when no revenue has a known cost.
+ */
+export function profitMargin(totals: {
+  revenueCents: number;
+  profitCents: number;
+  pendingCostRevenueCents: number;
+}): number | null {
+  const knownRevenue = totals.revenueCents - totals.pendingCostRevenueCents;
+  if (knownRevenue <= 0) {
+    return null;
+  }
+  return totals.profitCents / knownRevenue;
+}

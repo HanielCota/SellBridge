@@ -394,3 +394,9 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Uma regra só:** `computeOrderFinance` (`shared/domain/finance.ts`, custo `null` = desconhecido) e o SQL de `repositories/reports.ts` dizem o mesmo; `orderFinanceInput` (`order-detail.ts`) faz a ponte para a página do pedido e para a API pública.
 - **CSV:** coluna nova "Custo pendente" (Sim/Não) e lucro em branco nesses pedidos. **API pública:** só campos novos (`pendingCostRevenueCents` nos totais, `pendingCostOrders` no resumo); nenhum campo antigo mudou de formato.
 - **Fora do escopo:** o revendedor informar o custo à mão (precisa de coluna nova) e religar o item quando o anúncio aparece depois (mexe na reserva de estoque). As telas (aviso, gráfico, cascata, extrato, painel e página do pedido) são a parte 09.c.
+
+## 2026-10-15: Custo pendente nas telas (item 09.c)
+
+- **Uma marca só para "não sabemos":** hachura diagonal no cinza da receita, sem cor nova (aprovado no ⏸1). Vale para a camada do gráfico de barras, o degrau "Pendente" da cascata, os marcadores dos tooltips e da legenda e a barra de partes do pedido. No texto, sublinhado tracejado neutro; no extrato, `ToneStatus` âmbar "Custo pendente" no lugar do lucro.
+- **A conta fecha na tela:** "Você vendeu X. Y de N vendas ainda não têm custo e ficaram fora do lucro. Do restante, …"; o custo do gráfico é receita − pendente − lucro; a margem (cabeçalho, gráfico de margem, lojas, Painel) é sobre a receita com custo conhecido (`profitMargin`), vazia quando não há nenhuma.
+- **Painel:** o aviso fica na frase de leitura do período; o painel de atenção (do principal) não ganhou item novo.
