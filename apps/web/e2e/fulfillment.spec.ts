@@ -380,3 +380,41 @@ test("Registrar ocorrência says what is missing instead of staying grey", async
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });
+
+test("the supplier link opens with the brand and the order as its title", async ({ browser }) => {
+  const { order, link, externalOrderId } = await forwardedOrder("E2E-LINK");
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    const header = supplier.getByRole("banner");
+    await expect(header.locator("[data-slot='brand-logo']")).toBeVisible();
+    await expect(header).toContainText("Portal do fornecedor");
+    await expect(supplier.getByRole("heading", { level: 1 })).toHaveText(
+      `Pedido ${externalOrderId}`,
+    );
+  } finally {
+    await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("a parcel of an order on hold warns the supplier and offers no next step", async ({
+  browser,
+}) => {
+  const { order, link } = await forwardedOrder("E2E-HOLD");
+  // The marketplace put the payment on hold after the parcel was forwarded.
+  await database.update(orders).set({ status: "pending" }).where(eq(orders.id, order.id));
+  const context = await browser.newContext();
+  const supplier = await context.newPage();
+  try {
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    const warning = supplier.getByRole("alert");
+    await expect(warning).toContainText("Pedido sem liberação para envio");
+    await expect(warning).toContainText("Fale com o revendedor");
+    await expect(supplier.getByRole("button", { name: "Aceito", exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
