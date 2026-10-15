@@ -30,6 +30,8 @@ export interface CustomerSummary extends CustomerSignals {
   id: string;
   name: string;
   email: string;
+  /** Whether the mailbox was proven: a platform owner needs it (see `isPlatformOwner`). */
+  emailVerified: boolean;
   role: string;
   banReason: string | null;
   tenantId: string | null;
@@ -93,6 +95,7 @@ function customerColumns(now: Date) {
     id: user.id,
     name: user.name,
     email: user.email,
+    emailVerified: user.emailVerified,
     role: sql<string>`coalesce(${user.role}, 'user')`,
     banned: sql<boolean>`coalesce(${user.banned}, false)`,
     banReason: user.banReason,

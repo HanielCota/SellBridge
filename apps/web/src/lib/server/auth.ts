@@ -1,5 +1,6 @@
 import { schema } from "@sellbridge/database";
 import { recordAdminEvent, touchUserActivity } from "@sellbridge/database/repositories";
+import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
 import { MIN_PASSWORD_LENGTH, nameSchema } from "@sellbridge/shared/schemas";
 import { betterAuth } from "better-auth";
 import { and, eq, isNull, ne, or } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { admin, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { authAccessControl, authRoles } from "../auth-roles.ts";
+import { ACCOUNT_ACTION_PATHS, assertMayActOnAccount } from "./account-protection.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "./email-layout.ts";
 import { environment } from "./environment.ts";
@@ -55,6 +57,48 @@ const updateUserBodySchema = z.object({
   image: z.string().nullish(),
 });
 
+type HookContext = Parameters<typeof getSessionFromCtx>[0];
+
+/** Better Auth types the admin plugin's `role` loosely; the rules read it as a string or nothing. */
+function identityOf(user: {
+  email: string;
+  emailVerified: boolean;
+  role?: unknown;
+}): AccountIdentity {
+  const role = typeof user.role === "string" ? user.role : null;
+  return { email: user.email, emailVerified: user.emailVerified, role };
+}
+
+/**
+ * The admin plugin gives every admin power over every account. An owner and the team are only
+ * changed by an owner, whether the call comes from the app's own screens or straight over HTTP.
+ */
+async function guardProtectedAccounts(context: HookContext): Promise<void> {
+  if (!ACCOUNT_ACTION_PATHS.has(context.path)) {
+    return;
+  }
+  const session = await getSessionFromCtx(context);
+  const { internalAdapter } = context.context;
+  await assertMayActOnAccount(
+    {
+      path: context.path,
+      body: context.body,
+      actor: session === null ? null : identityOf(session.user),
+    },
+    {
+      findAccount: async (userId) => {
+        const found = await internalAdapter.findUserById(userId);
+        return found === null ? null : identityOf(found);
+      },
+      findSessionUserId: async (sessionToken) => {
+        const found = await internalAdapter.findSession(sessionToken);
+        return found === null ? null : found.session.userId;
+      },
+    },
+    environment.ADMIN_EMAILS,
+  );
+}
+
 function assertSignUpName(body: unknown): void {
   const parsed = signUpBodySchema.safeParse(body);
   if (!parsed.success) {
@@ -74,6 +118,7 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
   if (isOrganizationRoute(context)) {
     throw new APIError("NOT_FOUND", { message: "Rota indisponível" });
   }
+  await guardProtectedAccounts(context);
   if (context.path === "/sign-up/email") {
     assertSignUpName(context.body);
     return;
