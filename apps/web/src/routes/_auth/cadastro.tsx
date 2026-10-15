@@ -8,26 +8,20 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { z } from "zod";
 import { AuthPageHeader, AuthSubmitButton } from "@/components/auth/auth-page";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
-import { cepSearchParameter } from "@/lib/cep-search-parameter";
 import { shareMeta } from "@/lib/share-meta";
 
-/** `?cep=` vem da landing page: o onboarding já abre com o CEP preenchido. */
-const signUpSearchSchema = z.object({ cep: cepSearchParameter });
-
 export const Route = createFileRoute("/_auth/cadastro")({
-  validateSearch: signUpSearchSchema,
   head: () => ({
     meta: shareMeta({
       title: "Criar conta | SellBridge",
       description:
-        "Crie sua conta, encontre atacadistas de todo o Brasil e veja quem entrega para você. Publique no Mercado Livre, Shopee e TikTok Shop.",
+        "Crie sua conta, escolha atacadistas de todo o Brasil e venda sem estoque no Mercado Livre, na Shopee e no TikTok Shop.",
     }),
   }),
   component: SignUpPage,
@@ -52,7 +46,6 @@ function signUpErrorMessage(code: string | undefined): string {
 
 function useSignUpForm() {
   const navigate = useNavigate();
-  const { cep } = Route.useSearch();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
@@ -65,7 +58,7 @@ function useSignUpForm() {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
-      await navigate({ to: "/onboarding", search: cep ? { cep } : {} });
+      await navigate({ to: "/onboarding" });
     },
   });
 
@@ -156,17 +149,14 @@ function TermsConsent() {
 
 function SignUpPage() {
   const signInOptions = authLayoutRoute.useLoaderData();
-  const { cep } = Route.useSearch();
   return (
     <div className="space-y-8">
       <AuthPageHeader
         title="Criar conta"
-        description="Conecte suas lojas e publique produtos de fornecedores da sua região."
+        description="Conecte suas lojas e venda produtos de fornecedores de todo o Brasil, sem estoque."
       />
       <div className="grid gap-5">
-        {signInOptions.google ? (
-          <GoogleSignIn callbackURL={cep ? `/onboarding?cep=${cep}` : "/dashboard"} />
-        ) : null}
+        {signInOptions.google ? <GoogleSignIn callbackURL="/dashboard" /> : null}
         <SignUpForm />
         <TermsConsent />
       </div>

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn, signUp, testCpf } from "./helpers";
+import { DEMO_USER, gotoHydrated, pickSupplier, signIn, signUp, testCpf } from "./helpers";
 
 test.describe("cadastro do revendedor", () => {
-  test("novo usuário informa nome, CPF e endereço em duas etapas", async ({ page }) => {
+  test("novo usuário informa nome e CPF e escolhe o fornecedor", async ({ page }) => {
     const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
@@ -14,7 +14,7 @@ test.describe("cadastro do revendedor", () => {
       ),
     ).toBeVisible();
 
-    // The account name fills the full name; the CPF is checked before the address step.
+    // The account name fills the full name; the CPF is checked before the supplier step.
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page.getByText("Informe os 11 dígitos do CPF")).toBeVisible();
@@ -24,27 +24,18 @@ test.describe("cadastro do revendedor", () => {
     await page.getByLabel("CPF").fill(cpf);
     await page.getByRole("button", { name: "Continuar" }).click();
 
-    await expect(page.getByText("Etapa 2 de 2 · Endereço")).toBeVisible();
-    await expect(page.getByLabel("CEP")).toBeFocused();
-    await page.getByLabel("CEP").fill("123");
-    await page.getByRole("button", { name: "Salvar dados" }).click();
-    await expect(page.getByText("Informe um CEP com 8 dígitos")).toBeVisible();
-    await expect(page.getByText("Informe o número", { exact: true })).toBeVisible();
+    // No address: the second step picks the supplier, from any state.
+    await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+    await expect(page.getByLabel("CEP")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Continuar", exact: true })).toBeDisabled();
 
-    // Going back keeps what was typed.
+    // Going back keeps the saved data.
     await page.getByRole("button", { name: "Voltar" }).click();
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
     await page.getByRole("button", { name: "Continuar" }).click();
 
-    // CEP pre-cached by the seed: no external API call. It fills street, district, city and state.
-    await page.getByLabel("CEP").fill("30130010");
-    await expect(page.getByLabel("CEP")).toHaveValue("30130-010");
-    await expect(page.getByLabel("Rua ou avenida")).toHaveValue("Avenida Afonso Pena");
-    await expect(page.getByLabel("Cidade")).toHaveValue("Belo Horizonte");
-    await expect(page.getByLabel("UF")).toHaveValue("MG");
-    await page.getByLabel("Sem número").check();
-    await page.getByLabel("Complemento (opcional)").fill("Sala 2");
-    await page.getByRole("button", { name: "Salvar dados" }).click();
+    await pickSupplier(page, "Rio Pet Atacado");
+    await page.getByRole("button", { name: "Continuar com Rio Pet Atacado" }).click();
 
     // After the profile the guide sends to the next step (stores).
     await expect(page).toHaveURL(/\/lojas/);
@@ -52,6 +43,24 @@ test.describe("cadastro do revendedor", () => {
     await expect(page.getByRole("heading", { name: "Alterar seus dados" })).toBeVisible();
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
+    await expect(page.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
+  });
+
+  test("recusa um CPF já usado por outra conta", async ({ page }) => {
+    const cpf = testCpf();
+    await signUp(page, "Primeira Conta");
+    await page.getByLabel("CPF").fill(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+
+    await page.context().clearCookies();
+    await signUp(page, "Segunda Conta");
+    await page.getByLabel("CPF").fill(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(
+      page.getByText("Este CPF já está cadastrado em outra conta do SellBridge.", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByText("Etapa 1 de 2 · Seus dados")).toBeVisible();
   });
 });
 
