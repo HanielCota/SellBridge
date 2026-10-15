@@ -74,16 +74,28 @@ export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste
   await page.getByRole("button", { name: "Continuar" }).click();
 }
 
+/** Picks a supplier in the onboarding picker: search by name, then choose its card. */
+export async function pickSupplier(page: Page, supplierName: string): Promise<void> {
+  await page.getByLabel("Buscar fornecedor por nome, nicho ou produto").fill(supplierName);
+  await page
+    .getByRole("radiogroup", { name: "Fornecedores" })
+    .getByText(supplierName, { exact: true })
+    .click();
+  await expect(page.getByRole("radio", { name: new RegExp(supplierName) })).toBeChecked();
+}
+
 /**
- * Fills the first-visit onboarding: holder step, then the address from a CEP (waits for the CEP
- * to fill the street, types the house number) and saves.
+ * Fills the first-visit onboarding: holder step (name and a fresh CPF), then the supplier of the
+ * first shop, and continues.
  */
-export async function saveAddress(page: Page, cep: string, number = "100"): Promise<void> {
+export async function completeOnboarding(
+  page: Page,
+  supplierName = "BH Beauty Distribuidora",
+): Promise<void> {
   await fillBillingHolder(page);
-  await page.getByLabel("CEP").fill(cep);
-  await expect(page.getByLabel("Rua ou avenida")).not.toHaveValue("");
-  await page.getByLabel("Número", { exact: true }).fill(number);
-  await page.getByRole("button", { name: "Salvar dados" }).click();
+  await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+  await pickSupplier(page, supplierName);
+  await page.getByRole("button", { name: `Continuar com ${supplierName}` }).click();
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

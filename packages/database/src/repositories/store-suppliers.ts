@@ -13,7 +13,11 @@ export interface AssignStoreSupplierInput {
   supplierId: string;
 }
 
-async function assertActiveSupplier(executor: DatabaseExecutor, supplierId: string): Promise<void> {
+/** Refuses a supplier that does not exist or is inactive. */
+export async function assertActiveSupplier(
+  executor: DatabaseExecutor,
+  supplierId: string,
+): Promise<void> {
   const [supplier] = await executor
     .select({ id: suppliers.id })
     .from(suppliers)

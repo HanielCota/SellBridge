@@ -1,5 +1,5 @@
 import {
-  findTenantRegion,
+  findOnboardingProfile,
   getSalesByStore,
   getSalesSummary,
   getSalesTimeseries,
@@ -26,19 +26,21 @@ const PICKED_DAY_PAGE_SIZE = 100;
 const MONTHLY_FROM_DAYS = 120;
 
 async function loadOnboardingState(tenantId: string) {
-  const [region, stores, listings] = await Promise.all([
-    findTenantRegion(database, tenantId),
+  const [profile, stores, listings] = await Promise.all([
+    findOnboardingProfile(database, tenantId),
     listStoreConnections(database, tenantId),
     listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
   ]);
   return {
-    hasRegion: region !== null && region.cpf !== null,
+    hasHolder: profile.holder !== null,
+    hasSupplier:
+      profile.starterSupplier !== null || stores.some((store) => store.supplierId !== null),
     hasStore: stores.length > 0,
     hasPublishedListing: listings.total > 0,
   };
 }
 
-/** Where a new account stands in the setup: region, a store, a first publication. */
+/** Where a new account stands in the setup: holder, supplier, a store, a first publication. */
 export const getSetupProgress = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => loadOnboardingState(context.tenantId));

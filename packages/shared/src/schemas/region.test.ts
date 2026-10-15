@@ -1,14 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fullNameSchema, updateRegionSchema } from "./region.ts";
-
-const VALID_INPUT = {
-  fullName: "  Ana   Souza Lima ",
-  cpf: "529.982.247-25",
-  cep: "30130-010",
-  street: "Avenida Afonso Pena",
-  number: "1000",
-  neighborhood: "Centro",
-};
+import { billingHolderSchema, fullNameSchema, starterSupplierSchema } from "./region.ts";
 
 describe("fullNameSchema", () => {
   it("asks for a surname too", () => {
@@ -20,17 +11,24 @@ describe("fullNameSchema", () => {
   });
 });
 
-describe("updateRegionSchema", () => {
-  it("stores CPF and CEP as digits and the name tidied", () => {
-    expect(updateRegionSchema.parse(VALID_INPUT)).toMatchObject({
-      fullName: "Ana Souza Lima",
-      cpf: "52998224725",
-      cep: "30130010",
-    });
+describe("billingHolderSchema", () => {
+  it("stores the CPF as digits and the name tidied", () => {
+    expect(
+      billingHolderSchema.parse({ fullName: "  Ana   Souza Lima ", cpf: "529.982.247-25" }),
+    ).toEqual({ fullName: "Ana Souza Lima", cpf: "52998224725" });
   });
 
   it("rejects a CPF whose check digits do not match", () => {
-    const result = updateRegionSchema.safeParse({ ...VALID_INPUT, cpf: "529.982.247-26" });
+    const result = billingHolderSchema.safeParse({ fullName: "Ana Souza", cpf: "529.982.247-26" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("starterSupplierSchema", () => {
+  it("accepts only a supplier id", () => {
+    expect(starterSupplierSchema.safeParse({ supplierId: "fornecedor" }).success).toBe(false);
+    expect(
+      starterSupplierSchema.parse({ supplierId: "8f8e7c1a-0000-4000-8000-000000000001" }),
+    ).toEqual({ supplierId: "8f8e7c1a-0000-4000-8000-000000000001" });
   });
 });

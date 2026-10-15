@@ -1,7 +1,10 @@
 import type { LinkProps } from "@tanstack/react-router";
 
 export interface SetupProgress {
-  hasRegion: boolean;
+  /** Full name and CPF of who invoices and charges go to. */
+  hasHolder: boolean;
+  /** A supplier picked during onboarding, or a shop already linked to one. */
+  hasSupplier: boolean;
   hasStore: boolean;
   hasPublishedListing: boolean;
 }
@@ -16,11 +19,18 @@ export interface SetupStep {
 
 export const SETUP_STEPS: readonly SetupStep[] = [
   {
-    key: "hasRegion",
-    title: "Seu cadastro",
-    description: "Nome, CPF e endereço para notas fiscais, cobranças e entrega.",
+    key: "hasHolder",
+    title: "Seus dados",
+    description: "Nome completo e CPF para notas fiscais e cobranças.",
     to: "/onboarding",
     cta: "Completar cadastro",
+  },
+  {
+    key: "hasSupplier",
+    title: "Escolha um fornecedor",
+    description: "De qualquer lugar do Brasil. Ele entrega direto ao seu cliente.",
+    to: "/onboarding",
+    cta: "Escolher fornecedor",
   },
   {
     key: "hasStore",
