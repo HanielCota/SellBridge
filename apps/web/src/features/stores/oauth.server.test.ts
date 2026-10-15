@@ -22,6 +22,8 @@ vi.mock("@/lib/server/marketplaces", () => ({
 }));
 vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
 vi.mock("@sellbridge/database/repositories", () => ({
+  assertActiveSupplier: vi.fn<() => Promise<void>>(),
+  findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
   consumeOAuthState: mocks.consumeOAuthState,
   createOAuthState: vi.fn<() => Promise<void>>(),
   upsertStoreConnection: mocks.upsertStoreConnection,
@@ -44,7 +46,7 @@ async function redirectedTo(): Promise<URL> {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireTenantSession.mockResolvedValue({ tenantId: "tenant-b", userId: "user-b" });
-  mocks.consumeOAuthState.mockResolvedValue({ codeVerifier: null });
+  mocks.consumeOAuthState.mockResolvedValue({ codeVerifier: null, supplierId: "supplier-1" });
   mocks.exchangeCode.mockResolvedValue({
     tokens: { accessToken: "access", refreshToken: "refresh", expiresAt: null },
     shop: SHOP,
@@ -63,7 +65,11 @@ describe("OAuth callback", () => {
     );
     expect(mocks.upsertStoreConnection).toHaveBeenCalledWith(
       {},
-      expect.objectContaining({ tenantId: "tenant-b", externalShopId: "ml-123" }),
+      expect.objectContaining({
+        tenantId: "tenant-b",
+        externalShopId: "ml-123",
+        supplierId: "supplier-1",
+      }),
     );
   });
 

@@ -31,6 +31,21 @@ export interface PublishStore {
   id: string;
   shopName: string;
   marketplace: string;
+  /** Each store sells a single supplier; null while the seller has not picked one. */
+  supplierId: string | null;
+}
+
+/** Stores that sell the supplier of every chosen product; none when they come from several. */
+function storesForProducts(
+  products: readonly SellableCatalogProduct[],
+  stores: readonly PublishStore[],
+): PublishStore[] {
+  const supplierIds = new Set(products.map((product) => product.supplierId));
+  const [only] = supplierIds;
+  if (supplierIds.size !== 1 || only === undefined) {
+    return [];
+  }
+  return stores.filter((store) => store.supplierId === only);
 }
 
 const MARKUP_STEP = 5;
@@ -398,12 +413,30 @@ function PriceRulePicker({
   );
 }
 
-function NoStores() {
+function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
+  if (new Set(products.map((product) => product.supplierId)).size > 1) {
+    return "Os produtos escolhidos são de fornecedores diferentes, e cada loja vende um único fornecedor. Selecione produtos de um fornecedor por vez.";
+  }
+  if (hasStores) {
+    return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";
+  }
+  return "Conecte uma loja antes de publicar.";
+}
+
+function NoStores({
+  products,
+  hasStores,
+}: {
+  products: readonly SellableCatalogProduct[];
+  hasStores: boolean;
+}) {
   return (
     <div className="space-y-3 text-sm">
-      <p>Conecte uma loja antes de publicar.</p>
+      <p>{noStoresMessage(products, hasStores)}</p>
       <Button asChild size="sm">
-        <Link to="/lojas">Conectar loja</Link>
+        <Link to="/lojas" hash="adicionar-loja">
+          Conectar loja
+        </Link>
       </Button>
     </div>
   );
@@ -513,6 +546,7 @@ export function BulkPublishDialog({
   products: SellableCatalogProduct[];
   stores: PublishStore[];
 }) {
+  const eligible = storesForProducts(products, stores);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-md">
@@ -522,13 +556,13 @@ export function BulkPublishDialog({
           </DialogTitle>
           <DialogDescription className="truncate">{selectionSummary(products)}</DialogDescription>
         </DialogHeader>
-        {stores.length === 0 ? (
-          <NoStores />
+        {eligible.length === 0 ? (
+          <NoStores products={products} hasStores={stores.length > 0} />
         ) : (
           open && (
             <BulkPublishForm
               products={products}
-              stores={stores}
+              stores={eligible}
               onDone={() => onOpenChange(false)}
             />
           )

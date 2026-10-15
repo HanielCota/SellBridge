@@ -106,7 +106,30 @@ function simulatedToken(prefix: string): string {
   return `${prefix}-${randomBytes(12).toString("hex")}`;
 }
 
-async function ensureDemoStores(database: Database, tenantId: string, cipher: TokenCipher) {
+interface DemoStore {
+  id: string;
+  supplierId: string | null;
+}
+
+async function demoSupplierIds(database: Database): Promise<Map<string, string>> {
+  const rows = await database
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(
+      inArray(
+        suppliers.name,
+        DEMO_STORES.map((store) => store.supplierName),
+      ),
+    );
+  return new Map(rows.map((row) => [row.name, row.id]));
+}
+
+async function ensureDemoStores(
+  database: Database,
+  tenantId: string,
+  cipher: TokenCipher,
+): Promise<DemoStore[]> {
+  const supplierIds = await demoSupplierIds(database);
   await database
     .insert(storeConnections)
     .values(
@@ -115,6 +138,7 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
         marketplace: "mock" as const,
         externalShopId: store.externalShopId,
         shopName: store.shopName,
+        supplierId: supplierIds.get(store.supplierName) ?? null,
         status: "connected" as const,
         // Simulated marketplace tokens, encrypted like real ones, so webhooks and sync work.
         accessTokenEnc: cipher.encrypt(simulatedToken("mock-access")),
@@ -124,7 +148,7 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
     )
     .onConflictDoNothing();
   return database
-    .select({ id: storeConnections.id })
+    .select({ id: storeConnections.id, supplierId: storeConnections.supplierId })
     .from(storeConnections)
     .where(
       and(
@@ -137,12 +161,24 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
     );
 }
 
-async function chooseDemoProducts(database: Database): Promise<Product[]> {
+async function chooseDemoProducts(
+  database: Database,
+  supplierIds: readonly string[],
+): Promise<Product[]> {
+  if (supplierIds.length === 0) {
+    throw new Error("Nenhum fornecedor das lojas demo encontrado no catálogo");
+  }
   const rows = await database
     .select({ product: supplierProducts })
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(suppliers.active, true), eq(supplierProducts.active, true)))
+    .where(
+      and(
+        eq(suppliers.active, true),
+        eq(supplierProducts.active, true),
+        inArray(supplierProducts.supplierId, [...supplierIds]),
+      ),
+    )
     .orderBy(asc(supplierProducts.sku))
     .limit(80);
   const products = rows.map((row) => row.product);
@@ -194,17 +230,21 @@ async function insertPublishedTarget(
   return target;
 }
 
+/** Each product is listed in the demo shops that sell its supplier, and only those. */
 async function createDemoListings(
   context: SeedSalesContext,
-  storeIds: readonly string[],
+  stores: readonly DemoStore[],
 ): Promise<DemoSale[]> {
-  const products = await chooseDemoProducts(context.database);
+  const supplierIds = stores.flatMap((store) =>
+    store.supplierId === null ? [] : [store.supplierId],
+  );
+  const products = await chooseDemoProducts(context.database, supplierIds);
   const sales: DemoSale[] = [];
   for (const product of products) {
     const listing = await insertDemoListing(context, product);
-    const storesForListing = context.random.chance(0.4)
-      ? storeIds
-      : [context.random.pick(storeIds)];
+    const storesForListing = stores
+      .filter((store) => store.supplierId === product.supplierId)
+      .map((store) => store.id);
     for (const storeConnectionId of storesForListing) {
       const target = await insertPublishedTarget(context, listing, storeConnectionId);
       sales.push({ target, listing, product });
@@ -417,8 +457,7 @@ export async function seedDemoSales(
     tenantId: input.tenantId,
   };
   const stores = await ensureDemoStores(input.database, input.tenantId, input.cipher);
-  const storeIds = stores.map((store) => store.id);
-  const sales = await createDemoListings(context, storeIds);
+  const sales = await createDemoListings(context, stores);
   const orderCount = await seedOrderHistory(context, sales);
   return { created: true, orders: orderCount };
 }

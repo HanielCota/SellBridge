@@ -83,7 +83,7 @@ function NewListingPage() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { product, stores } = query.data;
+  const { product, stores, hasOtherStores } = query.data;
   return (
     <>
       <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
@@ -100,11 +100,21 @@ function NewListingPage() {
           />
           <EmptyState
             icon={StorefrontIcon}
-            title="Conecte uma loja antes de publicar"
-            description="Você ainda não tem lojas conectadas."
+            title={
+              hasOtherStores
+                ? `Nenhuma loja vende ${product.supplierName}`
+                : "Conecte uma loja antes de publicar"
+            }
+            description={
+              hasOtherStores
+                ? "Cada loja vende os produtos de um único fornecedor. Conecte uma loja para este fornecedor."
+                : "Você ainda não tem lojas conectadas."
+            }
             action={
               <Button asChild>
-                <Link to="/lojas">Conectar loja</Link>
+                <Link to="/lojas" hash="adicionar-loja">
+                  {hasOtherStores ? "Conectar uma loja para este fornecedor" : "Conectar loja"}
+                </Link>
               </Button>
             }
           />

@@ -294,7 +294,16 @@ export const ADMIN_ACCOUNT = {
   email: "admin@sellbridge.local",
 } as const;
 
+/** Each demo shop sells a single supplier, as every shop does. */
 export const DEMO_STORES = [
-  { externalShopId: "mock-shop-ana-moda", shopName: "Ana Moda (loja simulada)" },
-  { externalShopId: "mock-shop-ana-casa", shopName: "Ana Casa & Beleza (loja simulada)" },
+  {
+    externalShopId: "mock-shop-ana-moda",
+    shopName: "Ana Moda (loja simulada)",
+    supplierName: "Ateliê Divinópolis Confecções",
+  },
+  {
+    externalShopId: "mock-shop-ana-casa",
+    shopName: "Ana Casa & Beleza (loja simulada)",
+    supplierName: "BH Beauty Distribuidora",
+  },
 ] as const;

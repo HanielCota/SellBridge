@@ -17,6 +17,10 @@ import {
 } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { unavailableMessage, unavailableReason } from "@sellbridge/shared/catalog-availability";
+import {
+  STORE_SUPPLIER_CHANGED_MESSAGE,
+  storeSupplierRefusal,
+} from "@sellbridge/shared/store-supplier";
 import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { offeredUnits } from "@sellbridge/shared/stock-reservation";
@@ -196,7 +200,10 @@ function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | nu
   return null;
 }
 
-/** A product deactivated or out of the reseller's region after the job was queued is not sent. */
+/**
+ * A product deactivated after the job was queued is not sent, nor one whose shop moved to another
+ * supplier meanwhile (each shop sells a single supplier).
+ */
 async function requireSellable(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
@@ -204,6 +211,9 @@ async function requireSellable(
   const reason = unavailableReason(row.availability);
   if (reason !== null) {
     await failPermanently(dependencies, row.target.id, unavailableMessage(reason));
+  }
+  if (storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier") {
+    await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
   }
 }
 

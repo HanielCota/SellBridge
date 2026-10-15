@@ -1,8 +1,10 @@
 import { billingConfigured } from "@/features/billing/stripe.server";
 import { randomBytes } from "node:crypto";
 import {
+  assertActiveSupplier,
   consumeOAuthState,
   createOAuthState,
+  findOnboardingProfile,
   upsertStoreConnection,
 } from "@sellbridge/database/repositories";
 import { isMarketplaceError, type MarketplaceId } from "@sellbridge/marketplaces";
@@ -60,6 +62,34 @@ async function tenantOrLogin(request: Request) {
   }
 }
 
+const startQuerySchema = z.object({ fornecedor: z.uuid().optional() });
+
+/**
+ * The supplier the new shop sells: the one picked on the stores page (`?fornecedor=`), else the
+ * one picked during onboarding. Null leaves the shop pending; undefined means the picked one is
+ * gone or inactive.
+ */
+async function supplierForNewShop(
+  request: Request,
+  tenantId: string,
+): Promise<string | null | undefined> {
+  const query = startQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  const picked = query.success ? query.data.fornecedor : undefined;
+  if (picked === undefined) {
+    const profile = await findOnboardingProfile(database, tenantId);
+    return profile.starterSupplier?.id ?? null;
+  }
+  try {
+    await assertActiveSupplier(database, picked);
+  } catch (error) {
+    if (isAppError(error) && error.code === "NOT_FOUND") {
+      return undefined;
+    }
+    throw error;
+  }
+  return picked;
+}
+
 /** GET /api/oauth/:marketplace/start: creates a one-time state and redirects to the consent page. */
 export async function handleOAuthStart(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
@@ -74,6 +104,10 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   if (!connector.isConfigured()) {
     return storesPageWithError("unavailable");
   }
+  const supplierId = await supplierForNewShop(request, session.tenantId);
+  if (supplierId === undefined) {
+    return storesPageWithError("supplier_unavailable");
+  }
   const state = randomBytes(24).toString("base64url");
   // PKCE verifier (RFC 7636): ignored by marketplaces that do not use it.
   const codeVerifier = randomBytes(48).toString("base64url");
@@ -83,6 +117,7 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     marketplace,
     codeVerifier,
     ttlMilliseconds: STATE_TTL_MILLISECONDS,
+    supplierId,
   });
   const authorizationUrl = connector.getAuthorizationUrl({
     state,
@@ -102,6 +137,7 @@ interface ConnectStoreInput {
   marketplace: MarketplaceId;
   code: string;
   codeVerifier: string | null;
+  supplierId: string | null;
 }
 
 /** Exchanges the authorization code and saves the store with its tokens encrypted at rest. */
@@ -120,6 +156,7 @@ async function connectStore(input: ConnectStoreInput) {
     accessTokenEnc: tokenCipher.encrypt(tokens.accessToken),
     refreshTokenEnc: tokens.refreshToken ? tokenCipher.encrypt(tokens.refreshToken) : null,
     expiresAt: tokens.expiresAt,
+    supplierId: input.supplierId,
   });
 }
 
@@ -157,6 +194,7 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
       marketplace,
       code: query.data.code,
       codeVerifier: stateRecord.codeVerifier,
+      supplierId: stateRecord.supplierId,
     });
     logger.info("store.connected", {
       tenantId: session.tenantId,

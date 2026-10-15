@@ -33,6 +33,7 @@ import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -429,6 +430,8 @@ export async function setListingsPaused(
             listingIds.filter((id) => !blockedIds.has(id)),
           ),
           eq(listingTargets.status, transition.from),
+          // A shop moved to another supplier keeps those listings paused.
+          paused ? undefined : targetMatchesStoreSupplier(),
         ),
       )
       .returning({ id: listingTargets.id });
