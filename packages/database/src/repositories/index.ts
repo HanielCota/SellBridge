@@ -26,3 +26,4 @@ export * from "./billing.ts";
 export * from "./fulfillment.ts";
 export { reserveShortItems } from "./stock-reservations.ts";
 export * from "./ticket-links.ts";
+export * from "./owner-promotion.ts";

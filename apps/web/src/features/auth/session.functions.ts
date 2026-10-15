@@ -29,6 +29,8 @@ export interface AppSession {
   tenantId: string | null;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
+  /** When an admin's visit ends on its own (ISO), or null outside one. */
+  impersonationEndsAt: string | null;
   /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
   adminMode: boolean;
 }
@@ -52,6 +54,9 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
       impersonatedBy: session.session.impersonatedBy ?? null,
+      impersonationEndsAt: session.session.impersonatedBy
+        ? new Date(session.session.expiresAt).toISOString()
+        : null,
     };
   },
 );

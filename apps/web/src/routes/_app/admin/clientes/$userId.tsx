@@ -107,6 +107,9 @@ function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
             <h1 className="truncate text-2xl font-semibold tracking-tight">{customer.name}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <span className="truncate">{customer.email}</span>
+              {customer.emailVerified ? null : (
+                <ToneStatus tone="warning" label="E-mail não confirmado" />
+              )}
               <ToneStatus
                 tone={customer.banned ? "danger" : "success"}
                 label={customer.banned ? "Bloqueado" : "Ativo"}

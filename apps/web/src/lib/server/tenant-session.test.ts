@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 interface SessionShape {
   user: { id: string; role: string };
-  session: { activeOrganizationId: string | null };
+  session: {
+    activeOrganizationId: string | null;
+    impersonatedBy?: string | null;
+    createdAt?: Date;
+  };
 }
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +26,8 @@ vi.mock("./membership.ts", () => ({
 }));
 
 const { requireTenantSession } = await import("./tenant-session");
+
+const startedAt = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000);
 
 const session = (activeOrganizationId: string | null): SessionShape => ({
   user: { id: "user-1", role: "user" },
@@ -54,5 +60,31 @@ describe("requireTenantSession", () => {
     mocks.isMemberOf.mockResolvedValue(false);
     mocks.findFirstOrganizationId.mockResolvedValue(null);
     await expect(requireTenantSession(new Headers())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("ends an admin's visit after an hour, whatever the session cookie says", async () => {
+    mocks.isMemberOf.mockResolvedValue(true);
+    mocks.getSession.mockResolvedValue({
+      ...session("org-a"),
+      session: {
+        activeOrganizationId: "org-a",
+        impersonatedBy: "admin-1",
+        createdAt: startedAt(59),
+      },
+    });
+    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
+      impersonatedBy: "admin-1",
+    });
+    mocks.getSession.mockResolvedValue({
+      ...session("org-a"),
+      session: {
+        activeOrganizationId: "org-a",
+        impersonatedBy: "admin-1",
+        createdAt: startedAt(61),
+      },
+    });
+    await expect(requireTenantSession(new Headers())).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });
