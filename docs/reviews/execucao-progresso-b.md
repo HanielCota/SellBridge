@@ -4,9 +4,10 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 10.c (resto) · parte de lojas do "entrar como cliente" (recusar conectar loja no OAuth, código `impersonating`, e desativar Conectar e Desconectar na tela de Lojas)
-- Última etapa concluída: 10.c commitado sem a parte de lojas (7bd26d1)
-- Próximo passo: esperar o hash da junção da etapa 4 do CPF (principal avisa), juntar e aplicar a parte de lojas por cima; enquanto isso, seguir para o item 11
+- Item/parte: 10.c (parte de lojas) · recusar conectar loja no OAuth durante o "entrar como" e travar Conectar, Reconectar e Desconectar na tela de Lojas
+- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK)
+- Próximo passo: depois do OK, commit local, junção, portões e aviso ao principal com o hash
+- Arquivos tocados: apps/web/src/features/stores/oauth.server.ts (+test), store-connect-errors.ts, components/stores/stores-lock.tsx (novo), store-list.tsx, add-store.tsx, routes/_app/lojas.tsx (só provedor e aviso), e2e/impersonation.spec.ts
 - Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base

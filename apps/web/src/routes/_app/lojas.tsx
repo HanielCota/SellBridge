@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import type { PickableSupplier } from "@/components/onboarding/supplier-picker";
 import { AddStore, type NewStoreSupplier } from "@/components/stores/add-store";
+import { StoresLockContext } from "@/components/stores/stores-lock";
 import {
   DisconnectStoreDialog,
   type StoreToDisconnect,
@@ -82,14 +83,21 @@ function useOAuthResultToast() {
 
 function StoresPage() {
   useOAuthResultToast();
+  const { session } = Route.useRouteContext();
+  const isImpersonating = session.impersonatedBy !== null;
   return (
-    <>
+    <StoresLockContext value={isImpersonating}>
       <PageHeader
         title="Lojas"
         description="Suas lojas nos marketplaces, com o que cada uma vendeu nos últimos 30 dias."
       />
+      {isImpersonating ? (
+        <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
+          Conectar e desconectar lojas ficam travados enquanto você usa o app como este cliente.
+        </p>
+      ) : null}
       <StoresContent />
-    </>
+    </StoresLockContext>
   );
 }
 
