@@ -11,12 +11,16 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
+  isNull,
   lt,
+  ne,
   notExists,
   or,
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import {
   DISPATCHED_FULFILLMENT_STATUSES,
@@ -202,6 +206,32 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
     .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
 }
 
+/** The order's parcels for the operations dialog and the order page, oldest first. */
+function detailShipments(database: Database, tenantId: string, orderId: string) {
+  return database
+    .select({
+      id: orderShipments.id,
+      supplierId: orderShipments.supplierId,
+      supplierName: suppliers.name,
+      status: orderShipments.status,
+      address: orderShipments.address,
+      items: orderShipments.items,
+      notes: orderShipments.notes,
+      carrier: orderShipments.carrier,
+      trackingCode: orderShipments.trackingCode,
+      trackingUrl: orderShipments.trackingUrl,
+      estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
+      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+      trackedAt: orderShipments.trackedAt,
+      updatedAt: orderShipments.updatedAt,
+      supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
+    .orderBy(asc(orderShipments.createdAt));
+}
+
 export async function getFulfillmentDetail(database: Database, tenantId: string, orderId: string) {
   const [order] = await database
     .select()
@@ -210,25 +240,7 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   if (!order) throw notFoundError("Pedido não encontrado");
   const [items, shipments, stores] = await Promise.all([
     fulfillmentItems(database, tenantId, orderId),
-    database
-      .select({
-        id: orderShipments.id,
-        supplierId: orderShipments.supplierId,
-        supplierName: suppliers.name,
-        status: orderShipments.status,
-        address: orderShipments.address,
-        items: orderShipments.items,
-        notes: orderShipments.notes,
-        carrier: orderShipments.carrier,
-        trackingCode: orderShipments.trackingCode,
-        trackingUrl: orderShipments.trackingUrl,
-        updatedAt: orderShipments.updatedAt,
-        supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
-      })
-      .from(orderShipments)
-      .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
-      .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
-      .orderBy(asc(orderShipments.createdAt)),
+    detailShipments(database, tenantId, orderId),
     database
       .select({ marketplace: storeConnections.marketplace })
       .from(storeConnections)
@@ -604,6 +616,93 @@ function trackedShipmentStatus(
   return tracking;
 }
 
+/** What a marketplace reading writes besides the status; absent values keep what is stored. */
+function trackedValues(
+  shipping: {
+    carrier: string | null;
+    trackingCode: string | null;
+    estimatedDeliveryAt?: Date | null;
+    dispatchDeadlineAt?: Date | null;
+  },
+  shipment: typeof orderShipments.$inferSelect,
+) {
+  const now = new Date();
+  return {
+    carrier: shipping.carrier ?? shipment.carrier,
+    trackingCode: shipping.trackingCode ?? shipment.trackingCode,
+    estimatedDeliveryAt: shipping.estimatedDeliveryAt ?? shipment.estimatedDeliveryAt,
+    dispatchDeadlineAt: shipping.dispatchDeadlineAt ?? shipment.dispatchDeadlineAt,
+    trackedAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Parcels on their way, written as constants (not parameters) so the query matches the partial
+ * index `order_shipments_tracking_idx`.
+ */
+const ON_THE_WAY = sql.raw("('forwarded','accepted','picking','ready','shipped')");
+const otherShipments = alias(orderShipments, "other_shipments");
+
+/**
+ * Orders of connected Mercado Livre stores with their single parcel still on its way, the least
+ * recently read first, across tenants: the worker's tracking job reads each one with its store's
+ * token. Orders split between suppliers are left out: the marketplace has one parcel for them,
+ * and they are tracked by hand per supplier. Stores whose token already expired wait for the
+ * token refresh job.
+ */
+export async function listShipmentsToTrack(database: Database, options: { limit: number }) {
+  return database
+    .select({
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      externalOrderId: orders.externalOrderId,
+      storeConnectionId: storeConnections.id,
+      externalShopId: storeConnections.externalShopId,
+      accessTokenEnc: storeConnections.accessTokenEnc,
+    })
+    .from(orderShipments)
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(
+      storeConnections,
+      and(
+        eq(storeConnections.id, orders.storeConnectionId),
+        eq(storeConnections.tenantId, orders.tenantId),
+      ),
+    )
+    .where(
+      and(
+        sql`${orderShipments.status} in ${ON_THE_WAY}`,
+        inArray(orders.status, ["paid", "shipped"]),
+        eq(storeConnections.marketplace, "mercado_livre"),
+        eq(storeConnections.status, "connected"),
+        isNotNull(storeConnections.accessTokenEnc),
+        or(isNull(storeConnections.expiresAt), gt(storeConnections.expiresAt, new Date())),
+        notExists(
+          database
+            .select({ id: otherShipments.id })
+            .from(otherShipments)
+            .where(
+              and(
+                eq(otherShipments.orderId, orderShipments.orderId),
+                ne(otherShipments.id, orderShipments.id),
+              ),
+            ),
+        ),
+      ),
+    )
+    .orderBy(sql`${orderShipments.trackedAt} asc nulls first`)
+    .limit(options.limit);
+}
+
+/** Marks an order's parcels as just read, so a failing read goes to the back of the line. */
+export async function touchShipmentTracking(database: Database, tenantId: string, orderId: string) {
+  await database
+    .update(orderShipments)
+    .set({ trackedAt: new Date() })
+    .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)));
+}
+
 /** One marketplace parcel cannot be assigned to several suppliers' separate parcels. */
 export async function applyMarketplaceShipment(
   database: Database,
@@ -616,6 +715,9 @@ export async function applyMarketplaceShipment(
     buyerReturnDelivered: boolean;
     carrier: string | null;
     trackingCode: string | null;
+    /** The marketplace's dates; a reading without them keeps the ones already known. */
+    estimatedDeliveryAt?: Date | null;
+    dispatchDeadlineAt?: Date | null;
   },
 ) {
   return database.transaction(async (tx) => {
@@ -627,7 +729,7 @@ export async function applyMarketplaceShipment(
     if (!order) throw notFoundError("Pedido não encontrado");
     if (order.status === "cancelled") throw conflictError("Pedido cancelado");
     // Settled: a later reading (the return seen again, a lagging "shipped") changes nothing.
-    if (order.status === "returned") return;
+    if (order.status === "returned") return { changed: false };
     const shipments = await tx
       .select()
       .from(orderShipments)
@@ -642,13 +744,7 @@ export async function applyMarketplaceShipment(
     const status = trackedShipmentStatus(shipment.status, shipping.trackingStatus);
     await tx
       .update(orderShipments)
-      .set({
-        status,
-        carrier: shipping.carrier ?? shipment.carrier,
-        trackingCode: shipping.trackingCode ?? shipment.trackingCode,
-        updatedAt: new Date(),
-        ...linkFieldsFor(status),
-      })
+      .set({ status, ...trackedValues(shipping, shipment), ...linkFieldsFor(status) })
       .where(eq(orderShipments.id, shipment.id));
     const newTrackingCode =
       shipping.trackingCode && shipping.trackingCode !== shipment.trackingCode
@@ -663,5 +759,6 @@ export async function applyMarketplaceShipment(
         note: newTrackingCode ? `Código de rastreio ${newTrackingCode}` : "",
       });
     await syncOrderFromShipments(tx, order, { buyerReturned: shipping.buyerReturnDelivered });
+    return { changed: status !== shipment.status || newTrackingCode !== null };
   });
 }

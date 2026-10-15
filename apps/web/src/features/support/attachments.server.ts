@@ -35,6 +35,11 @@ function filesFrom(formData: FormData): File[] {
     .filter((value): value is File => value instanceof File && value.size > 0);
 }
 
+/** Whether the form carries any file at all, valid or not. */
+export function hasFiles(formData: FormData): boolean {
+  return filesFrom(formData).length > 0;
+}
+
 /** Validates count, size and the real file type (magic bytes) of uploaded attachments. */
 export async function validateAttachments(formData: FormData): Promise<ValidatedFile[]> {
   const files = filesFrom(formData);
@@ -64,23 +69,32 @@ export async function validateAttachments(formData: FormData): Promise<Validated
   return validated;
 }
 
+/**
+ * Writes the files one by one. When one fails (full disk, permissions), the ones already
+ * written are deleted before the error goes on: a half-stored message leaves nothing behind.
+ */
 export async function storeAttachments(
   storage: FileStorage,
   tenantId: string,
   files: readonly ValidatedFile[],
 ): Promise<NewAttachment[]> {
   const stored: NewAttachment[] = [];
-  for (const file of files) {
-    const storageKey = `tickets/${tenantId}/${randomUUID()}-${file.fileName}`;
-    await storage.put(storageKey, file.bytes);
-    stored.push({
-      storageKey,
-      fileName: file.fileName,
-      mimeType: file.mimeType,
-      sizeBytes: file.sizeBytes,
-    });
+  try {
+    for (const file of files) {
+      const storageKey = `tickets/${tenantId}/${randomUUID()}-${file.fileName}`;
+      await storage.put(storageKey, file.bytes);
+      stored.push({
+        storageKey,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes,
+      });
+    }
+    return stored;
+  } catch (error) {
+    await Promise.allSettled(stored.map((attachment) => storage.delete(attachment.storageKey)));
+    throw error;
   }
-  return stored;
 }
 
 export function textField(formData: FormData, name: string): string {

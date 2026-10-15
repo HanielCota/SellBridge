@@ -2,10 +2,12 @@ import {
   addTicketMessage,
   createTicket,
   findTicketEmailRecipients,
+  findTicketForMessage,
   findTicketRequester,
   getAttachment,
 } from "@sellbridge/database/repositories";
-import { validationError } from "@sellbridge/shared/errors";
+import { notFoundError, validationError } from "@sellbridge/shared/errors";
+import { assertCanReply } from "@sellbridge/shared/ticket-rules";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -22,10 +24,12 @@ import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
+import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
 import {
   storeAttachments,
   readSupportForm,
   saveWithAttachments,
+  hasFiles,
   textField,
   validateAttachments,
 } from "./attachments.server";
@@ -50,7 +54,7 @@ export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantSession(request.headers);
-    const formData = await readSupportForm(request);
+    const formData = await readUploadForm(request, session.userId);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),
       subject: textField(formData, "subject"),
@@ -82,19 +86,39 @@ export function handleCreateTicket(request: Request) {
   });
 }
 
-async function readAttachments(formData: FormData, tenantId: string) {
-  const files = await validateAttachments(formData);
-  return storeAttachments(fileStorage, tenantId, files);
+/**
+ * Reads a support form within its byte limit and spends the account's upload budget when it
+ * carries any file, even one refused right after: a loop of junk files still meets the 429. A
+ * text-only message never spends it, so a quick reply is never refused as "too many files".
+ */
+async function readUploadForm(request: Request, userId: string): Promise<FormData> {
+  const formData = await readSupportForm(request);
+  if (hasFiles(formData)) {
+    assertUploadAllowed(supportUploads, userId);
+  }
+  return formData;
 }
 
-async function readReply(request: Request, tenantId: string) {
-  const formData = await readSupportForm(request);
+/**
+ * The ticket a message goes to, checked before any file is written: a refused message
+ * (another organization's ticket, an unknown one) never puts an attachment on disk.
+ */
+async function requireTicketForMessage(ticketId: string, tenantId: string | null) {
+  const ticket = await findTicketForMessage(database, { ticketId, tenantId });
+  if (ticket === null) {
+    throw notFoundError("Chamado não encontrado");
+  }
+  return ticket;
+}
+
+async function readReply(request: Request, userId: string) {
+  const formData = await readUploadForm(request, userId);
   const input = replyTicketSchema.safeParse({ body: textField(formData, "body") });
   if (!input.success) {
     throw validationError(firstIssue(input.error));
   }
-  const attachments = await readAttachments(formData, tenantId);
-  return { body: input.data.body, attachments };
+  const files = await validateAttachments(formData);
+  return { body: input.data.body, files };
 }
 
 function optionalTextField(formData: FormData, name: string): string | undefined {
@@ -103,8 +127,8 @@ function optionalTextField(formData: FormData, name: string): string | undefined
 }
 
 /** Admin form: `kind` (reply | note), `body`, optional `statusAfter` for replies, files. */
-async function readAdminMessage(request: Request) {
-  const formData = await readSupportForm(request);
+async function readAdminMessage(request: Request, userId: string) {
+  const formData = await readUploadForm(request, userId);
   const input = adminTicketMessageSchema.safeParse({
     kind: textField(formData, "kind"),
     body: textField(formData, "body"),
@@ -113,8 +137,8 @@ async function readAdminMessage(request: Request) {
   if (!input.success) {
     throw validationError(firstIssue(input.error));
   }
-  const attachments = await readAttachments(formData, "admin");
-  return { message: input.data, attachments };
+  const files = await validateAttachments(formData);
+  return { message: input.data, files };
 }
 
 /** POST /api/suporte/chamados/:ticketId/mensagens: reseller reply, scoped to the tenant. */
@@ -123,14 +147,17 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantSession(request.headers);
     const ticketId = parseId(ticketIdParam, "Chamado");
-    const reply = await readReply(request, session.tenantId);
-    await saveWithAttachments(fileStorage, reply.attachments, () =>
+    await requireTicketForMessage(ticketId, session.tenantId);
+    const reply = await readReply(request, session.userId);
+    const attachments = await storeAttachments(fileStorage, session.tenantId, reply.files);
+    await saveWithAttachments(fileStorage, attachments, () =>
       addTicketMessage(database, {
         ticketId,
         tenantId: session.tenantId,
         authorId: session.userId,
         kind: "reseller",
-        ...reply,
+        body: reply.body,
+        attachments,
       }),
     );
     await recordImpersonatedCall({
@@ -189,7 +216,10 @@ export function handleAdminReply(request: Request, ticketIdParam: string | undef
     assertSameOrigin(request, environment.APP_URL);
     const staff = await requireStaffSession(request.headers, "support.answer");
     const ticketId = parseId(ticketIdParam, "Chamado");
-    const { message, attachments } = await readAdminMessage(request);
+    const ticket = await requireTicketForMessage(ticketId, null);
+    const { message, files } = await readAdminMessage(request, staff.userId);
+    assertCanReply(ticket.status, message.kind);
+    const attachments = await storeAttachments(fileStorage, "admin", files);
     const { status } = await saveWithAttachments(fileStorage, attachments, () =>
       addTicketMessage(database, {
         ticketId,

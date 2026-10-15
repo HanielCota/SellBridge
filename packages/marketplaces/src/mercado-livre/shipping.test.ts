@@ -1,6 +1,6 @@
 import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
-import { shipmentBase } from "./fixtures/shipments.ts";
+import { SHIPMENT_LEAD_TIME, shipmentBase } from "./fixtures/shipments.ts";
 import { getMercadoLivreLabel, getMercadoLivreShipping } from "./shipping.ts";
 const store = { externalShopId: "99", accessToken: "test-token" };
 const order = { seller: { id: 99 } };
@@ -42,6 +42,35 @@ describe("Mercado Livre shipping", () => {
     const headers = new Headers(request.mock.calls[2]?.[1]?.headers);
     expect(headers.get("authorization")).toBe("Bearer test-token");
     expect(headers.get("x-format-new")).toBe("true");
+  });
+  it("reads the delivery estimate and the dispatch deadline from lead_time", async () => {
+    const { config } = setup({ lead_time: SHIPMENT_LEAD_TIME }, [{ id: 123, type: "forward" }]);
+    const shipping = await getMercadoLivreShipping(config, store, "55");
+    expect(shipping.estimatedDeliveryAt?.toISOString()).toBe("2026-10-20T03:00:00.000Z");
+    expect(shipping.dispatchDeadlineAt?.toISOString()).toBe("2026-10-16T03:00:00.000Z");
+  });
+  it("leaves the estimate empty when the shipment has none or an unreadable one", async () => {
+    for (const leadTime of [undefined, null, { estimated_delivery_time: { date: "amanhã" } }]) {
+      const { config } = setup({ lead_time: leadTime }, [{ id: 123, type: "forward" }]);
+      expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
+        estimatedDeliveryAt: null,
+        dispatchDeadlineAt: null,
+      });
+    }
+  });
+  it("keeps the dispatch deadline when the estimate is malformed or not firm", async () => {
+    for (const estimate of [
+      { type: "unknown", date: null },
+      { type: "unknown_frame", date: "2026-10-20T00:00:00.000-03:00" },
+    ]) {
+      const { config } = setup(
+        { lead_time: { ...SHIPMENT_LEAD_TIME, estimated_delivery_time: estimate } },
+        [{ id: 123, type: "forward" }],
+      );
+      const shipping = await getMercadoLivreShipping(config, store, "55");
+      expect(shipping.estimatedDeliveryAt).toBeNull();
+      expect(shipping.dispatchDeadlineAt?.toISOString()).toBe("2026-10-16T03:00:00.000Z");
+    }
   });
   it("maps the tracking status of the sale shipment", async () => {
     const { config } = setup({ status: "not_delivered", substatus: "returned" }, [

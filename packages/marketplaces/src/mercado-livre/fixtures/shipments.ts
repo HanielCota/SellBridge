@@ -48,3 +48,12 @@ export const SHIPMENT_FIXTURES = {
   stale_shipped: shipment("stale_shipped", null),
   unknown: shipment("something_new", null),
 };
+
+/**
+ * The delivery times of a shipment as the "Mercado Envios" pages show them (`lead_time` in
+ * `GET /shipments/{id}` with `x-format-new: true`): the estimate and the dispatch deadline.
+ */
+export const SHIPMENT_LEAD_TIME = {
+  estimated_delivery_time: { type: "known", date: "2026-10-20T00:00:00.000-03:00" },
+  estimated_handling_limit: { date: "2026-10-16T00:00:00.000-03:00" },
+};

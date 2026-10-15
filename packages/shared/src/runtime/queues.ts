@@ -14,6 +14,8 @@ export const QUEUE_NAMES = {
   webhookEventSweep: "webhook-event-sweep",
   /** Closes support tickets the reseller left unanswered after support replied. */
   ticketAutoClose: "ticket-auto-close",
+  /** Reads the marketplace's tracking of parcels still on their way. */
+  shipmentTracking: "shipment-tracking",
 } as const;
 
 export const publishListingJobSchema = z.object({
