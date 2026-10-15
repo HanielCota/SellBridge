@@ -6,20 +6,31 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 - Item/parte: X-1 · confirmação de "Cancelar envio" (com X-3, mesmos botões)
 - Última etapa concluída: 2 · Plano e ficha D0 (⏸1 aguardando OK)
-- Próximo passo: depois do OK, testes falhando (⏸2). Divisão em 5 chats confirmada pelo usuário em 14/10; branch C juntada (36ebac1, 76 e2e verdes); migration 0023 do chat auditoria trazida (29d8514), aplicada no `sellbridge_desk` e senha liberada; próxima migration: 0024
-- Arquivos tocados: shared/schemas/fulfillment.ts, repositories/fulfillment(.test).ts, repositories/order-page(.test).ts, fulfillment.functions.ts, components/fulfillment/operations.tsx, components/orders/{order-page,review-action}.tsx, components/reports/period-filters.tsx (área do chat C: `presets` e "Tudo", relatórios iguais), routes/_app/pedidos/{index,$orderId}.tsx, use-save-review.ts, e2e order-page/fulfillment/reviews
-- Decisões tomadas nos pontos de parada: nova divisão em 5 chats (SellBridge-c/docs/prompts/coordenacao.md, commit 803ec3d, 14/10; confirmação do usuário pendente): este chat fica com 20.c, 22, trocar de fornecedor, 21, X-1, U-3, U-4, U-9 e é o integrador (junta C, B, D e E e faz a revisão final); 25–32 saíram daqui; migrations com "senha da vez" (`C:\Users\Administrator\Projetos\migration-lock.txt`: o chat manda o hash, este chat faz cherry-pick, aplica no `sellbridge_desk` e apaga o lock). Antes: divisão dos chats por área (SellBridge-c/docs/prompts/coordenacao.md, confirmada pelo usuário em 13/10): este chat é dono de pedidos, envio, link do fornecedor e de todas as migrations; itens 20.c, 21, 22, trocar de fornecedor, 28, 25, 26, 29–32; correções X-1, U-3, U-4, U-9. Revisão da sessão paralela "Catálogo error verification" aprovada e commitada à parte (ff726d0, migration 0022 order_status_changes); próxima migration deste chat: 0023
-- Pendências: a sessão paralela aplicou migrations no banco `sellbridge` (até 0022, sem apagar dados; usuário decidiu deixar como está) e o `.env` desta pasta passou a apontar para `sellbridge_desk`; item novo "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; transbordo de 21 px em 1024 px no cabeçalho em tarefa separada; ShipmentActions recebe ~13 props (vício apontado pelo chat C); ao juntar a branch C, conflitos em order-dialog, operations e fornecedor/pedido/$token
+- Próximo passo: depois do OK, testes falhando (⏸2). Próxima migration: 0024 (sem "senha da vez": chat único)
+- Arquivos tocados: nenhum ainda (a árvore está limpa; o plano do ⏸1 lista shared/schemas/fulfillment.ts, repositories/fulfillment(.test).ts, components/fulfillment/operations.tsx e o e2e de fulfillment)
+- Decisões tomadas nos pontos de parada: **chat único desde 2026-10-14** (o usuário encerrou os chats B, C, D e E). Este chat faz todos os itens que faltam, na ordem da tabela; `docs/prompts/coordenacao.md` fica só como histórico.
+- Pendências: "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
+
+### Pacote do ⏸1 do X-1 (apresentado em 2026-10-14, aguardando OK)
+
+- **Hoje** (`components/fulfillment/shipment-panel.tsx`): "Cancelar envio" cancela no clique, sem confirmar, também no link público do fornecedor (celular, toque errado avisa a loja). O botão fica desativado até preencher "Ocorrência ou observação", sem dizer por quê (X-3).
+- **Proposta** (referência: `ConfirmDialog`, já usado em desconectar loja e revogar chave):
+  1. "Cancelar envio" sempre ativo, abre diálogo de confirmação com o campo obrigatório **"Motivo do cancelamento"**, preenchido com o que já estiver em "Ocorrência".
+  2. Texto por quem cancela. Fornecedor: "Cancelar este envio?" (a loja é avisada com o motivo e pode encaminhar a outro fornecedor; o link passa a mostrar só o histórico). Revendedor: "Cancelar o envio de {fornecedor}?" (o link deixa de valer; dá para reencaminhar com link novo enquanto o pedido estiver pago).
+  3. Botões "**Voltar**" e "**Cancelar envio**" (vermelho); o `ConfirmDialog` ganha rótulo opcional no botão de saída.
+  4. **X-3:** "Registrar ocorrência" sempre ativo; com o campo vazio mostra no próprio campo "Escreva a ocorrência antes de registrar".
+- **Testes do ⏸2:** e2e no link do fornecedor (fechar o diálogo não cancela; confirmar sem motivo é recusado; com motivo cancela e a loja vê o aviso no sino); e2e do revendedor no diálogo "Operar pedido"; e2e da ocorrência vazia.
+- **Pergunta em aberto:** resolver junto o `ShipmentActions` com ~13 propriedades (passar o objeto `useShipmentUpdate` inteiro)?
 
 ## Linha de base
 
-| Métrica                                                         | Valor                 | Medido em  |
-| --------------------------------------------------------------- | --------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`)                  | 858 passando          | 2026-10-13 |
-| Testes web (`apps/web` vitest)                                  | 322 passando          | 2026-10-13 |
-| E2E de suporte, admin, reviews e acessibilidade (`--workers=1`) | 15 passando           | 2026-10-13 |
-| Última migration                                                | 0023_pending_indexes  | 2026-10-14 |
-| Branch de trabalho                                              | `feat/client-phase-1` | 2026-10-12 |
+| Métrica                                        | Valor                 | Medido em  |
+| ---------------------------------------------- | --------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1125 passando         | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 392 passando          | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 78 passando           | 2026-10-14 |
+| Última migration                               | 0023_pending_indexes  | 2026-10-14 |
+| Branch de trabalho                             | `feat/client-phase-1` | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -27,50 +38,100 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 
 Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (ex.: `01.a ✅ abc1234 · 01.b ⬜`). O item só vira ✅ quando todas as partes estão ✅.
 
-| Item | Título                                          | Situação | Commit                      | Notas                                                                   |
-| ---- | ----------------------------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------- |
-| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)        |
-| 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                     |
-| 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a                  |
-| 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                     |
-| 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                         |
-| 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                         |
-| 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                         |
-| 08   | Produto ou fornecedor inativo e fora da região  | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 09   | Lucro correto                                   | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 10   | Segurança de contas e da equipe                 | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 11   | Uploads seguros                                 | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 13   | Erros de publicação claros                      | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 16   | Riscos da assinatura                            | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           | No chat paralelo C (worktree SellBridge-c, ver execucao-progresso-c.md) |
-| 19   | Pequenos de segurança e status                  | ⬜       | —                           | No chat paralelo B (worktree SellBridge-b, ver execucao-progresso-b.md) |
-| 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                     |
-| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                           |
-| 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                         |
-| 23   | Anúncios completos                              | ⬜       | —                           |                                                                         |
-| 24   | Saúde das lojas                                 | ⬜       | —                           |                                                                         |
-| 25   | Central de notificações                         | ⬜       | —                           | WhatsApp depende de D9                                                  |
-| 26   | Onboarding previsível e conta completa          | ⬜       | —                           |                                                                         |
-| 27   | Suporte: o que falta                            | ⬜       | —                           |                                                                         |
-| 28   | Admin da plataforma                             | ⬜       | —                           |                                                                         |
-| 29   | Painel do mockup do cliente                     | ⬜       | —                           | Layout depende de D8                                                    |
-| 30   | LGPD e proteção da conta                        | ⬜       | —                           |                                                                         |
-| 31   | Planos como no PDF                              | ⬜       | —                           | Depende de D10                                                          |
-| 32   | Infra                                           | ⬜       | —                           |                                                                         |
-| 33   | Shopee                                          | ⛔       | —                           | Sem credenciais de parceiro                                             |
-| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                           | Depende de D1–D4                                                        |
-| 35   | Conquistas digitais e Club                      | ⛔       | —                           | Depende de decisão do cliente                                           |
-| 36   | IA assistente                                   | ⛔       | —                           | Depende de decisão do cliente                                           |
-| 37   | Fiscal e contabilidade                          | ⛔       | —                           | Depende de decisão contábil                                             |
+| Item | Título                                          | Situação | Commit                      | Notas                                                               |
+| ---- | ----------------------------------------------- | -------- | --------------------------- | ------------------------------------------------------------------- |
+| 00   | Preparação do dia                               | ✅       | 6ef08d0 · 6801888           | Árvore herdada revisada duas vezes e commitada (local, sem push)    |
+| 01   | Estoque: reserva e baixa na venda               | ✅       | b828b38 · 51273db · f78b913 | 01.a ✅ b828b38 · 01.b ✅ 51273db · 01.c ✅ f78b913                 |
+| 02   | Anúncio duplicado e publicação travada          | ✅       | 4925280 · d07b7e2           | 02.a ✅ 4925280 · 02.b ✅ d07b7e2 · acabamento 124372a              |
+| 03   | Mesma conta do ML em dois revendedores          | ⬜       | —                           |                                                                     |
+| 04   | Status completos do pedido e do rastreio do ML  | ✅       | be3b6f1 · 50119db · ccab61f | 04.a ✅ be3b6f1 · 04.b ✅ 50119db · 04.c ✅ ccab61f                 |
+| 05   | Migration 0008 pulada em bancos antigos         | ✅       | acb48dd                     |                                                                     |
+| 06   | Envio cancelado e reencaminhamento              | ✅       | b68dbe5                     |                                                                     |
+| 07   | Fornecedor não declara "entregue" sozinho       | ✅       | 4b7eba9                     |                                                                     |
+| 08   | Produto ou fornecedor inativo e fora da região  | ✅       | b2a3331 · 2135a1b           | Feito no chat C; 08.a ✅ b2a3331 · 08.b ✅ 2135a1b (junção 36ebac1) |
+| 09   | Lucro correto                                   | 🟡       | 118406a                     | Receita só de pedidos pagos veio do audit; falta o custo pendente   |
+| 10   | Segurança de contas e da equipe                 | ⬜       | —                           |                                                                     |
+| 11   | Uploads seguros                                 | ⬜       | —                           |                                                                     |
+| 12   | Admin muda a região e apaga o endereço          | ⬜       | —                           |                                                                     |
+| 13   | Erros de publicação claros                      | ⬜       | —                           |                                                                     |
+| 14   | Publicação em massa: validação e progresso      | ⬜       | —                           |                                                                     |
+| 15   | Uma regra só de taxa e margem                   | ⬜       | —                           |                                                                     |
+| 16   | Riscos da assinatura                            | ⬜       | —                           |                                                                     |
+| 17   | Link do fornecedor e diagnóstico                | ⬜       | —                           |                                                                     |
+| 18   | CSV com atributos do Mercado Livre              | ⬜       | —                           |                                                                     |
+| 19   | Pequenos de segurança e status                  | ⬜       | —                           |                                                                     |
+| 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                 |
+| 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                           | Depende de D6                                                       |
+| 22   | Rastreio automático e previsão                  | ⬜       | —                           |                                                                     |
+| 23   | Anúncios completos                              | ⬜       | —                           |                                                                     |
+| 24   | Saúde das lojas                                 | ⬜       | —                           |                                                                     |
+| 25   | Central de notificações                         | ⬜       | —                           | WhatsApp depende de D9                                              |
+| 26   | Onboarding previsível e conta completa          | ⬜       | —                           |                                                                     |
+| 27   | Suporte: o que falta                            | ⬜       | —                           |                                                                     |
+| 28   | Admin da plataforma                             | ⬜       | —                           |                                                                     |
+| 29   | Painel do mockup do cliente                     | ⬜       | —                           | Layout depende de D8                                                |
+| 30   | LGPD e proteção da conta                        | ⬜       | —                           |                                                                     |
+| 31   | Planos como no PDF                              | ⬜       | —                           | Depende de D10                                                      |
+| 32   | Infra                                           | ⬜       | —                           |                                                                     |
+| 33   | Shopee                                          | ⛔       | —                           | Sem credenciais de parceiro                                         |
+| 34   | Pagamento ao fornecedor (split e custódia)      | ⛔       | —                           | Depende de D1–D4                                                    |
+| 35   | Conquistas digitais e Club                      | ⛔       | —                           | Depende de decisão do cliente                                       |
+| 36   | IA assistente                                   | ⛔       | —                           | Depende de decisão do cliente                                       |
+| 37   | Fiscal e contabilidade                          | ⛔       | —                           | Depende de decisão contábil                                         |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-14 · Consolidação: chat único, audit e correção do cabeçalho juntados
+
+- O usuário encerrou os chats B, C, D e E: este chat passa a fazer todos os itens. B não tinha item feito (só 57706a5, portas do e2e, e o prompt de abertura); C já estava juntado (36ebac1); D e E não começaram.
+- Branch `fix/numeric-bounds-audit` (10 commits, auditoria de sanitização, async, desempenho e segurança) trazida commit a commit (36a5aa3…0b98426), porque se sobrepunha ao trabalho já feito aqui (66 conflitos num merge direto). Regra usada: onde as duas versões resolviam o mesmo problema, fica a daqui; entra só o que é novo:
+  - corpo lido com limite em bytes também para formulários (`readFormDataWithin`); imagens acima de 64 MP recusadas; eventos de webhook apagados depois de 30 dias; pedido de sync de estoque deduplicado;
+  - unidades repostas vão primeiro para itens pagos em falta (`reserveShortItems`); nota do fornecedor ignora carrinhos nunca pagos; links de imagem e atributos do ML com limite;
+  - pedido pendente não conta como receita (parte do item 09);
+  - sino: venda antiga trazida pela primeira sincronização não aparece como nova;
+  - `freeText()` ganhou NFC (um só auxiliar; o `safeText()` do audit foi trocado por ele); nomes sem caracteres bidirecionais; meia-surrogate UTF-16 recusada no webhook; anexos apagados se o chamado não grava; mensagens fixas do OAuth na tela de lojas;
+  - `assertSameOrigin` nas rotas de API que mudam dados; chaves de API e webhooks com regras de cargo e de "entrar como cliente";
+  - envio: uma ocorrência depois de "Enviado" não apaga mais a transportadora nem o rastreio; o link do fornecedor para de funcionar quando o pacote é entregue ou devolvido; reencaminhar para fornecedor desativado é recusado;
+  - duas notificações simultâneas do mesmo pedido novo viram um pedido só; token antigo não expira loja reconectada;
+  - entregas de webhook drenam lotes cheios na mesma execução; foco visível em links, cartões, gráficos e no botão de senha.
+- Ficou de fora (já existia aqui de outro jeito, ou fica para o item dono): leitores de corpo, NUL no webhook, `MAX_PAGE`, `parseBrlToCents`, schemas do ML, guarda de status de pedido (a daqui permite voltar a "pago" quando o pacote não chega), sync em paralelo por loja (item 32.e), intervalo de atualização das publicações, poda de eventos da API.
+- `nifty-elbakyan`: correção do transbordo de 21 px do cabeçalho em 1024 px (d205009), pendente desde o 01.b.
+- `feat/publications-cards`: não juntada, porque já estava aqui consolidada em 112f446 (11/10).
+- Portões: lint ✅, tipos ✅, formatação ✅, sem else ✅ (720 arquivos), testes 1125/1125 (base 858; web 392, shared 298, database 225, marketplaces 149, worker 54, scripts 7), build ✅ sem mudança no `routeTree.gen.ts`, e2e completos 78/78 em série (12,9 min).
+
+### 2026-10-14 · Item 20.c · Filtros da Operação na URL e avaliação dentro do pedido — ✅ concluído (ffff29f, commit local)
+
+- Busca enquanto digita, etapa, período ("Tudo" por padrão) e loja na URL; "Pedidos" volta aos filtros; página além do fim mostra a última. Cartão de avaliação do fornecedor na página do pedido, com a mesma regra da aba.
+
+### 2026-10-14 · Item 08 · Produto ou fornecedor inativo e fora da região — ✅ concluído no chat C (b2a3331 · 2135a1b, junção 36ebac1)
+
+- Sync manda estoque 0 para produto ou fornecedor inativo e fora da cobertura; publicação na fila de produto indisponível falha sem chamar o marketplace. Desativar pausa os anúncios na mesma transação (botão e CSV); reativar não reativa; o card e o sino explicam o motivo.
+
+### 2026-10-13 · Item 20.a e 20.b · Página do pedido — ✅ concluído (bbf14fc · c6b7987, commits locais)
+
+- `getOrderPage` reúne itens, dinheiro pela regra do Financeiro, histórico de status, envios e avaliações, só do tenant. `/pedidos/$orderId` segue a página do chamado; o número do pedido na Operação e os avisos do sino levam a ela.
+
+### 2026-10-13 · Item 07 · Fornecedor não declara "entregue" sozinho — ✅ concluído (4b7eba9, commit local)
+
+- O link para em "Enviado" e diz quem confirma a entrega; o servidor também recusa. O histórico guarda quem confirmou.
+
+### 2026-10-13 · Item 06 · Envio cancelado e reencaminhamento — ✅ concluído (b68dbe5, commit local)
+
+- Envio cancelado não segura o status do pedido; o pacote cancelado pode ser reenviado com link novo e histórico mantido; o sino avisa o revendedor até o reencaminhamento.
+
+### 2026-10-13 · Item 05 · Migration 0008 pulada em bancos antigos — ✅ concluído (acb48dd, commit local)
+
+- Migration 0021 repete a 0008 com cada comando protegido; teste de migrations refaz o histórico em bancos descartáveis (M1 e M2).
+
+### 2026-10-13 · Item 04 · Status completos do pedido e do rastreio do ML — ✅ concluído (be3b6f1 · 50119db · ccab61f, commits locais)
+
+- Mapa de status com fixtures de todos os status documentados; reembolsos viram um ajuste por pedido (migration 0020); pedido devolvido pelo pacote; status e linha do tempo do envio com os tons dos pedidos.
+
+### 2026-10-13 · Item 02 · Anúncio duplicado e publicação travada — ✅ concluído (4925280 · d07b7e2 · 124372a, commits locais)
+
+- Um anúncio por produto e loja, com trava por loja; publicação incerta destravada depois de 10 min quando a busca no ML não acha o item; acabamento das linhas de estoque e das lojas já ocupadas.
 
 ### 2026-10-13 · Item 01.c · Falta de estoque visível e reservado no admin — ✅ concluído (f78b913, commit local)
 

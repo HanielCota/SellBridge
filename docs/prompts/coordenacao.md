@@ -1,5 +1,7 @@
 # Coordenação entre os chats (versão de 2026-10-14, 5 chats)
 
+> **Encerrada em 2026-10-14.** O usuário fechou os chats B, C, D e E e voltou a um chat só (pasta `SellBridge`, branch `feat/client-phase-1`, banco `sellbridge_desk`), que faz todos os itens que faltam. Este arquivo fica como histórico; a "senha da vez" das migrations não vale mais. As pastas `SellBridge-b`…`-e` e os bancos `sellbridge_desk_b`…`_e` só são apagados com o OK do usuário.
+
 Vale por cima da divisão por número de item dos prompts `chat-paralelo-*.md`. O trabalho é dividido **por área do produto**: cada chat é dono de um conjunto de pastas e telas, e os itens seguem a área. Todos seguem `execucao-tela-a-tela.md` (etapas, pontos de parada, portões, design), com os ajustes da seção 3.
 
 ## 1. Quem é dono de quê
