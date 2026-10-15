@@ -52,6 +52,9 @@ test("o admin dentro da conta do cliente: o que fica travado e o que fica regist
   await gotoHydrated(page, "/integracoes");
   await expect(page.getByRole("button", { name: "Nova chave" }).first()).toBeDisabled();
 
+  await gotoHydrated(page, "/lojas");
+  await expect(page.getByText("Conectar e desconectar lojas ficam travados")).toBeVisible();
+
   await banner.getByRole("button", { name: "Voltar ao admin" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
   await gotoHydrated(page, `/admin/clientes/${customer.id}`);

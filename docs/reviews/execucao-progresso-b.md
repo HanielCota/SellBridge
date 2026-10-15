@@ -4,40 +4,42 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 10.c (resto) · parte de lojas do "entrar como cliente" (recusar conectar loja no OAuth, código `impersonating`, e desativar Conectar e Desconectar na tela de Lojas)
-- Última etapa concluída: 10.c commitado sem a parte de lojas (7bd26d1)
-- Próximo passo: esperar o hash da junção da etapa 4 do CPF (principal avisa), juntar e aplicar a parte de lojas por cima; enquanto isso, seguir para o item 11
-- Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+_(nenhum)_ · próximo: item 11 (uploads seguros). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
 | Métrica                                        | Valor                     | Medido em  |
 | ---------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1283 passando             | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 502 passando              | 2026-10-14 |
+| Testes unitários e de integração (`pnpm test`) | 1320 passando             | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 512 passando              | 2026-10-14 |
 | Última migration (branch)                      | 0027_oauth_state_supplier | 2026-10-14 |
 | Branch de trabalho                             | `claude/client-b-47fa05`  | 2026-10-14 |
 
-C5 no banco B depois da junção com `feat/client-phase-1` (0027) e do 10.c: shared 321, marketplaces 149, web 502, worker 55, database 249, scripts 7.
+C5 no banco B depois da junção com `feat/client-phase-1` (93eb43b, f468e1b) e do 10.c completo: shared 340, marketplaces 149, web 512, worker 56, database 256, scripts 7.
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 
-| Item | Título                                 | Situação | Commit  | Notas                                                                        |
-| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                               |
-| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c 🟡 7bd26d1 (falta a parte de lojas) |
-| 11   | Uploads seguros                        | ⬜       | —       |                                                                              |
-| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                                              |
-| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                                              |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                              |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                                                              |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                  |
+| Item | Título                                 | Situação | Commit  | Notas                                                                 |
+| ---- | -------------------------------------- | -------- | ------- | --------------------------------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                        |
+| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas) |
+| 11   | Uploads seguros                        | ⬜       | —       |                                                                       |
+| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                                       |
+| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                                       |
+| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                       |
+| 24   | Saúde das lojas                        | ⬜       | —       |                                                                       |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                           |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-15 · Item 10.c · Parte de lojas — ✅ concluído (3742f08, commit local; junção 104c604)
+
+- Durante o "entrar como", conectar loja é recusado no início e no retorno do OAuth (`erro=impersonating`, mensagem fixa) sem falar com o marketplace; a tela de Lojas mostra o aviso e trava Conectar, Reconectar e Desconectar (contexto `stores-lock.tsx`; `lojas.tsx` só com provedor e aviso, a pedido do principal, porque o CPF mexe nela na etapa 5). Item 10 completo.
+- Portões: C1–C4 ✅, C5 1320/1320 (depois da junção com 93eb43b e f468e1b), C6 ✅, C7 14/14 (impersonation, stores-messages, publishing, accessibility); antes da junção, 1290 e 19/19.
 
 ### 2026-10-15 · Item 10.c · Troca de e-mail e regras do "entrar como cliente" — 🟡 commitado sem a parte de lojas (7bd26d1, commit local)
 

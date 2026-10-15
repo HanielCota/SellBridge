@@ -2,7 +2,9 @@ import { conflictError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireTenantSession: vi.fn<() => Promise<{ tenantId: string; userId: string }>>(),
+  requireTenantSession:
+    vi.fn<() => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>>(),
+  createOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   upsertStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   exchangeCode: vi.fn<(input: unknown) => Promise<unknown>>(),
@@ -25,11 +27,11 @@ vi.mock("@sellbridge/database/repositories", () => ({
   assertActiveSupplier: vi.fn<() => Promise<void>>(),
   findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
   consumeOAuthState: mocks.consumeOAuthState,
-  createOAuthState: vi.fn<() => Promise<void>>(),
+  createOAuthState: mocks.createOAuthState,
   upsertStoreConnection: mocks.upsertStoreConnection,
 }));
 
-const { handleOAuthCallback } = await import("./oauth.server");
+const { handleOAuthCallback, handleOAuthStart } = await import("./oauth.server");
 
 const SHOP = { externalShopId: "ml-123", shopName: "Loja do Vendedor" };
 
@@ -45,7 +47,11 @@ async function redirectedTo(): Promise<URL> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireTenantSession.mockResolvedValue({ tenantId: "tenant-b", userId: "user-b" });
+  mocks.requireTenantSession.mockResolvedValue({
+    tenantId: "tenant-b",
+    userId: "user-b",
+    impersonatedBy: null,
+  });
   mocks.consumeOAuthState.mockResolvedValue({ codeVerifier: null, supplierId: "supplier-1" });
   mocks.exchangeCode.mockResolvedValue({
     tokens: { accessToken: "access", refreshToken: "refresh", expiresAt: null },
@@ -87,6 +93,34 @@ describe("OAuth callback", () => {
     mocks.consumeOAuthState.mockResolvedValue(null);
     const location = await redirectedTo();
     expect(location.searchParams.get("erro")).toBe("expired");
+    expect(mocks.exchangeCode).not.toHaveBeenCalled();
+    expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+});
+
+describe("connecting a store while an admin uses the customer's account", () => {
+  beforeEach(() => {
+    mocks.requireTenantSession.mockResolvedValue({
+      tenantId: "tenant-b",
+      userId: "user-b",
+      impersonatedBy: "admin-1",
+    });
+  });
+
+  it("sends the admin back before asking the marketplace for consent", async () => {
+    const response = await handleOAuthStart(
+      new Request("https://sellbridge.test/api/oauth/mock/start"),
+      "mock",
+    );
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/lojas");
+    expect(location.searchParams.get("erro")).toBe("impersonating");
+    expect(mocks.createOAuthState).not.toHaveBeenCalled();
+  });
+
+  it("refuses a consent that comes back during the visit, without saving the shop", async () => {
+    const location = await redirectedTo();
+    expect(location.searchParams.get("erro")).toBe("impersonating");
     expect(mocks.exchangeCode).not.toHaveBeenCalled();
     expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
   });

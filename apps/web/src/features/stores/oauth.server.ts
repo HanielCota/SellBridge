@@ -96,6 +96,10 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
   if (!session) {
     return redirectTo("/login", { redirect: "/lojas" });
   }
+  // A shop connected during an admin's visit would stay tied to the customer after it.
+  if (session.impersonatedBy !== null) {
+    return storesPageWithError("impersonating");
+  }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {
     return storesPageWithError("unknown_marketplace");
@@ -165,6 +169,10 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
   const session = await tenantOrLogin(request);
   if (!session) {
     return redirectTo("/login", { redirect: "/lojas" });
+  }
+  // A shop connected during an admin's visit would stay tied to the customer after it.
+  if (session.impersonatedBy !== null) {
+    return storesPageWithError("impersonating");
   }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {

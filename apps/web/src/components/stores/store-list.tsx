@@ -13,6 +13,7 @@ import {
 import { StoreStatusChip, StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
+import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -187,14 +188,22 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
 
 /** Figures a disconnected store can't vouch for give way to the one action that fixes it. */
 function ReconnectAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
+  const locked = useStoresLocked();
   return (
     <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
-      <Button asChild variant="outline" size="sm">
-        <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
+      {locked ? (
+        <Button variant="outline" size="sm" disabled title={STORES_LOCKED_REASON}>
           <PlugIcon weight="bold" aria-hidden="true" />
           Reconectar
-        </a>
-      </Button>
+        </Button>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
+            <PlugIcon weight="bold" aria-hidden="true" />
+            Reconectar
+          </a>
+        </Button>
+      )}
     </div>
   );
 }
@@ -267,6 +276,7 @@ function StoreMenuEntries({
   marketplaceLabel: string;
   actions: StoreRowActions;
 }) {
+  const locked = useStoresLocked();
   return (
     <>
       <DropdownMenuLabel className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
@@ -302,6 +312,8 @@ function StoreMenuEntries({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
+        disabled={locked}
+        title={locked ? STORES_LOCKED_REASON : undefined}
         onSelect={actions.onDisconnect}
         className={cn("gap-2.5 py-1.5 pl-1.5", NEUTRAL_DESTRUCTIVE_HIGHLIGHT)}
       >

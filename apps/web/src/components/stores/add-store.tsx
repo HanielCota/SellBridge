@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Button } from "@/components/ui/button";
+import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
@@ -32,8 +33,12 @@ function AvailableOption({
   option: MarketplaceOption;
   supplier: NewStoreSupplier | null;
 }) {
+  const locked = useStoresLocked();
   if (supplier === null) {
     return <WaitingOption option={option} />;
+  }
+  if (locked) {
+    return <LockedOption option={option} />;
   }
   return (
     <li>
@@ -61,6 +66,21 @@ function AvailableOption({
 }
 
 /** Ready to connect once the seller picks the supplier the shop will sell. */
+/** The same row, without the link, while an admin uses the customer's account. */
+function LockedOption({ option }: { option: MarketplaceOption }) {
+  return (
+    <li title={STORES_LOCKED_REASON} className="flex items-center gap-4 px-5 py-3.5 opacity-60">
+      <MarkSlot>
+        <MarketplaceMark marketplace={option.id} className="size-10" />
+      </MarkSlot>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{option.label}</span>
+        <span className="block truncate text-sm text-muted-foreground">{STORES_LOCKED_REASON}</span>
+      </span>
+    </li>
+  );
+}
+
 function WaitingOption({ option }: { option: MarketplaceOption }) {
   return (
     <li className="flex items-center gap-4 px-5 py-3.5 text-muted-foreground">
