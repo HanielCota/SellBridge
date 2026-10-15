@@ -58,5 +58,7 @@ export const oauthStates = pgTable("oauth_states", {
     .references(() => organization.id, { onDelete: "cascade" }),
   marketplace: marketplaceEnum().notNull(),
   codeVerifier: text(),
+  /** The supplier picked before connecting; the shop created at the callback sells it. */
+  supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
