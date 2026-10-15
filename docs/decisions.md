@@ -435,3 +435,12 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Tudo o mais fica registrado com o nome do admin:** cada escrita feita "como cliente" (inclusive abrir ou responder chamado e trocar nome ou foto) vira "Como o cliente: …" na linha do tempo, depois do sucesso. Marcar como lido não entra.
 - **Duração explícita de 1 hora**, conferida no servidor pela criação da sessão (sem depender de cookie do navegador). O banner mostra "até HH:MM" e, a partir de telas médias, o que fica bloqueado; "Voltar ao admin" registra "Saiu da conta do cliente" quando a saída dá certo.
 - **Promoção a dono apaga todas as formas de entrar** (senha e logins sociais) e as sessões, numa transação (`repositories/owner-promotion.ts`). O dono volta pelo link de redefinição de senha ou entrando com o Google de novo.
+
+## 2026-10-15: Um modelo só de taxa para a prévia e o Financeiro (item 15.a)
+
+- **Uma fórmula:** `shared/domain/fee-model.ts` estima a venda montando o pedido e chamando o próprio `computeOrderFinance` do Financeiro. Uma venda cobrada como o modelo estima termina com o lucro que a prévia prometeu, inclusive a taxa da SellBridge (`PLATFORM_FEE_BASIS_POINTS`), que a prévia ignorava (B17).
+- **Configuração** (Zod, `.env.example`): `ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS` (padrão 1400, os 14% de antes), `ESTIMATED_SHIPPING_CENTS` (padrão 0; `TODO(client:D5)`, quem paga o frete) e `MIN_MARGIN_PERCENT` (padrão 0, aprovado no ⏸1: só proíbe vender com prejuízo depois das taxas; o piso no servidor entra na 15.b).
+- **Taxa por categoria:** a estrutura aceita uma taxa por categoria, mas fica vazia; nenhum percentual foi inventado. Ler a taxa real do Mercado Livre (`/sites/MLB/listing_prices` por categoria e preço, com cache) é uma tarefa separada (decisão do usuário no ⏸1).
+- **Frete junto da tarifa:** o pedido tem um campo só para o que o marketplace fica; o frete estimado entra nele. Só bate com o Financeiro quando os pedidos reais gravarem o frete ali também (depende da D5).
+- **Preço para uma margem:** o menor preço que mantém a margem depois de todas as taxas. As duas taxas arredondam para centavos, então um preço maior pode guardar um centavo a menos de lucro; a busca parte do limite exato de baixo e só sobe (a versão antiga de `profit.ts` errava por alguns centavos, por exemplo R$ 16,62 em vez de R$ 16,60).
+- **Para as telas (15.b):** `getFeeSchedule` (`features/reports`, `tenantMiddleware`) entrega o modelo ao cliente.
