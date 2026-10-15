@@ -13,9 +13,14 @@ interface ReminderEmail {
 
 /** What the reseller still has to do, and the page in the app where they do it. */
 const STEP_GUIDES: Record<OnboardingStep, { action: string; why: string; path: string }> = {
-  region: {
-    action: "informar o CEP da sua região",
-    why: "Com ele mostramos os fornecedores que entregam para você.",
+  holder: {
+    action: "informar seu nome completo e CPF",
+    why: "Eles vão nas notas fiscais e nas cobranças da sua conta.",
+    path: "/onboarding",
+  },
+  supplier: {
+    action: "escolher o fornecedor que você vai vender",
+    why: "Fornecedores de todo o Brasil: ele entrega direto ao seu cliente, sem você ter estoque.",
     path: "/onboarding",
   },
   store: {

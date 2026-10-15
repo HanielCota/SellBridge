@@ -3,6 +3,7 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   adminCustomerJourney,
   adminGetCustomer,
+  adminPreviewStoreSupplier,
   adminListCustomerIssues,
   adminListCustomers,
 } from "./customers.functions";
@@ -13,6 +14,7 @@ function listParams(search: CustomersSearch) {
     query: search.query,
     issue: search.issue,
     sort: search.sort,
+    supplier: search.supplier,
     page: search.page,
     pageSize: search.pageSize,
   };
@@ -43,4 +45,15 @@ export const customerQueryOptions = (userId: string) =>
   queryOptions({
     queryKey: ["customers", "detail", userId],
     queryFn: () => adminGetCustomer({ data: { userId } }),
+  });
+
+export const adminStoreSupplierPreviewQueryOptions = (input: {
+  userId: string;
+  storeConnectionId: string;
+  supplierId: string;
+}) =>
+  queryOptions({
+    queryKey: ["customers", "store-supplier-preview", input],
+    queryFn: () => adminPreviewStoreSupplier({ data: input }),
+    staleTime: 0,
   });

@@ -26,7 +26,7 @@ export type IssueCounts = Record<CustomerIssueKind, number>;
 export type EntryTriage = Pick<IssueTriage, "assigneeId" | "assigneeName" | "snoozedUntil">;
 
 export interface CustomerIssueEntry {
-  customer: Pick<RankedCustomer, "id" | "name" | "email" | "city" | "state" | "banned">;
+  customer: Pick<RankedCustomer, "id" | "name" | "email" | "banned">;
   score: number | null;
   issue: CustomerIssue;
   severity: IssueSeverity;
@@ -113,8 +113,6 @@ export function listIssueEntries(
         id: customer.id,
         name: customer.name,
         email: customer.email,
-        city: customer.city,
-        state: customer.state,
         banned: customer.banned,
       },
       score: customer.health.score,

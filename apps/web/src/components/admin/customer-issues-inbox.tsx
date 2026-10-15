@@ -119,11 +119,6 @@ function CustomerContext({ entry, adminId, snoozed }: EntryProps) {
       >
         {customer.name}
       </Link>
-      {customer.city ? (
-        <span>
-          · {customer.city} - {customer.state}
-        </span>
-      ) : null}
       <TriageBadges entry={entry} adminId={adminId} snoozed={snoozed} />
     </span>
   );
