@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stateSchema } from "../domain/cep.ts";
 import { freeText, pageNumberSchema } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema } from "./stores.ts";
@@ -50,6 +51,9 @@ export const supplierListSearchSchema = z.object({
   /** A niche or a product the reseller wants to sell. */
   query: optionalParameter(freeText().trim().max(100)),
   niche: optionalParameter(freeText().trim().max(100)),
+  /** Where the supplier is: suppliers sell anywhere, so this only narrows the choice. */
+  state: optionalParameter(stateSchema),
+  city: optionalParameter(freeText().trim().max(80)),
   sort: withFallback(supplierSortSchema.default("name"), "name"),
 });
 

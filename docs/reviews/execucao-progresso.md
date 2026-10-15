@@ -6,20 +6,20 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 - Item/parte: _(nenhum)_. Próximos deste chat: "trocar de fornecedor num envio cancelado", 22, 21, correções das pastas antigas
 - Última etapa concluída: U-9 ✅ (U-3 e U-4 ✅ pelo 20.c)
-- Próximo passo: etapa 1 de "trocar de fornecedor". Próxima migration: 0027 pela "senha da vez"
+- Próximo passo: etapa 1 de "trocar de fornecedor". Próxima migration: 0028 pela "senha da vez"
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
 ## Linha de base
 
-| Métrica                                        | Valor                        | Medido em  |
-| ---------------------------------------------- | ---------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1235 passando                | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 392 passando                 | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 90 (89 + 1 refeito)          | 2026-10-15 |
-| Última migration                               | 0026_tenant_starter_supplier | 2026-10-15 |
-| Branch de trabalho                             | `feat/client-phase-1`        | 2026-10-12 |
+| Métrica                                        | Valor                     | Medido em  |
+| ---------------------------------------------- | ------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1318 passando             | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 392 passando              | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 91 passando               | 2026-10-15 |
+| Última migration                               | 0027_oauth_state_supplier | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`     | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -71,6 +71,18 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: etapa 5 do chat CPF (filtros por UF e cidade, "Vender este fornecedor")
+
+- 5c73a2b (commit a6360cc): Fornecedores com Estado ("Todo o Brasil") e Cidade (cidade sem diferenciar acento e maiúscula), "Limpar filtros" no vazio; página do fornecedor com "Vender este fornecedor" → `/lojas?fornecedor=<id>#adicionar-loja`; o seletor do onboarding filtra UF no servidor. Sem migration.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1318/1318; build ✅; e2e 31/31 (fornecedores, loja e fornecedor, publicação, acessibilidade, mensagens de lojas, login); capturas do chat CPF conferidas (filtro MG + Belo Horizonte mostra só a BH Beauty).
+
+### 2026-10-15 · Junções: 0027 e etapa 4 (chat CPF), 10.c (chat B) e 15.a (chat C)
+
+- 0027 (f434f7e): `oauth_states.supplier_id`. Etapa 4 (e7dda98, commit 1dd4647): cada loja vende um único fornecedor; a primeira herda o do onboarding, as seguintes pedem a escolha; "Trocar fornecedor" pausa os anúncios do anterior sem apagar; publicação (individual, em lote, API e worker) só vai para loja do fornecedor do produto. Cores `violet`/`amber` cruas seguem o padrão já existente dos menus e avisos — entram na correção D-1 (tokens de sucesso, aviso e informação).
+- 10.c sem a parte de lojas (93eb43b, commit 7bd26d1): no "entrar como cliente", 9 ações sensíveis recusadas pelo nome da função no `tenantMiddleware` e as demais escritas registradas com o admin; janela de 1 h conferida no servidor; troca de e-mail pela equipe exige reconfirmação e avisa o e-mail antigo. A parte de lojas vem por cima.
+- 15.a (f468e1b, commit c04e2b2): um modelo de taxa em `shared/domain/fee-model.ts`, usado no Financeiro e na prévia. Conflito só no fim de `decisions.md` (seções mantidas).
+- Portões: e2e completos 91/91 em série depois da etapa 4; depois de 10.c e 15.a: lint, tipos, formatação, sem else ✅, testes 1316/1316, build ✅, e2e 38/38 (entrar como cliente, admin, dono, segurança da conta, integrações, webhooks, cobrança, suporte, relatórios, custo pendente, loja e fornecedor, acessibilidade).
 
 ### 2026-10-15 · Junção: etapa 3 do chat CPF (onboarding com CPF e escolha do fornecedor)
 

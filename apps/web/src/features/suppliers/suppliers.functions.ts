@@ -5,6 +5,7 @@ import {
   listRecentSupplierReviews,
   listSupplierCategories,
   listSupplierDirectory,
+  listSupplierLocations,
 } from "@sellbridge/database/repositories";
 import { compareReputation } from "@sellbridge/shared/supplier-score";
 import { catalogSearchSchema, supplierListSearchSchema } from "@sellbridge/shared/schemas";
@@ -19,9 +20,15 @@ export const listSuppliers = createServerFn({ method: "GET" })
   .validator(supplierListSearchSchema)
   .handler(async ({ data }) => {
     // Every active supplier in Brazil: any reseller sells any of them.
-    const [found, niches] = await Promise.all([
-      listSupplierDirectory(database, { search: data.query, niche: data.niche }),
+    const [found, niches, locations] = await Promise.all([
+      listSupplierDirectory(database, {
+        search: data.query,
+        niche: data.niche,
+        state: data.state,
+        city: data.city,
+      }),
       listActiveNiches(database),
+      listSupplierLocations(database),
     ]);
     const reputationOf = await loadReputations(found.map((supplier) => supplier.id));
     const suppliers = found.map((supplier) => ({
@@ -31,12 +38,13 @@ export const listSuppliers = createServerFn({ method: "GET" })
     if (data.sort === "reputation") {
       return {
         niches,
+        locations,
         suppliers: suppliers.toSorted((first, second) =>
           compareReputation(first.reputation, second.reputation),
         ),
       };
     }
-    return { suppliers, niches };
+    return { suppliers, niches, locations };
   });
 
 /** Score, breakdown and latest written reviews of any active supplier. */

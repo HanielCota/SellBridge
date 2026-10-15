@@ -41,4 +41,24 @@ describe("serverEnvironmentSchema", () => {
     });
     expect(cloudflare.CLIENT_IP_HEADER).toBe("cf-connecting-ip");
   });
+
+  it("defaults the fee model to today's 14% estimate, no shipping and no minimum margin", () => {
+    expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
+      ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS: 1400,
+      ESTIMATED_SHIPPING_CENTS: 0,
+      MIN_MARGIN_PERCENT: 0,
+    });
+  });
+
+  it.each([
+    ["ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS", "10001"],
+    ["ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS", "14.5"],
+    ["ESTIMATED_SHIPPING_CENTS", "-1"],
+    ["ESTIMATED_SHIPPING_CENTS", "100000001"],
+    ["MIN_MARGIN_PERCENT", "91"],
+    ["MIN_MARGIN_PERCENT", "-5"],
+  ])("refuses %s=%s", (name, value) => {
+    const parsed = serverEnvironmentSchema.safeParse({ ...validEnvironment, [name]: value });
+    expect(parsed.success).toBe(false);
+  });
 });

@@ -1,4 +1,9 @@
 import {
+  DEFAULT_FEE_SCHEDULE,
+  estimatedMarketplaceFeeCents,
+  estimateSale,
+} from "@sellbridge/shared/fee-model";
+import {
   computeOrderFinance,
   type OrderFinance,
   type OrderFinanceInput,
@@ -237,6 +242,48 @@ describe("sales summary", () => {
       profitCents: 0,
       averageTicketCents: null,
     });
+  });
+});
+
+describe("listing preview and financial report", () => {
+  it("give the same profit for the same sale", async () => {
+    // A sale whose marketplace charged what the fee model estimates: the preview promised the
+    // profit the financial page then shows, the SellBridge fee included.
+    const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+    // 14% of R$ 25,25 is 353,5 cents: the half cent the two sides must round alike.
+    const sales = [
+      { priceCents: 15_990, costCents: 7_450 },
+      { priceCents: 2_525, costCents: 1_000 },
+    ];
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja da prévia");
+      for (const [index, sale] of sales.entries()) {
+        await insertOrder(tenantId, store, {
+          ...ORDER_A2,
+          externalOrderId: `PREVIEW-${index}`,
+          totalCents: sale.priceCents,
+          unitPriceCents: sale.priceCents,
+          marketplaceFeeCents: estimatedMarketplaceFeeCents(sale, feeSchedule),
+          items: [{ quantity: 1, knownUnitCostCents: sale.costCents }],
+        });
+      }
+      const rows = await exportOrderFinancials(
+        database,
+        scope({ tenantId, platformFeeBasisPoints: feeSchedule.platformFeeBasisPoints }),
+        { filters: {}, sort: { field: "orderedAt", direction: "asc" } },
+      );
+      const reported = new Map(rows.map((row) => [row.externalOrderId, row.profitCents]));
+      for (const [index, sale] of sales.entries()) {
+        expect(reported.get(`PREVIEW-${index}`)).toBe(estimateSale(sale, feeSchedule).profitCents);
+      }
+    } finally {
+      await extra.cleanup();
+    }
   });
 });
 

@@ -1,4 +1,5 @@
 import { CheckCircleIcon, MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { stateSchema } from "@sellbridge/shared/cep";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { SearchInput } from "@/components/data/search-input";
@@ -25,15 +26,15 @@ export type PickableSupplier = Awaited<ReturnType<typeof listSuppliers>>["suppli
 const ALL_STATES = "__all__";
 const SEARCH_DELAY_MILLISECONDS = 300;
 
-/** States that have at least one supplier, alphabetical, so the filter never offers an empty one. */
-function statesOf(suppliers: readonly PickableSupplier[]): string[] {
-  return [...new Set(suppliers.map((supplier) => supplier.state))].toSorted();
-}
-
-function useSupplierOptions(term: string) {
+function useSupplierOptions(term: string, state: string) {
   const query = useDebouncedValue(term.trim(), SEARCH_DELAY_MILLISECONDS);
+  const parsedState = stateSchema.safeParse(state);
   return useQuery({
-    ...suppliersQueryOptions({ query: query.length > 0 ? query : undefined, sort: "reputation" }),
+    ...suppliersQueryOptions({
+      query: query.length > 0 ? query : undefined,
+      state: parsedState.success ? parsedState.data : undefined,
+      sort: "reputation",
+    }),
     placeholderData: keepPreviousData,
   });
 }
@@ -51,9 +52,10 @@ export function SupplierPicker({
 }) {
   const [term, setTerm] = useState("");
   const [state, setState] = useState(ALL_STATES);
-  const query = useSupplierOptions(term);
-  const all = query.data?.suppliers ?? [];
-  const shown = state === ALL_STATES ? all : all.filter((supplier) => supplier.state === state);
+  const query = useSupplierOptions(term, state);
+  const shown = query.data?.suppliers ?? [];
+  // Only states with active suppliers, so the filter never offers an empty one.
+  const states = (query.data?.locations ?? []).map((location) => location.state);
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -64,7 +66,7 @@ export function SupplierPicker({
           value={term}
           onValueChange={setTerm}
         />
-        <StateSelect states={statesOf(all)} value={state} onChange={setState} />
+        <StateSelect states={states} value={state} onChange={setState} />
       </div>
       <SupplierOptions
         query={query}
@@ -88,7 +90,10 @@ function StateSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="sm:w-48" aria-label="Estado do fornecedor">
+      <SelectTrigger
+        className="justify-start sm:w-48 [&>svg:last-child]:ml-auto"
+        aria-label="Estado do fornecedor"
+      >
         <MapPinIcon aria-hidden="true" />
         <SelectValue>{value === ALL_STATES ? "Todo o Brasil" : value}</SelectValue>
       </SelectTrigger>

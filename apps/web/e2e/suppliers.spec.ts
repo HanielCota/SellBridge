@@ -148,6 +148,40 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "Publicar" }).first()).toBeVisible();
   });
 
+  test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
+    await gotoHydrated(page, "/fornecedores");
+    await page.getByRole("combobox", { name: "Estado do fornecedor" }).click();
+    await page.getByRole("option", { name: "MG", exact: true }).click();
+    await expect(page).toHaveURL(/state=MG/);
+    await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toHaveCount(0);
+
+    await page.getByRole("combobox", { name: "Cidade do fornecedor" }).click();
+    await page.getByRole("option", { name: "Divinópolis", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toHaveCount(0);
+
+    await page.getByPlaceholder("Qual nicho ou produto você quer vender?").fill("zzz-inexistente");
+    await expect(page.getByText("Nenhum fornecedor encontrado")).toBeVisible();
+    await page.getByRole("button", { name: "Limpar filtros" }).click();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
+  });
+
+  test("leva do fornecedor à conexão de uma loja que vende ele", async ({ page }) => {
+    await gotoHydrated(page, "/fornecedores");
+    await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
+    await page.getByRole("link", { name: "Vender este fornecedor" }).click();
+    await expect(page).toHaveURL(/\/lojas/);
+    const addStore = page.getByRole("region", { name: "Adicionar loja" });
+    await expect(addStore.getByText("A nova loja vende")).toBeVisible();
+    await expect(addStore.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
+    await expect(addStore.getByRole("link", { name: "Conectar Loja simulada" })).toHaveAttribute(
+      "href",
+      /fornecedor=/,
+    );
+  });
+
   test("mostra erro amigável para fornecedor inexistente", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores/00000000-0000-4000-8000-000000000000");
     await expect(page.getByText("Fornecedor não encontrado")).toBeVisible();

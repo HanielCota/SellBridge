@@ -1,10 +1,10 @@
 import { queryOptions } from "@tanstack/react-query";
 import { getStoreSuppliers, previewStoreSupplier } from "./store-suppliers.functions";
 
-export const storeSuppliersQueryOptions = () =>
+export const storeSuppliersQueryOptions = (pickedSupplierId?: string) =>
   queryOptions({
-    queryKey: ["stores", "suppliers"],
-    queryFn: () => getStoreSuppliers(),
+    queryKey: ["stores", "suppliers", pickedSupplierId ?? null],
+    queryFn: () => getStoreSuppliers({ data: { pickedSupplierId } }),
   });
 
 export const storeSupplierPreviewQueryOptions = (storeConnectionId: string, supplierId: string) =>
