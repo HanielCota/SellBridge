@@ -11,6 +11,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { authAccessControl, authRoles } from "../auth-roles.ts";
 import { ACCOUNT_ACTION_PATHS, assertMayActOnAccount } from "./account-protection.ts";
+import { isClosedToBrowsers } from "./auth-route-policy.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "./email-layout.ts";
 import { environment } from "./environment.ts";
@@ -42,15 +43,6 @@ const OWNER_ONLY_PATHS = new Set([
 
 /** Sign-up takes the same name rules as the profile, so a name is never megabytes or blank. */
 const signUpBodySchema = z.object({ name: nameSchema }).passthrough();
-
-/**
- * One organization per account, created by the server at sign-up. The browser never calls the
- * plugin's own routes: from it they would create extra organizations (a fresh free plan each),
- * delete one with all its orders, or invite members, so they are closed to HTTP requests.
- */
-function isOrganizationRoute(context: { path: string; request?: Request | undefined }): boolean {
-  return context.request !== undefined && context.path.startsWith("/organization/");
-}
 
 const updateUserBodySchema = z.object({
   name: nameSchema.optional(),
@@ -115,7 +107,7 @@ function assertSignUpName(body: unknown): void {
  * deletes someone else's file.
  */
 const guardAccountRoutes = createAuthMiddleware(async (context) => {
-  if (isOrganizationRoute(context)) {
+  if (isClosedToBrowsers(context)) {
     throw new APIError("NOT_FOUND", { message: "Rota indisponível" });
   }
   await guardProtectedAccounts(context);

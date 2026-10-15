@@ -1,45 +1,59 @@
 # Andamento da execução tela a tela · chat paralelo C
 
-Registro do chat paralelo C ([chat-paralelo-c.md](../prompts/chat-paralelo-c.md)), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md) para os itens 08, 09, 15, 13, 14, 18 e 23 (divisão por área em [coordenacao.md](../prompts/coordenacao.md)), no worktree `SellBridge-c` (branch `feat/client-phase-1-c`, banco `sellbridge_desk_c`). O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
+Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: catálogo, publicação e dinheiro), que segue o prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tela.md). Desde 2026-10-15 roda na worktree `.claude/worktrees/client-c-52dc32` (branch `claude/client-c-52dc32`, criada de `feat/client-phase-1` em `27366e3`), banco `sellbridge_desk_c`, Redis db 4, preview `sellbridge-c` na 3600 e e2e na 3160 · 3161 · db 5. O chat principal junta este arquivo ao `execucao-progresso.md` antes do push final.
 
 ## Em andamento
 
-- Item/parte: 09 · Lucro correto
-- Última etapa concluída: — (08 ✅ 2135a1b; junção com o principal 3f909a7)
-- Próximo passo: etapa 1 · ler o item 09 e os IDs B10 e G4 do relatório
-- Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: 5 chats por área e os 3 ajustes (senha da vez, menos paradas sem tela, recursos isolados), aprovados em 2026-10-14
-- Pendências: índice em listings.supplier_product_id (migration, chat E ou principal); troca de região pelo admin (customers.functions.ts) deve chamar requestStockSync
+- Item/parte: 09.c · Custo pendente nas telas
+- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-15); ⏸1 e ⏸2 aprovados em 2026-10-15
+- Próximo passo: depois do OK, commit local da 09.c, `git merge feat/client-phase-1` (traz a migration 0025: rodar o migrate no `sellbridge_desk_c`), portões de novo e aviso ao principal com a branch e os hashes; depois o item 15
+- Arquivos tocados: web/features/reports/chart-view(.test).ts, dashboard-metrics.ts, dashboard-insights(.test).ts, financial-rows(.test).ts; web/components/reports/cash-flow-chart.tsx, pending-cost.tsx (novo), period-summary.tsx, sales-breakdown.tsx; web/components/financials/profit-summary.tsx, order-statement.tsx, order-parts.tsx; web/components/orders/order-page.tsx (do principal, mudança mínima); web/e2e/pending-cost.spec.ts (novo); docs
+- Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
+- Pendências: o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
 ## Linha de base
 
-| Métrica                                        | Valor                     | Medido em  |
-| ---------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 982 passando              | 2026-10-14 |
-| E2E completo (`--workers=1`, porta 3160)       | 63 passando               | 2026-10-13 |
-| Última migration                               | 0022_order_status_changes | 2026-10-14 |
-| Branch de trabalho                             | `feat/client-phase-1-c`   | 2026-10-13 |
+| Métrica                                        | Valor                    | Medido em  |
+| ---------------------------------------------- | ------------------------ | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1145 passando            | 2026-10-15 |
+| E2E completo (`--workers=1`, porta 3160)       | 78 passando (principal)  | 2026-10-14 |
+| Última migration                               | 0023_pending_indexes     | 2026-10-15 |
+| Branch de trabalho                             | `claude/client-c-52dc32` | 2026-10-15 |
+
+C5 de 2026-10-15 no banco C: 1125 no início (shared 298, marketplaces 149, web 392, worker 54, database 225, scripts 7); 1136 depois da 09.b (shared 301, web 394, database 231); 1145 depois da 09.c (web 403).
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit            | Notas                                 |
-| ---- | ---------------------------------------------- | -------- | ----------------- | ------------------------------------- |
-| 00   | Preparação do dia (chat C)                     | ✅       | —                 | Linha de base 937 no banco C          |
-| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b | 08.a ✅ b2a3331 · 08.b ✅ 2135a1b     |
-| 09   | Lucro correto                                  | ⬜       | —                 |                                       |
-| 10   | Segurança de contas e da equipe                | ⬜       | —                 | Passou para o chat B (coordenacao.md) |
-| 13   | Erros de publicação claros                     | ⬜       | —                 |                                       |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —                 |                                       |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —                 |                                       |
-| 16   | Riscos da assinatura                           | ⬜       | —                 | Passou para o chat D (coordenacao.md) |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                 |                                       |
-| 23   | Anúncios completos                             | ⬜       | —                 | Veio do principal (coordenacao.md)    |
+| Item | Título                                         | Situação | Commit            | Notas                                      |
+| ---- | ---------------------------------------------- | -------- | ----------------- | ------------------------------------------ |
+| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b | Juntado pelo principal (36ebac1)           |
+| 09   | Lucro correto                                  | 🟡       | 118406a           | Receita só de pagos ✅ · 09.b ⏸3 · 09.c ⬜ |
+| 13   | Erros de publicação claros                     | ⬜       | —                 | Para depois (decisão do usuário, 15/10)    |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —                 | Para depois (decisão do usuário, 15/10)    |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —                 | Partir do `parseBrlToCents` do audit       |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                 | Para depois (decisão do usuário, 15/10)    |
+| 23   | Anúncios completos                             | ⬜       | —                 | Para depois (decisão do usuário, 15/10)    |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 09.c · Custo pendente nas telas — ✅ concluído (commit local; item 09 ✅)
+
+- Financeiro: frase "R$ Y de N vendas ainda não têm custo e ficaram fora do lucro ⓘ. Do restante, …" (sublinhado tracejado neutro; só o pendente quando tudo é pendente); rodapé "N com custo pendente"; extrato com "Custo pendente" (bolinha âmbar) no lugar do lucro e "de R$ X · fora do lucro" (no celular só "de R$ X"); detalhe com "Produtos · custo pendente", "Lucro · fora do lucro" e a explicação; barra de partes hachurada.
+- Gráfico (Financeiro e Painel): camada hachurada neutra "Custo pendente" entre custos e lucro nas barras "Tudo", degrau "Pendente" na cascata, linha nos tooltips (também no de margem), legenda só quando há pendente; custo = receita − pendente − lucro; margem sobre a receita com custo (cabeçalho, gráfico de margem, lojas, frase do Painel). Painel: "R$ Y em N vendas com custo pendente ficaram fora do lucro." Página do pedido: "custo pendente" no item.
+- Revisão independente: 0 crítico/alto; corrigidos os 2 médios (tooltip de margem dizia "Sem vendas" numa semana só de pendente e não mostrava o pendente) e 6 baixos (legenda do gráfico de margem, frase quando tudo é pendente, página de pedido cancelado com item de fora, hachura SVG mais fina que a da legenda, plural da dica, seletor do e2e). Aceitos: degrau de topo quadrado quando o lucro é zero; parcela da cascata sobre a receita inteira (rotulada "da receita").
+- Portões: lint, tipos, formatação, sem else ✅; 1145 testes (base 1136); build ✅ sem mudança no `routeTree.gen.ts`; e2e pending-cost, reports, order-page, webhooks e accessibility 23/23 em série (porta 3160), de novo depois das correções da revisão; D1 22 capturas (Financeiro barras e cascata, Painel, pedido, detalhe, tooltip; claro, escuro, celular); D2 0 px em 8 larguras × 3 telas; V13 0 marcas fora da área em 4 larguras × 2 tipos; D4 lado a lado com a linha "fora da receita".
+- Achado no D1 e corrigido: no celular, "· fora do lucro" alargava a coluna e cortava o horário do grupo de vendas iguais.
+- Dados de demonstração no `sellbridge_desk_c`: pedido DEMO-CUSTO-PENDENTE-09C (item sem produto, R$ 189,90). Sobras do `sale-resilience.spec` (SIM-EXP-*) também aparecem como custo pendente, o que está certo pela regra.
+
+### 2026-10-15 · Item 09.b · Custo pendente fora do lucro (servidor) — ✅ concluído (92d2e56, commit local)
+
+- Item sem produto do catálogo (anúncio criado fora da SellBridge) é "custo pendente": a venda conta na receita, e custo, tarifas, ajustes e lucro dela ficam em zero; a receita dela aparece à parte. Mesma regra em `computeOrderFinance` (custo `knownUnitCostCents: null`) e no SQL de `reports.ts`; resumo, série, lojas e extrato ganharam os campos do pendente. `orderFinanceInput` liga a página do pedido e a API pública. CSV com coluna "Custo pendente" e lucro em branco; API pública só com campos novos.
+- Revisão independente: 1 alto corrigido (devoluções somavam no SQL e não no domínio; teste agora compara o resultado inteiro, e falha sem a correção); médios corrigidos: entrada do domínio com nome próprio (`knownUnitCostCents`) para nenhum pedido gravado entrar sem passar por `orderFinanceInput`, caso de pedido cancelado com item de fora, descrição do lucro na API. Aceitos: produto apagado viraria pendente (não há exclusão hoje; em `decisions.md`), reembolso de venda pendente fora dos totais (é a regra), arredondamento negativo (sem valor negativo possível).
+- Portões: lint, tipos, formatação, sem else ✅; 1136 testes (base 1125); build ✅ sem mudança no `routeTree.gen.ts`; e2e reports, webhooks e order-page 18/18 em série (porta 3160). Sem tela (D0–D4 e A1–A3 ficam para a 09.c). Até a 09.c, o gráfico do Financeiro mostra a receita pendente como "custo" (conta receita − lucro).
 
 ### 2026-10-14 · Revisão de sanitização, async, performance, segurança, lógica e padrões de navegador — ✅ (commits locais)
 

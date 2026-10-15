@@ -3,7 +3,7 @@ import { canReviewOrder } from "@sellbridge/shared/supplier-score";
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orderItems, supplierProducts, supplierReviews, suppliers } from "../schema/index.ts";
-import { getOrderDetail, type OrderDetail } from "./order-detail.ts";
+import { getOrderDetail, orderFinanceInput, type OrderDetail } from "./order-detail.ts";
 import { listOrderStatusChanges, type OrderStatusChange } from "./order-status-changes.ts";
 
 /** The order's review of one of its suppliers. */
@@ -91,7 +91,7 @@ export async function getOrderPage(
   ]);
   return {
     order,
-    finance: computeOrderFinance(order, options.platformFeeBasisPoints),
+    finance: computeOrderFinance(orderFinanceInput(order), options.platformFeeBasisPoints),
     history,
     reviews,
   };

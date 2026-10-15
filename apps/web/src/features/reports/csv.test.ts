@@ -20,6 +20,8 @@ const row: OrderFinancialRow = {
   commissionCents: 300,
   platformFeeCents: 250,
   profitCents: -5,
+  costPending: false,
+  pendingCostRevenueCents: 0,
   product: null,
 };
 
@@ -62,7 +64,14 @@ describe("buildFinancialCsv", () => {
     const line = buildFinancialCsv([row]).trim().split("\r\n")[1] ?? "";
     expect(line).toContain('"Loja; da Ana"');
     expect(line).toContain(";;Entregue;");
-    expect(line.endsWith(";-0,05")).toBe(true);
+    expect(line.endsWith(";-0,05;Não")).toBe(true);
+  });
+
+  it("leaves the profit blank and says so when the cost is pending", () => {
+    const pending = { ...row, costPending: true, pendingCostRevenueCents: 10_000, profitCents: 0 };
+    const [header, line] = buildFinancialCsv([pending]).trim().split("\r\n");
+    expect(header?.endsWith(";Lucro;Custo pendente")).toBe(true);
+    expect(line?.endsWith(";;Sim")).toBe(true);
   });
 
   it("handles an empty export", () => {

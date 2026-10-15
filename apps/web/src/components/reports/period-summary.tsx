@@ -6,6 +6,7 @@ import {
   bestPoint,
   explainRevenue,
   OFF_SCALE_PERCENT,
+  profitMargin,
   trendOf,
 } from "@/features/reports/dashboard-insights";
 import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
@@ -14,6 +15,8 @@ interface Totals {
   revenueCents: number;
   orders: number;
   profitCents: number;
+  pendingCostOrders: number;
+  pendingCostRevenueCents: number;
 }
 
 interface PeriodSummaryProps {
@@ -50,6 +53,7 @@ export function PeriodSummary({
       )}
     >
       <ProfitSentence current={current} previous={previous} />
+      <PendingCostNote current={current} />
       <Headline current={current} previous={previous} />
       {best ? (
         <>
@@ -149,7 +153,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
     );
   }
   const trend = trendOf(current.profitCents, previous.profitCents);
-  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
+  const margin = profitMargin(current);
   const moved = trend !== null && trend.direction !== "flat";
   return (
     <>
@@ -178,6 +182,21 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
         </>
       )}
       .{" "}
+    </>
+  );
+}
+
+/** "R$ 120 em 1 venda com custo pendente ficou fora do lucro." Only when there is some. */
+function PendingCostNote({ current }: { current: Totals }) {
+  if (current.pendingCostOrders === 0) {
+    return null;
+  }
+  const one = current.pendingCostOrders === 1;
+  return (
+    <>
+      <Strong>{sentenceReais(current.pendingCostRevenueCents)}</Strong> em{" "}
+      {current.pendingCostOrders} {one ? "venda" : "vendas"} com custo pendente{" "}
+      {one ? "ficou" : "ficaram"} fora do lucro.{" "}
     </>
   );
 }

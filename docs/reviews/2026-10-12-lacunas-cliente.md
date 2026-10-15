@@ -45,6 +45,7 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B4 / A7            | ✅ (13/10)       | Status do pedido e do envio do ML mapeados com fixtures (04.a): fraude retida, envio não entregue e devolvido. Reembolsos e devoluções no dinheiro (04.b). Selo e linha do tempo do envio (04.c).             |
 | B5                 | ✅ (13/10)       | Migrations versionadas. A 0021 repete a 0008 com guardas, para bancos que a pularam por causa do `when` da 0007; teste de migrations em bancos descartáveis (M1 e M2) roda no `pnpm test`.                    |
 | B9                 | ✅ (13/10)       | Desativar produto ou fornecedor pausa os anúncios de todos os revendedores e avisa no sino; reativar não reativa sozinho; sync manda 0 (08.a, 08.b). Auditoria vai para o 28.                                 |
+| B10 / G4           | ✅ (15/10)       | Receita só de pedidos pagos (118406a). Item sem produto do catálogo vira "custo pendente": receita conta, lucro não (09.b), com aviso nas telas (09.c).                                                       |
 | A1, A2, A3         | 🟡               | `order_shipments`: um envio por pedido e fornecedor, com estados forwarded→…→delivered/cancelled. O fornecedor recebe um link com token de 30 dias. O encaminhamento é manual e o link é compartilhado à mão. |
 | A4, A10            | 🟡               | O fornecedor cancela com motivo. Não cancela no ML, não estorna, não avisa e não deixa reencaminhar.                                                                                                          |
 | A6, A11            | ✅ (14/10)       | Página `/pedidos/$id` (20.b) com avaliação do fornecedor (20.c). Aba "Operação" com busca, etapa, período e loja no endereço: voltar do pedido mantém os filtros (20.c).                                      |
@@ -71,7 +72,8 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B-9                | ✅ (13/10)       | "Atualizado há X" no catálogo e na página do fornecedor (`ProductStockLine`).                                                                                                                                 |
 | J5                 | 🟡 (13/10)       | Pedidos vinculados ao chamado (`ticket_orders`, migration 0016), visíveis ao revendedor e à equipe. Faltam loja e anúncio, e o botão "Falar com o suporte" nas telas de pedido, loja e anúncio (item 27.a).   |
 | B3                 | ✅ (14/10)       | Uma loja do marketplace fica em uma organização por vez: índice único (0023) e recusa também na conexão simultânea, com a mesma mensagem (item 03). O webhook acha só o dono atual.                           |
-| B7                 | 🟡 (14/10)       | 10.a: dono = ADMIN_EMAILS verificado e admin; só ele gerencia a equipe, também pelas rotas cruas do plugin (trava no hook). Faltam 10.b e 10.c.                                                               |
+| B7                 | 🟡 (14/10)       | 10.a: só o dono gerencia a equipe; 10.b: rotas cruas /admin/* fechadas ao navegador (só entrar e sair como cliente). Falta o 10.c.                                                                            |
+| B8 / N6            | ✅ (14/10)       | Organização sem criação nem exclusão, /organization/* fechado por HTTP e membro reconferido em requireTenantSession (audit + 10.b).                                                                           |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)
 
