@@ -15,9 +15,9 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 | Métrica                                        | Valor                        | Medido em  |
 | ---------------------------------------------- | ---------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1233 passando                | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1235 passando                | 2026-10-15 |
 | Testes web (`apps/web` vitest)                 | 392 passando                 | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 85 passando                  | 2026-10-15 |
+| E2E completos (`--workers=1`)                  | 90 (89 + 1 refeito)          | 2026-10-15 |
 | Última migration                               | 0026_tenant_starter_supplier | 2026-10-15 |
 | Branch de trabalho                             | `feat/client-phase-1`        | 2026-10-12 |
 
@@ -71,6 +71,11 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: etapa 3 do chat CPF (onboarding com CPF e escolha do fornecedor)
+
+- 6b29979 (commit da etapa 9fb280a): onboarding em 2 passos, "Seus dados" (nome e CPF, salvo na hora, CPF repetido recusado) e "Seu fornecedor" (busca, filtro por UF, cartões com reputação, barra fixa no rodapé); "Alterar seus dados" com "Trocar fornecedor"; o passo de endereço e o `?cep=` do cadastro saíram; guia com 4 passos (`hasHolder` + `hasSupplier`). `resolveCep` fica para o endereço do comprador e o admin.
+- Portões na pasta principal: lint, tipos, formatação, sem else ✅; testes 1235/1235; build ✅; e2e completos 89/90 em série — a falha foi `ERR_CONNECTION_REFUSED` na porta 3100 (servidor de teste caiu por um instante) e o `admin-suppliers.spec` passou sozinho em seguida; D2 sem rolagem nas 8 larguras em onboarding e painel (o chat CPF mediu 5; completei 414, 1024 e 1920); capturas do chat CPF conferidas (21, dois temas, celular e desktop).
 
 ### 2026-10-15 · Junções: migration 0026 (chat CPF) e item 09 (chat C)
 
