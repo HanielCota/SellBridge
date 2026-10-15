@@ -4,44 +4,39 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 10.b · Rotas cruas do plugin admin e organização (só servidor: ⏸1 e ⏸2 juntos)
-- Última etapa concluída: 8 · Documentar (⏸1+⏸2 aprovado em 2026-10-14; ⏸3 aguardando OK)
-- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1`, portões de novo e aviso ao principal
-- Arquivos tocados: apps/web/src/lib/server/auth-route-policy(.test).ts (novos), auth.ts, apps/web/src/lib/auth-client.ts (comentário), apps/web/e2e/account-security.spec.ts, apps/web/e2e/platform-owner.spec.ts, docs/decisions.md, docs/reviews/2026-10-12-lacunas-cliente.md
-- Decisões tomadas nos pontos de parada: fechar (não auditar) as rotas que o navegador não usa; `.catch` encadeado de `tenant-session.ts:41-45` fica anotado, sem mexer (⏸1+⏸2)
-- Pendências: os e2e que falharam rodaram as rotas de verdade no banco B: uma revendedora descartável foi apagada e uma conta `criada-pela-api-…@sellbridge.test` foi criada. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum)
+_(nenhum)_ · próximo: item 10.c (troca de e-mail com nova verificação e regras do "entrar como cliente"). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
 | Métrica                                        | Valor                              | Medido em  |
 | ---------------------------------------------- | ---------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1206 passando                      | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 432 passando                       | 2026-10-14 |
+| Testes unitários e de integração (`pnpm test`) | 1213 passando                      | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 448 passando                       | 2026-10-14 |
 | Última migration (branch)                      | 0025_store_supplier_and_unique_cpf | 2026-10-14 |
 | Branch de trabalho                             | `claude/client-b-47fa05`           | 2026-10-14 |
 
-C5 no banco B depois da junção com `feat/client-phase-1` (ea6369f, traz a 0025): shared 319, marketplaces 149, web 432, worker 55, database 244, scripts 7.
+C5 no banco B depois da junção com `feat/client-phase-1` (b387940) e do 10.b: shared 317, marketplaces 149, web 448, worker 55, database 237, scripts 7.
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 
-| Item | Título                                 | Situação | Commit  | Notas                                                |
-| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                       |
-| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 (junção ece12e6) · 10.b ⬜ · 10.c ⬜ |
-| 11   | Uploads seguros                        | ⬜       | —       |                                                      |
-| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                      |
-| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                      |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                      |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                                      |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                          |
+| Item | Título                                 | Situação | Commit  | Notas                                       |
+| ---- | -------------------------------------- | -------- | ------- | ------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                              |
+| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ⬜ |
+| 11   | Uploads seguros                        | ⬜       | —       |                                             |
+| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                             |
+| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                             |
+| 19   | Pequenos de segurança e status         | ⬜       | —       |                                             |
+| 24   | Saúde das lojas                        | ⬜       | —       |                                             |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                 |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
 
-### 2026-10-14 · Item 10.b · Rotas cruas do plugin admin e organização — aguardando ⏸3
+### 2026-10-14 · Item 10.b · Rotas cruas do plugin admin e organização — ✅ concluído (c29dbc8, commit local; branch já em dia com feat/client-phase-1 b387940)
 
 - Organização (criar, apagar, convidar) e a checagem de membro em `requireTenantSession` já estavam prontas (audit). Faltava o plugin admin: qualquer admin, inclusive o dono, trocava a senha de um revendedor, apagava a conta, criava contas e listava todas pelas rotas cruas, sem registro (e2e: 200 nas quatro). Agora `/api/auth/admin/*` responde 404 ao navegador, menos entrar e sair como cliente; rota nova do plugin nasce fechada.
 - Revisão independente: nenhum achado alto ou médio; 2 baixos atendidos (comentário no `authClient` sobre as rotas fechadas; e2e de "entrar como" uma atendente com 403, para seguir exercitando a trava do 10.a por HTTP).
