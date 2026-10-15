@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoHydrated, uniqueEmail } from "./helpers";
+import { DEMO_USER, gotoHydrated, uniqueEmail } from "./helpers";
 
 test("redireciona visitante sem sessão para o login", async ({ page }) => {
   await page.goto("/dashboard");
@@ -74,6 +74,17 @@ test("link de redefinição inválido oferece pedir um novo", async ({ page }) =
   await expect(page.getByText("Este link é inválido ou expirou.", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "Pedir um novo link" })).toBeVisible();
 });
+
+for (const redirect of ["//example.com/dashboard", "/\\example.com/dashboard"]) {
+  test(`o login ignora um redirect para outro site (${redirect})`, async ({ page }) => {
+    await gotoHydrated(page, `/login?redirect=${encodeURIComponent(redirect)}`);
+    await page.getByLabel("E-mail").fill(DEMO_USER.email);
+    await page.getByLabel("Senha", { exact: true }).fill(DEMO_USER.password);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    // The default destination, on this site: not example.com, nor a path made from it.
+    await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/dashboard(\?|$)/);
+  });
+}
 
 test("termos e privacidade são páginas públicas", async ({ page }) => {
   await page.goto("/termos");

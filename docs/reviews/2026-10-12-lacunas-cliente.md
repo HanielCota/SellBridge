@@ -79,6 +79,8 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B11 / J17          | ✅ (15/10)       | Teto do corpo antes de ler; chamado conferido antes de gravar anexo; limite de envios por conta (429). S3/R2 fica no 32.c.                                                                                    |
 | N11                | ✅ (15/10)       | Token do fornecedor só no próprio link: leitura do envio por POST e etiqueta por formulário POST; ?token= recusado (item 17).                                                                                 |
 | N12                | ✅ (15/10)       | Diagnóstico com limite por cliente (30/min) e teto total (600/min), em vez de um contador global (item 17).                                                                                                   |
+| B20                | ✅ (15/10)       | `redirect` do login e do onboarding aceita só caminho interno; `//host`, `/\host` e esquemas são descartados (item 19).                                                                                       |
+| B15                | ✅ (15/10)       | Falha de renovação que não é de autorização deixa a loja conectada em "Atenção" no card, com o motivo; sem gravar `error`, para seguir tentando (item 19).                                                    |
 | B8 / N6            | ✅ (14/10)       | Organização sem criação nem exclusão, /organization/* fechado por HTTP e membro reconferido em requireTenantSession (audit + 10.b).                                                                           |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)

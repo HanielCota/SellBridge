@@ -262,14 +262,19 @@ export async function markStoreStatus(
 /** Keeps a connected store usable but shows why the last background call failed. */
 export async function recordStoreError(
   database: Database,
-  storeConnectionId: string,
-  lastError: string,
+  failure: { storeConnectionId: string; lastError: string; refreshTokenEnc: string },
 ): Promise<void> {
+  // Only while the failed refresh token is still the saved one: a slow failure from before a
+  // reconnection must not flag the new connection.
   await database
     .update(storeConnections)
-    .set({ lastError })
+    .set({ lastError: failure.lastError })
     .where(
-      and(eq(storeConnections.id, storeConnectionId), eq(storeConnections.status, "connected")),
+      and(
+        eq(storeConnections.id, failure.storeConnectionId),
+        eq(storeConnections.status, "connected"),
+        eq(storeConnections.refreshTokenEnc, failure.refreshTokenEnc),
+      ),
     );
 }
 
