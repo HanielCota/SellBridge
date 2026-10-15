@@ -47,13 +47,30 @@ export async function signUp(page: Page, name: string): Promise<string> {
   return email;
 }
 
-/** A test CPF with valid check digits (nobody's real one). */
-export const TEST_CPF = "529.982.247-25";
+function cpfCheckDigit(digits: readonly number[]): number {
+  const weightedSum = digits.reduce(
+    (sum, digit, index) => sum + digit * (digits.length + 1 - index),
+    0,
+  );
+  const remainder = (weightedSum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
+}
 
-/** First onboarding step: full name and CPF of the billing holder. */
+/**
+ * A random CPF with valid check digits, formatted as typed (000.000.000-00). Each account needs
+ * its own: the same CPF is refused on a second account.
+ */
+export function testCpf(): string {
+  const base = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  const first = cpfCheckDigit(base);
+  const digits = [...base, first, cpfCheckDigit([...base, first])].join("");
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** First onboarding step: full name and a fresh CPF of the billing holder. */
 export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
   await page.getByLabel("Nome completo").fill(fullName);
-  await page.getByLabel("CPF").fill(TEST_CPF);
+  await page.getByLabel("CPF").fill(testCpf());
   await page.getByRole("button", { name: "Continuar" }).click();
 }
 

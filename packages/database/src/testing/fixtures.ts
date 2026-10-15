@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { eq, inArray } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
@@ -152,3 +152,23 @@ export const testAddress = {
   state: "SP",
   postalCode: "01001-000",
 };
+
+function cpfCheckDigit(digits: readonly number[]): number {
+  const weightedSum = digits.reduce(
+    (sum, digit, index) => sum + digit * (digits.length + 1 - index),
+    0,
+  );
+  const remainder = (weightedSum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
+}
+
+/**
+ * A random CPF with valid check digits, so tests never collide on the one-account-per-CPF
+ * index (nor with the seeded demo account's CPF).
+ */
+export function testCpf(): string {
+  const base = Array.from({ length: 9 }, () => randomInt(10));
+  const first = cpfCheckDigit(base);
+  const second = cpfCheckDigit([...base, first]);
+  return [...base, first, second].join("");
+}

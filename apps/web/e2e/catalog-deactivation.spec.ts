@@ -36,10 +36,10 @@ async function demoSeller() {
     .innerJoin(tenantProfile, eq(tenantProfile.tenantId, member.organizationId))
     .where(eq(user.email, DEMO_USER.email))
     .limit(1);
-  if (!row) {
+  if (row === undefined || row.state === null) {
     throw new Error("Conta demo sem loja ou sem região no banco de teste");
   }
-  return row;
+  return { ...row, state: row.state };
 }
 
 test.beforeAll(async () => {
