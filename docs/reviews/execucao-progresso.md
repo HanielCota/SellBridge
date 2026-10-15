@@ -4,22 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: 22 · Rastreio automático e previsão ("trocar de fornecedor" descartado pela regra R3, decisão do usuário em 2026-10-15)
-- Última etapa concluída: 1 · Preparar
-- Próximo passo: etapa 2 (diagnóstico de D-1, D-4 e I6). Próxima migration: 0028 pela "senha da vez"
+- Item/parte: 22.b · Telas da previsão e do atraso (22.a ✅)
+- Última etapa concluída: 22.a commitada
+- Próximo passo: etapa 1 da 22.b. Próxima migration: 0029 pela "senha da vez"
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
 ## Linha de base
 
-| Métrica                                        | Valor                     | Medido em  |
-| ---------------------------------------------- | ------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1320 passando             | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 392 passando              | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 91 passando               | 2026-10-15 |
-| Última migration                               | 0027_oauth_state_supplier | 2026-10-15 |
-| Branch de trabalho                             | `feat/client-phase-1`     | 2026-10-12 |
+| Métrica                                        | Valor                  | Medido em  |
+| ---------------------------------------------- | ---------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1332 passando          | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 392 passando           | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 91 passando            | 2026-10-15 |
+| Última migration                               | 0028_shipment_tracking | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`  | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -51,7 +51,7 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 19   | Pequenos de segurança e status                  | ⬜       | —                                     |                                                                        |
 | 20   | Página do pedido                                | ✅       | bbf14fc · c6b7987 · ffff29f           | 20.a ✅ bbf14fc · 20.b ✅ c6b7987 · 20.c ✅ ffff29f                    |
 | 21   | Encaminhamento automático e aviso ao fornecedor | ⬜       | —                                     | Depende de D6                                                          |
-| 22   | Rastreio automático e previsão                  | ⬜       | —                                     |                                                                        |
+| 22   | Rastreio automático e previsão                  | 🟡       | (este commit)                         | 22.a ✅ · 22.b ⬜                                                      |
 | 23   | Anúncios completos                              | ⬜       | —                                     |                                                                        |
 | 24   | Saúde das lojas                                 | ⬜       | —                                     |                                                                        |
 | 25   | Central de notificações                         | ⬜       | —                                     | WhatsApp depende de D9                                                 |
@@ -71,6 +71,12 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 22.a · Rastreio automático no servidor — ✅ concluído (commit local)
+
+- Worker lê a cada 30 min os envios do ML a caminho (fila `shipment-tracking`, 100 por vez, o lido há mais tempo primeiro, falha vai para o fim da fila, token recusado expira a loja); migration 0028 (`estimated_delivery_at`, `dispatch_deadline_at`, `tracked_at`, índice parcial `NULLS FIRST`); conector lê `lead_time` nó a nó; regra de atraso em `shared/domain/shipment-delay.ts` (dia inteiro em São Paulo). Tópico `shipments` ficou de fora (ver `decisions.md`).
+- Revisão independente: 1 alto (token ilegível derrubava a tarefa) e 5 médios corrigidos, 3 recomendações aplicadas.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1332/1332; build ✅; M1, M2 (8 envios antigos) e M3 ✅; e2e 15/15.
 
 ### 2026-10-15 · Junção: parte de lojas do 10.c (chat B) — item 10 completo
 

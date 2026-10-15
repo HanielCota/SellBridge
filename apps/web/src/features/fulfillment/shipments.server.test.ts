@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.enqueue.mockResolvedValue(undefined);
   mocks.updateShipment.mockResolvedValue({ statusChanged: true });
-  mocks.applyMarketplaceShipment.mockResolvedValue(undefined);
+  mocks.applyMarketplaceShipment.mockResolvedValue({ changed: true });
 });
 
 describe("shipment writes and stock sync", () => {

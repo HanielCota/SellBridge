@@ -52,7 +52,8 @@ function parseIsoDate(value: string): Date | null {
   return new Date(utcMidnight.getTime() + BRAZIL_OFFSET_MILLISECONDS);
 }
 
-function startOfBrazilDay(date: Date): Date {
+/** Midnight, in Brazil time, of the day the instant falls on. */
+export function startOfBrazilDay(date: Date): Date {
   const parsed = parseIsoDate(toIsoDate(date));
   if (!parsed) {
     throw new Error("Data inválida ao calcular o início do dia");

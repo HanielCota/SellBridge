@@ -65,7 +65,9 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 - Entregue, Devolvido e Cancelado são finais: uma leitura atrasada não muda o envio de volta. "Não entregue" e "Devolvido" só vêm do marketplace; ninguém os escolhe à mão.
 - Exemplos de cada status em `packages/marketplaces/src/mercado-livre/fixtures/shipments.ts`.
 - A homologar com a conta de teste: se `GET /shipments/{id}` traz o endereço completo do destinatário (a visão antiga pedia `x-api-version: 2` para os dados pessoais). Sem endereço, a tela avisa ("O marketplace não informou o endereço completo") e o endereço é digitado à mão.
-- O envio só é lido quando alguém pede (botão na Operação). Os tópicos `shipments` e `post_purchase` (reclamações e devoluções) ainda não são assinados.
+- O envio é lido quando alguém pede (botão na Operação) e, desde o item 22.a, por uma tarefa do worker a cada 30 minutos (`shipment-tracking`): até 100 pedidos por vez, de lojas do Mercado Livre conectadas, com envio ainda a caminho, o lido há mais tempo primeiro. Uma leitura que falha vai para o fim da fila (`tracked_at`), e token recusado expira a loja.
+- Previsão e prazo: `lead_time.estimated_delivery_time.date` (entrega prevista) e `lead_time.estimated_handling_limit.date` (prazo de despacho), lidos de `GET /shipments/{id}` com `x-format-new: true` e guardados em `order_shipments`. Sem esses campos, ou com data ilegível, fica vazio; uma leitura sem eles não apaga a data já conhecida. Formato tirado da documentação oficial ("Mercado Envios", "Gerenciamento de envios"); a homologar com a conta de teste.
+- Os tópicos `shipments` e `post_purchase` (reclamações e devoluções) ainda não são assinados; a tarefa de 30 minutos cobre o rastreio enquanto isso.
 
 ## Notificações (`produto-receba-notificacoes`)
 

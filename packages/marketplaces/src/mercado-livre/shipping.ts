@@ -25,6 +25,8 @@ const shippingSchema = z.object({
   tracking_number: z.string().nullable().optional(),
   tracking_method: z.string().nullable().optional(),
   receiver_address: remoteAddressSchema.nullable().optional(),
+  // Read on its own (`deliveryTimes`): a malformed estimate must not block the whole shipment.
+  lead_time: z.unknown().optional(),
   destination: z
     .object({
       receiver_name: z.string().nullable().optional(),
@@ -39,6 +41,40 @@ const shippingOrderSchema = z.object({
 const shipmentRefsSchema = z
   .array(z.object({ id: z.union([z.number(), z.string()]), type: z.string() }))
   .nullable();
+
+/**
+ * A dated node of `lead_time`, as the "Mercado Envios" pages show it. The estimate's `type` says
+ * how firm it is: "unknown" and "unknown_frame" dates are placeholders, never an estimate.
+ */
+const leadTimeDateSchema = z.object({
+  type: z.string().optional(),
+  date: z.iso.datetime({ offset: true }),
+});
+const leadTimeSchema = z.object({
+  estimated_delivery_time: z.unknown().optional(),
+  estimated_handling_limit: z.unknown().optional(),
+});
+
+/** One node read on its own: a malformed estimate never hides a valid deadline. */
+function leadTimeDate(node: unknown): Date | null {
+  const parsed = leadTimeDateSchema.safeParse(node);
+  if (!parsed.success || parsed.data.type?.startsWith("unknown") === true) {
+    return null;
+  }
+  return new Date(parsed.data.date);
+}
+
+/** The delivery estimate and the dispatch deadline of a shipment (`lead_time`), when known. */
+function deliveryTimes(leadTime: unknown) {
+  const parsed = leadTimeSchema.safeParse(leadTime ?? {});
+  if (!parsed.success) {
+    return { estimatedDeliveryAt: null, dispatchDeadlineAt: null };
+  }
+  return {
+    estimatedDeliveryAt: leadTimeDate(parsed.data.estimated_delivery_time),
+    dispatchDeadlineAt: leadTimeDate(parsed.data.estimated_handling_limit),
+  };
+}
 
 /** `not_delivered` substatuses that mean the parcel is back with the seller, not just failed. */
 const RETURNED_SUBSTATUSES = new Set([
@@ -120,6 +156,7 @@ async function loadSaleShipment(
     trackingCode: raw.tracking_number ?? null,
     carrier: raw.tracking_method ?? null,
     address: parsedAddress?.success ? parsedAddress.data : null,
+    ...deliveryTimes(raw.lead_time),
   };
   return { context, refs, shipping };
 }

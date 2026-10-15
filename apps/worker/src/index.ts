@@ -1,5 +1,5 @@
 import { createDatabase } from "@sellbridge/database/client";
-import { createConnectorRegistry } from "@sellbridge/marketplaces";
+import { createConnectorRegistry, getMercadoLivreShipping } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -22,6 +22,7 @@ import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts"
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
+import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
 import {
   createWebhookEventPruneProcessor,
@@ -147,6 +148,32 @@ const webhookEventSweepWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const processShipmentTracking = createShipmentTrackingProcessor({
+  database,
+  cipher,
+  readShipping: async (store, externalOrderId) =>
+    getMercadoLivreShipping(
+      {
+        clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
+        clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
+      },
+      store,
+      externalOrderId,
+    ),
+  requestStockSync: async () => {
+    await withDeadline(
+      stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS),
+      3000,
+      "Sincronização do estoque",
+    );
+  },
+});
+const shipmentTrackingWorker = new Worker(
+  QUEUE_NAMES.shipmentTracking,
+  async () => processShipmentTracking(),
+  { connection, concurrency: 1 },
+);
+
 const processTicketAutoClose = createTicketAutoCloseProcessor({ database });
 const ticketAutoCloseWorker = new Worker(
   QUEUE_NAMES.ticketAutoClose,
@@ -174,6 +201,7 @@ const webhookDeliveryQueue = new Queue(QUEUE_NAMES.webhookDelivery, { connection
 const publishRecoveryQueue = new Queue(QUEUE_NAMES.publishRecovery, { connection });
 const webhookEventSweepQueue = new Queue(QUEUE_NAMES.webhookEventSweep, { connection });
 const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
+const shipmentTrackingQueue = new Queue(QUEUE_NAMES.shipmentTracking, { connection });
 await scheduleRecurring(stockPriceSyncQueue, STOCK_SYNC_JOB_NAME, 15 * 60 * 1000);
 await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
 await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
@@ -181,6 +209,7 @@ await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-event
 await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 24 * 60 * 60 * 1000);
 await scheduleRecurring(ticketAutoCloseQueue, "close-idle-tickets", 60 * 60 * 1000);
 await scheduleRecurring(tokenRefreshQueue, "refresh-expiring-tokens", 10 * 60 * 1000);
+await scheduleRecurring(shipmentTrackingQueue, "track-shipments", 30 * 60 * 1000);
 
 const workers = [
   publishWorker,
@@ -191,6 +220,7 @@ const workers = [
   publishRecoveryWorker,
   webhookEventSweepWorker,
   ticketAutoCloseWorker,
+  shipmentTrackingWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
@@ -225,6 +255,7 @@ async function shutdown(signal: string): Promise<void> {
     webhookEventQueue.close(),
     webhookEventSweepQueue.close(),
     ticketAutoCloseQueue.close(),
+    shipmentTrackingQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

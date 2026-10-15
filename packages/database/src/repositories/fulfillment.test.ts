@@ -17,6 +17,7 @@ import {
   getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
+  listShipmentsToTrack,
   MAX_SHIPMENT_EVENTS,
   reforwardShipment,
   revokeSupplierLink,
@@ -405,6 +406,101 @@ describe("fulfillment", () => {
     ]);
     // The parcel came back: the order is returned, so it no longer counts as a sale.
     expect(detail.order.status).toBe("returned");
+  });
+
+  it("keeps the marketplace's delivery estimate and dispatch deadline", async () => {
+    const order = await createOrder();
+    await forward(order.id);
+    const estimate = new Date("2026-10-20T03:00:00.000Z");
+    const deadline = new Date("2026-10-16T03:00:00.000Z");
+    await applyMarketplaceShipment(database, tenants.tenantA, order.id, {
+      ...remote("shipped", "shipped"),
+      estimatedDeliveryAt: estimate,
+      dispatchDeadlineAt: deadline,
+    });
+    const first = (await getFulfillmentDetail(database, tenants.tenantA, order.id)).shipments[0];
+    expect(first?.estimatedDeliveryAt).toEqual(estimate);
+    expect(first?.dispatchDeadlineAt).toEqual(deadline);
+    expect(first?.trackedAt).toBeInstanceOf(Date);
+    // A later reading without the dates (the marketplace dropped them) keeps the known ones.
+    await applyMarketplaceShipment(database, tenants.tenantA, order.id, {
+      ...remote("shipped", "shipped"),
+      estimatedDeliveryAt: null,
+      dispatchDeadlineAt: null,
+    });
+    const second = (await getFulfillmentDetail(database, tenants.tenantA, order.id)).shipments[0];
+    expect(second?.estimatedDeliveryAt).toEqual(estimate);
+    expect(second?.dispatchDeadlineAt).toEqual(deadline);
+  });
+
+  it("lists only open parcels of connected Mercado Livre stores for tracking", async () => {
+    const mercadoLivre = await upsertStoreConnection(database, {
+      ...testStoreInput(tenants.tenantA, `ML-${randomUUID()}`),
+      marketplace: "mercado_livre",
+    });
+    const onStore = async (externalOrderId: string, store: string, split = false) => {
+      const [created] = await database
+        .insert(orders)
+        .values({
+          tenantId: tenants.tenantA,
+          storeConnectionId: store,
+          externalOrderId,
+          status: "paid",
+          totalCents: 1000,
+          orderedAt: new Date(),
+        })
+        .returning();
+      if (!created) throw new Error("No order");
+      await database.insert(orderItems).values({
+        tenantId: tenants.tenantA,
+        orderId: created.id,
+        supplierProductId: supplierA.productId,
+        title: "Item",
+        quantity: 1,
+        unitPriceCents: 1000,
+        unitCostCents: 500,
+      });
+      if (split)
+        await database.insert(orderItems).values({
+          tenantId: tenants.tenantA,
+          orderId: created.id,
+          supplierProductId: supplierB.productId,
+          title: "Outro item",
+          quantity: 1,
+          unitPriceCents: 1000,
+          unitCostCents: 500,
+        });
+      await forward(created.id);
+      return created;
+    };
+    const open = await onStore(`TRK-OPEN-${randomUUID()}`, mercadoLivre.id);
+    const delivered = await onStore(`TRK-DONE-${randomUUID()}`, mercadoLivre.id);
+    await applyMarketplaceShipment(
+      database,
+      tenants.tenantA,
+      delivered.id,
+      remote("delivered", "delivered"),
+    );
+    const mockStore = await createOrder();
+    await forward(mockStore.id);
+    // Split between two suppliers: one marketplace parcel, tracked by hand per supplier.
+    const split = await onStore(`TRK-SPLIT-${randomUUID()}`, mercadoLivre.id, true);
+
+    const tracked = (await listShipmentsToTrack(database, { limit: 500 })).map(
+      (row) => row.orderId,
+    );
+    expect(tracked).toContain(open.id);
+    expect(tracked).not.toContain(delivered.id);
+    expect(tracked).not.toContain(mockStore.id);
+    expect(tracked).not.toContain(split.id);
+    const [row] = (await listShipmentsToTrack(database, { limit: 500 })).filter(
+      (candidate) => candidate.orderId === open.id,
+    );
+    expect(row).toMatchObject({
+      tenantId: tenants.tenantA,
+      storeConnectionId: mercadoLivre.id,
+      externalOrderId: open.externalOrderId,
+    });
   });
 
   it("stops showing the buyer's address on a supplier link once the parcel is over", async () => {
