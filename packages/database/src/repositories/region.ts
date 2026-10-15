@@ -3,7 +3,8 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
-import { cepCache, tenantProfile } from "../schema/index.ts";
+import { cepCache, suppliers, tenantProfile } from "../schema/index.ts";
+import { assertActiveSupplier } from "./store-suppliers.ts";
 
 export interface CachedCep {
   cep: string;
@@ -191,4 +192,93 @@ export async function saveBillingHolder(
 ): Promise<BillingHolder> {
   const saved = await upsertTenantProfile(database, { tenantId, ...holder });
   return { fullName: saved.fullName ?? holder.fullName, cpf: saved.cpf ?? holder.cpf };
+}
+
+/** The supplier picked during onboarding, as the onboarding and profile screens show it. */
+export interface StarterSupplier {
+  id: string;
+  name: string;
+  niche: string;
+  state: string;
+  city: string;
+  logoUrl: string | null;
+}
+
+/** What onboarding asks for: who invoices go to, and the supplier the first shop sells. */
+export interface OnboardingProfile {
+  holder: BillingHolder | null;
+  starterSupplier: StarterSupplier | null;
+}
+
+export async function findOnboardingProfile(
+  database: Database,
+  tenantId: string,
+): Promise<OnboardingProfile> {
+  const [row] = await database
+    .select({
+      fullName: tenantProfile.fullName,
+      cpf: tenantProfile.cpf,
+      supplierId: suppliers.id,
+      supplierName: suppliers.name,
+      supplierNiche: suppliers.niche,
+      supplierState: suppliers.state,
+      supplierCity: suppliers.city,
+      supplierLogoUrl: suppliers.logoUrl,
+    })
+    .from(tenantProfile)
+    .leftJoin(suppliers, eq(suppliers.id, tenantProfile.starterSupplierId))
+    .where(eq(tenantProfile.tenantId, tenantId))
+    .limit(1);
+  if (row === undefined) {
+    return { holder: null, starterSupplier: null };
+  }
+  return { holder: holderOf(row), starterSupplier: starterSupplierOf(row) };
+}
+
+function holderOf(row: { fullName: string | null; cpf: string | null }): BillingHolder | null {
+  if (row.fullName === null || row.cpf === null) {
+    return null;
+  }
+  return { fullName: row.fullName, cpf: row.cpf };
+}
+
+function starterSupplierOf(row: {
+  supplierId: string | null;
+  supplierName: string | null;
+  supplierNiche: string | null;
+  supplierState: string | null;
+  supplierCity: string | null;
+  supplierLogoUrl: string | null;
+}): StarterSupplier | null {
+  const { supplierId, supplierName, supplierNiche, supplierState, supplierCity } = row;
+  if (
+    supplierId === null ||
+    supplierName === null ||
+    supplierNiche === null ||
+    supplierState === null ||
+    supplierCity === null
+  ) {
+    return null;
+  }
+  return {
+    id: supplierId,
+    name: supplierName,
+    niche: supplierNiche,
+    state: supplierState,
+    city: supplierCity,
+    logoUrl: row.supplierLogoUrl,
+  };
+}
+
+/**
+ * Saves the supplier picked during onboarding; the first shop the tenant connects sells it.
+ * Only an active supplier can be picked.
+ */
+export async function saveStarterSupplier(
+  database: Database,
+  tenantId: string,
+  supplierId: string,
+): Promise<void> {
+  await assertActiveSupplier(database, supplierId);
+  await upsertTenantProfile(database, { tenantId, starterSupplierId: supplierId });
 }

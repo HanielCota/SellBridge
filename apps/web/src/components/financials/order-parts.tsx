@@ -2,11 +2,13 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import type { OrderFinance } from "@sellbridge/shared/finance";
 import { formatCents } from "@sellbridge/shared/money";
 import { orderMargin, orderSplit, type OrderSplitKind } from "@/features/reports/financial-rows";
+import { PENDING_COST_HINT, PENDING_HATCH_CLASS } from "@/components/reports/pending-cost";
 import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 
 /** Same colors as the period summary, so a row's bar reads like the big one above it. */
 const SPLIT_COLORS: Record<OrderSplitKind, string> = {
+  pending: PENDING_HATCH_CLASS,
   cost: "bg-finance-cost",
   fee: "bg-finance-fee",
   refund: "bg-finance-refund",
@@ -14,6 +16,7 @@ const SPLIT_COLORS: Record<OrderSplitKind, string> = {
 };
 
 const SPLIT_LABELS: Record<OrderSplitKind, string> = {
+  pending: "Custo pendente",
   cost: "Produtos",
   fee: "Taxas",
   refund: "Reembolso",
@@ -86,8 +89,37 @@ function breakdownEntries(row: OrderFinance): BreakdownEntry[] {
   return entries.filter((entry) => entry.cents !== 0);
 }
 
+/** A sale of unknown cost: the revenue, the products' cost that is missing, and no profit yet. */
+function PendingCostBreakdown({ row }: { row: OrderFinance }) {
+  return (
+    <div className="grid gap-2">
+      <dl className="grid gap-1.5 text-footnote">
+        <div className="flex justify-between gap-4">
+          <dt className="font-medium">Receita</dt>
+          <dd className="font-medium tabular-nums">{formatCents(row.revenueCents)}</dd>
+        </div>
+        <div className="flex justify-between gap-4 text-muted-foreground">
+          <dt className="flex items-center gap-2">
+            <span aria-hidden="true" className={cn("size-2 rounded-[3px]", PENDING_HATCH_CLASS)} />
+            Produtos
+          </dt>
+          <dd>custo pendente</dd>
+        </div>
+        <div className="mt-1 flex justify-between gap-4 border-t border-border pt-2">
+          <dt className="font-medium">Lucro</dt>
+          <dd className="font-medium text-muted-foreground">fora do lucro</dd>
+        </div>
+      </dl>
+      <p className="text-xs text-muted-foreground">{PENDING_COST_HINT}</p>
+    </div>
+  );
+}
+
 /** The order's arithmetic, line by line: what came in, each thing that went out, what was left. */
 export function OrderBreakdown({ row }: { row: OrderFinance }) {
+  if (row.costPending) {
+    return <PendingCostBreakdown row={row} />;
+  }
   return (
     <dl className="grid gap-1.5 text-footnote">
       <div className="flex justify-between gap-4">

@@ -92,7 +92,7 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   const supplierContext = await browser.newContext();
   const supplier = await supplierContext.newPage();
   await gotoHydrated(supplier, supplierUrl);
-  await expect(supplier.getByRole("heading", { name: "Ordem de fornecimento" })).toBeVisible();
+  await expect(supplier.getByRole("heading", { level: 1 })).toHaveText(/^Pedido /);
   for (const status of ["Aceito", "Em separação", "Pronto para envio"])
     await supplier.getByRole("button", { name: status, exact: true }).click();
   await supplier.screenshot({ path: test.info().outputPath("supplier-order.png"), fullPage: true });

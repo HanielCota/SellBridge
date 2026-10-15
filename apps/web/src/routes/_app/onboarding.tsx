@@ -1,436 +1,179 @@
-import { formatCep, normalizeCep, type ResolvedAddress } from "@sellbridge/shared/cep";
+import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repositories";
 import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
-import {
-  NO_HOUSE_NUMBER,
-  fullNameSchema,
-  optionalParameter,
-  freeText,
-} from "@sellbridge/shared/schemas";
-import { ArrowLeftIcon, ArrowSquareOutIcon, CheckIcon } from "@phosphor-icons/react";
+import { fullNameSchema, optionalParameter } from "@sellbridge/shared/schemas";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { useForm, useStore } from "@tanstack/react-form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { type ReactNode, useRef, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { FloatingTextField } from "@/components/form/floating-field";
+import { PageHeader } from "@/components/layout/page-header";
+import { type PickableSupplier, SupplierPicker } from "@/components/onboarding/supplier-picker";
 import { BillingNotice, StepProgress } from "@/components/region/billing-holder";
-import { CepField, type CepLookupStatus } from "@/components/region/cep-field";
-import { CurrentRegionCard } from "@/components/region/current-region-card";
-import { RegionMapMark } from "@/components/region/region-map-mark";
+import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { getTenantRegion, updateTenantRegion } from "@/features/region/region.functions";
-import { addressLookupQueryOptions } from "@/features/region/region.queries";
+import {
+  getOnboardingProfile,
+  saveOnboardingHolder,
+  saveOnboardingSupplier,
+} from "@/features/onboarding/onboarding.functions";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
-import { revealAutofill, shakeField } from "@/lib/field-motion";
-import { cepSearchParameter } from "@/lib/cep-search-parameter";
-import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
   redirect: optionalParameter(z.string().startsWith("/")),
-  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
-  cep: cepSearchParameter,
 });
-
-/*
- * Each field validates on change, and a submit runs those same validators. So an error shows up
- * when the user tries to save and goes away the moment the field is fixed, never on blur: a
- * message appearing on blur would shift the form under a click that is already on its way.
- */
-const cepFieldSchema = z
-  .string()
-  .refine((value) => normalizeCep(value) !== null, "Informe um CEP com 8 dígitos");
-const streetFieldSchema = freeText().trim().min(1, "Informe a rua");
-const neighborhoodFieldSchema = freeText().trim().min(1, "Informe o bairro");
-const optionalFieldSchema = z.string();
-
-interface AddressValues {
-  fullName: string;
-  cpf: string;
-  cep: string;
-  street: string;
-  number: string;
-  noNumber: boolean;
-  complement: string;
-  neighborhood: string;
-}
-
-/** The Correios lookup by address, for whoever does not know their CEP. */
-const CORREIOS_CEP_SEARCH_URL = "https://buscacepinter.correios.com.br/app/endereco/index.php";
 
 export const Route = createFileRoute("/_app/onboarding")({
   validateSearch: onboardingSearchSchema,
   head: () => ({ meta: [{ title: "Seus dados | SellBridge" }] }),
-  loader: () => getTenantRegion(),
+  loader: () => getOnboardingProfile(),
   component: OnboardingPage,
 });
 
-type TenantRegion = Awaited<ReturnType<typeof getTenantRegion>>;
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Seu fornecedor" }] as const;
 
 function OnboardingPage() {
-  const region = Route.useLoaderData();
-  if (region) {
-    return (
-      <div className="mx-auto w-full max-w-5xl space-y-6">
-        <PageTitle title="Alterar seus dados" />
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          <CurrentRegionCard region={region} />
-          {/* Sticky so the form stays beside the address card while scrolling. */}
-          <section
-            aria-labelledby="change-region"
-            className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6 lg:sticky lg:top-24"
-          >
-            <div className="space-y-1">
-              <h2 id="change-region" className="text-subhead font-semibold">
-                Seus dados e endereço
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Usados nas notas fiscais e cobranças. Confira antes de salvar.
-              </p>
-            </div>
-            <AddressForm region={region} />
-          </section>
-        </div>
-      </div>
-    );
+  const profile = Route.useLoaderData();
+  if (profile.holder !== null && profile.starterSupplier !== null) {
+    return <EditProfile holder={profile.holder} supplier={profile.starterSupplier} />;
   }
+  return <FirstVisit profile={profile} />;
+}
+
+/** After saving, the next setup step: the stores while there is none, else the catalog. */
+function useFinishOnboarding() {
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  return async function finish() {
+    await router.invalidate();
+    const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
+    await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
+  };
+}
+
+/**
+ * A new account fills two short steps: who invoices go to (name and CPF), then the supplier the
+ * first shop sells, from anywhere in Brazil. Each step saves on its own, so a CPF already in use
+ * is refused right away and coming back later resumes where the account stopped.
+ */
+function FirstVisit({ profile }: { profile: OnboardingProfile }) {
+  const [step, setStep] = useState(profile.holder === null ? 0 : 1);
+  const [holder, setHolder] = useState(profile.holder);
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
-      <div className="flex items-center gap-4">
-        <RegionMapMark className="size-12 shrink-0" />
-        <PageTitle title="Seu cadastro" />
-      </div>
-      <section aria-label="Cadastro" className="surface-card rounded-3xl bg-card p-5 sm:p-8">
-        <AddressForm region={null} />
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <PageHeader
+        title="Seu cadastro"
+        description="Seus dados e o fornecedor da sua primeira loja. Venda sem estoque, de qualquer lugar do Brasil."
+      />
+      <section
+        aria-label="Cadastro"
+        className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8"
+      >
+        <StepProgress steps={SIGNUP_STEPS} current={step} />
+        {step === 0 ? (
+          <HolderForm
+            holder={holder}
+            submitLabel="Continuar"
+            onSaved={(saved) => {
+              setHolder(saved);
+              setStep(1);
+            }}
+          />
+        ) : (
+          <SupplierStep
+            initialSupplierId={profile.starterSupplier?.id ?? null}
+            onBack={() => setStep(0)}
+          />
+        )}
       </section>
     </div>
   );
 }
 
-function PageTitle({ title }: { title: string }) {
-  return (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <p className="text-sm text-muted-foreground">
-        Seu nome, CPF e endereço, usados nas notas fiscais e cobranças.
-      </p>
-    </div>
-  );
-}
-
-/** The saved region wins; before there is one, a CEP typed on the landing page fills the field. */
-function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
-  if (region) {
-    return formatCep(region.cep);
-  }
-  return fromLanding ? formatCep(fromLanding) : "";
-}
-
-function defaultValues(
-  region: TenantRegion,
-  fromLanding: string | undefined,
-  accountName: string,
-): AddressValues {
+function holderDefaults(holder: BillingHolder | null, accountName: string) {
   return {
-    fullName: region?.fullName ?? accountName,
-    cpf: region?.cpf ? formatCpf(region.cpf) : "",
-    cep: initialCep(region, fromLanding),
-    street: region?.street ?? "",
-    number: region?.number && region.number !== NO_HOUSE_NUMBER ? region.number : "",
-    noNumber: region?.number === NO_HOUSE_NUMBER,
-    complement: region?.complement ?? "",
-    neighborhood: region?.neighborhood ?? "",
+    fullName: holder?.fullName ?? accountName,
+    cpf: holder === null ? "" : formatCpf(holder.cpf),
   };
 }
 
-function useAddressForm(region: TenantRegion) {
-  const search = Route.useSearch();
+function useHolderForm(holder: BillingHolder | null, onSaved: (saved: BillingHolder) => void) {
   const { session } = Route.useRouteContext();
-  const navigate = useNavigate();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Set once the address is stored, so the button confirms it while the next page loads.
-  const [isSaved, setIsSaved] = useState(false);
-
   const form = useForm({
-    defaultValues: defaultValues(region, search.cep, session.user.name),
+    defaultValues: holderDefaults(holder, session.user.name),
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
-        await updateTenantRegion({
-          data: {
-            fullName: value.fullName,
-            cpf: value.cpf,
-            cep: value.cep,
-            street: value.street,
-            number: value.noNumber ? NO_HOUSE_NUMBER : value.number,
-            complement: value.complement,
-            neighborhood: value.neighborhood,
-          },
-        });
+        onSaved(await saveOnboardingHolder({ data: value }));
       } catch (error) {
         setSubmitError(errorMessage(error));
-        return;
       }
-      setIsSaved(true);
-      await router.invalidate();
-      const progress = await queryClient.fetchQuery({
-        ...setupProgressQueryOptions(),
-        staleTime: 0,
-      });
-      await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
     },
   });
-  return { form, submitError, isSaved };
+  return { form, submitError };
 }
 
-type AddressFormApi = ReturnType<typeof useAddressForm>["form"];
+type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
 
-function lookupStatus(
-  cep: string | null,
-  query: { isPending: boolean; isError: boolean },
-): CepLookupStatus {
-  if (cep === null) {
-    return "idle";
-  }
-  if (query.isError) {
-    return "missing";
-  }
-  return query.isPending ? "searching" : "found";
+/** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
+function visibleErrors(errors: readonly unknown[], hasSubmitted: boolean): readonly unknown[] {
+  return hasSubmitted ? errors : [];
 }
 
 /**
- * The lookup of the typed CEP, shared with the autofill through the query cache. The saved CEP
- * needs none: its city and state are already known.
+ * On a first attempt, TanStack Form stops at the first field with an error; validating both
+ * first flags name and CPF at once.
  */
-function useCepLookup(form: AddressFormApi, region: TenantRegion) {
-  const typed = useStore(form.store, (state) => normalizeCep(state.values.cep));
-  const cep = typed !== null && typed !== region?.cep ? typed : null;
-  const query = useQuery({ ...addressLookupQueryOptions(cep ?? ""), enabled: cep !== null });
-  const status = lookupStatus(cep, query);
-  const address = status === "found" ? query.data : undefined;
-  const savedPlace = typed !== null && typed === region?.cep ? region : null;
-  const place = address ?? savedPlace;
-  return {
-    cep,
-    status,
-    city: place?.city ?? "",
-    state: place?.state ?? "",
-    error: status === "missing" ? errorMessage(query.error) : null,
-  };
-}
-
-type CepLookup = ReturnType<typeof useCepLookup>;
-
-/**
- * Fills street and neighborhood as soon as a typed CEP resolves, plays the autofill cascade over
- * what it filled and moves the cursor to the first field still to fill. A value the user typed by
- * hand is only replaced by a real one from the CEP; an autofilled value the new CEP does not have
- * is cleared. A CEP that does not exist shakes the field.
- */
-function useCepAutofill(form: AddressFormApi, region: TenantRegion) {
-  const queryClient = useQueryClient();
-  const autofilled = useRef({ street: "", neighborhood: "" });
-
-  function fill(name: "street" | "neighborhood", value: string | null) {
-    if (value) {
-      form.setFieldValue(name, value);
-      autofilled.current[name] = value;
-      return;
-    }
-    if (form.getFieldValue(name) === autofilled.current[name]) {
-      form.setFieldValue(name, "");
-    }
-  }
-
-  return async function handleCepChange(masked: string) {
-    const cep = normalizeCep(masked);
-    if (cep === null || cep === region?.cep) {
-      return;
-    }
-    const address: ResolvedAddress | null = await queryClient
-      .fetchQuery(addressLookupQueryOptions(cep))
-      .catch(() => null);
-    // The user may have kept typing while the lookup ran.
-    if (normalizeCep(form.getFieldValue("cep")) !== cep) {
-      return;
-    }
-    if (address === null) {
-      shakeField(document.getElementById("cep")?.parentElement ?? null);
-      return;
-    }
-    fill("street", address.street);
-    fill("neighborhood", address.neighborhood);
-    const filled = [
-      address.street ? "address-street" : null,
-      address.neighborhood ? "address-neighborhood" : null,
-      "address-city",
-      "address-state",
-    ].filter((id) => id !== null);
-    // After React has painted the new values, city and state included.
-    requestAnimationFrame(() => requestAnimationFrame(() => revealAutofill(filled)));
-    if (document.activeElement?.id === "cep") {
-      const next = address.street ? "address-number" : "address-street";
-      document.getElementById(next)?.focus();
-    }
-  };
-}
-
-/**
- * On a first attempt, TanStack Form gives up as soon as one field already has an error (a
- * half-typed CEP) and never checks the others. Validating every field first flags them all at once.
- */
-async function submitAddress(form: AddressFormApi) {
+async function submitHolder(form: HolderFormApi) {
   await form.validateAllFields("submit");
   await form.handleSubmit();
 }
 
-const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Endereço" }] as const;
-
-/**
- * A first visit fills the form in two steps, holder then address; changing the data later shows
- * everything at once. Both steps share one form, so going back keeps what was typed.
- */
-function AddressForm({ region }: { region: TenantRegion }) {
-  const controller = useAddressForm(region);
-  const [step, setStep] = useState(0);
-  if (region === null && step === 0) {
-    return (
-      <HolderStep
-        form={controller.form}
-        onContinue={() => {
-          setStep(1);
-          requestAnimationFrame(() => document.getElementById("cep")?.focus());
-        }}
-      />
-    );
-  }
-  return (
-    <AddressStep
-      controller={controller}
-      region={region}
-      onBack={region === null ? () => setStep(0) : undefined}
-    />
-  );
-}
-
-/** Checks name and CPF before the address step, flagging both at once. */
-async function holderIsValid(form: AddressFormApi): Promise<boolean> {
-  const results = await Promise.all([
-    form.validateField("fullName", "submit"),
-    form.validateField("cpf", "submit"),
-  ]);
-  return results.every((errors) => errors.length === 0);
-}
-
-async function continueIfValid(form: AddressFormApi, onContinue: () => void) {
-  if (await holderIsValid(form)) {
-    onContinue();
-  }
-}
-
-function HolderStep({ form, onContinue }: { form: AddressFormApi; onContinue: () => void }) {
-  const [showErrors, setShowErrors] = useState(false);
-  return (
-    <form
-      noValidate
-      className="grid gap-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setShowErrors(true);
-        void continueIfValid(form, onContinue);
-      }}
-    >
-      <StepProgress steps={SIGNUP_STEPS} current={0} />
-      <HolderFields form={form} showErrors={showErrors} />
-      <BillingNotice />
-      <Button type="submit" size="lg" className="w-full sm:w-fit">
-        Continuar
-      </Button>
-    </form>
-  );
-}
-
-function AddressStep({
-  controller,
-  region,
-  onBack,
+function HolderForm({
+  holder,
+  submitLabel,
+  onSaved,
 }: {
-  controller: ReturnType<typeof useAddressForm>;
-  region: TenantRegion;
-  onBack: (() => void) | undefined;
+  holder: BillingHolder | null;
+  submitLabel: string;
+  onSaved: (saved: BillingHolder) => void;
 }) {
-  const { form, submitError, isSaved } = controller;
-  const lookup = useCepLookup(form, region);
-  const handleCepChange = useCepAutofill(form, region);
+  const { form, submitError } = useHolderForm(holder, onSaved);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   return (
     <form
       noValidate
-      className="grid gap-5"
+      className="grid grid-cols-1 gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        void submitAddress(form);
+        void submitHolder(form);
       }}
     >
-      {region ? (
-        <div className="grid gap-3">
-          <HolderFields form={form} showErrors={hasSubmitted} />
-          <BillingNotice />
-        </div>
-      ) : (
-        <StepProgress steps={SIGNUP_STEPS} current={1} />
-      )}
+      <HolderFields form={form} showErrors={hasSubmitted} />
       {submitError ? (
         <Alert variant="destructive">
           <AlertDescription>{submitError}</AlertDescription>
         </Alert>
       ) : null}
-      <div>
-        <CepRow
-          form={form}
-          lookup={lookup}
-          hasSubmitted={hasSubmitted}
-          onCepChange={handleCepChange}
-        />
-      </div>
-      <AddressFields
-        form={form}
-        hasSubmitted={hasSubmitted}
-        city={lookup.city}
-        state={lookup.state}
-      />
-      <AddressActions form={form} isSaved={isSaved} onBack={onBack} />
+      <BillingNotice />
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-fit">
+            {isSubmitting ? "Salvando…" : submitLabel}
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }
 
-function AddressActions({
-  form,
-  isSaved,
-  onBack,
-}: {
-  form: AddressFormApi;
-  isSaved: boolean;
-  onBack: (() => void) | undefined;
-}) {
-  return (
-    <div className="flex flex-col-reverse gap-3 sm:flex-row">
-      {onBack ? (
-        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
-          <ArrowLeftIcon aria-hidden="true" />
-          Voltar
-        </Button>
-      ) : null}
-      <SubmitButton form={form} isSaved={isSaved} />
-    </div>
-  );
-}
-
-function HolderFields({ form, showErrors }: { form: AddressFormApi; showErrors: boolean }) {
+function HolderFields({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <form.Field name="fullName" validators={{ onChange: fullNameSchema }}>
@@ -466,246 +209,232 @@ function HolderFields({ form, showErrors }: { form: AddressFormApi; showErrors: 
   );
 }
 
-function SubmitButton({ form, isSaved }: { form: AddressFormApi; isSaved: boolean }) {
+/** Saves the picked supplier; `onSaved` runs only when it was stored. */
+function useSaveSupplier(onSaved: () => Promise<void>) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save(supplierId: string) {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await saveOnboardingSupplier({ data: { supplierId } });
+    } catch (caught) {
+      setError(errorMessage(caught));
+      setIsSaving(false);
+      return;
+    }
+    setIsSaved(true);
+    await onSaved();
+  }
+  return { save, isSaving, isSaved, error };
+}
+
+function SupplierStep({
+  initialSupplierId,
+  onBack,
+}: {
+  initialSupplierId: string | null;
+  onBack: () => void;
+}) {
+  const finish = useFinishOnboarding();
+  const [picked, setPicked] = useState<PickableSupplier | null>(null);
+  const saving = useSaveSupplier(finish);
+  const pickedId = picked?.id ?? initialSupplierId;
   return (
-    <form.Subscribe selector={(state) => state.isSubmitting}>
-      {(isSubmitting) => (
-        <Button
-          type="submit"
-          size="lg"
-          disabled={isSubmitting || isSaved}
-          className="w-full sm:w-fit"
+    <div className="grid min-w-0 grid-cols-1 gap-5">
+      <div className="space-y-1">
+        <h2 className="text-subhead font-semibold">Escolha seu fornecedor</h2>
+        <p className="text-sm text-muted-foreground">
+          Ele vende pela sua primeira loja e entrega direto ao seu cliente. Para vender de outro
+          fornecedor, conecte outra loja depois.
+        </p>
+      </div>
+      <SupplierPicker value={pickedId} onChange={setPicked} />
+      {saving.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{saving.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {/* Pinned while the supplier list scrolls, so the choice can be confirmed from anywhere. */}
+      <div className="sticky bottom-3 z-10 -mx-2 flex items-center gap-2 rounded-3xl bg-card/80 p-2 backdrop-blur-xl backdrop-saturate-150 contrast-more:bg-card">
+        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
+          <ArrowLeftIcon aria-hidden="true" />
+          Voltar
+        </Button>
+        <ContinueButton
+          supplierName={picked?.name ?? null}
+          disabled={pickedId === null || saving.isSaving || saving.isSaved}
+          isSaving={saving.isSaving}
+          isSaved={saving.isSaved}
+          onClick={() => {
+            if (pickedId !== null) {
+              void saving.save(pickedId);
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContinueButton({
+  supplierName,
+  disabled,
+  isSaving,
+  isSaved,
+  onClick,
+}: {
+  supplierName: string | null;
+  disabled: boolean;
+  isSaving: boolean;
+  isSaved: boolean;
+  onClick: () => void;
+}) {
+  if (isSaved) {
+    return (
+      <Button type="button" size="lg" disabled className="min-w-0 flex-1 sm:flex-none">
+        <CheckIcon
+          weight="bold"
+          className="animate-in duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] zoom-in-50 motion-reduce:zoom-in-100"
+          aria-hidden="true"
+        />
+        Fornecedor salvo
+      </Button>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size="lg"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-w-0 flex-1 sm:flex-none"
+    >
+      {isSaving ? "Salvando…" : null}
+      {/* Phones keep it short; the picked card already shows the name. */}
+      {!isSaving && supplierName !== null ? (
+        <>
+          <span className="sm:hidden">Continuar</span>
+          <span className="hidden truncate sm:inline">Continuar com {supplierName}</span>
+        </>
+      ) : null}
+      {!isSaving && supplierName === null ? "Continuar" : null}
+      {isSaving ? null : <ArrowRightIcon aria-hidden="true" />}
+    </Button>
+  );
+}
+
+/** Both steps done: change the holder data or the supplier of the first shop, side by side. */
+function EditProfile({
+  holder,
+  supplier,
+}: {
+  holder: BillingHolder;
+  supplier: NonNullable<OnboardingProfile["starterSupplier"]>;
+}) {
+  const router = useRouter();
+  const [savedHolder, setSavedHolder] = useState(false);
+  return (
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <PageHeader
+        title="Alterar seus dados"
+        description="Seus dados de cobrança e o fornecedor escolhido no cadastro."
+      />
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <section
+          aria-labelledby="holder-data"
+          className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
         >
-          {isSaved ? (
-            <>
-              <CheckIcon
-                weight="bold"
-                className="animate-in duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] zoom-in-50 motion-reduce:zoom-in-100"
-                aria-hidden="true"
-              />
-              Dados salvos
-            </>
-          ) : null}
-          {!isSaved && isSubmitting ? "Salvando…" : null}
-          {!isSaved && !isSubmitting ? "Salvar dados" : null}
+          <h2 id="holder-data" className="text-subhead font-semibold">
+            Seus dados
+          </h2>
+          <HolderForm
+            holder={holder}
+            submitLabel={savedHolder ? "Dados salvos" : "Salvar dados"}
+            onSaved={() => {
+              setSavedHolder(true);
+              void router.invalidate();
+            }}
+          />
+        </section>
+        <StarterSupplierCard supplier={supplier} />
+      </div>
+    </div>
+  );
+}
+
+function StarterSupplierCard({
+  supplier,
+}: {
+  supplier: NonNullable<OnboardingProfile["starterSupplier"]>;
+}) {
+  const [isChanging, setIsChanging] = useState(false);
+  return (
+    <section
+      aria-labelledby="starter-supplier"
+      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <h2 id="starter-supplier" className="text-subhead font-semibold">
+          Fornecedor escolhido no cadastro
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          A primeira loja que você conectar vende os produtos dele.
+        </p>
+      </div>
+      <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-4">
+        <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{supplier.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {supplier.niche} · {supplier.city} - {supplier.state}
+          </p>
+        </div>
+      </div>
+      {isChanging ? (
+        <SupplierChange currentId={supplier.id} onDone={() => setIsChanging(false)} />
+      ) : (
+        <Button type="button" variant="outline" onClick={() => setIsChanging(true)}>
+          Trocar fornecedor
         </Button>
       )}
-    </form.Subscribe>
+    </section>
   );
 }
 
-/** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
-function visibleErrors(errors: readonly unknown[], hasSubmitted: boolean): readonly unknown[] {
-  return hasSubmitted ? errors : [];
-}
-
-function CepRow({
-  form,
-  lookup,
-  hasSubmitted,
-  onCepChange,
-}: {
-  form: AddressFormApi;
-  lookup: CepLookup;
-  hasSubmitted: boolean;
-  onCepChange: (masked: string) => Promise<void>;
-}) {
+/** Picks another starter supplier; saving or cancelling closes the picker. */
+function SupplierChange({ currentId, onDone }: { currentId: string; onDone: () => void }) {
+  const router = useRouter();
+  const [picked, setPicked] = useState<string | null>(null);
+  const saving = useSaveSupplier(async () => {
+    await router.invalidate();
+    onDone();
+  });
   return (
-    <div className="grid items-start gap-2 sm:grid-cols-2 sm:gap-4">
-      <form.Field name="cep" validators={{ onChange: cepFieldSchema }}>
-        {(field) => (
-          <CepField
-            value={field.state.value}
-            errors={[
-              ...visibleErrors(field.state.meta.errors, hasSubmitted),
-              ...(lookup.error ? [lookup.error] : []),
-            ]}
-            status={lookup.status}
-            onBlur={field.handleBlur}
-            onValueChange={(masked) => {
-              field.handleChange(masked);
-              void onCepChange(masked);
-            }}
-          />
-        )}
-      </form.Field>
-      <a
-        href={CORREIOS_CEP_SEARCH_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex w-fit items-center gap-1 rounded-md px-1 text-footnote text-brand-text underline-offset-4 hover:underline focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none sm:h-14"
-      >
-        Não sei meu CEP
-        <ArrowSquareOutIcon className="size-3.5" aria-hidden="true" />
-        <span className="sr-only">(abre a busca dos Correios em nova aba)</span>
-      </a>
-    </div>
-  );
-}
-
-function TextInput({
-  form,
-  name,
-  id,
-  label,
-  autoComplete,
-  schema = optionalFieldSchema,
-  hasSubmitted,
-  className,
-}: {
-  form: AddressFormApi;
-  name: "street" | "complement" | "neighborhood";
-  id: string;
-  label: string;
-  autoComplete: string;
-  schema?: z.ZodType<string, string>;
-  hasSubmitted: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <form.Field name={name} validators={{ onChange: schema }}>
-        {(field) => (
-          <FloatingTextField
-            id={id}
-            label={label}
-            autoComplete={autoComplete}
-            value={field.state.value}
-            errors={visibleErrors(field.state.meta.errors, hasSubmitted)}
-            onBlur={field.handleBlur}
-            onValueChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-    </div>
-  );
-}
-
-function NumberInput({ form, hasSubmitted }: { form: AddressFormApi; hasSubmitted: boolean }) {
-  return (
-    <form.Subscribe selector={(state) => state.values.noNumber}>
-      {(noNumber) => (
-        <div className="grid gap-2 sm:col-span-2">
-          <form.Field
-            name="number"
-            validators={{
-              // Re-checked when "Sem número" is ticked, which answers the question too.
-              onChangeListenTo: ["noNumber"],
-              onChange: ({ value, fieldApi }) =>
-                fieldApi.form.getFieldValue("noNumber") || value.trim().length > 0
-                  ? undefined
-                  : "Informe o número",
-            }}
-          >
-            {(field) => (
-              <FloatingTextField
-                id="address-number"
-                label="Número"
-                autoComplete="address-line2"
-                disabled={noNumber}
-                value={noNumber ? "" : field.state.value}
-                errors={visibleErrors(field.state.meta.errors, hasSubmitted)}
-                onBlur={field.handleBlur}
-                onValueChange={field.handleChange}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            )}
-          </form.Field>
-          <form.Field name="noNumber">
-            {(field) => (
-              <div className="flex w-fit items-center gap-2 px-1">
-                <Checkbox
-                  id="address-no-number"
-                  checked={field.state.value}
-                  onCheckedChange={(checked) => field.handleChange(checked === true)}
-                />
-                <label htmlFor="address-no-number" className="text-footnote text-muted-foreground">
-                  Sem número
-                </label>
-              </div>
-            )}
-          </form.Field>
-        </div>
-      )}
-    </form.Subscribe>
-  );
-}
-
-/** Filled from the CEP and read-only: city and state decide which suppliers deliver. */
-function LockedField({ id, label, value }: { id: string; label: string; value: string }) {
-  return (
-    <FloatingTextField
-      id={id}
-      label={label}
-      value={value}
-      errors={[]}
-      readOnly
-      tabIndex={-1}
-      onValueChange={() => undefined}
-      className="cursor-default bg-muted/60 focus:border-field-border focus:ring-0"
-    />
-  );
-}
-
-interface AddressFieldsProps {
-  form: AddressFormApi;
-  hasSubmitted: boolean;
-  city: string;
-  state: string;
-}
-
-function AddressFields({ form, hasSubmitted, city, state }: AddressFieldsProps) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-6">
-      <TextInput
-        form={form}
-        name="street"
-        id="address-street"
-        label="Rua ou avenida"
-        autoComplete="address-line1"
-        schema={streetFieldSchema}
-        hasSubmitted={hasSubmitted}
-        className="sm:col-span-6"
-      />
-      <NumberInput form={form} hasSubmitted={hasSubmitted} />
-      <TextInput
-        form={form}
-        name="complement"
-        id="address-complement"
-        label="Complemento (opcional)"
-        autoComplete="address-line3"
-        hasSubmitted={hasSubmitted}
-        className="sm:col-span-4"
-      />
-      <PlaceFields form={form} hasSubmitted={hasSubmitted} city={city} state={state} />
-    </div>
-  );
-}
-
-function PlaceFields({ form, hasSubmitted, city, state }: AddressFieldsProps) {
-  return (
-    <>
-      <TextInput
-        form={form}
-        name="neighborhood"
-        id="address-neighborhood"
-        label="Bairro"
-        autoComplete="address-level3"
-        schema={neighborhoodFieldSchema}
-        hasSubmitted={hasSubmitted}
-        className="sm:col-span-3"
-      />
-      <div className="sm:col-span-2">
-        <LockedField id="address-city" label="Cidade" value={city} />
+    <div className="grid min-w-0 grid-cols-1 gap-4">
+      <SupplierPicker value={picked ?? currentId} onChange={(next) => setPicked(next.id)} />
+      {saving.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{saving.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+        <Button type="button" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          disabled={picked === null || picked === currentId || saving.isSaving}
+          onClick={() => {
+            if (picked !== null) {
+              void saving.save(picked);
+            }
+          }}
+        >
+          {saving.isSaving ? "Salvando…" : "Salvar fornecedor"}
+        </Button>
       </div>
-      <div className="sm:col-span-1">
-        <LockedField id="address-state" label="UF" value={state} />
-      </div>
-      <FieldNote className="sm:col-span-6">Cidade e UF vêm do CEP.</FieldNote>
-    </>
+    </div>
   );
-}
-
-function FieldNote({ className, children }: { className?: string; children: ReactNode }) {
-  return <p className={cn("px-1 text-footnote text-muted-foreground", className)}>{children}</p>;
 }

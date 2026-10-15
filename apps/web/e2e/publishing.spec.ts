@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { gotoHydrated, saveAddress, signUp, waitForHydration } from "./helpers";
+import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
@@ -9,9 +9,9 @@ function cardStatus(page: Page, status: string) {
   return page.getByText(status, { exact: true }).filter({ visible: true });
 }
 
-async function onboardInBeloHorizonte(page: Page) {
+async function onboardWithBhBeauty(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
-  await saveAddress(page, "30130010");
+  await completeOnboarding(page, "BH Beauty Distribuidora");
   // Next setup step: connect a store.
   await expect(page).toHaveURL(/\/lojas/);
 }
@@ -50,7 +50,7 @@ async function openPublishFormForFirstProduct(page: Page) {
 
 test("conecta loja simulada, publica produto e acompanha o status", async ({ page }) => {
   await signUp(page, "Revendedora Publicação");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja E2E");
 
   await openPublishFormForFirstProduct(page);
@@ -74,7 +74,7 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
 
 test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ page }) => {
   await signUp(page, "Revendedora Duplicado");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Única");
 
   await openPublishFormForFirstProduct(page);
@@ -91,7 +91,7 @@ test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ pa
 
 test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await signUp(page, "Revendedora Ações");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Ações");
   await openPublishFormForFirstProduct(page);
   await page.getByLabel("Título").fill("Produto com ações");
@@ -131,7 +131,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
 
 test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await signUp(page, "Revendedor Erro");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Recusa");
 
   await openPublishFormForFirstProduct(page);
@@ -155,7 +155,7 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
 
 test("valida o formulário de publicação e bloqueia preço abaixo do custo", async ({ page }) => {
   await signUp(page, "Revendedor Validação");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Validação");
 
   await openPublishFormForFirstProduct(page);
@@ -177,7 +177,7 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
 
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
   await signUp(page, "Revendedor Sem Loja");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await openPublishFormForFirstProduct(page);
   await expect(
     page.getByText("Conecte uma loja antes de publicar").filter({ visible: true }),
@@ -189,7 +189,7 @@ test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) 
 
 test("desconecta uma loja após confirmação", async ({ page }) => {
   await signUp(page, "Revendedor Desconecta");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Temporária");
   await page.getByRole("button", { name: "Opções de Loja Temporária" }).click();
   await page.getByRole("menuitem", { name: "Desconectar" }).click();
@@ -201,7 +201,7 @@ test("desconecta uma loja após confirmação", async ({ page }) => {
 
 test("publica vários produtos do catálogo de uma vez com regra de preço", async ({ page }) => {
   await signUp(page, "Revendedora Lote");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Lote");
 
   await gotoHydrated(page, "/catalogo");
@@ -237,7 +237,7 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
 
 test("publica em lote com margem própria para um dos produtos", async ({ page }) => {
   await signUp(page, "Revendedora Margem");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Margem");
 
   await gotoHydrated(page, "/catalogo");

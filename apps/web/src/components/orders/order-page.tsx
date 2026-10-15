@@ -76,7 +76,21 @@ function OrderHeader({ page }: { page: OrderPageData }) {
 }
 
 /** What was sold: each line with its price and what the supplier charges for it. */
-function OrderItems({ items }: { items: OrderPageData["order"]["items"] }) {
+/** What the supplier charges for one unit, or that it is not known (a listing not ours). */
+function unitCostText(item: OrderPageData["order"]["items"][number], costPending: boolean): string {
+  if (item.productId !== null) {
+    return `custo ${formatCents(item.unitCostCents)} cada`;
+  }
+  return costPending ? "custo pendente" : "sem custo do catálogo";
+}
+
+function OrderItems({
+  items,
+  costPending,
+}: {
+  items: OrderPageData["order"]["items"];
+  costPending: boolean;
+}) {
   return (
     <PageSection id="order-items" title="Itens" card>
       <ul className="divide-y">
@@ -88,8 +102,8 @@ function OrderItems({ items }: { items: OrderPageData["order"]["items"] }) {
             <div className="min-w-0">
               <p className="font-medium">{item.title}</p>
               <p className="text-sm text-muted-foreground tabular-nums">
-                {item.quantity} × {formatCents(item.unitPriceCents)} · custo{" "}
-                {formatCents(item.unitCostCents)} cada
+                {item.quantity} × {formatCents(item.unitPriceCents)} ·{" "}
+                {unitCostText(item, costPending)}
               </p>
             </div>
             <p className="font-medium tabular-nums">
@@ -226,7 +240,7 @@ export function OrderPageView({ page }: { page: OrderPageData }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <OrderAside page={page} />
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
-          <OrderItems items={page.order.items} />
+          <OrderItems items={page.order.items} costPending={page.finance.costPending} />
           <PageSection id="order-shipping" title="Envio">
             <OrderOperations orderId={page.order.id} />
           </PageSection>

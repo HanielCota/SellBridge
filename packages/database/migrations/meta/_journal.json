@@ -183,6 +183,13 @@
       "when": 1792026698831,
       "tag": "0025_store_supplier_and_unique_cpf",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792031235081,
+      "tag": "0026_tenant_starter_supplier",
+      "breakpoints": true
     }
   ]
 }
