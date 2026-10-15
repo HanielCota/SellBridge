@@ -1,6 +1,28 @@
-# Coordenação entre os chats (versão de 2026-10-14, 5 chats)
+# Coordenação entre os chats (versão de 2026-10-15, 3 chats)
 
-> **Encerrada em 2026-10-14.** O usuário fechou os chats B, C, D e E e voltou a um chat só (pasta `SellBridge`, branch `feat/client-phase-1`, banco `sellbridge_desk`), que faz todos os itens que faltam. Este arquivo fica como histórico; a "senha da vez" das migrations não vale mais. As pastas `SellBridge-b`…`-e` e os bancos `sellbridge_desk_b`…`_e` só são apagados com o OK do usuário.
+## 0. Divisão atual (2026-10-15, 3 chats) — vale por cima das seções 1 e 4
+
+Depois de um dia em chat único, o usuário voltou a dividir, agora em **3 chats**, todos neste projeto. As regras das seções 2 e 3 continuam valendo. Nas seções 1 e 4, D e E não existem mais e B e C mudaram de pasta.
+
+| Chat                                   | Onde                                                                                      | Área (dono dos arquivos)                                                                                                                                                                                                                                                                                                         | Itens, nesta ordem                                                                                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Principal** ("Execução tela a tela") | pasta `SellBridge`, branch `feat/client-phase-1`, banco `sellbridge_desk`                 | Pedidos, envio e link do fornecedor (`components/fulfillment/*`, `components/orders/*`, `routes/_app/pedidos*`, `routes/fornecedor/*`, `repositories/fulfillment*`, `order-*`). **Junta** as branches B e C e faz a revisão final                                                                                                | X-1 (em andamento), U-3, U-4, U-9, "trocar de fornecedor num envio cancelado", 22, 21 (atrás de flag até D6), correções das pastas antigas (ver Pendências do andamento) |
+| **B**                                  | worktree própria em `.claude/worktrees/`, branch criada a partir de `feat/client-phase-1` | Segurança, contas e lojas (`lib/server/auth*`, `middleware*`, `tenant-session*`, `components/stores/*`, `features/stores/*`, `routes/_app/lojas*`, `integracoes*`, `profile/*`, `perfil*`, `privacidade*`, anexos em `features/support`)                                                                                         | 03, 10, 11, 12, 17, 19, 24, 30                                                                                                                                           |
+| **C**                                  | worktree própria em `.claude/worktrees/`, branch criada a partir de `feat/client-phase-1` | Catálogo, publicação e dinheiro (`components/catalog/*`, `listings/*`, `financials/*`, `reports/*` menos o painel, `admin-suppliers/*`, `routes/_app/catalogo*`, `publicacoes/*`, `financeiro*`, `fornecedores/*`, `repositories/listings*`, `listing-*`, `reports*`, `suppliers*`, `admin-suppliers*`, `packages/marketplaces`) | 09 (falta o custo pendente), 13, 14, 15, 18, 23                                                                                                                          |
+
+Ficam para depois (um chat assume quando terminar a sua lista, combinando com o principal): 16, 25, 26, 27, 28, 29, 31, 32.
+
+**Recursos** (os bancos `sellbridge_desk_b` e `_c` já estão na migration 0023):
+
+| Chat      | Banco               | Redis do app | Preview                  | E2E (porta, health, Redis) |
+| --------- | ------------------- | ------------ | ------------------------ | -------------------------- |
+| Principal | `sellbridge_desk`   | db 0         | `sellbridge-desk` · 3300 | 3100 · 3101 · db 1         |
+| B         | `sellbridge_desk_b` | db 2         | 3500                     | 3150 · 3151 · db 3         |
+| C         | `sellbridge_desk_c` | db 4         | 3600                     | 3160 · 3161 · db 5         |
+
+Na primeira vez, cada chat cria o `.env` da sua worktree (copie o `.env` da pasta principal e troque `DATABASE_URL`, `REDIS_URL`, `APP_URL`, `BETTER_AUTH_URL` e acrescente `E2E_PORT`, `E2E_WORKER_HEALTH_PORT`, `E2E_REDIS_DB` conforme a tabela; `.env` não vai para o git) e, para o painel de preview, acrescenta no `.claude/launch.json` **da pasta principal** uma entrada `sellbridge-b` ou `sellbridge-c` com `pnpm -C <caminho da sua worktree> --filter @sellbridge/web exec vite dev --port <porta> --strictPort` e as variáveis do seu banco (o arquivo é local e ignorado pelo git).
+
+**Fluxo de junção:** ao fechar cada item (depois do OK do ⏸3 e do commit), o chat faz `git merge feat/client-phase-1` na sua branch, roda os portões e manda ao principal, por `SendMessage`, a branch e o hash. O principal junta na `feat/client-phase-1`. Migrations seguem a "senha da vez" (seção 3.1), mandando o hash ao principal ("Execução tela a tela").
 
 Vale por cima da divisão por número de item dos prompts `chat-paralelo-*.md`. O trabalho é dividido **por área do produto**: cada chat é dono de um conjunto de pastas e telas, e os itens seguem a área. Todos seguem `execucao-tela-a-tela.md` (etapas, pontos de parada, portões, design), com os ajustes da seção 3.
 
@@ -46,7 +68,7 @@ Qualquer chat pode criar migration, um por vez:
 2. `git merge feat/client-phase-1` na sua branch. O número da nova migration é o próximo depois do último em `packages/database/migrations/meta/_journal.json` **da branch principal** (`git show feat/client-phase-1:packages/database/migrations/meta/_journal.json`).
 3. Gere a migration (`drizzle-kit generate`), confira que o `when` dela é maior que todos os anteriores (portão M3) e rode M1 e M2.
 4. Commite a migration e o journal **num commit só, separado** do resto do item (`feat(db): …`).
-5. Mande mensagem ao principal (`SendMessage` para "SELLBRIDGE MOBILE") com o hash do commit. O principal faz `git cherry-pick <hash>` (ou junta a branch) na hora, aplica no banco dele e apaga o `migration-lock.txt`.
+5. Mande mensagem ao principal (`SendMessage` para "Execução tela a tela") com o hash do commit. O principal faz `git cherry-pick <hash>` (ou junta a branch) na hora, aplica no banco dele e apaga o `migration-lock.txt`.
 6. Se o principal não estiver disponível, avise o usuário; não libere a senha sozinho.
 
 ### 3.2 Menos paradas em item sem tela
