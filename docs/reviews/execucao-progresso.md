@@ -4,22 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: _(nenhum)_. Próximos deste chat: 21 (encaminhamento automático, atrás de flag até D6), correções das pastas antigas (avaliações no sino e no painel, contraste do modo claro, rolagem ao trocar filtro, seed)
-- Última etapa concluída: item 22 ✅ (22.a 424f7bd · 22.b)
-- Próximo passo: etapa 1 do item 21. Próxima migration: 0029 pela "senha da vez"
+- Item/parte: 21.b · Encaminhar sozinho (atrás de flag) e e-mail ao fornecedor
+- Última etapa concluída: — (21.a fechado; antes da 21.b, junção do item 15 do C, do item 17 do B e da etapa 6 do CPF)
+- Próximo passo: etapas 1–3 da 21.b e ⏸1
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
 ## Linha de base
 
-| Métrica                                        | Valor                  | Medido em  |
-| ---------------------------------------------- | ---------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1350 passando          | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 392 passando           | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 91 passando            | 2026-10-15 |
-| Última migration                               | 0028_shipment_tracking | 2026-10-15 |
-| Branch de trabalho                             | `feat/client-phase-1`  | 2026-10-12 |
+| Métrica                                        | Valor                           | Medido em  |
+| ---------------------------------------------- | ------------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1364 passando                   | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 392 passando                    | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 91 passando                     | 2026-10-15 |
+| Última migration                               | 0029_supplier_contact_deadlines | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`           | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -71,6 +71,11 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 21.a · Contato e prazos do fornecedor — ✅ concluído (commit local)
+
+- Cadastro do fornecedor ganha o bloco "Pedidos": e-mail para pedidos (opcional, só a equipe vê) e prazos para aceitar e despachar, em horas (padrão 24 h e 48 h, de 1 a 720, aceite não passa o despacho). Migration 0029 em commit separado.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1364/1364; build ✅; M1, M2 (sem diferença no `generate`) e M3 ✅; e2e 2/2 (`admin-suppliers`); D2 sem rolagem nas 8 larguras; 8 capturas (dois temas, celular e desktop, com e sem erro).
 
 ### 2026-10-15 · Item 22.b · Previsão e atraso nas telas — ✅ concluído (commit local)
 

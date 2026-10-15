@@ -6,10 +6,15 @@ import { TextareaField } from "@/components/form/textarea-field";
 import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { SectionCard } from "@/components/layout/section-card";
 import { adminSaveSupplier } from "@/features/admin-suppliers/suppliers.functions";
-import { catalogFormErrors, supplierFormValues } from "@/features/admin-suppliers/form-values";
+import {
+  catalogFormErrors,
+  supplierFormInput,
+  supplierFormValues,
+} from "@/features/admin-suppliers/form-values";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
 import { errorMessage } from "@/lib/errors";
 import { CoverageFields, StateField } from "./coverage-fields";
+import { SupplierContactFields } from "./supplier-contact-fields";
 
 interface SupplierFormProps {
   detail?: { supplier: AdminSupplier; coverage: { state: string; city: string | null }[] };
@@ -60,15 +65,9 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
   const save = useCatalogAction(adminSaveSupplier, "Fornecedor salvo", onSaved);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = adminSaveSupplierSchema.safeParse({
-      ...values,
-      supplierId: detail?.supplier.id,
-      logoUrl: values.logoUrl.trim() || null,
-      coverage: values.coverage.map((region) => ({
-        state: region.state,
-        city: region.city.trim() || null,
-      })),
-    });
+    const parsed = adminSaveSupplierSchema.safeParse(
+      supplierFormInput(values, detail?.supplier.id),
+    );
     setErrors(parsed.success ? {} : catalogFormErrors(parsed.error));
     if (parsed.success) {
       save.mutate({ data: parsed.data });
@@ -93,6 +92,11 @@ export function SupplierForm({ detail, onSaved }: SupplierFormProps) {
             maxLength={10_000}
             errors={errors.description ?? []}
             onValueChange={(description) => setValues((current) => ({ ...current, description }))}
+          />
+          <SupplierContactFields
+            values={values}
+            errors={errors}
+            onChange={(change) => setValues((current) => ({ ...current, ...change }))}
           />
           <CoverageFields
             values={values.coverage}

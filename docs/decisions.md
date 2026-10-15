@@ -468,3 +468,10 @@ Decisão do usuário no ⏸1. Com a regra R3 ("uma loja, um fornecedor", etapa 4
 - Painel de envio ("Operar pedido" e página do pedido): "Despachar até" enquanto está com o fornecedor, "Entrega prevista" depois de enviado, e o aviso empilhado sob o status. A página do pedido mostra a previsão no próprio painel de envio, e não num passo do resumo (o painel já está na página; um passo repetiria a mesma data).
 - Sino: `shipment_late` na aba Problemas, com o que fazer e link para o pedido; como a falta de estoque, "Limpar tudo" não esconde e some quando o envio anda.
 - Junto: a linha "Gerar novo link / Revogar acesso" passa a quebrar no celular, e a grade da página do pedido ganhou `grid-cols-1` (rolava 100 px em 320 px, já antes desta parte).
+
+## 2026-10-15 · Contato e prazos do fornecedor (item 21.a)
+
+- **Três campos novos em `suppliers`** (migration 0029): `contact_email` (opcional, guardado em minúsculas), `accept_within_hours` (padrão 24) e `dispatch_within_hours` (padrão 48). O prazo vai de 1 a 720 horas (30 dias), e o de aceite não pode passar o de despacho. Um `check` no banco garante isso também. Os fornecedores que já existiam ficaram com 24 h e 48 h.
+- **Só a equipe vê o contato:** as consultas do lojista (diretório, lista e catálogo) escolhem as colunas uma a uma e não trazem o e-mail. Um teste confere isso.
+- **Os prazos contam a partir do encaminhamento.** Quem usa esses prazos é a 21.c (aceite atrasado e prazo de despacho quando o marketplace não manda data). O e-mail é usado na 21.b, atrás da flag do encaminhamento automático, até a decisão D6 (login do fornecedor).
+- **Formulário:** bloco "Pedidos" no cadastro do fornecedor, separado da cobertura, para não conflitar com a etapa 7 do chat CPF, que tira a cobertura da tela.

@@ -41,6 +41,9 @@ const supplierInput = {
   city: "São Paulo",
   logoUrl: null,
   coverage: [{ state: "SP" as const, city: null }],
+  contactEmail: "pedidos@fornecedor-teste.com.br",
+  acceptWithinHours: 12,
+  dispatchWithinHours: 36,
 };
 const productValues = {
   sku: "ADMIN-1",
@@ -96,6 +99,45 @@ describe("admin suppliers", () => {
     ).rejects.toThrow(/Failed query/);
     expect((await getAdminSupplier(database, supplierId)).supplier.name).toBe(supplierInput.name);
     await saveAdminSupplier(database, { ...supplierInput, supplierId });
+  });
+
+  it("keeps the e-mail for orders and the deadlines, away from the reseller pages", async () => {
+    expect((await getAdminSupplier(database, supplierId)).supplier).toMatchObject({
+      contactEmail: "pedidos@fornecedor-teste.com.br",
+      acceptWithinHours: 12,
+      dispatchWithinHours: 36,
+    });
+    await saveAdminSupplier(database, {
+      ...supplierInput,
+      supplierId,
+      contactEmail: null,
+      acceptWithinHours: 6,
+    });
+    expect((await getAdminSupplier(database, supplierId)).supplier).toMatchObject({
+      contactEmail: null,
+      acceptWithinHours: 6,
+      dispatchWithinHours: 36,
+    });
+    await saveAdminSupplier(database, { ...supplierInput, supplierId });
+    // Only the admin and the order e-mail use the contact: the reseller never sees it.
+    const directory = await getDirectorySupplier(database, supplierId);
+    const listed = await listActiveSuppliers(database, { search: supplierInput.name });
+    for (const supplier of [directory, ...listed]) {
+      expect(Object.keys(supplier)).not.toContain("contactEmail");
+    }
+  });
+
+  it("gives a supplier created without deadlines one day to accept and two to dispatch", async () => {
+    const [created] = await database
+      .insert(suppliers)
+      .values({ name: `Sem prazo ${randomUUID()}`, niche: "Teste", state: "SP", city: "Santos" })
+      .returning();
+    expect(created).toMatchObject({
+      contactEmail: null,
+      acceptWithinHours: 24,
+      dispatchWithinHours: 48,
+    });
+    if (created) await database.delete(suppliers).where(eq(suppliers.id, created.id));
   });
 
   it("previews and upserts by supplier/SKU while retaining ids and suggested prices", async () => {
