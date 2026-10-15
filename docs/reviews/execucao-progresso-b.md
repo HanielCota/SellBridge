@@ -4,48 +4,47 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 10.c · Troca de e-mail com nova verificação e regras do "entrar como cliente" (com tela: 3 paradas)
-- Última etapa concluída: 8 · Documentar (⏸2 aprovado em 2026-10-15; ⏸3 aguardando OK)
-- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1`, portões de novo e aviso ao principal. A parte de lojas (conectar loja e botões) fica para depois da junção da etapa 4 do CPF
-- Arquivos tocados: lib/server/impersonation(.test).ts, impersonation-window(.test).ts, middleware(.test).ts, tenant-session(.test).ts, auth.ts, auth-route-policy(.test).ts; features/admin/email-change.server(.test).ts, customers.functions.ts, admin-actions(.test).ts; features/public-api/api-keys.functions.ts e webhooks.functions.ts; features/support/support.server.ts; features/profile/avatar.server.ts; features/auth/session.functions.ts; components/layout/impersonation-banner.tsx; components/integrations/* (trava); routes/_app/integracoes.tsx, route.tsx, admin/clientes/$userId.tsx; packages/database/src/repositories/owner-promotion(.test).ts e index.ts; e2e/impersonation.spec.ts; docs
-- Decisões tomadas nos pontos de parada: lista de bloqueio aprovada (chaves de API, webhooks, desconectar e conectar loja, assinatura, dados do titular); promoção a dono apaga também logins sociais; e-mail antigo recebe aviso mascarado (⏸1)
-- Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`. Ordem combinada com o principal (2026-10-15): a etapa 4 do chat de CPF vai primeiro em `features/stores/oauth.server.ts` (+test), `store-connect-errors.ts`, `components/stores/store-list.tsx`, `add-store.tsx` e `routes/_app/lojas.tsx`; o 10.c faz todo o resto e aplica a parte de lojas (código `impersonating` no OAuth e botões desativados) por cima, depois da junção da etapa 4. O nome `disconnectStoreFn` não muda. No próximo merge, rodar o migrate (0026)
+- Item/parte: 10.c (resto) · parte de lojas do "entrar como cliente" (recusar conectar loja no OAuth, código `impersonating`, e desativar Conectar e Desconectar na tela de Lojas)
+- Última etapa concluída: 10.c commitado sem a parte de lojas (7bd26d1)
+- Próximo passo: esperar o hash da junção da etapa 4 do CPF (principal avisa), juntar e aplicar a parte de lojas por cima; enquanto isso, seguir para o item 11
+- Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
-| Métrica                                        | Valor                              | Medido em  |
-| ---------------------------------------------- | ---------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1213 passando                      | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 448 passando                       | 2026-10-14 |
-| Última migration (branch)                      | 0025_store_supplier_and_unique_cpf | 2026-10-14 |
-| Branch de trabalho                             | `claude/client-b-47fa05`           | 2026-10-14 |
+| Métrica                                        | Valor                     | Medido em  |
+| ---------------------------------------------- | ------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1283 passando             | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 502 passando              | 2026-10-14 |
+| Última migration (branch)                      | 0027_oauth_state_supplier | 2026-10-14 |
+| Branch de trabalho                             | `claude/client-b-47fa05`  | 2026-10-14 |
 
-C5 no banco B depois da junção com `feat/client-phase-1` (b387940) e do 10.b: shared 317, marketplaces 149, web 448, worker 55, database 237, scripts 7.
+C5 no banco B depois da junção com `feat/client-phase-1` (0027) e do 10.c: shared 321, marketplaces 149, web 502, worker 55, database 249, scripts 7.
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 
-| Item | Título                                 | Situação | Commit  | Notas                                       |
-| ---- | -------------------------------------- | -------- | ------- | ------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                              |
-| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ⬜ |
-| 11   | Uploads seguros                        | ⬜       | —       |                                             |
-| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                             |
-| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                             |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                             |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                             |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                 |
+| Item | Título                                 | Situação | Commit  | Notas                                                                        |
+| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                               |
+| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c 🟡 7bd26d1 (falta a parte de lojas) |
+| 11   | Uploads seguros                        | ⬜       | —       |                                                                              |
+| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                                              |
+| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                                              |
+| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                              |
+| 24   | Saúde das lojas                        | ⬜       | —       |                                                                              |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                  |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
 
-### 2026-10-15 · Item 10.c · Troca de e-mail e regras do "entrar como cliente" — aguardando ⏸3
+### 2026-10-15 · Item 10.c · Troca de e-mail e regras do "entrar como cliente" — 🟡 commitado sem a parte de lojas (7bd26d1, commit local)
 
 - Antes: e-mail trocado pelo admin continuava "verificado" (e2e: `emailVerified` true); durante o "entrar como", só criar chave e webhook eram bloqueados, nada levava o nome do admin e a volta não era registrada. Agora: regra central no `tenantMiddleware` (9 ações bloqueadas pelo nome, demais escritas registradas como "Como o cliente: …"), rotas de segurança da conta fechadas na visita, 1 h conferida no servidor, banner com "até HH:MM", Integrações travada, ficha com "E-mail não confirmado", promoção a dono apagando também logins sociais.
 - O teste de nomes pegou na hora uma renomeação da etapa do CPF (`updateTenantRegion` → `saveOnboardingHolder`).
 - Revisão independente: 2 rodadas. Corrigidos: rotas de vínculo de conta abertas na visita e escritas fora do middleware sem registro (médios); aviso ao e-mail antigo dependia do registro, limite de 1 h dependia de cookie (inclusive nas rotas de nome e foto) e "Saiu da conta" gravado antes da saída (baixos). Mantido: casamento só por nome (teste cobre renomeação).
+- Portões: C1–C4 ✅, C5 1283/1283, C6 ✅, C7 26/26 (impersonation, admin, platform-owner, account-security, integrations, webhooks, billing, support, accessibility), D2 8 larguras.
 - Erro de processo corrigido na hora: criei um commit temporário com `--no-verify` para fazer a junção; desfeito com `reset --soft` antes de qualquer outra coisa.
 
 ### 2026-10-14 · Item 10.b · Rotas cruas do plugin admin e organização — ✅ concluído (c29dbc8, commit local; branch já em dia com feat/client-phase-1 b387940)
