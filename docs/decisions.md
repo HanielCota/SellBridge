@@ -386,6 +386,13 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Reativar × desativar ao mesmo tempo:** a reativação lê a disponibilidade com `FOR SHARE` nas linhas do produto e do fornecedor, na mesma transação do update. Se o admin desativa no meio, um espera o outro, e o resultado é sempre "pausado" (teste de concorrência em `catalog-deactivation.test.ts`). Uma publicação em andamento no instante da desativação pode terminar "no ar" com estoque 0 (08.a); o card e o sino mostram o motivo e o menu oferece "Pausar".
 - **Pendente para o dono das migrations (principal):** índice em `listings.supplier_product_id`. Hoje a pausa de um fornecedor grande varre os anúncios de todos os revendedores dentro da trava do fornecedor.
 
+## 2026-10-15 · Titular da conta (CPF) e fornecedores abertos a todos
+
+- **Titular:** o cadastro pede nome completo e CPF, guardados em `tenant_profile` (migration 0024, colunas anuláveis) só com os dígitos e validados na borda (`cpfSchema`). Servem para notas fiscais e cobranças; não vão para logs nem para as telas da equipe (`getCustomerDetail` e a troca de região do admin devolvem o endereço sem `cpf` e `fullName`).
+- **Contas antigas sem CPF:** o passo "Seu cadastro" do guia volta a aparecer até o titular ser informado, e a tela "Alterar seus dados" pede nome e CPF para salvar. Escolha consciente: o dado é necessário para cobrar. Publicar não exige o CPF.
+- **Fornecedores:** a lista e a página de cada fornecedor abrem para qualquer revendedor, com ou sem endereço; o endereço só marca quem entrega. Publicar continua exigindo a cobertura no servidor (`getCatalogProductForRegion`, `getRegionProducts`). Custo e preço sugerido de todos os fornecedores ativos ficam visíveis a todo revendedor.
+- **Pendências registradas:** a lista de fornecedores não tem paginação (cresce com o número de fornecedores); `getSupplierForRegion` e `listNichesForRegion` ficaram sem uso fora dos testes; a saúde do cliente no admin ainda considera "tem região" sem olhar o CPF.
+
 ## 2026-10-14: Uma loja do marketplace pertence a uma organização por vez (item 03, chat B)
 
 - **Uma conexão viva por loja.** O índice único parcial da 0023 (`store_connections_live_shop_idx`, tudo menos `disconnected`) garante que a mesma conta do Mercado Livre não fica conectada em duas organizações. Conectar uma loja que outra organização tem conectada, expirada ou com erro é recusado com "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui." Reconectar na mesma organização continua permitido.

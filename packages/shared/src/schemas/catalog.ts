@@ -47,8 +47,11 @@ export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
 };
 
 export const supplierListSearchSchema = z.object({
+  /** A niche or a product the reseller wants to sell. */
   query: optionalParameter(freeText().trim().max(100)),
   niche: optionalParameter(freeText().trim().max(100)),
+  /** Only suppliers that deliver to the reseller's address; off by default, so all show. */
+  delivering: optionalParameter(z.coerce.boolean()),
   sort: withFallback(supplierSortSchema.default("name"), "name"),
 });
 

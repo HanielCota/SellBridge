@@ -47,15 +47,26 @@ export async function signUp(page: Page, name: string): Promise<string> {
   return email;
 }
 
+/** A test CPF with valid check digits (nobody's real one). */
+export const TEST_CPF = "529.982.247-25";
+
+/** First onboarding step: full name and CPF of the billing holder. */
+export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
+  await page.getByLabel("Nome completo").fill(fullName);
+  await page.getByLabel("CPF").fill(TEST_CPF);
+  await page.getByRole("button", { name: "Continuar" }).click();
+}
+
 /**
- * Fills the onboarding address from a CEP: waits for the CEP to fill the street, types the
- * house number and saves.
+ * Fills the first-visit onboarding: holder step, then the address from a CEP (waits for the CEP
+ * to fill the street, types the house number) and saves.
  */
 export async function saveAddress(page: Page, cep: string, number = "100"): Promise<void> {
+  await fillBillingHolder(page);
   await page.getByLabel("CEP").fill(cep);
   await expect(page.getByLabel("Rua ou avenida")).not.toHaveValue("");
   await page.getByLabel("Número", { exact: true }).fill(number);
-  await page.getByRole("button", { name: "Salvar endereço" }).click();
+  await page.getByRole("button", { name: "Salvar dados" }).click();
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

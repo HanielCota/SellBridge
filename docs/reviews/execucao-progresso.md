@@ -5,9 +5,9 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 ## Em andamento
 
 - Item/parte: X-1 · confirmação de "Cancelar envio" (com X-3, mesmos botões)
-- Última etapa concluída: 2 · Plano e ficha D0 (⏸1 aguardando OK)
-- Próximo passo: depois do OK, testes falhando (⏸2). Próxima migration: 0024 (sem "senha da vez": chat único)
-- Arquivos tocados: nenhum ainda (a árvore está limpa; o plano do ⏸1 lista shared/schemas/fulfillment.ts, repositories/fulfillment(.test).ts, components/fulfillment/operations.tsx e o e2e de fulfillment)
+- Última etapa concluída: 4 · Testes (⏸2 aguardando OK). ⏸1 aprovado em 2026-10-14, com o `ShipmentActions` incluído
+- Próximo passo: depois do OK, etapa 5 (implementar): `ConfirmDialog` com rótulo de saída, diálogo de cancelamento com motivo, ocorrência vazia com alerta, `ShipmentActions` recebendo o objeto do `useShipmentUpdate`. Próxima migration: 0025, pela "senha da vez" (3 chats)
+- Arquivos tocados: apps/web/e2e/fulfillment.spec.ts (auxiliar `forwardedOrder` e 3 testes novos; o teste de cancelamento existente passa a confirmar pelo diálogo)
 - Decisões tomadas nos pontos de parada: **chat único desde 2026-10-14** (o usuário encerrou os chats B, C, D e E). Este chat faz todos os itens que faltam, na ordem da tabela; `docs/prompts/coordenacao.md` fica só como histórico.
 - Pendências: "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
@@ -82,6 +82,14 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Titular da conta (CPF) e fornecedores abertos — ✅ juntado (e4d8343 · 821693b, junção 63a301a)
+
+- Trabalho feito por uma sessão aberta fora do fluxo ("Mudanças de layout do website"), que escrevia direto nesta pasta. Parada a pedido do usuário, levado para a branch `wip/billing-holder` e revisado como um item.
+- O que entra: cadastro e "Alterar seus dados" pedem nome completo e CPF (aviso de uso em notas fiscais e cobranças); migration 0024 (`full_name`, `cpf` anuláveis em `tenant_profile`); passo do guia "Seu cadastro"; Fornecedores e a página de cada fornecedor abertos a todos, com "Entrega na sua região" / "Não entrega no seu CEP", filtro "Só quem entrega no meu CEP" e aviso na página de quem não entrega (sem botão Publicar). A cobertura continua exigida no servidor para publicar.
+- Revisão independente: sem achado alto. Corrigidos: CPF e nome iam para o navegador do admin (`getCustomerDetail` e troca de região) → endereço sem o titular; política de privacidade passa a citar CPF, nome completo e a finalidade fiscal; checagens de `null` explícitas; 3 erros de lint do WIP. Mantido e registrado em `decisions.md`: contas antigas sem CPF voltam a ver o passo "Seu cadastro"; lista de fornecedores sem paginação; código morto (`getSupplierForRegion`, `listNichesForRegion`); saúde do cliente no admin ainda não olha o CPF.
+- Portões (banco descartável `sellbridge_wip`): lint, tipos, formatação, sem else ✅; testes 1140/1140 (shared 306, database 232); build ✅; e2e 25/25 (fornecedores, login, relatórios, acessibilidade, desativação do catálogo); M1 ✅ (banco novo), M3 ✅ (`when` maior que o da 0023); D2 sem rolagem nas 8 larguras em Fornecedores e Alterar seus dados; capturas desktop e celular nos dois temas conferidas.
+- Aplicada no `sellbridge_desk`. Também entrou na branch, por outra sessão, `eaa99e9` (eixo de valores do gráfico do Financeiro mede o maior rótulo).
 
 ### 2026-10-14 · Consolidação: chat único, audit e correção do cabeçalho juntados
 

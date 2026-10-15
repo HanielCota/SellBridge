@@ -82,6 +82,7 @@ export const updateTenantRegion = createServerFn({ method: "POST" })
       number: data.number,
       complement: data.complement ?? null,
       neighborhood: data.neighborhood,
+      holder: { fullName: data.fullName, cpf: data.cpf },
     });
     logger.info("region.updated", { tenantId: context.tenantId, state: region.state });
     // Listings of suppliers that do not deliver to the new region drop to zero stock.
