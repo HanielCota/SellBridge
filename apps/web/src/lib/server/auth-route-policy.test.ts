@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isClosedToBrowsers } from "./auth-route-policy";
+import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy";
 
 const overHttp = (path: string) => ({
   path,
@@ -23,6 +23,24 @@ const ADMIN_ROUTES_THE_BROWSER_NEVER_USES = [
   "/admin/revoke-user-sessions",
   "/admin/has-permission",
 ];
+
+describe("ACCOUNT_SECURITY_PATHS", () => {
+  it.each([
+    "/change-password",
+    "/set-password",
+    "/list-sessions",
+    "/revoke-session",
+    "/revoke-sessions",
+    "/revoke-other-sessions",
+    "/unlink-account",
+    "/link-social",
+    "/get-access-token",
+    "/refresh-token",
+    "/account-info",
+  ])("closes %s during a visit as the customer", (path) => {
+    expect(ACCOUNT_SECURITY_PATHS.has(path)).toBe(true);
+  });
+});
 
 describe("isClosedToBrowsers", () => {
   it.each(ADMIN_ROUTES_THE_BROWSER_NEVER_USES)("closes %s over HTTP", (path) => {

@@ -2,6 +2,10 @@ import { API_SCOPE_LABELS } from "@sellbridge/shared/public-api";
 import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 import { SmartDate } from "@/components/data/smart-date";
 import { Badge } from "@/components/ui/badge";
+import {
+  INTEGRATIONS_LOCKED_REASON,
+  useIntegrationsLocked,
+} from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -67,6 +71,7 @@ function ApiKeyRow({
   onRevoke: (apiKey: ApiKeyView) => void;
 }) {
   const { status } = apiKey;
+  const locked = useIntegrationsLocked();
   return (
     <li
       aria-label={apiKey.name}
@@ -89,6 +94,8 @@ function ApiKeyRow({
           variant="destructive"
           size="sm"
           className="self-start"
+          disabled={locked}
+          title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
           aria-label={`Revogar a chave ${apiKey.name}`}
           onClick={() => onRevoke(apiKey)}
         >

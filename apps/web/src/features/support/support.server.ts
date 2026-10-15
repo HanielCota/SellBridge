@@ -20,6 +20,7 @@ import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
+import { recordImpersonatedCall } from "@/lib/server/impersonation";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
 import {
   storeAttachments,
@@ -71,6 +72,12 @@ export function handleCreateTicket(request: Request) {
       }),
     );
     logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.createTicket",
+      method: "POST",
+    });
     return jsonResponse(201, { ticketId });
   });
 }
@@ -126,6 +133,12 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
         ...reply,
       }),
     );
+    await recordImpersonatedCall({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.reply",
+      method: "POST",
+    });
     return jsonResponse(201, { ok: true });
   });
 }

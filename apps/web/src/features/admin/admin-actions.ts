@@ -9,6 +9,9 @@ import { ISSUE_KIND_LABELS } from "./issue-copy";
 /** Everything an admin can do to a customer's account that lands in its timeline. */
 export const ADMIN_ACTIONS = [
   "impersonated",
+  "impersonation_ended",
+  "acted_as_customer",
+  "email_changed",
   "profile_updated",
   "role_changed",
   "ban_changed",
@@ -34,8 +37,44 @@ function issueLabel(details: AdminEventDetails | null): string {
   return kind ? ISSUE_KIND_LABELS[kind].toLowerCase() : "pendência";
 }
 
+/**
+ * What an admin did inside the customer's account, by server function (see
+ * `lib/server/impersonation.ts`). Anything not listed reads as a generic change.
+ */
+export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
+  forwardOrderFn: "encaminhou um pedido",
+  reforwardShipmentFn: "reencaminhou um envio",
+  updateShipmentFn: "atualizou um envio",
+  rotateSupplierLinkFn: "gerou um novo link do fornecedor",
+  revokeSupplierLinkFn: "cancelou o link do fornecedor",
+  refreshMarketplaceTrackingFn: "atualizou o rastreio",
+  createListing: "publicou um produto",
+  publishProductsInBulk: "publicou produtos em massa",
+  retryListings: "reprocessou publicações",
+  setListingsPausedFn: "pausou ou reativou publicações",
+  updateListingPriceFn: "mudou o preço de uma publicação",
+  saveSupplierReviewFn: "avaliou um fornecedor",
+  clearNotificationsFn: "limpou os avisos",
+  closeMyTicket: "encerrou um chamado",
+  rateMyTicket: "avaliou um chamado",
+  saveOnboardingSupplier: "escolheu o fornecedor inicial",
+  // Routes outside the server functions, named "area.action".
+  "support.createTicket": "abriu um chamado",
+  "support.reply": "respondeu um chamado",
+  "profile.update": "mudou o nome ou a foto do perfil",
+};
+
+function impersonatedActionLabel(details: AdminEventDetails | null): string {
+  const action = details?.action;
+  const label = typeof action === "string" ? IMPERSONATED_ACTION_COPY[action] : undefined;
+  return label ?? "fez uma alteração";
+}
+
 const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => string> = {
   impersonated: () => "Entrou como o cliente",
+  impersonation_ended: () => "Saiu da conta do cliente",
+  acted_as_customer: (details) => `Como o cliente: ${impersonatedActionLabel(details)}`,
+  email_changed: () => "Trocou o e-mail (aguarda confirmação)",
   profile_updated: () => "Editou nome ou e-mail",
   role_changed: (details) => {
     const role = CUSTOMER_ROLES.find((known) => known === details?.role);

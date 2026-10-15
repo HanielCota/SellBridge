@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { assertNotImpersonating } from "@/lib/server/impersonation";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { createApiKeyInputSchema } from "./api-keys";
 import { issueApiKey, listOrganizationApiKeys, revokeOrganizationApiKey } from "./api-keys.server";
@@ -15,7 +14,6 @@ export const createApiKeyFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createApiKeyInputSchema)
   .handler(async ({ context, data }) => {
-    await assertNotImpersonating("criar chaves de API");
     return issueApiKey({ tenantId: context.tenantId, userId: context.userId, request: data });
   });
 

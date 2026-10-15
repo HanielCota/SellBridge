@@ -8,12 +8,15 @@ import {
   type StaffRole,
 } from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
+import { assertVisitNotOver } from "./impersonation-window.ts";
 import { findFirstOrganizationId, isMemberOf } from "./membership.ts";
 
 export interface TenantSession {
   tenantId: string;
   userId: string;
   role: string;
+  /** The admin inside the account through "Entrar como cliente", or null for the customer. */
+  impersonatedBy: string | null;
 }
 
 /**
@@ -28,7 +31,12 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   if (!session) {
     throw unauthorizedError();
   }
-  const base = { userId: session.user.id, role: session.user.role ?? "user" };
+  assertVisitNotOver(session.session);
+  const base = {
+    userId: session.user.id,
+    role: session.user.role ?? "user",
+    impersonatedBy: session.session.impersonatedBy ?? null,
+  };
   const activeId = session.session.activeOrganizationId;
   // The session only remembers the organization; membership is checked every time.
   if (activeId && (await isMemberOf(session.user.id, activeId))) {

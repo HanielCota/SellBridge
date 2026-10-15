@@ -9,6 +9,7 @@ import {
   requireTenantSession,
 } from "./tenant-session.ts";
 import { toUserFacingError } from "./user-facing-error.ts";
+import { assertAllowedWhileImpersonating, recordImpersonatedCall } from "./impersonation.ts";
 
 /** A refused request answers 401 or 403 instead of 500, so clients and monitors see why. */
 function setRefusalStatus(error: unknown): void {
@@ -49,9 +50,20 @@ export const publicMiddleware = createMiddleware({ type: "function" }).middlewar
 /** Requires an authenticated user with an organization (tenant) and injects `tenantId`. */
 export const tenantMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])
-  .server(async ({ next }) => {
+  .server(async ({ next, method, serverFnMeta }) => {
     const context = await requireTenantSession(getRequestHeaders());
-    return next({ context });
+    // Inside a customer's account through "Entrar como cliente": some actions are refused, the
+    // rest is recorded under the admin's name once it went through.
+    const call = {
+      impersonatedBy: context.impersonatedBy,
+      customerId: context.userId,
+      functionName: serverFnMeta.name,
+      method,
+    };
+    assertAllowedWhileImpersonating(call);
+    const result = await next({ context });
+    await recordImpersonatedCall(call);
+    return result;
   });
 
 export const adminMiddleware = createMiddleware({ type: "function" })

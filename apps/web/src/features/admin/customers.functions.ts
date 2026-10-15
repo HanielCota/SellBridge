@@ -49,6 +49,7 @@ import { PROTECTED_ACCOUNT_MESSAGE } from "@/lib/server/account-protection";
 import { auth, isAdminEmail } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { renderActionEmail } from "@/lib/server/email-layout";
 import { sendEmail } from "@/lib/server/mailer";
 import { adminMiddleware } from "@/lib/server/middleware";
 import { resolveCep } from "@/features/region/region.server";
@@ -66,6 +67,7 @@ import {
   rankCustomers,
 } from "./customer-ranking";
 import { onboardingReminderEmail } from "./onboarding-reminder";
+import { type ProfileSaveSteps, saveCustomerProfile } from "./email-change.server";
 
 /** Weeks of orders behind the sparkline in a customer's quick view. */
 const ACTIVITY_WEEKS = 8;
@@ -237,21 +239,55 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
     };
   });
 
+/** Tells the old address that the team moved the account, so a change nobody asked is noticed. */
+async function notifyPreviousAddress(input: { previousEmail: string; maskedEmail: string }) {
+  const email = renderActionEmail(
+    {
+      subject: "O e-mail da sua conta no SellBridge mudou",
+      preview: `A equipe do SellBridge trocou o e-mail da sua conta para ${input.maskedEmail}.`,
+      heading: "O e-mail da sua conta mudou",
+      paragraphs: [
+        `A equipe do SellBridge trocou o e-mail da sua conta para ${input.maskedEmail}.`,
+        "O novo endereço precisa ser confirmado pelo link que enviamos para ele.",
+      ],
+      actionLabel: "Falar com o suporte",
+      actionUrl: new URL("/suporte/novo", environment.APP_URL).toString(),
+      footnote: "Se você não pediu essa troca, fale com o suporte agora.",
+    },
+    environment.APP_URL,
+  );
+  await sendEmail({ to: input.previousEmail, ...email });
+}
+
+/** Better Auth, the mailer and the trail behind `saveCustomerProfile`, for one customer. */
+function profileSaveSteps(adminId: string, userId: string): ProfileSaveSteps {
+  const headers = getRequestHeaders();
+  return {
+    updateUser: async (data) => {
+      await auth.api.adminUpdateUser({ body: { userId, data }, headers });
+    },
+    sendVerification: async (email) => {
+      await auth.api.sendVerificationEmail({ body: { email, callbackURL: "/login" } });
+    },
+    notifyPreviousAddress,
+    record: async (action) => recordAdminAction(adminId, userId, action),
+  };
+}
+
 export const adminUpdateCustomerProfile = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(updateCustomerProfileSchema)
   .handler(async ({ context, data }) => {
-    await requireManageableCustomer(context.actor, data.userId);
+    const customer = await requireManageableCustomer(context.actor, data.userId);
     const email = data.email.toLowerCase();
     if (await isEmailTakenByOther(database, email, data.userId)) {
       throw conflictError("Já existe outra conta com este e-mail");
     }
-    await auth.api.adminUpdateUser({
-      body: { userId: data.userId, data: { name: data.name, email } },
-      headers: getRequestHeaders(),
-    });
-    await recordAdminAction(context.userId, data.userId, "profile_updated");
-    return { ok: true };
+    const { emailChanged } = await saveCustomerProfile(
+      { name: data.name, previousEmail: customer.email, email },
+      profileSaveSteps(context.userId, data.userId),
+    );
+    return { ok: true, emailChanged };
   });
 
 export const adminSetCustomerRole = createServerFn({ method: "POST" })

@@ -24,6 +24,12 @@ const serverEnvironmentShape = z.object({
   BETTER_AUTH_SECRET: z.string().min(32, "deve ter ao menos 32 caracteres"),
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
   PLATFORM_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
+  /** Marketplace commission the previews estimate before an order reports the real one. */
+  ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(1400),
+  // TODO(client:D5): who pays the shipping; 0 keeps it out of the previews until then.
+  ESTIMATED_SHIPPING_CENTS: z.coerce.number().int().min(0).max(100_000_000).default(0),
+  /** Margin a price must keep after every fee; 0 only forbids selling at a loss. */
+  MIN_MARGIN_PERCENT: z.coerce.number().int().min(0).max(90).default(0),
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
     .string()

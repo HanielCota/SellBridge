@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { assertNotImpersonating } from "@/lib/server/impersonation";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { createWebhookEndpointInputSchema } from "./webhooks";
 import {
@@ -20,7 +19,6 @@ export const createWebhookEndpointFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createWebhookEndpointInputSchema)
   .handler(async ({ context, data }) => {
-    await assertNotImpersonating("criar webhooks");
     return createOrganizationWebhookEndpoint({
       tenantId: context.tenantId,
       actor: { userId: context.userId },

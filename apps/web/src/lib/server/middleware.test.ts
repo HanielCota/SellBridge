@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Next = (input?: { context: Record<string, unknown> }) => Promise<unknown>;
-type MiddlewareHandler = (input: { next: Next }) => Promise<unknown>;
+/** What the framework hands every middleware besides `next`. */
+interface CallInfo {
+  method?: string;
+  serverFnMeta?: { name: string };
+}
+type MiddlewareHandler = (input: { next: Next } & CallInfo) => Promise<unknown>;
 interface RegisteredMiddleware {
   handler: MiddlewareHandler;
   /** Middlewares this one runs inside of, outermost first. */
@@ -9,12 +14,18 @@ interface RegisteredMiddleware {
 }
 
 const mocks = vi.hoisted(() => ({
-  getSession: vi.fn<() => Promise<{ user: { id: string; role: string } } | null>>(),
+  getSession: vi.fn<() => Promise<unknown>>(),
   setResponseStatus: vi.fn<(status: number) => void>(),
+  recordAdminEvent: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
+}));
+vi.mock("./database.ts", () => ({ database: {} }));
+vi.mock("@sellbridge/database/repositories", () => ({
+  recordAdminEvent: mocks.recordAdminEvent,
 }));
 vi.mock("./auth.ts", () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock("./membership.ts", () => ({
   findFirstOrganizationId: vi.fn<() => Promise<string | null>>(),
+  isMemberOf: async () => true,
 }));
 vi.mock("@tanstack/react-start/server", () => ({
   getRequestHeaders: () => new Headers(),
@@ -35,14 +46,14 @@ vi.mock("@tanstack/react-start", () => ({
   },
 }));
 
-const { adminMiddleware, staffMiddleware } = await import("./middleware");
+const { adminMiddleware, staffMiddleware, tenantMiddleware } = await import("./middleware");
 
 function isRegistered(value: unknown): value is RegisteredMiddleware {
   return typeof value === "object" && value !== null && "handler" in value && "parents" in value;
 }
 
 /** Runs a middleware the way the framework does: each parent wraps the next step. */
-async function run(middleware: unknown, next: Next): Promise<unknown> {
+async function run(middleware: unknown, next: Next, call: CallInfo = {}): Promise<unknown> {
   if (!isRegistered(middleware)) {
     throw new Error("middleware não registrado");
   }
@@ -53,9 +64,9 @@ async function run(middleware: unknown, next: Next): Promise<unknown> {
       throw new Error("middleware ausente");
     }
     if (index === chain.length - 1) {
-      return current.handler({ next });
+      return current.handler({ next, ...call });
     }
-    return current.handler({ next: async () => step(index + 1) });
+    return current.handler({ next: async () => step(index + 1), ...call });
   };
   return step(0);
 }
@@ -106,5 +117,60 @@ describe("staff middleware", () => {
     const next = vi.fn<Next>().mockResolvedValue({ ok: true });
     await expect(run(staffMiddleware("support.answer"), next)).resolves.toEqual({ ok: true });
     expect(next).toHaveBeenCalledWith({ context: { userId: "agent", role: "agent" } });
+  });
+});
+
+const post = (name: string): CallInfo => ({ method: "POST", serverFnMeta: { name } });
+
+describe("tenant middleware inside a customer's account", () => {
+  const impersonated = {
+    user: { id: "customer-1", role: "user" },
+    session: { activeOrganizationId: "org-1", impersonatedBy: "admin-1", createdAt: new Date() },
+  };
+  const own = { ...impersonated, session: { ...impersonated.session, impersonatedBy: null } };
+
+  it("refuses a blocked action before it runs", async () => {
+    mocks.getSession.mockResolvedValue(impersonated);
+    const next = vi.fn<Next>();
+    await expect(run(tenantMiddleware, next, post("disconnectStoreFn"))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(mocks.setResponseStatus).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("records the admin behind a write made as the customer, once it went through", async () => {
+    mocks.getSession.mockResolvedValue(impersonated);
+    const next = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await expect(run(tenantMiddleware, next, post("forwardOrderFn"))).resolves.toEqual({
+      ok: true,
+    });
+    expect(mocks.recordAdminEvent).toHaveBeenCalledWith(
+      {},
+      {
+        adminId: "admin-1",
+        userId: "customer-1",
+        action: "acted_as_customer",
+        details: { action: "forwardOrderFn" },
+      },
+    );
+  });
+
+  it("records nothing for reads, failed writes or the customer's own session", async () => {
+    mocks.getSession.mockResolvedValue(impersonated);
+    await run(tenantMiddleware, vi.fn<Next>().mockResolvedValue({}), {
+      method: "GET",
+      serverFnMeta: { name: "getOrderPageFn" },
+    });
+    await expect(
+      run(
+        tenantMiddleware,
+        vi.fn<Next>().mockRejectedValue(new Error("falhou")),
+        post("forwardOrderFn"),
+      ),
+    ).rejects.toBeDefined();
+    mocks.getSession.mockResolvedValue(own);
+    await run(tenantMiddleware, vi.fn<Next>().mockResolvedValue({}), post("disconnectStoreFn"));
+    expect(mocks.recordAdminEvent).not.toHaveBeenCalled();
   });
 });
