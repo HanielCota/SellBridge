@@ -25,11 +25,12 @@ const ISSUE_PENALTIES: Record<Exclude<CustomerIssueKind, "onboarding">, number> 
 };
 const MISSING_STEP_PENALTY = 12;
 
-export const ONBOARDING_STEPS = ["region", "store", "listing"] as const;
+export const ONBOARDING_STEPS = ["holder", "supplier", "store", "listing"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export const ONBOARDING_STEP_LABELS: Record<OnboardingStep, string> = {
-  region: "Região",
+  holder: "Dados",
+  supplier: "Fornecedor",
   store: "Loja",
   listing: "Publicação",
 };
@@ -56,13 +57,18 @@ export interface CustomerStoreSignal {
   shopName: string;
   /** Any status but `disconnected`, which the reseller chose and is not a problem. */
   status: string;
+  /** The one supplier the shop sells; null while pending. */
+  supplierName: string | null;
 }
 
 /** The raw counters behind one customer's health. */
 export interface CustomerSignals {
   banned: boolean;
   createdAt: Date;
-  hasRegion: boolean;
+  /** Full name and CPF of who invoices go to. */
+  hasHolder: boolean;
+  /** A supplier picked during onboarding, or a shop already linked to one. */
+  hasSupplier: boolean;
   stores: readonly CustomerStoreSignal[];
   publishedListings: number;
   failedListings: number;
@@ -105,7 +111,8 @@ function brokenStores(signals: CustomerSignals): CustomerStoreSignal[] {
 
 function stepsDone(signals: CustomerSignals): Record<OnboardingStep, boolean> {
   return {
-    region: signals.hasRegion,
+    holder: signals.hasHolder,
+    supplier: signals.hasSupplier,
     store: signals.stores.length > 0,
     listing: signals.publishedListings > 0,
   };

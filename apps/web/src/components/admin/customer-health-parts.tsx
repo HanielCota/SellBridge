@@ -49,7 +49,7 @@ export function CustomerIssueList({
 
 export function OnboardingProgress({ completed }: { completed: number }) {
   return (
-    <ol className="grid grid-cols-3 gap-2">
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {ONBOARDING_STEPS.map((step, index) => {
         const done = index < completed;
         return (

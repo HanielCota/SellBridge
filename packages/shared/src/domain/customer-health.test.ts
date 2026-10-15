@@ -12,8 +12,9 @@ function signals(overrides: Partial<CustomerSignals> = {}): CustomerSignals {
   return {
     banned: false,
     createdAt: daysAgo(60),
-    hasRegion: true,
-    stores: [{ marketplace: "shopee", shopName: "Loja", status: "connected" }],
+    hasHolder: true,
+    hasSupplier: true,
+    stores: [{ marketplace: "shopee", shopName: "Loja", status: "connected", supplierName: null }],
     publishedListings: 10,
     failedListings: 0,
     waitingTickets: 0,
@@ -31,7 +32,7 @@ describe("assessCustomerHealth", () => {
       score: 100,
       level: "healthy",
       issues: [],
-      completedSteps: 3,
+      completedSteps: 4,
       nextStep: null,
       stage: "selling",
     });
@@ -39,9 +40,9 @@ describe("assessCustomerHealth", () => {
 
   it("flags expired or failing stores but not connected ones", () => {
     const stores = [
-      { marketplace: "shopee", shopName: "Shopee", status: "expired" },
-      { marketplace: "mercado_livre", shopName: "ML", status: "error" },
-      { marketplace: "tiktok_shop", shopName: "TikTok", status: "connected" },
+      { marketplace: "shopee", shopName: "Shopee", status: "expired", supplierName: null },
+      { marketplace: "mercado_livre", shopName: "ML", status: "error", supplierName: null },
+      { marketplace: "tiktok_shop", shopName: "TikTok", status: "connected", supplierName: null },
     ];
     const health = assessCustomerHealth(signals({ stores }), NOW);
     expect(health.issues).toEqual([{ kind: "store", stores: stores.slice(0, 2) }]);
@@ -52,7 +53,9 @@ describe("assessCustomerHealth", () => {
   it("orders issues from the most to the least urgent", () => {
     const health = assessCustomerHealth(
       signals({
-        stores: [{ marketplace: "shopee", shopName: "Shopee", status: "expired" }],
+        stores: [
+          { marketplace: "shopee", shopName: "Shopee", status: "expired", supplierName: null },
+        ],
         failedListings: 3,
         waitingTickets: 1,
         recentOrders: 1,
@@ -80,7 +83,7 @@ describe("assessCustomerHealth", () => {
 
     const stalled = assessCustomerHealth({ ...fresh, createdAt: daysAgo(12) }, NOW);
     expect(stalled.issues).toEqual([
-      { kind: "onboarding", nextStep: "store", completedSteps: 1, idleDays: 12 },
+      { kind: "onboarding", nextStep: "store", completedSteps: 2, idleDays: 12 },
     ]);
   });
 

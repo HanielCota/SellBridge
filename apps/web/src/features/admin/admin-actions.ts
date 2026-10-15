@@ -19,6 +19,7 @@ export const ADMIN_ACTIONS = [
   "password_reset_sent",
   "onboarding_reminder_sent",
   "region_updated",
+  "store_supplier_changed",
   "store_disconnected",
   "issue_assigned",
   "issue_released",
@@ -86,7 +87,10 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
   sessions_revoked: () => "Encerrou as sessões",
   password_reset_sent: () => "Enviou redefinição de senha",
   onboarding_reminder_sent: () => "Enviou lembrete dos primeiros passos",
+  // Kept for the history of accounts changed before the address stopped being asked for.
   region_updated: (details) => `Mudou a região${details?.state ? ` para ${details.state}` : ""}`,
+  store_supplier_changed: (details) =>
+    `Trocou o fornecedor de uma loja${details?.supplierName ? ` para ${details.supplierName}` : ""}`,
   store_disconnected: () => "Desconectou uma loja",
   issue_assigned: (details) => `Assumiu: ${issueLabel(details)}`,
   issue_released: (details) => `Devolveu à equipe: ${issueLabel(details)}`,

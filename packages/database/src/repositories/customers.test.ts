@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, orders, session, tickets, user } from "../schema/index.ts";
-import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
+import { member, orders, session, storeConnections, tickets, user } from "../schema/index.ts";
+import {
+  createTestDatabase,
+  createTestSupplierProduct,
+  createTestTenants,
+  testCpf,
+} from "../testing/fixtures.ts";
 import { getCustomer, getWeeklyOrderCounts, listCustomerSignals } from "./customers.ts";
+import { saveBillingHolder } from "./region.ts";
+import { assignStoreSupplier } from "./store-suppliers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -114,13 +121,71 @@ describe("customers", () => {
   it("loads the signals behind the health score", async () => {
     const [customer] = await listCustomerSignals(database, { search: marker });
     expect(customer).toMatchObject({
-      hasRegion: false,
+      hasHolder: false,
+      hasSupplier: false,
       previousOrders: 1,
       waitingTickets: 1,
-      stores: [{ marketplace: "mock", shopName: "Loja do cliente", status: "connected" }],
+      stores: [
+        {
+          marketplace: "mock",
+          shopName: "Loja do cliente",
+          status: "connected",
+          supplierName: null,
+        },
+      ],
     });
     const lastSeen = customer?.lastSeenAt?.getTime() ?? 0;
     expect(Date.now() - lastSeen).toBeGreaterThan(DAY);
+  });
+
+  it("shows the shop's supplier and filters customers by it", async () => {
+    const catalog = await createTestSupplierProduct(database, {
+      sku: `CUS-${marker}`,
+      title: "Produto do cliente",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    try {
+      const [before] = await listCustomerSignals(database, { search: marker });
+      const storeName = before?.stores[0]?.shopName ?? "";
+      const [store] = await database
+        .select({ id: storeConnections.id })
+        .from(storeConnections)
+        .where(eq(storeConnections.tenantId, tenantId));
+      await assignStoreSupplier(database, {
+        tenantId,
+        storeConnectionId: store?.id ?? "",
+        supplierId: catalog.supplierId,
+      });
+      await saveBillingHolder(database, tenantId, {
+        fullName: "Cliente Teste Silva",
+        cpf: testCpf(),
+      });
+
+      const [customer] = await listCustomerSignals(database, {
+        search: marker,
+        supplierId: catalog.supplierId,
+      });
+      expect(customer).toMatchObject({ hasHolder: true, hasSupplier: true });
+      expect(customer?.stores).toEqual([
+        expect.objectContaining({
+          shopName: storeName,
+          supplierName: `Fornecedor de teste CUS-${marker}`,
+        }),
+      ]);
+      expect(
+        await listCustomerSignals(database, {
+          search: marker,
+          supplierId: "00000000-0000-4000-8000-000000000000",
+        }),
+      ).toEqual([]);
+    } finally {
+      await database
+        .update(storeConnections)
+        .set({ supplierId: null })
+        .where(eq(storeConnections.tenantId, tenantId));
+      await catalog.cleanup();
+    }
   });
 
   it("counts orders per week, oldest first", async () => {

@@ -5,14 +5,21 @@ describe("describeIssue", () => {
   it("names the one store to reconnect", () => {
     const copy = describeIssue({
       kind: "store",
-      stores: [{ marketplace: "shopee", shopName: "Loja Ana (loja simulada)", status: "expired" }],
+      stores: [
+        {
+          marketplace: "shopee",
+          shopName: "Loja Ana (loja simulada)",
+          status: "expired",
+          supplierName: null,
+        },
+      ],
     });
     expect(copy.title).toBe("Reconectar Loja Ana");
     expect(copy.description).toContain("expirou");
   });
 
   it("counts stores, listings and tickets in Portuguese plurals", () => {
-    const store = { marketplace: "shopee", shopName: "A", status: "error" };
+    const store = { marketplace: "shopee", shopName: "A", status: "error", supplierName: null };
     expect(describeIssue({ kind: "store", stores: [store, store] }).badge).toBe(
       "2 lojas desconectadas",
     );
@@ -24,13 +31,13 @@ describe("describeIssue", () => {
     const copy = describeIssue({
       kind: "onboarding",
       nextStep: "store",
-      completedSteps: 1,
+      completedSteps: 2,
       idleDays: 12,
     });
     expect(copy).toEqual({
-      title: "Parado em 1 de 3 passos",
+      title: "Parado em 2 de 4 passos",
       description: "Falta: loja. Conta criada há 12 dias.",
-      badge: "Primeiros passos 1/3",
+      badge: "Primeiros passos 2/4",
     });
   });
 

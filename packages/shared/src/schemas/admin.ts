@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { freeText, pageNumberSchema } from "./common.ts";
-import { cepSchema } from "../domain/cep.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
@@ -51,6 +50,8 @@ export const customersSearchSchema = z.object({
   queue: withFallback(issueQueueSchema.default("open"), "open"),
   /** The customer whose quick view is open in the list. */
   open: optionalParameter(freeText().trim().min(1).max(100)),
+  /** Only customers selling this supplier, through a shop or the one picked in onboarding. */
+  supplier: optionalParameter(z.uuid()),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
@@ -82,7 +83,11 @@ export const setCustomerBanSchema = z.object({
   reason: freeText().trim().max(200).optional(),
 });
 
-export const updateCustomerRegionSchema = z.object({ ...customerIdField, cep: cepSchema });
+export const adminStoreSupplierSchema = z.object({
+  ...customerIdField,
+  storeConnectionId: z.uuid(),
+  supplierId: z.uuid(),
+});
 
 export const disconnectCustomerStoreSchema = z.object({
   ...customerIdField,
