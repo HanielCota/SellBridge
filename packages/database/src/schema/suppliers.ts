@@ -22,10 +22,22 @@ export const suppliers = pgTable(
     state: text().notNull(),
     city: text().notNull(),
     logoUrl: text(),
+    /** Where the order e-mails go; admin-only, never shown to resellers. */
+    contactEmail: text(),
+    /** Hours the supplier has to accept a forwarded order. */
+    acceptWithinHours: integer().notNull().default(24),
+    /** Hours the supplier has to dispatch it, counted from the forward. */
+    dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("suppliers_state_idx").on(table.state)],
+  (table) => [
+    index("suppliers_state_idx").on(table.state),
+    check(
+      "suppliers_deadlines_check",
+      sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,
+    ),
+  ],
 );
 
 export const supplierCoverage = pgTable(
