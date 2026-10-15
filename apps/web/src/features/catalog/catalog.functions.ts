@@ -14,7 +14,11 @@ import {
   sellableCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
-import { assertConnectedStores, publishListings } from "@/features/listings/publish-listing.server";
+import {
+  assertConnectedStores,
+  assertStoresSellSuppliers,
+  publishListings,
+} from "@/features/listings/publish-listing.server";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
 
@@ -51,6 +55,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
           id: store.id,
           shopName: store.shopName,
           marketplace: store.marketplace,
+          supplierId: store.supplierId,
         })),
     };
   });
@@ -67,6 +72,11 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
     const products = await getSellableProducts(database, context.tenantId, [
       ...new Set(data.productIds),
     ]);
+    await assertStoresSellSuppliers(
+      context.tenantId,
+      storeIds,
+      products.map((product) => product.supplierId),
+    );
     const toPublish = products.filter((product) => !product.published);
     const drafts = toPublish.map((product) => ({
       supplierProductId: product.id,

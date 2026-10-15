@@ -9,7 +9,11 @@ import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
-import { assertConnectedStores, publishListing } from "./publish-listing.server";
+import {
+  assertConnectedStores,
+  assertStoresSellSuppliers,
+  publishListing,
+} from "./publish-listing.server";
 
 /**
  * The listing write rules, in one place for every entry point (the app's server functions
@@ -33,6 +37,7 @@ export async function createListingForTenant(
   const draft = resolveListingDraft(product, command);
   assertSellablePrice(draft.priceCents, product.costCents);
   const storeIds = await assertConnectedStores(tenantId, command.storeConnectionIds);
+  await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
 
