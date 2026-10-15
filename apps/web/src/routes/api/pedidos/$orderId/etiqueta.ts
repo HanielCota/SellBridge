@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSupplierShipment } from "@sellbridge/database/repositories";
-import { conflictError, isAppError } from "@sellbridge/shared/errors";
+import { conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import { supplierTokenSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { orderShipments } from "@sellbridge/database/schema";
@@ -8,10 +9,24 @@ import { eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
+import { hasTokenInUrl, readSupplierToken } from "@/lib/server/supplier-link-token";
 
+/**
+ * The reseller opens the label with a GET from their session. The supplier posts the link's
+ * token in the form body (see supplier-link-token.ts): a token in the URL, from an old link,
+ * is refused without being read.
+ */
 async function labelTenant(request: Request, orderId: string) {
-  const token = new URL(request.url).searchParams.get("token");
-  if (!token) return (await requireTenantSession(request.headers)).tenantId;
+  if (hasTokenInUrl(request)) {
+    throw validationError("Abra a etiqueta pelo botão da página do pedido.");
+  }
+  if (request.method !== "POST") {
+    return (await requireTenantSession(request.headers)).tenantId;
+  }
+  const token = await readSupplierToken(request);
+  if (token === null) {
+    throw validationError("Abra a etiqueta pelo botão da página do pedido.");
+  }
   const validToken = supplierTokenSchema.parse(token);
   const shipment = await getSupplierShipment(database, validToken);
   if (shipment.orderId !== orderId) throw new Error("Acesso inválido");
@@ -45,6 +60,11 @@ async function handleLabel(request: Request, orderId: string) {
       CONFLICT: 409,
     };
     const status = isAppError(error) ? (statuses[error.code] ?? 400) : 400;
+    // The reason only: never the token or the request URL.
+    logger.warn("web.label_refused", {
+      status,
+      code: isAppError(error) ? error.code : "UNEXPECTED",
+    });
     return new Response(
       isAppError(error) ? error.userMessage : "Não foi possível gerar a etiqueta",
       {
@@ -59,5 +79,10 @@ async function handleLabel(request: Request, orderId: string) {
   }
 }
 export const Route = createFileRoute("/api/pedidos/$orderId/etiqueta")({
-  server: { handlers: { GET: ({ request, params }) => handleLabel(request, params.orderId) } },
+  server: {
+    handlers: {
+      GET: ({ request, params }) => handleLabel(request, params.orderId),
+      POST: ({ request, params }) => handleLabel(request, params.orderId),
+    },
+  },
 });

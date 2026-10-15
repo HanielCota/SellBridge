@@ -65,7 +65,8 @@ function privateResponse() {
   setResponseHeader("Referrer-Policy", "no-referrer");
   setResponseHeader("X-Robots-Tag", "noindex, nofollow");
 }
-export const getSupplierShipmentFn = createServerFn({ method: "GET" })
+// POST: a GET would put the link's token in the request URL (history, proxies, access logs).
+export const getSupplierShipmentFn = createServerFn({ method: "POST" })
   .middleware([publicMiddleware])
   .validator(z.object({ token: supplierTokenSchema }))
   .handler(({ data }) => {
