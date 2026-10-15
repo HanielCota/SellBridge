@@ -92,6 +92,11 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await manualRow.getByRole("button", { name: "Desativar", exact: true }).click();
   await expect(manualRow).toContainText("Desativado");
   await page.getByRole("button", { name: "Desativar fornecedor", exact: true }).click();
+  // Deactivating asks first, with how many resellers sell the supplier.
+  await page
+    .getByRole("dialog", { name: `Desativar ${supplierName}?` })
+    .getByRole("button", { name: "Desativar fornecedor" })
+    .click();
   await expect(page.getByRole("button", { name: "Ativar fornecedor", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });

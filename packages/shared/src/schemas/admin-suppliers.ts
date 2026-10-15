@@ -46,11 +46,10 @@ const supplierContactEmailSchema = z
   .pipe(z.email("Informe um e-mail válido").max(254))
   .nullable();
 
-export const supplierCoverageSchema = z.object({
-  state: stateSchema,
-  city: freeText().trim().min(1).max(120).nullable(),
-});
-
+/**
+ * A supplier as the admin registers it. State and city say where it ships from; any reseller in
+ * Brazil sells any supplier, so there is no delivery area to fill in.
+ */
 export const adminSupplierValuesSchema = z
   .object({
     name: freeText().trim().min(1, "Informe o nome").max(150),
@@ -59,7 +58,6 @@ export const adminSupplierValuesSchema = z
     state: stateSchema,
     city: freeText().trim().min(1, "Informe a cidade").max(120),
     logoUrl: imageUrlSchema.nullable(),
-    coverage: z.array(supplierCoverageSchema).min(1, "Informe ao menos uma região").max(200),
     contactEmail: supplierContactEmailSchema,
     acceptWithinHours: supplierDeadlineSchema,
     dispatchWithinHours: supplierDeadlineSchema,
@@ -71,20 +69,6 @@ export const adminSupplierValuesSchema = z
         path: ["acceptWithinHours"],
         message: "O prazo para aceitar não pode passar o prazo para despachar",
       });
-    }
-  })
-  .superRefine(({ coverage }, context) => {
-    const seen = new Set<string>();
-    for (const [index, region] of coverage.entries()) {
-      const key = `${region.state}:${region.city?.toLowerCase() ?? ""}`;
-      if (seen.has(key)) {
-        context.addIssue({
-          code: "custom",
-          path: ["coverage", index],
-          message: "Cobertura duplicada",
-        });
-      }
-      seen.add(key);
     }
   });
 export type AdminSupplierValues = z.infer<typeof adminSupplierValuesSchema>;
