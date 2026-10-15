@@ -4,7 +4,12 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-_(nenhum)_ · próximo: item 10.b (rotas cruas do plugin admin e organização). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+- Item/parte: 10.b · Rotas cruas do plugin admin e organização (só servidor: ⏸1 e ⏸2 juntos)
+- Última etapa concluída: 8 · Documentar (⏸1+⏸2 aprovado em 2026-10-14; ⏸3 aguardando OK)
+- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1`, portões de novo e aviso ao principal
+- Arquivos tocados: apps/web/src/lib/server/auth-route-policy(.test).ts (novos), auth.ts, apps/web/src/lib/auth-client.ts (comentário), apps/web/e2e/account-security.spec.ts, apps/web/e2e/platform-owner.spec.ts, docs/decisions.md, docs/reviews/2026-10-12-lacunas-cliente.md
+- Decisões tomadas nos pontos de parada: fechar (não auditar) as rotas que o navegador não usa; `.catch` encadeado de `tenant-session.ts:41-45` fica anotado, sem mexer (⏸1+⏸2)
+- Pendências: os e2e que falharam rodaram as rotas de verdade no banco B: uma revendedora descartável foi apagada e uma conta `criada-pela-api-…@sellbridge.test` foi criada. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum)
 
 ## Linha de base
 
@@ -35,6 +40,13 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-14 · Item 10.b · Rotas cruas do plugin admin e organização — aguardando ⏸3
+
+- Organização (criar, apagar, convidar) e a checagem de membro em `requireTenantSession` já estavam prontas (audit). Faltava o plugin admin: qualquer admin, inclusive o dono, trocava a senha de um revendedor, apagava a conta, criava contas e listava todas pelas rotas cruas, sem registro (e2e: 200 nas quatro). Agora `/api/auth/admin/*` responde 404 ao navegador, menos entrar e sair como cliente; rota nova do plugin nasce fechada.
+- Revisão independente: nenhum achado alto ou médio; 2 baixos atendidos (comentário no `authClient` sobre as rotas fechadas; e2e de "entrar como" uma atendente com 403, para seguir exercitando a trava do 10.a por HTTP).
+- Portões: C1–C4 ✅, C5 1213/1213 (1194 da pasta principal depois da junção b387940 + 19 novos), C6 ✅, C7 11/11 (account-security, platform-owner, admin, accessibility) + platform-owner de novo depois do ajuste.
+- Fora do escopo: `tenant-session.ts:41-45` usa `.catch` encadeado (regra da casa).
 
 ### 2026-10-14 · Item 10.a · Owner da plataforma e proteções — ✅ concluído (6c32358, commit local; junção ece12e6)
 

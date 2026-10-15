@@ -71,7 +71,8 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B-9                | ✅ (13/10)       | "Atualizado há X" no catálogo e na página do fornecedor (`ProductStockLine`).                                                                                                                                 |
 | J5                 | 🟡 (13/10)       | Pedidos vinculados ao chamado (`ticket_orders`, migration 0016), visíveis ao revendedor e à equipe. Faltam loja e anúncio, e o botão "Falar com o suporte" nas telas de pedido, loja e anúncio (item 27.a).   |
 | B3                 | ✅ (14/10)       | Uma loja do marketplace fica em uma organização por vez: índice único (0023) e recusa também na conexão simultânea, com a mesma mensagem (item 03). O webhook acha só o dono atual.                           |
-| B7                 | 🟡 (14/10)       | 10.a: dono = ADMIN_EMAILS verificado e admin; só ele gerencia a equipe, também pelas rotas cruas do plugin (trava no hook). Faltam 10.b e 10.c.                                                               |
+| B7                 | 🟡 (14/10)       | 10.a: só o dono gerencia a equipe; 10.b: rotas cruas /admin/* fechadas ao navegador (só entrar e sair como cliente). Falta o 10.c.                                                                            |
+| B8 / N6            | ✅ (14/10)       | Organização sem criação nem exclusão, /organization/* fechado por HTTP e membro reconferido em requireTenantSession (audit + 10.b).                                                                           |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)
 

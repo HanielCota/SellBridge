@@ -68,16 +68,19 @@ test("admin comum não mexe na conta do dono nem da equipe", async ({ browser })
   await expect(page.getByRole("button", { name: "Bloquear conta" })).toBeDisabled();
   await expect(page.getByRole("combobox", { name: "Papel do cliente" })).toBeDisabled();
 
-  // The plugin's own routes refuse too. Harmless calls on the owner (same role), and the
+  // The plugin's own routes are closed to the browser (item 10.b); the guard behind them is
+  // covered by account-protection.test.ts. Harmless calls on the owner (same role), and the
   // destructive ones on a throwaway team account.
-  expect(await callAdminRoute(page, "set-role", { userId: owner.id, role: "admin" })).toBe(403);
+  expect(await callAdminRoute(page, "set-role", { userId: owner.id, role: "admin" })).toBe(404);
   expect(
     await callAdminRoute(page, "set-user-password", {
       userId: agent.id,
       newPassword: "outra-senha-123",
     }),
-  ).toBe(403);
-  expect(await callAdminRoute(page, "ban-user", { userId: agent.id })).toBe(403);
+  ).toBe(404);
+  expect(await callAdminRoute(page, "ban-user", { userId: agent.id })).toBe(404);
+  // Entering an account stays open to the browser: the guard refuses a team account there.
+  expect(await callAdminRoute(page, "impersonate-user", { userId: agent.id })).toBe(403);
   expect(await accountOf(agent.email)).toMatchObject({ role: "agent", banned: false });
   expect(await accountOf(ADMIN_USER.email)).toMatchObject({ role: "admin" });
   await page.close();
