@@ -427,3 +427,12 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Uma marca só para "não sabemos":** hachura diagonal no cinza da receita, sem cor nova (aprovado no ⏸1). Vale para a camada do gráfico de barras, o degrau "Pendente" da cascata, os marcadores dos tooltips e da legenda e a barra de partes do pedido. No texto, sublinhado tracejado neutro; no extrato, `ToneStatus` âmbar "Custo pendente" no lugar do lucro.
 - **A conta fecha na tela:** "Você vendeu X. Y de N vendas ainda não têm custo e ficaram fora do lucro. Do restante, …"; o custo do gráfico é receita − pendente − lucro; a margem (cabeçalho, gráfico de margem, lojas, Painel) é sobre a receita com custo conhecido (`profitMargin`), vazia quando não há nenhuma.
 - **Painel:** o aviso fica na frase de leitura do período; o painel de atenção (do principal) não ganhou item novo.
+
+## 2026-10-15: Um modelo só de taxa para a prévia e o Financeiro (item 15.a)
+
+- **Uma fórmula:** `shared/domain/fee-model.ts` estima a venda montando o pedido e chamando o próprio `computeOrderFinance` do Financeiro. Uma venda cobrada como o modelo estima termina com o lucro que a prévia prometeu, inclusive a taxa da SellBridge (`PLATFORM_FEE_BASIS_POINTS`), que a prévia ignorava (B17).
+- **Configuração** (Zod, `.env.example`): `ESTIMATED_MARKETPLACE_FEE_BASIS_POINTS` (padrão 1400, os 14% de antes), `ESTIMATED_SHIPPING_CENTS` (padrão 0; `TODO(client:D5)`, quem paga o frete) e `MIN_MARGIN_PERCENT` (padrão 0, aprovado no ⏸1: só proíbe vender com prejuízo depois das taxas; o piso no servidor entra na 15.b).
+- **Taxa por categoria:** a estrutura aceita uma taxa por categoria, mas fica vazia; nenhum percentual foi inventado. Ler a taxa real do Mercado Livre (`/sites/MLB/listing_prices` por categoria e preço, com cache) é uma tarefa separada (decisão do usuário no ⏸1).
+- **Frete junto da tarifa:** o pedido tem um campo só para o que o marketplace fica; o frete estimado entra nele. Só bate com o Financeiro quando os pedidos reais gravarem o frete ali também (depende da D5).
+- **Preço para uma margem:** o menor preço que mantém a margem depois de todas as taxas. As duas taxas arredondam para centavos, então um preço maior pode guardar um centavo a menos de lucro; a busca parte do limite exato de baixo e só sobe (a versão antiga de `profit.ts` errava por alguns centavos, por exemplo R$ 16,62 em vez de R$ 16,60).
+- **Para as telas (15.b):** `getFeeSchedule` (`features/reports`, `tenantMiddleware`) entrega o modelo ao cliente.
