@@ -19,7 +19,13 @@ export const financialTotalsSchema = z.object({
     .number()
     .int()
     .describe(
-      "Lucro: receita − custo − tarifa do marketplace − reembolsos + comissões − taxa do SellBridge.",
+      "Lucro: receita − receita com custo pendente − custo − tarifa do marketplace − reembolsos + comissões − taxa do SellBridge.",
+    ),
+  pendingCostRevenueCents: z
+    .number()
+    .int()
+    .describe(
+      "Receita de vendas com custo pendente (item de anúncio criado fora do SellBridge, sem custo conhecido). Já está na receita; o custo, as tarifas, os reembolsos, as devoluções, as comissões e o lucro desses pedidos ficam em zero.",
     ),
 });
 
@@ -35,6 +41,7 @@ export interface FinanceFigures {
   commissionCents: number;
   platformFeeCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
 export function presentFinancialTotals(figures: FinanceFigures): FinancialTotalsDto {
@@ -47,5 +54,6 @@ export function presentFinancialTotals(figures: FinanceFigures): FinancialTotals
     commissionsCents: figures.commissionCents,
     platformFeeCents: figures.platformFeeCents,
     profitCents: figures.profitCents,
+    pendingCostRevenueCents: figures.pendingCostRevenueCents,
   };
 }

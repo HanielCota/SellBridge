@@ -302,7 +302,8 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
 /**
  * Idempotent upsert of a marketplace order: the first delivery creates it with its items,
  * later deliveries (status changes, retries) only update status, totals and fee.
- * Items whose listing is not ours are kept with zero cost so revenue is never lost.
+ * Items whose listing is not ours are kept without a product, so revenue is never lost; the
+ * reports read them as unknown cost ("custo pendente") and leave the order out of the profit.
  * Every write also brings the supplier stock in line with the new status (stock-reservations.ts).
  */
 export async function upsertMarketplaceOrder(
