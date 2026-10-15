@@ -74,7 +74,12 @@ export async function listActiveSuppliers(
     .orderBy(asc(suppliers.name));
 }
 
-export type SupplierDirectoryFilters = ListSuppliersFilters;
+export interface SupplierDirectoryFilters extends ListSuppliersFilters {
+  /** The supplier's state (UF), where it ships from. */
+  state?: string | undefined;
+  /** The supplier's city, matched ignoring case and accents. */
+  city?: string | undefined;
+}
 
 /**
  * The search a reseller types is a niche or a product they want to sell: it matches the
@@ -107,7 +112,32 @@ function directoryConditions(filters: SupplierDirectoryFilters): SQL[] {
   if (searchCondition) {
     conditions.push(searchCondition);
   }
+  if (filters.state) {
+    conditions.push(eq(suppliers.state, filters.state));
+  }
+  if (filters.city) {
+    conditions.push(sql`sellbridge_fold(${suppliers.city}) = sellbridge_fold(${filters.city})`);
+  }
   return conditions;
+}
+
+/** A state with active suppliers, and the cities they are in, for the directory filters. */
+export interface SupplierLocation {
+  state: string;
+  cities: string[];
+}
+
+export async function listSupplierLocations(database: Database): Promise<SupplierLocation[]> {
+  const rows = await database
+    .selectDistinct({ state: suppliers.state, city: suppliers.city })
+    .from(suppliers)
+    .where(eq(suppliers.active, true))
+    .orderBy(asc(suppliers.state), asc(suppliers.city));
+  const byState = new Map<string, string[]>();
+  for (const row of rows) {
+    byState.set(row.state, [...(byState.get(row.state) ?? []), row.city]);
+  }
+  return [...byState].map(([state, cities]) => ({ state, cities }));
 }
 
 /** Every active supplier, from anywhere in Brazil: any reseller sells any of them. */

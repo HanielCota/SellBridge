@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, PackageIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -78,6 +78,14 @@ function CatalogPage() {
       <PageHeader
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
+        actions={
+          <Button asChild>
+            <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
+              <StorefrontIcon weight="bold" aria-hidden="true" />
+              Vender este fornecedor
+            </Link>
+          </Button>
+        }
       />
       <ReputationPanel supplierId={supplier.id} />
       <CatalogFilters categories={query.data.categories} />

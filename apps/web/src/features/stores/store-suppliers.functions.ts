@@ -19,25 +19,31 @@ export interface StoreSuppliersOverview {
   suppliers: StoreSupplier[];
   /** The supplier picked during onboarding, which a first shop sells. */
   starterSupplier: StoreSupplier | null;
+  /** An active supplier the seller came to sell ("Vender este fornecedor"), when asked for. */
+  pickedSupplier: StoreSupplier | null;
 }
 
 /** The suppliers of the tenant's shops and of its onboarding, for the stores page. */
 export const getStoreSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .handler(async ({ context }): Promise<StoreSuppliersOverview> => {
+  .validator(z.object({ pickedSupplierId: z.uuid().optional() }))
+  .handler(async ({ context, data }): Promise<StoreSuppliersOverview> => {
     const [stores, profile] = await Promise.all([
       listStoreConnections(database, context.tenantId),
       findOnboardingProfile(database, context.tenantId),
     ]);
     const starterId = profile.starterSupplier?.id ?? null;
     const ids = stores.flatMap((store) => (store.supplierId === null ? [] : [store.supplierId]));
-    const suppliers = await findStoreSuppliers(
-      database,
-      starterId === null ? ids : [...ids, starterId],
+    const picked = data.pickedSupplierId;
+    const extra = [starterId, picked].flatMap((id) =>
+      id === null || id === undefined ? [] : [id],
     );
+    const suppliers = await findStoreSuppliers(database, [...ids, ...extra]);
     return {
       suppliers,
       starterSupplier: suppliers.find((supplier) => supplier.id === starterId) ?? null,
+      pickedSupplier:
+        suppliers.find((supplier) => supplier.id === picked && supplier.active) ?? null,
     };
   });
 
