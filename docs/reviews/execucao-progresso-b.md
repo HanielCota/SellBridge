@@ -4,11 +4,11 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 19 · Pequenos de segurança e status (B20, B15)
-- Última etapa concluída: 8 · Revisão (pacote ⏸3 apresentado em 2026-10-15, aguardando OK)
-- Próximo passo: depois do OK, commit, junção com feat/client-phase-1, migrate, portões e hash para o chat principal
-- Arquivos tocados: shared/schemas/internal-path(.test).ts, shared/domain/store-attention(.test).ts, shared/package.json, schemas/index.ts, login.tsx, onboarding.tsx, store-status-badge.tsx, store-list.tsx, repositories/stores(.test).ts, worker token-refresh.ts, e2e/store-attention.spec.ts, e2e/auth.spec.ts, decisions.md, relatório de lacunas
-- Decisões tomadas nos pontos de parada: ⏸1 OK (atenção derivada de `connected` + `lastError`, sem gravar `error`; ficha do admin fica para o 24)
+- Item/parte: — (19 concluído; próximo é o 24, aguardando "Próximo")
+- Última etapa concluída: —
+- Próximo passo: item 24 · Saúde das lojas (inclui o estado "Atenção" na ficha do cliente no admin)
+- Arquivos tocados: —
+- Decisões tomadas nos pontos de parada: —
 - Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
@@ -33,7 +33,7 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 | 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                      |
 | 12   | Admin muda a região e apaga o endereço | ⛔       | —       | Parado em `wip/b-item-12-address` (ec5bfc8): etapa 6 do CPF tira o endereço do admin |
 | 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                      |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                                                      |
+| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                      |
 | 24   | Saúde das lojas                        | ⬜       | —       |                                                                                      |
 | 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                          |
 
@@ -41,7 +41,7 @@ Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X
 
 ## Histórico
 
-### 2026-10-15 · Item 19 · Pequenos de segurança e status — 🟡 aguardando OK do ⏸3
+### 2026-10-15 · Item 19 · Pequenos de segurança e status — ✅ concluído (bcac77a, commit local; junção 7c84cc2)
 
 - B20: `redirect` do login e do onboarding passa por `internalPathSchema`; `//host`, `/\host`, esquemas, espaço e caracteres de controle são descartados e a tela segue para o destino padrão.
 - B15: a loja conectada com `lastError` aparece em "Atenção" (ponto e chip âmbar, motivo no subtítulo, topo da lista), sem gravar `error`, para continuar renovando e sincronizando.
