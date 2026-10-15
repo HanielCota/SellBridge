@@ -445,6 +445,10 @@ Prompt reutilizável em `docs/prompts/revisao-qualidade.md`.
 - **Preço para uma margem:** o menor preço que mantém a margem depois de todas as taxas. As duas taxas arredondam para centavos, então um preço maior pode guardar um centavo a menos de lucro; a busca parte do limite exato de baixo e só sobe (a versão antiga de `profit.ts` errava por alguns centavos, por exemplo R$ 16,62 em vez de R$ 16,60).
 - **Para as telas (15.b):** `getFeeSchedule` (`features/reports`, `tenantMiddleware`) entrega o modelo ao cliente.
 
+## 2026-10-15 · Trocar de fornecedor num envio cancelado: não fazer
+
+Decisão do usuário no ⏸1. Com a regra R3 ("uma loja, um fornecedor", etapa 4 do chat CPF), todo anúncio de uma loja é do fornecedor dela: mandar o pacote de um envio cancelado a outro fornecedor faria a loja anunciar o produto de A e entregar o de B, além de exigir um "produto equivalente" e recalcular custo, margem e estoque. Quando o fornecedor recusa, o revendedor reencaminha ao mesmo fornecedor (item 06) ou cancela a venda. Cancelar direto no marketplace fica para o item 22.
+
 ## 2026-10-15: Uploads seguros (item 11, chat B)
 
 - **Teto do corpo antes de ler** (já vinha do audit): suporte e foto usam `readFormDataWithin`, que recusa pelo `Content-Length` e conta o stream, parando no limite.
