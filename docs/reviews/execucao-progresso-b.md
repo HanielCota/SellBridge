@@ -4,9 +4,9 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: — (19 concluído; próximo é o 24, aguardando "Próximo")
-- Última etapa concluída: —
-- Próximo passo: item 24 · Saúde das lojas (inclui o estado "Atenção" na ficha do cliente no admin)
+- Item/parte: 24 · Saúde das lojas (F6, F7, F9; proposta de dividir em 24.a saúde, 24.b desconectar, 24.c e-mail)
+- Última etapa concluída: 2 · Diagnóstico (pacote ⏸1 apresentado em 2026-10-15, aguardando OK e três decisões)
+- Próximo passo: depois do OK, testes falhando da parte 24.a
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: —
 - Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
