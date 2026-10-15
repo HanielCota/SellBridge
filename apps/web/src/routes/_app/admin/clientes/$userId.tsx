@@ -1,5 +1,6 @@
 import { ISSUE_SEVERITY } from "@sellbridge/shared/customer-health";
 import { formatCents } from "@sellbridge/shared/money";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -69,15 +70,27 @@ function ImpersonateButton({
   );
 }
 
-function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: boolean }) {
-  const { customer, health } = detail;
-  let disabledReason: string | null = null;
-  if (isSelf) {
-    disabledReason = "Esta é a sua conta";
-  }
+/** Why "Entrar como cliente" is off, or null when it is available. */
+function impersonationBlocker(detail: CustomerDetail, isSelf: boolean) {
+  const { customer, access } = detail;
   if (customer.banned) {
-    disabledReason = "Desbloqueie a conta para entrar como o cliente";
+    return "Desbloqueie a conta para entrar como o cliente";
   }
+  if (isSelf) {
+    return "Esta é a sua conta";
+  }
+  if (isStaffRole(customer.role)) {
+    return "Contas da equipe não podem ser acessadas como cliente";
+  }
+  if (!access.canManage) {
+    return "Só um dono da plataforma entra nesta conta";
+  }
+  return null;
+}
+
+function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: boolean }) {
+  const { customer, health, access } = detail;
+  const disabledReason = impersonationBlocker(detail, isSelf);
   return (
     <header className="space-y-4">
       <Link
@@ -99,6 +112,7 @@ function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
                 label={customer.banned ? "Bloqueado" : "Ativo"}
               />
               <span>{roleLabel(customer.role)}</span>
+              {access.isPlatformOwner ? <span>Dono da plataforma</span> : null}
               <span>
                 {customer.lastSeenAt ? (
                   <>
@@ -247,6 +261,7 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
             userId={customer.id}
             name={customer.name}
             email={customer.email}
+            locked={!detail.access.canManage}
           />
           <CustomerRegionForm
             key={detail.region?.cep ?? "none"}
@@ -260,6 +275,8 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
           banned={customer.banned}
           banReason={customer.banReason}
           isSelf={isSelf}
+          canManage={detail.access.canManage}
+          canGrantTeamRoles={detail.access.canGrantTeamRoles}
         />
       </div>
     </section>

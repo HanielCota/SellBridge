@@ -4,37 +4,44 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-_(nenhum)_ · próximo: item 10.a (owner da plataforma e proteções)
+_(nenhum)_ · próximo: item 10.b (rotas cruas do plugin admin e organização). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
-| Métrica                                        | Valor                      | Medido em  |
-| ---------------------------------------------- | -------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1147 passando              | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 395 passando               | 2026-10-14 |
-| Última migration (branch)                      | 0024_tenant_billing_holder | 2026-10-14 |
-| Branch de trabalho                             | `claude/client-b-47fa05`   | 2026-10-14 |
+| Métrica                                        | Valor                              | Medido em  |
+| ---------------------------------------------- | ---------------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1206 passando                      | 2026-10-14 |
+| Testes web (`apps/web` vitest)                 | 432 passando                       | 2026-10-14 |
+| Última migration (branch)                      | 0025_store_supplier_and_unique_cpf | 2026-10-14 |
+| Branch de trabalho                             | `claude/client-b-47fa05`           | 2026-10-14 |
 
-C5 no banco B depois da junção com `feat/client-phase-1` (7b69fd2): shared 306, marketplaces 149, web 395, worker 55, database 235, scripts 7.
+C5 no banco B depois da junção com `feat/client-phase-1` (ea6369f, traz a 0025): shared 319, marketplaces 149, web 432, worker 55, database 244, scripts 7.
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
 
-| Item | Título                                 | Situação | Commit  | Notas                                        |
-| ---- | -------------------------------------- | -------- | ------- | -------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                               |
-| 10   | Segurança de contas e da equipe        | ⬜       | —       | Partes a, b, c; revisão independente em cada |
-| 11   | Uploads seguros                        | ⬜       | —       |                                              |
-| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                              |
-| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                              |
-| 19   | Pequenos de segurança e status         | ⬜       | —       |                                              |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                              |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                  |
+| Item | Título                                 | Situação | Commit  | Notas                                                |
+| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                       |
+| 10   | Segurança de contas e da equipe        | 🟡       | 6c32358 | 10.a ✅ 6c32358 (junção ece12e6) · 10.b ⬜ · 10.c ⬜ |
+| 11   | Uploads seguros                        | ⬜       | —       |                                                      |
+| 12   | Admin muda a região e apaga o endereço | ⬜       | —       |                                                      |
+| 17   | Link do fornecedor e diagnóstico       | ⬜       | —       |                                                      |
+| 19   | Pequenos de segurança e status         | ⬜       | —       |                                                      |
+| 24   | Saúde das lojas                        | ⬜       | —       |                                                      |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                          |
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-14 · Item 10.a · Owner da plataforma e proteções — ✅ concluído (6c32358, commit local; junção ece12e6)
+
+- Antes: o cargo `admin` recebia todos os poderes do plugin e qualquer admin trocava a senha, bloqueava, rebaixava ou removia um owner pelas rotas cruas `/api/auth/admin/*` (o e2e mostrou `set-role` no owner com 200). Agora uma trava no hook do Better Auth confere a conta antes e depois de cada ação (inclui criar conta, dar papel da equipe e trocar e-mail para o de um owner) e recusa o corpo que não consegue ler, a menos que seja owner.
+- Ficha do cliente: selo "Dono da plataforma"; perfil, acesso, papel e "Entrar como cliente" travados com o motivo para quem não pode agir.
+- Revisão independente: 3 rodadas. Corrigidos: `create-user` fora da trava (alto), trava sem olhar o estado novo no `update-user` (alto), e-mail em lista passando pelo schema (alto), admin comum dando papel da equipe (médio), papéis em lista ("user,admin"), botão de entrar ativo e textos na própria conta (baixos). Fora do escopo: lista e resumo rápido (servidor recusa). Reforço em `promoteVerifiedAdmin` fica para o 10.c.
+- Portões: C1–C4 ✅, C5 1193/1193 (base 1147), C6 ✅, C7 8/8 (platform-owner, admin, accessibility), D2 8 larguras sem rolagem. Depois da junção (0025 aplicada no banco B): C1–C6 ✅, C5 1206/1206, C7 10/10 (com stores-messages).
 
 ### 2026-10-14 · Item 03 · Mesma conta do ML em dois revendedores — ✅ concluído (558cd66, commit local; junção e21574c)
 

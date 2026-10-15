@@ -24,6 +24,7 @@
     "./catalog-availability": "./src/domain/catalog-availability.ts",
     "./store-supplier": "./src/domain/store-supplier.ts",
     "./staff-access": "./src/domain/staff-access.ts",
+    "./platform-owner": "./src/domain/platform-owner.ts",
     "./supplier-score": "./src/domain/supplier-score.ts",
     "./file-signature": "./src/runtime/file-signature.ts",
     "./http-body": "./src/runtime/http-body.ts",
