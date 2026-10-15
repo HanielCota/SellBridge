@@ -15,9 +15,9 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 | Métrica                                        | Valor                           | Medido em  |
 | ---------------------------------------------- | ------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1364 passando                   | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 392 passando                    | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 91 passando                     | 2026-10-15 |
+| Testes unitários e de integração (`pnpm test`) | 1382 passando                   | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 536 passando                    | 2026-10-15 |
+| E2E completos (`--workers=1`)                  | 97 passando                     | 2026-10-15 |
 | Última migration                               | 0029_supplier_contact_deadlines | 2026-10-15 |
 | Branch de trabalho                             | `feat/client-phase-1`           | 2026-10-12 |
 
@@ -71,6 +71,14 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: item 15 do C, item 17 do B e etapa 6 do CPF
+
+- Item 15 do chat C (`cb6fdf9`: 15.a `c04e2b2`, 15.b `f4dc995`): prévias com todas as taxas e piso de preço no servidor (`MIN_MARGIN_PERCENT`, padrão 0).
+- Item 17 do chat B (`93b97c3`, log `9f6c701`): o token do fornecedor sai das URLs (etiqueta por POST, `?token=` dá 400) e o diagnóstico tem limite por cliente.
+- Etapa 6 do CPF (`1fc4c5c`, junção `a5cdcd5`): admin de Clientes com titular (CPF informado ou pendente, sem o número) e troca do fornecedor de uma loja.
+- Conflitos: só o fim de `docs/decisions.md`, com as seções dos dois lados mantidas. Nenhuma migration nova.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1382/1382; build ✅; e2e completo em série 97/97 (21 min).
 
 ### 2026-10-15 · Item 21.a · Contato e prazos do fornecedor — ✅ concluído (commit local)
 
