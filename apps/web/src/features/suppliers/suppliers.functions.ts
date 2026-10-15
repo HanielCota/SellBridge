@@ -1,5 +1,4 @@
 import {
-  findTenantRegion,
   getDirectorySupplier,
   listActiveNiches,
   listCatalogProducts,
@@ -18,16 +17,10 @@ import { loadReputations } from "./reputation.server";
 export const listSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(supplierListSearchSchema)
-  .handler(async ({ context, data }) => {
-    // Every supplier shows, with or without an address; the address only marks who delivers.
-    const region = await findTenantRegion(database, context.tenantId);
+  .handler(async ({ data }) => {
+    // Every active supplier in Brazil: any reseller sells any of them.
     const [found, niches] = await Promise.all([
-      listSupplierDirectory(database, {
-        region,
-        search: data.query,
-        niche: data.niche,
-        deliveringOnly: data.delivering,
-      }),
+      listSupplierDirectory(database, { search: data.query, niche: data.niche }),
       listActiveNiches(database),
     ]);
     const reputationOf = await loadReputations(found.map((supplier) => supplier.id));
@@ -37,23 +30,21 @@ export const listSuppliers = createServerFn({ method: "GET" })
     }));
     if (data.sort === "reputation") {
       return {
-        region,
         niches,
         suppliers: suppliers.toSorted((first, second) =>
           compareReputation(first.reputation, second.reputation),
         ),
       };
     }
-    return { region, suppliers, niches };
+    return { suppliers, niches };
   });
 
 /** Score, breakdown and latest written reviews of any active supplier. */
 export const getSupplierReputation = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ supplierId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    const region = await findTenantRegion(database, context.tenantId);
-    const supplier = await getDirectorySupplier(database, region, data.supplierId);
+  .handler(async ({ data }) => {
+    const supplier = await getDirectorySupplier(database, data.supplierId);
     const [reputationOf, recentReviews] = await Promise.all([
       loadReputations([supplier.id]),
       listRecentSupplierReviews(database, supplier.id),
@@ -66,10 +57,8 @@ const supplierCatalogInputSchema = catalogSearchSchema.extend({ supplierId: z.uu
 export const getSupplierCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(supplierCatalogInputSchema)
-  .handler(async ({ context, data }) => {
-    // Browsing is open to every supplier; publishing still checks that it delivers to the tenant.
-    const region = await findTenantRegion(database, context.tenantId);
-    const supplier = await getDirectorySupplier(database, region, data.supplierId);
+  .handler(async ({ data }) => {
+    const supplier = await getDirectorySupplier(database, data.supplierId);
     const [products, categories] = await Promise.all([
       listCatalogProducts(
         database,

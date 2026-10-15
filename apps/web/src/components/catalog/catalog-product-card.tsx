@@ -1,4 +1,4 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
@@ -11,7 +11,7 @@ import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldOut: boolean }) {
+function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; soldOut: boolean }) {
   const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
@@ -39,7 +39,7 @@ function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldO
   );
 }
 
-function CardBody({ product }: { product: RegionCatalogProduct }) {
+function CardBody({ product }: { product: SellableCatalogProduct }) {
   const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
@@ -55,7 +55,7 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
   );
 }
 
-function StockFooter({ product }: { product: RegionCatalogProduct }) {
+function StockFooter({ product }: { product: SellableCatalogProduct }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
       {/* As tall as the publish button, so published cards keep the price row level. */}
@@ -80,7 +80,7 @@ export function CatalogProductCard({
   selected,
   onSelectedChange,
 }: {
-  product: RegionCatalogProduct;
+  product: SellableCatalogProduct;
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {

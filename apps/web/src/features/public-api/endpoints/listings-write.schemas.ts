@@ -14,7 +14,7 @@ import { z } from "zod";
 const MAX_STORES_PER_LISTING = 50;
 
 export const createListingBodySchema = z.object({
-  productId: z.uuid().describe("ID do produto no catálogo de fornecedores da sua região."),
+  productId: z.uuid().describe("ID do produto no catálogo de fornecedores."),
   title: listingTitleSchema
     .optional()
     .describe(

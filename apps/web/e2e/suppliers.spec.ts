@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, saveAddress, signIn, signUp, testCpf } from "./helpers";
+import { DEMO_USER, gotoHydrated, signIn, signUp, testCpf } from "./helpers";
 
 test.describe("cadastro do revendedor", () => {
   test("novo usuário informa nome, CPF e endereço em duas etapas", async ({ page }) => {
@@ -56,27 +56,25 @@ test.describe("cadastro do revendedor", () => {
 });
 
 test.describe("busca de fornecedores", () => {
-  test("sem endereço, mostra todos os fornecedores sem marcar entrega", async ({ page }) => {
+  test("sem endereço, mostra fornecedores de todo o Brasil, sem falar em região", async ({
+    page,
+  }) => {
     await signUp(page, "Sem Endereço");
     await gotoHydrated(page, "/fornecedores");
     await expect(page).toHaveURL(/\/fornecedores(\?|$)/);
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
-    await expect(page.getByText("Entrega na sua região")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Informe seu endereço" })).toBeVisible();
+    await expect(page.getByText(/sua região|seu CEP/)).toHaveCount(0);
   });
 
-  test("com endereço, marca quem entrega e filtra só quem entrega", async ({ page }) => {
-    await signUp(page, "Revendedor Manaus");
-    await saveAddress(page, "69005010");
-    await expect(page).toHaveURL(/\/lojas/);
-    await gotoHydrated(page, "/fornecedores");
-    const rioPet = page.getByRole("listitem").filter({ hasText: "Rio Pet Atacado" });
-    await expect(rioPet.getByText("Não entrega no seu CEP")).toBeVisible();
-
-    await page.getByLabel("Só quem entrega no meu CEP").click();
-    await expect(page).toHaveURL(/delivering=true/);
-    await expect(page.getByText("Nenhum fornecedor encontrado")).toBeVisible();
+  test("sem endereço, abre o catálogo com produtos de todos os fornecedores", async ({ page }) => {
+    await signUp(page, "Catálogo Sem Endereço");
+    await gotoHydrated(page, "/catalogo");
+    await expect(page).toHaveURL(/\/catalogo/);
+    await expect(
+      page.getByText("Produtos de fornecedores de todo o Brasil.", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole("article").first()).toBeVisible();
   });
 });
 
@@ -88,7 +86,6 @@ test.describe("fornecedores e catálogo", () => {
   test("busca pelo nicho ou pelo produto e filtra pelos atalhos de nicho", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores");
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
-    // The demo account is in Belo Horizonte: Rio Pet only delivers to Juiz de Fora in MG.
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
 
     const search = page.getByPlaceholder("Qual nicho ou produto você quer vender?");
@@ -132,15 +129,14 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("heading", { level: 3, name: /Vestido/ }).first()).toBeVisible();
   });
 
-  test("abre fornecedor que não entrega, mas sem publicar", async ({ page }) => {
+  test("publica de um fornecedor de outro estado", async ({ page }) => {
+    // The demo account is in Belo Horizonte; Rio Pet is in Rio de Janeiro.
     await gotoHydrated(page, "/fornecedores");
     await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
     await expect(page.getByRole("heading", { name: "Rio Pet Atacado" })).toBeVisible();
-    await expect(
-      page.getByText(/Este fornecedor ainda não entrega em Belo Horizonte - MG/),
-    ).toBeVisible();
+    await expect(page.getByText(/não entrega/)).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Publicar" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Publicar" }).first()).toBeVisible();
   });
 
   test("mostra erro amigável para fornecedor inexistente", async ({ page }) => {

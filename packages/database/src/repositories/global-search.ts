@@ -1,9 +1,8 @@
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listings, orders } from "../schema/index.ts";
-import type { TenantRegion } from "./region.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { listRegionCatalog } from "./suppliers.ts";
+import { listSellableCatalog } from "./suppliers.ts";
 
 const PER_GROUP = 5;
 
@@ -13,10 +12,10 @@ export interface GlobalSearchResults {
   products: { id: string; title: string; supplierName: string; costCents: number }[];
 }
 
-/** The command palette's search: the tenant's listings and orders, and the region catalog. */
+/** The command palette's search: the tenant's listings and orders, and the sellable catalog. */
 export async function searchEverything(
   database: Database,
-  input: { tenantId: string; region: Pick<TenantRegion, "state" | "city"> | null },
+  tenantId: string,
   term: string,
 ): Promise<GlobalSearchResults> {
   const pattern = containsPattern(term);
@@ -24,7 +23,7 @@ export async function searchEverything(
     database
       .select({ id: listings.id, title: listings.title, priceCents: listings.priceCents })
       .from(listings)
-      .where(and(eq(listings.tenantId, input.tenantId), ilike(listings.title, pattern)))
+      .where(and(eq(listings.tenantId, tenantId), ilike(listings.title, pattern)))
       .orderBy(desc(listings.createdAt))
       .limit(PER_GROUP),
     database
@@ -37,25 +36,23 @@ export async function searchEverything(
       .from(orders)
       .where(
         and(
-          eq(orders.tenantId, input.tenantId),
+          eq(orders.tenantId, tenantId),
           or(ilike(orders.externalOrderId, pattern), ilike(orders.buyerName, pattern)),
         ),
       )
       .orderBy(desc(orders.orderedAt))
       .limit(PER_GROUP),
-    input.region
-      ? listRegionCatalog(
-          database,
-          { region: input.region, tenantId: input.tenantId },
-          { search: term, sort: "title" },
-          { page: 1, pageSize: PER_GROUP },
-        )
-      : null,
+    listSellableCatalog(
+      database,
+      tenantId,
+      { search: term, sort: "title" },
+      { page: 1, pageSize: PER_GROUP },
+    ),
   ]);
   return {
     listings: listingRows,
     orders: orderRows,
-    products: (catalog?.items ?? []).map((product) => ({
+    products: catalog.items.map((product) => ({
       id: product.id,
       title: product.title,
       supplierName: product.supplierName,

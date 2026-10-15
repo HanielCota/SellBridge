@@ -1,23 +1,9 @@
-import {
-  findCachedCep,
-  findTenantRegion,
-  saveCachedCep,
-  type TenantRegion,
-} from "@sellbridge/database/repositories";
+import { findCachedCep, saveCachedCep } from "@sellbridge/database/repositories";
 import { stateSchema, type ResolvedAddress } from "@sellbridge/shared/cep";
 import { CEP_FAILURE_MESSAGES, lookupCep } from "@sellbridge/shared/cep-providers";
-import { forbiddenError, validationError } from "@sellbridge/shared/errors";
+import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
-
-/** Loads the tenant region or fails with a message that leads the user to onboarding. */
-export async function requireTenantRegion(tenantId: string): Promise<TenantRegion> {
-  const region = await findTenantRegion(database, tenantId);
-  if (!region) {
-    throw forbiddenError("Informe seu CEP para ver os fornecedores da sua região");
-  }
-  return region;
-}
 
 const CEP_CACHE_TTL_MILLISECONDS = 30 * 86_400_000;
 

@@ -1,5 +1,5 @@
 import {
-  getCatalogProductForRegion,
+  getSellableCatalogProduct,
   getTargetForPublishing,
   listListingOverview,
   listStoreConnections,
@@ -23,7 +23,6 @@ import {
   requireMockWebhookSecret,
   sendMockWebhook,
 } from "@/features/listings/mock-sale.server";
-import { requireTenantRegion } from "@/features/region/region.server";
 import {
   createListingForTenant,
   setListingsPausedForTenant,
@@ -35,9 +34,8 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
     const [product, stores, listedOn] = await Promise.all([
-      getCatalogProductForRegion(database, region, data.productId),
+      getSellableCatalogProduct(database, data.productId),
       listStoreConnections(database, context.tenantId),
       storesListingProduct(database, context.tenantId, data.productId),
     ]);

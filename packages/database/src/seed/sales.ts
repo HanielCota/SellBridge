@@ -1,10 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingIdempotencyKey } from "../repositories/listings.ts";
-import { getSupplierIdsForRegion } from "../repositories/suppliers.ts";
 import {
   listings,
   listingTargets,
@@ -14,6 +13,7 @@ import {
   orderStatusChanges,
   storeConnections,
   supplierProducts,
+  suppliers,
 } from "../schema/index.ts";
 import { DEMO_STORES } from "./data.ts";
 import type { Random } from "./random.ts";
@@ -60,11 +60,6 @@ const BUYERS = [
   "Patrícia C.",
   "Diego N.",
 ] as const;
-
-interface Region {
-  readonly state: string;
-  readonly city: string;
-}
 
 interface SeedSalesContext {
   readonly database: Database;
@@ -142,16 +137,18 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
     );
 }
 
-async function chooseDemoProducts(database: Database, region: Region): Promise<Product[]> {
-  const supplierIds = await getSupplierIdsForRegion(database, region);
-  if (supplierIds.length === 0) {
-    throw new Error("Nenhum fornecedor atende a região da conta demo");
-  }
-  const products = await database
-    .select()
+async function chooseDemoProducts(database: Database): Promise<Product[]> {
+  const rows = await database
+    .select({ product: supplierProducts })
     .from(supplierProducts)
-    .where(inArray(supplierProducts.supplierId, supplierIds))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(and(eq(suppliers.active, true), eq(supplierProducts.active, true)))
+    .orderBy(asc(supplierProducts.sku))
     .limit(80);
+  const products = rows.map((row) => row.product);
+  if (products.length === 0) {
+    throw new Error("Nenhum produto ativo para a conta demo");
+  }
   const step = Math.ceil(products.length / LISTING_COUNT);
   return products.filter((_, index) => index % step === 0);
 }
@@ -199,10 +196,9 @@ async function insertPublishedTarget(
 
 async function createDemoListings(
   context: SeedSalesContext,
-  region: Region,
   storeIds: readonly string[],
 ): Promise<DemoSale[]> {
-  const products = await chooseDemoProducts(context.database, region);
+  const products = await chooseDemoProducts(context.database);
   const sales: DemoSale[] = [];
   for (const product of products) {
     const listing = await insertDemoListing(context, product);
@@ -404,7 +400,6 @@ async function countOrders(database: Database, tenantId: string): Promise<number
 }
 
 export interface SeedDemoSalesInput extends SeedSalesContext {
-  readonly region: Region;
   readonly cipher: TokenCipher;
 }
 
@@ -423,7 +418,7 @@ export async function seedDemoSales(
   };
   const stores = await ensureDemoStores(input.database, input.tenantId, input.cipher);
   const storeIds = stores.map((store) => store.id);
-  const sales = await createDemoListings(context, input.region, storeIds);
+  const sales = await createDemoListings(context, storeIds);
   const orderCount = await seedOrderHistory(context, sales);
   return { created: true, orders: orderCount };
 }

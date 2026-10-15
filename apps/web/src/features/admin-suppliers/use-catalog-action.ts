@@ -24,7 +24,7 @@ export function useCatalogAction<TInput, TResult>(
         queryClient.invalidateQueries({ queryKey: ["admin-suppliers"] }),
         queryClient.invalidateQueries({ queryKey: ["suppliers"] }),
         queryClient.invalidateQueries({ queryKey: ["supplier-catalog"] }),
-        queryClient.invalidateQueries({ queryKey: ["region-catalog"] }),
+        queryClient.invalidateQueries({ queryKey: ["sellable-catalog"] }),
       ]);
       onSuccess?.(result);
     },

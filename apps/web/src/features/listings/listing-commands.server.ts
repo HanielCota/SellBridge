@@ -1,6 +1,6 @@
 import {
   type CreatedListing,
-  getCatalogProductForRegion,
+  getSellableCatalogProduct,
   setListingsPaused,
   updateListingPrice,
 } from "@sellbridge/database/repositories";
@@ -8,7 +8,6 @@ import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
-import { requireTenantRegion } from "@/features/region/region.server";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
 import { assertConnectedStores, publishListing } from "./publish-listing.server";
 
@@ -23,15 +22,14 @@ export interface CreateListingCommand extends DraftOverrides {
 }
 
 /**
- * Sells a catalog product of the tenant's region on its connected stores: checks the price
- * against the cost, creates the listing and queues one publication per store.
+ * Sells a catalog product on the tenant's connected stores: checks the price against the cost,
+ * creates the listing and queues one publication per store.
  */
 export async function createListingForTenant(
   tenantId: string,
   command: CreateListingCommand,
 ): Promise<CreatedListing> {
-  const region = await requireTenantRegion(tenantId);
-  const product = await getCatalogProductForRegion(database, region, command.productId);
+  const product = await getSellableCatalogProduct(database, command.productId);
   const draft = resolveListingDraft(product, command);
   assertSellablePrice(draft.priceCents, product.costCents);
   const storeIds = await assertConnectedStores(tenantId, command.storeConnectionIds);

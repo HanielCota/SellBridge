@@ -1,13 +1,13 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import {
   PRODUCT_SORT_LABELS,
   PRODUCT_SORTS,
-  regionCatalogSearchSchema,
-  type RegionCatalogSearch,
+  sellableCatalogSearchSchema,
+  type SellableCatalogSearch,
   MAX_BULK_PUBLISH,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, Navigate, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { MegaphoneIcon, PackageIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -30,8 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { regionCatalogQueryOptions } from "@/features/catalog/catalog.queries";
-import { getTenantRegion } from "@/features/region/region.functions";
+import { sellableCatalogQueryOptions } from "@/features/catalog/catalog.queries";
 import { useSelection, type Selection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -40,29 +39,23 @@ import { prefetchOnServer } from "@/lib/prefetch";
 const ALL = "__all__";
 
 export const Route = createFileRoute("/_app/catalogo")({
-  validateSearch: regionCatalogSearchSchema,
-  beforeLoad: async ({ location }) => {
-    const region = await getTenantRegion();
-    if (!region) {
-      throw redirect({ to: "/onboarding", search: { redirect: location.href } });
-    }
-  },
+  validateSearch: sellableCatalogSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, regionCatalogQueryOptions(search)),
+    prefetchOnServer(context.queryClient, sellableCatalogQueryOptions(search)),
   head: () => ({ meta: [{ title: "Catálogo | SellBridge" }] }),
   component: CatalogPage,
 });
 
 function useCatalogQuery() {
-  return useQuery(regionCatalogQueryOptions(Route.useSearch()));
+  return useQuery(sellableCatalogQueryOptions(Route.useSearch()));
 }
 
 type CatalogData = NonNullable<ReturnType<typeof useCatalogQuery>["data"]>;
 
 function useUpdateSearch() {
   const navigate = useNavigate({ from: Route.fullPath });
-  return (patch: Partial<RegionCatalogSearch>) =>
+  return (patch: Partial<SellableCatalogSearch>) =>
     void navigate({ search: (previous) => ({ ...previous, ...patch, page: 1 }), replace: true });
 }
 
@@ -194,7 +187,7 @@ function CatalogFilters({ data }: { data: CatalogData }) {
   );
 }
 
-function productId(product: RegionCatalogProduct): string {
+function productId(product: SellableCatalogProduct): string {
   return product.id;
 }
 
@@ -205,11 +198,11 @@ function ProductGrid({
   selection,
 }: {
   data: CatalogData;
-  selection: Selection<RegionCatalogProduct>;
+  selection: Selection<SellableCatalogProduct>;
 }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  function select(product: RegionCatalogProduct, isSelected: boolean) {
+  function select(product: SellableCatalogProduct, isSelected: boolean) {
     if (isSelected && selection.selected.size >= MAX_BULK_PUBLISH) {
       toast.info(SELECTION_LIMIT_MESSAGE, { id: "selection-limit" });
       return;
@@ -240,7 +233,7 @@ function ProductGrid({
   );
 }
 
-function hasActiveFilters(search: RegionCatalogSearch): boolean {
+function hasActiveFilters(search: SellableCatalogSearch): boolean {
   return (
     search.query !== undefined ||
     search.category !== undefined ||
@@ -257,8 +250,8 @@ function NoProducts() {
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto na sua região ainda"
-        description="Ainda não há fornecedores entregando na sua região."
+        title="Nenhum produto no catálogo ainda"
+        description="Ainda não há fornecedores com produtos ativos."
       />
     );
   }
@@ -340,12 +333,11 @@ function CatalogSkeleton() {
 
 function CatalogPage() {
   const query = useCatalogQuery();
-  const city = query.data ? `${query.data.region.city} - ${query.data.region.state}` : "sua região";
   return (
     <>
       <PageHeader
         title="Catálogo"
-        description={`Produtos de todos os fornecedores que entregam em ${city}. Selecione vários para publicar de uma vez.`}
+        description="Produtos de fornecedores de todo o Brasil. Selecione vários para publicar de uma vez."
         actions={
           <Button asChild variant="outline">
             <Link to="/fornecedores">Ver por fornecedor</Link>

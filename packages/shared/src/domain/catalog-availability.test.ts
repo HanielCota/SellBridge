@@ -10,11 +10,10 @@ import {
 const available: CatalogAvailability = {
   productActive: true,
   supplierActive: true,
-  regionCovered: true,
 };
 
 describe("unavailableReason", () => {
-  it("reports nothing for an active product the supplier still delivers", () => {
+  it("reports nothing for an active product of an active supplier", () => {
     expect(unavailableReason(available)).toBeNull();
   });
 
@@ -24,19 +23,13 @@ describe("unavailableReason", () => {
     );
   });
 
-  it("names the product before the region", () => {
-    expect(unavailableReason({ ...available, productActive: false, regionCovered: false })).toBe(
-      "product_inactive",
-    );
-  });
-
-  it("reports a supplier that stopped covering the reseller's region", () => {
-    expect(unavailableReason({ ...available, regionCovered: false })).toBe("outside_region");
+  it("reports a product the supplier took off the catalog", () => {
+    expect(unavailableReason({ ...available, productActive: false })).toBe("product_inactive");
   });
 });
 
 describe("unavailableMessage", () => {
-  it.each(["supplier_inactive", "product_inactive", "outside_region"] as const)(
+  it.each(["supplier_inactive", "product_inactive"] as const)(
     "explains %s and what the reseller can do",
     (reason) => {
       const message = unavailableMessage(reason);
@@ -51,7 +44,6 @@ describe("unavailable listing wording", () => {
   it("names the cause in a few words for the listing card", () => {
     expect(unavailableListingLabel("supplier_inactive")).toBe("Fornecedor inativo");
     expect(unavailableListingLabel("product_inactive")).toBe("Produto fora do catálogo");
-    expect(unavailableListingLabel("outside_region")).toBe("Fora da sua região");
   });
 
   it("says the listing stays paused and who brings it back", () => {
@@ -60,9 +52,6 @@ describe("unavailable listing wording", () => {
     );
     expect(unavailableListingMessage("product_inactive")).toBe(
       "O fornecedor tirou este produto do catálogo. O anúncio fica pausado; reative quando ele voltar.",
-    );
-    expect(unavailableListingMessage("outside_region")).toBe(
-      "O fornecedor não entrega mais na sua região. Escolha outro produto no catálogo para vender no lugar.",
     );
   });
 });

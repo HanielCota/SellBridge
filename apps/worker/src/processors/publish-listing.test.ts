@@ -304,27 +304,25 @@ describe("publish-listing processor", () => {
     expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("supplier_inactive"));
   });
 
-  it("refuses a product whose supplier does not cover the reseller's region", async () => {
+  it("publishes for a reseller anywhere in Brazil, whatever address an older profile kept", async () => {
     const [, tenantId] = tenantIds;
-    if (!tenantId) {
+    if (tenantId === undefined) {
       throw new Error("tenant ausente");
     }
     await database
       .insert(schema.tenantProfile)
-      .values({ tenantId, cep: "13010000", state: "SP", city: "Campinas" });
+      .values({ tenantId, cep: "69900062", state: "AC", city: "Rio Branco" });
     const store = await createTestStore(environment, tenantId, "connected");
     const targetId = await createTestTarget(database, {
       tenantId,
       productId: catalog.productId,
       storeId: store.id,
-      title: "Produto fora da região do revendedor",
+      title: "Produto vendido do Acre",
     });
-    publishProduct.mockClear();
 
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
-    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
-    expect(publishProduct).not.toHaveBeenCalled();
-    expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("outside_region"));
+    expect(await processPublish(job)).toBe("published");
+    expect((await targetRow(targetId)).errorReason).toBeNull();
   });
 
   it("rejects malformed payloads", async () => {

@@ -55,16 +55,14 @@ function orderProblem(
   };
 }
 
-/** A listing the supplier keeps off: paused by the deactivation, or outside the region. */
+/** A listing the supplier keeps off: paused by the deactivation of the product or supplier. */
 function listingUnavailable(
   event: Extract<NotificationEvent, { kind: "listing_unavailable" }>,
 ): Pick<AppNotification, "id" | "title" | "detail" | "href"> {
-  const lead = event.reason === "outside_region" ? "Fora da sua região" : "Anúncio pausado";
   return {
     id: `unavailable:${event.entityId}`,
-    title: `${lead}: ${event.listingTitle}`,
+    title: `Anúncio pausado: ${event.listingTitle}`,
     detail: unavailableListingMessage(event.reason),
-    // By title, not by the paused tab: a listing outside the region is still live.
     href: `/publicacoes?query=${encodeURIComponent(event.listingTitle)}`,
   };
 }
