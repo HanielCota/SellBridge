@@ -1,3 +1,4 @@
+import { stateSchema } from "@sellbridge/shared/cep";
 import {
   SUPPLIER_SORT_LABELS,
   SUPPLIER_SORTS,
@@ -5,7 +6,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -14,6 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -30,6 +32,8 @@ import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 const ALL_NICHES = "__all__";
+const ALL_STATES = "__all__";
+const ALL_CITIES = "__all__";
 
 export const Route = createFileRoute("/_app/fornecedores/")({
   validateSearch: supplierListSearchSchema,
@@ -65,7 +69,7 @@ function SupplierFilters() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 lg:flex-row">
         <SearchInput
           label="Buscar por nicho ou produto"
           placeholder="Qual nicho ou produto você quer vender?"
@@ -73,10 +77,89 @@ function SupplierFilters() {
           value={term}
           onValueChange={setTerm}
         />
-        <SupplierSortSelect />
+        <div className="grid grid-cols-2 gap-3 sm:flex">
+          <LocationFilters />
+          <SupplierSortSelect />
+        </div>
       </div>
       <NicheTabs />
     </div>
+  );
+}
+
+/**
+ * Where the supplier ships from. Any reseller sells any supplier, so this only narrows the list;
+ * the cities follow the state picked, and only places with active suppliers are offered.
+ */
+function LocationFilters() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { data } = useQuery(suppliersQueryOptions(search));
+  const locations = data?.locations ?? [];
+  const cities = locations.find((location) => location.state === search.state)?.cities ?? [];
+  return (
+    <>
+      <Select
+        value={search.state ?? ALL_STATES}
+        onValueChange={(value) => {
+          const parsed = stateSchema.safeParse(value);
+          const state = parsed.success ? parsed.data : undefined;
+          void navigate({
+            search: (previous) => ({ ...previous, state, city: undefined }),
+            replace: true,
+          });
+        }}
+      >
+        <SelectTrigger
+          className="w-full min-w-0 justify-start sm:w-40 [&>svg:last-child]:ml-auto"
+          aria-label="Estado do fornecedor"
+        >
+          <MapPinIcon aria-hidden="true" />
+          <SelectValue>{search.state ?? "Todo o Brasil"}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_STATES}>Todo o Brasil</SelectItem>
+          {locations.map((location) => (
+            <SelectItem key={location.state} value={location.state}>
+              {location.state}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <CitySelect cities={cities} />
+    </>
+  );
+}
+
+/** The cities of the state picked; disabled until a state narrows the list. */
+function CitySelect({ cities }: { cities: readonly string[] }) {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  return (
+    <Select
+      value={search.city ?? ALL_CITIES}
+      disabled={search.state === undefined}
+      onValueChange={(value) =>
+        void navigate({
+          search: (previous) => ({ ...previous, city: cities.find((city) => city === value) }),
+          replace: true,
+        })
+      }
+    >
+      <SelectTrigger className="w-full min-w-0 sm:w-48" aria-label="Cidade do fornecedor">
+        <SelectValue>
+          <span className="truncate">{search.city ?? "Todas as cidades"}</span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_CITIES}>Todas as cidades</SelectItem>
+        {cities.map((city) => (
+          <SelectItem key={city} value={city}>
+            {city}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -126,7 +209,7 @@ function SupplierSortSelect() {
         void navigate({ search: (previous) => ({ ...previous, sort }), replace: true });
       }}
     >
-      <SelectTrigger className="sm:w-48" aria-label="Ordenar fornecedores">
+      <SelectTrigger className="col-span-2 w-full sm:w-48" aria-label="Ordenar fornecedores">
         <SelectValue>{SUPPLIER_SORT_LABELS[search.sort]}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -140,8 +223,15 @@ function SupplierSortSelect() {
   );
 }
 
+function hasFilters(search: ReturnType<typeof Route.useSearch>): boolean {
+  return [search.query, search.niche, search.state, search.city].some(
+    (value) => value !== undefined,
+  );
+}
+
 function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }) {
   const query = useQuery(suppliersQueryOptions(search));
+  const navigate = useNavigate({ from: Route.fullPath });
 
   if (query.isPending) {
     return <SupplierListSkeleton />;
@@ -155,9 +245,19 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         icon={StorefrontIcon}
         title="Nenhum fornecedor encontrado"
         description={
-          search.query || search.niche
-            ? "Tente outro nicho ou produto."
+          hasFilters(search)
+            ? "Tente outro nicho, produto ou lugar."
             : "Ainda não há fornecedores cadastrados."
+        }
+        action={
+          hasFilters(search) ? (
+            <Button
+              variant="outline"
+              onClick={() => void navigate({ search: { sort: search.sort }, replace: true })}
+            >
+              Limpar filtros
+            </Button>
+          ) : undefined
         }
       />
     );

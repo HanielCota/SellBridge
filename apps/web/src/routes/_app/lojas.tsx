@@ -36,6 +36,8 @@ import { prefetchOnServer } from "@/lib/prefetch";
 const storesSearchSchema = z.object({
   conectada: optionalParameter(z.uuid()),
   erro: optionalParameter(z.enum(STORE_CONNECT_ERROR_CODES)),
+  /** "Vender este fornecedor": the new shop comes with this supplier picked. */
+  fornecedor: optionalParameter(z.uuid()),
 });
 
 export const Route = createFileRoute("/_app/lojas")({
@@ -203,11 +205,13 @@ function toNewStoreSupplier(supplier: StoreSupplier | PickableSupplier): NewStor
  * during onboarding. Further shops ask, since each one sells a single supplier.
  */
 function useNewStoreChoice(hasStores: boolean) {
-  const suppliers = useQuery(storeSuppliersQueryOptions());
+  const { fornecedor } = Route.useSearch();
+  const suppliers = useQuery(storeSuppliersQueryOptions(fornecedor));
   const [picked, setPicked] = useState<NewStoreSupplier | null>(null);
   const [isPicking, setIsPicking] = useState(false);
-  const starter = suppliers.data?.starterSupplier ?? null;
-  const fallback = !hasStores && starter !== null ? toNewStoreSupplier(starter) : null;
+  const starter =
+    suppliers.data?.pickedSupplier ?? (hasStores ? null : suppliers.data?.starterSupplier) ?? null;
+  const fallback = starter === null ? null : toNewStoreSupplier(starter);
   const choice: NewStoreChoice = {
     supplier: picked ?? fallback,
     onChooseSupplier: () => setIsPicking(true),

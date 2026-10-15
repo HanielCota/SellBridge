@@ -9,6 +9,7 @@ import {
   listCatalogProducts,
   listSellableCatalog,
   listSupplierDirectory,
+  listSupplierLocations,
 } from "./suppliers.ts";
 
 const database = createTestDatabase();
@@ -144,6 +145,23 @@ describe("supplier directory", () => {
     const names = await directoryNames({ search: "teste" });
     expect(names).toEqual(
       expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital", "Teste Outro Estado"]),
+    );
+  });
+
+  it("narrows by the supplier's state and city, ignoring case and accents", async () => {
+    const inZz = await directoryNames({ state: TEST_STATE });
+    expect(inZz).toEqual(expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital"]));
+    expect(inZz).not.toContain("Teste Outro Estado");
+    const inCity = await directoryNames({ state: "YY", city: "ORÍGEM" });
+    expect(inCity).toEqual(["Teste Outro Estado"]);
+    expect(await directoryNames({ state: "YY", city: "Outra" })).toEqual([]);
+  });
+
+  it("lists the states and cities with active suppliers", async () => {
+    const locations = await listSupplierLocations(database);
+    expect(locations.find((location) => location.state === "YY")?.cities).toContain("Origem");
+    expect(locations.map((location) => location.state)).toEqual(
+      locations.map((location) => location.state).toSorted(),
     );
   });
 
