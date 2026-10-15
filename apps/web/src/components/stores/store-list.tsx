@@ -10,6 +10,7 @@ import {
   StorefrontIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreStatusChip, StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
@@ -71,13 +72,44 @@ const PROBLEM_FALLBACKS: Record<StoreProblem, string> = {
   disconnected: "A loja foi desconectada",
 };
 
+/** A stored message as a sentence fragment: trimmed, without its closing period. */
+function trimMessage(message: string) {
+  return message.trim().replace(/\.+$/, "");
+}
+
 /** The store's problem as one sentence, ready to take the "sincronização pausada" suffix. */
 function problemMessage(status: StoreProblem, lastError: string | null) {
-  const message = lastError?.trim().replace(/\.+$/, "");
-  if (!message) {
+  const message = trimMessage(lastError ?? "");
+  if (message === "") {
     return PROBLEM_FALLBACKS[status];
   }
   return message;
+}
+
+/**
+ * A connected store whose last refresh failed for a passing reason: it keeps syncing and is
+ * retried, so the figures stay, but the reason replaces "Conectada" in the warning tone.
+ */
+function AttentionSubtitle({
+  message,
+  failedListings,
+  storeName,
+}: {
+  message: string;
+  failedListings: number;
+  storeName: string;
+}) {
+  return (
+    <p className="text-sm text-amber-700 md:truncate dark:text-amber-400" title={message}>
+      {message}
+      {failedListings > 0 && (
+        <>
+          {" · "}
+          <FailedListingsLink count={failedListings} storeName={storeName} />
+        </>
+      )}
+    </p>
+  );
 }
 
 /** A connected store with nothing live and nothing failing: zero figures, and one step to take. */
@@ -120,6 +152,15 @@ function StoreSubtitle({
     );
   }
   const { failedListings } = store.activity;
+  if (storeHealth(store) === "attention") {
+    return (
+      <AttentionSubtitle
+        message={trimMessage(store.lastError ?? "")}
+        failedListings={failedListings}
+        storeName={storeName}
+      />
+    );
+  }
   return (
     <p className="text-sm text-muted-foreground md:truncate">
       {marketplaceLabel} · Conectada{" "}
@@ -284,7 +325,7 @@ function StoreMenuEntries({
           <span className="block truncate text-sm font-semibold text-foreground">{storeName}</span>
           <span className="block truncate text-xs font-normal">{marketplaceLabel}</span>
         </span>
-        <StoreStatusChip status={store.status} />
+        <StoreStatusChip status={storeHealth(store)} />
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
@@ -397,7 +438,7 @@ function StoreRow({
         <div className="flex min-w-0 items-center gap-4">
           <MarkSlot>
             <MarketplaceMark marketplace={store.marketplace} className="size-10" />
-            <StoreStatusDot status={store.status} className="absolute right-0 -bottom-0.5" />
+            <StoreStatusDot status={storeHealth(store)} className="absolute right-0 -bottom-0.5" />
           </MarkSlot>
           <div className="min-w-0 flex-1 space-y-0.5">
             <h2 className="truncate font-semibold" title={store.shopName}>
@@ -428,11 +469,18 @@ function StoreRow({
   );
 }
 
+/** A syncing store whose last refresh failed comes first, then the healthy ones, then the rest. */
+function listRank(store: StoreWithActivity) {
+  const health = storeHealth(store);
+  if (health === "attention") {
+    return 0;
+  }
+  return health === "connected" ? 1 : 2;
+}
+
 /** Stores that sync lead the list; the ones waiting on a reconnect settle at the bottom. */
 function byConnectedFirst(stores: StoreWithActivity[]) {
-  return stores.toSorted(
-    (left, right) => Number(left.status !== "connected") - Number(right.status !== "connected"),
-  );
+  return stores.toSorted((left, right) => listRank(left) - listRank(right));
 }
 
 /** Stores as one grouped list, with the 30-day figures lined up in columns. */

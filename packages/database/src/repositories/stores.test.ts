@@ -191,7 +191,11 @@ const rotatedTokens = {
 describe("token refresh compare-and-swap", () => {
   it("rotates the tokens while the refresh token is unchanged", async () => {
     const storeId = await connectShop(`shop-rotate-${tenantA}`);
-    await recordStoreError(database, storeId, "Instabilidade");
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh",
+    });
     const swapped = await updateStoreTokens(database, {
       storeConnectionId: storeId,
       previousRefreshTokenEnc: "enc-refresh",
@@ -204,6 +208,16 @@ describe("token refresh compare-and-swap", () => {
       refreshTokenEnc: "enc-refresh-new",
       lastError: null,
     });
+  });
+
+  it("keeps a late failure from an old refresh token off a reconnected store", async () => {
+    const storeId = await connectShop(`shop-late-failure-${tenantA}`);
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh-before-reconnect",
+    });
+    expect(await storeRow(storeId)).toMatchObject({ status: "connected", lastError: null });
   });
 
   it("does not reconnect a store the seller disconnected during the refresh", async () => {
