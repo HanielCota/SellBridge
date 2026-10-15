@@ -1,4 +1,5 @@
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
+import { firstShippedAt, withShipmentDelay } from "./shipment-timing.ts";
 import { createHash, randomBytes } from "node:crypto";
 import {
   and,
@@ -115,6 +116,9 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
           status: orderShipments.status,
           supplierName: suppliers.name,
           trackingCode: orderShipments.trackingCode,
+          dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+          estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
+          shippedAt: firstShippedAt,
         })
         .from(orderShipments)
         .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
@@ -163,6 +167,7 @@ export async function listOperationalOrders(
   // The page lives in the address: after a forward or a shared link it can point past the end.
   // The last page with orders is shown then, never an empty list without a pager.
   const page = Math.min(search.page, Math.max(1, totalPages));
+  const now = new Date();
   const rows = await operationalOrderRows(database, filter, page);
   const shipments = await operationalShipments(
     database,
@@ -172,7 +177,9 @@ export async function listOperationalOrders(
   return {
     items: rows.map((row) => ({
       ...row,
-      shipments: shipments.filter((shipment) => shipment.orderId === row.id),
+      shipments: shipments
+        .filter((shipment) => shipment.orderId === row.id)
+        .map((shipment) => withShipmentDelay(shipment, now)),
     })),
     page,
     total,
@@ -223,6 +230,7 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
       dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       trackedAt: orderShipments.trackedAt,
+      shippedAt: firstShippedAt,
       updatedAt: orderShipments.updatedAt,
       supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
     })
@@ -267,7 +275,7 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
     },
     items,
     shipments: shipments.map((shipment) => ({
-      ...shipment,
+      ...withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
     })),
   };

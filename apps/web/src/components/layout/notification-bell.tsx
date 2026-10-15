@@ -2,6 +2,7 @@ import {
   BellIcon,
   ChatCircleTextIcon,
   type Icon,
+  ClockIcon,
   PackageIcon,
   PlugsIcon,
   ShoppingBagIcon,
@@ -55,6 +56,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
   },
   shipment_cancelled: {
     icon: PackageIcon,
+    className: WARNING_TINT,
+  },
+  shipment_late: {
+    icon: ClockIcon,
     className: WARNING_TINT,
   },
   listing_unavailable: {

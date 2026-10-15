@@ -210,7 +210,8 @@ function SupplierLink({
   return (
     <div className="w-full space-y-2">
       {closed ? null : (
-        <div className="flex gap-2">
+        // Wraps on phones: side by side, the two buttons are wider than a 320 px screen.
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={mutation.isPending}

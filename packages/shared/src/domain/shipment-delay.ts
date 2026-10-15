@@ -23,6 +23,13 @@ const AT_SUPPLIER: ReadonlySet<FulfillmentStatus> = new Set([
  */
 export type ShipmentDelay = "dispatch_overdue" | "delivery_overdue" | "awaiting_confirmation";
 
+/** How each delay reads on a badge (orders list, shipment panel). */
+export const SHIPMENT_DELAY_LABELS: Record<ShipmentDelay, string> = {
+  dispatch_overdue: "Despacho atrasado",
+  delivery_overdue: "Entrega atrasada",
+  awaiting_confirmation: "Confirme a entrega",
+};
+
 export interface ShipmentTiming {
   status: FulfillmentStatus;
   dispatchDeadlineAt: Date | null;

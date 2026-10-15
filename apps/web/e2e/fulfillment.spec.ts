@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import {
   organization,
   orderItems,
+  orderShipments,
   orders,
   storeConnections,
   supplierProducts,
@@ -415,6 +416,33 @@ test("a parcel of an order on hold warns the supplier and offers no next step", 
     await expect(supplier.getByRole("button", { name: "Aceito", exact: true })).toHaveCount(0);
   } finally {
     await context.close();
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("a parcel past its delivery estimate shows as late in operations, the order and the bell", async ({
+  page,
+}) => {
+  const { order, link, externalOrderId } = await forwardedOrder("E2E-LATE");
+  await database
+    .update(orderShipments)
+    .set({ status: "shipped", estimatedDeliveryAt: new Date(Date.now() - 3 * 86_400_000) })
+    .where(eq(orderShipments.id, link.shipmentId));
+  try {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await expect(page.getByText("Entrega atrasada").first()).toBeVisible();
+
+    await gotoHydrated(page, `/pedidos/${order.id}`);
+    await expect(page.getByText("Entrega prevista").first()).toBeVisible();
+    await expect(page.getByText("Entrega atrasada").first()).toBeVisible();
+
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    await page.getByRole("tab", { name: /Problemas/ }).click();
+    await expect(page.getByText(`Entrega atrasada no pedido #${externalOrderId}`)).toBeVisible();
+  } finally {
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });
