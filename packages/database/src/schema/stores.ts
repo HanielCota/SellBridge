@@ -25,6 +25,8 @@ export const storeConnections = pgTable(
     expiresAt: timestamp({ withTimezone: true }),
     status: storeConnectionStatusEnum().notNull().default("connected"),
     lastError: text(),
+    /** When the marketplace last sent an event about this shop (store health on /lojas). */
+    lastWebhookAt: timestamp({ withTimezone: true }),
     connectedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
