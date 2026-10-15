@@ -32,7 +32,7 @@ async function loadOnboardingState(tenantId: string) {
     listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
   ]);
   return {
-    hasRegion: region !== null,
+    hasRegion: region !== null && region.cpf !== null,
     hasStore: stores.length > 0,
     hasPublishedListing: listings.total > 0,
   };

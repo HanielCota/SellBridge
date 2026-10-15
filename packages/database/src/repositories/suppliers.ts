@@ -16,6 +16,7 @@ import {
   ilike,
   inArray,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -85,6 +86,135 @@ export async function listNichesForRegion(
     .where(and(eq(suppliers.active, true), coversRegion(region)))
     .orderBy(asc(suppliers.niche));
   return rows.map((row) => row.niche);
+}
+
+/** A supplier of the directory, and whether it delivers to the reseller (null: no address yet). */
+export type DirectorySupplier = SupplierSummary & { deliversToRegion: boolean | null };
+
+export interface SupplierDirectoryFilters extends ListSuppliersFilters {
+  /** The reseller's region, when saved: marks who delivers there. */
+  region: Pick<TenantRegion, "state" | "city"> | null;
+  /** Leaves only suppliers that deliver to `region`. */
+  deliveringOnly?: boolean | undefined;
+}
+
+/**
+ * The search a reseller types is a niche or a product they want to sell: it matches the
+ * supplier's name or niche, or the title of any of its active products.
+ */
+function nicheOrProductMatch(search: string): SQL | undefined {
+  const onSupplier = matchesEveryWord(search, [suppliers.name, suppliers.niche]);
+  const onProduct = matchesEveryWord(search, [supplierProducts.title]);
+  if (!onSupplier || !onProduct) {
+    return undefined;
+  }
+  return or(
+    onSupplier,
+    exists(
+      sql`(select 1 from ${supplierProducts} where ${and(
+        eq(supplierProducts.supplierId, suppliers.id),
+        eq(supplierProducts.active, true),
+        onProduct,
+      )})`,
+    ),
+  );
+}
+
+function deliversTo(region: SupplierDirectoryFilters["region"]): SQL<boolean | null> {
+  if (!region) {
+    return sql<null>`null::boolean`;
+  }
+  return sql<boolean>`${coversRegion(region)}`;
+}
+
+function directoryConditions(filters: SupplierDirectoryFilters): SQL[] {
+  const conditions: SQL[] = [eq(suppliers.active, true)];
+  if (filters.niche) {
+    conditions.push(eq(suppliers.niche, filters.niche));
+  }
+  const searchCondition = filters.search ? nicheOrProductMatch(filters.search) : undefined;
+  if (searchCondition) {
+    conditions.push(searchCondition);
+  }
+  if (filters.deliveringOnly && filters.region) {
+    conditions.push(coversRegion(filters.region));
+  }
+  return conditions;
+}
+
+function directoryOrder(region: SupplierDirectoryFilters["region"]): SQL[] {
+  if (!region) {
+    return [asc(suppliers.name)];
+  }
+  return [sql`${coversRegion(region)} desc`, asc(suppliers.name)];
+}
+
+/**
+ * Every active supplier, wherever it delivers; those that deliver to the reseller come first.
+ * Publishing still requires coverage (`getCatalogProductForRegion`).
+ */
+export async function listSupplierDirectory(
+  database: Database,
+  filters: SupplierDirectoryFilters,
+): Promise<DirectorySupplier[]> {
+  const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
+    eq(supplierProducts.supplierId, suppliers.id),
+    eq(supplierProducts.active, true),
+  )})`.mapWith(Number);
+  const deliversToRegion = deliversTo(filters.region);
+
+  return database
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      niche: suppliers.niche,
+      description: suppliers.description,
+      state: suppliers.state,
+      city: suppliers.city,
+      logoUrl: suppliers.logoUrl,
+      productCount,
+      deliversToRegion,
+    })
+    .from(suppliers)
+    .where(and(...directoryConditions(filters)))
+    .orderBy(...directoryOrder(filters.region));
+}
+
+/** Niches of every active supplier, for the shortcuts above the directory. */
+export async function listActiveNiches(database: Database): Promise<string[]> {
+  const rows = await database
+    .selectDistinct({ niche: suppliers.niche })
+    .from(suppliers)
+    .where(eq(suppliers.active, true))
+    .orderBy(asc(suppliers.niche));
+  return rows.map((row) => row.niche);
+}
+
+/** Any active supplier, so the reseller can browse its catalog even before it delivers to them. */
+export async function getDirectorySupplier(
+  database: Database,
+  region: SupplierDirectoryFilters["region"],
+  supplierId: string,
+): Promise<DirectorySupplier> {
+  const [supplier] = await database
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      niche: suppliers.niche,
+      description: suppliers.description,
+      state: suppliers.state,
+      city: suppliers.city,
+      logoUrl: suppliers.logoUrl,
+      productCount: sql<number>`0`.mapWith(Number),
+      deliversToRegion: deliversTo(region),
+    })
+    .from(suppliers)
+    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true)))
+    .limit(1);
+  if (!supplier) {
+    throw notFoundError("Fornecedor não encontrado");
+  }
+  return supplier;
 }
 
 /** Loads a supplier only if it serves the tenant's region; otherwise reports not found. */

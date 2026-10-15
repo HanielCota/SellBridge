@@ -1,12 +1,25 @@
 import { formatCep, normalizeCep } from "@sellbridge/shared/cep";
-import { NO_HOUSE_NUMBER, optionalParameter, freeText } from "@sellbridge/shared/schemas";
-import { ArrowSquareOutIcon, CheckCircleIcon, CheckIcon, InfoIcon } from "@phosphor-icons/react";
+import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
+import {
+  NO_HOUSE_NUMBER,
+  fullNameSchema,
+  optionalParameter,
+  freeText,
+} from "@sellbridge/shared/schemas";
+import {
+  ArrowLeftIcon,
+  ArrowSquareOutIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  InfoIcon,
+} from "@phosphor-icons/react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
 import { z } from "zod";
 import { FloatingTextField } from "@/components/form/floating-field";
+import { BillingNotice, StepProgress } from "@/components/region/billing-holder";
 import { CepField, type CepLookupStatus } from "@/components/region/cep-field";
 import { countLabel } from "@/components/region/count-label";
 import { CurrentRegionCard } from "@/components/region/current-region-card";
@@ -46,6 +59,8 @@ const neighborhoodFieldSchema = freeText().trim().min(1, "Informe o bairro");
 const optionalFieldSchema = z.string();
 
 interface AddressValues {
+  fullName: string;
+  cpf: string;
   cep: string;
   street: string;
   number: string;
@@ -59,7 +74,7 @@ const CORREIOS_CEP_SEARCH_URL = "https://buscacepinter.correios.com.br/app/ender
 
 export const Route = createFileRoute("/_app/onboarding")({
   validateSearch: onboardingSearchSchema,
-  head: () => ({ meta: [{ title: "Seu endereço | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Seus dados | SellBridge" }] }),
   loader: () => getRegionOverview(),
   component: OnboardingPage,
 });
@@ -71,7 +86,7 @@ function OnboardingPage() {
   if (region) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-6">
-        <PageTitle title="Alterar seu endereço" />
+        <PageTitle title="Alterar seus dados" />
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
           <CurrentRegionCard region={region} suppliers={suppliers} />
           {/* Sticky so the form stays beside the supplier list while scrolling. */}
@@ -81,10 +96,10 @@ function OnboardingPage() {
           >
             <div className="space-y-1">
               <h2 id="change-region" className="text-subhead font-semibold">
-                Trocar endereço
+                Seus dados e endereço
               </h2>
               <p className="text-sm text-muted-foreground">
-                Digite o novo CEP e veja o que muda no seu catálogo antes de salvar.
+                Ao trocar o CEP, você vê o que muda no seu catálogo antes de salvar.
               </p>
             </div>
             <AddressForm region={region} />
@@ -97,9 +112,9 @@ function OnboardingPage() {
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
         <RegionMapMark className="size-12 shrink-0" />
-        <PageTitle title="Onde você está?" />
+        <PageTitle title="Seu cadastro" />
       </div>
-      <section aria-label="Endereço" className="surface-card rounded-3xl bg-card p-5 sm:p-8">
+      <section aria-label="Cadastro" className="surface-card rounded-3xl bg-card p-5 sm:p-8">
         <AddressForm region={null} />
       </section>
     </div>
@@ -111,7 +126,8 @@ function PageTitle({ title }: { title: string }) {
     <div className="space-y-1">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="text-sm text-muted-foreground">
-        Usamos seu endereço para mostrar só fornecedores que entregam na sua região.
+        Seu nome, CPF e endereço. Pelo endereço você também vê quais fornecedores entregam para
+        você.
       </p>
     </div>
   );
@@ -125,8 +141,14 @@ function initialCep(region: TenantRegion, fromLanding: string | undefined): stri
   return fromLanding ? formatCep(fromLanding) : "";
 }
 
-function defaultValues(region: TenantRegion, fromLanding: string | undefined): AddressValues {
+function defaultValues(
+  region: TenantRegion,
+  fromLanding: string | undefined,
+  accountName: string,
+): AddressValues {
   return {
+    fullName: region?.fullName ?? accountName,
+    cpf: region?.cpf ? formatCpf(region.cpf) : "",
     cep: initialCep(region, fromLanding),
     street: region?.street ?? "",
     number: region?.number && region.number !== NO_HOUSE_NUMBER ? region.number : "",
@@ -138,6 +160,7 @@ function defaultValues(region: TenantRegion, fromLanding: string | undefined): A
 
 function useAddressForm(region: TenantRegion) {
   const search = Route.useSearch();
+  const { session } = Route.useRouteContext();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -146,12 +169,14 @@ function useAddressForm(region: TenantRegion) {
   const [isSaved, setIsSaved] = useState(false);
 
   const form = useForm({
-    defaultValues: defaultValues(region, search.cep),
+    defaultValues: defaultValues(region, search.cep, session.user.name),
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
         await updateTenantRegion({
           data: {
+            fullName: value.fullName,
+            cpf: value.cpf,
             cep: value.cep,
             street: value.street,
             number: value.noNumber ? NO_HOUSE_NUMBER : value.number,
@@ -280,8 +305,82 @@ async function submitAddress(form: AddressFormApi) {
   await form.handleSubmit();
 }
 
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Endereço" }] as const;
+
+/**
+ * A first visit fills the form in two steps, holder then address; changing the data later shows
+ * everything at once. Both steps share one form, so going back keeps what was typed.
+ */
 function AddressForm({ region }: { region: TenantRegion }) {
-  const { form, submitError, isSaved } = useAddressForm(region);
+  const controller = useAddressForm(region);
+  const [step, setStep] = useState(0);
+  if (region === null && step === 0) {
+    return (
+      <HolderStep
+        form={controller.form}
+        onContinue={() => {
+          setStep(1);
+          requestAnimationFrame(() => document.getElementById("cep")?.focus());
+        }}
+      />
+    );
+  }
+  return (
+    <AddressStep
+      controller={controller}
+      region={region}
+      onBack={region === null ? () => setStep(0) : undefined}
+    />
+  );
+}
+
+/** Checks name and CPF before the address step, flagging both at once. */
+async function holderIsValid(form: AddressFormApi): Promise<boolean> {
+  const results = await Promise.all([
+    form.validateField("fullName", "submit"),
+    form.validateField("cpf", "submit"),
+  ]);
+  return results.every((errors) => errors.length === 0);
+}
+
+async function continueIfValid(form: AddressFormApi, onContinue: () => void) {
+  if (await holderIsValid(form)) {
+    onContinue();
+  }
+}
+
+function HolderStep({ form, onContinue }: { form: AddressFormApi; onContinue: () => void }) {
+  const [showErrors, setShowErrors] = useState(false);
+  return (
+    <form
+      noValidate
+      className="grid gap-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setShowErrors(true);
+        void continueIfValid(form, onContinue);
+      }}
+    >
+      <StepProgress steps={SIGNUP_STEPS} current={0} />
+      <HolderFields form={form} showErrors={showErrors} />
+      <BillingNotice />
+      <Button type="submit" size="lg" className="w-full sm:w-fit">
+        Continuar
+      </Button>
+    </form>
+  );
+}
+
+function AddressStep({
+  controller,
+  region,
+  onBack,
+}: {
+  controller: ReturnType<typeof useAddressForm>;
+  region: TenantRegion;
+  onBack: (() => void) | undefined;
+}) {
+  const { form, submitError, isSaved } = controller;
   const lookup = useCepLookup(form, region);
   const handleCepChange = useCepAutofill(form, region);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
@@ -294,6 +393,14 @@ function AddressForm({ region }: { region: TenantRegion }) {
         void submitAddress(form);
       }}
     >
+      {region ? (
+        <div className="grid gap-3">
+          <HolderFields form={form} showErrors={hasSubmitted} />
+          <BillingNotice />
+        </div>
+      ) : (
+        <StepProgress steps={SIGNUP_STEPS} current={1} />
+      )}
       {submitError ? (
         <Alert variant="destructive">
           <AlertDescription>{submitError}</AlertDescription>
@@ -319,8 +426,66 @@ function AddressForm({ region }: { region: TenantRegion }) {
         city={lookup.city}
         state={lookup.state}
       />
-      <SubmitButton form={form} isSaved={isSaved} />
+      <AddressActions form={form} isSaved={isSaved} onBack={onBack} />
     </form>
+  );
+}
+
+function AddressActions({
+  form,
+  isSaved,
+  onBack,
+}: {
+  form: AddressFormApi;
+  isSaved: boolean;
+  onBack: (() => void) | undefined;
+}) {
+  return (
+    <div className="flex flex-col-reverse gap-3 sm:flex-row">
+      {onBack ? (
+        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
+          <ArrowLeftIcon aria-hidden="true" />
+          Voltar
+        </Button>
+      ) : null}
+      <SubmitButton form={form} isSaved={isSaved} />
+    </div>
+  );
+}
+
+function HolderFields({ form, showErrors }: { form: AddressFormApi; showErrors: boolean }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <form.Field name="fullName" validators={{ onChange: fullNameSchema }}>
+        {(field) => (
+          <div className="sm:col-span-2">
+            <FloatingTextField
+              id="holder-full-name"
+              label="Nome completo"
+              autoComplete="name"
+              value={field.state.value}
+              errors={visibleErrors(field.state.meta.errors, showErrors)}
+              onBlur={field.handleBlur}
+              onValueChange={field.handleChange}
+            />
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="cpf" validators={{ onChange: cpfSchema }}>
+        {(field) => (
+          <FloatingTextField
+            id="holder-cpf"
+            label="CPF"
+            inputMode="numeric"
+            autoComplete="off"
+            value={field.state.value}
+            errors={visibleErrors(field.state.meta.errors, showErrors)}
+            onBlur={field.handleBlur}
+            onValueChange={(next) => field.handleChange(formatCpf(next))}
+          />
+        )}
+      </form.Field>
+    </div>
   );
 }
 
@@ -341,11 +506,11 @@ function SubmitButton({ form, isSaved }: { form: AddressFormApi; isSaved: boolea
                 className="animate-in duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] zoom-in-50 motion-reduce:zoom-in-100"
                 aria-hidden="true"
               />
-              Endereço salvo
+              Dados salvos
             </>
           ) : null}
           {!isSaved && isSubmitting ? "Salvando…" : null}
-          {!isSaved && !isSubmitting ? "Salvar endereço" : null}
+          {!isSaved && !isSubmitting ? "Salvar dados" : null}
         </Button>
       )}
     </form.Subscribe>

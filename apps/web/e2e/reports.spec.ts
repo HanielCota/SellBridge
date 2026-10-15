@@ -46,7 +46,7 @@ test.describe("dashboard", () => {
     await expect(
       page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Informar CEP" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Completar cadastro" })).toBeVisible();
   });
 });
 

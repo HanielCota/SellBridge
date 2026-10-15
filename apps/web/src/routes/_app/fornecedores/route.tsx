@@ -1,13 +1,11 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { getTenantRegion } from "@/features/region/region.functions";
 
+/**
+ * Suppliers are open to every reseller, address or not; the region, when saved, only marks who
+ * delivers to them (publishing still requires it).
+ */
 export const Route = createFileRoute("/_app/fornecedores")({
-  beforeLoad: async ({ location }) => {
-    const region = await getTenantRegion();
-    if (!region) {
-      throw redirect({ to: "/onboarding", search: { redirect: location.href } });
-    }
-    return { region };
-  },
+  beforeLoad: async () => ({ region: await getTenantRegion() }),
   component: Outlet,
 });

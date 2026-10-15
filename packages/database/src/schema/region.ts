@@ -24,6 +24,10 @@ export const tenantProfile = pgTable("tenant_profile", {
   street: text(),
   number: text(),
   complement: text(),
+  // Who invoices and charges go to. Null for tenants saved before the field existed.
+  fullName: text(),
+  // Digits only.
+  cpf: text(),
   updatedAt: timestamp({ withTimezone: true })
     .defaultNow()
     .$onUpdate(() => new Date())

@@ -16,6 +16,7 @@ import {
   recordAdminEvent,
   revokeTenantApiKeys,
   saveTenantRegion,
+  type TenantRegion,
   snoozeIssue,
   type AdminEventDetails,
 } from "@sellbridge/database/repositories";
@@ -127,6 +128,12 @@ async function loadRankedCustomers(search: string | undefined) {
   return rankCustomers(rows, now);
 }
 
+/** The staff screens show where a customer is, never the CPF and legal name kept for invoices. */
+function withoutBillingHolder(region: TenantRegion): Omit<TenantRegion, "cpf" | "fullName"> {
+  const { cpf: _cpf, fullName: _fullName, ...address } = region;
+  return address;
+}
+
 export const adminListCustomers = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(customersSearchSchema)
@@ -202,7 +209,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       health,
       events,
       weeklyOrders,
-      region,
+      region: region === null ? null : withoutBillingHolder(region),
       stores: stores.map((store) => ({
         id: store.id,
         shopName: store.shopName,
@@ -343,7 +350,7 @@ export const adminUpdateCustomerRegion = createServerFn({ method: "POST" })
     await recordAdminAction(context.userId, data.userId, "region_updated", {
       state: region.state,
     });
-    return region;
+    return withoutBillingHolder(region);
   });
 
 export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })

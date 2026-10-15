@@ -285,6 +285,8 @@ export const DEMO_ACCOUNT = {
   name: "Ana Revendedora",
   email: "demo@sellbridge.local",
   cep: "30130010",
+  /** Billing holder for invoices; a well-known test CPF, valid check digits, nobody's real one. */
+  holder: { fullName: "Ana Revendedora Souza", cpf: "52998224725" },
 } as const;
 
 export const ADMIN_ACCOUNT = {
