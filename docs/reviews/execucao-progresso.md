@@ -4,33 +4,22 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: X-1 · confirmação de "Cancelar envio" (com X-3, mesmos botões)
-- Última etapa concluída: 4 · Testes (⏸2 aguardando OK). ⏸1 aprovado em 2026-10-14, com o `ShipmentActions` incluído
-- Próximo passo: depois do OK, etapa 5 (implementar): `ConfirmDialog` com rótulo de saída, diálogo de cancelamento com motivo, ocorrência vazia com alerta, `ShipmentActions` recebendo o objeto do `useShipmentUpdate`. Próxima migration: 0025, pela "senha da vez" (3 chats)
-- Arquivos tocados: apps/web/e2e/fulfillment.spec.ts (auxiliar `forwardedOrder` e 3 testes novos; o teste de cancelamento existente passa a confirmar pelo diálogo)
-- Decisões tomadas nos pontos de parada: **chat único desde 2026-10-14** (o usuário encerrou os chats B, C, D e E). Este chat faz todos os itens que faltam, na ordem da tabela; `docs/prompts/coordenacao.md` fica só como histórico.
+- Item/parte: _(nenhum)_. Próximos deste chat, na ordem: U-3, U-4, U-9, "trocar de fornecedor num envio cancelado", 22, 21, correções das pastas antigas
+- Última etapa concluída: X-1 ✅ 562739e
+- Próximo passo: etapa 1 do U-3. Próxima migration: 0026 pela "senha da vez"
+- Arquivos tocados: —
+- Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
-
-### Pacote do ⏸1 do X-1 (apresentado em 2026-10-14, aguardando OK)
-
-- **Hoje** (`components/fulfillment/shipment-panel.tsx`): "Cancelar envio" cancela no clique, sem confirmar, também no link público do fornecedor (celular, toque errado avisa a loja). O botão fica desativado até preencher "Ocorrência ou observação", sem dizer por quê (X-3).
-- **Proposta** (referência: `ConfirmDialog`, já usado em desconectar loja e revogar chave):
-  1. "Cancelar envio" sempre ativo, abre diálogo de confirmação com o campo obrigatório **"Motivo do cancelamento"**, preenchido com o que já estiver em "Ocorrência".
-  2. Texto por quem cancela. Fornecedor: "Cancelar este envio?" (a loja é avisada com o motivo e pode encaminhar a outro fornecedor; o link passa a mostrar só o histórico). Revendedor: "Cancelar o envio de {fornecedor}?" (o link deixa de valer; dá para reencaminhar com link novo enquanto o pedido estiver pago).
-  3. Botões "**Voltar**" e "**Cancelar envio**" (vermelho); o `ConfirmDialog` ganha rótulo opcional no botão de saída.
-  4. **X-3:** "Registrar ocorrência" sempre ativo; com o campo vazio mostra no próprio campo "Escreva a ocorrência antes de registrar".
-- **Testes do ⏸2:** e2e no link do fornecedor (fechar o diálogo não cancela; confirmar sem motivo é recusado; com motivo cancela e a loja vê o aviso no sino); e2e do revendedor no diálogo "Operar pedido"; e2e da ocorrência vazia.
-- **Pergunta em aberto:** resolver junto o `ShipmentActions` com ~13 propriedades (passar o objeto `useShipmentUpdate` inteiro)?
 
 ## Linha de base
 
-| Métrica                                        | Valor                 | Medido em  |
-| ---------------------------------------------- | --------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1125 passando         | 2026-10-14 |
-| Testes web (`apps/web` vitest)                 | 392 passando          | 2026-10-14 |
-| E2E completos (`--workers=1`)                  | 78 passando           | 2026-10-14 |
-| Última migration                               | 0023_pending_indexes  | 2026-10-14 |
-| Branch de trabalho                             | `feat/client-phase-1` | 2026-10-12 |
+| Métrica                                        | Valor                              | Medido em  |
+| ---------------------------------------------- | ---------------------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1160 passando                      | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 392 passando                       | 2026-10-14 |
+| E2E completos (`--workers=1`)                  | 78 passando                        | 2026-10-14 |
+| Última migration                               | 0025_store_supplier_and_unique_cpf | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`              | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -82,6 +71,12 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · X-1 e X-3 · Confirmação de "Cancelar envio" e ocorrência vazia — ✅ concluído (562739e, commit local)
+
+- "Cancelar envio" (link do fornecedor e "Operar pedido") abre `ConfirmDialog` com "Motivo do cancelamento" obrigatório, preenchido com a ocorrência já digitada, botões "Voltar" e "Cancelar envio" e texto conforme quem cancela. "Registrar ocorrência" vazio mostra "Escreva a ocorrência antes de registrar" (`role="alert"`). `ConfirmDialog` ganhou `cancelLabel`; `ShipmentActions` recebe o objeto do `useShipmentUpdate` (fim das ~13 propriedades).
+- Portões: lint, tipos, formatação, sem else ✅; 1147 testes; build ✅; e2e 14/14 (envio 7, página do pedido, acessibilidade) e, depois da 0025, 24/24; D2 sem rolagem nas 8 larguras do link do fornecedor; 9 capturas.
+- Junções do dia neste chat: item 03 do chat B (3ff71ce); migration 0025 do chat CPF (41e89ad, `store_connections.supplier_id`, endereço opcional, CPF único). Chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`) faz a etapa 2 (fim da trava por região), aprovada pelo usuário; o chat C adia 13, 14, 18 e 23 até ela entrar.
 
 ### 2026-10-15 · Titular da conta (CPF) e fornecedores abertos — ✅ juntado (e4d8343 · 821693b, junção 63a301a)
 

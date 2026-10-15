@@ -176,6 +176,13 @@
       "when": 1792022885802,
       "tag": "0024_tenant_billing_holder",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792026698831,
+      "tag": "0025_store_supplier_and_unique_cpf",
+      "breakpoints": true
     }
   ]
 }

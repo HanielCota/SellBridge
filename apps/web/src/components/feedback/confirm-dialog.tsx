@@ -19,6 +19,8 @@ interface ConfirmDialogProps {
   isPending: boolean;
   onConfirm: () => void;
   destructive?: boolean;
+  /** The button that closes without acting; "Cancelar" unless that clashes with the action. */
+  cancelLabel?: string;
   /** Extra fields shown between the text and the buttons (e.g. a reason). */
   children?: ReactNode;
 }
@@ -35,7 +37,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         {props.children}
         <DialogFooter>
           <Button variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancelar
+            {props.cancelLabel ?? "Cancelar"}
           </Button>
           <Button
             variant={props.destructive ? "destructive" : "default"}

@@ -14,6 +14,8 @@ export interface StoreConnectionSummary {
   marketplace: Marketplace;
   shopName: string;
   externalShopId: string;
+  /** The one supplier whose products this shop sells; null while the seller has not picked one. */
+  supplierId: string | null;
   status: StoreStatus;
   lastError: string | null;
   expiresAt: Date | null;
@@ -25,6 +27,7 @@ const summaryColumns = {
   marketplace: storeConnections.marketplace,
   shopName: storeConnections.shopName,
   externalShopId: storeConnections.externalShopId,
+  supplierId: storeConnections.supplierId,
   status: storeConnections.status,
   lastError: storeConnections.lastError,
   expiresAt: storeConnections.expiresAt,

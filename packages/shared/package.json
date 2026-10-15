@@ -22,6 +22,7 @@
     "./ticket-rules": "./src/domain/ticket-rules.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./catalog-availability": "./src/domain/catalog-availability.ts",
+    "./store-supplier": "./src/domain/store-supplier.ts",
     "./staff-access": "./src/domain/staff-access.ts",
     "./platform-owner": "./src/domain/platform-owner.ts",
     "./supplier-score": "./src/domain/supplier-score.ts",

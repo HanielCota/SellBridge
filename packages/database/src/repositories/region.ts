@@ -1,7 +1,8 @@
 import type { ResolvedAddress } from "@sellbridge/shared/cep";
-import { notFoundError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
+import { isUniqueViolation } from "../postgres-errors.ts";
 import { cepCache, tenantProfile } from "../schema/index.ts";
 
 export interface CachedCep {
@@ -69,12 +70,31 @@ export type TenantAddress = ResolvedAddress & {
   holder?: BillingHolder;
 };
 
-function toTenantRegion(row: typeof tenantProfile.$inferSelect): TenantRegion {
+/** The partial unique index of `schema/region.ts`: one account per CPF. */
+const CPF_INDEX = "tenant_profile_cpf_idx";
+
+const CPF_IN_USE_MESSAGE =
+  "Este CPF já está cadastrado em outra conta do SellBridge. Se a conta é sua, fale com o suporte.";
+
+/** Turns the CPF index refusing a row into the conflict the tenant sees; rethrows anything else. */
+function rethrowCpfInUse(error: unknown): never {
+  if (isUniqueViolation(error, CPF_INDEX)) {
+    throw conflictError(CPF_IN_USE_MESSAGE);
+  }
+  throw error;
+}
+
+/** Null when the profile only holds the billing holder: the address is no longer asked for. */
+function toTenantRegion(row: typeof tenantProfile.$inferSelect): TenantRegion | null {
+  const { cep, state, city } = row;
+  if (cep === null || state === null || city === null) {
+    return null;
+  }
   return {
     tenantId: row.tenantId,
-    cep: row.cep,
-    state: row.state,
-    city: row.city,
+    cep,
+    state,
+    city,
     neighborhood: row.neighborhood,
     street: row.street,
     number: row.number,
@@ -91,7 +111,7 @@ export async function findTenantRegion(
   const row = await database.query.tenantProfile.findFirst({
     where: eq(tenantProfile.tenantId, tenantId),
   });
-  if (!row) {
+  if (row === undefined) {
     return null;
   }
   return toTenantRegion(row);
@@ -117,14 +137,58 @@ export async function saveTenantRegion(
     complement: address.complement ?? null,
     ...address.holder,
   };
-  const [saved] = await database
-    .insert(tenantProfile)
-    .values(values)
-    .onConflictDoUpdate({ target: tenantProfile.tenantId, set: values })
-    .returning();
-  if (!saved) {
-    // An upsert always returns its row; this only guards the destructuring.
+  const saved = await upsertTenantProfile(database, values);
+  const region = toTenantRegion(saved);
+  if (region === null) {
+    // The values above always carry the address; this only narrows the type.
     throw notFoundError("Endereço não encontrado");
   }
-  return toTenantRegion(saved);
+  return region;
+}
+
+async function upsertTenantProfile(
+  database: Database,
+  values: typeof tenantProfile.$inferInsert,
+): Promise<typeof tenantProfile.$inferSelect> {
+  try {
+    const [saved] = await database
+      .insert(tenantProfile)
+      .values(values)
+      .onConflictDoUpdate({ target: tenantProfile.tenantId, set: values })
+      .returning();
+    if (saved === undefined) {
+      // An upsert always returns its row; this only guards the destructuring.
+      throw notFoundError("Cadastro não encontrado");
+    }
+    return saved;
+  } catch (error) {
+    return rethrowCpfInUse(error);
+  }
+}
+
+export async function findBillingHolder(
+  database: Database,
+  tenantId: string,
+): Promise<BillingHolder | null> {
+  const row = await database.query.tenantProfile.findFirst({
+    columns: { fullName: true, cpf: true },
+    where: eq(tenantProfile.tenantId, tenantId),
+  });
+  if (row === undefined || row.fullName === null || row.cpf === null) {
+    return null;
+  }
+  return { fullName: row.fullName, cpf: row.cpf };
+}
+
+/**
+ * Saves who invoices and charges go to, keeping any address an older profile has. A CPF
+ * already used by another account is refused with a conflict.
+ */
+export async function saveBillingHolder(
+  database: Database,
+  tenantId: string,
+  holder: BillingHolder,
+): Promise<BillingHolder> {
+  const saved = await upsertTenantProfile(database, { tenantId, ...holder });
+  return { fullName: saved.fullName ?? holder.fullName, cpf: saved.cpf ?? holder.cpf };
 }

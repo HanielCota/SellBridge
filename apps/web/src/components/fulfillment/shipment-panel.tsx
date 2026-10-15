@@ -13,6 +13,9 @@ import { type ComponentProps, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
+import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { FormErrorAlert } from "@/components/form/form-feedback";
+import { TextareaField } from "@/components/form/textarea-field";
 import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,17 +63,7 @@ export function ShipmentPanel({
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
-  const {
-    carrier,
-    setCarrier,
-    trackingCode,
-    setTrackingCode,
-    trackingUrl,
-    setTrackingUrl,
-    note,
-    setNote,
-    mutation,
-  } = useShipmentUpdate(shipment, onUpdate);
+  const update = useShipmentUpdate(shipment, onUpdate);
   const next = nextStepFor(shipment.status, actsAs);
   const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
@@ -81,19 +74,10 @@ export function ShipmentPanel({
       </ShipmentToolbar>
       {closed ? null : (
         <ShipmentActions
+          update={update}
+          shipment={shipment}
           next={blocked ? null : next}
-          carrier={carrier}
-          trackingCode={trackingCode}
-          trackingUrl={trackingUrl}
-          note={note}
-          setCarrier={setCarrier}
-          setTrackingCode={setTrackingCode}
-          setTrackingUrl={setTrackingUrl}
-          setNote={setNote}
-          pending={mutation.isPending}
-          status={shipment.status}
-          awaitingDelivery={actsAs === "supplier" && shipment.status === "shipped"}
-          onSubmit={(status) => mutation.mutate(status)}
+          actsAs={actsAs}
         />
       )}
       <ShipmentHistory shipment={shipment} />
@@ -135,23 +119,18 @@ function ShipmentToolbar({
   );
 }
 
+type ShipmentUpdate = ReturnType<typeof useShipmentUpdate>;
+
 /** What dispatch needs: carrier and tracking. */
-function DispatchFields(props: {
-  carrier: string;
-  trackingCode: string;
-  trackingUrl: string;
-  setCarrier: (value: string) => void;
-  setTrackingCode: (value: string) => void;
-  setTrackingUrl: (value: string) => void;
-}) {
+function DispatchFields({ update }: { update: ShipmentUpdate }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
+      <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
       {/* Codes and links are typed exactly: no capital first letter or "correction" on phones. */}
       <Field
         label="Código de rastreio"
-        value={props.trackingCode}
-        onChange={props.setTrackingCode}
+        value={update.trackingCode}
+        onChange={update.setTrackingCode}
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}
@@ -159,8 +138,8 @@ function DispatchFields(props: {
       <div className="sm:col-span-2">
         <Field
           label="Link de rastreio (opcional)"
-          value={props.trackingUrl}
-          onChange={props.setTrackingUrl}
+          value={update.trackingUrl}
+          onChange={update.setTrackingUrl}
           type="url"
           inputMode="url"
           autoCapitalize="off"
@@ -172,62 +151,155 @@ function DispatchFields(props: {
   );
 }
 
-function ShipmentActions(props: {
+const EMPTY_OCCURRENCE = "Escreva a ocorrência antes de registrar";
+
+function ShipmentActions({
+  update,
+  shipment,
+  next,
+  actsAs,
+}: {
+  update: ShipmentUpdate;
+  shipment: ShipmentView;
   next: FulfillmentStatus | null;
-  status: FulfillmentStatus;
-  /** Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */
-  awaitingDelivery: boolean;
-  carrier: string;
-  trackingCode: string;
-  trackingUrl: string;
-  note: string;
-  pending: boolean;
-  setCarrier: (value: string) => void;
-  setTrackingCode: (value: string) => void;
-  setTrackingUrl: (value: string) => void;
-  setNote: (value: string) => void;
-  onSubmit: (status: FulfillmentStatus) => void;
+  actsAs: ShipmentOperator;
 }) {
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const pending = update.mutation.isPending;
+  const registerOccurrence = () => {
+    if (!update.note.trim()) {
+      setNoteError(EMPTY_OCCURRENCE);
+      return;
+    }
+    update.mutation.mutate({ status: shipment.status, note: update.note });
+  };
   return (
     <div className="space-y-3">
-      {props.awaitingDelivery ? (
+      {/* Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */}
+      {actsAs === "supplier" && shipment.status === "shipped" ? (
         <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
       ) : null}
-      {props.next === "shipped" ? (
-        <DispatchFields
-          carrier={props.carrier}
-          trackingCode={props.trackingCode}
-          trackingUrl={props.trackingUrl}
-          setCarrier={props.setCarrier}
-          setTrackingCode={props.setTrackingCode}
-          setTrackingUrl={props.setTrackingUrl}
-        />
-      ) : null}
-      <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
+      {next === "shipped" ? <DispatchFields update={update} /> : null}
+      <Field
+        label="Ocorrência ou observação"
+        value={update.note}
+        error={noteError}
+        onChange={(value) => {
+          update.setNote(value);
+          setNoteError(null);
+        }}
+      />
       <div className="flex flex-wrap gap-2">
-        {props.next ? (
-          <Button disabled={props.pending} onClick={() => props.next && props.onSubmit(props.next)}>
-            {FULFILLMENT_LABELS[props.next]}
+        {next ? (
+          <Button
+            disabled={pending}
+            onClick={() => update.mutation.mutate({ status: next, note: update.note })}
+          >
+            {FULFILLMENT_LABELS[next]}
           </Button>
         ) : null}
-        <Button
-          variant="outline"
-          disabled={props.pending || !props.note.trim()}
-          onClick={() => props.onSubmit(props.status)}
-        >
+        <Button variant="outline" disabled={pending} onClick={registerOccurrence}>
           Registrar ocorrência
         </Button>
-        {DISPATCHED_FULFILLMENT_STATUSES.includes(props.status) ? null : (
-          <Button
-            variant="destructive"
-            disabled={props.pending || !props.note.trim()}
-            onClick={() => props.onSubmit("cancelled")}
-          >
-            Cancelar envio
-          </Button>
+        {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
+          <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
         )}
       </div>
     </div>
+  );
+}
+
+/** What cancelling means for whoever does it: the supplier hands the order back to the store. */
+function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
+  if (actsAs === "supplier") {
+    return {
+      title: "Cancelar este envio?",
+      description:
+        "A loja é avisada com o motivo e pode encaminhar o pedido a outro fornecedor. Depois disso, este link só mostra o histórico.",
+    };
+  }
+  return {
+    title: `Cancelar o envio de ${supplierName}?`,
+    description:
+      "O link do fornecedor deixa de valer. Enquanto o pedido estiver pago, dá para reencaminhar depois, com um link novo.",
+  };
+}
+
+/** The cancel dialog's state; whatever was typed as an occurrence opens as the reason. */
+function useCancelShipment(update: ShipmentUpdate) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  return {
+    open,
+    setOpen,
+    reason,
+    error,
+    start: () => {
+      setReason(update.note);
+      setError(null);
+      setOpen(true);
+    },
+    edit: (value: string) => {
+      setReason(value);
+      setError(null);
+    },
+    confirm: () => {
+      if (!reason.trim()) {
+        setError("Informe o motivo do cancelamento");
+        return;
+      }
+      update.mutation.mutate(
+        { status: "cancelled", note: reason },
+        { onSuccess: () => setOpen(false) },
+      );
+    },
+  };
+}
+
+/** One tap never cancels: the dialog asks for the reason the store (or supplier) will read. */
+function CancelShipment({
+  update,
+  supplierName,
+  actsAs,
+}: {
+  update: ShipmentUpdate;
+  supplierName: string;
+  actsAs: ShipmentOperator;
+}) {
+  const dialog = useCancelShipment(update);
+  const copy = cancelCopy(actsAs, supplierName);
+  return (
+    <>
+      <Button variant="destructive" disabled={update.mutation.isPending} onClick={dialog.start}>
+        Cancelar envio
+      </Button>
+      <ConfirmDialog
+        open={dialog.open}
+        onOpenChange={dialog.setOpen}
+        title={copy.title}
+        description={copy.description}
+        confirmLabel="Cancelar envio"
+        pendingLabel="Cancelando…"
+        cancelLabel="Voltar"
+        destructive
+        isPending={update.mutation.isPending}
+        onConfirm={dialog.confirm}
+      >
+        <div className="grid gap-3">
+          <TextareaField
+            id="cancel-shipment-reason"
+            label="Motivo do cancelamento"
+            value={dialog.reason}
+            errors={[]}
+            maxLength={500}
+            aria-invalid={dialog.error ? true : undefined}
+            onValueChange={dialog.edit}
+          />
+          <FormErrorAlert message={dialog.error} />
+        </div>
+      </ConfirmDialog>
+    </>
   );
 }
 
@@ -236,16 +308,29 @@ export function Field({
   label,
   value,
   onChange,
+  error = null,
   ...inputProps
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** Shown under the field after an action that needs it, announced to screen readers. */
+  error?: string | null;
 } & Omit<ComponentProps<typeof Input>, "value" | "onChange">) {
   return (
     <Label className="grid gap-2">
       {label}
-      <Input {...inputProps} value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input
+        {...inputProps}
+        value={value}
+        aria-invalid={error ? true : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {error ? (
+        <span role="alert" className="text-sm font-normal text-destructive">
+          {error}
+        </span>
+      ) : null}
     </Label>
   );
 }
@@ -259,14 +344,14 @@ function useShipmentUpdate(
   const [trackingUrl, setTrackingUrl] = useState(shipment.trackingUrl ?? "");
   const [note, setNote] = useState("");
   const mutation = useMutation({
-    mutationFn: async (status: FulfillmentStatus) => {
+    mutationFn: async (change: { status: FulfillmentStatus; note: string }) => {
       const parsed = shipmentUpdateSchema.safeParse({
         shipmentId: shipment.id,
-        status,
+        status: change.status,
         carrier,
         trackingCode,
         trackingUrl,
-        note,
+        note: change.note,
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira os dados");
       await onUpdate(parsed.data);
