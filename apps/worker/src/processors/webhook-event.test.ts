@@ -146,6 +146,36 @@ describe("webhook-event processor", () => {
     }
   });
 
+  it("delivers a shop's sale to the organization connected to it now, never a former one", async () => {
+    const owners = await createTestTenants(database, 2);
+    const [formerOwner, currentOwner] = owners.ids;
+    if (formerOwner === undefined || currentOwner === undefined) {
+      throw new Error("tenants ausentes");
+    }
+    try {
+      const current = await createTestStore(environment, currentOwner);
+      await database.insert(schema.storeConnections).values({
+        tenantId: formerOwner,
+        marketplace: "mock",
+        externalShopId: current.externalShopId,
+        shopName: "Loja antiga",
+        status: "disconnected",
+      });
+      const eventId = await recordEvent({
+        shopId: current.externalShopId,
+        resource: orderResource("NOT-OURS"),
+      });
+      expect(await processWebhook(job(eventId))).toBe("order_created");
+      const owned = await database
+        .select({ tenantId: schema.orders.tenantId })
+        .from(schema.orders)
+        .where(inArray(schema.orders.tenantId, owners.ids));
+      expect(owned).toEqual([{ tenantId: currentOwner }]);
+    } finally {
+      await owners.cleanup();
+    }
+  });
+
   it("ignores other topics and events from unknown shops", async () => {
     expect(
       await processWebhook(job(await recordEvent({ shopId, resource: "x" }, "questions"))),
