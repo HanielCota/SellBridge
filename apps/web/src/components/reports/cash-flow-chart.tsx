@@ -45,12 +45,21 @@ import {
   type MetricPoint,
   type PointGrain,
 } from "@/features/reports/dashboard-metrics";
+import { PENDING_COST_HINT, PENDING_HATCH_CLASS } from "@/components/reports/pending-cost";
+import { profitMargin } from "@/features/reports/dashboard-insights";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { cn } from "@/lib/utils";
 
 /** Mint is reserved for profit (the hero metric); revenue is neutral context behind it. */
 const REVENUE_COLOR = "var(--muted-foreground)";
 const PROFIT_COLOR = "var(--chart-brand)";
+
+/**
+ * Revenue of sales whose cost is unknown: hatched in the revenue's neutral gray, so it reads as
+ * "not known yet" next to the solid costs and profit. The chart fills with the SVG pattern from
+ * `renderHatch`; swatches and legend keys draw the same stripes in CSS (`PENDING_HATCH_CLASS`).
+ */
+const PENDING_FILL = "url(#pendingHatch)";
 
 const SERIES = [
   { key: "all", label: "Tudo", color: null },
@@ -132,10 +141,13 @@ interface TooltipProps<Payload> {
   payload?: { payload?: Payload }[];
 }
 
-type SwatchVariant = "solid" | "faded" | "dashed";
+type SwatchVariant = "solid" | "faded" | "dashed" | "hatched";
 
 /** Same color as the mark it describes, so the card reads like a legend; dashed for the past. */
 function Swatch({ color, variant = "solid" }: { color: string; variant?: SwatchVariant }) {
+  if (variant === "hatched") {
+    return <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />;
+  }
   if (variant === "dashed") {
     return (
       <span
@@ -213,6 +225,21 @@ function MarginFootnote({ margin }: { margin: number | null }) {
   );
 }
 
+/** Revenue left out of the profit because its cost is unknown; nothing when there is none. */
+function PendingRow({ cents }: { cents: number }) {
+  if (cents === 0) {
+    return null;
+  }
+  return (
+    <TooltipRow
+      color={REVENUE_COLOR}
+      label="Custo pendente"
+      value={formatMoney(cents)}
+      variant="hatched"
+    />
+  );
+}
+
 /** The comparison line's value: the previous profit, or the previous revenue when only it shows. */
 function PreviousRow({
   point,
@@ -266,6 +293,7 @@ function ProfitTooltip({
       footnote={<MarginFootnote margin={point.margin} />}
     >
       <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatMoney(point.revenue)} />
+      <PendingRow cents={point.pending} />
       <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
       {layers.average && point.averageProfit !== null ? (
         <TooltipRow
@@ -301,9 +329,18 @@ function CompositionTooltip({
         value={formatMoney(point.cost)}
         variant="faded"
       />
+      <PendingRow cents={point.pending} />
       <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
     </TooltipCard>
   );
+}
+
+/** The margin, or why there is none: no sales, or only sales whose cost is unknown. */
+function marginFootnoteOf(point: ChartPoint): ReactNode {
+  if (point.margin !== null) {
+    return <MarginFootnote margin={point.margin} />;
+  }
+  return point.revenue > 0 ? "Sem margem: custo pendente" : "Sem vendas";
 }
 
 function MarginTooltip({
@@ -316,11 +353,9 @@ function MarginTooltip({
     return null;
   }
   return (
-    <TooltipCard
-      title={formatTooltipDate(point.date, grain)}
-      footnote={point.margin === null ? "Sem vendas" : <MarginFootnote margin={point.margin} />}
-    >
+    <TooltipCard title={formatTooltipDate(point.date, grain)} footnote={marginFootnoteOf(point)}>
       <TooltipRow color={REVENUE_COLOR} label="Receita" value={formatMoney(point.revenue)} />
+      <PendingRow cents={point.pending} />
       <TooltipRow color={PROFIT_COLOR} label="Lucro" value={formatMoney(point.profit)} strong />
     </TooltipCard>
   );
@@ -329,6 +364,7 @@ function MarginTooltip({
 /** Same colors as the financial page's breakdown, so both screens tell the same story. */
 const WATERFALL_COLORS: Record<WaterfallTone, string> = {
   revenue: REVENUE_COLOR,
+  pending: PENDING_FILL,
   cost: "var(--finance-cost)",
   fee: "var(--finance-fee)",
   refund: "var(--finance-refund)",
@@ -338,6 +374,7 @@ const WATERFALL_COLORS: Record<WaterfallTone, string> = {
 
 const WATERFALL_SHORT: Record<WaterfallTone, string> = {
   revenue: "Receita",
+  pending: "Pendente",
   cost: "Produtos",
   fee: "Taxas",
   refund: "Reembolsos",
@@ -364,6 +401,19 @@ function WaterfallTooltip({
   const share = revenueCents > 0 ? Math.round((Math.abs(step.cents) / revenueCents) * 100) : null;
   const isTotal = step.key === "revenue" || step.key === "profit";
   const direction = step.cents < 0 ? "Saiu" : "Entrou";
+  if (step.key === "pending") {
+    return (
+      <TooltipCard title={step.label} footnote={PENDING_COST_HINT}>
+        <TooltipRow
+          color={REVENUE_COLOR}
+          label="Fora do lucro"
+          value={formatMoney(Math.abs(step.cents))}
+          variant="hatched"
+          strong
+        />
+      </TooltipCard>
+    );
+  }
   return (
     <TooltipCard
       title={step.label}
@@ -541,6 +591,32 @@ function renderFrame({
       <ReferenceLine key="zero" y={0} stroke="var(--foreground)" strokeOpacity={0.4} />
     ) : null,
   ];
+}
+
+/** The diagonal stripes of the revenue whose cost is unknown (see `PENDING_FILL`). */
+function renderHatch() {
+  return (
+    <defs key="hatch">
+      <pattern
+        id="pendingHatch"
+        width={5}
+        height={5}
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <rect width={5} height={5} fill="var(--muted-foreground)" fillOpacity={0.08} />
+        <line
+          x1={2.5}
+          y1={0}
+          x2={2.5}
+          y2={5}
+          stroke="var(--muted-foreground)"
+          strokeOpacity={0.5}
+          strokeWidth={2}
+        />
+      </pattern>
+    </defs>
+  );
 }
 
 function renderGradients() {
@@ -750,8 +826,60 @@ function stackedValues(data: readonly ChartPoint[], series: SeriesKey): number[]
     if (series === "profit") {
       return [point.profit];
     }
-    return [Math.max(point.cost, 0) + Math.max(point.profit, 0), Math.min(point.profit, 0)];
+    return [
+      Math.max(point.cost, 0) + point.pending + Math.max(point.profit, 0),
+      Math.min(point.profit, 0),
+    ];
   });
+}
+
+/**
+ * The bars of "Composição": revenue alone, profit alone, or ("Tudo") costs, then the revenue of
+ * unknown cost, then profit on top. Recharts reads the bars as direct children, so a function.
+ */
+function renderCompositionLayers(series: SeriesKey) {
+  if (series === "revenue") {
+    return (
+      <Bar
+        dataKey="revenue"
+        fill="var(--color-revenue)"
+        fillOpacity={0.7}
+        radius={TOP_RADIUS}
+        isAnimationActive={false}
+      />
+    );
+  }
+  const profit = (
+    <Bar
+      key="profit"
+      dataKey="profit"
+      stackId="sale"
+      fill="var(--color-profit)"
+      radius={TOP_RADIUS}
+      isAnimationActive={false}
+    />
+  );
+  if (series === "profit") {
+    return profit;
+  }
+  return [
+    <Bar
+      key="cost"
+      dataKey="cost"
+      stackId="sale"
+      fill="var(--color-revenue)"
+      fillOpacity={0.3}
+      isAnimationActive={false}
+    />,
+    <Bar
+      key="pending"
+      dataKey="pending"
+      stackId="sale"
+      fill={PENDING_FILL}
+      isAnimationActive={false}
+    />,
+    profit,
+  ];
 }
 
 /** "Tudo" stacks costs under profit, so the full bar is the revenue; a loss hangs below zero. */
@@ -776,6 +904,7 @@ function CompositionBars({
         maxBarSize={grain === "month" ? 56 : 28}
         onClick={pickHandler(pick)}
       >
+        {renderHatch()}
         {renderFrame({
           scale,
           formatY: formatMoneyTick,
@@ -784,32 +913,7 @@ function CompositionBars({
         {renderPickedLine(pick)}
         {renderDayTracker(pick)}
         <ChartTooltip cursor={BAR_CURSOR} content={<CompositionTooltip grain={grain} />} />
-        {series === "all" ? (
-          <Bar
-            dataKey="cost"
-            stackId="sale"
-            fill="var(--color-revenue)"
-            fillOpacity={0.3}
-            isAnimationActive={false}
-          />
-        ) : null}
-        {series === "revenue" ? (
-          <Bar
-            dataKey="revenue"
-            fill="var(--color-revenue)"
-            fillOpacity={0.7}
-            radius={TOP_RADIUS}
-            isAnimationActive={false}
-          />
-        ) : (
-          <Bar
-            dataKey="profit"
-            stackId="sale"
-            fill="var(--color-profit)"
-            radius={TOP_RADIUS}
-            isAnimationActive={false}
-          />
-        )}
+        {renderCompositionLayers(series)}
       </BarChart>
     </PlotContainer>
   );
@@ -859,6 +963,7 @@ function WaterfallColumns({
   const scale = niceScale(steps.flatMap((step) => step.range));
   return (
     <BarChart data={steps} margin={{ ...CHART_MARGIN, top: 32 }} maxBarSize={72}>
+      {renderHatch()}
       {renderFrame({ scale, formatY: formatMoneyTick, xKey: "short", everyTick: true })}
       <ChartTooltip
         cursor={BAR_CURSOR}
@@ -904,6 +1009,7 @@ function WaterfallRows({
       margin={{ left: 0, right: CHART_MARGIN.right, top: 0, bottom: 0 }}
       barCategoryGap="28%"
     >
+      {renderHatch()}
       <XAxis type="number" hide domain={[low, top]} />
       <YAxis
         type="category"
@@ -1088,13 +1194,12 @@ function ChartBody({
 interface PeriodTotals {
   revenueCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
 function totalsMargin(totals: PeriodTotals): number | null {
-  if (totals.revenueCents <= 0) {
-    return null;
-  }
-  return (totals.profitCents / totals.revenueCents) * 100;
+  const margin = profitMargin(totals);
+  return margin === null ? null : margin * 100;
 }
 
 function directionOf(delta: number): "up" | "down" | "flat" {
@@ -1168,20 +1273,36 @@ function ChartHeadline({
 const SOLID_KEY = <span aria-hidden="true" className="h-0.5 w-4 rounded-full bg-foreground/70" />;
 const COST_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-muted-foreground/30" />;
 const PROFIT_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-chart-brand" />;
+const PENDING_KEY = (
+  <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />
+);
 const DASHED_KEY = (
   <span aria-hidden="true" className="w-4 border-t-2 border-dashed border-foreground/50" />
 );
 
+interface LegendInput {
+  kind: ChartKind;
+  layers: ChartLayers;
+  bucket: "day" | "week";
+  series: SeriesKey;
+  /** Some revenue has an unknown cost: its hatched layer needs a key. */
+  hasPending: boolean;
+}
+
+const PENDING_ITEM = { key: "pending", mark: PENDING_KEY, text: "Custo pendente · fora do lucro" };
+
 /** What each extra line means, listed only while it is drawn. */
-function legendItems(
-  kind: ChartKind,
-  layers: ChartLayers,
-  bucket: "day" | "week",
-  series: SeriesKey,
-): { key: string; mark: ReactNode; text: string }[] {
+function legendItems({
+  kind,
+  layers,
+  bucket,
+  series,
+  hasPending,
+}: LegendInput): { key: string; mark: ReactNode; text: string }[] {
   if (kind === "bars" && series === "all") {
     return [
       { key: "cost", mark: COST_KEY, text: "Custos e taxas" },
+      ...(hasPending ? [PENDING_ITEM] : []),
       { key: "profit", mark: PROFIT_KEY, text: "Lucro · a barra inteira é a receita" },
     ];
   }
@@ -1198,18 +1319,8 @@ function legendItems(
   return items;
 }
 
-function ChartLegend({
-  kind,
-  layers,
-  bucket,
-  series,
-}: {
-  kind: ChartKind;
-  layers: ChartLayers;
-  bucket: "day" | "week";
-  series: SeriesKey;
-}) {
-  const items = legendItems(kind, layers, bucket, series);
+function ChartLegend(input: LegendInput) {
+  const items = legendItems(input);
   if (items.length === 0) {
     return null;
   }
@@ -1228,7 +1339,7 @@ function ChartLegend({
 /** What replaces the series pills on charts that draw a single, fixed set of marks. */
 const KIND_CAPTIONS: Partial<Record<ChartKind, string>> = {
   waterfall: "Para onde foi cada real da receita",
-  margin: "Lucro como % da receita, semana a semana",
+  margin: "Lucro como % da receita com custo, semana a semana",
 };
 
 function SeriesOrCaption({
@@ -1326,6 +1437,26 @@ function useChartMenu({
   return { kind, layers, menu };
 }
 
+/** What the page shows (period, store) on the left; the chart tools beside it from sm up. */
+function FiltersWithTools({ filters, tools }: { filters: ReactNode; tools: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">{filters}</div>
+      <div className="max-sm:hidden">{tools}</div>
+    </div>
+  );
+}
+
+/** The headline number; on phones the chart tools sit next to it instead of up top. */
+function HeadlineWithTools({ headline, tools }: { headline: ReactNode; tools: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 max-sm:w-full">
+      {headline}
+      <div className="sm:hidden">{tools}</div>
+    </div>
+  );
+}
+
 interface CashFlowChartProps {
   points: MetricPoint[];
   /** Same buckets for the previous period, for the comparison line. */
@@ -1373,6 +1504,7 @@ export function CashFlowChart({
   const { kind, layers, menu } = useChartMenu({ bucket, previousPoints, boundary: card });
   const tools = <ChartTools menu={menu} exportUrl={exportUrl} />;
   const { pick, figureRef } = useDayPick(pickedDate, onPickDate);
+  const hasPending = summary.pendingCostRevenueCents > 0;
   return (
     <section
       ref={setCard}
@@ -1382,18 +1514,15 @@ export function CashFlowChart({
       <h2 id="cash-flow-title" className="sr-only">
         {KIND_TITLES[kind]}
       </h2>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">{filters}</div>
-        <div className="max-sm:hidden">{tools}</div>
-      </div>
+      <FiltersWithTools filters={filters} tools={tools} />
       <div className="mt-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="flex items-start justify-between gap-3 max-sm:w-full">
-          <ChartHeadline kind={kind} current={summary} previous={previous} />
-          <div className="sm:hidden">{tools}</div>
-        </div>
+        <HeadlineWithTools
+          headline={<ChartHeadline kind={kind} current={summary} previous={previous} />}
+          tools={tools}
+        />
         <SeriesOrCaption kind={kind} series={series} onSeriesChange={setSeries} />
       </div>
-      <ChartLegend kind={kind} layers={layers} bucket={bucket} series={series} />
+      <ChartLegend {...{ kind, layers, bucket, series, hasPending }} />
       {/* Grows to the height of the tiles beside it; never shorter than a readable chart. Nothing
           drawn may leave it, not even for a frame while the card resizes. */}
       <figure

@@ -34,9 +34,10 @@ export function orderAdjustments(row: OrderMoneyFlows): readonly OrderAdjustment
   return adjustments.filter((adjustment) => adjustment.cents > 0);
 }
 
-type OrderSplitInput = OrderCosts & Pick<OrderFinancialRow, "refundCents" | "profitCents">;
+type OrderSplitInput = OrderCosts &
+  Pick<OrderFinancialRow, "refundCents" | "profitCents" | "revenueCents" | "costPending">;
 
-export type OrderSplitKind = "cost" | "fee" | "refund" | "profit";
+export type OrderSplitKind = "pending" | "cost" | "fee" | "refund" | "profit";
 
 export interface OrderSplitPart {
   kind: OrderSplitKind;
@@ -48,6 +49,10 @@ export interface OrderSplitPart {
  * left. Empty parts are dropped; a loss keeps only the outflows.
  */
 export function orderSplit(row: OrderSplitInput): readonly OrderSplitPart[] {
+  if (row.costPending) {
+    // Unknown cost: nothing to split, the whole sale is one neutral part.
+    return [{ kind: "pending", cents: row.revenueCents }];
+  }
   const parts: OrderSplitPart[] = [
     { kind: "cost", cents: row.costCents },
     { kind: "fee", cents: row.feeCents + row.platformFeeCents },
@@ -57,9 +62,14 @@ export function orderSplit(row: OrderSplitInput): readonly OrderSplitPart[] {
   return parts.filter((part) => part.cents > 0);
 }
 
-/** Profit over revenue, or null when nothing was sold (a cancelled or returned order). */
-export function orderMargin(row: Pick<OrderFinancialRow, "revenueCents" | "profitCents">) {
-  if (row.revenueCents <= 0) {
+/**
+ * Profit over revenue, or null when nothing was sold (a cancelled or returned order) or the cost
+ * is unknown.
+ */
+export function orderMargin(
+  row: Pick<OrderFinancialRow, "revenueCents" | "profitCents" | "costPending">,
+) {
+  if (row.costPending || row.revenueCents <= 0) {
     return null;
   }
   return row.profitCents / row.revenueCents;

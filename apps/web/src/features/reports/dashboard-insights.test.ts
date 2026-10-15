@@ -5,6 +5,7 @@ import {
   roundToTotal,
   buildMoneyFlow,
   previousAverage,
+  profitMargin,
   trendOf,
 } from "./dashboard-insights";
 
@@ -135,5 +136,22 @@ describe("explainRevenue", () => {
       orders: -100,
       ticket: null,
     });
+  });
+});
+
+describe("profitMargin", () => {
+  it("divides the profit by the revenue whose cost is known", () => {
+    expect(
+      profitMargin({ revenueCents: 30_000, profitCents: 4_000, pendingCostRevenueCents: 10_000 }),
+    ).toBe(0.2);
+  });
+
+  it("is empty when no revenue has a known cost", () => {
+    expect(
+      profitMargin({ revenueCents: 10_000, profitCents: 0, pendingCostRevenueCents: 10_000 }),
+    ).toBeNull();
+    expect(
+      profitMargin({ revenueCents: 0, profitCents: 0, pendingCostRevenueCents: 0 }),
+    ).toBeNull();
   });
 });

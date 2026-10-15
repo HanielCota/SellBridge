@@ -1,4 +1,8 @@
-import type { OrderDetail, OrderFinancialRow } from "@sellbridge/database/repositories";
+import {
+  orderFinanceInput,
+  type OrderDetail,
+  type OrderFinancialRow,
+} from "@sellbridge/database/repositories";
 import { computeOrderFinance } from "@sellbridge/shared/finance";
 import { orderStatusSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
@@ -88,7 +92,9 @@ export function presentOrderDetail(
     buyerName: order.buyerName,
     orderedAt: order.orderedAt.toISOString(),
     deliveredAt: order.deliveredAt?.toISOString() ?? null,
-    totals: presentFinancialTotals(computeOrderFinance(order, platformFeeBasisPoints)),
+    totals: presentFinancialTotals(
+      computeOrderFinance(orderFinanceInput(order), platformFeeBasisPoints),
+    ),
     items: order.items.map((item) => ({
       id: item.id,
       title: item.title,

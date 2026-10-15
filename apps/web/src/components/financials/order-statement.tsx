@@ -26,6 +26,7 @@ import {
   ProfitAmount,
   signedCents,
 } from "./order-parts";
+import { PendingCostStatus } from "@/components/reports/pending-cost";
 
 export interface DayTotal {
   date: string;
@@ -129,13 +130,39 @@ function RowSummary({
   );
 }
 
+/** What the row says under its amount: the sale it came from, or why it is out of the math. */
+function AmountNote({ row, revenueCents }: { row: OrderFinancialRow; revenueCents: number }) {
+  if (isVoidOrder(row)) {
+    return "fora da receita";
+  }
+  return (
+    <>
+      de {formatCents(revenueCents)}
+      {/* On a phone the status above already says it; the line stays as short as its siblings'. */}
+      {row.costPending ? <span className="max-sm:hidden"> · fora do lucro</span> : null}
+    </>
+  );
+}
+
+/** The profit, or "Custo pendente" when the cost is unknown: a zero there would read as real. */
+function RowProfit({ row, profitCents }: { row: OrderFinancialRow; profitCents: number }) {
+  if (row.costPending) {
+    return (
+      <span className="block text-sm">
+        <PendingCostStatus />
+      </span>
+    );
+  }
+  return <ProfitAmount cents={profitCents} plus className="block text-sm" />;
+}
+
 /** The profit on top, lined up with every other row's, and the sale it came from below. */
 function RowAmount({ row }: { row: OrderFinancialRow }) {
   return (
     <span className="shrink-0 space-y-0.5 text-right">
-      <ProfitAmount cents={row.profitCents} plus className="block text-sm" />
+      <RowProfit row={row} profitCents={row.profitCents} />
       <span className="block text-xs text-muted-foreground tabular-nums">
-        {isVoidOrder(row) ? "fora da receita" : `de ${formatCents(row.revenueCents)}`}
+        <AmountNote row={row} revenueCents={row.revenueCents} />
       </span>
     </span>
   );
@@ -198,7 +225,14 @@ function StatementRow({
  */
 function sameSaleKey(row: OrderFinancialRow): string {
   const status = NOTABLE_STATUSES.has(row.status) ? row.status : "counted";
-  return [row.items, row.storeName, status, row.revenueCents, row.profitCents].join("|");
+  return [
+    row.items,
+    row.storeName,
+    status,
+    row.revenueCents,
+    row.profitCents,
+    row.costPending,
+  ].join("|");
 }
 
 /** One order inside an opened group: its time and number, with its own detail on click. */
@@ -221,7 +255,11 @@ function GroupedOrder({ row }: { row: OrderFinancialRow }) {
               <span aria-hidden="true">·</span>
               <span className="truncate">{row.externalOrderId}</span>
             </span>
-            <ProfitAmount cents={row.profitCents} plus />
+            {row.costPending ? (
+              <PendingCostStatus />
+            ) : (
+              <ProfitAmount cents={row.profitCents} plus />
+            )}
           </button>
         </PopoverTrigger>
         <OrderDetail row={row} />
@@ -247,8 +285,9 @@ function GroupSummaryLine({
         {clockTime.format(new Date(Math.min(...times)))} –{" "}
         {clockTime.format(new Date(Math.max(...times)))}
       </span>
-      {/* On a phone the line keeps only the times; the per-sale amount joins from sm up. */}
-      {isVoidOrder(first) ? null : (
+      {/* On a phone the line keeps only the times; the per-sale amount joins from sm up. Sales
+          out of the math (void, or cost pending) have no amount each; the right side says why. */}
+      {isVoidOrder(first) || first.costPending ? null : (
         <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
           <span aria-hidden="true">·</span>
           <span className="truncate tabular-nums">{signedCents(first.profitCents)} cada</span>
@@ -341,9 +380,9 @@ function GroupRow({ rows, showStore }: { rows: readonly OrderFinancialRow[]; sho
           <GroupSummaryLine rows={rows} first={first} showStore={showStore} />
         </span>
         <span className="shrink-0 space-y-0.5 text-right">
-          <ProfitAmount cents={profit} plus className="block text-sm" />
+          <RowProfit row={first} profitCents={profit} />
           <span className="block text-xs text-muted-foreground tabular-nums">
-            {isVoid ? "fora da receita" : `de ${formatCents(revenue)}`}
+            <AmountNote row={first} revenueCents={revenue} />
           </span>
         </span>
         <CaretDownIcon

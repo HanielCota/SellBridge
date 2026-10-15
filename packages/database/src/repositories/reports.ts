@@ -12,11 +12,19 @@ import { containsPattern } from "./sql/search-pattern.ts";
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
  * `computeOrderFinance` in @sellbridge/shared/finance (a test keeps both in sync):
  *   profit = revenue − cost − marketplace fee − refunds + commissions − platform fee
- * Cancelled and returned orders contribute no revenue, cost or fee.
+ * Cancelled and returned orders contribute no revenue, cost or fee. A sale with an item of
+ * unknown cost (no catalog product: a listing created outside SellBridge) keeps its revenue,
+ * set apart as `pending_revenue`, and contributes nothing else.
  */
 
 /** The orders table is aliased `o` in the raw report queries. */
 const ORDER_STATUS = sql.raw("o.status");
+
+/** A sale with an item of unknown cost; `items` is the lateral join over the order's items. */
+const COST_PENDING = sql`(${isCountedOrder(ORDER_STATUS)} and coalesce(items.unknown_cost, false))`;
+
+/** Orders whose cost, fee and adjustments stay out of the profit: not sales, or cost pending. */
+const OUT_OF_PROFIT = sql`(${isUncountedOrder(ORDER_STATUS)} or coalesce(items.unknown_cost, false))`;
 
 export interface ReportRange {
   from: Date;
@@ -32,6 +40,28 @@ export interface ReportScope {
 
 const cents = sqlIntegerSchema;
 const count = sqlIntegerSchema;
+
+/** Per order `o`: its items' cost, whether any of them has an unknown cost, and their titles. */
+const ORDER_ITEMS_LATERAL = sql`
+  left join lateral (
+    select
+      sum(i.unit_cost_cents::bigint * i.quantity) as cost,
+      bool_or(i.supplier_product_id is null) as unknown_cost,
+      string_agg(i.title || ' (x' || i.quantity || ')', ', ' order by i.title) as titles
+    from order_items i
+    where i.order_id = o.id and i.tenant_id = o.tenant_id
+  ) items on true`;
+
+/** Per order `o`: its refunds, returns and commissions. */
+const ORDER_ADJUSTMENTS_LATERAL = sql`
+  left join lateral (
+    select
+      sum(case when a.type = 'refund' then a.amount_cents else 0 end) as refunds,
+      sum(case when a.type = 'return' then a.amount_cents else 0 end) as returns,
+      sum(case when a.type = 'commission' then a.amount_cents else 0 end) as commissions
+    from order_adjustments a
+    where a.order_id = o.id and a.tenant_id = o.tenant_id
+  ) adj on true`;
 
 /** CTE with one row per order of the tenant in the range, already with its finances. */
 function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
@@ -57,38 +87,29 @@ function orderFinanceCte(scope: ReportScope, extraConditions: SQL[] = []): SQL {
         o.store_connection_id,
         s.shop_name,
         (${isCountedOrder(ORDER_STATUS)}) as counted,
+        ${COST_PENDING} as cost_pending,
         case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.total_cents end as revenue,
-        case when ${isUncountedOrder(ORDER_STATUS)} then 0 else coalesce(items.cost, 0) end as cost,
-        case when ${isUncountedOrder(ORDER_STATUS)} then 0 else o.marketplace_fee_cents end as fee,
-        coalesce(adj.refunds, 0) as refunds,
-        coalesce(adj.returns, 0) as returns,
-        coalesce(adj.commissions, 0) as commissions,
+        case when ${COST_PENDING} then o.total_cents else 0 end as pending_revenue,
+        case when ${OUT_OF_PROFIT} then 0 else coalesce(items.cost, 0) end as cost,
+        case when ${OUT_OF_PROFIT} then 0 else o.marketplace_fee_cents end as fee,
+        case when ${COST_PENDING} then 0 else coalesce(adj.refunds, 0) end as refunds,
+        case when ${COST_PENDING} then 0 else coalesce(adj.returns, 0) end as returns,
+        case when ${COST_PENDING} then 0 else coalesce(adj.commissions, 0) end as commissions,
         coalesce(items.titles, '') as item_titles
       from orders o
       join store_connections s on s.id = o.store_connection_id and s.tenant_id = o.tenant_id
-      left join lateral (
-        select
-          sum(i.unit_cost_cents::bigint * i.quantity) as cost,
-          string_agg(i.title || ' (x' || i.quantity || ')', ', ' order by i.title) as titles
-        from order_items i
-        where i.order_id = o.id and i.tenant_id = o.tenant_id
-      ) items on true
-      left join lateral (
-        select
-          sum(case when a.type = 'refund' then a.amount_cents else 0 end) as refunds,
-          sum(case when a.type = 'return' then a.amount_cents else 0 end) as returns,
-          sum(case when a.type = 'commission' then a.amount_cents else 0 end) as commissions
-        from order_adjustments a
-        where a.order_id = o.id and a.tenant_id = o.tenant_id
-      ) adj on true
+      ${ORDER_ITEMS_LATERAL}
+      ${ORDER_ADJUSTMENTS_LATERAL}
       where ${where}
     ),
     order_profit as (
       select
         f.*,
-        round(f.revenue * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint as platform_fee,
-        f.revenue - f.cost - f.fee - f.refunds + f.commissions
-          - round(f.revenue * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint as profit
+        round((f.revenue - f.pending_revenue) * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint
+          as platform_fee,
+        f.revenue - f.pending_revenue - f.cost - f.fee - f.refunds + f.commissions
+          - round((f.revenue - f.pending_revenue) * ${scope.platformFeeBasisPoints}::numeric / 10000)::bigint
+          as profit
       from order_finance f
     )`;
 }
@@ -104,6 +125,8 @@ const summaryRowSchema = z.object({
   commissions: cents,
   platform_fees: cents,
   profit: cents,
+  pending_orders: count,
+  pending_revenue: cents,
 });
 
 export interface SalesSummary {
@@ -117,6 +140,9 @@ export interface SalesSummary {
   commissionCents: number;
   platformFeeCents: number;
   profitCents: number;
+  /** Sales with an item of unknown cost: in the revenue, out of the profit. */
+  pendingCostOrders: number;
+  pendingCostRevenueCents: number;
   averageTicketCents: number | null;
 }
 
@@ -138,7 +164,9 @@ export async function getSalesSummary(
       coalesce(sum(returns), 0) as returns,
       coalesce(sum(commissions), 0) as commissions,
       coalesce(sum(platform_fee), 0) as platform_fees,
-      coalesce(sum(profit), 0) as profit
+      coalesce(sum(profit), 0) as profit,
+      count(*) filter (where cost_pending) as pending_orders,
+      coalesce(sum(pending_revenue), 0) as pending_revenue
     from order_profit
   `);
   const row = summaryRowSchema.parse(rows[0]);
@@ -153,6 +181,8 @@ export async function getSalesSummary(
     commissionCents: row.commissions,
     platformFeeCents: row.platform_fees,
     profitCents: row.profit,
+    pendingCostOrders: row.pending_orders,
+    pendingCostRevenueCents: row.pending_revenue,
     averageTicketCents: row.orders > 0 ? Math.round(row.revenue / row.orders) : null,
   };
 }
@@ -162,6 +192,8 @@ export interface TimeseriesPoint {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  /** Revenue of the bucket's sales of unknown cost, left out of its profit. */
+  pendingCostRevenueCents: number;
 }
 
 const timeseriesRowSchema = z.object({
@@ -169,6 +201,7 @@ const timeseriesRowSchema = z.object({
   orders: count,
   revenue: cents,
   profit: cents,
+  pending_revenue: cents,
 });
 
 export type TimeseriesBucket = "day" | "week" | "month";
@@ -200,7 +233,8 @@ export async function getSalesTimeseries(
         date_trunc(${unit}, ordered_at at time zone ${REPORT_TIME_ZONE}) as bucket,
         count(*) filter (where counted) as orders,
         sum(revenue) as revenue,
-        sum(profit) as profit
+        sum(profit) as profit,
+        sum(pending_revenue) as pending_revenue
       from order_profit
       group by 1
     )
@@ -208,7 +242,8 @@ export async function getSalesTimeseries(
       to_char(b.bucket, 'YYYY-MM-DD') as bucket,
       coalesce(g.orders, 0) as orders,
       coalesce(g.revenue, 0) as revenue,
-      coalesce(g.profit, 0) as profit
+      coalesce(g.profit, 0) as profit,
+      coalesce(g.pending_revenue, 0) as pending_revenue
     from buckets b
     left join grouped g on g.bucket = b.bucket
     order by b.bucket
@@ -221,6 +256,7 @@ export async function getSalesTimeseries(
       orders: row.orders,
       revenueCents: row.revenue,
       profitCents: row.profit,
+      pendingCostRevenueCents: row.pending_revenue,
     }));
 }
 
@@ -230,6 +266,7 @@ export interface StoreBreakdown {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
 export async function getSalesByStore(
@@ -243,7 +280,8 @@ export async function getSalesByStore(
       shop_name,
       count(*) filter (where counted) as orders,
       coalesce(sum(revenue), 0) as revenue,
-      coalesce(sum(profit), 0) as profit
+      coalesce(sum(profit), 0) as profit,
+      coalesce(sum(pending_revenue), 0) as pending_revenue
     from order_profit
     group by store_connection_id, shop_name
     order by revenue desc, shop_name asc
@@ -256,6 +294,7 @@ export async function getSalesByStore(
         orders: count,
         revenue: cents,
         profit: cents,
+        pending_revenue: cents,
       }),
     )
     .parse([...rows])
@@ -265,6 +304,7 @@ export async function getSalesByStore(
       orders: row.orders,
       revenueCents: row.revenue,
       profitCents: row.profit,
+      pendingCostRevenueCents: row.pending_revenue,
     }));
 }
 
@@ -336,6 +376,9 @@ export interface OrderFinancialRow {
   commissionCents: number;
   platformFeeCents: number;
   profitCents: number;
+  /** A sale with an item of unknown cost: every amount but the revenue is zero. */
+  costPending: boolean;
+  pendingCostRevenueCents: number;
   /** First item by title, for the card's picture: its title carries the variant color. */
   product: { title: string; imageUrl: string | null; categoryName: string | null } | null;
 }
@@ -358,6 +401,8 @@ const financialRowSchema = z.object({
   commissions: cents,
   platform_fee: cents,
   profit: cents,
+  cost_pending: z.boolean(),
+  pending_revenue: cents,
   product_title: z.string().nullable(),
   product_image_url: z.string().nullable(),
   product_category: z.string().nullable(),
@@ -382,6 +427,8 @@ function toFinancialRow(row: z.infer<typeof financialRowSchema>): OrderFinancial
     commissionCents: row.commissions,
     platformFeeCents: row.platform_fee,
     profitCents: row.profit,
+    costPending: row.cost_pending,
+    pendingCostRevenueCents: row.pending_revenue,
     product:
       row.product_title === null
         ? null

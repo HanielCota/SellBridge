@@ -3,6 +3,8 @@ export interface MetricPoint {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  /** Revenue of sales whose cost is unknown: part of `revenueCents`, left out of the profit. */
+  pendingCostRevenueCents: number;
 }
 
 const shortDate = new Intl.DateTimeFormat("pt-BR", {

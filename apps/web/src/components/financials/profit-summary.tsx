@@ -3,6 +3,7 @@ import { formatCents } from "@sellbridge/shared/money";
 import { InfoIcon, XIcon } from "@phosphor-icons/react";
 import type { ComponentProps, ReactNode } from "react";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
+import { PENDING_COST_HINT } from "@/components/reports/pending-cost";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDayHeading } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,9 @@ function ordersLine(summary: SalesSummary): string {
   }
   if (summary.returnCents > 0) {
     parts.push(`${formatCents(summary.returnCents)} devolvidos`);
+  }
+  if (summary.pendingCostOrders > 0) {
+    parts.push(`${summary.pendingCostOrders} com custo pendente`);
   }
   return parts.join(" · ");
 }
@@ -67,6 +71,37 @@ function Hint({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
+ * Sales of unknown cost, set apart before the costs: "R$ 120,00 de 1 venda ainda não tem custo e
+ * ficou fora do lucro." Underlined dashed, in the gray of the chart's hatched layer.
+ */
+function PendingClause({ summary }: { summary: SalesSummary }) {
+  const one = summary.pendingCostOrders === 1;
+  return (
+    <>
+      <Amount
+        cents={summary.pendingCostRevenueCents}
+        color="border-dashed border-muted-foreground/60 text-foreground"
+      />{" "}
+      de {summary.pendingCostOrders} {one ? "venda" : "vendas"} ainda{" "}
+      {one ? "não tem custo e ficou" : "não têm custo e ficaram"} fora do lucro
+      <Hint label={one ? "Por que ficou fora do lucro" : "Por que ficaram fora do lucro"}>
+        {PENDING_COST_HINT}
+      </Hint>
+      .{" "}
+    </>
+  );
+}
+
+/** Every sale has an unknown cost and nothing else moved: there is no "rest" to break down. */
+function isOnlyPendingCost(summary: SalesSummary): boolean {
+  return (
+    summary.pendingCostRevenueCents === summary.revenueCents &&
+    summary.refundCents === 0 &&
+    summary.commissionCents === 0
+  );
+}
+
+/**
  * Where the money went, said as a sentence instead of a second chart: each amount underlined
  * in the color of its part, adding up to what was left.
  */
@@ -77,12 +112,27 @@ function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: strin
   if (revenue === 0 && summary.refundCents === 0 && summary.commissionCents === 0) {
     return <p className="mt-3 text-sm text-muted-foreground">Nenhuma venda {scope}.</p>;
   }
+  if (isOnlyPendingCost(summary)) {
+    return (
+      <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+        Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
+        <PendingClause summary={summary} />
+      </p>
+    );
+  }
   return (
     <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
-      Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />. Desse
-      valor, <Amount cents={summary.costCents} color="border-finance-cost text-foreground" />{" "}
-      pagaram os produtos e <Amount cents={fees} color="border-finance-fee text-foreground" /> foram
-      taxas
+      Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
+      {summary.pendingCostOrders > 0 ? (
+        <>
+          <PendingClause summary={summary} />
+          Do restante,{" "}
+        </>
+      ) : (
+        "Desse valor, "
+      )}
+      <Amount cents={summary.costCents} color="border-finance-cost text-foreground" /> pagaram os
+      produtos e <Amount cents={fees} color="border-finance-fee text-foreground" /> foram taxas
       <Hint label="O que entra em taxas">{FEES_HINT}</Hint>
       {summary.refundCents > 0 ? (
         <>

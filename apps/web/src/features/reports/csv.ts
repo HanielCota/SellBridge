@@ -20,6 +20,7 @@ const HEADERS = [
   "Comissões",
   "Taxa da plataforma",
   "Lucro",
+  "Custo pendente",
 ];
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -69,9 +70,11 @@ function toCsvLine(row: OrderFinancialRow): string {
     row.returnCents,
     row.commissionCents,
     row.platformFeeCents,
-    row.profitCents,
   ].map(centsToCsv);
-  return [...text, ...amounts].join(SEPARATOR);
+  // A sale of unknown cost has no profit to write: a zero would read as a real result.
+  const profit = row.costPending ? "" : centsToCsv(row.profitCents);
+  const costPending = row.costPending ? "Sim" : "Não";
+  return [...text, ...amounts, profit, costPending].join(SEPARATOR);
 }
 
 export function buildFinancialCsv(rows: readonly OrderFinancialRow[]): string {

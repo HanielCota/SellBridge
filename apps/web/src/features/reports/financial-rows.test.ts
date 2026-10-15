@@ -6,6 +6,7 @@ import {
   groupOrdersByDay,
   orderAdjustments,
   orderCostsCents,
+  orderMargin,
   orderSplit,
 } from "./financial-rows";
 
@@ -46,10 +47,33 @@ describe("orderAdjustments", () => {
   });
 });
 
+describe("orderSplit with an unknown cost", () => {
+  it("is one neutral part the size of the revenue", () => {
+    expect(
+      orderSplit({
+        costPending: true,
+        revenueCents: 9000,
+        costCents: 0,
+        feeCents: 0,
+        platformFeeCents: 0,
+        refundCents: 0,
+        profitCents: 0,
+      }),
+    ).toEqual([{ kind: "pending", cents: 9000 }]);
+  });
+
+  it("has no margin", () => {
+    expect(orderMargin({ costPending: true, revenueCents: 9000, profitCents: 0 })).toBeNull();
+    expect(orderMargin({ costPending: false, revenueCents: 9000, profitCents: 900 })).toBe(0.1);
+  });
+});
+
 describe("orderSplit", () => {
   it("splits the sale into outflows and what was left, dropping empty parts", () => {
     expect(
       orderSplit({
+        costPending: false,
+        revenueCents: 0,
         costCents: 6000,
         feeCents: 1500,
         platformFeeCents: 100,
@@ -65,6 +89,8 @@ describe("orderSplit", () => {
 
   it("keeps only the outflows on a loss", () => {
     const parts = orderSplit({
+      costPending: false,
+      revenueCents: 0,
       costCents: 5000,
       feeCents: 0,
       platformFeeCents: 0,
