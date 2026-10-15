@@ -1324,3 +1324,24 @@ export async function getAttachment(
   }
   return row;
 }
+
+/**
+ * The ticket a new message would go to, as the message would find it: null when it does not
+ * exist or, for a reseller (`tenantId` set), belongs to another organization. Checked before any
+ * attachment is written, so a refused message never puts a file on disk.
+ */
+export async function findTicketForMessage(
+  database: Database,
+  input: { ticketId: string; tenantId: string | null },
+): Promise<{ status: TicketStatus } | null> {
+  const [ticket] = await database
+    .select({ status: tickets.status })
+    .from(tickets)
+    .where(
+      input.tenantId === null
+        ? eq(tickets.id, input.ticketId)
+        : and(eq(tickets.id, input.ticketId), eq(tickets.tenantId, input.tenantId)),
+    )
+    .limit(1);
+  return ticket ?? null;
+}
