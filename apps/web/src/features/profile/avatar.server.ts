@@ -8,6 +8,7 @@ import { auth } from "@/lib/server/auth";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { assertVisitNotOver } from "@/lib/server/impersonation-window";
+import { assertUploadAllowed, avatarUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
@@ -95,6 +96,7 @@ export function handleUploadAvatar(request: Request) {
   return handleApi("profile.upload_avatar", async () => {
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireSession(request.headers);
+    assertUploadAllowed(avatarUploads, session.user.id);
     const { bytes, type } = await readAvatarFile(request);
     const fileName = `${randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
     await fileStorage.put(`avatars/${session.user.id}/${fileName}`, bytes);

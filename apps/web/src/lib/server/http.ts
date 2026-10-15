@@ -10,6 +10,7 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   EXTERNAL_PROVIDER: 502,
   EXTERNAL_PROVIDER_AUTH: 502,
   CONFIGURATION: 500,
+  RATE_LIMITED: 429,
 };
 
 export function jsonResponse(status: number, body: unknown): Response {

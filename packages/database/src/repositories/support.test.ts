@@ -9,6 +9,7 @@ import {
   closeTicketForCustomer,
   countUnreadSupportReplies,
   createTicket,
+  findTicketForMessage,
   getAttachment,
   getSupportMetrics,
   getTicketThread,
@@ -546,5 +547,26 @@ describe("reseller view of the thread", () => {
       "assigned",
     ]);
     expect(forStaff.seenByOtherSideAt).toBeNull();
+  });
+});
+
+describe("findTicketForMessage", () => {
+  it("finds the ticket for its organization and for the team, never for another one", async () => {
+    const ticketId = await openTicket("Antes de anexar");
+    await expect(findTicketForMessage(database, { ticketId, tenantId: tenantA })).resolves.toEqual({
+      status: "open",
+    });
+    await expect(findTicketForMessage(database, { ticketId, tenantId: null })).resolves.toEqual({
+      status: "open",
+    });
+    await expect(
+      findTicketForMessage(database, { ticketId, tenantId: tenantB }),
+    ).resolves.toBeNull();
+    await expect(
+      findTicketForMessage(database, {
+        ticketId: "00000000-0000-4000-8000-000000000000",
+        tenantId: tenantA,
+      }),
+    ).resolves.toBeNull();
   });
 });

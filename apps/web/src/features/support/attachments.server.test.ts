@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { saveWithAttachments } from "./attachments.server";
+import { saveWithAttachments, storeAttachments } from "./attachments.server";
 
 function fakeStorage() {
   return {
@@ -43,5 +43,24 @@ describe("saveWithAttachments", () => {
       "tickets/t1/a-print.png",
       "tickets/t1/b-nota.pdf",
     ]);
+  });
+});
+
+const pdf = (fileName: string) => ({
+  bytes: new Uint8Array([1]),
+  fileName,
+  mimeType: "application/pdf",
+  sizeBytes: 1,
+});
+
+describe("storeAttachments", () => {
+  it("deletes what it already wrote when a later file fails, and reports the failure", async () => {
+    const storage = fakeStorage();
+    storage.put.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("disco cheio"));
+    await expect(storeAttachments(storage, "t1", [pdf("a.pdf"), pdf("b.pdf")])).rejects.toThrow(
+      "disco cheio",
+    );
+    const [written] = storage.put.mock.calls.map(([key]) => key);
+    expect(storage.delete.mock.calls.map(([key]) => key)).toEqual([written]);
   });
 });
