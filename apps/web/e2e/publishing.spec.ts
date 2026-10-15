@@ -38,6 +38,15 @@ async function connectMockStore(page: Page, shopName: string) {
   ).toBeVisible();
 }
 
+/** The supplier's cost shown on the publish form, plus one cent, in the field's format. */
+async function centAboveCost(page: Page): Promise<string> {
+  const hint = await page.locator("#price-hint").innerText();
+  const match = /Custo do fornecedor:\s*R\$\s*([\d.]+),(\d{2})/.exec(hint);
+  if (!match) throw new Error(`Custo não encontrado em: ${hint}`);
+  const cents = Number(`${match[1]?.replaceAll(".", "")}${match[2]}`) + 1;
+  return `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, "0")}`;
+}
+
 async function openPublishFormForFirstProduct(page: Page) {
   await gotoHydrated(page, "/fornecedores");
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
@@ -94,6 +103,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Ações");
   await openPublishFormForFirstProduct(page);
+  const justAboveCost = await centAboveCost(page);
   await page.getByLabel("Título").fill("Produto com ações");
   await page.getByRole("button", { name: "Publicar" }).click();
   await expect(cardStatus(page, "No ar na Loja Ações")).toBeVisible({ timeout: STATUS_TIMEOUT });
@@ -104,6 +114,14 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await price.fill("0,50");
   await expect(
     page.getByText(/O preço precisa ser maior que o custo/).filter({ visible: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Salvar preço" })).toBeDisabled();
+  // Above the cost but under the break-even: the dialog names the lowest price that pays.
+  await price.fill(justAboveCost);
+  await expect(
+    page
+      .getByText(/Abaixo de R\$\s[\d.,]+ você tem prejuízo depois das taxas/)
+      .filter({ visible: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar preço" })).toBeDisabled();
   await price.fill("999,90");
@@ -173,6 +191,15 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
       .getByText("O preço de venda precisa ser maior que o custo do fornecedor")
       .filter({ visible: true }),
   ).toBeVisible();
+
+  // One cent above the cost: no longer below it, but the fees turn it into a loss.
+  await page.getByLabel("Preço de venda", { exact: true }).fill(await centAboveCost(page));
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(
+    page
+      .getByText(/Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/)
+      .filter({ visible: true }),
+  ).toBeVisible();
 });
 
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
@@ -218,6 +245,14 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await expect(
     dialog.getByText("Use um valor entre 5% e 300%").filter({ visible: true }),
   ).toBeVisible();
+  // 5% over the cost does not pay the 14% marketplace fee: the dialog says so and holds the batch.
+  await dialog.getByLabel("Acréscimo sobre o custo").fill("5");
+  await expect(
+    dialog
+      .getByRole("alert")
+      .filter({ hasText: /Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/ }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Publicar em 1 loja" })).toBeDisabled();
   await dialog.getByLabel("Acréscimo sobre o custo").fill("80");
   await expect(dialog.getByText(/,90$/).filter({ visible: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();

@@ -6,6 +6,7 @@ import {
   listStoreConnections,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
+import { assertBatchKeepsMargin } from "@sellbridge/shared/fee-model";
 import {
   bulkPublishSchema,
   fitListingTitle,
@@ -19,7 +20,9 @@ import {
   assertStoresSellSuppliers,
   publishListings,
 } from "@/features/listings/publish-listing.server";
+import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
 
 /** One list with every product the tenant can sell, plus what the filters and publishing need. */
@@ -94,6 +97,15 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
         `O preço de "${outOfRange.title}" ficaria acima de R$ 1.000.000,00. Ajuste a regra de preço.`,
       );
     }
+    // Same floor as one listing at a time: no product of the batch may lose money after fees.
+    const toPublishById = new Map(toPublish.map((product) => [product.id, product]));
+    assertBatchKeepsMargin(
+      drafts.flatMap((draft) => {
+        const product = toPublishById.get(draft.supplierProductId);
+        return product === undefined ? [] : [{ ...draft, costCents: product.costCents }];
+      }),
+      feeScheduleFrom(environment),
+    );
     await publishListings(context.tenantId, drafts, storeIds);
     return {
       published: toPublish.length,

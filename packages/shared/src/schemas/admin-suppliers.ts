@@ -30,6 +30,22 @@ export const adminSupplierProductsSchema = adminSupplierSearchSchema.extend({
   supplierId: z.uuid(),
 });
 
+/** New suppliers get one day to accept a forwarded order and two to dispatch it. */
+export const SUPPLIER_SLA_DEFAULTS = { acceptWithinHours: 24, dispatchWithinHours: 48 } as const;
+/** A month is the longest deadline a supplier may have, in hours. */
+const SUPPLIER_DEADLINE_MAX_HOURS = 720;
+const supplierDeadlineSchema = z
+  .number("Informe o prazo em horas")
+  .int("Use horas inteiras")
+  .min(1, "O prazo é de pelo menos 1 hora")
+  .max(SUPPLIER_DEADLINE_MAX_HOURS, "O prazo é de até 720 horas (30 dias)");
+const supplierContactEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email("Informe um e-mail válido").max(254))
+  .nullable();
+
 export const supplierCoverageSchema = z.object({
   state: stateSchema,
   city: freeText().trim().min(1).max(120).nullable(),
@@ -44,6 +60,18 @@ export const adminSupplierValuesSchema = z
     city: freeText().trim().min(1, "Informe a cidade").max(120),
     logoUrl: imageUrlSchema.nullable(),
     coverage: z.array(supplierCoverageSchema).min(1, "Informe ao menos uma região").max(200),
+    contactEmail: supplierContactEmailSchema,
+    acceptWithinHours: supplierDeadlineSchema,
+    dispatchWithinHours: supplierDeadlineSchema,
+  })
+  .superRefine(({ acceptWithinHours, dispatchWithinHours }, context) => {
+    if (acceptWithinHours > dispatchWithinHours) {
+      context.addIssue({
+        code: "custom",
+        path: ["acceptWithinHours"],
+        message: "O prazo para aceitar não pode passar o prazo para despachar",
+      });
+    }
   })
   .superRefine(({ coverage }, context) => {
     const seen = new Set<string>();

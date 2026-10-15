@@ -35,8 +35,6 @@ export interface CustomerSummary extends CustomerSignals {
   role: string;
   banReason: string | null;
   tenantId: string | null;
-  city: string | null;
-  state: string | null;
   connectedStores: number;
   recentRevenueCents: number;
   /** Stores the reseller has not disconnected, whatever their health. */
@@ -51,6 +49,7 @@ const storeSignalSchema = z.object({
   marketplace: z.string(),
   shopName: z.string(),
   status: z.string(),
+  supplierName: z.string().nullable(),
 });
 const storeSignalsSchema = z.array(z.unknown());
 
@@ -101,8 +100,6 @@ function customerColumns(now: Date) {
     banReason: user.banReason,
     createdAt: user.createdAt,
     tenantId,
-    city: tenantProfile.city,
-    state: tenantProfile.state,
     connectedStores:
       sql`(select count(*) from store_connections s where s.tenant_id = ${tenantId} and s.status <> 'disconnected')`.mapWith(
         Number,
@@ -121,9 +118,10 @@ function customerColumns(now: Date) {
         Number,
       ),
     previousOrders: sql`(select count(*) from orders o where ${previousOrders})`.mapWith(Number),
-    hasRegion: sql<boolean>`${tenantProfile.tenantId} is not null`,
+    hasHolder: sql<boolean>`coalesce(${tenantProfile.cpf} is not null and ${tenantProfile.fullName} is not null, false)`,
+    hasSupplier: sql<boolean>`(${tenantProfile.starterSupplierId} is not null or exists (select 1 from store_connections s where s.tenant_id = ${tenantId} and s.status <> 'disconnected' and s.supplier_id is not null))`,
     stores:
-      sql`(select coalesce(json_agg(json_build_object('marketplace', s.marketplace, 'shopName', s.shop_name, 'status', s.status) order by s.shop_name), '[]'::json) from store_connections s where s.tenant_id = ${tenantId} and s.status <> 'disconnected')`.mapWith(
+      sql`(select coalesce(json_agg(json_build_object('marketplace', s.marketplace, 'shopName', s.shop_name, 'status', s.status, 'supplierName', f.name) order by s.shop_name), '[]'::json) from store_connections s left join suppliers f on f.id = s.supplier_id where s.tenant_id = ${tenantId} and s.status <> 'disconnected')`.mapWith(
         parseStores,
       ),
     waitingTickets:
@@ -135,6 +133,14 @@ function customerColumns(now: Date) {
         parseOptionalDate,
       ),
   };
+}
+
+/** Customers selling `supplierId`: through a shop, or as the supplier picked in onboarding. */
+function customerSupplier(supplierId: string | undefined): SQL | undefined {
+  if (supplierId === undefined) {
+    return undefined;
+  }
+  return sql`(${tenantProfile.starterSupplierId} = ${supplierId} or exists (select 1 from store_connections s where s.tenant_id = ${member.organizationId} and s.status <> 'disconnected' and s.supplier_id = ${supplierId}))`;
 }
 
 function customerSearch(search: string | undefined): SQL | undefined {
@@ -156,11 +162,11 @@ function customersQuery(database: Database, now: Date) {
 /** Every customer matching the search, newest first, for the in-memory health ranking. */
 export async function listCustomerSignals(
   database: Database,
-  filters: { search?: string | undefined },
+  filters: { search?: string | undefined; supplierId?: string | undefined },
   now: Date = new Date(),
 ): Promise<CustomerSummary[]> {
   return customersQuery(database, now)
-    .where(customerSearch(filters.search))
+    .where(and(customerSearch(filters.search), customerSupplier(filters.supplierId)))
     .orderBy(desc(user.createdAt))
     .limit(MAX_CUSTOMERS_RANKED);
 }

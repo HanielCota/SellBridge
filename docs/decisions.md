@@ -469,6 +469,21 @@ Decisão do usuário no ⏸1. Com a regra R3 ("uma loja, um fornecedor", etapa 4
 - Sino: `shipment_late` na aba Problemas, com o que fazer e link para o pedido; como a falta de estoque, "Limpar tudo" não esconde e some quando o envio anda.
 - Junto: a linha "Gerar novo link / Revogar acesso" passa a quebrar no celular, e a grade da página do pedido ganhou `grid-cols-1` (rolava 100 px em 320 px, já antes desta parte).
 
+## 2026-10-15 · Contato e prazos do fornecedor (item 21.a)
+
+- **Três campos novos em `suppliers`** (migration 0029): `contact_email` (opcional, guardado em minúsculas), `accept_within_hours` (padrão 24) e `dispatch_within_hours` (padrão 48). O prazo vai de 1 a 720 horas (30 dias), e o de aceite não pode passar o de despacho. Um `check` no banco garante isso também. Os fornecedores que já existiam ficaram com 24 h e 48 h.
+- **Só a equipe vê o contato:** as consultas do lojista (diretório, lista e catálogo) escolhem as colunas uma a uma e não trazem o e-mail. Um teste confere isso.
+- **Os prazos contam a partir do encaminhamento.** Quem usa esses prazos é a 21.c (aceite atrasado e prazo de despacho quando o marketplace não manda data). O e-mail é usado na 21.b, atrás da flag do encaminhamento automático, até a decisão D6 (login do fornecedor).
+- **Formulário:** bloco "Pedidos" no cadastro do fornecedor, separado da cobertura, para não conflitar com a etapa 7 do chat CPF, que tira a cobertura da tela.
+
+## 2026-10-15: Prévia com todas as taxas e piso de preço (item 15.b)
+
+- **A prévia é a conta do Financeiro:** catálogo, publicação em massa, Nova publicação, card do anúncio e Editar preço usam o modelo de taxa (`getFeeSchedule`, pré-carregado nos loaders de Catálogo, Publicações e Nova publicação). Aparece a linha "Taxa da SellBridge (x%)" quando `PLATFORM_FEE_BASIS_POINTS` > 0, e o frete entra na linha do marketplace quando `ESTIMATED_SHIPPING_CENTS` > 0.
+- **Piso no servidor (E7):** um preço precisa cobrir o custo e todas as taxas, mais `MIN_MARGIN_PERCENT` (padrão 0: só proíbe vender com prejuízo). Vale ao criar, ao editar (também pela API pública) e na publicação em massa, que recusa o lote inteiro antes de gravar e diz qual produto. Mesmo código de erro (conflito) e mesmas palavras nos três caminhos e nas telas: "Com as taxas, o preço mínimo para não ter prejuízo é R$ X".
+- **Na tela, antes de enviar:** a Nova publicação confere o piso antes do pedido e esconde os preços prontos que ficariam abaixo dele; Editar preço avisa "Abaixo de R$ X você tem prejuízo depois das taxas" e não oferece atalhos de margem abaixo da mínima; a publicação em massa mostra o problema e trava o botão.
+- **Anúncios já publicados abaixo do novo piso** continuam no ar (pausar, retomar, sincronizar e reprocessar não conferem preço); só a próxima edição de preço precisa respeitar o piso.
+- **Pendências aceitas:** a categoria do produto ainda não chega ao piso nem à prévia (as taxas por categoria estão vazias; entra com a tarefa da taxa real do Mercado Livre); se a busca do modelo falhar, as telas usam o padrão de 14% sem a taxa da SellBridge, e o servidor continua sendo a regra.
+
 ## 2026-10-15: Token do fornecedor fora das URLs e limite do diagnóstico por cliente (item 17, chat B)
 
 - **O token do link só aparece no próprio link** (`/fornecedor/pedido/$token`, que é o que se compartilha). A leitura do envio pela página (`getSupplierShipmentFn`) passou de GET para POST, porque o GET de uma server function leva os dados na URL da chamada (histórico, proxies, logs de acesso). A etiqueta do marketplace sai por um formulário POST com o token no corpo (`lib/server/supplier-link-token.ts`, até 1 KB); uma URL com `?token=` (link antigo) é recusada sem ler o token. O revendedor continua abrindo a etiqueta por GET, com a própria sessão. Um teste lê os `*.functions.ts` e acusa qualquer server function que receba o token do fornecedor por GET.

@@ -1,23 +1,27 @@
 import {
   assignIssue,
   disableTenantWebhookEndpoints,
+  changeStoreSupplier,
   disconnectStore,
-  findTenantRegion,
+  findOnboardingProfile,
+  findStoreSuppliers,
   getCustomer,
   getSalesSummary,
   getWeeklyOrderCounts,
   isEmailTakenByOther,
   listAdminEvents,
   listCustomerSignals,
+  listActiveSuppliers,
   listIssueTriage,
   listStoreConnections,
   listTenantTickets,
   MAX_CUSTOMERS_RANKED,
+  previewStoreSupplierChange,
   recordAdminEvent,
   revokeTenantApiKeys,
-  saveTenantRegion,
-  type TenantRegion,
   snoozeIssue,
+  type OnboardingProfile,
+  type StoreConnectionSummary,
   type AdminEventDetails,
   type CustomerSummary,
 } from "@sellbridge/database/repositories";
@@ -31,6 +35,7 @@ import {
   isPlatformOwner,
 } from "@sellbridge/shared/platform-owner";
 import {
+  adminStoreSupplierSchema,
   assignCustomerIssueSchema,
   customerIdSchema,
   customerIssuesSearchSchema,
@@ -41,7 +46,6 @@ import {
   setCustomerRoleSchema,
   snoozeCustomerIssueSchema,
   updateCustomerProfileSchema,
-  updateCustomerRegionSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
@@ -52,7 +56,7 @@ import { environment } from "@/lib/server/environment";
 import { renderActionEmail } from "@/lib/server/email-layout";
 import { sendEmail } from "@/lib/server/mailer";
 import { adminMiddleware } from "@/lib/server/middleware";
-import { resolveCep } from "@/features/region/region.server";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { buildReportScope } from "@/features/reports/report-scope.server";
 import type { AdminAction } from "./admin-actions";
 import {
@@ -122,9 +126,9 @@ async function recordAdminAction(
   await recordAdminEvent(database, { adminId, userId, action, ...(details ? { details } : {}) });
 }
 
-async function loadRankedCustomers(search: string | undefined) {
+async function loadRankedCustomers(search: string | undefined, supplierId?: string) {
   const now = new Date();
-  const rows = await listCustomerSignals(database, { search }, now);
+  const rows = await listCustomerSignals(database, { search, supplierId }, now);
   if (rows.length >= MAX_CUSTOMERS_RANKED) {
     // Past the cap the ranking only sees the newest accounts: time to move it into SQL.
     logger.warn("admin.customer_ranking_capped", { limit: MAX_CUSTOMERS_RANKED });
@@ -132,23 +136,29 @@ async function loadRankedCustomers(search: string | undefined) {
   return rankCustomers(rows, now);
 }
 
-/** The staff screens show where a customer is, never the CPF and legal name kept for invoices. */
-function withoutBillingHolder(region: TenantRegion): Omit<TenantRegion, "cpf" | "fullName"> {
-  const { cpf: _cpf, fullName: _fullName, ...address } = region;
-  return address;
+/**
+ * The staff screens only learn whether the holder is filled in, never the CPF or the legal name
+ * kept for invoices.
+ */
+function holderStatus(profile: OnboardingProfile) {
+  return { hasHolder: profile.holder !== null, starterSupplier: profile.starterSupplier };
 }
 
 export const adminListCustomers = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(customersSearchSchema)
   .handler(async ({ data }) => {
-    const customers = await loadRankedCustomers(data.query);
+    const [customers, suppliers] = await Promise.all([
+      loadRankedCustomers(data.query, data.supplier),
+      listActiveSuppliers(database, {}),
+    ]);
     const page = pageOfCustomers(customers, data);
     return {
       ...page,
       issueCounts: countIssues(customers),
       needingAttention: customers.filter((customer) => customer.health.issues.length > 0).length,
       customerCount: customers.length,
+      supplierOptions: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
     };
   });
 
@@ -202,7 +212,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
         health,
         access,
         events,
-        region: null,
+        profile: { hasHolder: false, starterSupplier: null },
         stores: [],
         summary: null,
         openTickets: 0,
@@ -213,8 +223,8 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       customer.tenantId,
       periodSearchSchema.parse({ period: "30d" }),
     );
-    const [region, stores, summary, tickets, weeklyOrders] = await Promise.all([
-      findTenantRegion(database, customer.tenantId),
+    const [profile, stores, summary, tickets, weeklyOrders] = await Promise.all([
+      findOnboardingProfile(database, customer.tenantId),
       listStoreConnections(database, customer.tenantId),
       getSalesSummary(database, scope),
       listTenantTickets(database, customer.tenantId, { status: "open" }, { page: 1, pageSize: 1 }),
@@ -226,14 +236,8 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       access,
       events,
       weeklyOrders,
-      region: region === null ? null : withoutBillingHolder(region),
-      stores: stores.map((store) => ({
-        id: store.id,
-        shopName: store.shopName,
-        marketplace: store.marketplace,
-        marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
-        status: store.status,
-      })),
+      profile: holderStatus(profile),
+      stores: await withSuppliers(stores),
       summary,
       openTickets: tickets.total,
     };
@@ -389,17 +393,57 @@ export const adminSendOnboardingReminder = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminUpdateCustomerRegion = createServerFn({ method: "POST" })
+/** Each shop of the customer, with the one supplier it sells (null while pending). */
+async function withSuppliers(stores: readonly StoreConnectionSummary[]) {
+  const suppliers = await findStoreSuppliers(
+    database,
+    stores.flatMap((store) => (store.supplierId === null ? [] : [store.supplierId])),
+  );
+  const byId = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+  return stores.map((store) => ({
+    id: store.id,
+    shopName: store.shopName,
+    marketplace: store.marketplace,
+    marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
+    status: store.status,
+    supplier: store.supplierId === null ? null : (byId.get(store.supplierId) ?? null),
+  }));
+}
+
+/** What moving a customer's shop to another supplier would pause or stop, without saving. */
+export const adminPreviewStoreSupplier = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
-  .validator(updateCustomerRegionSchema)
+  .validator(adminStoreSupplierSchema)
+  .handler(async ({ data }) => {
+    const tenantId = await requireCustomerTenant(data.userId);
+    return previewStoreSupplierChange(database, {
+      tenantId,
+      storeConnectionId: data.storeConnectionId,
+      supplierId: data.supplierId,
+    });
+  });
+
+/** Moves a customer's shop to another supplier, as the customer would on the stores page. */
+export const adminChangeStoreSupplier = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .validator(adminStoreSupplierSchema)
   .handler(async ({ context, data }) => {
     const tenantId = await requireCustomerTenant(data.userId);
-    const address = await resolveCep(data.cep);
-    const region = await saveTenantRegion(database, tenantId, address);
-    await recordAdminAction(context.userId, data.userId, "region_updated", {
-      state: region.state,
+    const impact = await changeStoreSupplier(database, {
+      tenantId,
+      storeConnectionId: data.storeConnectionId,
+      supplierId: data.supplierId,
     });
-    return withoutBillingHolder(region);
+    const [supplier] = await findStoreSuppliers(database, [data.supplierId]);
+    await recordAdminAction(context.userId, data.userId, "store_supplier_changed", {
+      storeConnectionId: data.storeConnectionId,
+      supplierName: supplier?.name ?? "",
+      livePaused: impact.livePaused,
+    });
+    if (impact.livePaused > 0) {
+      await requestStockSync("admin.store_supplier_sync_deferred");
+    }
+    return impact;
   });
 
 export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })

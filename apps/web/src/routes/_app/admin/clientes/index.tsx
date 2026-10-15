@@ -31,6 +31,13 @@ import { PageHeader } from "@/components/layout/page-header";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RankedCustomer } from "@/features/admin/customer-ranking";
 import type { adminListCustomers } from "@/features/admin/customers.functions";
@@ -122,8 +129,22 @@ function CustomerToggle({ customer }: { customer: RankedCustomer }) {
   );
 }
 
+/** Who the customer sells, from the suppliers of their shops; pending shops are flagged. */
+function supplierSummary(customer: RankedCustomer): { text: string; pending: number } {
+  const names = [
+    ...new Set(
+      customer.stores.flatMap((store) => (store.supplierName === null ? [] : [store.supplierName])),
+    ),
+  ];
+  const pending = customer.stores.filter((store) => store.supplierName === null).length;
+  if (customer.stores.length === 0) {
+    return { text: "Sem loja", pending };
+  }
+  return { text: names.length > 0 ? names.join(", ") : "Sem fornecedor", pending };
+}
+
 function CustomerStores({ customer }: { customer: RankedCustomer }) {
-  const region = customer.city ? `${customer.city} - ${customer.state ?? ""}` : "Sem região";
+  const summary = supplierSummary(customer);
   return (
     <div className="flex items-center gap-2">
       {customer.stores.length > 0 ? (
@@ -145,8 +166,23 @@ function CustomerStores({ customer }: { customer: RankedCustomer }) {
           })}
         </span>
       ) : null}
-      <span className={cn("text-footnote", !customer.city && "text-muted-foreground")}>
-        {region}
+      <span className="min-w-0 space-y-0.5 text-footnote">
+        <span
+          className={cn(
+            "block max-w-56 truncate",
+            customer.stores.length === 0 && "text-muted-foreground",
+          )}
+          title={summary.text}
+        >
+          {summary.text}
+        </span>
+        {summary.pending > 0 ? (
+          <span className="block font-medium text-amber-700 dark:text-amber-400">
+            {summary.pending === 1
+              ? "1 loja sem fornecedor"
+              : `${summary.pending} lojas sem fornecedor`}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -212,7 +248,7 @@ const columns = columnHelper.columns([
   }),
   columnHelper.display({
     id: "stores",
-    header: "Lojas e região",
+    header: "Lojas e fornecedores",
     cell: (info) => <CustomerStores customer={info.row.original} />,
   }),
   columnHelper.display({
@@ -244,8 +280,7 @@ function MobileCustomerRow({ row }: { row: RankedCustomer }) {
         <div>
           <p className="truncate font-medium">{row.name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {row.city ? `${row.city} - ${row.state ?? ""}` : "Sem região"} ·{" "}
-            {formatCents(row.recentRevenueCents)} em 30 dias
+            {supplierSummary(row).text} · {formatCents(row.recentRevenueCents)} em 30 dias
           </p>
         </div>
         <CustomerHealthBadges customer={row} />
@@ -296,6 +331,41 @@ function CustomersPage() {
   );
 }
 
+const ALL_SUPPLIERS = "__all__";
+
+/** Only the customers selling one supplier, through a shop or the one picked in onboarding. */
+function SupplierFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | undefined;
+  options: readonly { id: string; name: string }[];
+  onChange: (supplier: string | undefined) => void;
+}) {
+  const current = options.find((option) => option.id === value);
+  return (
+    <Select
+      value={value ?? ALL_SUPPLIERS}
+      onValueChange={(next) => onChange(options.find((option) => option.id === next)?.id)}
+    >
+      <SelectTrigger className="w-full min-w-0 sm:w-56" aria-label="Filtrar por fornecedor">
+        <SelectValue>
+          <span className="truncate">{current?.name ?? "Todos os fornecedores"}</span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_SUPPLIERS}>Todos os fornecedores</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id}>
+            {option.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function ListView({ search }: { search: CustomersSearch }) {
   const query = useQuery(customersQueryOptions(search));
   const updateSearch = useUpdateSearch();
@@ -310,12 +380,19 @@ function ListView({ search }: { search: CustomersSearch }) {
         <p className="text-sm text-muted-foreground">
           {query.data ? attentionSummary(query.data) : " "}
         </p>
-        <FilterTabs
-          legend="Ordenar clientes"
-          tabs={SORT_TABS}
-          value={search.sort}
-          onChange={(sort) => updateSearch({ sort, page: 1 })}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SupplierFilter
+            value={search.supplier}
+            options={query.data?.supplierOptions ?? []}
+            onChange={(supplier) => updateSearch({ supplier, page: 1, open: undefined })}
+          />
+          <FilterTabs
+            legend="Ordenar clientes"
+            tabs={SORT_TABS}
+            value={search.sort}
+            onChange={(sort) => updateSearch({ sort, page: 1 })}
+          />
+        </div>
       </div>
       <CustomersTable
         query={query}

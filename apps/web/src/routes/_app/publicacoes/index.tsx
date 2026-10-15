@@ -31,6 +31,7 @@ import { listingsQueryOptions } from "@/features/listings/listings.queries";
 import { useSelection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { feeScheduleQueryOptions } from "@/features/reports/fee-schedule.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 /** The catalog's grid, so a product looks the same before and after it is published. */
@@ -41,7 +42,11 @@ export const Route = createFileRoute("/_app/publicacoes/")({
   validateSearch: listingsSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+      // The cards' margin and the price dialog count every fee the server charges.
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Publicações | SellBridge" }] }),
   component: ListingsPage,
 });

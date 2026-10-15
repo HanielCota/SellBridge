@@ -20,7 +20,7 @@ import {
   WeeklyOrders,
 } from "@/components/admin/customer-health-parts";
 import { CustomerProfileForm } from "@/components/admin/customer-profile-form";
-import { CustomerRegionForm } from "@/components/admin/customer-region-form";
+import { CustomerHolderCard } from "@/components/admin/customer-holder-card";
 import { CustomerStores } from "@/components/admin/customer-stores";
 import { CustomerTimeline } from "@/components/admin/customer-timeline";
 import { HealthRing } from "@/components/admin/health-ring";
@@ -254,7 +254,7 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
           Conta
         </h2>
         <p className="text-sm text-muted-foreground">
-          Dados de cadastro, região de entrega e segurança do acesso.
+          Dados de cadastro, cobrança e segurança do acesso.
         </p>
       </div>
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
@@ -266,10 +266,9 @@ function AccountSection({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
             email={customer.email}
             locked={!detail.access.canManage}
           />
-          <CustomerRegionForm
-            key={detail.region?.cep ?? "none"}
-            userId={customer.id}
-            region={detail.region}
+          <CustomerHolderCard
+            hasHolder={detail.profile.hasHolder}
+            starterSupplier={detail.profile.starterSupplier}
           />
         </div>
         <CustomerAccess
