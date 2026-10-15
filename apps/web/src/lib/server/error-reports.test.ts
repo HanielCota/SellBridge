@@ -14,10 +14,10 @@ const report = {
   frames: ["/assets/page-abc.js:15:9"],
 };
 
-function request(body: unknown = report, origin = "https://app.example") {
+function request(body: unknown = report, origin = "https://app.example", ip = "203.0.113.7") {
   return new Request("http://internal/api/diagnostics/errors", {
     method: "POST",
-    headers: { origin, "content-type": "application/json" },
+    headers: { origin, "content-type": "application/json", "x-forwarded-for": ip },
     body: JSON.stringify(body),
   });
 }
@@ -66,12 +66,32 @@ describe("diagnostic receiver", () => {
     expect(log).not.toHaveBeenCalled();
   });
 
-  it("bounds ingestion even without auth or a database", async () => {
+  it("bounds each client even without auth or a database", async () => {
     const { handleErrorReport } = await import("./error-reports");
-    for (let index = 0; index < 60; index += 1) {
+    for (let index = 0; index < 30; index += 1) {
       expect((await handleErrorReport(request())).status).toBe(204);
     }
     expect((await handleErrorReport(request())).status).toBe(429);
-    expect(log).toHaveBeenCalledTimes(60);
+    expect(log).toHaveBeenCalledTimes(30);
+  });
+
+  it("keeps listening to other clients when one spends its budget", async () => {
+    const { handleErrorReport } = await import("./error-reports");
+    for (let index = 0; index < 61; index += 1) {
+      await handleErrorReport(request(report, "https://app.example", "198.51.100.1"));
+    }
+    const other = await handleErrorReport(request(report, "https://app.example", "198.51.100.2"));
+    expect(other.status).toBe(204);
+  });
+
+  it("still caps the total, whatever the addresses claim", async () => {
+    const { handleErrorReport } = await import("./error-reports");
+    const statuses: number[] = [];
+    for (let index = 0; index < 601; index += 1) {
+      const ip = `198.51.100.${index % 250}`;
+      statuses.push((await handleErrorReport(request(report, "https://app.example", ip))).status);
+    }
+    expect(statuses.filter((status) => status === 204)).toHaveLength(600);
+    expect(statuses.at(-1)).toBe(429);
   });
 });

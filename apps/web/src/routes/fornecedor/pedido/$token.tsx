@@ -135,15 +135,18 @@ function SupplierOrderPage() {
         }}
       >
         {query.data.marketplace === "mercado_livre" ? (
-          <Button variant="outline" asChild>
-            <a
-              href={`/api/pedidos/${query.data.orderId}/etiqueta?token=${token}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+          // A form post keeps the token out of the URL, the history and the access logs.
+          <form
+            method="post"
+            action={`/api/pedidos/${query.data.orderId}/etiqueta`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <input type="hidden" name="token" value={token} />
+            <Button type="submit" variant="outline">
               Etiqueta de postagem do marketplace
-            </a>
-          </Button>
+            </Button>
+          </form>
         ) : null}
       </ShipmentPanel>
     </SupplierPageFrame>
