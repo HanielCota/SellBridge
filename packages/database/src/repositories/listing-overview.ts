@@ -27,14 +27,12 @@ import {
   storeConnections,
   supplierProducts,
   suppliers,
-  tenantProfile,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { coversTenantRegion } from "./sql/supplier-coverage.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -164,11 +162,10 @@ async function pageOfListingIds(
   return { ids: rows.map((row) => row.id), total: totals.at(0)?.total ?? 0 };
 }
 
-/** What `unavailableReason` needs; the query joins suppliers and the owner's tenant_profile. */
+/** What `unavailableReason` needs; the query joins supplier_products and suppliers. */
 const availabilityColumns = {
   productActive: supplierProducts.active,
   supplierActive: suppliers.active,
-  regionCovered: sql<boolean>`${coversTenantRegion()}`,
 };
 
 async function selectListingDetails(database: Database, ids: string[]) {
@@ -192,7 +189,6 @@ async function selectListingDetails(database: Database, ids: string[]) {
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(inArray(listings.id, ids));
 }
 
@@ -290,8 +286,8 @@ async function loadOverviewRows(
     if (!found) {
       return [];
     }
-    const { productActive, supplierActive, regionCovered, ...detail } = found;
-    const unavailable = unavailableReason({ productActive, supplierActive, regionCovered });
+    const { productActive, supplierActive, ...detail } = found;
+    const unavailable = unavailableReason({ productActive, supplierActive });
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));
@@ -393,7 +389,6 @@ async function unavailableAmong(executor: DatabaseExecutor, ids: readonly string
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(inArray(listings.id, [...ids]))
     .for("share", { of: [supplierProducts, suppliers] });
   return rows.flatMap(({ listingId, ...availability }) => {

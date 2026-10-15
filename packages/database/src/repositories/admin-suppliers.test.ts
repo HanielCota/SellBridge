@@ -13,11 +13,11 @@ import {
 } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
-  getCatalogProductForRegion,
-  getSupplierForRegion,
+  getSellableCatalogProduct,
+  getDirectorySupplier,
   listCatalogProducts,
-  listRegionCatalog,
-  listSuppliersForRegion,
+  listSellableCatalog,
+  listActiveSuppliers,
 } from "./suppliers.ts";
 import {
   getAdminSupplier,
@@ -356,18 +356,16 @@ describe("admin suppliers", () => {
         productId: product.id,
         active: false,
       });
-      await expect(
-        getCatalogProductForRegion(database, { state: "SP", city: "Santos" }, product.id),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(getSellableCatalogProduct(database, product.id)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
       await setAdminSupplierActive(database, supplierId, false);
       expect(
-        (await listSuppliersForRegion(database, { state: "SP", city: "Santos" }, {})).some(
-          (supplier) => supplier.id === supplierId,
-        ),
+        (await listActiveSuppliers(database, {})).some((supplier) => supplier.id === supplierId),
       ).toBe(false);
-      await expect(
-        getSupplierForRegion(database, { state: "SP", city: "Santos" }, supplierId),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(getDirectorySupplier(database, supplierId)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
       expect(
         (
           await listCatalogProducts(
@@ -380,9 +378,9 @@ describe("admin suppliers", () => {
       ).toBe(0);
       expect(
         (
-          await listRegionCatalog(
+          await listSellableCatalog(
             database,
-            { tenantId, region: { state: "SP", city: "Santos" } },
+            tenantId,
             { supplierId, sort: "title" },
             { page: 1, pageSize: 20 },
           )

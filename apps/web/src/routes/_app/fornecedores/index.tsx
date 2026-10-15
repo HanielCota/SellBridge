@@ -5,7 +5,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MapPinIcon, PackageIcon, StorefrontIcon, TruckIcon } from "@phosphor-icons/react";
+import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -14,10 +14,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -50,23 +47,10 @@ function SuppliersPage() {
       <PageHeader
         title="Fornecedores"
         description="Atacadistas de todo o Brasil, com o score dado por quem já vendeu os produtos deles."
-        actions={<AddressButton />}
       />
       <SupplierFilters />
       <SupplierList search={search} />
     </>
-  );
-}
-
-function AddressButton() {
-  const { region } = Route.useRouteContext();
-  return (
-    <Button asChild variant="outline" size="sm">
-      <Link to="/onboarding">
-        <MapPinIcon aria-hidden="true" />
-        {region ? `${region.city} - ${region.state}` : "Informar endereço"}
-      </Link>
-    </Button>
   );
 }
 
@@ -92,7 +76,6 @@ function SupplierFilters() {
         <SupplierSortSelect />
       </div>
       <NicheTabs />
-      <DeliveringOnlyToggle />
     </div>
   );
 }
@@ -125,43 +108,6 @@ function NicheTabs() {
           })
         }
       />
-    </div>
-  );
-}
-
-/** Off by default, so every supplier shows; without an address there is nothing to compare. */
-function DeliveringOnlyToggle() {
-  const search = Route.useSearch();
-  const { region } = Route.useRouteContext();
-  const navigate = useNavigate({ from: Route.fullPath });
-  if (region === null) {
-    return (
-      <p className="text-footnote text-muted-foreground">
-        <Link to="/onboarding" className="text-brand-text underline-offset-4 hover:underline">
-          Informe seu endereço
-        </Link>{" "}
-        para ver quais fornecedores entregam para você.
-      </p>
-    );
-  }
-  return (
-    <div className="flex w-fit items-center gap-2">
-      <Checkbox
-        id="delivering-only"
-        checked={search.delivering === true}
-        onCheckedChange={(checked) =>
-          void navigate({
-            search: (previous) => ({
-              ...previous,
-              delivering: checked === true ? true : undefined,
-            }),
-            replace: true,
-          })
-        }
-      />
-      <Label htmlFor="delivering-only" className="font-normal">
-        Só quem entrega no meu CEP
-      </Label>
     </div>
   );
 }
@@ -209,8 +155,8 @@ function SupplierList({ search }: { search: ReturnType<typeof Route.useSearch> }
         icon={StorefrontIcon}
         title="Nenhum fornecedor encontrado"
         description={
-          search.query || search.niche || search.delivering
-            ? "Tente outro nicho ou produto, ou desmarque “Só quem entrega no meu CEP”."
+          search.query || search.niche
+            ? "Tente outro nicho ou produto."
             : "Ainda não há fornecedores cadastrados."
         }
       />
@@ -248,7 +194,6 @@ function SupplierCard({ supplier }: { supplier: SupplierWithReputation }) {
           <p className="text-xs text-muted-foreground">
             {supplier.city} - {supplier.state}
           </p>
-          <DeliveryMark deliversToRegion={supplier.deliversToRegion} />
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3">
@@ -267,22 +212,6 @@ function SupplierCard({ supplier }: { supplier: SupplierWithReputation }) {
       </CardContent>
     </Card>
   );
-}
-
-/** Whether the supplier delivers to the reseller; nothing to say before there is an address. */
-function DeliveryMark({ deliversToRegion }: { deliversToRegion: boolean | null }) {
-  if (deliversToRegion === null) {
-    return null;
-  }
-  if (deliversToRegion) {
-    return (
-      <Badge>
-        <TruckIcon aria-hidden="true" />
-        Entrega na sua região
-      </Badge>
-    );
-  }
-  return <Badge variant="secondary">Não entrega no seu CEP</Badge>;
 }
 
 function SupplierListSkeleton() {

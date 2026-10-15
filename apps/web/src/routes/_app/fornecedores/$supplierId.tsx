@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, PackageIcon, TruckIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PackageIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -15,7 +15,6 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReputationPanel } from "@/components/suppliers/reputation-panel";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SupplierProductCard } from "@/components/suppliers/supplier-product-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -80,46 +79,10 @@ function CatalogPage() {
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
       />
-      <DeliveryNotice deliversToRegion={supplier.deliversToRegion} />
       <ReputationPanel supplierId={supplier.id} />
       <CatalogFilters categories={query.data.categories} />
       <CatalogResults />
     </>
-  );
-}
-
-/** Any supplier can be browsed; only one that delivers to the reseller can be published from. */
-function DeliveryNotice({ deliversToRegion }: { deliversToRegion: boolean | null }) {
-  const { region } = Route.useRouteContext();
-  if (deliversToRegion === true) {
-    return null;
-  }
-  if (region === null) {
-    return (
-      <Alert>
-        <TruckIcon aria-hidden="true" />
-        <AlertDescription>
-          <span>
-            <Link
-              to="/onboarding"
-              className="font-medium text-brand-text underline-offset-4 hover:underline"
-            >
-              Informe seu endereço
-            </Link>{" "}
-            para saber se este fornecedor entrega para você e publicar os produtos dele.
-          </span>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-  return (
-    <Alert>
-      <TruckIcon aria-hidden="true" />
-      <AlertDescription>
-        Este fornecedor ainda não entrega em {region.city} - {region.state}. Você pode ver o
-        catálogo, mas só publica produtos de quem entrega no seu CEP.
-      </AlertDescription>
-    </Alert>
   );
 }
 
@@ -318,10 +281,7 @@ function CatalogResults() {
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {products.items.map((product) => (
           <li key={product.id}>
-            <SupplierProductCard
-              product={product}
-              canPublish={query.data.supplier.deliversToRegion === true}
-            />
+            <SupplierProductCard product={product} />
           </li>
         ))}
       </ul>

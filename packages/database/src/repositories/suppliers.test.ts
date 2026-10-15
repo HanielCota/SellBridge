@@ -3,14 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listings, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
-  countListingsOutsideRegion,
-  getCatalogProductForRegion,
   getDirectorySupplier,
-  getSupplierForRegion,
+  getSellableCatalogProduct,
+  listActiveSuppliers,
   listCatalogProducts,
-  listRegionCatalog,
+  listSellableCatalog,
   listSupplierDirectory,
-  listSuppliersForRegion,
 } from "./suppliers.ts";
 
 const database = createTestDatabase();
@@ -92,60 +90,29 @@ afterAll(async () => {
   await database.$client.end();
 });
 
-describe("supplier visibility by region", () => {
-  it("lists state-wide suppliers but hides city-only suppliers for other cities", async () => {
-    const result = await listSuppliersForRegion(
-      database,
-      { state: TEST_STATE, city: "Interior" },
-      {},
-    );
+describe("suppliers from anywhere in Brazil", () => {
+  it("lists every active supplier, whatever state it is in", async () => {
+    const result = await listActiveSuppliers(database, {});
     const names = result.map((supplier) => supplier.name);
-    expect(names).toContain("Teste Estado Inteiro");
-    expect(names).not.toContain("Teste Só Capital");
-    expect(names).not.toContain("Teste Outro Estado");
+    expect(names).toEqual(
+      expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital", "Teste Outro Estado"]),
+    );
     expect(names).not.toContain("Teste Inativo");
   });
 
-  it("includes city-only suppliers for the covered city (case-insensitive)", async () => {
-    const result = await listSuppliersForRegion(
-      database,
-      { state: TEST_STATE, city: "capital" },
-      {},
-    );
-    expect(result.map((supplier) => supplier.name)).toEqual(
-      expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital"]),
-    );
-  });
-
   it("counts active products per supplier", async () => {
-    const result = await listSuppliersForRegion(
-      database,
-      { state: TEST_STATE, city: "Interior" },
-      {},
-    );
+    const result = await listActiveSuppliers(database, {});
     expect(result.find((supplier) => supplier.id === ids.stateWide)?.productCount).toBe(3);
   });
 
-  it("reports a supplier outside the region as not found", async () => {
-    await expect(
-      getSupplierForRegion(database, { state: TEST_STATE, city: "Interior" }, ids.otherState),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
-  });
-
-  it("reports a product whose supplier does not serve the region as not found", async () => {
-    await expect(
-      getCatalogProductForRegion(
-        database,
-        { state: TEST_STATE, city: "Interior" },
-        hiddenProductId,
-      ),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    const visible = await getCatalogProductForRegion(
-      database,
-      { state: TEST_STATE, city: "Interior" },
-      visibleProductId,
-    );
+  it("opens a product of a supplier in any state, and only known products", async () => {
+    const fromOtherState = await getSellableCatalogProduct(database, hiddenProductId);
+    expect(fromOtherState.sku).toBe("T-4");
+    const visible = await getSellableCatalogProduct(database, visibleProductId);
     expect(visible.sku).toBe("T-1");
+    await expect(
+      getSellableCatalogProduct(database, "00000000-0000-4000-8000-000000000000"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 
@@ -155,78 +122,37 @@ async function directoryNames(filters: Parameters<typeof listSupplierDirectory>[
 }
 
 describe("supplier directory", () => {
-  const interior = { state: TEST_STATE, city: "Interior" };
-
-  it("lists active suppliers of every region and marks who delivers", async () => {
-    const result = await listSupplierDirectory(database, { region: interior });
-    const byId = new Map(result.map((supplier) => [supplier.id, supplier]));
-    expect(byId.get(ids.stateWide)?.deliversToRegion).toBe(true);
-    expect(byId.get(ids.cityOnly)?.deliversToRegion).toBe(false);
-    expect(byId.get(ids.otherState)?.deliversToRegion).toBe(false);
-    expect(byId.has(ids.inactive)).toBe(false);
-  });
-
-  it("leaves delivery unknown without an address", async () => {
-    const result = await listSupplierDirectory(database, { region: null });
-    expect(result.find((supplier) => supplier.id === ids.otherState)?.deliversToRegion).toBeNull();
-  });
-
-  it("keeps only suppliers that deliver when asked", async () => {
-    const names = await directoryNames({ region: interior, deliveringOnly: true });
-    expect(names).toContain("Teste Estado Inteiro");
-    expect(names).not.toContain("Teste Outro Estado");
+  it("lists active suppliers of every state", async () => {
+    const result = await listSupplierDirectory(database, {});
+    const found = new Set(result.map((supplier) => supplier.id));
+    expect(found.has(ids.stateWide)).toBe(true);
+    expect(found.has(ids.cityOnly)).toBe(true);
+    expect(found.has(ids.otherState)).toBe(true);
+    expect(found.has(ids.inactive)).toBe(false);
   });
 
   it("finds a supplier by a product it sells, ignoring accents", async () => {
-    const hidden = await directoryNames({ region: interior, search: "PRODUTO OCULTO" });
+    const hidden = await directoryNames({ search: "PRODUTO OCULTO" });
     expect(hidden).toContain("Teste Outro Estado");
     expect(hidden).not.toContain("Teste Estado Inteiro");
-    const caps = await directoryNames({ region: interior, search: "bone" });
+    const caps = await directoryNames({ search: "bone" });
     expect(caps).toContain("Teste Estado Inteiro");
     expect(caps).not.toContain("Teste Outro Estado");
   });
 
   it("finds a supplier by its niche", async () => {
-    const names = await directoryNames({ region: null, search: "teste" });
+    const names = await directoryNames({ search: "teste" });
     expect(names).toEqual(
       expect.arrayContaining(["Teste Estado Inteiro", "Teste Só Capital", "Teste Outro Estado"]),
     );
   });
 
-  it("opens any active supplier, with its delivery mark", async () => {
-    const supplier = await getDirectorySupplier(database, interior, ids.otherState);
-    expect(supplier.deliversToRegion).toBe(false);
-    await expect(getDirectorySupplier(database, interior, ids.inactive)).rejects.toMatchObject({
+  it("opens any active supplier, never an inactive one", async () => {
+    const supplier = await getDirectorySupplier(database, ids.otherState);
+    expect(supplier.name).toBe("Teste Outro Estado");
+    await expect(getDirectorySupplier(database, ids.inactive)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-  });
-});
-
-describe("listings outside a region", () => {
-  it("counts only the tenant's listings whose supplier does not serve the region", async () => {
-    const tenants = await createTestTenants(database, 2);
-    const [tenantId, otherTenantId] = tenants.ids;
-    if (!tenantId || !otherTenantId) {
-      throw new Error("tenants não criados");
-    }
-    try {
-      const listing = { title: "Anúncio", description: "Descrição", priceCents: 4990 };
-      await database.insert(listings).values([
-        { ...listing, tenantId, supplierProductId: visibleProductId },
-        { ...listing, tenantId, supplierProductId: hiddenProductId },
-        { ...listing, tenantId: otherTenantId, supplierProductId: hiddenProductId },
-      ]);
-      // T-1 comes from a state-wide supplier of ZZ; T-4 only serves YY.
-      const inZz = { state: TEST_STATE, city: "Interior" };
-      const inYy = { state: "YY", city: "Qualquer" };
-      expect(await countListingsOutsideRegion(database, tenantId, inZz)).toBe(1);
-      expect(await countListingsOutsideRegion(database, tenantId, inYy)).toBe(1);
-      expect(await countListingsOutsideRegion(database, tenantId, { state: "XX", city: "" })).toBe(
-        2,
-      );
-    } finally {
-      await tenants.cleanup();
-    }
   });
 });
 
@@ -323,7 +249,7 @@ describe("catalog filters", () => {
   });
 });
 
-describe("region catalog", () => {
+describe("sellable catalog", () => {
   it("leaves out the tenant's published products when asked", async () => {
     const tenants = await createTestTenants(database, 1);
     const [tenantId] = tenants.ids;
@@ -338,14 +264,14 @@ describe("region catalog", () => {
         description: "Descrição",
         priceCents: 4990,
       });
-      const input = { region: { state: TEST_STATE, city: "Interior" }, tenantId };
       const pagination = { page: 1, pageSize: 20 };
-      const all = await listRegionCatalog(database, input, { sort: "title" }, pagination);
+      const ofSupplier = { supplierId: ids.stateWide, sort: "title" as const };
+      const all = await listSellableCatalog(database, tenantId, ofSupplier, pagination);
       expect(all.items.find((item) => item.sku === "T-1")?.published).toBe(true);
-      const unpublished = await listRegionCatalog(
+      const unpublished = await listSellableCatalog(
         database,
-        input,
-        { unpublishedOnly: true, sort: "title" },
+        tenantId,
+        { ...ofSupplier, unpublishedOnly: true },
         pagination,
       );
       expect(unpublished.items.map((item) => item.sku)).toEqual(["T-3", "T-2"]);

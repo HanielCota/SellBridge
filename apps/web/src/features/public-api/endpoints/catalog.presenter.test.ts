@@ -1,8 +1,8 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { describe, expect, it } from "vitest";
 import { presentCatalogProduct } from "./catalog.presenter";
 
-const product: RegionCatalogProduct = {
+const product: SellableCatalogProduct = {
   id: "product-1",
   sku: "SKU-1",
   title: "Camiseta",

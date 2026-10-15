@@ -10,14 +10,13 @@ import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { coversTenantRegion, sellableOnMarketplace } from "./sql/supplier-coverage.ts";
+import { sellableOnMarketplace } from "./sql/sellable.ts";
 import {
   listings,
   listingTargets,
   storeConnections,
   supplierProducts,
   suppliers,
-  tenantProfile,
 } from "../schema/index.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -224,23 +223,21 @@ export async function getTargetForPublishing(
       product: supplierProducts,
       store: storeConnections,
       supplierActive: suppliers.active,
-      regionCovered: sql<boolean>`${coversTenantRegion()}`,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
-    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)))
     .limit(1);
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  const { supplierActive, regionCovered, ...target } = row;
+  const { supplierActive, ...target } = row;
   return {
     ...target,
-    availability: { productActive: row.product.active, supplierActive, regionCovered },
+    availability: { productActive: row.product.active, supplierActive },
   };
 }
 
@@ -410,7 +407,7 @@ export interface TargetNeedingSync {
 
 /**
  * Stock to show on the marketplace: zero while the reseller has the listing paused or the
- * product can no longer be sold (inactive product or supplier, region not covered), and never
+ * product can no longer be sold (inactive product or supplier), and never
  * the last `safetyUnits` sellable units (a buffer against counts that lag behind the shelf).
  * The margin is a validated integer from the environment, inlined because a parameter inside
  * CASE would reach Postgres as text.
@@ -446,7 +443,6 @@ export async function findTargetsNeedingSync(
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
-    .leftJoin(tenantProfile, eq(tenantProfile.tenantId, listings.tenantId))
     .where(
       and(
         sql`${listingTargets.status} in ('published', 'paused')`,

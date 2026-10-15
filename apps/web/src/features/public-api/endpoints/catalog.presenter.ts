@@ -1,4 +1,4 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { z } from "zod";
 
 export const catalogProductSchema = z.object({
@@ -20,14 +20,14 @@ export const catalogProductSchema = z.object({
 
 export type CatalogProductDto = z.input<typeof catalogProductSchema>;
 
-function presentCategory(product: RegionCatalogProduct): CatalogProductDto["category"] {
+function presentCategory(product: SellableCatalogProduct): CatalogProductDto["category"] {
   if (product.categorySlug === null || product.categoryName === null) {
     return null;
   }
   return { slug: product.categorySlug, name: product.categoryName };
 }
 
-export function presentCatalogProduct(product: RegionCatalogProduct): CatalogProductDto {
+export function presentCatalogProduct(product: SellableCatalogProduct): CatalogProductDto {
   return {
     id: product.id,
     sku: product.sku,

@@ -99,7 +99,6 @@ async function seedDemo(context: SeedContext): Promise<void> {
     database,
     random,
     tenantId: demo.tenantId,
-    region: demoCep,
     cipher,
   });
   const reviews = await seedDemoReviews({ database, random, tenantId: demo.tenantId });

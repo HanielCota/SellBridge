@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { supplierCoverage, supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
+import { supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -18,22 +18,20 @@ let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 const cleanups: (() => Promise<void>)[] = [];
 
 let mineiro: TestSeller;
-let paulista: TestSeller;
-let semRegiao: TestSeller;
+let acreano: TestSeller;
+let semEndereco: TestSeller;
 
+/** A seller with one connected store; `region` is the address an older profile kept. */
 async function seller(tenantId: string, region: { state: string; city: string } | null) {
-  if (region) {
+  if (region !== null) {
     await database.insert(tenantProfile).values({ tenantId, cep: "30140071", ...region });
   }
   const store = await upsertStoreConnection(database, testStoreInput(tenantId, `shop-${tenantId}`));
   return { tenantId, storeId: store.id };
 }
 
-/** A product with 5 units whose supplier covers `coverage`, published by every seller given. */
-async function publishedBy(
-  coverage: { state: string; city: string | null }[],
-  sellers: readonly TestSeller[],
-) {
+/** A product with 5 units (its test supplier is in state "ZZ"), published by every seller given. */
+async function publishedBy(sellers: readonly TestSeller[]) {
   const sku = `AV-${randomUUID().slice(0, 8)}`;
   const catalog = await createTestSupplierProduct(database, {
     sku,
@@ -43,11 +41,6 @@ async function publishedBy(
     stock: 5,
   });
   cleanups.push(catalog.cleanup);
-  if (coverage.length > 0) {
-    await database
-      .insert(supplierCoverage)
-      .values(coverage.map((region) => ({ supplierId: catalog.supplierId, ...region })));
-  }
   const targets = await publishTestProduct(database, catalog.productId, sellers);
   return { ...catalog, sku, targets };
 }
@@ -64,12 +57,12 @@ async function stockQueued(product: { targets: Map<string, string> }) {
 beforeAll(async () => {
   tenants = await createTestTenants(database, 3);
   const [first, second, third] = tenants.ids;
-  if (!first || !second || !third) {
+  if (first === undefined || second === undefined || third === undefined) {
     throw new Error("tenants não criados");
   }
   mineiro = await seller(first, { state: "MG", city: "Belo Horizonte" });
-  paulista = await seller(second, { state: "SP", city: "Campinas" });
-  semRegiao = await seller(third, null);
+  acreano = await seller(second, { state: "AC", city: "Rio Branco" });
+  semEndereco = await seller(third, null);
 });
 
 afterAll(async () => {
@@ -82,23 +75,18 @@ afterAll(async () => {
 });
 
 describe("sync of products the reseller can no longer sell", () => {
-  it("sends zero only to the reseller outside the supplier's coverage", async () => {
-    const product = await publishedBy([{ state: "MG", city: null }], [mineiro, paulista]);
+  it("offers the stock to every reseller, wherever the reseller and the supplier are", async () => {
+    const product = await publishedBy([mineiro, acreano, semEndereco]);
 
     expect(await stockQueued(product)).toEqual({
       [mineiro.tenantId]: 5,
-      [paulista.tenantId]: 0,
+      [acreano.tenantId]: 5,
+      [semEndereco.tenantId]: 5,
     });
   });
 
-  it("matches a city coverage regardless of letter case", async () => {
-    const product = await publishedBy([{ state: "SP", city: "campinas" }], [paulista]);
-
-    expect(await stockQueued(product)).toEqual({ [paulista.tenantId]: 5 });
-  });
-
   it("sends zero for an inactive product", async () => {
-    const product = await publishedBy([{ state: "MG", city: null }], [mineiro]);
+    const product = await publishedBy([mineiro]);
     await database
       .update(supplierProducts)
       .set({ active: false })
@@ -108,29 +96,30 @@ describe("sync of products the reseller can no longer sell", () => {
   });
 
   it("sends zero for every product of an inactive supplier", async () => {
-    const product = await publishedBy([{ state: "MG", city: null }], [mineiro]);
+    const product = await publishedBy([mineiro, acreano]);
     await database
       .update(suppliers)
       .set({ active: false })
       .where(eq(suppliers.id, product.supplierId));
 
-    expect(await stockQueued(product)).toEqual({ [mineiro.tenantId]: 0 });
+    expect(await stockQueued(product)).toEqual({
+      [mineiro.tenantId]: 0,
+      [acreano.tenantId]: 0,
+    });
   });
 
   it("leaves the queue once the zero reached the marketplace", async () => {
-    const product = await publishedBy([{ state: "MG", city: null }], [paulista]);
-    const targetId = product.targets.get(paulista.tenantId);
-    if (!targetId) {
+    const product = await publishedBy([acreano]);
+    const targetId = product.targets.get(acreano.tenantId);
+    if (targetId === undefined) {
       throw new Error("destino não criado");
     }
+    await database
+      .update(supplierProducts)
+      .set({ active: false })
+      .where(eq(supplierProducts.id, product.productId));
     await markTargetSynced(database, targetId, { stock: 0, priceCents: 3990 });
 
-    expect(await stockQueued(product)).toEqual({ [paulista.tenantId]: undefined });
-  });
-
-  it("keeps offering stock to a reseller without a registered region", async () => {
-    const product = await publishedBy([{ state: "MG", city: null }], [semRegiao]);
-
-    expect(await stockQueued(product)).toEqual({ [semRegiao.tenantId]: 5 });
+    expect(await stockQueued(product)).toEqual({ [acreano.tenantId]: undefined });
   });
 });
