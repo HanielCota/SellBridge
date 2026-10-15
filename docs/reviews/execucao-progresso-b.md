@@ -4,7 +4,12 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-_(nenhum)_ · próximo: item 10.c (troca de e-mail com nova verificação e regras do "entrar como cliente"). Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+- Item/parte: 10.c · Troca de e-mail com nova verificação e regras do "entrar como cliente" (com tela: 3 paradas)
+- Última etapa concluída: 3 · Planejar (⏸1 apresentado em 2026-10-14, aguardando OK)
+- Próximo passo: depois do OK, etapa 4 (testes que falham)
+- Arquivos tocados: nenhum ainda (branch em 1a73d9b, juntada com feat/client-phase-1)
+- Decisões tomadas nos pontos de parada: —
+- Pendências: conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`. Ordem combinada com o principal (2026-10-15): a etapa 4 do chat de CPF vai primeiro em `features/stores/oauth.server.ts` (+test), `store-connect-errors.ts`, `components/stores/store-list.tsx`, `add-store.tsx` e `routes/_app/lojas.tsx`; o 10.c faz todo o resto e aplica a parte de lojas (código `impersonating` no OAuth e botões desativados) por cima, depois da junção da etapa 4. O nome `disconnectStoreFn` não muda. No próximo merge, rodar o migrate (0026)
 
 ## Linha de base
 
