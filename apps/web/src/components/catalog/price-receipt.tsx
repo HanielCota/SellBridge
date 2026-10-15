@@ -5,15 +5,15 @@ import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  FeeLines,
   PROFIT_SPLIT_COLORS,
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
+  totalFeeCents,
 } from "@/components/listings/profit-split";
-import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
-  estimateProfit,
-} from "@/features/listings/profit";
+import { estimateProfit } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { cn } from "@/lib/utils";
 
 function ProductStepper({
@@ -72,16 +72,17 @@ export function PriceReceipt({
   adjust?: ((product: SellableCatalogProduct) => React.ReactNode) | undefined;
 }) {
   const [index, setIndex] = useState(0);
+  const schedule = useFeeSchedule();
   const product = products[index % products.length];
   if (!product) {
     return null;
   }
   const price = priceForRule(product, ruleFor(product));
-  const estimate = estimateProfit(price, product.costCents);
+  const estimate = estimateProfit(price, product.costCents, schedule);
   if (!estimate) {
     return null;
   }
-  const { feeCents, profitCents, marginPercent } = estimate;
+  const { profitCents, marginPercent } = estimate;
   const isLoss = profitCents < 0;
   return (
     <div className="space-y-3 px-3.5 py-3">
@@ -92,7 +93,11 @@ export function PriceReceipt({
         onIndexChange={setIndex}
       />
       {adjust ? adjust(product) : null}
-      <ProfitSplitBar costCents={product.costCents} feeCents={feeCents} profitCents={profitCents} />
+      <ProfitSplitBar
+        costCents={product.costCents}
+        feeCents={totalFeeCents(estimate)}
+        profitCents={profitCents}
+      />
 
       <dl className="space-y-1.5 text-sm">
         <ProfitSplitLine
@@ -100,11 +105,7 @@ export function PriceReceipt({
           label="Custo do fornecedor"
           value={formatCents(product.costCents)}
         />
-        <ProfitSplitLine
-          swatch={PROFIT_SPLIT_COLORS.fee}
-          label={`Taxa do marketplace (~${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})`}
-          value={formatCents(feeCents)}
-        />
+        <FeeLines estimate={estimate} schedule={schedule} />
         <ProfitSplitLine
           swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
           label={isLoss ? "Seu prejuízo" : "Seu lucro"}

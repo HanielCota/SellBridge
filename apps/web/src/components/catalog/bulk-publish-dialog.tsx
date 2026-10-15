@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { PriceReceipt } from "./price-receipt";
+import { batchPriceProblem } from "@sellbridge/shared/fee-model";
+import { priceForRule } from "@sellbridge/shared/schemas";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -470,6 +473,41 @@ function useBulkPublish(onDone: () => void) {
   });
 }
 
+/**
+ * The batch's floor on screen, in the server's own words: a price rule that would lose money on
+ * any product is said here, before the batch goes out to be refused.
+ */
+function useBatchFloorProblem(
+  products: readonly SellableCatalogProduct[],
+  draft: ReturnType<typeof usePriceRuleDraft>,
+  overrides: ReturnType<typeof usePriceOverrides>,
+): string | null {
+  const schedule = useFeeSchedule();
+  const isMarkup = draft.kind === "markup";
+  return batchPriceProblem(
+    products.map((product) => ({
+      title: product.title,
+      costCents: product.costCents,
+      priceCents: priceForRule(
+        product,
+        (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule,
+      ),
+    })),
+    schedule,
+  );
+}
+
+function FloorProblem({ problem }: { problem: string | null }) {
+  if (problem === null) {
+    return null;
+  }
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {problem}
+    </p>
+  );
+}
+
 function BulkPublishForm({
   products,
   stores,
@@ -487,8 +525,13 @@ function BulkPublishForm({
   const mutation = useBulkPublish(onDone);
   const isMarkup = draft.kind === "markup";
   const adjusted = isMarkup ? overrides.count : 0;
+  const floorProblem = useBatchFloorProblem(products, draft, overrides);
   const canSubmit =
-    storeIds.size > 0 && draft.isValid && (!isMarkup || overrides.isValid) && !mutation.isPending;
+    storeIds.size > 0 &&
+    draft.isValid &&
+    (!isMarkup || overrides.isValid) &&
+    floorProblem === null &&
+    !mutation.isPending;
   const listings = products.length * storeIds.size;
   return (
     <form
@@ -509,6 +552,7 @@ function BulkPublishForm({
       <StorePicker stores={stores} selected={storeIds} onChange={setStoreIds} />
       <PriceRulePicker products={products} draft={draft} overrides={overrides} />
       <div className="space-y-2">
+        <FloorProblem problem={floorProblem} />
         <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
           {mutation.isPending
             ? "Publicando…"

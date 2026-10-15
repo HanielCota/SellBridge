@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
 import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useBulkListingActions } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,8 @@ function storesSummary(row: ListingOverviewRow): string {
 
 /** Same lines as the catalog card: the price as the headline, cost and margin beneath. */
 function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolean }) {
-  const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent;
+  const schedule = useFeeSchedule();
+  const margin = estimateProfit(row.priceCents, row.costCents, schedule)?.marginPercent;
   return (
     <div className="min-w-0 space-y-0.5 tabular-nums">
       <p

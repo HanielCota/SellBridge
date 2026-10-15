@@ -6,13 +6,19 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
 function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; soldOut: boolean }) {
-  const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
+  const schedule = useFeeSchedule();
+  const margin = estimateProfit(
+    product.suggestedPriceCents,
+    product.costCents,
+    schedule,
+  )?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
       <p
