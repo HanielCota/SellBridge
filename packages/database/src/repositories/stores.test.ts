@@ -125,6 +125,7 @@ describe("oauth state", () => {
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
     ).toEqual({
       codeVerifier: null,
+      supplierId: null,
     });
     expect(
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),

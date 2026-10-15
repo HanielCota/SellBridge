@@ -1,5 +1,6 @@
 import { billingConfigured } from "@/features/billing/stripe.server";
 import {
+  assertStoresSellSupplier,
   createListingWithTargets,
   type CreatedListing,
   findConnectedStores,
@@ -22,6 +23,17 @@ export async function assertConnectedStores(
     throw validationError("Uma ou mais lojas escolhidas não estão conectadas");
   }
   return uniqueStoreIds;
+}
+
+/** Each store sells a single supplier: refuses a store that does not sell every one given. */
+export async function assertStoresSellSuppliers(
+  tenantId: string,
+  storeIds: readonly string[],
+  supplierIds: readonly string[],
+): Promise<void> {
+  for (const supplierId of new Set(supplierIds)) {
+    await assertStoresSellSupplier(database, tenantId, storeIds, supplierId);
+  }
 }
 
 const ENQUEUE_DEADLINE_MILLISECONDS = 3000;

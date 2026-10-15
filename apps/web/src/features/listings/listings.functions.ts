@@ -41,11 +41,14 @@ export const getNewListingData = createServerFn({ method: "GET" })
     ]);
     // One listing per product and store: a store that already sells it is shown, not offered.
     const listedIds = new Set(listedOn.map((store) => store.storeId));
+    const connected = stores.filter((store) => store.status === "connected");
+    // Each store sells a single supplier: only the ones selling this product's supplier qualify.
     return {
       product,
-      stores: stores
-        .filter((store) => store.status === "connected")
+      stores: connected
+        .filter((store) => store.supplierId === product.supplierId)
         .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
+      hasOtherStores: connected.some((store) => store.supplierId !== product.supplierId),
     };
   });
 

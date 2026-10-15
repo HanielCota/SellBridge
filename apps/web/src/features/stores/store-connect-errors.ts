@@ -9,6 +9,8 @@ export const STORE_CONNECT_ERROR_MESSAGES = {
   shop_in_use:
     "Esta loja já está conectada em outra conta do SellBridge. Desconecte-a lá antes de conectar aqui.",
   plan_limit: "Seu plano não permite mais lojas. Veja os planos em Assinatura.",
+  supplier_unavailable:
+    "Este fornecedor não está mais disponível. Escolha outro fornecedor para a nova loja.",
   failed: "Não foi possível conectar a loja",
 } as const;
 
@@ -23,5 +25,6 @@ export const STORE_CONNECT_ERROR_CODES = [
   "marketplace",
   "shop_in_use",
   "plan_limit",
+  "supplier_unavailable",
   "failed",
 ] as const satisfies readonly StoreConnectErrorCode[];
