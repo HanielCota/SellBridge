@@ -232,6 +232,13 @@
       "when": 1792168633054,
       "tag": "0032_listing_description_error",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792169544986,
+      "tag": "0033_notification_channels",
+      "breakpoints": true
     }
   ]
 }
