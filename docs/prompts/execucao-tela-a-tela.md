@@ -1,5 +1,30 @@
 # Prompt: execução tela a tela do SellBridge (um item por vez)
 
+## ⚡ Modo MVP (desde 2026-10-16, vale por cima das seções 4 e 6)
+
+Meta do usuário: fechar o que falta **em 2 dias**, com o site em MVP, e ir refinando aos poucos depois. A divisão em 6 chats está em `docs/prompts/coordenacao.md`, seção 0.
+
+**Paradas (substituem a seção 6.1):**
+
+| Ponto                   | Quando                                                                            | Pacote                                                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| ⏸A · Planos em lote     | uma vez, no começo, para **todos** os itens da fila do chat                       | por item: diagnóstico curto (arquivo:linha), partes, arquivos, testes, D0 em 1–2 linhas, riscos                         |
+| ⏸B · Fechamento do item | uma vez por **item** (não por parte), depois que todas as partes estão commitadas | por parte: hash, testes novos com a saída da falha antes da correção, portões com números; 1–2 capturas por tela mudada |
+
+- Sem ⏸2: o teste que falha continua obrigatório (escrever, rodar, ver falhar pelo motivo certo), mas a saída vai no pacote do ⏸B.
+- Cada parte continua sendo **um commit local** com todos os portões de código verdes. O commit sai **sem esperar** o OK; o ⏸B aprova o item. Se vier `Ajuste`, a correção sai num commit novo.
+- Pare e pergunte só quando: a decisão é do cliente (❓Dn), o plano aprovado não serve, ou um portão não fecha.
+
+**Portões no MVP:**
+
+- C1–C6 sempre. C7: só os specs da área tocada, mais `accessibility.spec.ts` se a tela mudou. O e2e completo roda nas junções do principal (13h e 18h) e no fim.
+- D1: 1 captura desktop e 1 celular, só no tema escuro. D2: 3 larguras (375, 768, 1440). D4 (lado a lado) e a ficha D0 completa só em **tela nova**; tela existente segue a irmã sem ficha.
+- O design continua nativo (lista "Proibido" da seção 4.4 vale), mas acabamento fino (microanimação, esqueleto perfeito, densidade extra) vira item da lista "Refinar depois" no andamento do chat, não bloqueia.
+- Revisão independente (4.6) só quando a parte mexe em auth, cargos, dinheiro ou migration.
+- Segurança, isolamento entre tenants, Zod nas bordas e dinheiro em centavos **não** são relaxados.
+
+**Fora do MVP (fase 2, registrado no andamento):** WhatsApp do 25 (D9), 31.b, 29 se a D8 não sair, 27.d e 27.e, 32.b e 32.c (viram nota de deploy).
+
 ## 0. Como o usuário vai usar (leia primeiro)
 
 O usuário manda comandos curtos, geralmente pelo celular. Interprete assim:
