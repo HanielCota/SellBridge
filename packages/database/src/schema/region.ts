@@ -13,6 +13,11 @@ export const tenantProfile = pgTable(
     fullName: text(),
     // Digits only.
     cpf: text(),
+    /** Digits only, with area code (item 26.a). Null for tenants saved before the field existed. */
+    phone: text(),
+    /** Digits only; set with `companyName` for who sells as a company, else both null. */
+    cnpj: text(),
+    companyName: text(),
     /**
      * The supplier picked during onboarding, before any shop exists: the first shop the tenant
      * connects sells it. Null until picked, or when that supplier was deleted.

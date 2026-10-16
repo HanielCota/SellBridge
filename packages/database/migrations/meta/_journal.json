@@ -253,6 +253,20 @@
       "when": 1792176867126,
       "tag": "0035_ticket_links_and_due",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792179373470,
+      "tag": "0036_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792181775034,
+      "tag": "0037_account_details_and_terms",
+      "breakpoints": true
     }
   ]
 }

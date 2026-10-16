@@ -2,31 +2,11 @@ import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
-export interface PublishStore {
-  id: string;
-  shopName: string;
-  marketplace: string;
-  /** Each store sells a single supplier; null while the seller has not picked one. */
-  supplierId: string | null;
-}
-
 /** The supplier every chosen product shares; undefined when they come from several. */
 function sharedSupplierOf(products: readonly SellableCatalogProduct[]): string | undefined {
   const supplierIds = new Set(products.map((product) => product.supplierId));
   const [only] = supplierIds;
   return supplierIds.size === 1 ? only : undefined;
-}
-
-/** Stores that sell the supplier of every chosen product; none when they come from several. */
-export function storesForProducts(
-  products: readonly SellableCatalogProduct[],
-  stores: readonly PublishStore[],
-): PublishStore[] {
-  const only = sharedSupplierOf(products);
-  if (only === undefined) {
-    return [];
-  }
-  return stores.filter((store) => store.supplierId === only);
 }
 
 function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {

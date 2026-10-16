@@ -3,17 +3,16 @@ import { unauthorizedError, validationError } from "@sellbridge/shared/errors";
 import { detectAttachmentType, hasAcceptableImageSize } from "@sellbridge/shared/file-signature";
 import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
-import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { assertVisitNotOver } from "@/lib/server/impersonation-window";
 import { assertUploadAllowed, avatarUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
+import { AVATAR_URL_PREFIX, avatarPathSchema, avatarStorageKey } from "./avatar-key";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const AVATAR_URL_PREFIX = "/api/perfil/foto/";
 const EXTENSION_BY_TYPE = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -21,29 +20,8 @@ const EXTENSION_BY_TYPE = {
 } as const;
 type AvatarType = keyof typeof EXTENSION_BY_TYPE;
 
-const avatarPathSchema = z.object({
-  userId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
-  fileName: z.string().regex(/^[0-9a-f-]{36}\.(png|jpg|webp)$/),
-});
-
 function isAvatarType(type: string | null): type is AvatarType {
   return type !== null && type in EXTENSION_BY_TYPE;
-}
-
-/**
- * Storage key of a photo this user owns, or null for external images (e.g. Google)
- * and for URLs pointing at someone else's folder.
- */
-function avatarStorageKey(imageUrl: string | null | undefined, ownerId: string): string | null {
-  if (!imageUrl?.startsWith(AVATAR_URL_PREFIX)) {
-    return null;
-  }
-  const [userId, fileName] = imageUrl.slice(AVATAR_URL_PREFIX.length).split("/");
-  const parsed = avatarPathSchema.safeParse({ userId, fileName });
-  if (!parsed.success || parsed.data.userId !== ownerId) {
-    return null;
-  }
-  return `avatars/${parsed.data.userId}/${parsed.data.fileName}`;
 }
 
 async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; type: AvatarType }> {
