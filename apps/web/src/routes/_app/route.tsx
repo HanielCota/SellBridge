@@ -5,6 +5,7 @@ import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { getAppSession } from "@/features/auth/session.functions";
 import { findNextStep } from "@/features/onboarding/setup-progress";
+import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 export const Route = createFileRoute("/_app")({
@@ -12,6 +13,10 @@ export const Route = createFileRoute("/_app")({
     const session = await getAppSession();
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
+    // Item 26.a (L4): the Google sign-up and a new version of the terms land here too.
+    if (needsTermsAcceptance(session)) {
+      throw redirect({ to: "/aceitar-termos", search: { redirect: location.href } });
     }
     return { session };
   },

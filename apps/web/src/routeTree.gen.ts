@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as AceitarTermosRouteImport } from './routes/aceitar-termos'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
@@ -91,6 +92,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AceitarTermosRoute = AceitarTermosRouteImport.update({
+  id: '/aceitar-termos',
+  path: '/aceitar-termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -448,6 +454,7 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -518,6 +525,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -589,6 +597,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRouteRouteWithChildren
@@ -661,6 +670,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -731,6 +741,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -801,6 +812,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/_auth'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/_app/admin'
@@ -874,6 +886,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  AceitarTermosRoute: typeof AceitarTermosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -931,6 +944,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aceitar-termos': {
+      id: '/aceitar-termos'
+      path: '/aceitar-termos'
+      fullPath: '/aceitar-termos'
+      preLoaderRoute: typeof AceitarTermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -1535,6 +1555,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  AceitarTermosRoute: AceitarTermosRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,

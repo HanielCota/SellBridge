@@ -41,6 +41,11 @@ export const signUpSchema = z.object({
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
 
+/** The sign-up form: the account plus the box accepting the terms (item 26.a, L4). */
+export const signUpFormSchema = signUpSchema.extend({
+  acceptedTerms: z.literal(true, "Marque que você aceita os termos para criar a conta."),
+});
+
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
 export const resetPasswordSchema = z.object({ password: newPasswordSchema });

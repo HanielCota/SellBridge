@@ -20,6 +20,7 @@ test("cadastra, sai e entra novamente", async ({ page }) => {
   await page.getByLabel("Nome").fill("Revendedora Teste");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
 

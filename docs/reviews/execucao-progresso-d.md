@@ -4,9 +4,9 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 26.a
-- Última etapa concluída: 26.b commitado
-- Próximo passo: 26.a (senha da migration, dados da conta e aceite de termos)
+- Item/parte: — (fila do MVP fechada: 16 e 26)
+- Última etapa concluída: 26.a commitado (d449008 migration · 1672b16 telas · 7438b1c ajuste do e2e); 31.a revertido e guardado em `wip/d-31a-plan-matrix`
+- Próximo passo: esperar o principal; fase 2: 31.a, 31.b, 29 (D8)
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: ⏸A aprovado em 2026-10-16 como proposto: cota por loja de destino (registrar como D10), carência padrão de 7 dias, aceite de termos cobrado também dos usuários atuais; ordem 16.a → 16.b → 26.c → 26.b → 26.a → 31.a
 - Pendências: —
@@ -17,21 +17,26 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 | ------------------------- | ------------------------ | ---------- |
 | Última migration (branch) | 0031_boundary_checks     | 2026-10-16 |
 | Branch de trabalho        | `claude/client-d-a03fb7` | 2026-10-16 |
-| Testes (`pnpm test`)      | 1631 passando            | 2026-10-16 |
+| Testes (`pnpm test`)      | 1694 passando            | 2026-10-16 |
 
 ## Situação dos itens
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado · ⏭ fase 2
 
-| Item | Título                                 | Situação | Commit            | Notas                                                          |
-| ---- | -------------------------------------- | -------- | ----------------- | -------------------------------------------------------------- |
-| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                              |
-| 26   | Onboarding previsível e conta completa | ⬜       | —                 | 26.a ⬜ · 26.b ✅ · 26.c ✅ 50e66ec                            |
-| 31   | Planos como no PDF                     | ⬜       | —                 | 31.a ⬜ (flag desligada, D10) · 31.b ⏭ fase 2                  |
-| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2 |
+| Item | Título                                 | Situação | Commit            | Notas                                                                                                             |
+| ---- | -------------------------------------- | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                                                                                 |
+| 26   | Onboarding previsível e conta completa | ✅       | —                 | 26.a ✅ d449008 (migration) · 26.b ✅ 232ded1 · 26.c ✅ 50e66ec                                                   |
+| 31   | Planos como no PDF                     | ⏭        | —                 | 31.a ⏭ fase 2 (corte de 16/10; feito em 752c0a3, guardado em `wip/d-31a-plan-matrix` e revertido) · 31.b ⏭ fase 2 |
+| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2                                                    |
 
 ## Refinar depois
 
+- Revisão do 26.a: `acceptTermsFn` usa `tenantMiddleware` (quem ficou sem organização não consegue aceitar; trocar por um middleware só de sessão com a trava de visita); `getAppSession` consulta o aceite a cada navegação (guardar no cookie da sessão); a exportação LGPD não leva os aceites, e o `cascade` apaga a prova de consentimento ao excluir a conta (decidir com o jurídico).
+- 26.a: no cadastro vazio, o erro da caixa de termos só aparece depois que os outros campos estão certos (o TanStack Form para no primeiro erro); a caixa não fica com borda vermelha.
+- 26.a: depois de mudar o schema, o servidor de preview precisa reiniciar (o HMR manteve o schema antigo e as consultas do perfil falharam até reiniciar).
+- U-5: `/assinatura` ainda usa `Card`/`Button` crus e texto solto; trazer para `PageHeader`, `SectionCard`, `ToneStatus` e `Money` como as telas irmãs.
+- `notification-deliveries.test.ts` (área do E) falhou uma vez no `pnpm test` completo e passou isolado e na repetição: possível teste instável.
 - 26.b: a loja nova só é recusada na volta do marketplace (o usuário passa pelo consentimento antes); bloquear já no início quando a conta não tem loja nenhuma.
 - Tempos estimados das etapas do onboarding (1, 2, 3 e 5 min) são palpites do 26.c; medir com usuários reais e ajustar `estimatedMinutes`.
 - Painel "Precisa de você" mostra "Tudo em dia" enquanto as consultas carregam (já era assim; entra com o U-2, skeletons).
@@ -40,6 +45,11 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado ·
 - `billing_accounts.last_event_created` guarda, desde o 16.a, a hora da leitura no Stripe em ms; renomear a coluna (`last_observed_at`) numa migration de limpeza.
 
 ## Histórico
+
+### 2026-10-16 · Item 31.a · Matriz de planos atrás de flag — ⏭ fase 2 (revertido pelo corte do MVP; guardado em `wip/d-31a-plan-matrix`)
+
+- Catálogos em `shared/domain/billing-plans.ts`: hoje (3 planos, tudo liberado) e o do PDF (Start a Elite, R$ 97 a R$ 997 de referência, usuários, prazo do suporte e recursos), com `TODO(client:D10)`. `PLAN_MATRIX_ENABLED` desligada por padrão; ligada, pede os preços do Start, Black e Elite (produção não inicia sem eles). Cota, webhook (preço → plano), checkout e `/assinatura` seguem o catálogo em vigor; `requirePlanFeature` pronto para as telas que vierem.
+- Portões: C1–C6 ✅ (1694 testes); e2e billing e store-supplier 2/2; D2 0 px em 375/768/1440 com a flag ligada.
 
 ### 2026-10-16 · Item 16 · Riscos da assinatura — ✅ concluído (commits locais)
 
