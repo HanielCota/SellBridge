@@ -61,6 +61,23 @@ export function startOfBrazilDay(date: Date): Date {
   return parsed;
 }
 
+/**
+ * The previous window cut to the length of the current one already lived. At 09:00 the "7 days"
+ * hold six days and nine hours of sales; set against seven whole days, every morning read as a
+ * drop. A period already over (or not started) compares whole.
+ */
+export function comparablePreviousRange(
+  period: Pick<ResolvedPeriod, "from" | "to" | "previousFrom" | "previousTo">,
+  now: Date,
+): { from: Date; to: Date } {
+  const lived = Math.min(now.getTime(), period.to.getTime()) - period.from.getTime();
+  const whole = period.previousTo.getTime() - period.previousFrom.getTime();
+  if (lived <= 0 || lived >= whole) {
+    return { from: period.previousFrom, to: period.previousTo };
+  }
+  return { from: period.previousFrom, to: new Date(period.previousFrom.getTime() + lived) };
+}
+
 function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
   const to = new Date(firstDay.getTime() + days * DAY_MILLISECONDS);
   const previousFrom = new Date(firstDay.getTime() - days * DAY_MILLISECONDS);

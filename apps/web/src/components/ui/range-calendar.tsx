@@ -1,4 +1,5 @@
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { MIN_REPORT_YEAR } from "@sellbridge/shared/period-range";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
@@ -7,6 +8,11 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
  * browser's own time zone never shifts a day.
  */
 const DAY_MILLISECONDS = 86_400_000;
+/**
+ * The first day a report covers. Earlier days could be picked, and the server then dropped the
+ * range and showed the last 30 days without a word.
+ */
+const FIRST_DAY = `${MIN_REPORT_YEAR}-01-01`;
 
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
@@ -144,7 +150,7 @@ export function RangeCalendar({ value, onChange, max, maxDays, today }: RangeCal
   }, [focused, month]);
 
   function isDisabled(day: string): boolean {
-    if (day > max) {
+    if (day > max || day < FIRST_DAY) {
       return true;
     }
     return picking && Math.abs(daysBetween(value.from, day)) >= maxDays;
@@ -156,7 +162,7 @@ export function RangeCalendar({ value, onChange, max, maxDays, today }: RangeCal
   }
 
   function moveFocus(day: string) {
-    const clamped = day > max ? max : day;
+    const clamped = day > max ? max : day < FIRST_DAY ? FIRST_DAY : day;
     shouldFocus.current = true;
     setFocused(clamped);
     const target = startOfMonth(clamped);
@@ -204,6 +210,7 @@ export function RangeCalendar({ value, onChange, max, maxDays, today }: RangeCal
   const focusedInView = startOfMonth(focused) === month;
   const tabStop = focusedInView ? focused : month;
   const nextMonth = startOfMonth(month, 1);
+  const previousMonth = startOfMonth(month, -1);
 
   return (
     <div className="w-[17.5rem] select-none">
@@ -212,7 +219,11 @@ export function RangeCalendar({ value, onChange, max, maxDays, today }: RangeCal
           {capitalize(monthFormatter.format(toTime(month)))}
         </h2>
         <div className="flex items-center">
-          <MonthButton label="Mês anterior" onClick={() => showMonth(startOfMonth(month, -1))}>
+          <MonthButton
+            label="Mês anterior"
+            disabled={previousMonth < startOfMonth(FIRST_DAY)}
+            onClick={() => showMonth(previousMonth)}
+          >
             <CaretLeftIcon weight="bold" />
           </MonthButton>
           <MonthButton
