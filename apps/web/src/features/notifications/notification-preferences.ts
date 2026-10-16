@@ -55,7 +55,11 @@ function cellOf(
 export function buildPreferenceRows(
   saved: readonly SavedNotificationPreference[],
 ): PreferenceRow[] {
-  return NOTIFICATION_EVENTS.map((event) => ({
+  // Team notices (a new ticket) are not the reseller's to choose; the team keeps the default.
+  const resellerEvents = NOTIFICATION_EVENTS.filter(
+    (event) => NOTIFICATION_EVENT_DEFINITIONS[event].audience === "reseller",
+  );
+  return resellerEvents.map((event) => ({
     event,
     label: NOTIFICATION_EVENT_DEFINITIONS[event].label,
     description: NOTIFICATION_EVENT_DEFINITIONS[event].description,

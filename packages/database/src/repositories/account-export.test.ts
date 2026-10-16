@@ -16,6 +16,8 @@ let users: Awaited<ReturnType<typeof createTestUsers>>;
 let tenantA = "";
 let tenantB = "";
 let userId = "";
+/** A fresh valid CPF: a fixed one collides with the seeded demo account (one account per CPF). */
+const holderCpf = testCpf();
 
 async function addOrder(tenantId: string, storeId: string, externalOrderId: string) {
   const [order] = await database
@@ -43,8 +45,6 @@ async function addOrder(tenantId: string, storeId: string, externalOrderId: stri
     unitCostCents: 1200,
   });
 }
-
-const holderCpf = testCpf();
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);

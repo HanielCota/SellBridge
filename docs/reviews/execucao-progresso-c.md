@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 14.b · Componente `ProgressWithEta` (14.a commitada em 98ee522; CI do PR #39 corrigido em 1ed6282)
-- Última etapa concluída: 7 · Portões (⏸3 aguardando OK, 2026-10-16); ⏸1 e ⏸2 aprovados em 2026-10-16
-- Próximo passo: depois do OK, commit; depois a 14.c (o componente no diálogo, resultado honesto, capturas)
-- Arquivos tocados: shared/domain/publish-progress(.test).ts (novo), shared/schemas/catalog.ts (bulkPublishProgressSchema), shared/package.json; database/repositories/listing-batch-progress(.test).ts (novo), repositories/index.ts; web/features/catalog/catalog.functions.ts (targetIds e getBulkPublishProgress), catalog.queries.ts, publish-progress-text(.test).ts (novo); web/components/ui/progress-with-eta.tsx (novo); docs
+- Item/parte: 14.c · Resultado honesto e telas do diálogo (14.b em 118b489; refactor em ac4ba79)
+- Última etapa concluída: 8 · Documentar; modo sem ⏸ desde 2026-10-16 (aprovado pelo usuário): commit, push ao PR #39 e hash ao principal
+- Próximo passo: item 14 concluído; pelo corte do MVP (4273792) o 23 vai para a fase 2 e o 18 para o chat F
+- Arquivos tocados: web/components/catalog/bulk-publish-result.tsx (novo), bulk-publish-dialog.tsx; web/features/catalog/bulk-publish-outcome(.test).ts (novo); web/routes/_app/catalogo.tsx (limpa a seleção); e2e/publishing.spec.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -30,15 +30,21 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 | ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------- |
 | 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)            |
 | 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30 |
-| 13   | Erros de publicação claros                     | 🟡       | daf26cc                     | 13.a ✅ daf26cc · 13.b ⏸3                   |
-| 14   | Publicação em massa: validação e progresso     | 🟡       | —                           | 14.a no ⏸1 (16/10)                          |
+| 13   | Erros de publicação claros                     | ✅       | 9b66320                     | 13.a daf26cc · 13.b 9b66320                 |
+| 14   | Publicação em massa: validação e progresso     | ✅       | 98ee522                     | 14.a 98ee522 · 14.b 118b489 · 14.c          |
 | 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit        |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Passou ao chat F (corte do MVP, 16/10)      |
+| 23   | Anúncios completos                             | ⬜       | —                           | Fase 2 (corte do MVP, 16/10)                |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 14.c · Resultado honesto e telas do diálogo — concluído
+
+- Depois de "Publicar", o diálogo não fecha: mostra o `ProgressWithEta` e o resultado (anúncios no ar, com falha, ainda publicando e produtos que ficaram fora, cada um com o motivo); "Ver publicações" leva à lista e "Fechar" (ou Esc) limpa a seleção do catálogo. Some o aviso "N produtos enviados".
+- Capturas do andamento e do fim, nos dois temas, no computador (1280) e no celular (375), sem estouro horizontal. "Ficaram fora" só aparece numa corrida entre telas ou com título ou descrição inválidos (o catálogo não deixa selecionar publicado nem sem estoque); coberto pelos testes de `bulk-publish-outcome`.
+- C5 1711/1711 (shared 485, marketplaces 194, database 329, web 615, worker 88); C6 ok; C7 `publishing.spec`.
 
 ### 2026-10-16 · Item 14.b · Componente `ProgressWithEta` — ⏸3 aguardando OK
 

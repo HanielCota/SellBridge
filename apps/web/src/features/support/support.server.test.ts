@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requireTenantSession: vi.fn<() => Promise<unknown>>(),
   requireStaffSession: vi.fn<() => Promise<unknown>>(),
   queueSupportReplyNotices: vi.fn<(database: unknown, input: unknown) => Promise<number>>(),
+  queueNewTicketNotices: vi.fn<(database: unknown, ticketId: string) => Promise<number>>(),
 }));
 
 vi.mock("@/lib/server/storage", () => ({
@@ -34,6 +35,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getAttachment: vi.fn<() => Promise<null>>(),
   linkTicketAbout: vi.fn<() => Promise<void>>(),
   queueSupportReplyNotices: mocks.queueSupportReplyNotices,
+  queueNewTicketNotices: mocks.queueNewTicketNotices,
   requireTicketAbout: vi.fn<() => Promise<unknown>>(),
 }));
 // A budget of two uploads keeps the limit test short; the real budgets are in the module.
@@ -45,7 +47,8 @@ vi.mock("@/lib/server/upload-rate-limit", async (importOriginal) => {
   };
 });
 
-const { handleAdminReply, handleTenantReply } = await import("./support.server");
+const { handleAdminReply, handleCreateTicket, handleTenantReply } =
+  await import("./support.server");
 
 const TICKET_ID = "11111111-1111-4111-8111-111111111111";
 let nextUser = 0;
@@ -202,5 +205,19 @@ describe("support reply notices", () => {
     mocks.findTicketForMessage.mockResolvedValue({ status: "open" });
     mocks.queueSupportReplyNotices.mockRejectedValue(new Error("banco fora"));
     expect((await adminMessage("reply")).status).toBe(201);
+  });
+});
+
+describe("new ticket notice", () => {
+  it("queues the e-mail to the support team once the ticket is saved", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(2);
+    const form = messageForm(
+      { category: "payment", subject: "Repasse não caiu", body: "O repasse da semana não caiu." },
+      false,
+    );
+    const response = await handleCreateTicket(post("/api/suporte/chamados", form));
+    expect(response.status).toBe(201);
+    await vi.waitFor(() => expect(mocks.queueNewTicketNotices).toHaveBeenCalledWith({}, TICKET_ID));
   });
 });

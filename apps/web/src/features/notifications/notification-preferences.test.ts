@@ -17,6 +17,10 @@ describe("buildPreferenceRows", () => {
     expect(delivered?.channels.email).toEqual({ available: true, enabled: false });
   });
 
+  it("leaves the team's notices out of the reseller's screen", () => {
+    expect(buildPreferenceRows([]).map((row) => row.event)).not.toContain("ticket_created");
+  });
+
   it("shows the saved choice over the default", () => {
     const rows = buildPreferenceRows([{ event: "sale_paid", channel: "email", enabled: false }]);
     expect(rows.find((row) => row.event === "sale_paid")?.channels.email.enabled).toBe(false);

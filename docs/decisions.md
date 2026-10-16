@@ -589,6 +589,7 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Exportar** (`/api/conta/exportar`, Perfil › Seus dados): um JSON com cadastro, titular (com o CPF, que é da própria pessoa), lojas sem tokens, anúncios, pedidos e itens sem o nome do comprador (dado de terceiro), chamados sem as notas internas da equipe, chaves de API sem o hash, sessões sem o token e preferências de aviso. Recusado durante o "entrar como cliente"; até 3 por hora por conta, em memória.
 - **Excluir** (rota `/delete-user` do Better Auth, ligada com `beforeDelete`): sempre com a senha (o Better Auth aceitaria só uma sessão recente) e nunca por link; bloqueada durante o "entrar como cliente"; recusada para a equipe e o dono da plataforma. Antes de apagar o usuário: as organizações em que a pessoa é a única dona vão junto, nesta ordem: cliente da Stripe apagado (cancela a assinatura; se falhar, nada é apagado), lojas conectadas desconectadas com os anúncios pausados (como na 24.b), organização apagada (tudo cascateia) e arquivos de anexos e da foto removidos do disco. Organização com outro dono fica com ele.
 - **Falhas no meio:** o cliente da Stripe é esquecido logo depois de apagado (e um "cliente já apagado" conta como feito), então uma exclusão repetida depois de um passo que falhou segue em frente. As pausas das lojas têm um orçamento total de 30 s; depois dele, as lojas restantes são desconectadas sem pausar, para a pessoa não ficar presa no diálogo. `/delete-user` tem limite próprio de 5 tentativas por minuto (em produção), contra quem tenta adivinhar a senha com uma sessão roubada.
+- **Histórico de auditoria da equipe:** desde a migration 0038 (chat E), `admin_audit_events.user_id` vira `null` quando a conta é excluída, em vez de apagar o evento. O que fica é só o registro do que a equipe fez (ação, papel dado, bloqueio, ids internos de loja e fornecedor), sem e-mail, nome, CPF nem vínculo com a pessoa, ou seja, dado anonimizado. A tela de exclusão não promete apagar esse histórico; ela lista pedidos, anúncios, chamados e cadastro, que continuam sendo apagados.
 - **Pedidos:** apagados com a conta (decisão do ⏸A). Se o cliente decidir guardar pedidos anonimizados por prazo fiscal, entra como ajuste.
 - Contas que entram só com Google não têm senha: o card manda pedir a exclusão pelo Suporte (fica em "Refinar depois").
 
@@ -604,6 +605,11 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **100% só no fim:** a porcentagem é arredondada para baixo (199 de 200 = 99%).
 - **Falha conta como terminada só quando é definitiva:** a falha que o worker ainda vai tentar de novo fica como pendente, e a barra não para antes da hora.
 - **Sem migration:** o andamento sai de `listing_targets` (`status`, `createdAt`, `publishedAt`, `updatedAt`), pelos ids que a publicação em massa devolve.
+
+## 2026-10-16: Resultado da publicação em massa no diálogo (item 14.c)
+
+- **O diálogo acompanha o lote até o fim:** depois de "Publicar" ele não fecha nem leva à lista; mostra o andamento e, no fim, quantos anúncios foram ao ar, quantos falharam (o motivo fica em Publicações) e quais produtos ficaram fora, com o motivo. Fechar antes não para nada: a publicação continua no worker.
+- **A seleção é limpa ao fechar depois de um lote**, para a próxima abertura não repetir produtos já publicados.
 
 ## 2026-10-16: Matriz de planos do PDF atrás de flag (item 31.a, chat D)
 
