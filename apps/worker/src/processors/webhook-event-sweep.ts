@@ -2,6 +2,7 @@ import type { Database } from "@sellbridge/database";
 import {
   findUnprocessedWebhookEvents,
   pruneWebhookEvents,
+  type UnprocessedEventCursor,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 
@@ -10,6 +11,8 @@ const UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS = 10 * 60 * 1000;
 /** Older events are left for manual inspection instead of being retried forever. */
 const UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
 const SWEEP_BATCH_SIZE = 500;
+/** Pages per run: 10 000 events, far above a normal backlog, so one run still ends quickly. */
+const SWEEP_MAX_PAGES = 20;
 
 export interface WebhookEventSweepDependencies {
   readonly database: Database;
@@ -25,18 +28,33 @@ export interface WebhookEventSweepDependencies {
 export function createWebhookEventSweepProcessor(dependencies: WebhookEventSweepDependencies) {
   return async function sweepUnprocessedWebhookEvents(): Promise<number> {
     const now = (dependencies.now?.() ?? new Date()).getTime();
-    const eventIds = await findUnprocessedWebhookEvents(dependencies.database, {
+    const window = {
       receivedAfter: new Date(now - UNPROCESSED_WEBHOOK_WINDOW_MILLISECONDS),
       receivedBefore: new Date(now - UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS),
       limit: SWEEP_BATCH_SIZE,
-    });
-    for (const webhookEventId of eventIds) {
-      await dependencies.enqueue(webhookEventId);
+    };
+    // Walks the whole window, not only its oldest 500: a store waiting to reconnect keeps its
+    // events unprocessed for a day, and as the first page they hid every newer lost event.
+    let requeued = 0;
+    let after: UnprocessedEventCursor | undefined;
+    for (let page = 0; page < SWEEP_MAX_PAGES; page += 1) {
+      const events = await findUnprocessedWebhookEvents(dependencies.database, {
+        ...window,
+        after,
+      });
+      for (const event of events) {
+        await dependencies.enqueue(event.id);
+      }
+      requeued += events.length;
+      after = events.at(-1);
+      if (events.length < SWEEP_BATCH_SIZE) {
+        break;
+      }
     }
-    if (eventIds.length > 0) {
-      logger.warn("webhook.unprocessed_requeued", { count: eventIds.length });
+    if (requeued > 0) {
+      logger.warn("webhook.unprocessed_requeued", { count: requeued });
     }
-    return eventIds.length;
+    return requeued;
   };
 }
 
@@ -46,7 +64,10 @@ export function createWebhookEventSweepProcessor(dependencies: WebhookEventSweep
  */
 export const WEBHOOK_EVENT_RETENTION_MILLISECONDS = 30 * 24 * 60 * 60 * 1000;
 const PRUNE_BATCH_SIZE = 5000;
-/** A safety stop: 100 batches (500 000 events) per run; the next run takes the rest. */
+/**
+ * A safety stop: 100 batches (500 000 events) per run; the next run takes the rest. The run is
+ * hourly (index.ts): daily, 500 000 a day fell behind a marketplace sending millions.
+ */
 const PRUNE_MAX_BATCHES = 100;
 
 export function createWebhookEventPruneProcessor(dependencies: {

@@ -78,8 +78,11 @@ export async function listApiEvents(
 /** Events (and their deliveries) are kept for a while, then pruned by the worker. */
 /** Rows deleted per statement: each delete stays short instead of locking a month at once. */
 const PRUNE_BATCH_SIZE = 5000;
-/** A run stops here; anything left waits for the next hourly run. */
-const PRUNE_MAX_BATCHES = 20;
+/**
+ * A run stops here; anything left waits for the next hourly run. 200 batches is 1 000 000 events
+ * an hour: at 20 (100 000 an hour) a few hundred thousand orders a day outgrew the pruning.
+ */
+const PRUNE_MAX_BATCHES = 200;
 
 export async function pruneApiEvents(database: Database, before: Date): Promise<number> {
   let total = 0;

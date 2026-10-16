@@ -206,7 +206,7 @@ await scheduleRecurring(stockPriceSyncQueue, STOCK_SYNC_JOB_NAME, 15 * 60 * 1000
 await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
 await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
 await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
-await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 24 * 60 * 60 * 1000);
+await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
 await scheduleRecurring(ticketAutoCloseQueue, "close-idle-tickets", 60 * 60 * 1000);
 await scheduleRecurring(tokenRefreshQueue, "refresh-expiring-tokens", 10 * 60 * 1000);
 await scheduleRecurring(shipmentTrackingQueue, "track-shipments", 30 * 60 * 1000);

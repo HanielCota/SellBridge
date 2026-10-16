@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -69,16 +69,30 @@ export async function recordWebhookEvent(
   return { status: "duplicate", id: stored.id, pending: stored.processedAt === null };
 }
 
+/** Where a page of the sweep stopped: the last event it returned. */
+export interface UnprocessedEventCursor {
+  readonly receivedAt: Date;
+  readonly id: string;
+}
+
 /**
  * Valid events still unprocessed and received inside the window, oldest first: their job was
  * lost or ran out of retries. Events older than the window are left for manual inspection.
+ * Paged by `after` (received time, then id), so events that stay unprocessed (a store waiting
+ * to reconnect) cannot fill every page and keep newer ones from being swept before they age out.
  */
 export async function findUnprocessedWebhookEvents(
   database: Database,
-  window: { receivedAfter: Date; receivedBefore: Date; limit: number },
-): Promise<string[]> {
-  const rows = await database
-    .select({ id: webhookEvents.id })
+  window: {
+    receivedAfter: Date;
+    receivedBefore: Date;
+    limit: number;
+    after?: UnprocessedEventCursor | undefined;
+  },
+): Promise<UnprocessedEventCursor[]> {
+  const after = window.after;
+  return database
+    .select({ id: webhookEvents.id, receivedAt: webhookEvents.receivedAt })
     .from(webhookEvents)
     .where(
       and(
@@ -86,11 +100,16 @@ export async function findUnprocessedWebhookEvents(
         eq(webhookEvents.signatureValid, true),
         gt(webhookEvents.receivedAt, window.receivedAfter),
         lt(webhookEvents.receivedAt, window.receivedBefore),
+        after === undefined
+          ? undefined
+          : or(
+              gt(webhookEvents.receivedAt, after.receivedAt),
+              and(eq(webhookEvents.receivedAt, after.receivedAt), gt(webhookEvents.id, after.id)),
+            ),
       ),
     )
-    .orderBy(asc(webhookEvents.receivedAt))
+    .orderBy(asc(webhookEvents.receivedAt), asc(webhookEvents.id))
     .limit(window.limit);
-  return rows.map((row) => row.id);
 }
 
 export async function getWebhookEvent(database: Database, id: string) {
