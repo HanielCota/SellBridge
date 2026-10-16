@@ -32,6 +32,15 @@ export function formatPointDate(value: string): string {
   return shortDate.format(parseIsoDate(value));
 }
 
+/**
+ * The first day of a bucket that falls inside the period. A weekly bucket is dated by its Monday,
+ * so a period starting on a Sunday has a first week dated the Monday before it, a day the reseller
+ * never chose.
+ */
+export function firstDayWithin(bucketDate: string, periodFromDate: string): string {
+  return bucketDate < periodFromDate ? periodFromDate : bucketDate;
+}
+
 const monthShort = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
 const monthLong = new Intl.DateTimeFormat("pt-BR", {
   month: "long",

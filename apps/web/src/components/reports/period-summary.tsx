@@ -9,7 +9,11 @@ import {
   profitMargin,
   trendOf,
 } from "@/features/reports/dashboard-insights";
-import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
+import {
+  firstDayWithin,
+  formatPointDate,
+  type MetricPoint,
+} from "@/features/reports/dashboard-metrics";
 
 interface Totals {
   revenueCents: number;
@@ -24,6 +28,8 @@ interface PeriodSummaryProps {
   previous: Totals;
   points: MetricPoint[];
   bucket: "day" | "week";
+  /** First day of the period (YYYY-MM-DD): a partial first week is named from it. */
+  fromDate: string;
   className?: string;
 }
 
@@ -42,6 +48,7 @@ export function PeriodSummary({
   previous,
   points,
   bucket,
+  fromDate,
   className,
 }: PeriodSummaryProps) {
   const best = points.length > 1 ? bestPoint(points, (point) => point.revenueCents) : null;
@@ -59,7 +66,7 @@ export function PeriodSummary({
         <>
           {" "}
           {bucket === "week" ? "Sua melhor semana começou em " : "Seu melhor dia foi "}
-          <Strong>{withPeriod(formatPointDate(best.date))}</Strong>
+          <Strong>{withPeriod(formatPointDate(firstDayWithin(best.date, fromDate)))}</Strong>
         </>
       ) : null}
     </p>
