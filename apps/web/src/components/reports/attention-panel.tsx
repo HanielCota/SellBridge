@@ -5,10 +5,13 @@ import type { ComponentType } from "react";
 import {
   ChecklistDoneIcon,
   ListingAlertIcon,
+  PaymentCardAlertIcon,
   ReviewBubbleIcon,
   StorePausedIcon,
   SupportHeadsetIcon,
 } from "@/components/reports/attention-icons";
+import { billingNoticeCopy, type BillingNoticeView } from "@/features/billing/billing-notice";
+import { billingNoticeQueryOptions } from "@/features/billing/billing.queries";
 import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
 
 interface AttentionItem {
@@ -36,9 +39,29 @@ interface AttentionCounts {
   pendingReviews: number;
 }
 
-function buildItems(counts: AttentionCounts, stores: readonly StoreState[]): AttentionItem[] {
+/** A plan payment to fix (item 16, N9): right after the stores, it can cost the plan's limits. */
+function billingItems(notice: BillingNoticeView | null | undefined): AttentionItem[] {
+  if (notice === null || notice === undefined) {
+    return [];
+  }
+  return [
+    {
+      key: "billing",
+      icon: PaymentCardAlertIcon,
+      tone: "danger",
+      ...billingNoticeCopy(notice),
+      to: "/assinatura",
+    },
+  ];
+}
+
+function buildItems(
+  counts: AttentionCounts,
+  stores: readonly StoreState[],
+  notice: BillingNoticeView | null | undefined,
+): AttentionItem[] {
   const { failedListings, unreadSupportReplies, pendingReviews } = counts;
-  const items: AttentionItem[] = stores
+  const storeItems: AttentionItem[] = stores
     .filter((store) => store.status === "expired" || store.status === "error")
     .map((store) => ({
       key: `store-${store.id}`,
@@ -48,6 +71,7 @@ function buildItems(counts: AttentionCounts, stores: readonly StoreState[]): Att
       description: "O acesso expirou: pedidos e estoque estão parados nesta loja.",
       to: "/lojas",
     }));
+  const items = [...storeItems, ...billingItems(notice)];
   if (failedListings > 0) {
     items.push({
       key: "listings",
@@ -113,6 +137,7 @@ function AllClear() {
 /** The short list of things only the reseller can fix, ranked by urgency. */
 export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   const counts = useQuery(attentionCountsQueryOptions());
+  const notice = useQuery(billingNoticeQueryOptions());
   const items = buildItems(
     {
       failedListings: counts.data?.failedListings ?? 0,
@@ -120,6 +145,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
       pendingReviews: counts.data?.pendingReviews ?? 0,
     },
     stores,
+    notice.data,
   );
   return (
     <section

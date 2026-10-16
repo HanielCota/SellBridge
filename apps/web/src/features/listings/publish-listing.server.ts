@@ -90,7 +90,8 @@ export async function publishListings(
   // Each listing is its own transaction; checking the whole batch first keeps a batch that does
   // not fit the plan from publishing its first few and failing on the rest.
   if (billingConfigured()) {
-    await assertBillingCapacity(database, tenantId, "listings", drafts.length);
+    // One plan slot per listing and destination store (item 16, N7).
+    await assertBillingCapacity(database, tenantId, "listings", drafts.length * storeIds.length);
   }
   const targetIds: string[] = [];
   try {

@@ -7,7 +7,7 @@ import {
   billingEvents,
   member,
   organization,
-  listings,
+  listingTargets,
   storeConnections,
 } from "../schema/index.ts";
 
@@ -46,7 +46,7 @@ export async function tryLockBillingCheckout(
   tenantId: string,
 ): Promise<boolean> {
   const rows = await database.execute(
-    sql`select pg_try_advisory_xact_lock(hashtext(${`billing-checkout:${tenantId}`})) as locked`,
+    sql`select pg_try_advisory_xact_lock(hashtext('billing-checkout'), hashtext(${tenantId})) as locked`,
   );
   return rows[0]?.locked === true;
 }
@@ -62,9 +62,17 @@ export async function saveBillingCustomer(
     .onConflictDoUpdate({ target: billingAccounts.tenantId, set: { customerId } });
 }
 
+/**
+ * Stores not disconnected, and live publications: one per destination store, failed ones left
+ * out (item 16, N7). A disconnected store keeps its slots: its publications come back alive on
+ * reconnect, which only checks the store limit.
+ */
 export async function billingUsage(database: DatabaseExecutor, tenantId: string) {
   const [listingCounts, storeCounts] = await Promise.all([
-    database.select({ value: count() }).from(listings).where(eq(listings.tenantId, tenantId)),
+    database
+      .select({ value: count() })
+      .from(listingTargets)
+      .where(and(eq(listingTargets.tenantId, tenantId), ne(listingTargets.status, "error"))),
     database
       .select({ value: count() })
       .from(storeConnections)
@@ -115,8 +123,9 @@ export async function applyBillingEvent(
 }
 
 /**
- * Refuses when `requested` more stores or listings would pass the plan. A batch asks for all of
- * its items at once, so it is refused whole instead of stopping halfway at the limit.
+ * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
+ * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
+ * instead of stopping halfway at the limit.
  */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,

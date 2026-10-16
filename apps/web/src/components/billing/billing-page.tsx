@@ -5,6 +5,7 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { billingNoticeCopy } from "@/features/billing/billing-notice";
 import { billingQueryOptions } from "@/features/billing/billing.queries";
 import { checkoutBilling, manageBilling } from "@/features/billing/billing.functions";
 import { errorMessage } from "@/lib/errors";
@@ -105,9 +106,9 @@ function CurrentSubscription() {
             })}
           </p>
         ) : null}
-        {data.account?.status === "past_due" || data.account?.status === "unpaid" ? (
-          <p role="alert">Atualize seu pagamento para recuperar os limites do plano contratado.</p>
-        ) : null}
+        {data.notice === null ? null : (
+          <p role="alert">{billingNoticeCopy(data.notice).description}</p>
+        )}
         {data.account?.customerId ? (
           <Button
             disabled={!data.canManage || !data.enabled || action.isPending}

@@ -83,6 +83,27 @@ describe("mock connector publishing", () => {
     });
   });
 
+  it("publishes but refuses the description of a title marked [sem descricao]", async () => {
+    const published = await connector.publishProduct(credentials, {
+      ...baseProduct,
+      title: "Produto [sem descricao]",
+    });
+    expect(published.descriptionError).toMatch(/descrição/);
+    expect((await connector.publishProduct(credentials, baseProduct)).descriptionError).toBeNull();
+  });
+
+  it("takes a resent description unless it is marked as refused", async () => {
+    await expect(
+      connector.updateDescription(credentials, { externalId: "MOCK-1", plainText: "Texto" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      connector.updateDescription(credentials, {
+        externalId: "MOCK-1",
+        plainText: "Texto [descricao recusada]",
+      }),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+  });
+
   it("signals temporary failures as retryable", async () => {
     await expect(
       connector.publishProduct(credentials, { ...baseProduct, title: "Produto [instavel]" }),

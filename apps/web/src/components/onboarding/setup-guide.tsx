@@ -5,24 +5,27 @@ import { Button } from "@/components/ui/button";
 import {
   countDoneSteps,
   findNextStep,
+  remainingSetupMinutes,
   SETUP_STEPS,
+  setupEtaLabel,
+  setupPercent,
   type SetupProgress,
   type SetupStep,
 } from "@/features/onboarding/setup-progress";
 
 function ProgressBar({ progress }: { progress: SetupProgress }) {
   const done = countDoneSteps(progress);
+  const percent = setupPercent(progress);
   return (
     <div className="flex items-center gap-3">
       <progress
         className="h-1.5 flex-1 appearance-none overflow-hidden rounded-full bg-muted [&::-moz-progress-bar]:bg-brand [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-brand"
         aria-label="Configuração da conta"
+        aria-valuetext={`${percent}% · ${done} de ${SETUP_STEPS.length} passos`}
         max={SETUP_STEPS.length}
         value={done}
       />
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {done} de {SETUP_STEPS.length}
-      </span>
+      <span className="text-xs text-muted-foreground tabular-nums">{percent}%</span>
     </div>
   );
 }
@@ -64,6 +67,11 @@ function StepCard({
         <p className={cn("font-medium", state === "done" && "text-muted-foreground")}>
           {step.title}
         </p>
+        {state === "done" ? null : (
+          <p className="text-caption text-muted-foreground tabular-nums">
+            ~{step.estimatedMinutes} min
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">{step.description}</p>
       </div>
       {state === "next" ? (
@@ -103,10 +111,13 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
             Falta pouco para sua primeira venda
           </h2>
           <p className="text-sm text-muted-foreground">
-            Três passos e seus indicadores começam a aparecer aqui.
+            {SETUP_STEPS.length} passos e seus indicadores começam a aparecer aqui.
           </p>
         </div>
-        <ProgressBar progress={progress} />
+        <div className="space-y-2">
+          <ProgressBar progress={progress} />
+          <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
+        </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {SETUP_STEPS.map((step, index) => (
@@ -134,8 +145,8 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
       <p className="text-sm">
-        <span className="text-muted-foreground">
-          Configuração {countDoneSteps(progress)} de {SETUP_STEPS.length} ·
+        <span className="text-muted-foreground tabular-nums">
+          Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
         </span>{" "}
         Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
       </p>

@@ -530,6 +530,39 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Regra** em `shared/domain/shipment-delay.ts`: entra o "Aceite atrasado" (`accept_overdue`), para o envio ainda "Encaminhado" depois do prazo de aceite do fornecedor. Quando o marketplace não manda data de despacho, o "Despacho atrasado" passa a usar o prazo de despacho do cadastro. Os prazos do cadastro valem até a hora exata, e as datas do marketplace continuam valendo o dia inteiro. Se o despacho também passou, ele aparece no lugar do aceite.
 - **Telas:** o selo "Aceite atrasado" aparece na lista, na página do pedido e no sino ("{fornecedor} ainda não aceitou o pedido. Fale com o fornecedor."). O painel do envio mostra "Aceite até" e "Despachar até" com hora ("amanhã às 09:00", `formatDeadline`) para o revendedor e na página do fornecedor. A data de despacho do ML continua só com o dia.
 
+## 2026-10-16: Saúde da loja (item 24.a, chat B)
+
+- **Menu da loja em /lojas** ganhou "Saúde da loja": última sincronização (o `synced_at` mais recente dos anúncios da loja), último aviso de pedido do marketplace (`store_connections.last_webhook_at`, migration 0030) e o acesso. A validade do token não aparece como data: no Mercado Livre ele dura 6 horas e renova sozinho, então a linha diz "Em dia, renova sozinho", "Renovação falhou, tentaremos de novo" ou pede para reconectar.
+- **Último aviso de pedido:** `webhook_events` não guarda a loja; o worker grava `last_webhook_at` quando resolve a loja de um evento de pedido (conectada ou aguardando reconexão), com o horário em que o evento chegou. Só anda para frente e no máximo uma vez por minuto, sem mexer no `updatedAt` (o sino data o problema da loja por ele), e uma falha ao gravar só vai para o log: nunca segura o pedido. Tópicos que não são de pedido não identificam a loja hoje, por isso o rótulo fala em pedido.
+- **Leitor de tela:** um menu só percorre os itens, então o botão "Opções de…" leva o resumo da saúde como descrição acessível.
+- **Ficha do cliente no admin:** cada loja mostra o mesmo chip ("Atenção" inclusive) e os mesmos fatos numa frase corrida embaixo da linha, para o suporte ler o que o revendedor lê.
+- Partes seguintes: 24.b (pausar os anúncios ao desconectar, marcado por padrão) e 24.c (e-mail de loja expirada, depois que a 21.b do principal levar o mailer para `@sellbridge/shared`).
+
+## 2026-10-16: Desconectar pausa os anúncios por padrão (item 24.b, chat B)
+
+- O diálogo de desconectar a loja traz "Pausar os anúncios desta loja no marketplace", marcado por padrão (decisão do ⏸1: o padrão mais seguro). Um anúncio que continua ativo depois da desconexão vende sem sincronizar estoque.
+- Antes de apagar os tokens, o servidor manda estoque zero para cada anúncio publicado da loja, um por vez, com teto de 20 s para a pessoa não ficar presa no diálogo, e marca como pausados os que o marketplace aceitou. Uma falha nunca impede a desconexão: o aviso diz quantos anúncios continuam ativos e pede para pausar direto no marketplace. Depois de reconectar, a pessoa reativa os anúncios em Publicações.
+- A desconexão feita pelo admin na ficha do cliente continua sem pausar (fica em "Refinar depois").
+
+## 2026-10-16: E-mail de loja expirada fica com a central de notificações (item 24.c, chat B)
+
+- A 24.c (03b4410, e-mail direto do job de renovação) foi revertida. O 25.b do chat E (3a2a29a) já gera o aviso `store_expired` em toda expiração (`markStoreStatus`), e o despachante manda o e-mail conforme as preferências de cada pessoa. Com os dois, o dono receberia dois e-mails.
+
+## 2026-10-16: Descrição que não chegou ao marketplace (item 13.b)
+
+- **O anúncio continua no ar:** a descrição é enviada depois de o item existir; se o marketplace recusa, a publicação não falha (o item existe de fato), mas o erro (traduzido pela 13.a) fica no alvo (`listing_targets.description_error`, migration 0032) e o card mostra "Descrição não enviada" com o motivo e "Reenviar descrição".
+- **Reenvio:** pelo job de sincronização que já roda (`stock-price-sync`), sem fila nova: até 3 tentativas automáticas (aprovado no ⏸1), depois só o botão, que zera as tentativas e pede a sincronização na hora. No Mercado Livre o reenvio é `PUT /items/{id}/description?api_version=2` (a página oficial "Descrição de produtos": POST só cria; um segundo POST é recusado).
+- **Tela atualizada sozinha:** a lista de Publicações continua consultando até 5 minutos depois de uma falha ou de um pedido de reenvio, e o aviso some sem recarregar.
+- **Mock:** título com "[sem descricao]" publica e recusa a descrição; reenvio com "[descricao recusada]" é recusado (para testes).
+
+## 2026-10-16: Riscos da assinatura (item 16, chat D)
+
+- **Stripe sem trava de linha (16.a, N5):** o checkout cria o customer fora de transação (a chave de idempotência garante um só) e serializa os checkouts da organização com `pg_try_advisory_xact_lock`, que não segura linha; o segundo pedido simultâneo recebe 409 "Já estamos abrindo o pagamento". O webhook lê o Stripe antes de abrir a transação; para dois webhooks que correm juntos vale a **leitura mais recente**, gravada em ms em `last_event_created` (os valores antigos, em segundos, são sempre menores). Renomear a coluna fica para uma migration de limpeza.
+- **Cota por loja de destino (16.b, N7):** `PENDENTE CLIENTE (D10)`. A cota de anúncios conta `listing_targets` vivos (status diferente de `error`), inclusive os de lojas desconectadas (voltam ao ar na reconexão, que só checa o limite de lojas): um anúncio publicado em duas lojas ocupa duas vagas. "Reprocessar" pede vaga para cada alvo com erro que volta à fila (achado da revisão independente). Na prática o Gratuito (25) fica menor para quem publica em várias lojas; os números de cada plano entram com a matriz do 31.
+- **Produção sem Stripe (16.b, N8):** com `NODE_ENV=production`, o web não inicia sem as quatro variáveis do Stripe, a menos que `BILLING_UNLIMITED=true` (modo explícito sem limites).
+- **Carência do `past_due` (16.b, N9):** `BILLING_PAST_DUE_GRACE_DAYS`, padrão 7 (aprovado no ⏸A). O webhook grava em `period_end` o menor entre o fim do período e o início do período mais a carência; `past_due` conta como pago até lá. Aviso "Pagamento da assinatura pendente" no painel (Precisa de você) e em `/assinatura`, com o último dia.
+- **Revisão independente:** corrigidos "Reprocessar" sem checar a cota, vagas liberadas ao desconectar a loja, `observedAt` carimbado depois da leitura (passa a ser antes) e portal/expiração de checkout sem limite de tempo; a trava consultiva usa duas chaves (`hashtext('billing-checkout')`, `hashtext(tenant)`).
+
 ## 2026-10-16 · Central de notificações (item 25, chat E)
 
 - **Canais:** no app (o sino, que continua lendo os dados ao vivo), e-mail e push. E-mail e push passam pela tabela `notification_deliveries` (migration 0033), uma linha por pessoa, canal e fato, com `dedupe_key` única ("order:<id>:paid"): o mesmo fato avisa uma vez. O worker (`notification-delivery`, a cada 10 s) pega as entregas com `SKIP LOCKED`, como os webhooks de saída, e tenta de novo em 1 min, 5 min, 30 min e 2 h; depois fica "failed". Push ainda não tem provedor: a entrega fecha como "skipped" e a tela não oferece o canal.

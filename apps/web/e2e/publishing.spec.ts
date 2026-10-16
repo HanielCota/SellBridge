@@ -81,6 +81,26 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   );
 });
 
+test("avisa a descrição que não chegou ao marketplace e reenvia", async ({ page }) => {
+  await signUp(page, "Revendedora Descrição");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Descrição");
+
+  // The mock marketplace takes the listing but refuses the description of this title.
+  await openPublishFormForFirstProduct(page);
+  await page.getByLabel("Título").fill("Produto lindo [sem descricao]");
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(cardStatus(page, "No ar na Loja Descrição")).toBeVisible({
+    timeout: STATUS_TIMEOUT,
+  });
+  const card = page.getByRole("article", { name: "Produto lindo [sem descricao]" });
+  await expect(card.getByText("Descrição não enviada")).toBeVisible({ timeout: STATUS_TIMEOUT });
+
+  await card.getByRole("button", { name: "Reenviar descrição" }).click();
+  await expect(page.getByText(/^Descrição reenviada/).filter({ visible: true })).toBeVisible();
+  await expect(card.getByText("Descrição não enviada")).toBeHidden({ timeout: STATUS_TIMEOUT });
+});
+
 test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ page }) => {
   await signUp(page, "Revendedora Duplicado");
   await onboardWithBhBeauty(page);
