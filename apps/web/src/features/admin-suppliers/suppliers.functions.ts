@@ -12,6 +12,11 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/server/middleware";
 import {
+  activeAction,
+  recordCatalogWrite,
+  savedAction,
+} from "@/features/admin-audit/catalog-audit.server";
+import {
   confirmAdminProductCsv,
   loadAdminProducts,
   loadAdminSupplier,
@@ -38,19 +43,53 @@ export const adminListProducts = createServerFn({ method: "GET" })
 export const adminSaveSupplier = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminSaveSupplierSchema)
-  .handler(async ({ data }) => await writeAdminSupplier(data));
+  .handler(async ({ context, data }) => {
+    const supplier = await writeAdminSupplier(data);
+    await recordCatalogWrite(context.userId, {
+      entityType: "supplier",
+      entityId: supplier.id,
+      action: savedAction("supplier", data.supplierId),
+    });
+    return supplier;
+  });
 export const adminSetSupplierActive = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminSetSupplierActiveSchema)
-  .handler(async ({ data }) => await writeSupplierActive(data));
+  .handler(async ({ context, data }) => {
+    const supplier = await writeSupplierActive(data);
+    await recordCatalogWrite(context.userId, {
+      entityType: "supplier",
+      entityId: data.supplierId,
+      action: activeAction("supplier", data.active),
+      details: { pausedTargets: supplier.pausedTargets },
+    });
+    return supplier;
+  });
 export const adminSaveProduct = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminSaveProductSchema)
-  .handler(async ({ data }) => await writeAdminProduct(data));
+  .handler(async ({ context, data }) => {
+    const saved = await writeAdminProduct(data);
+    await recordCatalogWrite(context.userId, {
+      entityType: "product",
+      entityId: saved.product.id,
+      action: savedAction("product", data.productId),
+    });
+    return saved;
+  });
 export const adminSetProductActive = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminSetProductActiveSchema)
-  .handler(async ({ data }) => await writeProductActive(data));
+  .handler(async ({ context, data }) => {
+    const product = await writeProductActive(data);
+    await recordCatalogWrite(context.userId, {
+      entityType: "product",
+      entityId: data.productId,
+      action: activeAction("product", data.active),
+      details: { pausedTargets: product.pausedTargets },
+    });
+    return product;
+  });
 export const adminPreviewProductCsv = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminProductCsvSchema)
@@ -58,4 +97,13 @@ export const adminPreviewProductCsv = createServerFn({ method: "POST" })
 export const adminConfirmProductCsv = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminConfirmProductCsvSchema)
-  .handler(async ({ data }) => await confirmAdminProductCsv(data));
+  .handler(async ({ context, data }) => {
+    const imported = await confirmAdminProductCsv(data);
+    await recordCatalogWrite(context.userId, {
+      entityType: "supplier",
+      entityId: data.supplierId,
+      action: "catalog.csv_imported",
+      details: { created: imported.created, updated: imported.updated },
+    });
+    return imported;
+  });

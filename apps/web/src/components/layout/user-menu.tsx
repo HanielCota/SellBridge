@@ -1,9 +1,10 @@
 import { teamModeName } from "@/features/auth/team-mode";
 import { unreadRepliesText } from "@/features/support/response-time";
 import { CUSTOMER_ROLE_LABELS } from "@sellbridge/shared/schemas";
-import { isStaffRole } from "@sellbridge/shared/staff-access";
+import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
+  ClockCounterClockwiseIcon,
   CreditCardIcon,
   type Icon,
   IdentificationCardIcon,
@@ -276,6 +277,15 @@ export function UserMenu({ user, supportReplies, adminMode, children, className 
         <DropdownMenuSeparator className="-mx-2" />
         <AccountLinks supportReplies={supportReplies} />
         {isStaffRole(user.role) ? <AdminModeItem enabled={adminMode} role={user.role} /> : null}
+        {adminMode && hasStaffPermission(user.role, "audit.view") ? (
+          // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
+          <DropdownMenuItem asChild className={MENU_ROW}>
+            <Link to="/admin/auditoria">
+              <ClockCounterClockwiseIcon aria-hidden="true" />
+              Auditoria
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator className="-mx-2" />
         <ThemeChoice />
         <DropdownMenuSeparator className="-mx-2" />

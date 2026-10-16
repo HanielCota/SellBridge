@@ -111,3 +111,17 @@ export const snoozeCustomerIssueSchema = z.object({
     .refine((days) => SNOOZE_DAYS.some((allowed) => allowed === days))
     .nullable(),
 });
+
+/** Where an audit entry comes from: a customer's account, the supplier catalog or a ticket. */
+export const AUDIT_SOURCES = ["account", "catalog", "support"] as const;
+export const auditSourceSchema = z.enum(AUDIT_SOURCES);
+export type AuditSourceFilter = z.infer<typeof auditSourceSchema>;
+
+/** `/admin/auditoria` (item 28.b): what the team did, newest first. */
+export const auditSearchSchema = z.object({
+  source: optionalParameter(auditSourceSchema),
+  query: withFallback(searchQuery().optional(), undefined),
+  page: withFallback(pageNumberSchema.default(1), 1),
+  pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(25), 25),
+});
+export type AuditSearchParams = z.infer<typeof auditSearchSchema>;

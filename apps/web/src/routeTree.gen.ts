@@ -29,6 +29,7 @@ import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-sen
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
@@ -176,6 +177,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppAdminAuditoriaRoute = AppAdminAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
+  getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
   id: '/clientes',
@@ -460,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -527,6 +534,7 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -599,6 +607,7 @@ export interface FileRoutesById {
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -670,6 +679,7 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/admin/clientes'
+    | '/admin/auditoria'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -737,6 +747,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/api/health'
+    | '/admin/auditoria'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -808,6 +819,7 @@ export interface FileRouteTypes {
     | '/_auth/redefinir-senha'
     | '/api/health'
     | '/_app/admin/clientes'
+    | '/_app/admin/auditoria'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
     | '/_app/publicacoes/nova'
@@ -1039,6 +1051,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/admin/auditoria': {
+      id: '/_app/admin/auditoria'
+      path: '/auditoria'
+      fullPath: '/admin/auditoria'
+      preLoaderRoute: typeof AppAdminAuditoriaRouteImport
+      parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/admin/clientes': {
       id: '/_app/admin/clientes'
@@ -1403,6 +1422,7 @@ const AppAdminClientesRouteRouteWithChildren =
 
 interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
+  AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
   AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
@@ -1412,6 +1432,7 @@ interface AppAdminRouteRouteChildren {
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
+  AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,
   AppAdminChamadosMetricasRoute: AppAdminChamadosMetricasRoute,
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
