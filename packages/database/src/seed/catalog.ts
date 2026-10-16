@@ -1,6 +1,6 @@
 import { count } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { categories, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import { CATEGORIES, NICHE_PRODUCTS, SUPPLIERS, type ProductTemplate } from "./data.ts";
 import type { Random } from "./random.ts";
 
@@ -49,7 +49,7 @@ async function seedCategories(database: Database): Promise<Map<string, string>> 
   return new Map(rows.map((row) => [row.slug, row.id]));
 }
 
-/** Inserts suppliers, coverage and products only when the catalog is empty. */
+/** Inserts suppliers and products only when the catalog is empty. */
 export async function seedCatalog(
   database: Database,
   random: Random,
@@ -75,13 +75,6 @@ export async function seedCatalog(
     if (!inserted) {
       throw new Error(`Falha ao inserir fornecedor ${seedSupplier.name}`);
     }
-    await database.insert(supplierCoverage).values(
-      seedSupplier.coverage.map((area) => ({
-        supplierId: inserted.id,
-        state: area.state,
-        city: area.city ?? null,
-      })),
-    );
     const templates = NICHE_PRODUCTS[seedSupplier.niche] ?? [];
     const products = buildProducts(random, templates, supplierIndex, categoryIds);
     await database

@@ -310,7 +310,7 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
   const items = adminMode ? [...NAV_ITEMS, ...teamItems] : NAV_ITEMS;
   const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
   return (
-    <header className="sticky top-0 z-30 bg-background/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Equal side columns keep the tab capsule centred on the page (dense: see LAYOUTS). */}
       <div
         className={cn(

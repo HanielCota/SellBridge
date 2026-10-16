@@ -329,7 +329,11 @@ function MockConsentPage() {
   const { form, submitError, connected, failed } = useConsentForm(search);
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-svh items-center justify-center bg-background px-4 py-10"
+    >
       <div
         className="surface-card w-full max-w-md space-y-8 rounded-3xl bg-card p-6 sm:p-8"
         style={linkDurationStyle}

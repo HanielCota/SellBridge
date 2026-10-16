@@ -15,6 +15,7 @@ import {
   useIntegrationsLocked,
 } from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiKeysQueryOptions } from "@/features/public-api/api-keys.queries";
 import { errorMessage } from "@/lib/errors";
@@ -43,14 +44,12 @@ function ApiKeysContent({
         title="Nenhuma chave criada"
         description="Crie uma chave para que seu ERP, planilha ou sistema próprio acesse os dados da sua conta."
         action={
-          <Button
-            disabled={locked}
-            title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-            onClick={onCreate}
-          >
-            <PlusIcon aria-hidden="true" />
-            Nova chave
-          </Button>
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button disabled={locked} onClick={onCreate}>
+              <PlusIcon aria-hidden="true" />
+              Nova chave
+            </Button>
+          </DisabledHint>
         }
       />
     );
@@ -74,16 +73,12 @@ export function ApiKeysSection() {
       title="Chaves de API"
       description="Cada chave dá acesso aos dados desta organização com as permissões escolhidas. Use uma chave por integração."
       action={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={locked}
-          title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-          onClick={() => setIsCreating(true)}
-        >
-          <PlusIcon aria-hidden="true" />
-          Nova chave
-        </Button>
+        <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+          <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>
+            <PlusIcon aria-hidden="true" />
+            Nova chave
+          </Button>
+        </DisabledHint>
       }
     >
       <ApiKeysContent onCreate={() => setIsCreating(true)} onRevoke={setPendingRevoke} />

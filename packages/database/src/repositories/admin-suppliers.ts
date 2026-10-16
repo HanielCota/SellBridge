@@ -14,10 +14,13 @@ import {
   categories,
   listings,
   listingTargets,
-  supplierCoverage,
+  member,
+  storeConnections,
   supplierProducts,
   suppliers,
+  user,
 } from "../schema/index.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
@@ -52,12 +55,60 @@ export async function getAdminSupplier(database: DatabaseExecutor, supplierId: s
   if (!supplier) {
     throw notFoundError("Fornecedor não encontrado");
   }
-  const coverage = await database
-    .select({ state: supplierCoverage.state, city: supplierCoverage.city })
-    .from(supplierCoverage)
-    .where(eq(supplierCoverage.supplierId, supplierId))
-    .orderBy(asc(supplierCoverage.state), asc(supplierCoverage.city));
-  return { supplier, coverage };
+  return { supplier };
+}
+
+/** A shop that sells the supplier, with its owner, for the admin's "linked sellers" block. */
+export interface SupplierSellerStore {
+  storeConnectionId: string;
+  shopName: string;
+  marketplace: (typeof storeConnections.$inferSelect)["marketplace"];
+  status: (typeof storeConnections.$inferSelect)["status"];
+  tenantId: string;
+  ownerId: string | null;
+  ownerName: string | null;
+  /** Orders of the last 30 days with at least one item of the supplier, in this tenant. */
+  recentOrders: number;
+}
+
+const SELLER_ORDERS_DAYS = 30;
+
+/** Every live shop selling the supplier, grouped by tenant in the screen. */
+export async function listSupplierSellers(
+  database: Database,
+  supplierId: string,
+  now: Date = new Date(),
+): Promise<SupplierSellerStore[]> {
+  const since = new Date(now.getTime() - SELLER_ORDERS_DAYS * 86_400_000);
+  return database
+    .select({
+      storeConnectionId: storeConnections.id,
+      shopName: storeConnections.shopName,
+      marketplace: storeConnections.marketplace,
+      status: storeConnections.status,
+      tenantId: storeConnections.tenantId,
+      ownerId: user.id,
+      ownerName: user.name,
+      recentOrders: sql<number>`(select count(distinct o.id) from orders o
+        inner join order_items i on i.order_id = o.id
+        inner join supplier_products p on p.id = i.supplier_product_id
+        where o.tenant_id = ${storeConnections.tenantId}
+          and p.supplier_id = ${supplierId}
+          and o.ordered_at >= ${timestampOf(since)})`.mapWith(Number),
+    })
+    .from(storeConnections)
+    .leftJoin(
+      member,
+      and(eq(member.organizationId, storeConnections.tenantId), eq(member.role, "owner")),
+    )
+    .leftJoin(user, eq(user.id, member.userId))
+    .where(
+      and(
+        eq(storeConnections.supplierId, supplierId),
+        sql`${storeConnections.status} <> 'disconnected'`,
+      ),
+    )
+    .orderBy(asc(user.name), asc(storeConnections.shopName));
 }
 
 /** Serializes all admin writes for one supplier, including CSV preview confirmation. */
@@ -76,7 +127,7 @@ export async function saveAdminSupplier(
   database: Database,
   input: AdminSupplierValues & { supplierId?: string | undefined },
 ) {
-  const { supplierId, coverage, ...values } = input;
+  const { supplierId, ...values } = input;
   return await database.transaction(async (transaction) => {
     if (supplierId) {
       await lockSupplier(transaction, supplierId);
@@ -91,10 +142,6 @@ export async function saveAdminSupplier(
     if (!supplier) {
       throw notFoundError("Fornecedor não encontrado");
     }
-    await transaction.delete(supplierCoverage).where(eq(supplierCoverage.supplierId, supplier.id));
-    await transaction
-      .insert(supplierCoverage)
-      .values(coverage.map((region) => ({ supplierId: supplier.id, ...region })));
     return supplier;
   });
 }

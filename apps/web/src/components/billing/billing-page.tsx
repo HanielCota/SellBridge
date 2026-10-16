@@ -163,7 +163,7 @@ function PlanChoices() {
 export function BillingPage({ returned }: { returned?: string | undefined }) {
   const { data } = useSuspenseQuery(billingQueryOptions());
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-semibold">Planos e assinatura</h1>
         <p className="mt-2 text-muted-foreground">
@@ -193,6 +193,6 @@ export function BillingPage({ returned }: { returned?: string | undefined }) {
         Ao encerrar um plano, os dados são preservados. Novos anúncios e conexões ficam sujeitos aos
         limites do plano disponível.
       </p>
-    </main>
+    </div>
   );
 }

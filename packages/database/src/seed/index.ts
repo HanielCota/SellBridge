@@ -3,7 +3,7 @@ import { parseEnvironment } from "@sellbridge/shared/environment";
 import { logger } from "@sellbridge/shared/logger";
 import { asc, eq, sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
-import { saveCachedCep, saveStarterSupplier, saveTenantRegion } from "../repositories/region.ts";
+import { saveBillingHolder, saveCachedCep, saveStarterSupplier } from "../repositories/region.ts";
 import { listings, supplierProducts } from "../schema/index.ts";
 import { ensureAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
@@ -91,11 +91,7 @@ async function seedDemo(context: SeedContext): Promise<void> {
     role: "user",
     organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
-  const demoCep = CACHED_CEPS.find((entry) => entry.cep === DEMO_ACCOUNT.cep);
-  if (!demoCep) {
-    throw new Error("CEP da conta demo não está no cache de seed");
-  }
-  await saveTenantRegion(database, demo.tenantId, { ...demoCep, holder: DEMO_ACCOUNT.holder });
+  await saveBillingHolder(database, demo.tenantId, DEMO_ACCOUNT.holder);
   const sales = await seedDemoSales({
     database,
     random,

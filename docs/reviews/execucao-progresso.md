@@ -13,13 +13,13 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Linha de base
 
-| Métrica                                        | Valor                           | Medido em  |
-| ---------------------------------------------- | ------------------------------- | ---------- |
-| Testes unitários e de integração (`pnpm test`) | 1401 passando                   | 2026-10-15 |
-| Testes web (`apps/web` vitest)                 | 536 passando                    | 2026-10-15 |
-| E2E completos (`--workers=1`)                  | 97 passando                     | 2026-10-15 |
-| Última migration                               | 0029_supplier_contact_deadlines | 2026-10-15 |
-| Branch de trabalho                             | `feat/client-phase-1`           | 2026-10-12 |
+| Métrica                                        | Valor                   | Medido em  |
+| ---------------------------------------------- | ----------------------- | ---------- |
+| Testes unitários e de integração (`pnpm test`) | 1402 passando           | 2026-10-15 |
+| Testes web (`apps/web` vitest)                 | 540 passando            | 2026-10-15 |
+| E2E completos (`--workers=1`)                  | 101 passando            | 2026-10-15 |
+| Última migration                               | 0030_store_last_webhook | 2026-10-15 |
+| Branch de trabalho                             | `feat/client-phase-1`   | 2026-10-12 |
 
 ## Situação dos itens
 
@@ -71,6 +71,15 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Junção: etapas 7 e 8 do CPF, migration 0030 do B e 3 commits da "Auditoria e correção de UI"
+
+- Etapa 7 do CPF (`0f8b55b`, junção `65d584b`): o fornecedor perde a cobertura (a tabela `supplier_coverage` fica sem uso), e o detalhe ganha "Lojistas vinculados" e a confirmação com o impacto antes de desativar. A coverage saiu por cima do 21.a, que ficou inteiro.
+- Migration 0030 do chat B (`bae7945` → `bfd1284`): `store_connections.last_webhook_at`. Aplicada no `sellbridge_desk`, `generate` sem diferença e trava apagada.
+- A sessão "Auditoria e correção de UI" commitou direto na `feat/client-phase-1`, nesta pasta: `19adc26` (controles nativos com o tema), `1c56bf8` (teclado por tipo de campo) e `8682be6` (dicas no lugar de `title`). Ficaram, e duas consequências foram corrigidas em `149872e`: a busca virou `searchbox` (o `admin-suppliers.spec` procurava `textbox`), e o painel do sino só fechava no segundo Escape, porque o foco ia para o botão de som e a dica dele pegava o primeiro Escape. Agora o foco vai para o painel.
+- Etapa 8 do CPF (`13dc9af`, junção `933cc75`, ponta `807de1f`): termos e privacidade com fornecedores de todo o Brasil e o titular com nome e CPF; "Minha região" vira "Meus dados"; sai o código morto de região; o seed não grava mais cobertura nem endereço; e a documentação foi atualizada. Fecha a mudança do CPF (8 etapas).
+- Em aberto, para decidir: a migration que apaga `supplier_coverage` e as colunas de endereço do `tenant_profile`, e a remoção de `cep_cache`, `lookupCep` e `shared/domain/cep*`, que ficaram sem uso.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1402/1402; build ✅; e2e completo depois da etapa 7 e dos 3 commits: 100/101 (a falha era o sino, corrigido); depois da correção e da etapa 8: 44/44 (sino, acessibilidade, fornecedores, desativação, loja e fornecedor, publicação, login, admin de fornecedores).
 
 ### 2026-10-15 · Junção: item 19 do chat B (redirecionamento interno e loja em "Atenção")
 

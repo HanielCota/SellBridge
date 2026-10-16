@@ -8,7 +8,6 @@ const values = {
   state: "SP",
   city: "São Paulo",
   logoUrl: null,
-  coverage: [{ state: "SP", city: null }],
   contactEmail: "pedidos@fornecedor.com.br",
   acceptWithinHours: 24,
   dispatchWithinHours: 48,

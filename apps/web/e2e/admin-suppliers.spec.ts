@@ -86,12 +86,17 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await page.getByLabel("Título", { exact: true }).fill("Produto editado");
   await page.getByRole("button", { name: "Salvar produto" }).click();
   await expect(manualRow).toContainText("Produto editado");
-  await page.getByRole("textbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
+  await page.getByRole("searchbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
   await expect(page).toHaveURL(/query=CSV-MANUAL/);
   await expect(page.getByRole("row", { name: /CSV-NEW/ })).toHaveCount(0);
   await manualRow.getByRole("button", { name: "Desativar", exact: true }).click();
   await expect(manualRow).toContainText("Desativado");
   await page.getByRole("button", { name: "Desativar fornecedor", exact: true }).click();
+  // Deactivating asks first, with how many resellers sell the supplier.
+  await page
+    .getByRole("dialog", { name: `Desativar ${supplierName}?` })
+    .getByRole("button", { name: "Desativar fornecedor" })
+    .click();
   await expect(page.getByRole("button", { name: "Ativar fornecedor", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });

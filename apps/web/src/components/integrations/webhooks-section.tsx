@@ -15,6 +15,7 @@ import {
   useIntegrationsLocked,
 } from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { webhookEndpointsQueryOptions } from "@/features/public-api/webhooks.queries";
 import { errorMessage } from "@/lib/errors";
@@ -43,14 +44,12 @@ function WebhooksContent({
         title="Nenhum webhook cadastrado"
         description="Cadastre uma URL para receber pedidos e mudanças de anúncios assim que acontecem, sem precisar consultar a API."
         action={
-          <Button
-            disabled={locked}
-            title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-            onClick={onCreate}
-          >
-            <PlusIcon aria-hidden="true" />
-            Novo webhook
-          </Button>
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button disabled={locked} onClick={onCreate}>
+              <PlusIcon aria-hidden="true" />
+              Novo webhook
+            </Button>
+          </DisabledHint>
         }
       />
     );
@@ -74,16 +73,12 @@ export function WebhooksSection() {
       title="Webhooks"
       description="O SellBridge avisa seu sistema por um POST assinado a cada pedido ou mudança de anúncio. Entregas que falham são tentadas de novo."
       action={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={locked}
-          title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-          onClick={() => setIsCreating(true)}
-        >
-          <PlusIcon aria-hidden="true" />
-          Novo webhook
-        </Button>
+        <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+          <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>
+            <PlusIcon aria-hidden="true" />
+            Novo webhook
+          </Button>
+        </DisabledHint>
       }
     >
       <WebhooksContent onCreate={() => setIsCreating(true)} onDelete={setPendingDelete} />

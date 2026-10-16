@@ -300,6 +300,7 @@ function ForwardForm({
   const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
   return (
     <form
+      noValidate
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -353,7 +354,7 @@ function CopySupplierLink({ url }: { url: string }) {
         Compartilhe este link com o fornecedor para ele receber e atualizar o pedido. Válido por 30
         dias. Um novo link revoga o anterior.
       </p>
-      <Input aria-label="Link do fornecedor" readOnly value={url} />
+      <Input aria-label="Link do fornecedor" type="url" readOnly value={url} />
       <Button
         variant="outline"
         onClick={async () => {

@@ -49,7 +49,11 @@ function AppLayout() {
         />
       ) : null}
       <TopNav user={session.user} adminMode={session.adminMode} />
-      <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-12 md:px-8 md:pt-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-12 md:px-8 md:pt-8"
+      >
         <SetupReminder />
         <Outlet />
       </main>

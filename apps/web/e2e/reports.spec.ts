@@ -142,6 +142,20 @@ test.describe("avisos", () => {
     await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
   });
 
+  test("one Escape closes the bell panel, even with the sound toggle's hint", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    const soundToggle = page.getByRole("button", { name: "Som dos avisos" });
+    await expect(soundToggle).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(soundToggle).toBeHidden();
+    await expect(page.getByRole("button", { name: /^Avisos/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
   test("conta nova não tem avisos", async ({ page }) => {
     await signUp(page, "Revendedor Sem Avisos");
     await gotoHydrated(page, "/onboarding");

@@ -1,0 +1,72 @@
+/*
+ * Printing a page (a support ticket saved as PDF, an order statement) keeps the content, not the
+ * app chrome: white paper, black ink, and cards and rows that don't split across pages.
+ */
+@media print {
+  header.sticky,
+  nav,
+  [data-bulk-actions],
+  [data-sonner-toaster],
+  [data-print-hidden],
+  .skip-link {
+    display: none !important;
+  }
+  /* `html:root` and `html.dark` outrank the theme blocks in styles.css, which load after. */
+  html:root,
+  html.dark {
+    color-scheme: light;
+    --background: #fff;
+    --foreground: #000;
+    --card: #fff;
+    --card-foreground: #000;
+    --popover: #fff;
+    --popover-foreground: #000;
+    --muted: #f2f2f2;
+    --muted-foreground: #444;
+    --border: #ccc;
+    --brand-text: #000;
+  }
+  .surface-card,
+  tr,
+  img,
+  figure {
+    break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+  :where(h1, h2, h3) {
+    break-after: avoid;
+  }
+  /* External links show where they go on paper. */
+  :where(main) a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #444;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Keyboard users jump past the header straight to the page; it shows only when focused. */
+.skip-link {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 0.75rem);
+  left: calc(env(safe-area-inset-left) + 0.75rem);
+  z-index: 60;
+  border-radius: 9999px;
+  background: var(--primary);
+  padding: 0.5rem 1rem;
+  color: var(--primary-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(calc(-100% - 1.5rem));
+  transition: transform 160ms ease-out;
+
+  &:focus-visible {
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

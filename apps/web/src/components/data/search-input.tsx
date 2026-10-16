@@ -32,6 +32,8 @@ export function SearchInput({
         aria-hidden="true"
       />
       <Input
+        type="search"
+        autoComplete="off"
         aria-label={label}
         placeholder={placeholder}
         maxLength={maxLength}
