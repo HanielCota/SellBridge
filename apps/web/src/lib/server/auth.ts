@@ -24,6 +24,7 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
+import { isTeamInviteLink, teamInviteEmail } from "@/features/admin/team-invite-email";
 
 function slugify(value: string): string {
   const base = value
@@ -188,6 +189,14 @@ function googleProvider() {
 }
 
 async function sendResetPasswordEmail({ user, url }: { user: { email: string }; url: string }) {
+  // A team invite (item 28.a) sends the same link, worded as a welcome.
+  if (isTeamInviteLink(url)) {
+    await sendEmail({
+      to: user.email,
+      ...renderActionEmail(teamInviteEmail(url), environment.APP_URL),
+    });
+    return;
+  }
   const email = renderActionEmail(
     {
       subject: "Redefinir sua senha do SellBridge",

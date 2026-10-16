@@ -32,6 +32,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     badge: "openTickets",
     permission: "support.answer",
   },
+  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage" },
 ];
 
 /**
