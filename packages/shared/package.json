@@ -19,6 +19,7 @@
     "./period-range": "./src/domain/period-range.ts",
     "./time": "./src/domain/time.ts",
     "./text": "./src/domain/text.ts",
+    "./bulk-publish-plan": "./src/domain/bulk-publish-plan.ts",
     "./listing-rules": "./src/domain/listing-rules.ts",
     "./ticket-rules": "./src/domain/ticket-rules.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",

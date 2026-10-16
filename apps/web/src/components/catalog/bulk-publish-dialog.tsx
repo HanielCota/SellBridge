@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { PriceReceipt } from "./price-receipt";
+import { skippedSummary } from "@/features/catalog/bulk-skip-reasons";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -456,7 +457,7 @@ function useBulkPublish(onDone: () => void) {
       priceOverrides: Record<string, PriceRule>;
     }) => publishProductsInBulk({ data: input }),
     onSuccess: async ({ published, skipped }) => {
-      const skippedNote = skipped > 0 ? ` (${skipped} já estavam publicados)` : "";
+      const skippedNote = skipped.length > 0 ? ` · fora: ${skippedSummary(skipped)}` : "";
       toast.success(
         `${published} ${published === 1 ? "produto enviado" : "produtos enviados"} para publicação${skippedNote}`,
       );

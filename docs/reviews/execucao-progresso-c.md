@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 13.b · Descrição que falha calada vira estado visível com reenvio
-- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-16); ⏸1 e ⏸2 aprovados em 2026-10-16; migration 0032 em 8a486c5 (cherry-pick do principal 823a1a4)
-- Próximo passo: depois do OK, commit local, junção e aviso ao principal; o item 13 fecha
-- Arquivos tocados: marketplaces types.ts, unavailable-connector.ts, mock (scenarios, connector e teste), mercado-livre (listings.ts, connector e teste, error-messages e teste, fixtures/errors.ts); database repositories listing-descriptions(.test).ts (novo), listings.ts, listing-overview.ts, active-targets.ts, index.ts; worker processors/description-resend.ts (novo), stock-price-sync.ts e testes, publish-listing.test.ts; web listings.functions.ts, use-listing-actions.ts, components/listings/listing-card.tsx, testes de listing-health e listings-read; e2e/publishing.spec.ts; docs
+- Item/parte: 14.a · Validações do servidor iguais às do fluxo individual e bloqueio sem estoque
+- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-16); ⏸1 aprovado em 2026-10-16 (com o estoque de segurança)
+- Próximo passo: depois do OK, commit local; depois a 14.b (`ProgressWithEta`)
+- Arquivos tocados: shared/domain/bulk-publish-plan(.test).ts (novo), shared/package.json; web/lib/server/environment-schema.ts (STOCK_SAFETY_UNITS); web/features/listings/listing-commands.server.ts; web/features/catalog/catalog.functions.ts e bulk-skip-reasons.ts (novo); web/components/catalog/bulk-publish-dialog.tsx (toast); e2e/publishing.spec.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -31,7 +31,7 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 | 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)            |
 | 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30 |
 | 13   | Erros de publicação claros                     | 🟡       | daf26cc                     | 13.a ✅ daf26cc · 13.b ⏸3                   |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 14   | Publicação em massa: validação e progresso     | 🟡       | —                           | 14.a no ⏸1 (16/10)                          |
 | 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit        |
 | 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
 | 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
@@ -39,6 +39,11 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 14.a · Massa com as regras do individual e sem estoque bloqueado — ⏸3 aguardando OK
+
+- `planBulkPublish` (shared) aplica título, descrição, estoque (com o estoque de segurança) e "já publicado"; a massa publica os válidos e devolve os pulados com motivo; nenhum válido recusa o lote com nomes e motivos. O fluxo individual (e a API pública, pelo mesmo comando) recusa produto sem estoque.
+- Sem revisão independente obrigatória (sem dinheiro, auth ou migration; 9 arquivos); autorrevisão sem achados. Um teste da web (`webhooks.server.test`, Redis travado) falhou uma vez com a máquina carregada e passou sozinho (9/9): instabilidade de tempo, sem relação; o mesmo com `store-supplier-change.test.ts` (do CPF), que estourou 5 s uma vez na suíte e passou sozinho duas vezes e na suíte de novo. Portões: lint, tipos, formatação, sem else ✅; 1631 testes; build ✅ sem mudança no `routeTree.gen.ts`; e2e `publishing.spec` 11/11 em série (inclui o novo "recusa no servidor publicar um produto sem estoque").
 
 ### 2026-10-16 · Item 13.b · Descrição recusada vira aviso com reenvio — ✅ concluído (commit local; item 13 ✅)
 

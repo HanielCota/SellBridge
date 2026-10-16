@@ -31,6 +31,8 @@ const serverEnvironmentShape = z.object({
   ESTIMATED_SHIPPING_CENTS: z.coerce.number().int().min(0).max(100_000_000).default(0),
   /** Margin a price must keep after every fee; 0 only forbids selling at a loss. */
   MIN_MARGIN_PERCENT: z.coerce.number().int().min(0).max(90).default(0),
+  /** Units the sync keeps off the marketplaces (the worker's own); none of them may be published. */
+  STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
     .string()
