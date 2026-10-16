@@ -1,15 +1,16 @@
 import { Stripe } from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 const mocks = vi.hoisted(() => ({
   apply: vi.fn<(...input: unknown[]) => Promise<void>>(),
-  lock: vi.fn<(...input: unknown[]) => Promise<{ subscriptionId: string } | null>>(),
+  find: vi.fn<(...input: unknown[]) => Promise<{ subscriptionId: string } | null>>(),
   retrieve: vi.fn<(id: string, ...options: unknown[]) => Promise<unknown>>(),
   list: vi.fn<(input: unknown, options?: unknown) => Promise<unknown>>(),
   transaction: vi.fn<(operation: (executor: object) => Promise<void>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   applyBillingEvent: mocks.apply,
-  lockBillingCustomer: mocks.lock,
+  findBillingCustomer: mocks.find,
 }));
 vi.mock("@/lib/server/database", () => ({ database: { transaction: mocks.transaction } }));
 vi.mock("@/lib/server/environment", () => ({
@@ -57,7 +58,7 @@ function request(
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.lock.mockResolvedValue({ subscriptionId: "sub_test" });
+  mocks.find.mockResolvedValue({ subscriptionId: "sub_test" });
   mocks.retrieve.mockResolvedValue(subscription);
   mocks.list.mockResolvedValue({ data: [subscription] });
   mocks.transaction.mockImplementation(async (operation) => {
@@ -76,9 +77,40 @@ describe("signed billing webhook", () => {
       expect.objectContaining({ eventId: "evt_test", plan: "pro", status: "active" }),
     );
   });
-  // Regression: Stripe was read under the account lock with the client defaults (15 s, 2 retries),
-  // holding the row and a pooled connection for up to ~90 s.
-  it("reads Stripe under the lock with a short timeout and one retry", async () => {
+  // Regression (item 16.a, N5): Stripe was read inside the transaction, holding the account row
+  // and a pooled connection while the provider answered.
+  it("reads Stripe before opening the transaction", async () => {
+    let inTransaction = false;
+    const callsInTransaction: string[] = [];
+    mocks.transaction.mockImplementation(async (operation) => {
+      inTransaction = true;
+      await operation({});
+      inTransaction = false;
+    });
+    mocks.list.mockImplementation(async () => {
+      if (inTransaction) callsInTransaction.push("list");
+      return { data: [] };
+    });
+    mocks.retrieve.mockImplementation(async () => {
+      if (inTransaction) callsInTransaction.push("retrieve");
+      return subscription;
+    });
+    expect((await handleBillingWebhook(request())).status).toBe(200);
+    expect(mocks.apply).toHaveBeenCalledOnce();
+    expect(callsInTransaction).toEqual([]);
+  });
+  // Fetching outside the lock lets two deliveries race: the newest read wins, not the newest event.
+  it("orders states by when they were read from Stripe", async () => {
+    const before = Date.now();
+    await handleBillingWebhook(request());
+    const [, applied] = mocks.apply.mock.calls[0] ?? [];
+    expect(applied).toMatchObject({ observedAt: expect.any(Number) });
+    const observedAt = z.object({ observedAt: z.number() }).parse(applied).observedAt;
+    expect(observedAt).toBeGreaterThanOrEqual(before);
+    expect(observedAt).toBeLessThanOrEqual(Date.now());
+  });
+  // Regression: the client defaults (15 s, 2 retries) kept a webhook waiting up to ~90 s.
+  it("reads Stripe with a short timeout and one retry", async () => {
     mocks.list.mockResolvedValue({ data: [] });
     await handleBillingWebhook(request());
     const limits = { timeout: 5_000, maxNetworkRetries: 1 };
@@ -121,7 +153,7 @@ describe("signed billing webhook", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
   it("ignores customers outside this application", async () => {
-    mocks.lock.mockResolvedValue(null);
+    mocks.find.mockResolvedValue(null);
     expect((await handleBillingWebhook(request())).status).toBe(200);
     expect(mocks.list).not.toHaveBeenCalled();
   });

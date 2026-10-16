@@ -1,11 +1,11 @@
 import { shipmentLateContent } from "@sellbridge/shared/notification-events";
-import { shipmentDelay } from "@sellbridge/shared/shipment-delay";
+import { lateSinceFor, shipmentDelay } from "@sellbridge/shared/shipment-delay";
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, suppliers } from "../schema/index.ts";
 import { clipText, notifyWorkspace } from "./notification-producers.ts";
-import { firstShippedAt, lateSince } from "./shipment-timing.ts";
+import { shipmentTimingColumns } from "./shipment-timing.ts";
 
 /**
  * A delay older than this was already news before the sweep existed (or while the worker was
@@ -32,10 +32,7 @@ export async function queueLateShipmentNotices(
       orderId: orders.id,
       externalOrderId: orders.externalOrderId,
       supplierName: suppliers.name,
-      status: orderShipments.status,
-      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
-      estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
-      shippedAt: firstShippedAt,
+      ...shipmentTimingColumns,
     })
     .from(orderShipments)
     .innerJoin(
@@ -56,7 +53,8 @@ export async function queueLateShipmentNotices(
     if (delay === null) {
       continue;
     }
-    if (input.now.getTime() - lateSince(row, delay).getTime() > RECENT_DELAY_MILLISECONDS) {
+    const since = lateSinceFor(row, delay);
+    if (since === null || input.now.getTime() - since.getTime() > RECENT_DELAY_MILLISECONDS) {
       continue;
     }
     queued += await notifyWorkspace(database, {
