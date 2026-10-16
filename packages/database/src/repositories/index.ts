@@ -36,3 +36,4 @@ export * from "./notification-producers.ts";
 export * from "./notification-late-shipments.ts";
 export * from "./notification-preferences.ts";
 export * from "./ticket-subjects.ts";
+export * from "./email-verification.ts";

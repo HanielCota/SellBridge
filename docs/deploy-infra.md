@@ -56,3 +56,44 @@ having count(*) > 1;
   crítica, `warn`.
 - Configure o healthcheck do container do worker com `WORKER_HEALTH_PORT` (por exemplo 3001)
   e `wget -q -O /dev/null http://127.0.0.1:3001/health`.
+
+## Backup e restore do Postgres (item 32.b, fase 2)
+
+Fora do MVP: ainda não há rotina automática nem restore testado. Até lá, no deploy:
+
+- Ative o backup agendado do banco no painel (Coolify: "Scheduled Backups" do recurso
+  Postgres), diário, com retenção de pelo menos 7 dias e destino fora do servidor (S3/R2).
+- Backup manual antes de cada deploy com migration:
+
+  ```bash
+  pg_dump --format=custom --no-owner --dbname "$DATABASE_URL" --file sellbridge-$(date +%F-%H%M).dump
+  ```
+
+- Restore em um banco novo (nunca por cima do banco em uso), conferindo antes de apontar o app:
+
+  ```bash
+  createdb sellbridge_restore
+  pg_restore --no-owner --dbname postgres://.../sellbridge_restore sellbridge-AAAA-MM-DD-HHMM.dump
+  ```
+
+- O dump tem CPF, nome completo e endereços dos compradores: guarde-o criptografado e com
+  acesso restrito, e apague as cópias locais depois do uso.
+- Os anexos e fotos (`UPLOADS_DIR`, volume `/data/uploads`) não estão no dump: o volume
+  precisa de backup próprio até o item 32.c.
+
+**Fase 2:** script de backup com verificação (`pg_restore --list`), um restore de verdade
+cronometrado num banco descartável e o registro do resultado aqui.
+
+## Arquivos em S3/R2 (item 32.c, fase 2)
+
+Hoje os arquivos (anexos do suporte, avatar) vão para o disco local, em `UPLOADS_DIR`, pelo
+`FileStorage` de `apps/web/src/lib/server/storage.ts` (`put`, `get`, `delete` por chave).
+
+- Em produção com um só container, monte `UPLOADS_DIR` num volume persistente (`/data/uploads`)
+  e inclua esse volume no backup.
+- Com mais de um container do web, o disco local não serve: cada um veria só os próprios
+  arquivos. Até o adapter S3/R2, rode um container só.
+
+**Fase 2:** um `createS3FileStorage` com a mesma interface, escolhido por variável
+(`FILE_STORAGE=s3`, bucket, endpoint e chaves validados com Zod), timeout em cada chamada e
+script de cópia dos arquivos do volume para o bucket.

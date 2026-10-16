@@ -1,6 +1,7 @@
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
+import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
 import {
   countDoneSteps,
@@ -27,6 +28,21 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
       />
       <span className="text-xs text-muted-foreground tabular-nums">{percent}%</span>
     </div>
+  );
+}
+
+/** The e-mail step resends the link; every other step opens its page. */
+function StepAction({ step }: { step: SetupStep }) {
+  if (step.key === "hasVerifiedEmail") {
+    return <ResendVerificationButton label={step.cta} />;
+  }
+  return (
+    <Button asChild className="w-fit">
+      <Link to={step.to}>
+        {step.cta}
+        <ArrowRightIcon aria-hidden="true" />
+      </Link>
+    </Button>
   );
 }
 
@@ -74,14 +90,7 @@ function StepCard({
         )}
         <p className="text-sm text-muted-foreground">{step.description}</p>
       </div>
-      {state === "next" ? (
-        <Button asChild className="w-fit">
-          <Link to={step.to}>
-            {step.cta}
-            <ArrowRightIcon aria-hidden="true" />
-          </Link>
-        </Button>
-      ) : null}
+      {state === "next" ? <StepAction step={step} /> : null}
     </li>
   );
 }
@@ -119,7 +128,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
           <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
         </div>
       </div>
-      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {SETUP_STEPS.map((step, index) => (
           <StepCard
             key={step.key}

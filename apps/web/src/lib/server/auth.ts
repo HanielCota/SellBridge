@@ -332,7 +332,8 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendVerificationEmail,
-    sendOnSignUp: false,
+    // A new store waits for the confirmed e-mail (item 26.b), so the link goes out on sign-up.
+    sendOnSignUp: true,
   },
   socialProviders: googleProvider(),
   hooks: { before: guardAccountRoutes, after: recordVisitEvents },

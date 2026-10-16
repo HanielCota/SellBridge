@@ -5,6 +5,8 @@ export interface SetupProgress {
   hasHolder: boolean;
   /** A supplier picked during onboarding, or a shop already linked to one. */
   hasSupplier: boolean;
+  /** The signed-in person confirmed the e-mail: a new store waits for it (item 26.b). */
+  hasVerifiedEmail: boolean;
   hasStore: boolean;
   hasPublishedListing: boolean;
 }
@@ -35,6 +37,14 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     to: "/onboarding",
     cta: "Escolher fornecedor",
     estimatedMinutes: 2,
+  },
+  {
+    key: "hasVerifiedEmail",
+    title: "Confirme seu e-mail",
+    description: "Abra o link que enviamos. Ele libera a conexão de lojas.",
+    to: "/dashboard",
+    cta: "Reenviar e-mail",
+    estimatedMinutes: 1,
   },
   {
     key: "hasStore",
