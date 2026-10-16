@@ -45,3 +45,4 @@ export * from "./staff-team.ts";
 export * from "./ticket-subjects.ts";
 export * from "./terms-acceptances.ts";
 export * from "./admin-audit.ts";
+export * from "./supplier-panel-home.ts";
