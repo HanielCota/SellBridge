@@ -53,6 +53,23 @@ export function ListingAlertIcon({ className }: IconProps) {
   );
 }
 
+/** A payment card holding a "!": it shakes a "no" and the alert drops in. The plan payment failed. */
+export function PaymentCardAlertIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <g className="glyph glyph-shake" {...OUTLINE}>
+        <rect x="2.5" y="5" width="19" height="14" rx="2.5" {...WASH} />
+        <path d="M2.5 9.5h19" />
+        <path d="M6 15h3" />
+      </g>
+      <g className="glyph glyph-mark glyph-drop">
+        <path d="M16.5 12.4v2.2" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
+        <circle cx="16.5" cy="16.9" r="1.1" fill="currentColor" />
+      </g>
+    </svg>
+  );
+}
+
 /** A support headset: it rings, then its microphone lights up. Someone from the team answered. */
 export function SupportHeadsetIcon({ className }: IconProps) {
   return (

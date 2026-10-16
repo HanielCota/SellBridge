@@ -105,7 +105,7 @@ describe("owner subscription management", () => {
   it("expires pending checkout links before issuing a replacement", async () => {
     mocks.sessions.mockResolvedValue({ data: [{ id: "cs_old" }] });
     await startSubscription(input);
-    expect(mocks.expire).toHaveBeenCalledWith("cs_old");
+    expect(mocks.expire).toHaveBeenCalledWith("cs_old", {}, expect.anything());
     expect(mocks.expire.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.checkout.mock.invocationCallOrder[0] ?? 0,
     );
@@ -122,6 +122,16 @@ describe("owner subscription management", () => {
     expect(mocks.lock).not.toHaveBeenCalled();
     expect(customerInTransaction).toBe(false);
     expect(mocks.tryLock).toHaveBeenCalledWith({}, input.tenantId);
+  });
+  // Review of item 16: these two ran with the client defaults (~45 s each) inside the transaction.
+  it("bounds the portal and the expiry of old checkout links", async () => {
+    const limits = { timeout: 5_000, maxNetworkRetries: 1 };
+    mocks.sessions.mockResolvedValue({ data: [{ id: "cs_old" }] });
+    await startSubscription(input);
+    expect(mocks.expire).toHaveBeenCalledWith("cs_old", {}, limits);
+    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active" }] });
+    await startSubscription(input);
+    expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), limits);
   });
   it("refuses a second checkout while one is being opened", async () => {
     mocks.tryLock.mockResolvedValue(false);
