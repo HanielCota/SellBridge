@@ -17,6 +17,15 @@ const serverEnvironmentShape = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
+  /** Prices of the PDF's other plans; only read while PLAN_MATRIX_ENABLED is on (item 31.a). */
+  STRIPE_START_PRICE_ID: z.string().startsWith("price_").optional(),
+  STRIPE_BLACK_PRICE_ID: z.string().startsWith("price_").optional(),
+  STRIPE_ELITE_PRICE_ID: z.string().startsWith("price_").optional(),
+  /**
+   * The PDF's five plans (Start to Elite) instead of today's three. Off until the client decides
+   * the matrix. TODO(client:D10): limits and features per plan.
+   */
+  PLAN_MATRIX_ENABLED: booleanFlagEnvironmentSchema,
   /**
    * Production without Stripe refuses to start unless this says so: no Stripe means no plan
    * limits at all (item 16, N8).
@@ -78,6 +87,13 @@ const STRIPE_REQUIRED_KEYS = [
   "STRIPE_BUSINESS_PRICE_ID",
 ] as const;
 
+/** With the PDF's matrix on, every one of its plans needs a price. */
+const MATRIX_PRICE_KEYS = [
+  "STRIPE_START_PRICE_ID",
+  "STRIPE_BLACK_PRICE_ID",
+  "STRIPE_ELITE_PRICE_ID",
+] as const;
+
 type ServerEnvironmentShape = z.infer<typeof serverEnvironmentShape>;
 
 function checkPlaceholderSecret(value: ServerEnvironmentShape, context: z.RefinementCtx) {
@@ -95,7 +111,10 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   if (value.BILLING_UNLIMITED) {
     return;
   }
-  for (const key of STRIPE_REQUIRED_KEYS) {
+  const required = value.PLAN_MATRIX_ENABLED
+    ? [...STRIPE_REQUIRED_KEYS, ...MATRIX_PRICE_KEYS]
+    : STRIPE_REQUIRED_KEYS;
+  for (const key of required) {
     if (value[key] !== undefined) {
       continue;
     }

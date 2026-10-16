@@ -1,14 +1,30 @@
-export const BILLING_PLANS = [
-  { id: "free", name: "Gratuito", stores: 2, listings: 25 },
-  { id: "pro", name: "Pro", stores: 10, listings: 500 },
-  { id: "business", name: "Business", stores: 50, listings: 5000 },
-] as const;
+import { type BillingPlan, planCatalog } from "./billing-plans.ts";
+
+export {
+  type BillingPlan,
+  type BillingPlanId,
+  type PaidPlanId,
+  type PlanFeature,
+  paidPlanIds,
+  planAllows,
+  planCatalog,
+  requirePlanFeature,
+} from "./billing-plans.ts";
+
+/** Today's three plans (the catalog while PLAN_MATRIX_ENABLED is off). */
+export const BILLING_PLANS = planCatalog(false);
 
 const PAID_STATUSES: readonly string[] = ["active", "trialing", "past_due"];
 
 const DAY_MILLISECONDS = 86_400_000;
 
-export type BillingPlanId = (typeof BILLING_PLANS)[number]["id"];
+function freePlanOf(plans: readonly BillingPlan[]): BillingPlan {
+  const free = plans.find((plan) => plan.id === "free") ?? BILLING_PLANS[0];
+  if (free === undefined) {
+    throw new Error("Billing catalog without the free plan");
+  }
+  return free;
+}
 
 export function effectiveBillingPlan(
   subscription: {
@@ -17,17 +33,19 @@ export function effectiveBillingPlan(
     periodEnd: Date | null;
   } | null,
   now = new Date(),
-) {
+  plans: readonly BillingPlan[] = BILLING_PLANS,
+): BillingPlan {
   // past_due keeps the plan while the grace the webhook wrote into periodEnd lasts (item 16, N9).
   const paid =
     subscription &&
     PAID_STATUSES.includes(subscription.status) &&
     subscription.periodEnd &&
     subscription.periodEnd > now;
-  return (
-    BILLING_PLANS.find((plan) => plan.id === (paid ? subscription.plan : "free")) ??
-    BILLING_PLANS[0]
-  );
+  const free = freePlanOf(plans);
+  if (!paid) {
+    return free;
+  }
+  return plans.find((plan) => plan.id === subscription.plan) ?? free;
 }
 
 /**

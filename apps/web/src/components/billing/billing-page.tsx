@@ -1,4 +1,9 @@
-import type { BillingPlanId } from "@sellbridge/shared/billing";
+import type {
+  BillingPlan,
+  BillingPlanId,
+  PaidPlanId,
+  PlanFeature,
+} from "@sellbridge/shared/billing";
 import { formatCents } from "@sellbridge/shared/money";
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
@@ -24,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 function useBillingAction() {
   return useMutation({
-    mutationFn: async (plan: "pro" | "business" | "portal") => {
+    mutationFn: async (plan: PaidPlanId | "portal") => {
       const result =
         plan === "portal" ? await manageBilling() : await checkoutBilling({ data: { plan } });
       window.location.assign(result.url);
@@ -57,6 +62,37 @@ function PlanPrice({
     return "Em breve";
   }
   return `${formatCents(priceCents)}/mês`;
+}
+
+/** "1 loja conectada" or "Até 5.000 anúncios". */
+function limitLabel(limit: number, one: string, many: string): string {
+  if (limit === 1) {
+    return `1 ${one}`;
+  }
+  return `Até ${limit.toLocaleString("pt-BR")} ${many}`;
+}
+
+const FEATURE_LABELS: Record<PlanFeature, string> = {
+  advanced_reports: "Relatórios avançados",
+  fiscal: "Notas fiscais",
+  ai_assistant: "Assistente com IA",
+  priority_support: "Atendimento prioritário",
+};
+
+/** The plan's lines beyond stores and listings; today's plans release every feature. */
+function PlanExtras({ plan }: { plan: BillingPlan }) {
+  if (plan.users === null) {
+    return <li>Catálogo, painel, finanças e suporte</li>;
+  }
+  return (
+    <>
+      <li>{limitLabel(plan.users, "usuário", "usuários")}</li>
+      <li>Suporte responde em até {plan.supportResponseHours} h</li>
+      {plan.features.map((feature) => (
+        <li key={feature}>{FEATURE_LABELS[feature]}</li>
+      ))}
+    </>
+  );
 }
 
 function PlanAction({
@@ -143,9 +179,9 @@ function PlanChoices() {
                 <PlanPrice planId={plan.id} priceCents={price?.priceCents} />
               </p>
               <ul className="space-y-2">
-                <li>Até {plan.stores} lojas conectadas</li>
-                <li>Até {plan.listings} anúncios</li>
-                <li>Catálogo, painel, finanças e suporte</li>
+                <li>{limitLabel(plan.stores, "loja conectada", "lojas conectadas")}</li>
+                <li>{limitLabel(plan.listings, "anúncio", "anúncios")}</li>
+                <PlanExtras plan={plan} />
               </ul>
               <PlanAction
                 planId={plan.id}

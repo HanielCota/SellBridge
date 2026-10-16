@@ -14,7 +14,8 @@ export const getBilling = createServerFn({ method: "GET" })
   .handler(async ({ context }) => billingSummary(context.tenantId, context.userId));
 export const checkoutBilling = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])
-  .validator(z.object({ plan: z.enum(["pro", "business"]) }))
+  // Every paid plan of both catalogs; priceId refuses one the catalog in force does not sell.
+  .validator(z.object({ plan: z.enum(["start", "pro", "business", "black", "elite"]) }))
   .handler(async ({ context, data }) => startSubscription({ ...context, plan: data.plan }));
 export const manageBilling = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, billingWriteMiddleware])

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { BILLING_PLANS, billingNotice, effectiveBillingPlan } from "@sellbridge/shared/billing";
+import { billingNotice, effectiveBillingPlan, type PaidPlanId } from "@sellbridge/shared/billing";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import {
   billingUsage,
@@ -11,7 +11,13 @@ import {
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import type { BillingNoticeView } from "./billing-notice";
-import { availablePlans, billingConfigured, priceId, stripeClient } from "./stripe.server";
+import {
+  activePlans,
+  availablePlans,
+  billingConfigured,
+  priceId,
+  stripeClient,
+} from "./stripe.server";
 
 export async function billingSummary(tenantId: string, userId: string) {
   const [account, usage, prices, notice] = await Promise.all([
@@ -30,12 +36,12 @@ export async function billingSummary(tenantId: string, userId: string) {
   return {
     account,
     usage,
-    plans: BILLING_PLANS,
+    plans: activePlans(),
     prices,
     canManage,
     notice,
     enabled: billingConfigured(),
-    effectivePlan: effectiveBillingPlan(account),
+    effectivePlan: effectiveBillingPlan(account, new Date(), activePlans()),
   };
 }
 
@@ -96,7 +102,7 @@ async function hasLiveSubscription(stripe: StripeClient, customerId: string) {
 
 async function openCheckout(
   stripe: StripeClient,
-  input: { tenantId: string; customerId: string; plan: "pro" | "business" },
+  input: { tenantId: string; customerId: string; plan: PaidPlanId },
 ) {
   const sessions = await stripe.checkout.sessions.list(
     { customer: input.customerId, status: "open", limit: 100 },
@@ -127,7 +133,7 @@ async function openCheckout(
 export async function startSubscription(input: {
   tenantId: string;
   userId: string;
-  plan: "pro" | "business";
+  plan: PaidPlanId;
 }) {
   await requireBillingOwner(database, input.tenantId, input.userId);
   await availablePlans();

@@ -24,6 +24,8 @@ type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
 export interface NewListingInput {
   billingEnabled?: boolean;
+  /** PLAN_MATRIX_ENABLED (item 31.a): which plan catalog the quota reads. */
+  planMatrix?: boolean;
   supplierProductId: string;
   title: string;
   description: string;
@@ -97,11 +99,15 @@ export async function createListingWithTargets(
     throw conflictError("Escolha ao menos uma loja de destino");
   }
   return database.transaction(async (transaction) => {
-    const { billingEnabled, ...values } = input;
+    const { billingEnabled, planMatrix, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
     if (billingEnabled) {
       // One plan slot per destination store (item 16, N7).
-      await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
+      await assertBillingCapacity(transaction, tenantId, {
+        resource: "listings",
+        requested: storeConnectionIds.length,
+        planMatrix,
+      });
     }
     const [listing] = await transaction
       .insert(listings)

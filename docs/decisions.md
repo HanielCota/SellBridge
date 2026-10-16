@@ -577,3 +577,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - O cadastro manda o link de confirmação (`sendOnSignUp: true`); quem entra pelo Google já chega confirmado.
 - **Loja nova** só é salva com o e-mail de quem conecta confirmado: sem isso, a volta do OAuth leva a `/lojas?erro=email_not_verified` ("Confirme seu e-mail antes de conectar uma loja nova…"). **Reconectar** uma loja que a conta já tem (não desconectada) nunca espera a confirmação, para não travar contas antigas.
 - O guia de configuração ganhou a etapa "Confirme seu e-mail" (antes de "Conecte uma loja"), com "Reenviar e-mail"; conta que já tem loja passa direto por ela.
+
+## 2026-10-16: Matriz de planos do PDF atrás de flag (item 31.a, chat D)
+
+- `PENDENTE CLIENTE (D10)`: qual recurso e limite entra em cada plano. Enquanto isso, `PLAN_MATRIX_ENABLED` (padrão `false`) mantém os três planos de hoje (Gratuito 2/25, Pro 10/500, Business 50/5.000, todos os recursos liberados).
+- **Ligada:** os cinco planos do PDF (Start, Pro, Business, Black e Elite, de R$ 97 a R$ 997, preço de referência; o cobrado vem do Stripe) com lojas, anúncios, usuários, prazo do suporte e recursos (`advanced_reports`, `fiscal`, `ai_assistant`, `priority_support`) em `shared/domain/billing-plans.ts`. Os números só respeitam a ordem do PDF (cada plano dá mais que o anterior); o Gratuito continua como reserva de quem não assina (1 loja, 25 anúncios).
+- **No servidor:** a cota de lojas e anúncios lê o catálogo em vigor (`planMatrix` nas entradas dos repositórios); `requirePlanFeature` recusa um recurso fora do plano (M6) e entra nas telas de relatórios, fiscal e IA quando elas existirem. Usuários por plano ainda não são cobrados (não há convite de equipe para o revendedor).
+- **Fase 2 (31.b):** período de teste, página pública de planos e tempo de casa.

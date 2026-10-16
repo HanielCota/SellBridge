@@ -24,7 +24,9 @@ vi.mock("@/lib/server/marketplaces", () => ({
   oauthCallbackUrl: (marketplace: string) => `https://sellbridge.test/api/oauth/${marketplace}`,
   tokenCipher: { encrypt: (value: string) => `enc:${value}` },
 }));
-vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
+vi.mock("@/features/billing/stripe.server", () => ({
+  billingOptions: () => ({ billingEnabled: false, planMatrix: false }),
+}));
 vi.mock("@sellbridge/database/repositories", () => ({
   assertActiveSupplier: vi.fn<() => Promise<void>>(),
   findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
