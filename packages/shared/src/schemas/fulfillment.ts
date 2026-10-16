@@ -113,19 +113,23 @@ export const shipmentUpdateSchema = z
       .default(""),
     note: freeText().trim().max(1000).default(""),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((data, context) => {
     // Shipping needs the carrier and code; an occurrence on a parcel already shipped (it has a
     // note) may come without them: the marketplace may never have said which carrier it was.
     // The server checks the move into "shipped" itself (fulfillment.ts).
     if (data.status === "shipped" && !data.note && (!data.carrier || !data.trackingCode)) {
-      ctx.addIssue({
+      context.addIssue({
         code: "custom",
         message: "Informe transportadora e código de rastreio",
         path: ["trackingCode"],
       });
     }
     if (data.status === "cancelled" && !data.note) {
-      ctx.addIssue({ code: "custom", message: "Informe o motivo do cancelamento", path: ["note"] });
+      context.addIssue({
+        code: "custom",
+        message: "Informe o motivo do cancelamento",
+        path: ["note"],
+      });
     }
   });
 export const supplierTokenSchema = z.string().regex(/^[a-f0-9]{64}$/, "Link inválido");

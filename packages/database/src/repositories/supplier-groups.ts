@@ -20,8 +20,8 @@ export const FORWARD_CREDIT: Record<ForwardActor, { actor: string; note: string 
 };
 
 /** The order's items by supplier; refuses an order with an item of no active supplier. */
-export async function supplierGroups(tx: Transaction, tenantId: string, orderId: string) {
-  const items = await tx
+export async function supplierGroups(transaction: Transaction, tenantId: string, orderId: string) {
+  const items = await transaction
     .select({
       orderItemId: orderItems.id,
       title: orderItems.title,
