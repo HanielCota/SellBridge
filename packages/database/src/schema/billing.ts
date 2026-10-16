@@ -12,8 +12,9 @@ export const billingAccounts = pgTable("billing_accounts", {
   periodEnd: timestamp("period_end", { withTimezone: true }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   /**
-   * Stripe's `event.created`, in Unix seconds. bigint: an int4 overflows on 2038-01-19 and every
-   * Stripe webhook would then fail with "integer out of range".
+   * When the applied state was read from Stripe, in Unix milliseconds (item 16.a). Rows written
+   * before held Stripe's `event.created` in seconds, always smaller, so the next read replaces
+   * them. bigint: milliseconds do not fit an int4.
    */
   lastEventCreated: bigint("last_event_created", { mode: "number" }).notNull().default(0),
 });

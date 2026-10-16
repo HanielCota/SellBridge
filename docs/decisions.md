@@ -524,6 +524,12 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
 - **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
 
+## 2026-10-16 · Aceite atrasado e prazos do fornecedor (item 21.c)
+
+- **O prazo conta do encaminhamento mais recente** (`latestForwardedAt`, o maior "Encaminhado" do histórico do envio): reencaminhar um envio cancelado recomeça a contar. Sem migration.
+- **Regra** em `shared/domain/shipment-delay.ts`: entra o "Aceite atrasado" (`accept_overdue`), para o envio ainda "Encaminhado" depois do prazo de aceite do fornecedor. Quando o marketplace não manda data de despacho, o "Despacho atrasado" passa a usar o prazo de despacho do cadastro. Os prazos do cadastro valem até a hora exata, e as datas do marketplace continuam valendo o dia inteiro. Se o despacho também passou, ele aparece no lugar do aceite.
+- **Telas:** o selo "Aceite atrasado" aparece na lista, na página do pedido e no sino ("{fornecedor} ainda não aceitou o pedido. Fale com o fornecedor."). O painel do envio mostra "Aceite até" e "Despachar até" com hora ("amanhã às 09:00", `formatDeadline`) para o revendedor e na página do fornecedor. A data de despacho do ML continua só com o dia.
+
 ## 2026-10-16: Saúde da loja (item 24.a, chat B)
 
 - **Menu da loja em /lojas** ganhou "Saúde da loja": última sincronização (o `synced_at` mais recente dos anúncios da loja), último aviso de pedido do marketplace (`store_connections.last_webhook_at`, migration 0030) e o acesso. A validade do token não aparece como data: no Mercado Livre ele dura 6 horas e renova sozinho, então a linha diz "Em dia, renova sozinho", "Renovação falhou, tentaremos de novo" ou pede para reconectar.

@@ -25,6 +25,7 @@ import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
+import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
@@ -234,6 +235,17 @@ const webhookDeliveryWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const processNotificationDeliveries = createNotificationDeliveryProcessor({
+  database,
+  sendEmail,
+  appUrl: environment.APP_URL,
+});
+const notificationDeliveryWorker = new Worker(
+  QUEUE_NAMES.notificationDelivery,
+  async () => processNotificationDeliveries(),
+  { connection, concurrency: 1 },
+);
+
 /** Each run is a new job: keep only a few finished ones in Redis. */
 async function scheduleRecurring(queue: Queue, id: string, every: number): Promise<void> {
   await queue.upsertJobScheduler(
@@ -249,8 +261,10 @@ const publishRecoveryQueue = new Queue(QUEUE_NAMES.publishRecovery, { connection
 const webhookEventSweepQueue = new Queue(QUEUE_NAMES.webhookEventSweep, { connection });
 const ticketAutoCloseQueue = new Queue(QUEUE_NAMES.ticketAutoClose, { connection });
 const shipmentTrackingQueue = new Queue(QUEUE_NAMES.shipmentTracking, { connection });
+const notificationDeliveryQueue = new Queue(QUEUE_NAMES.notificationDelivery, { connection });
 await scheduleRecurring(stockPriceSyncQueue, STOCK_SYNC_JOB_NAME, 15 * 60 * 1000);
 await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
+await scheduleRecurring(notificationDeliveryQueue, "deliver-notifications", 10 * 1000);
 await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
 await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
 await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
@@ -269,6 +283,7 @@ const workers = [
   ticketAutoCloseWorker,
   shipmentTrackingWorker,
   autoForwardWorker,
+  notificationDeliveryWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
@@ -305,6 +320,7 @@ async function shutdown(signal: string): Promise<void> {
     ticketAutoCloseQueue.close(),
     shipmentTrackingQueue.close(),
     autoForwardQueue.close(),
+    notificationDeliveryQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

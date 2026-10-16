@@ -39,6 +39,23 @@ export function formatAbsoluteTime(date: Date): string {
   return absolute.format(date);
 }
 
+const clock = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: REPORT_TIME_ZONE,
+});
+const NEAR_DAY_NAMES: Record<number, string> = { [-1]: "ontem", 0: "hoje", 1: "amanhã" };
+
+/**
+ * A deadline to the minute, in Brazil time: "hoje às 14:30", "amanhã às 09:00", "ontem às
+ * 18:00", or "17 de out. às 14:30" further away.
+ */
+export function formatDeadline(date: Date, now: Date = new Date()): string {
+  const dayName = NEAR_DAY_NAMES[calendarDaysBetween(now, date)];
+  const day = dayName ?? dayMonth.format(date);
+  return `${day} às ${clock.format(date)}`;
+}
+
 const RECENT_DAYS = 7;
 const dayMonth = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",
