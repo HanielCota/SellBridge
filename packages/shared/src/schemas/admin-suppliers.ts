@@ -6,7 +6,21 @@ import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 
 export const MAX_PRODUCT_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_PRODUCT_CSV_ROWS = 1000;
-const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
+/**
+ * A shelf count an admin can type. Far below int4, so a return adding units back (orders carry at
+ * most 100,000 units, see the Mercado Livre schemas) can never push `stock` out of range.
+ */
+export const MAX_PRODUCT_STOCK = 10_000_000;
+const productStockSchema = z
+  .number()
+  .int()
+  .min(0, "O estoque não pode ser negativo")
+  .max(MAX_PRODUCT_STOCK, "O estoque pode ser de até 10.000.000 unidades");
+/**
+ * The shelf count the edit form was opened with. It goes below zero when shipped units outran
+ * the last count (see `consume` in stock-reservations), and such a product must stay editable.
+ */
+const openedShelfCountSchema = z.number().int().min(-2_147_483_648).max(2_147_483_647);
 /** Cost and suggested price stay within what a listing may charge, so every rule can sell it. */
 const productPriceCentsSchema = z
   .number()
@@ -83,7 +97,7 @@ export const adminProductValuesSchema = z.object({
   description: freeText().trim().max(20_000),
   costCents: productPriceCentsSchema,
   suggestedPriceCents: productPriceCentsSchema,
-  stock: postgresIntegerSchema,
+  stock: productStockSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
   mercadoLivreAttributes: z
@@ -102,7 +116,7 @@ export const adminSaveProductSchema = adminProductValuesSchema.extend({
   supplierId: z.uuid(),
   productId: z.uuid().optional(),
   /** The shelf count the edit form was opened with; sales may have moved it since. */
-  expectedStock: postgresIntegerSchema.optional(),
+  expectedStock: openedShelfCountSchema.optional(),
 });
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),
