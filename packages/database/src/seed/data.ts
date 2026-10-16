@@ -242,8 +242,17 @@ export const ADMIN_ACCOUNT = {
   email: "admin@sellbridge.local",
 } as const;
 
+/** A simulated shop; it sells a single supplier, as every shop does. */
+export interface SeedStore {
+  readonly externalShopId: string;
+  readonly shopName: string;
+  readonly supplierName: string;
+  /** "expired": the marketplace refused its token and the seller has to reconnect it. */
+  readonly status?: "connected" | "expired";
+}
+
 /** Each demo shop sells a single supplier, as every shop does. */
-export const DEMO_STORES = [
+export const DEMO_STORES: readonly SeedStore[] = [
   {
     externalShopId: "mock-shop-ana-moda",
     shopName: "Ana Moda (loja simulada)",
@@ -254,4 +263,4 @@ export const DEMO_STORES = [
     shopName: "Ana Casa & Beleza (loja simulada)",
     supplierName: "BH Beauty Distribuidora",
   },
-] as const;
+];
