@@ -1,5 +1,5 @@
 import { effectiveBillingPlan } from "@sellbridge/shared/billing";
-import { and, eq, count, ne } from "drizzle-orm";
+import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -36,6 +36,21 @@ export async function lockBillingTenant(database: DatabaseExecutor, tenantId: st
     .for("update");
 }
 
+/**
+ * Serializes opening a checkout per tenant with a transaction-scoped advisory lock. It holds no
+ * row, so publishing and connecting stores never wait on Stripe (item 16.a, N5). False when
+ * another checkout of the same tenant is still being opened.
+ */
+export async function tryLockBillingCheckout(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<boolean> {
+  const rows = await database.execute(
+    sql`select pg_try_advisory_xact_lock(hashtext(${`billing-checkout:${tenantId}`})) as locked`,
+  );
+  return rows[0]?.locked === true;
+}
+
 export async function saveBillingCustomer(
   database: DatabaseExecutor,
   tenantId: string,
@@ -64,7 +79,8 @@ export async function applyBillingEvent(
   database: DatabaseExecutor,
   input: {
     eventId: string;
-    eventCreated: number;
+    /** When the state was read from Stripe, in Unix milliseconds: the newest read wins. */
+    observedAt: number;
     customerId: string;
     subscriptionId: string;
     plan: string;
@@ -84,7 +100,7 @@ export async function applyBillingEvent(
     .values({ id: input.eventId })
     .onConflictDoNothing()
     .returning();
-  if (!event || account.lastEventCreated > input.eventCreated) return;
+  if (!event || account.lastEventCreated > input.observedAt) return;
   await database
     .update(billingAccounts)
     .set({
@@ -93,7 +109,7 @@ export async function applyBillingEvent(
       status: input.status,
       periodEnd: input.periodEnd,
       cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-      lastEventCreated: input.eventCreated,
+      lastEventCreated: input.observedAt,
     })
     .where(eq(billingAccounts.tenantId, account.tenantId));
 }
@@ -119,11 +135,11 @@ export async function assertBillingCapacity(
   }
 }
 
-export async function lockBillingCustomer(database: DatabaseExecutor, customerId: string) {
+/** The account bound to a Stripe customer, or null for customers outside this application. */
+export async function findBillingCustomer(database: DatabaseExecutor, customerId: string) {
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, customerId))
-    .for("update");
+    .where(eq(billingAccounts.customerId, customerId));
   return account ?? null;
 }

@@ -13,9 +13,18 @@ import {
   assertBillingCapacity,
   getBillingAccount,
   saveBillingCustomer,
+  tryLockBillingCheckout,
 } from "./billing.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
+/** A promise the test settles by hand, to hold a transaction open across concurrent calls. */
+function deferred() {
+  const settlers: { resolve: () => void } = { resolve: () => {} };
+  const promise = new Promise<void>((resolve) => {
+    settlers.resolve = resolve;
+  });
+  return { promise, resolve: () => settlers.resolve() };
+}
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
@@ -45,7 +54,7 @@ describe("tenant billing persistence", () => {
   it("deduplicates delivery and rejects older events", async () => {
     const input = {
       eventId,
-      eventCreated: 20,
+      observedAt: 20,
       customerId,
       subscriptionId: "sub_test",
       plan: "pro",
@@ -63,12 +72,46 @@ describe("tenant billing persistence", () => {
       applyBillingEvent(transaction, {
         ...input,
         eventId: oldId,
-        eventCreated: 10,
+        observedAt: 10,
         status: "canceled",
       }),
     );
     expect((await getBillingAccount(database, tenants.tenantA))?.status).toBe("active");
     await database.delete(billingEvents).where(eq(billingEvents.id, oldId));
+  });
+  // Regression (item 16.a, N5): checkout held the organization row lock while it waited on
+  // Stripe, so publishing and store connection stalled behind a payment page.
+  it("serializes checkout without blocking capacity checks", async () => {
+    const checkoutHeld = deferred();
+    const lockTaken = deferred();
+    const checkout = database.transaction(async (transaction) => {
+      const locked = await tryLockBillingCheckout(transaction, tenants.tenantA);
+      lockTaken.resolve();
+      await checkoutHeld.promise;
+      return locked;
+    });
+    await lockTaken.promise;
+    const second = await database.transaction(async (transaction) =>
+      tryLockBillingCheckout(transaction, tenants.tenantA),
+    );
+    const otherTenant = await database.transaction(async (transaction) =>
+      tryLockBillingCheckout(transaction, tenants.tenantB),
+    );
+    const capacity = async () => {
+      await database.transaction(async (transaction) =>
+        assertBillingCapacity(transaction, tenants.tenantA, "listings", 0),
+      );
+      return "checked";
+    };
+    const outcome = await Promise.race([
+      capacity(),
+      new Promise((resolve) => setTimeout(() => resolve("blocked"), 2_000)),
+    ]);
+    checkoutHeld.resolve();
+    expect(await checkout).toBe(true);
+    expect(second).toBe(false);
+    expect(otherTenant).toBe(true);
+    expect(outcome).toBe("checked");
   });
   it("enforces free store limits atomically across concurrent requests", async () => {
     const results = await Promise.allSettled(
@@ -166,16 +209,15 @@ describe("tenant billing persistence", () => {
     );
   });
 
-  // Last: it moves tenant A's newest event past 2038, so no earlier event applies after it.
-  // Regression: `last_event_created` was int4, and Stripe's `created` (Unix seconds) passes
-  // 2_147_483_647 on 2038-01-19, failing every webhook with "integer out of range".
-  it("stores a Stripe event created after 2038", async () => {
-    const eventCreated = 2_200_000_000;
+  // Last: it moves tenant A's newest observation past 2038, so no earlier state applies after it.
+  // Regression: `last_event_created` was int4; it now holds milliseconds, far past 2_147_483_647.
+  it("stores an observation time in milliseconds after 2038", async () => {
+    const observedAt = Date.UTC(2040, 0, 1);
     const lateEventId = `evt_${randomUUID()}`;
     await database.transaction(async (transaction) =>
       applyBillingEvent(transaction, {
         eventId: lateEventId,
-        eventCreated,
+        observedAt,
         customerId,
         subscriptionId: "sub_test",
         plan: "pro",
@@ -184,9 +226,7 @@ describe("tenant billing persistence", () => {
         cancelAtPeriodEnd: false,
       }),
     );
-    expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(
-      eventCreated,
-    );
+    expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(observedAt);
     await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
   });
 });
