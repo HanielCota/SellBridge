@@ -4,7 +4,7 @@ import { logger } from "@sellbridge/shared/logger";
 import type { Database } from "../client.ts";
 import { saveBillingHolder } from "../repositories/region.ts";
 import { recordTermsAcceptance } from "../repositories/terms-acceptances.ts";
-import { ensureAccount, type SeededAccount } from "./accounts.ts";
+import { ensureAccount, ensureExtraProfile, type SeededAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { seedAdminWorkspace, seedCustomers, seedStarterSupplierFromListings } from "./customers.ts";
 import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
@@ -15,6 +15,8 @@ import { seedSupportTickets } from "./support.ts";
 
 export const DEMO_ORGANIZATION_SLUG = "ana-revendedora-demo";
 export const ADMIN_ORGANIZATION_SLUG = "sellbridge-admin";
+/** The demo account's second seller profile, for the profile-per-tab checks. */
+export const DEMO_SECOND_PROFILE = { name: "Ana Acessórios", slug: "ana-acessorios-demo" } as const;
 
 export interface RunSeedOptions {
   readonly cipher: TokenCipher;
@@ -50,6 +52,7 @@ async function seedDemo(context: SeedContext): Promise<SeededAccount> {
     organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
   await saveBillingHolder(database, demo.tenantId, DEMO_ACCOUNT.holder);
+  await ensureExtraProfile(database, { userId: demo.userId, ...DEMO_SECOND_PROFILE });
   await recordTermsAcceptance(database, demo.userId, TERMS_VERSION);
   const sales = await seedDemoSales({
     database,
