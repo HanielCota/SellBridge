@@ -24,16 +24,30 @@ describe("isNonPublicAddress", () => {
     "64:ff9b::7f00:1",
     "2002:7f00:1::1",
     "::ffff:a9fe:a9fe",
+    // Regression: IPv4-translated loopback, site-local and Teredo reached the network.
+    "::ffff:0:7f00:1",
+    "fec0::1",
+    "2001::1",
+    "2001:1ff::1",
+    // Edges of the private IPv4 ranges.
+    "172.16.0.0",
+    "100.127.255.255",
   ])("refuses %s", (address) => {
     expect(isNonPublicAddress(address)).toBe(true);
   });
 
-  it.each(["8.8.8.8", "172.32.0.1", "100.128.0.1", "2606:4700:4700::1111", "::ffff:8.8.8.8"])(
-    "accepts %s",
-    (address) => {
-      expect(isNonPublicAddress(address)).toBe(false);
-    },
-  );
+  it.each([
+    "8.8.8.8",
+    "172.15.255.255",
+    "172.32.0.1",
+    "100.63.255.255",
+    "100.128.0.1",
+    "2606:4700:4700::1111",
+    "2001:4860:4860::8888",
+    "::ffff:8.8.8.8",
+  ])("accepts %s", (address) => {
+    expect(isNonPublicAddress(address)).toBe(false);
+  });
 
   it("treats host names as not an address", () => {
     expect(isNonPublicAddress("localhost")).toBe(false);

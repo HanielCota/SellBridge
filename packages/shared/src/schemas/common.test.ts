@@ -12,6 +12,13 @@ describe("free text", () => {
     expect(parsed.body).toBe("O pedido chegou aberto, veja a foto.");
   });
 
+  // Regression: a lone surrogate in an address reached the jsonb column and failed with a 500.
+  it("replaces a lone surrogate half, and keeps emoji whole", () => {
+    expect(freeText().parse("Jo\ud800")).toBe("Jo�");
+    expect(freeText().parse("\udc00x")).toBe("�x");
+    expect(freeText().parse("Rua 😀 10")).toBe("Rua 😀 10");
+  });
+
   it("stores an accent typed as two characters the same as the composed one", () => {
     expect(freeText().parse("CAFÉ")).toBe("CAFÉ");
   });
