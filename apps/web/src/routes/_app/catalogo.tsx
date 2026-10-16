@@ -315,6 +315,7 @@ function CatalogResults({ data }: { data: CatalogData }) {
       <BulkPublishDialog
         open={isPublishing}
         onOpenChange={setIsPublishing}
+        onBatchDone={selection.clear}
         products={[...selection.selected.values()]}
         stores={data.stores}
       />

@@ -3,6 +3,11 @@ import { freeText } from "./common.ts";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+/** Error code and message when a new password appears in known breaches (item 30.c). */
+export const PASSWORD_COMPROMISED_CODE = "PASSWORD_COMPROMISED";
+export const PASSWORD_COMPROMISED_MESSAGE =
+  "Essa senha já apareceu em vazamentos de dados na internet. Escolha outra.";
+
 export const MAX_NAME_LENGTH = 100;
 
 /**

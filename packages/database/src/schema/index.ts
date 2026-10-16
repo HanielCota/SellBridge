@@ -14,3 +14,4 @@ export * from "./public-api.ts";
 export * from "./admin.ts";
 export * from "./fulfillment.ts";
 export * from "./billing.ts";
+export * from "./terms.ts";

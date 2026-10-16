@@ -1,14 +1,8 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
-import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
-import { CaretDownIcon, MinusIcon, PlusIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import type { PriceRule } from "@sellbridge/shared/schemas";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { displayStoreName } from "@/features/stores/store-name";
-import { MarketplaceMark } from "@/components/stores/marketplace-mark";
-import { PriceReceipt } from "./price-receipt";
-import { skippedSummary } from "@/features/catalog/bulk-skip-reasons";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -20,434 +14,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { publishProductsInBulk } from "@/features/catalog/catalog.functions";
-import {
-  MARKUP_RANGE_MESSAGE,
-  parseMarkupPercent,
-  usePriceOverrides,
-  usePriceRuleDraft,
-} from "@/features/catalog/use-price-rule-draft";
+import { usePriceOverrides, usePriceRuleDraft } from "@/features/catalog/use-price-rule-draft";
 import { errorMessage } from "@/lib/errors";
-import { cn } from "@/lib/utils";
+import { PriceRulePicker } from "./bulk-price-rule-picker";
+import { BulkPublishResult, type PublishedBatch } from "./bulk-publish-result";
+import { pluralize } from "./bulk-publish-parts";
+import { NoStores } from "./bulk-publish-stores";
+import { type PublishStore, StorePicker, storesForProducts } from "./bulk-store-picker";
 
-export interface PublishStore {
-  id: string;
-  shopName: string;
-  marketplace: string;
-  /** Each store sells a single supplier; null while the seller has not picked one. */
-  supplierId: string | null;
-}
+export type { PublishStore } from "./bulk-store-picker";
 
-/** Stores that sell the supplier of every chosen product; none when they come from several. */
-function storesForProducts(
-  products: readonly SellableCatalogProduct[],
-  stores: readonly PublishStore[],
-): PublishStore[] {
-  const supplierIds = new Set(products.map((product) => product.supplierId));
-  const [only] = supplierIds;
-  if (supplierIds.size !== 1 || only === undefined) {
-    return [];
-  }
-  return stores.filter((store) => store.supplierId === only);
-}
-
-const MARKUP_STEP = 5;
-
-function pluralize(count: number, one: string, other: string): string {
-  return `${count} ${count === 1 ? one : other}`;
-}
-
-/** An inset group of rows under a caption, like iOS settings. */
-function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <fieldset className="min-w-0">
-      <legend className="mb-1.5 px-3.5 text-xs text-muted-foreground">{title}</legend>
-      <div className="divide-y divide-border overflow-hidden rounded-2xl bg-muted/60">
-        {children}
-      </div>
-    </fieldset>
-  );
-}
-
-/** "Loja Lote" when one store is on, "3 de 5 lojas" otherwise. */
-function storeSummary(chosen: PublishStore[], stores: PublishStore[]): string {
-  const [only] = chosen;
-  if (chosen.length === 1 && only) {
-    return displayStoreName(only.shopName);
-  }
-  if (chosen.length === 0) {
-    return "Nenhuma loja escolhida";
-  }
-  return `${chosen.length} de ${pluralize(stores.length, "loja", "lojas")}`;
-}
-
-function StorePicker({
-  stores,
-  selected,
-  onChange,
-}: {
-  stores: PublishStore[];
-  selected: ReadonlySet<string>;
-  onChange: (next: Set<string>) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const chosen = stores.filter((store) => selected.has(store.id));
-  const toggle = (storeId: string, on: boolean) => {
-    const next = new Set(selected);
-    if (on) {
-      next.add(storeId);
-    }
-    if (!on) {
-      next.delete(storeId);
-    }
-    onChange(next);
-  };
-  return (
-    <SettingsGroup title="Onde publicar">
-      <StoreSummaryRow
-        chosen={chosen}
-        stores={stores}
-        expanded={expanded}
-        onToggle={() => setExpanded(!expanded)}
-      />
-      {expanded
-        ? stores.map((store) => (
-            <StoreSwitchRow
-              key={store.id}
-              store={store}
-              checked={selected.has(store.id)}
-              onCheckedChange={(on) => toggle(store.id, on)}
-            />
-          ))
-        : null}
-    </SettingsGroup>
-  );
-}
-
-/** Collapsed view of the store choice: stacked logos, a count and the toggle. */
-function StoreSummaryRow({
-  chosen,
-  stores,
-  expanded,
-  onToggle,
-}: {
-  chosen: PublishStore[];
-  stores: PublishStore[];
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-expanded={expanded}
-      onClick={onToggle}
-      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
-    >
-      <span className="flex shrink-0" aria-hidden="true">
-        {chosen.slice(0, 3).map((store) => (
-          <MarketplaceMark
-            key={store.id}
-            marketplace={store.marketplace}
-            className="-ml-2 size-7 rounded-lg ring-2 ring-popover first:ml-0"
-          />
-        ))}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm">{storeSummary(chosen, stores)}</span>
-      <span className="flex items-center gap-1 text-sm font-medium text-brand-text">
-        {expanded ? "Fechar" : "Escolher"}
-        <CaretDownIcon
-          className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
-          aria-hidden="true"
-        />
-      </span>
-    </button>
-  );
-}
-
-function StoreSwitchRow({
-  store,
-  checked,
-  onCheckedChange,
-}: {
-  store: PublishStore;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-muted">
-      <MarketplaceMark marketplace={store.marketplace} className="size-8 rounded-lg" />
-      <span className="min-w-0 flex-1 truncate text-sm">{displayStoreName(store.shopName)}</span>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </label>
-  );
-}
-
-const RULE_OPTIONS: { kind: PriceRule["kind"]; label: string }[] = [
-  { kind: "markup", label: "Custo + margem" },
-  { kind: "suggested", label: "Sugerido pelo fornecedor" },
-];
-
-/** Segmented control cut out of a muted track, like the period filter. */
-function RuleSegments({
-  kind,
-  onKindChange,
-}: {
-  kind: PriceRule["kind"];
-  onKindChange: (kind: PriceRule["kind"]) => void;
-}) {
-  return (
-    <div className="p-2">
-      <div className="flex h-9 items-center gap-0.5 rounded-full bg-muted p-1">
-        {RULE_OPTIONS.map((option) => (
-          <label
-            key={option.kind}
-            className={cn(
-              "flex h-7 flex-1 cursor-pointer items-center justify-center rounded-full px-3 text-xs font-medium whitespace-nowrap text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground",
-              "has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm has-checked:ring-1 has-checked:ring-border",
-              "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-            )}
-          >
-            <input
-              type="radio"
-              name="price-rule"
-              checked={kind === option.kind}
-              onChange={() => onKindChange(option.kind)}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function clampMarkup(percent: number): number {
-  return Math.min(MAX_MARKUP_PERCENT, Math.max(MIN_MARKUP_PERCENT, percent));
-}
-
-/**
- * Minus, typed percentage and plus in one pill, stepping by 5 within the allowed range. The
- * buttons are named after `stepNoun`, not `label`, so a label lookup finds only the input.
- */
-function PercentStepper({
-  label,
-  stepNoun,
-  percent,
-  onPercentChange,
-}: {
-  label: string;
-  stepNoun: string;
-  percent: string;
-  onPercentChange: (percent: string) => void;
-}) {
-  const current = Number.parseInt(percent, 10) || 0;
-  const step = (delta: number) => onPercentChange(String(clampMarkup(current + delta)));
-  return (
-    <div className="flex shrink-0 items-center rounded-full bg-muted p-0.5">
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Diminuir ${stepNoun}`}
-        disabled={current <= MIN_MARKUP_PERCENT}
-        onClick={() => step(-MARKUP_STEP)}
-      >
-        <MinusIcon aria-hidden="true" />
-      </Button>
-      <span className="flex items-center rounded-md text-sm font-medium tabular-nums has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
-        <input
-          aria-label={label}
-          inputMode="numeric"
-          value={percent}
-          onChange={(event) => onPercentChange(event.target.value.replace(/\D/g, ""))}
-          // 17px on phones: iOS zooms into any field under 16px when it gets focus.
-          className="w-9 rounded-md bg-transparent text-right text-body outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:w-8 sm:text-sm"
-        />
-        %
-      </span>
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Aumentar ${stepNoun}`}
-        disabled={current >= MAX_MARKUP_PERCENT}
-        onClick={() => step(MARKUP_STEP)}
-      >
-        <PlusIcon aria-hidden="true" />
-      </Button>
-    </div>
-  );
-}
-
-function MarkupStepper({
-  percent,
-  onPercentChange,
-  percentValid,
-  hint,
-}: {
-  percent: string;
-  onPercentChange: (percent: string) => void;
-  percentValid: boolean;
-  hint: string;
-}) {
-  return (
-    <div className="space-y-1 px-3.5 py-2.5">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm">Acréscimo sobre o custo</p>
-          <p className="text-xs text-muted-foreground">{hint}</p>
-        </div>
-        <PercentStepper
-          label="Acréscimo sobre o custo"
-          stepNoun="acréscimo"
-          percent={percent}
-          onPercentChange={onPercentChange}
-        />
-      </div>
-      {percentValid ? null : <p className="text-xs text-destructive">{MARKUP_RANGE_MESSAGE}</p>}
-    </div>
-  );
-}
-
-/**
- * Lets the product on screen leave the shared markup. Collapsed it is one quiet link; once
- * used it shows its own stepper and the shared value it replaced.
- */
-function ProductMarkupAdjust({
-  sharedPercent,
-  percent,
-  onPercentChange,
-  onReset,
-}: {
-  sharedPercent: string;
-  percent: string | undefined;
-  onPercentChange: (percent: string) => void;
-  onReset: () => void;
-}) {
-  if (percent === undefined) {
-    return (
-      <button
-        type="button"
-        onClick={() => onPercentChange(sharedPercent)}
-        className="flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <SlidersHorizontalIcon className="size-3.5" aria-hidden="true" />
-        Usar outra margem neste produto
-      </button>
-    );
-  }
-  const valid = parseMarkupPercent(percent) !== null;
-  return (
-    <div className="space-y-1 rounded-xl bg-background/60 px-3 py-2 ring-1 ring-border">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm">Margem deste produto</p>
-          <p className="text-xs text-muted-foreground">
-            Padrão {sharedPercent}% ·{" "}
-            <button
-              type="button"
-              onClick={onReset}
-              className="rounded-sm underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              Voltar ao padrão
-            </button>
-          </p>
-        </div>
-        <PercentStepper
-          label="Acréscimo deste produto"
-          stepNoun="margem do produto"
-          percent={percent}
-          onPercentChange={onPercentChange}
-        />
-      </div>
-      {valid ? null : <p className="text-xs text-destructive">{MARKUP_RANGE_MESSAGE}</p>}
-    </div>
-  );
-}
-
-/** "Arredondado para ,90", or how many products still follow the shared markup. */
-function markupHint(total: number, adjusted: number): string {
-  if (adjusted === 0) {
-    return "Arredondado para ,90";
-  }
-  return `Vale para ${total - adjusted} de ${total} · arredondado para ,90`;
-}
-
-function PriceRulePicker({
-  products,
-  draft,
-  overrides,
-}: {
-  products: SellableCatalogProduct[];
-  draft: ReturnType<typeof usePriceRuleDraft>;
-  overrides: ReturnType<typeof usePriceOverrides>;
-}) {
-  const isMarkup = draft.kind === "markup";
-  const ruleFor = (product: SellableCatalogProduct) =>
-    (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule;
-  // The markup the preview really applies: a half-typed shared value falls back to the default.
-  const sharedPercent = draft.rule.kind === "markup" ? String(draft.rule.percent) : draft.percent;
-  const adjust = (product: SellableCatalogProduct) => (
-    <ProductMarkupAdjust
-      sharedPercent={sharedPercent}
-      percent={overrides.percentFor(product.id)}
-      onPercentChange={(percent) => overrides.setPercent(product.id, percent)}
-      onReset={() => overrides.clear(product.id)}
-    />
-  );
-  return (
-    <SettingsGroup title="Preço de venda">
-      <RuleSegments kind={draft.kind} onKindChange={draft.setKind} />
-      {isMarkup ? (
-        <MarkupStepper
-          percent={draft.percent}
-          onPercentChange={draft.setPercent}
-          percentValid={draft.percentValid}
-          hint={markupHint(products.length, overrides.count)}
-        />
-      ) : null}
-      <PriceReceipt
-        products={products}
-        ruleFor={ruleFor}
-        adjust={isMarkup && products.length > 1 ? adjust : undefined}
-      />
-    </SettingsGroup>
-  );
-}
-
-function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
-  if (new Set(products.map((product) => product.supplierId)).size > 1) {
-    return "Os produtos escolhidos são de fornecedores diferentes, e cada loja vende um único fornecedor. Selecione produtos de um fornecedor por vez.";
-  }
-  if (hasStores) {
-    return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";
-  }
-  return "Conecte uma loja antes de publicar.";
-}
-
-function NoStores({
-  products,
-  hasStores,
-}: {
-  products: readonly SellableCatalogProduct[];
-  hasStores: boolean;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <p>{noStoresMessage(products, hasStores)}</p>
-      <Button asChild size="sm">
-        <Link to="/lojas" hash="adicionar-loja">
-          Conectar loja
-        </Link>
-      </Button>
-    </div>
-  );
-}
-
-function useBulkPublish(onDone: () => void) {
-  const navigate = useNavigate();
+function useBulkPublish(onPublished: (batch: PublishedBatch) => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: {
@@ -456,19 +34,15 @@ function useBulkPublish(onDone: () => void) {
       priceRule: PriceRule;
       priceOverrides: Record<string, PriceRule>;
     }) => publishProductsInBulk({ data: input }),
-    onSuccess: async ({ published, skipped }) => {
-      const skippedNote = skipped.length > 0 ? ` · fora: ${skippedSummary(skipped)}` : "";
-      toast.success(
-        `${published} ${published === 1 ? "produto enviado" : "produtos enviados"} para publicação${skippedNote}`,
-      );
-      onDone();
+    // The dialog stays open on the batch's progress and honest result (item 14.c).
+    onSuccess: async ({ skipped, targetIds }) => {
+      onPublished({ targetIds, skipped });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
         queryClient.invalidateQueries({ queryKey: ["sellable-catalog"] }),
         // The page it opens next lists them: a cached list from 30 s ago would not.
         queryClient.invalidateQueries({ queryKey: ["listings"] }),
       ]);
-      await navigate({ to: "/publicacoes" });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -512,18 +86,18 @@ function FloorProblem({ problem }: { problem: string | null }) {
 function BulkPublishForm({
   products,
   stores,
-  onDone,
+  onPublished,
 }: {
   products: SellableCatalogProduct[];
   stores: PublishStore[];
-  onDone: () => void;
+  onPublished: (batch: PublishedBatch) => void;
 }) {
   const [storeIds, setStoreIds] = useState<ReadonlySet<string>>(
     new Set(stores.map((store) => store.id)),
   );
   const draft = usePriceRuleDraft();
   const overrides = usePriceOverrides();
-  const mutation = useBulkPublish(onDone);
+  const mutation = useBulkPublish(onPublished);
   const isMarkup = draft.kind === "markup";
   const adjusted = isMarkup ? overrides.count : 0;
   const floorProblem = useBatchFloorProblem(products, draft, overrides);
@@ -579,21 +153,41 @@ function selectionSummary(products: SellableCatalogProduct[]): string {
   return `${named.join(", ")} e mais ${rest}`;
 }
 
-/** Publishes the selected catalog products to the chosen stores with one price rule. */
+/**
+ * Publishes the selected catalog products to the chosen stores with one price rule, then stays
+ * on the batch's progress and result. Closing after a batch went out calls `onBatchDone` (the
+ * catalog clears its selection) and the next opening starts on the form again.
+ */
 export function BulkPublishDialog({
   open,
   onOpenChange,
+  onBatchDone,
   products,
   stores,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onBatchDone?: () => void;
   products: SellableCatalogProduct[];
   stores: PublishStore[];
 }) {
+  const [batch, setBatch] = useState<PublishedBatch | null>(null);
   const eligible = storesForProducts(products, stores);
+  const changeOpen = (next: boolean) => {
+    if (!next && batch !== null) {
+      setBatch(null);
+      onBatchDone?.();
+    }
+    onOpenChange(next);
+  };
+  const body =
+    batch === null ? (
+      <BulkPublishForm products={products} stores={eligible} onPublished={setBatch} />
+    ) : (
+      <BulkPublishResult batch={batch} onClose={() => changeOpen(false)} />
+    );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-md">
         <DialogHeader className="gap-1 pr-8">
           <DialogTitle className="text-xl font-semibold tracking-tight">
@@ -601,16 +195,11 @@ export function BulkPublishDialog({
           </DialogTitle>
           <DialogDescription className="truncate">{selectionSummary(products)}</DialogDescription>
         </DialogHeader>
-        {eligible.length === 0 ? (
+        {/* A batch already out keeps its result even if the stores list changes meanwhile. */}
+        {eligible.length === 0 && batch === null ? (
           <NoStores products={products} hasStores={stores.length > 0} />
         ) : (
-          open && (
-            <BulkPublishForm
-              products={products}
-              stores={eligible}
-              onDone={() => onOpenChange(false)}
-            />
-          )
+          open && body
         )}
       </DialogContent>
     </Dialog>

@@ -5,6 +5,8 @@ import {
   countStaffQueues,
   countUnreadSupportReplies,
   getSupportMetrics,
+  describeTicketAbout,
+  getTicketSubject,
   getTicketThread,
   linkTicketOrder,
   listLinkableOrders,
@@ -96,15 +98,17 @@ export const getMyTicket = createServerFn({ method: "GET" })
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     const thread = await getTicketThread(database, data.ticketId, context.tenantId);
-    const [orders, followers] = await Promise.all([
+    const [orders, followers, subject] = await Promise.all([
       listTicketOrders(database, thread.ticket.id),
       listTicketFollowers(database, thread.ticket.id),
+      getTicketSubject(database, thread.ticket.id),
     ]);
     const me = followers.find((follower) => follower.userId === context.userId);
     return {
       ...thread,
       orders,
       followers,
+      subject,
       viewerId: context.userId,
       notifyMe: me?.notify ?? false,
     };
@@ -256,9 +260,11 @@ export const staffGetTicket = createServerFn({ method: "GET" })
       ),
       listTicketOrders(database, thread.ticket.id),
     ]);
+    const subject = await getTicketSubject(database, thread.ticket.id);
     return {
       ...thread,
       orders,
+      subject,
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),
@@ -351,3 +357,15 @@ export const staffSupportMetrics = createServerFn({ method: "GET" })
     const since = new Date(now.getTime() - data.days * DAY_MILLISECONDS);
     return getSupportMetrics(database, { since, now });
   });
+
+const ticketAboutPreviewInput = z.object({
+  orderId: z.uuid().optional(),
+  storeConnectionId: z.uuid().optional(),
+  listingId: z.uuid().optional(),
+});
+
+/** Names of what a new ticket will be about, from the screen that opened the form. */
+export const getTicketAboutPreview = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .validator(ticketAboutPreviewInput)
+  .handler(async ({ context, data }) => describeTicketAbout(database, context.tenantId, data));

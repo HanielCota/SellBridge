@@ -16,6 +16,11 @@ import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { CopyButton } from "@/components/integrations/copy-button";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { OrderLinkPicker } from "@/components/support/order-link-picker";
+import {
+  hasTicketSubject,
+  TicketSubjectList,
+  type TicketSubjectLabels,
+} from "@/components/support/ticket-subject";
 import { Button } from "@/components/ui/button";
 import { formatDeadline } from "@/features/support/response-time";
 import { unlinkMyTicketOrder } from "@/features/support/support.functions";
@@ -225,16 +230,32 @@ function LinkedOrders({ ticketId, orders }: { ticketId: string; orders: readonly
   );
 }
 
-/** For the support team: the orders the reseller linked, read-only; nothing when none. */
-export function LinkedOrdersCard({ orders }: { orders: readonly LinkedOrder[] }) {
-  if (orders.length === 0) {
+/**
+ * For the support team: the store and listing the ticket is about and the orders the reseller
+ * linked, read-only; nothing when there is none.
+ */
+export function LinkedOrdersCard({
+  orders,
+  subject,
+}: {
+  orders: readonly LinkedOrder[];
+  subject: TicketSubjectLabels;
+}) {
+  if (orders.length === 0 && !hasTicketSubject(subject)) {
     return null;
   }
   return (
-    <section className="surface-card rounded-3xl bg-card p-5">
-      <PanelSection title="Pedidos vinculados">
-        <LinkedOrderList orders={orders} />
-      </PanelSection>
+    <section className="surface-card space-y-5 rounded-3xl bg-card p-5">
+      {hasTicketSubject(subject) ? (
+        <PanelSection title="Sobre">
+          <TicketSubjectList subject={subject} />
+        </PanelSection>
+      ) : null}
+      {orders.length === 0 ? null : (
+        <PanelSection title="Pedidos vinculados">
+          <LinkedOrderList orders={orders} />
+        </PanelSection>
+      )}
     </section>
   );
 }
@@ -278,10 +299,12 @@ export function TicketContextPanel({
   ticket,
   orders,
   followers,
+  subject,
 }: {
   ticket: PanelTicket;
   orders: readonly LinkedOrder[];
   followers: readonly TicketFollower[];
+  subject: TicketSubjectLabels;
 }) {
   return (
     <aside className="space-y-4 lg:sticky lg:top-24" aria-label="Sobre o chamado">
@@ -311,6 +334,11 @@ export function TicketContextPanel({
       </div>
       <AutoCloseNotice ticket={ticket} />
       <div className="surface-card space-y-5 rounded-3xl bg-card p-5">
+        {hasTicketSubject(subject) ? (
+          <PanelSection title="Sobre">
+            <TicketSubjectList subject={subject} />
+          </PanelSection>
+        ) : null}
         <LinkedOrders ticketId={ticket.id} orders={orders} />
         <Followers followers={followers} />
       </div>

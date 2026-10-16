@@ -1,4 +1,5 @@
 import {
+  getPublishBatchStatus,
   getSellableProducts,
   listActiveSuppliers,
   listSellableCatalog,
@@ -8,7 +9,9 @@ import {
 import { type BulkPublishSkip, planBulkPublish } from "@sellbridge/shared/bulk-publish-plan";
 import { validationError } from "@sellbridge/shared/errors";
 import { assertBatchKeepsMargin } from "@sellbridge/shared/fee-model";
+import { estimatePublishProgress } from "@sellbridge/shared/publish-progress";
 import {
+  bulkPublishProgressSchema,
   bulkPublishSchema,
   listingPriceCentsSchema,
   priceForRule,
@@ -126,6 +129,26 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       }),
       feeScheduleFrom(environment),
     );
-    await publishListings(context.tenantId, drafts, storeIds);
-    return { published: drafts.length, skipped: plan.skipped };
+    const targetIds = await publishListings(context.tenantId, drafts, storeIds);
+    return { published: drafts.length, skipped: plan.skipped, targetIds };
+  });
+
+/** Where the marketplace jobs of a bulk publication stand, with the time left (item 14.b). */
+export const getBulkPublishProgress = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .validator(bulkPublishProgressSchema)
+  .handler(async ({ context, data }) => {
+    const status = await getPublishBatchStatus(database, context.tenantId, data.targetIds);
+    const progress = estimatePublishProgress({
+      total: status.total,
+      finished: status.published + status.failed,
+      startedAt: status.startedAt,
+      lastFinishedAt: status.lastFinishedAt,
+    });
+    return {
+      published: status.published,
+      failed: status.failed,
+      pending: status.pending,
+      progress,
+    };
   });

@@ -10,6 +10,7 @@ export const NOTIFICATION_EVENTS = [
   "store_expired",
   "listing_failed",
   "support_reply",
+  "ticket_created",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -18,6 +19,8 @@ export function isNotificationEvent(value: string): value is NotificationEventNa
 }
 
 interface EventDefinition {
+  /** Who it is for: the reseller's workspace, or the SellBridge support team. */
+  audience: "reseller" | "staff";
   label: string;
   description: string;
   /** What each channel does when the person never chose; absent = the channel can't carry it. */
@@ -31,34 +34,47 @@ interface EventDefinition {
  */
 export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, EventDefinition> = {
   sale_paid: {
+    audience: "reseller",
     label: "Venda paga",
     description: "Um pedido foi pago e precisa ser encaminhado ao fornecedor.",
     defaults: { in_app: true, email: true, push: true },
   },
   shipment_late: {
+    audience: "reseller",
     label: "Envio atrasado",
     description: "Um pacote passou do prazo de despacho ou de entrega.",
     defaults: { in_app: true, email: true, push: true },
   },
   order_delivered: {
+    audience: "reseller",
     label: "Pedido entregue",
     description: "O comprador recebeu o pedido.",
     defaults: { email: false, push: false },
   },
   store_expired: {
+    audience: "reseller",
     label: "Loja desconectada",
     description: "O acesso a uma loja expirou e pedidos e estoque pararam.",
     defaults: { in_app: true, email: true, push: true },
   },
   listing_failed: {
+    audience: "reseller",
     label: "Erro de publicação",
     description: "O marketplace recusou um anúncio.",
     defaults: { in_app: true, email: true, push: false },
   },
   support_reply: {
+    audience: "reseller",
     label: "Resposta do suporte",
     description: "A equipe respondeu um chamado seu.",
     defaults: { in_app: true, email: true, push: true },
+  },
+  // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
+  ticket_created: {
+    audience: "staff",
+    label: "Chamado novo",
+    description: "Um lojista abriu um chamado.",
+    defaults: { email: true },
   },
 };
 
@@ -211,5 +227,28 @@ export function supportReplyContent(reply: SupportReplyNotice): NotificationCont
     actionLabel: "Ler a resposta",
     actionPath: `/suporte/${reply.ticketId}`,
     footnote: FOOTNOTE,
+  };
+}
+
+export interface NewTicketNotice {
+  ticketId: string;
+  subject: string;
+  storeName: string;
+  categoryLabel: string;
+}
+
+/** For the support team; the message itself stays in the app (it may carry account details). */
+export function newTicketContent(ticket: NewTicketNotice): NotificationContent {
+  return {
+    subject: `Chamado novo: ${ticket.subject}`,
+    preview: `${ticket.storeName} · ${ticket.categoryLabel}`,
+    heading: "Chegou um chamado novo",
+    paragraphs: [
+      `${ticket.storeName} abriu um chamado sobre ${ticket.categoryLabel.toLowerCase()}: "${ticket.subject}".`,
+      "Assuma o chamado na fila para o lojista saber que alguém está cuidando.",
+    ],
+    actionLabel: "Abrir o chamado",
+    actionPath: `/admin/chamados/${ticket.ticketId}`,
+    footnote: "Você recebe este aviso por fazer parte da equipe de suporte do SellBridge.",
   };
 }

@@ -314,10 +314,15 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await expect(dialog.getByText(/,90$/).filter({ visible: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
+  // The dialog follows the batch to its end instead of leaving the reseller guessing.
+  await expect(dialog.getByRole("progressbar", { name: "Andamento da publicação" })).toBeVisible();
+  await expect(dialog.getByText("2 de 2 · 100%")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await expect(dialog.getByText("concluído")).toBeVisible();
+  await expect(dialog.getByText("Tudo no ar")).toBeVisible();
+  await expect(dialog.getByText("2 anúncios no ar")).toBeVisible();
+  await dialog.getByRole("button", { name: "Ver publicações" }).click();
+
   await expect(page).toHaveURL(/\/publicacoes/);
-  await expect(
-    page.getByText("2 produtos enviados para publicação").filter({ visible: true }),
-  ).toBeVisible();
   await expect(cardStatus(page, "No ar na Loja Lote")).toHaveCount(2, {
     timeout: STATUS_TIMEOUT,
   });
@@ -367,6 +372,8 @@ test("publica em lote com margem própria para um dos produtos", async ({ page }
   await dialog.getByLabel("Acréscimo deste produto").fill("150");
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
+  await expect(dialog.getByText("2 anúncios no ar")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await dialog.getByRole("button", { name: "Ver publicações" }).click();
   await expect(page).toHaveURL(/\/publicacoes/);
   await expect(cardStatus(page, "No ar na Loja Margem")).toHaveCount(2, {
     timeout: STATUS_TIMEOUT,

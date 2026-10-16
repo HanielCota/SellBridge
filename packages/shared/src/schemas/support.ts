@@ -71,7 +71,25 @@ export const createTicketSchema = z.object({
 export const newTicketSearchSchema = z.object({
   categoria: optionalParameter(ticketCategorySchema),
   assunto: optionalParameter(freeText().trim().max(120)),
+  /** The order, store or listing the ticket is about (item 27.a); checked against the account. */
+  pedido: optionalParameter(z.uuid()),
+  loja: optionalParameter(z.uuid()),
+  anuncio: optionalParameter(z.uuid()),
 });
+
+/** An optional id from the new-ticket form: empty means nothing linked, anything else a uuid. */
+const optionalFormId = z
+  .string()
+  .optional()
+  .transform((value) => (value === undefined || value === "" ? undefined : value))
+  .pipe(z.uuid({ error: "Vínculo do chamado inválido" }).optional());
+
+export const ticketAboutSchema = z.object({
+  orderId: optionalFormId,
+  storeConnectionId: optionalFormId,
+  listingId: optionalFormId,
+});
+export type TicketAboutInput = z.infer<typeof ticketAboutSchema>;
 export type NewTicketSearch = z.infer<typeof newTicketSearchSchema>;
 
 export const replyTicketSchema = z.object({ body: ticketBodySchema });
