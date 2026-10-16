@@ -571,3 +571,9 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Não é notícia:** venda paga ou entregue com mais de 24 h (a importação de uma loja nova não manda 400 e-mails) e atraso que começou há mais de 3 dias. Um aviso com texto inválido é descartado com log e nunca desfaz o pedido, a loja ou o anúncio.
 - **Preferências** por pessoa (não por loja), evento e canal, em `notification_preferences`; sem linha vale o padrão do evento. Perfil › Notificações tem "No app" e "E-mail". Desligar "No app" esconde aquele tipo do sino e da contagem.
 - **Fase 2:** WhatsApp e telefone com consentimento (D9), provedor de push.
+
+## 2026-10-16: E-mail confirmado antes de uma loja nova (item 26.b, chat D)
+
+- O cadastro manda o link de confirmação (`sendOnSignUp: true`); quem entra pelo Google já chega confirmado.
+- **Loja nova** só é salva com o e-mail de quem conecta confirmado: sem isso, a volta do OAuth leva a `/lojas?erro=email_not_verified` ("Confirme seu e-mail antes de conectar uma loja nova…"). **Reconectar** uma loja que a conta já tem (não desconectada) nunca espera a confirmação, para não travar contas antigas.
+- O guia de configuração ganhou a etapa "Confirme seu e-mail" (antes de "Conecte uma loja"), com "Reenviar e-mail"; conta que já tem loja passa direto por ela.

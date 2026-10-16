@@ -4,9 +4,9 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 26.b
-- Última etapa concluída: 26.c commitado
-- Próximo passo: 26.b (e-mail verificado antes de conectar loja)
+- Item/parte: 26.a
+- Última etapa concluída: 26.b commitado
+- Próximo passo: 26.a (senha da migration, dados da conta e aceite de termos)
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: ⏸A aprovado em 2026-10-16 como proposto: cota por loja de destino (registrar como D10), carência padrão de 7 dias, aceite de termos cobrado também dos usuários atuais; ordem 16.a → 16.b → 26.c → 26.b → 26.a → 31.a
 - Pendências: —
@@ -17,7 +17,7 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 | ------------------------- | ------------------------ | ---------- |
 | Última migration (branch) | 0031_boundary_checks     | 2026-10-16 |
 | Branch de trabalho        | `claude/client-d-a03fb7` | 2026-10-16 |
-| Testes (`pnpm test`)      | 1596 passando            | 2026-10-16 |
+| Testes (`pnpm test`)      | 1631 passando            | 2026-10-16 |
 
 ## Situação dos itens
 
@@ -26,12 +26,13 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado ·
 | Item | Título                                 | Situação | Commit            | Notas                                                          |
 | ---- | -------------------------------------- | -------- | ----------------- | -------------------------------------------------------------- |
 | 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                              |
-| 26   | Onboarding previsível e conta completa | ⬜       | —                 | 26.a ⬜ · 26.b ⬜ · 26.c ✅                                    |
+| 26   | Onboarding previsível e conta completa | ⬜       | —                 | 26.a ⬜ · 26.b ✅ · 26.c ✅ 50e66ec                            |
 | 31   | Planos como no PDF                     | ⬜       | —                 | 31.a ⬜ (flag desligada, D10) · 31.b ⏭ fase 2                  |
 | 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2 |
 
 ## Refinar depois
 
+- 26.b: a loja nova só é recusada na volta do marketplace (o usuário passa pelo consentimento antes); bloquear já no início quando a conta não tem loja nenhuma.
 - Tempos estimados das etapas do onboarding (1, 2, 3 e 5 min) são palpites do 26.c; medir com usuários reais e ajustar `estimatedMinutes`.
 - Painel "Precisa de você" mostra "Tudo em dia" enquanto as consultas carregam (já era assim; entra com o U-2, skeletons).
 - Assinatura cancelada pelo Stripe depois das tentativas de cobrança não ganha aviso (`billingNotice` cobre `past_due` e `unpaid`).
