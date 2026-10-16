@@ -597,3 +597,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - Cadastro, troca, redefinição e criação de senha recusam uma senha nova que aparece em vazamentos conhecidos (Have I Been Pwned), com a mensagem "Essa senha já apareceu em vazamentos de dados na internet. Escolha outra." Só os 5 primeiros caracteres do SHA-1 saem do servidor (k-anonimidade, com padding).
 - Se o serviço falha ou demora mais de 3 s, a senha passa e a falha vai para o log (decisão do ⏸A). Por isso não usamos o plugin `haveIBeenPwned` do Better Auth: ele bloqueia o cadastro quando o serviço cai e não tem tempo limite.
 - `LEAKED_PASSWORD_CHECK` (`auto`, `on`, `off`; padrão `auto` = só em produção), para os testes e o desenvolvimento local nunca dependerem do serviço externo.
+
+## 2026-10-16: Progresso da publicação em massa (item 14.b)
+
+- **Estimativa pelo ritmo, não pela duração:** o tempo restante é o intervalo médio entre jobs concluídos vezes o que falta. O worker publica vários ao mesmo tempo, então somar a duração de cada job prometeria bem mais tempo do que resta. Sem nenhum concluído, a tela diz "calculando o tempo restante…".
+- **100% só no fim:** a porcentagem é arredondada para baixo (199 de 200 = 99%).
+- **Falha conta como terminada só quando é definitiva:** a falha que o worker ainda vai tentar de novo fica como pendente, e a barra não para antes da hora.
+- **Sem migration:** o andamento sai de `listing_targets` (`status`, `createdAt`, `publishedAt`, `updatedAt`), pelos ids que a publicação em massa devolve.
