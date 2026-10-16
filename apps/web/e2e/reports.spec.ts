@@ -62,6 +62,24 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza (loja simulada)")).toHaveCount(0);
   });
 
+  // Regression: one day drew a single daily bucket, two lone dots instead of a line.
+  test("Hoje mostra o dia hora a hora, comparado com o dia anterior", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard");
+    await page.locator("label", { hasText: "Hoje" }).click();
+    await expect(page.getByRole("radio", { name: "Hoje" })).toBeChecked();
+    await expect(page).toHaveURL(/period=today/);
+    await expect(page.getByText(/· comparado com o dia anterior/)).toBeVisible();
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.getByText("0h", { exact: true })).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+    // A line joins the hours: an area path with more than its starting point.
+    await expect(chart.locator(".recharts-area-curve").first()).toHaveAttribute("d", /L|C/);
+  });
+
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");

@@ -9,8 +9,10 @@ import {
   profitMargin,
   trendOf,
 } from "@/features/reports/dashboard-insights";
+import type { TimeBucket } from "@sellbridge/shared/period-range";
 import {
   firstDayWithin,
+  formatAxisDate,
   formatPointDate,
   type MetricPoint,
 } from "@/features/reports/dashboard-metrics";
@@ -27,7 +29,7 @@ interface PeriodSummaryProps {
   current: Totals;
   previous: Totals;
   points: MetricPoint[];
-  bucket: "day" | "week";
+  bucket: TimeBucket;
   /** First day of the period (YYYY-MM-DD): a partial first week is named from it. */
   fromDate: string;
   className?: string;
@@ -65,8 +67,8 @@ export function PeriodSummary({
       {best ? (
         <>
           {" "}
-          {bucket === "week" ? "Sua melhor semana começou em " : "Seu melhor dia foi "}
-          <Strong>{withPeriod(formatPointDate(firstDayWithin(best.date, fromDate)))}</Strong>
+          {BEST_BUCKET_LEAD[bucket]}
+          <Strong>{withPeriod(bestBucketLabel(best.date, bucket, fromDate))}</Strong>
         </>
       ) : null}
     </p>
@@ -221,6 +223,20 @@ function Strong({ children }: { children: ReactNode }) {
 }
 
 /** Ends the sentence without doubling the dot of an abbreviated month ("14 de set."). */
+const BEST_BUCKET_LEAD: Record<TimeBucket, string> = {
+  hour: "Seu melhor horário foi às ",
+  day: "Seu melhor dia foi ",
+  week: "Sua melhor semana começou em ",
+};
+
+/** "14h" for an hour; the first day inside the period for a day or a week. */
+function bestBucketLabel(date: string, bucket: TimeBucket, fromDate: string): string {
+  if (bucket === "hour") {
+    return formatAxisDate(date, "hour");
+  }
+  return formatPointDate(firstDayWithin(date, fromDate));
+}
+
 function withPeriod(text: string): string {
   return text.endsWith(".") ? text : `${text}.`;
 }

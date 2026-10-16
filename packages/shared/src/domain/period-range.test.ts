@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { comparablePreviousRange, dayRangeWithin, resolvePeriod } from "./period-range.ts";
+import {
+  chartRanges,
+  comparablePreviousRange,
+  dayRangeWithin,
+  resolvePeriod,
+} from "./period-range.ts";
 import { periodSearchSchema } from "../schemas/period.ts";
 
 const now = new Date("2026-10-08T15:30:00Z");
@@ -21,6 +26,24 @@ describe("resolvePeriod", () => {
   it("uses Brazil calendar days (an evening in Brazil is still the same day)", () => {
     const lateEvening = new Date("2026-10-09T01:30:00Z"); // 22:30 on Oct 8 in Brasília
     expect(resolvePeriod({ period: "7d" }, lateEvening).toDate).toBe("2026-10-08");
+  });
+
+  it("resolves today as one Brazil day compared with yesterday, hour by hour", () => {
+    const period = resolvePeriod({ period: "today" }, now);
+    expect(period).toMatchObject({
+      days: 1,
+      bucket: "hour",
+      fromDate: "2026-10-08",
+      toDate: "2026-10-08",
+      previousFromDate: "2026-10-07",
+    });
+    expect(period.from.toISOString()).toBe("2026-10-08T03:00:00.000Z");
+  });
+
+  // Regression: a custom range of one day drew a single daily bucket, a lone dot on the chart.
+  it("draws a custom range of one day hour by hour", () => {
+    const period = resolvePeriod({ period: "custom", from: "2026-10-01", to: "2026-10-01" }, now);
+    expect(period).toMatchObject({ days: 1, bucket: "hour" });
   });
 
   it("uses weekly buckets for long periods", () => {
@@ -127,5 +150,32 @@ describe("comparablePreviousRange", () => {
     expect(comparablePreviousRange(period, new Date("2026-01-01T00:00:00Z")).to).toEqual(
       period.previousTo,
     );
+  });
+});
+
+describe("chartRanges", () => {
+  // 15:30 UTC is 12:30 in Brasília.
+  it("stops today's chart and yesterday's at the end of the current hour", () => {
+    const period = resolvePeriod({ period: "today" }, now);
+    expect(chartRanges(period, now)).toEqual({
+      current: { from: period.from, to: new Date("2026-10-08T16:00:00Z") },
+      previous: { from: period.previousFrom, to: new Date("2026-10-07T16:00:00Z") },
+    });
+  });
+
+  it("keeps two hours on the chart right after midnight", () => {
+    const afterMidnight = new Date("2026-10-08T03:10:00Z"); // 00:10 in Brasília
+    const period = resolvePeriod({ period: "today" }, afterMidnight);
+    expect(chartRanges(period, afterMidnight).current.to).toEqual(new Date("2026-10-08T05:00:00Z"));
+  });
+
+  it("draws a day already over whole", () => {
+    const period = resolvePeriod({ period: "custom", from: "2026-10-01", to: "2026-10-01" }, now);
+    expect(chartRanges(period, now).current).toEqual({ from: period.from, to: period.to });
+  });
+
+  it("draws longer periods whole", () => {
+    const period = resolvePeriod({ period: "7d" }, now);
+    expect(chartRanges(period, now).current).toEqual({ from: period.from, to: period.to });
   });
 });

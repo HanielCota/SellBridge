@@ -1129,7 +1129,7 @@ interface ChartInput {
   points: MetricPoint[];
   previousPoints: MetricPoint[] | null;
   monthlyPoints: MetricPoint[] | null;
-  bucket: "day" | "week";
+  bucket: Exclude<PointGrain, "month">;
   periodDays: number;
   summary: FlowSummary;
 }
@@ -1168,11 +1168,10 @@ function ChartBody({
     );
   }
   if (kind === "margin") {
-    // One small sale makes a daily margin spike; the margin is judged week by week.
-    const weekly = bucket === "day" ? groupByWeek(points) : points;
-    return (
-      <MarginLine data={buildChartPoints(weekly)} average={periodMargin(points)} grain="week" />
-    );
+    // One small sale makes a daily margin spike; the margin is judged week by week (a day by hour).
+    const marginPoints = buildChartPoints(bucket === "day" ? groupByWeek(points) : points);
+    const grain = bucket === "hour" ? "hour" : "week";
+    return <MarginLine data={marginPoints} average={periodMargin(points)} grain={grain} />;
   }
   const cumulative = kind === "cumulative";
   const previous =
@@ -1283,7 +1282,7 @@ const DASHED_KEY = (
 interface LegendInput {
   kind: ChartKind;
   layers: ChartLayers;
-  bucket: "day" | "week";
+  bucket: Exclude<PointGrain, "month">;
   series: SeriesKey;
   /** Some revenue has an unknown cost: its hatched layer needs a key. */
   hasPending: boolean;
@@ -1410,7 +1409,7 @@ function useChartMenu({
   previousPoints,
   boundary,
 }: {
-  bucket: "day" | "week";
+  bucket: Exclude<PointGrain, "month">;
   previousPoints: MetricPoint[] | null;
   boundary: HTMLElement | null;
 }) {
@@ -1463,7 +1462,7 @@ interface CashFlowChartProps {
   previousPoints: MetricPoint[] | null;
   /** One point per month, sent for long periods. */
   monthlyPoints: MetricPoint[] | null;
-  bucket: "day" | "week";
+  bucket: Exclude<PointGrain, "month">;
   /** Length of the period in days: how far the previous period is moved to sit under this one. */
   periodDays: number;
   summary: FlowSummary;

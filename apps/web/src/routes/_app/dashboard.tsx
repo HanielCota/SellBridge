@@ -17,7 +17,7 @@ import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdow
 import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateRange } from "@/features/reports/dashboard-metrics";
+import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -98,7 +98,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
   return (
     <>
       <DashboardIntro
-        caption={`${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`}
+        caption={formatPeriodCaption(data.period)}
         summary={
           <PeriodSummary
             current={summary}
