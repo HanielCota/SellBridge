@@ -15,7 +15,7 @@ import { requireEnvironmentVariable } from "./environment";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const externalId = `E2E-LABEL-${randomUUID()}`;
-const labelPdf = fileURLToPath(new URL("./fixtures/shipping-label.pdf", import.meta.url));
+const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 let orderId = "";
 
 test.beforeAll(async () => {
@@ -60,24 +60,37 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
-test("fills the forward address from a shipping label PDF", async ({ page }) => {
-  await signIn(page, DEMO_USER);
-  await gotoHydrated(page, "/pedidos");
-  await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
-  await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Operar pedido" }).click();
-  const dialog = page.getByRole("dialog", { name: "Operar pedido" });
-  await dialog.getByLabel("Arquivo da etiqueta de envio").setInputFiles(labelPdf);
-  const expected = {
-    Destinatário: "Maria da Silva",
-    Rua: "Rua das Flores",
-    Número: "123",
-    Complemento: "Apto 45",
-    Bairro: "Jardim Paulista",
-    Cidade: "São Paulo",
-    UF: "SP",
-    CEP: "01310-100",
-  };
-  for (const [label, value] of Object.entries(expected))
-    await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value);
-});
+const LABEL_FILES = [
+  ["a text PDF", "shipping-label.pdf"],
+  ["a photo", "shipping-label-photo.jpg"],
+  ["a scanned PDF", "shipping-label-scan.pdf"],
+] as const;
+
+for (const [kind, fileName] of LABEL_FILES) {
+  test(`fills the forward address from ${kind} of the shipping label`, async ({ page }) => {
+    // The photo and the scan are read by OCR in the browser, which takes a few seconds.
+    test.slow(fileName !== "shipping-label.pdf");
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Operar pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    await dialog.getByLabel("Arquivo da etiqueta de envio").setInputFiles(fixture(fileName));
+    for (const [label, value] of Object.entries(EXPECTED_ADDRESS))
+      await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value, {
+        timeout: 60_000,
+      });
+  });
+}
+
+const EXPECTED_ADDRESS = {
+  Destinatário: "Maria da Silva",
+  Rua: "Rua das Flores",
+  Número: "123",
+  Complemento: "Apto 45",
+  Bairro: "Jardim Paulista",
+  Cidade: "São Paulo",
+  UF: "SP",
+  CEP: "01310-100",
+};
