@@ -34,7 +34,7 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado ·
 | 12   | Admin muda a região e apaga o endereço | ➖       | —       | Não se aplica: o CPF tirou o endereço do admin; wip em `wip/b-item-12-address` (ec5bfc8) |
 | 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                          |
 | 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                          |
-| 24   | Saúde das lojas                        | ✅       | 24.c    |                                                                                          |
+| 24   | Saúde das lojas                        | ✅       | 03b4410 |                                                                                          |
 | 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                              |
 
 Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios; o e-mail de loja expirada passa para a fila do item 25 quando ela existir.
@@ -43,7 +43,7 @@ Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X
 
 ## Histórico
 
-### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873, 24.c ver ⏸B)
+### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873, 24.c 03b4410)
 
 - 24.a: saúde da loja no menu de /lojas e na ficha do admin (migration 0030 bae7945).
 - 24.b: desconectar pausa os anúncios no marketplace, marcado por padrão.
