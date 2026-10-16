@@ -11,6 +11,31 @@ export interface SetupProgress {
   hasPublishedListing: boolean;
 }
 
+/** The progress as the server reads it, plus whether a publication is still on its way. */
+export interface SetupProgressSnapshot extends SetupProgress {
+  /** A target is still pending or publishing: the worker confirms it within seconds. */
+  isPublishing: boolean;
+}
+
+/** While the first publication is on its way, how often the setup re-reads it. */
+export const PUBLISHING_POLL_MILLISECONDS = 3000;
+
+/**
+ * Publishing only queues the job, so the progress read right after it still says "not
+ * published": keep re-reading until the worker confirms it, then stop.
+ */
+export function setupProgressRefetchInterval(
+  snapshot: SetupProgressSnapshot | undefined,
+): number | false {
+  if (snapshot === undefined) {
+    return false;
+  }
+  if (snapshot.hasPublishedListing || !snapshot.isPublishing) {
+    return false;
+  }
+  return PUBLISHING_POLL_MILLISECONDS;
+}
+
 export interface SetupStep {
   key: keyof SetupProgress;
   title: string;

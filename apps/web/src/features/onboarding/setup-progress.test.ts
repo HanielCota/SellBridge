@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   findNextStep,
+  PUBLISHING_POLL_MILLISECONDS,
   remainingSetupMinutes,
   SETUP_STEPS,
   setupEtaLabel,
   setupPercent,
+  setupProgressRefetchInterval,
   type SetupProgress,
 } from "./setup-progress";
 
@@ -58,5 +60,23 @@ describe("e-mail step", () => {
     expect(findNextStep({ ...NOTHING_DONE, hasHolder: true, hasSupplier: true })?.title).toBe(
       "Confirme seu e-mail",
     );
+  });
+});
+
+// Publishing only queues the job: the strip kept "publique produtos" after the product went live.
+describe("setup progress refresh", () => {
+  const publishing = { ...ALL_DONE, hasPublishedListing: false, isPublishing: true };
+
+  it("re-reads the progress while the first publication is on its way", () => {
+    expect(setupProgressRefetchInterval(publishing)).toBe(PUBLISHING_POLL_MILLISECONDS);
+  });
+
+  it("stops once the publication is confirmed", () => {
+    expect(setupProgressRefetchInterval({ ...publishing, hasPublishedListing: true })).toBe(false);
+  });
+
+  it("does not poll when nothing is publishing or nothing was read yet", () => {
+    expect(setupProgressRefetchInterval({ ...publishing, isPublishing: false })).toBe(false);
+    expect(setupProgressRefetchInterval(undefined)).toBe(false);
   });
 });

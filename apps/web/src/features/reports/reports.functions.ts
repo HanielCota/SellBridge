@@ -18,6 +18,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { comparablePreviousRange } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
+import type { SetupProgressSnapshot } from "@/features/onboarding/setup-progress";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { buildReportScope, chartScopes, narrowToDay } from "@/features/reports/report-scope.server";
@@ -28,7 +29,10 @@ const PICKED_DAY_PAGE_SIZE = 100;
 /** Above this many days, the composition chart groups the sales by month. */
 const MONTHLY_FROM_DAYS = 120;
 
-async function loadOnboardingState(tenantId: string, userId: string) {
+async function loadOnboardingState(
+  tenantId: string,
+  userId: string,
+): Promise<SetupProgressSnapshot> {
   const [profile, stores, listings, emailVerified] = await Promise.all([
     findOnboardingProfile(database, tenantId),
     listStoreConnections(database, tenantId),
@@ -43,6 +47,7 @@ async function loadOnboardingState(tenantId: string, userId: string) {
     hasVerifiedEmail: emailVerified || stores.length > 0,
     hasStore: stores.length > 0,
     hasPublishedListing: listings.total > 0,
+    isPublishing: listings.hasActive,
   };
 }
 
