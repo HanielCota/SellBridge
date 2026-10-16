@@ -2,12 +2,13 @@ import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
 import { CaretDownIcon, MinusIcon, PlusIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { PriceReceipt } from "./price-receipt";
+import { NoStores, type PublishStore, storesForProducts } from "./bulk-publish-stores";
 import { skippedSummary } from "@/features/catalog/bulk-skip-reasons";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
@@ -31,26 +32,7 @@ import {
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-export interface PublishStore {
-  id: string;
-  shopName: string;
-  marketplace: string;
-  /** Each store sells a single supplier; null while the seller has not picked one. */
-  supplierId: string | null;
-}
-
-/** Stores that sell the supplier of every chosen product; none when they come from several. */
-function storesForProducts(
-  products: readonly SellableCatalogProduct[],
-  stores: readonly PublishStore[],
-): PublishStore[] {
-  const supplierIds = new Set(products.map((product) => product.supplierId));
-  const [only] = supplierIds;
-  if (supplierIds.size !== 1 || only === undefined) {
-    return [];
-  }
-  return stores.filter((store) => store.supplierId === only);
-}
+export type { PublishStore } from "./bulk-publish-stores";
 
 const MARKUP_STEP = 5;
 
@@ -414,35 +396,6 @@ function PriceRulePicker({
         adjust={isMarkup && products.length > 1 ? adjust : undefined}
       />
     </SettingsGroup>
-  );
-}
-
-function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
-  if (new Set(products.map((product) => product.supplierId)).size > 1) {
-    return "Os produtos escolhidos são de fornecedores diferentes, e cada loja vende um único fornecedor. Selecione produtos de um fornecedor por vez.";
-  }
-  if (hasStores) {
-    return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";
-  }
-  return "Conecte uma loja antes de publicar.";
-}
-
-function NoStores({
-  products,
-  hasStores,
-}: {
-  products: readonly SellableCatalogProduct[];
-  hasStores: boolean;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <p>{noStoresMessage(products, hasStores)}</p>
-      <Button asChild size="sm">
-        <Link to="/lojas" hash="adicionar-loja">
-          Conectar loja
-        </Link>
-      </Button>
-    </div>
   );
 }
 

@@ -119,7 +119,7 @@ function NewListingPage() {
             }
             action={
               <Button asChild>
-                <Link to="/lojas" hash="adicionar-loja">
+                <Link to="/lojas" search={{ fornecedor: product.supplierId }} hash="adicionar-loja">
                   {hasOtherStores ? "Conectar uma loja para este fornecedor" : "Conectar loja"}
                 </Link>
               </Button>
