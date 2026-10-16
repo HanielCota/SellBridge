@@ -5,9 +5,9 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 ## Em andamento
 
 - Item/parte: 13.a · Erros do ML com `cause[]` traduzidos no conector
-- Última etapa concluída: 3 · Planejar (⏸1 aguardando OK, 2026-10-15); item 15 ✅ (juntado pelo principal em 2dd53ea); junção 02eaca7, banco na 0029
-- Próximo passo: depois do OK, testes que falham e implementação (⏸1 e ⏸2 juntos, sem tela) até o ⏸3
-- Arquivos tocados: nenhum ainda
+- Última etapa concluída: 9 · Commit (⏸3 aprovado em 2026-10-16); ⏸1 aprovado em 2026-10-15; junção eae3e54
+- Próximo passo: a 13.b (descrição que falha: estado, reenviar e tela)
+- Arquivos tocados: marketplaces/src/mercado-livre/error-messages(.test).ts e fixtures/errors.ts (novos), client.ts, schemas.ts, mercado-livre-connector.test.ts; marketplaces/src/errors.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -39,6 +39,11 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 13.a · Erros do ML com `cause[]` em português — ✅ concluído (commit local)
+
+- `error-messages.ts` traduz os códigos da página oficial "Validações" do ML ("o que aconteceu. o que fazer."), ignora avisos, mostra até dois erros, cita o ML (até 300 caracteres) quando o código é desconhecido e mantém a mensagem antiga sem `cause`. `readError` usa a tradução e leva os códigos em `details.causes` para o log. Fixtures no formato da documentação.
+- Sem revisão independente (item pequeno: sem dinheiro, auth ou migration; 7 arquivos); autorrevisão sem achados.
 
 ### 2026-10-15 · Item 15.b · Prévia com todas as taxas e piso de preço — ✅ concluído (commit local; item 15 ✅)
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
+import { ERROR_FIXTURES } from "./fixtures/errors.ts";
 
 interface Recorded {
   method: string;
@@ -223,6 +224,23 @@ describe("publishing", () => {
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
       details: { retryable: false },
       message: "Mercado Livre recusou a operação: attribute BRAND is required",
+    });
+  });
+
+  it("translates the validation causes of a refused item, with what to do", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(400, ERROR_FIXTURES.missingRequiredAttributes),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: {
+        retryable: false,
+        status: 400,
+        causes: ["item.attributes.missing_required"],
+      },
+      message: expect.stringMatching(
+        /^Faltam atributos obrigatórios .*: BRAND, MODEL\. Preencha esses campos/,
+      ),
     });
   });
 

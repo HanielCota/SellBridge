@@ -11,7 +11,12 @@ export const tokenResponseSchema = z.object({
 export const userSchema = z.object({ id: z.union([z.number(), z.string()]), nickname: z.string() });
 
 export const errorBodySchema = z
-  .object({ error: z.string().optional(), message: z.string().optional() })
+  .object({
+    error: z.string().optional(),
+    message: z.string().optional(),
+    /** Validation details of a refused item; read by error-messages.ts, never trusted as is. */
+    cause: z.unknown().optional(),
+  })
   .passthrough();
 
 export const domainDiscoverySchema = z.array(
