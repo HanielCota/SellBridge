@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DELIVERY_CONFIRMED_BY, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { orderItems, orders, orderShipments, shipmentEvents, user } from "../schema/index.ts";
 import {
   createTestDatabase,
@@ -160,6 +160,14 @@ async function cancelledNotices(userId = `reader-${randomUUID()}`) {
     reviewableSince: new Date(0),
   });
   return events.filter((event) => event.kind === "shipment_cancelled");
+}
+
+/** Moves the parcel's forward back in time, as if it had been forwarded `hours` ago. */
+async function forwardedHoursAgo(shipmentId: string, hours: number) {
+  await database
+    .update(shipmentEvents)
+    .set({ createdAt: new Date(Date.now() - hours * 3_600_000) })
+    .where(and(eq(shipmentEvents.shipmentId, shipmentId), eq(shipmentEvents.status, "forwarded")));
 }
 
 describe("fulfillment", () => {
@@ -806,6 +814,79 @@ describe("fulfillment", () => {
       .where(eq(orderShipments.id, link.shipmentId));
     expect(await lateNotices(tenants.tenantA)).toEqual([]);
     await database.delete(user).where(eq(user.id, readerId));
+  });
+
+  it("flags a parcel the supplier did not accept in time, on the order page and the list", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await forwardedHoursAgo(link.shipmentId, 25);
+
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.shipments[0]?.delay).toBe("accept_overdue");
+    const listed = await listOperationalOrders(database, tenants.tenantA, {
+      query: order.externalOrderId,
+      stage: "all",
+      page: 1,
+    });
+    expect(listed.items[0]?.shipments[0]?.delay).toBe("accept_overdue");
+
+    // Accepted: the accept time stops counting, and the dispatch time is still ahead.
+    await advance(link.shipmentId, "accepted", link.token);
+    const accepted = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(accepted.shipments[0]?.delay).toBeNull();
+    // Past the supplier's two days with no marketplace deadline: the dispatch is late.
+    await forwardedHoursAgo(link.shipmentId, 49);
+    const late = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(late.shipments[0]?.delay).toBe("dispatch_overdue");
+  });
+
+  it("warns in the bell about an unaccepted parcel, dated when the accept time ran out", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await forwardedHoursAgo(link.shipmentId, 30);
+    const readerId = `reader-${randomUUID()}`;
+    await database
+      .insert(user)
+      .values({ id: readerId, name: "Revendedor", email: `${readerId}@sellbridge.test` });
+    const lateNotices = async (tenantId: string) =>
+      (
+        await listNotificationEvents(database, {
+          tenantId,
+          userId: readerId,
+          reviewableSince: new Date(0),
+        })
+      ).events.filter((event) => event.kind === "shipment_late" && event.entityId === order.id);
+
+    const [notice] = await lateNotices(tenants.tenantA);
+    expect(notice).toMatchObject({ delay: "accept_overdue" });
+    // Forwarded 30 hours ago with 24 to accept: late for about 6 hours.
+    const lateForHours = (Date.now() - (notice?.at.getTime() ?? 0)) / 3_600_000;
+    expect(lateForHours).toBeGreaterThan(5.9);
+    expect(lateForHours).toBeLessThan(6.1);
+    expect(await lateNotices(tenants.tenantB)).toEqual([]);
+    await advance(link.shipmentId, "accepted", link.token);
+    expect(await lateNotices(tenants.tenantA)).toEqual([]);
+    await database.delete(user).where(eq(user.id, readerId));
+  });
+
+  it("starts the supplier's times over when a cancelled parcel is forwarded again", async () => {
+    const order = await createOrder();
+    const [link] = await forward(order.id);
+    if (!link) throw new Error("No link");
+    await forwardedHoursAgo(link.shipmentId, 60);
+    await cancel(link.shipmentId, "Produto em falta no depósito", link.token);
+    const again = await reforwardShipment(database, tenants.tenantA, link.shipmentId);
+
+    const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
+    expect(detail.shipments[0]?.delay).toBeNull();
+    // The supplier sees by when to accept and dispatch, counted from the new forward.
+    const supplierView = await getSupplierShipment(database, again.token);
+    const acceptInHours = ((supplierView.acceptBy?.getTime() ?? 0) - Date.now()) / 3_600_000;
+    expect(acceptInHours).toBeGreaterThan(23.9);
+    expect(acceptInHours).toBeLessThanOrEqual(24);
+    expect(supplierView.dispatchBy).not.toBeNull();
   });
 
   it("does not notify the reseller about a parcel they cancelled themselves", async () => {

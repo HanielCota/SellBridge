@@ -1,15 +1,15 @@
 import {
-  CONFIRMATION_REMINDER_DAYS,
-  overdueSince,
+  lateSinceFor,
+  shipmentDeadlines,
   shipmentDelay,
+  type ShipmentDeadlines,
   type ShipmentDelay,
+  type ShipmentTiming,
 } from "@sellbridge/shared/shipment-delay";
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, suppliers } from "../schema/index.ts";
-
-const DAY_MILLISECONDS = 86_400_000;
 
 /** When the parcel was first marked shipped (the history keeps every step). */
 export const firstShippedAt = sql<Date | null>`(
@@ -17,19 +17,47 @@ export const firstShippedAt = sql<Date | null>`(
   where shipped.shipment_id = ${orderShipments.id} and shipped.status = 'shipped'
 )`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
 
-interface TimedShipment {
-  status: FulfillmentStatus;
-  dispatchDeadlineAt: Date | null;
-  estimatedDeliveryAt: Date | null;
-  shippedAt: Date | null;
+/** The latest forward to the supplier: a re-forward of a cancelled parcel starts it over. */
+export const latestForwardedAt = sql<Date | null>`(
+  select max(forwarded.created_at) from shipment_events forwarded
+  where forwarded.shipment_id = ${orderShipments.id} and forwarded.status = 'forwarded'
+)`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
+
+/** The supplier's side of the timing: the latest forward and its own hours. */
+export const supplierTimingColumns = {
+  forwardedAt: latestForwardedAt,
+  acceptWithinHours: suppliers.acceptWithinHours,
+  dispatchWithinHours: suppliers.dispatchWithinHours,
+};
+
+/** By when the supplier must accept and dispatch a parcel read with `supplierTimingColumns`. */
+export function supplierDeadlines(
+  shipment: Pick<ShipmentTiming, "status" | "dispatchDeadlineAt" | "estimatedDeliveryAt">,
+  supplier: Pick<ShipmentTiming, "forwardedAt" | "acceptWithinHours" | "dispatchWithinHours">,
+): ShipmentDeadlines {
+  return shipmentDeadlines({ ...shipment, ...supplier, shippedAt: null });
 }
 
-/** The parcel with what is late about it, if anything (`shared/domain/shipment-delay.ts`). */
+/** The columns `shipmentDelay` reads, for a select on order_shipments joined to suppliers. */
+export const shipmentTimingColumns = {
+  status: orderShipments.status,
+  dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
+  estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
+  shippedAt: firstShippedAt,
+  ...supplierTimingColumns,
+};
+
+type TimedShipment = ShipmentTiming;
+
+/**
+ * The parcel with what is late about it, if anything, and by when the supplier still has to
+ * accept and dispatch it (`shared/domain/shipment-delay.ts`).
+ */
 export function withShipmentDelay<TShipment extends TimedShipment>(
   shipment: TShipment,
   now: Date,
-): TShipment & { delay: ShipmentDelay | null } {
-  return { ...shipment, delay: shipmentDelay(shipment, now) };
+): TShipment & ShipmentDeadlines & { delay: ShipmentDelay | null } {
+  return { ...shipment, ...shipmentDeadlines(shipment), delay: shipmentDelay(shipment, now) };
 }
 
 /** A parcel of an order that is late: what is late and whose parcel it is. */
@@ -44,19 +72,12 @@ export interface ShipmentLateEvent {
 }
 
 /**
- * When the parcel became late: the end of the missed day (the same instant `shipmentDelay`
- * starts calling it late), or the end of the wait for a confirmation. Dating it at the deadline
- * itself put it before a bell opened during that day, so the alert never counted as new.
+ * When the parcel became late: the same instant `shipmentDelay` starts calling it late. Dating
+ * it at the deadline itself put it before a bell opened during that day, so it never counted
+ * as new.
  */
 function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
-  if (delay === "dispatch_overdue" && shipment.dispatchDeadlineAt !== null) {
-    return overdueSince(shipment.dispatchDeadlineAt);
-  }
-  if (delay === "delivery_overdue" && shipment.estimatedDeliveryAt !== null) {
-    return overdueSince(shipment.estimatedDeliveryAt);
-  }
-  const shippedAt = shipment.shippedAt ?? new Date(0);
-  return new Date(shippedAt.getTime() + CONFIRMATION_REMINDER_DAYS * DAY_MILLISECONDS);
+  return lateSinceFor(shipment, delay) ?? new Date(0);
 }
 
 /** Parcels still with the supplier or on their way: the only ones that can be late. */
@@ -73,10 +94,7 @@ export async function shipmentLateEvents(
       entityId: orders.id,
       externalOrderId: orders.externalOrderId,
       supplierName: suppliers.name,
-      status: orderShipments.status,
-      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
-      estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
-      shippedAt: firstShippedAt,
+      ...shipmentTimingColumns,
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -96,13 +114,12 @@ export async function shipmentLateEvents(
       if (delay === null) {
         return [];
       }
-      const {
-        status: _status,
-        dispatchDeadlineAt: _deadline,
-        estimatedDeliveryAt: _estimate,
-        shippedAt: _shippedAt,
-        ...event
-      } = row;
+      const event = {
+        shipmentId: row.shipmentId,
+        entityId: row.entityId,
+        externalOrderId: row.externalOrderId,
+        supplierName: row.supplierName,
+      };
       return [{ ...event, kind: "shipment_late" as const, delay, at: lateSince(row, delay) }];
     })
     .toSorted((left, right) => left.at.getTime() - right.at.getTime())

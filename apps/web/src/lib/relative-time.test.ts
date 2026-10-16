@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   brazilDayKey,
   formatAbsoluteTime,
+  formatDeadline,
   formatRelativeTime,
   formatSmartDate,
   nearDayName,
@@ -101,5 +102,20 @@ describe("dates in Brasília time, whatever the server's zone", () => {
     // 01:00 UTC on Jan 1 2026 is still 2025 in Brasília.
     const newYearsEve = new Date("2026-01-01T01:00:00Z");
     expect(formatSmartDate(newYearsEve, now)).toBe("31 de dez. de 2025");
+  });
+});
+
+describe("formatDeadline", () => {
+  // now: 09/10 09:00 in Brasília.
+  it("names today, tomorrow and yesterday, with the time in Brasília", () => {
+    expect(formatDeadline(new Date("2026-10-09T17:30:00Z"), now)).toBe("hoje às 14:30");
+    expect(formatDeadline(new Date("2026-10-10T12:00:00Z"), now)).toBe("amanhã às 09:00");
+    expect(formatDeadline(new Date("2026-10-08T21:00:00Z"), now)).toBe("ontem às 18:00");
+  });
+
+  it("spells the day further away, still with the time", () => {
+    expect(formatDeadline(new Date("2026-10-17T17:30:00Z"), now)).toMatch(
+      /^17 de out\.? às 14:30$/,
+    );
   });
 });

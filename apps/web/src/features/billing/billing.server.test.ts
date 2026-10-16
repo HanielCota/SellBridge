@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   account: vi.fn<(...input: unknown[]) => Promise<unknown>>(),
   save: vi.fn<(...input: unknown[]) => Promise<void>>(),
   lock: vi.fn<(...input: unknown[]) => Promise<void>>(),
+  tryLock: vi.fn<(...input: unknown[]) => Promise<boolean>>(),
+  inTransaction: { value: false },
   customer: vi.fn<(...input: unknown[]) => Promise<{ id: string }>>(),
   subscriptions: vi.fn<(...input: unknown[]) => Promise<{ data: { status: string }[] }>>(),
   sessions: vi.fn<(...input: unknown[]) => Promise<{ data: { id: string }[] }>>(),
@@ -17,6 +19,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getBillingAccount: mocks.account,
   saveBillingCustomer: mocks.save,
   lockBillingTenant: mocks.lock,
+  tryLockBillingCheckout: mocks.tryLock,
   billingUsage: vi.fn<() => Promise<unknown>>(),
 }));
 vi.mock("@/lib/server/environment", () => ({
@@ -24,7 +27,14 @@ vi.mock("@/lib/server/environment", () => ({
 }));
 vi.mock("@/lib/server/database", () => ({
   database: {
-    transaction: async (operation: (executor: object) => Promise<unknown>) => await operation({}),
+    transaction: async (operation: (executor: object) => Promise<unknown>) => {
+      mocks.inTransaction.value = true;
+      try {
+        return await operation({});
+      } finally {
+        mocks.inTransaction.value = false;
+      }
+    },
   },
 }));
 vi.mock("./stripe.server", () => ({
@@ -43,6 +53,7 @@ const input = { tenantId: "tenant-a", userId: "owner-a", plan: "pro" as const };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.owner.mockResolvedValue();
+  mocks.tryLock.mockResolvedValue(true);
   mocks.account.mockResolvedValue(null);
   mocks.customer.mockResolvedValue({ id: "cus_tenant_a" });
   mocks.subscriptions.mockResolvedValue({ data: [] });
@@ -65,7 +76,7 @@ describe("owner subscription management", () => {
     await startSubscription(input);
     expect(mocks.customer).toHaveBeenCalledWith(
       { metadata: { tenantId: input.tenantId } },
-      { idempotencyKey: "billing-customer-tenant-a" },
+      expect.objectContaining({ idempotencyKey: "billing-customer-tenant-a" }),
     );
     expect(mocks.checkout).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -74,6 +85,7 @@ describe("owner subscription management", () => {
         line_items: [{ price: "price_pro", quantity: 1 }],
         client_reference_id: input.tenantId,
       }),
+      { timeout: 5_000, maxNetworkRetries: 1 },
     );
   });
   it("reuses the bound customer instead of creating another", async () => {
@@ -82,6 +94,7 @@ describe("owner subscription management", () => {
     expect(mocks.customer).not.toHaveBeenCalled();
     expect(mocks.checkout).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_existing" }),
+      expect.anything(),
     );
   });
   it("opens the portal instead of selling a duplicate subscription", async () => {
@@ -96,5 +109,24 @@ describe("owner subscription management", () => {
     expect(mocks.expire.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.checkout.mock.invocationCallOrder[0] ?? 0,
     );
+  });
+  // Regression (item 16.a, N5): checkout locked the organization row while it waited on Stripe,
+  // and every publication and store connection of the tenant waited behind it.
+  it("never locks the organization row and creates the customer outside any transaction", async () => {
+    let customerInTransaction: boolean | null = null;
+    mocks.customer.mockImplementation(async () => {
+      customerInTransaction = mocks.inTransaction.value;
+      return { id: "cus_tenant_a" };
+    });
+    await startSubscription(input);
+    expect(mocks.lock).not.toHaveBeenCalled();
+    expect(customerInTransaction).toBe(false);
+    expect(mocks.tryLock).toHaveBeenCalledWith({}, input.tenantId);
+  });
+  it("refuses a second checkout while one is being opened", async () => {
+    mocks.tryLock.mockResolvedValue(false);
+    await expect(startSubscription(input)).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(mocks.sessions).not.toHaveBeenCalled();
+    expect(mocks.checkout).not.toHaveBeenCalled();
   });
 });

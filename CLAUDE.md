@@ -23,7 +23,16 @@ Leia também `AGENTS.md` (Turborepo) e, para trabalho por itens, `docs/prompts/e
 - Revisar espaçamento entre linhas e indentação antes de terminar (Prettier no projeto).
 - Textos de tela em português do Brasil; código, comentários, commits e PRs em inglês.
 
+## Testes de regressão
+
+- Toda correção de bug vem com um teste de regressão que reproduz o bug: o teste precisa falhar sem a correção e passar com ela (rodar nos dois estados antes de concluir).
+- Escolher o nível mais baixo que pega o bug: Vitest (`*.test.ts` ao lado do código) para lógica, schemas, formatação e funções puras; Playwright (`apps/web/e2e/*.spec.ts`) só quando o bug depende de navegador, layout, rota ou fluxo entre telas.
+- O nome do teste descreve o comportamento correto, não o bug (ex.: `keeps the price floor when the fee changes`).
+- Teste e correção vão no mesmo commit (`fix: ...`). Se não der para testar automaticamente, dizer o motivo no resumo final.
+
 ## Git
 
 - Commits e pull requests atômicos, em inglês, no padrão Conventional Commits.
-- Commits locais; push só quando o usuário pedir.
+- Fluxo de cada implementação no website: implementar → validar (portões e testes verdes, verificação no navegador) → revisar → commit → push → abrir PR para `main`.
+- Push e PR só depois de validado e revisado; se algum portão falhar, não commitar nem subir: deixar as mudanças na árvore e explicar.
+- Se a branch já tem um PR aberto, o push atualiza esse PR em vez de abrir outro.
