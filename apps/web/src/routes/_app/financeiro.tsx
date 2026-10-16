@@ -46,9 +46,14 @@ export const Route = createFileRoute("/_app/financeiro")({
 
 function useFinancialNavigation() {
   const navigate = useNavigate({ from: Route.fullPath });
+  // A filter changes the statement, not the page: keep the scroll where the reseller is reading.
   return useCallback(
     (patch: Partial<FinancialSearch>) =>
-      void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true }),
+      void navigate({
+        search: (previous) => ({ ...previous, page: 1, ...patch }),
+        replace: true,
+        resetScroll: false,
+      }),
     [navigate],
   );
 }
