@@ -31,7 +31,8 @@ export function verifyWebhook(
       topic: parsed.data.topic,
       externalShopId: String(parsed.data.user_id),
       resource: parsed.data.resource,
-      payload,
+      // The documented fields only, never the raw body: unknown keys are dropped by the schema.
+      payload: parsed.data,
     },
   };
 }

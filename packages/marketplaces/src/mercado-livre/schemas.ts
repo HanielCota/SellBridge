@@ -84,12 +84,21 @@ export const ordersSearchSchema = z.object({
   paging: z.object({ total: z.number(), offset: z.number(), limit: z.number() }).optional(),
 });
 
+/**
+ * A notification as documented. It is unsigned and anyone who knows our (public) application id
+ * can post one, so each field has a ceiling well above the real values (a 36-character `_id`,
+ * "/orders/2000003508419013") and only these fields are stored: a forged post can no longer
+ * pad a 64 KB row into the events table, nor an `_id` past what its unique index can hold.
+ */
 export const notificationSchema = z.object({
-  _id: z.string().min(1),
-  resource: z.string().min(1),
+  _id: z.string().min(1).max(128),
+  resource: z.string().min(1).max(256),
   user_id: externalIdSchema,
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(64),
   application_id: externalIdSchema,
+  attempts: z.number().int().min(0).max(1000).optional(),
+  sent: z.string().max(64).optional(),
+  received: z.string().max(64).optional(),
 });
 
 /** Fields of a stored notification that identify the order and the seller it belongs to. */
