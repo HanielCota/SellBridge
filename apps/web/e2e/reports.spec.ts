@@ -3,6 +3,28 @@ import { simulateSale } from "./sales";
 import { DEMO_USER, gotoHydrated, signIn, signUp } from "./helpers";
 
 test.describe("dashboard", () => {
+  test("o calendário escolhe um período pelo mouse e pelo teclado", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.locator("label", { hasText: "Personalizado" }).click();
+    const picker = page.getByRole("dialog", { name: "Escolher período" });
+    const title = picker.getByRole("heading", { level: 2 });
+    const currentMonth = (await title.textContent()) ?? "";
+    await picker.getByRole("button", { name: "Mês anterior" }).click();
+    await expect(title).not.toHaveText(currentMonth);
+
+    await picker.getByRole("grid").locator('button[data-day$="-01"]').click();
+    await expect(picker.getByText("Escolha o último dia")).toBeVisible();
+    // Arrow keys move the focus along the grid: one day right, then a week down (the 9th).
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
+    await expect(picker.locator('button[data-day$="-09"]')).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(picker.getByText("9 dias")).toBeVisible();
+    await picker.getByRole("button", { name: "Aplicar" }).click();
+    await expect(page).toHaveURL(/period=custom/);
+  });
+
   test("mostra KPIs, gráfico e filtros por período e loja", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
