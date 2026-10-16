@@ -52,6 +52,16 @@ export interface PublishOptions {
 export interface PublishedListing {
   externalId: string;
   externalUrl: string | null;
+  /**
+   * Why the marketplace did not take the description, in the reseller's words; null when it
+   * did. The listing is live either way: a missing description never fails a publication.
+   */
+  descriptionError?: string | null;
+}
+
+export interface DescriptionUpdate {
+  externalId: string;
+  plainText: string;
 }
 
 export interface StockPriceUpdate {
@@ -131,6 +141,8 @@ export interface MarketplaceConnector {
     options?: PublishOptions,
   ): Promise<PublishedListing>;
   updateStockPrice(credentials: StoreCredentials, update: StockPriceUpdate): Promise<void>;
+  /** Replaces the description of a live listing (the resend of a description that failed). */
+  updateDescription(credentials: StoreCredentials, update: DescriptionUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrder[]>;
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;

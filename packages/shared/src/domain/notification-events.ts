@@ -192,3 +192,24 @@ export function listingFailedContent(listing: ListingFailedNotice): Notification
     footnote: FOOTNOTE,
   };
 }
+
+export interface SupportReplyNotice {
+  ticketId: string;
+  subject: string;
+}
+
+/** The reply itself is not copied into the e-mail: it may carry account details. */
+export function supportReplyContent(reply: SupportReplyNotice): NotificationContent {
+  return {
+    subject: `Nova resposta no seu chamado: ${reply.subject}`,
+    preview: "A equipe de suporte do SellBridge respondeu.",
+    heading: "O suporte respondeu",
+    paragraphs: [
+      `A equipe de suporte do SellBridge respondeu ao seu chamado "${reply.subject}".`,
+      "Leia a resposta e continue a conversa pelo app.",
+    ],
+    actionLabel: "Ler a resposta",
+    actionPath: `/suporte/${reply.ticketId}`,
+    footnote: FOOTNOTE,
+  };
+}

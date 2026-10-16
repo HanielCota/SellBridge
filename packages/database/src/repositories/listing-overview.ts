@@ -26,6 +26,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
+import { assertBillingCapacity } from "./billing.ts";
 import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
@@ -41,6 +42,8 @@ export interface ListingStoreStatus {
   storeConnectionId: string;
   status: ListingTargetStatus;
   errorReason: string | null;
+  /** Why the marketplace did not take the description of this live listing; null when it did. */
+  descriptionError: string | null;
   attempts: number;
   externalUrl: string | null;
   publishedAt: Date | null;
@@ -198,6 +201,7 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
       storeConnectionId: listingTargets.storeConnectionId,
       status: listingTargets.status,
       errorReason: listingTargets.errorReason,
+      descriptionError: listingTargets.descriptionError,
       attempts: listingTargets.attempts,
       externalUrl: listingTargets.externalUrl,
       publishedAt: listingTargets.publishedAt,
@@ -465,23 +469,35 @@ export async function updateListingPrice(
     .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)));
 }
 
-/** Puts every failed store of the given listings back in the queue; returns their ids. */
+/**
+ * Puts every failed store of the given listings back in the queue; returns their ids. A failed
+ * publication holds no plan slot, so the retry asks for them first (item 16 review).
+ */
 export async function resetListingErrorsForRetry(
   database: Database,
   tenantId: string,
   listingIds: readonly string[],
+  options: { billingEnabled: boolean },
 ): Promise<string[]> {
   await requireTenantListings(database, tenantId, listingIds);
-  const reset = await database
-    .update(listingTargets)
-    .set({ status: "pending", errorReason: null })
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
-      ),
-    )
-    .returning({ id: listingTargets.id });
-  return reset.map((row) => row.id);
+  const failedTargets = and(
+    eq(listingTargets.tenantId, tenantId),
+    inArray(listingTargets.listingId, [...listingIds]),
+    eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
+  );
+  return database.transaction(async (transaction) => {
+    if (options.billingEnabled) {
+      const [failed] = await transaction
+        .select({ value: count() })
+        .from(listingTargets)
+        .where(failedTargets);
+      await assertBillingCapacity(transaction, tenantId, "listings", failed?.value ?? 0);
+    }
+    const reset = await transaction
+      .update(listingTargets)
+      .set({ status: "pending", errorReason: null })
+      .where(failedTargets)
+      .returning({ id: listingTargets.id });
+    return reset.map((row) => row.id);
+  });
 }

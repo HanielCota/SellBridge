@@ -5,6 +5,8 @@ import type { PublishProductInput, StockPriceUpdate, StoreCredentials } from "..
  * Deterministic rules of the simulated marketplace, so tests can trigger each path:
  * - title containing "[falha]"    → permanent rejection (not retried)
  * - title containing "[instavel]" → temporary failure (retried until attempts run out)
+ * - title containing "[sem descricao]" → published, but the description is refused
+ * - resent description containing "[descricao recusada]" → the resend is refused
  * - price below R$ 5,00           → permanent rejection
  * - refresh token "mock-refresh-revoked" → store must be reconnected
  */
@@ -20,6 +22,23 @@ export function assertCredentials(credentials: StoreCredentials): void {
 export function assertRefreshable(refreshToken: string): void {
   if (refreshToken === MOCK_REVOKED_REFRESH_TOKEN || !refreshToken.startsWith("mock-refresh-")) {
     throw marketplaceAuthError();
+  }
+}
+
+export const MOCK_DESCRIPTION_REFUSED =
+  "A descrição não chegou à loja simulada. Reenvie a descrição.";
+
+/** The description error of a publication, as the real marketplaces report it; null if none. */
+export function descriptionErrorFor(input: PublishProductInput): string | null {
+  return input.title.toLowerCase().includes("[sem descricao]") ? MOCK_DESCRIPTION_REFUSED : null;
+}
+
+export function assertDescriptionAccepted(plainText: string): void {
+  if (plainText.toLowerCase().includes("[descricao recusada]")) {
+    throw marketplaceError("A descrição foi recusada pela loja simulada", {
+      retryable: false,
+      status: 422,
+    });
   }
 }
 

@@ -40,3 +40,60 @@ having count(*) > 1;
   repetições houve no intervalo.
 - O corpo tem `text` (Slack, Google Chat) e `content` (Discord). Timeout de 3 s, sem nova
   tentativa; falha no envio vira um log `warn` `alerts.delivery_failed`, nunca outro alerta.
+
+## Health checks (item 32.d)
+
+| Processo | Rota                                       | 503 quando                                     | Corpo                                                                    |
+| -------- | ------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| Web      | `GET /api/health`                          | o Postgres não responde                        | `{ status: ok \| degraded \| unavailable, checks: { database, redis } }` |
+| Worker   | `GET /health` (porta `WORKER_HEALTH_PORT`) | o worker parou ou o Redis não responde ao PING | `{ status, checks: { worker, redis } }`                                  |
+
+- No web, o Redis fora deixa o status `degraded` com 200: reiniciar o container não traz o
+  Redis de volta, e as telas continuam funcionando (publicações e sincronizações esperam).
+- No worker, o Redis fora é 503: sem ele nenhum job roda, e reiniciar refaz a conexão.
+- Cada checagem tem prazo de 2 s (abaixo do timeout de 5 s do healthcheck). Uma checagem
+  crítica que falha registra `error` `health.check_failed` (vira alerta, item 32.a); uma não
+  crítica, `warn`.
+- Configure o healthcheck do container do worker com `WORKER_HEALTH_PORT` (por exemplo 3001)
+  e `wget -q -O /dev/null http://127.0.0.1:3001/health`.
+
+## Backup e restore do Postgres (item 32.b, fase 2)
+
+Fora do MVP: ainda não há rotina automática nem restore testado. Até lá, no deploy:
+
+- Ative o backup agendado do banco no painel (Coolify: "Scheduled Backups" do recurso
+  Postgres), diário, com retenção de pelo menos 7 dias e destino fora do servidor (S3/R2).
+- Backup manual antes de cada deploy com migration:
+
+  ```bash
+  pg_dump --format=custom --no-owner --dbname "$DATABASE_URL" --file sellbridge-$(date +%F-%H%M).dump
+  ```
+
+- Restore em um banco novo (nunca por cima do banco em uso), conferindo antes de apontar o app:
+
+  ```bash
+  createdb sellbridge_restore
+  pg_restore --no-owner --dbname postgres://.../sellbridge_restore sellbridge-AAAA-MM-DD-HHMM.dump
+  ```
+
+- O dump tem CPF, nome completo e endereços dos compradores: guarde-o criptografado e com
+  acesso restrito, e apague as cópias locais depois do uso.
+- Os anexos e fotos (`UPLOADS_DIR`, volume `/data/uploads`) não estão no dump: o volume
+  precisa de backup próprio até o item 32.c.
+
+**Fase 2:** script de backup com verificação (`pg_restore --list`), um restore de verdade
+cronometrado num banco descartável e o registro do resultado aqui.
+
+## Arquivos em S3/R2 (item 32.c, fase 2)
+
+Hoje os arquivos (anexos do suporte, avatar) vão para o disco local, em `UPLOADS_DIR`, pelo
+`FileStorage` de `apps/web/src/lib/server/storage.ts` (`put`, `get`, `delete` por chave).
+
+- Em produção com um só container, monte `UPLOADS_DIR` num volume persistente (`/data/uploads`)
+  e inclua esse volume no backup.
+- Com mais de um container do web, o disco local não serve: cada um veria só os próprios
+  arquivos. Até o adapter S3/R2, rode um container só.
+
+**Fase 2:** um `createS3FileStorage` com a mesma interface, escolhido por variável
+(`FILE_STORAGE=s3`, bucket, endpoint e chaves validados com Zod), timeout em cada chamada e
+script de cópia dos arquivos do volume para o bucket.

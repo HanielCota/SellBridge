@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   upsertStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   exchangeCode: vi.fn<(input: unknown) => Promise<unknown>>(),
+  isUserEmailVerified: vi.fn<(database: unknown, userId: string) => Promise<boolean>>(),
+  hasLiveStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<boolean>>(),
 }));
 
 vi.mock("@/lib/server/tenant-session", () => ({
@@ -29,6 +31,8 @@ vi.mock("@sellbridge/database/repositories", () => ({
   consumeOAuthState: mocks.consumeOAuthState,
   createOAuthState: mocks.createOAuthState,
   upsertStoreConnection: mocks.upsertStoreConnection,
+  isUserEmailVerified: mocks.isUserEmailVerified,
+  hasLiveStoreConnection: mocks.hasLiveStoreConnection,
 }));
 
 const { handleOAuthCallback, handleOAuthStart } = await import("./oauth.server");
@@ -53,6 +57,8 @@ beforeEach(() => {
     impersonatedBy: null,
   });
   mocks.consumeOAuthState.mockResolvedValue({ codeVerifier: null, supplierId: "supplier-1" });
+  mocks.isUserEmailVerified.mockResolvedValue(true);
+  mocks.hasLiveStoreConnection.mockResolvedValue(false);
   mocks.exchangeCode.mockResolvedValue({
     tokens: { accessToken: "access", refreshToken: "refresh", expiresAt: null },
     shop: SHOP,
@@ -123,5 +129,29 @@ describe("connecting a store while an admin uses the customer's account", () => 
     expect(location.searchParams.get("erro")).toBe("impersonating");
     expect(mocks.exchangeCode).not.toHaveBeenCalled();
     expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+});
+
+// Item 26.b (L1): a store is only connected by someone whose e-mail is confirmed.
+describe("verified e-mail before a new store", () => {
+  it("refuses a new shop while the e-mail is not confirmed, without saving it", async () => {
+    mocks.isUserEmailVerified.mockResolvedValue(false);
+    const location = await redirectedTo();
+    expect(location.pathname).toBe("/lojas");
+    expect(location.searchParams.get("erro")).toBe("email_not_verified");
+    expect(mocks.isUserEmailVerified).toHaveBeenCalledWith({}, "user-b");
+    expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+
+  it("still reconnects a shop the account already has", async () => {
+    mocks.isUserEmailVerified.mockResolvedValue(false);
+    mocks.hasLiveStoreConnection.mockResolvedValue(true);
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const location = await redirectedTo();
+    expect(location.searchParams.get("conectada")).toBe("store-1");
+    expect(mocks.hasLiveStoreConnection).toHaveBeenCalledWith(
+      {},
+      { tenantId: "tenant-b", marketplace: "mock", externalShopId: SHOP.externalShopId },
+    );
   });
 });

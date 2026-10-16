@@ -141,3 +141,15 @@ export async function enqueueWebhookEventJob(
   }
   await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
 }
+
+/** The part of a BullMQ queue a health probe needs: its Redis connection. */
+export interface RedisBackedQueue {
+  getBackend(): { client: Promise<{ runCommand(name: string, args: string[]): Promise<unknown> }> };
+}
+
+/** Health probe (item 32.d): PING through the connection the queue already holds. */
+export async function pingQueueConnection(queue: RedisBackedQueue): Promise<boolean> {
+  const client = await queue.getBackend().client;
+  // BullMQ runs `client[name](...args)`: the ioredis method name, lowercase ("PING" is not one).
+  return (await client.runCommand("ping", [])) === "PONG";
+}

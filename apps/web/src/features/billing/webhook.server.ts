@@ -1,4 +1,5 @@
 import { applyBillingEvent, findBillingCustomer } from "@sellbridge/database/repositories";
+import { pastDueAccessEnd } from "@sellbridge/shared/billing";
 import { readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
@@ -16,7 +17,13 @@ const subscriptionSchema = z.object({
   pause_collection: z.unknown().nullish(),
   items: z.object({
     data: z
-      .array(z.object({ current_period_end: z.number(), price: z.object({ id: z.string() }) }))
+      .array(
+        z.object({
+          current_period_start: z.number(),
+          current_period_end: z.number(),
+          price: z.object({ id: z.string() }),
+        }),
+      )
       .min(1),
   }),
 });
@@ -117,22 +124,35 @@ function planOfPrice(priceId: string | undefined) {
   return "free";
 }
 
-function billingStateOf(subscription: z.infer<typeof subscriptionSchema>) {
+type StripeSubscription = z.infer<typeof subscriptionSchema>;
+
+/**
+ * Until when the plan is paid: the period end, cut by a cancellation or termination. A past_due
+ * subscription keeps it only for the grace after the failed renewal (item 16, N9).
+ */
+function paidUntil(subscription: StripeSubscription) {
+  const item = subscription.items.data[0];
+  if (!item) return null;
+  const periodEnd = new Date(
+    Math.min(
+      item.current_period_end,
+      subscription.cancel_at ?? item.current_period_end,
+      subscription.ended_at ?? item.current_period_end,
+    ) * 1000,
+  );
+  if (subscription.status !== "past_due") return periodEnd;
+  const periodStart = new Date(item.current_period_start * 1000);
+  return pastDueAccessEnd({ periodStart, periodEnd }, environment.BILLING_PAST_DUE_GRACE_DAYS);
+}
+
+function billingStateOf(subscription: StripeSubscription) {
   const item = subscription.items.data[0];
   return {
     customerId: subscription.customer,
     subscriptionId: subscription.id,
     plan: planOfPrice(item?.price.id),
     status: subscription.pause_collection ? "paused" : subscription.status,
-    periodEnd: item
-      ? new Date(
-          Math.min(
-            item.current_period_end,
-            subscription.cancel_at ?? item.current_period_end,
-            subscription.ended_at ?? item.current_period_end,
-          ) * 1000,
-        )
-      : null,
+    periodEnd: paidUntil(subscription),
     cancelAtPeriodEnd: subscription.cancel_at_period_end || subscription.cancel_at != null,
   };
 }
@@ -143,8 +163,9 @@ async function synchronizeBillingEvent(input: {
 }) {
   const account = await findBillingCustomer(database, input.object.customer);
   if (!account) return;
-  const subscription = await currentSubscription(input.object);
+  // Stamped before the read: a slow answer must not outrank a read that started after it.
   const observedAt = Date.now();
+  const subscription = await currentSubscription(input.object);
   await database.transaction(async (transaction) => {
     await applyBillingEvent(transaction, {
       eventId: input.eventId,

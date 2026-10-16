@@ -1,4 +1,6 @@
+import { billingConfigured } from "@/features/billing/stripe.server";
 import {
+  requestDescriptionResend,
   getSellableCatalogProduct,
   getTargetForPublishing,
   listListingOverview,
@@ -17,6 +19,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import {
   buildMockOrderWebhook,
@@ -86,13 +89,36 @@ export const retryListings = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(listingIdsSchema)
   .handler(async ({ context, data }) => {
-    const targetIds = await resetListingErrorsForRetry(database, context.tenantId, data.listingIds);
+    const targetIds = await resetListingErrorsForRetry(
+      database,
+      context.tenantId,
+      data.listingIds,
+      {
+        billingEnabled: billingConfigured(),
+      },
+    );
     await enqueueTargets(context.tenantId, targetIds);
     logger.info("listing.retry_requested", {
       tenantId: context.tenantId,
       targets: targetIds.length,
     });
     return { retried: targetIds.length };
+  });
+
+/**
+ * "Reenviar descrição": the chosen listings whose description the marketplace refused go back to
+ * the automatic resends, and the sync runs now instead of in up to 15 minutes (13.b).
+ */
+export const resendDescriptions = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(listingIdsSchema)
+  .handler(async ({ context, data }) => {
+    const resent = await requestDescriptionResend(database, context.tenantId, data.listingIds);
+    if (resent > 0) {
+      await requestStockSync("listing.description_resend_deferred");
+    }
+    logger.info("listing.description_resend_requested", { tenantId: context.tenantId, resent });
+    return { resent };
   });
 
 /** Pauses (zero stock on the marketplace) or resumes the chosen listings. */

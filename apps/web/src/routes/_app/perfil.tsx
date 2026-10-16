@@ -3,6 +3,7 @@ import { SectionCard } from "@/components/layout/section-card";
 import { roleLabel } from "@/components/layout/user-menu";
 import { AccountDataSection } from "@/components/profile/account-data-section";
 import { AvatarEditor } from "@/components/profile/avatar-editor";
+import { NotificationPreferences } from "@/components/profile/notification-preferences";
 import { PasswordSection } from "@/components/profile/password-form";
 import { ProfileNameForm } from "@/components/profile/profile-name-form";
 import { SessionsList } from "@/components/profile/sessions-list";
@@ -62,6 +63,13 @@ function ProfilePage() {
       <SectionCard title="Dados pessoais" description="Como você aparece no app.">
         {/* Keyed by name so the field resets when the saved value changes elsewhere. */}
         <ProfileNameForm key={user.name} name={user.name} email={user.email} />
+      </SectionCard>
+
+      <SectionCard
+        title="Notificações"
+        description="Escolha onde você quer saber de cada coisa: no sino do app ou por e-mail."
+      >
+        <NotificationPreferences />
       </SectionCard>
 
       {isImpersonating ? (

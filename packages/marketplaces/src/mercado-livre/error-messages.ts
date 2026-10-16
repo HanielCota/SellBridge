@@ -76,6 +76,8 @@ const EXPLANATIONS: Readonly<Record<string, (cause: MercadoLivreCause) => string
     `O título é curto demais para o Mercado Livre. Inclua mais características do produto no título ${AGAIN}`,
   "invalid.title.gender": () =>
     `O título fala de um gênero diferente do informado na ficha do produto. Ajuste o título ${AGAIN}`,
+  "item.description.type.invalid": () =>
+    "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). Fale com o suporte para deixar só texto simples na descrição.",
   "item.descriptions.length_exceeded": () =>
     `A descrição passou do limite de caracteres do Mercado Livre. Encurte a descrição ${AGAIN}`,
   "item.attributes.invalid_length": () => LONG_ATTRIBUTE,

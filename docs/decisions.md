@@ -548,6 +548,42 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 
 - A 24.c (03b4410, e-mail direto do job de renovação) foi revertida. O 25.b do chat E (3a2a29a) já gera o aviso `store_expired` em toda expiração (`markStoreStatus`), e o despachante manda o e-mail conforme as preferências de cada pessoa. Com os dois, o dono receberia dois e-mails.
 
+## 2026-10-16: Descrição que não chegou ao marketplace (item 13.b)
+
+- **O anúncio continua no ar:** a descrição é enviada depois de o item existir; se o marketplace recusa, a publicação não falha (o item existe de fato), mas o erro (traduzido pela 13.a) fica no alvo (`listing_targets.description_error`, migration 0032) e o card mostra "Descrição não enviada" com o motivo e "Reenviar descrição".
+- **Reenvio:** pelo job de sincronização que já roda (`stock-price-sync`), sem fila nova: até 3 tentativas automáticas (aprovado no ⏸1), depois só o botão, que zera as tentativas e pede a sincronização na hora. No Mercado Livre o reenvio é `PUT /items/{id}/description?api_version=2` (a página oficial "Descrição de produtos": POST só cria; um segundo POST é recusado).
+- **Tela atualizada sozinha:** a lista de Publicações continua consultando até 5 minutos depois de uma falha ou de um pedido de reenvio, e o aviso some sem recarregar.
+- **Mock:** título com "[sem descricao]" publica e recusa a descrição; reenvio com "[descricao recusada]" é recusado (para testes).
+
+## 2026-10-16: Riscos da assinatura (item 16, chat D)
+
+- **Stripe sem trava de linha (16.a, N5):** o checkout cria o customer fora de transação (a chave de idempotência garante um só) e serializa os checkouts da organização com `pg_try_advisory_xact_lock`, que não segura linha; o segundo pedido simultâneo recebe 409 "Já estamos abrindo o pagamento". O webhook lê o Stripe antes de abrir a transação; para dois webhooks que correm juntos vale a **leitura mais recente**, gravada em ms em `last_event_created` (os valores antigos, em segundos, são sempre menores). Renomear a coluna fica para uma migration de limpeza.
+- **Cota por loja de destino (16.b, N7):** `PENDENTE CLIENTE (D10)`. A cota de anúncios conta `listing_targets` vivos (status diferente de `error`), inclusive os de lojas desconectadas (voltam ao ar na reconexão, que só checa o limite de lojas): um anúncio publicado em duas lojas ocupa duas vagas. "Reprocessar" pede vaga para cada alvo com erro que volta à fila (achado da revisão independente). Na prática o Gratuito (25) fica menor para quem publica em várias lojas; os números de cada plano entram com a matriz do 31.
+- **Produção sem Stripe (16.b, N8):** com `NODE_ENV=production`, o web não inicia sem as quatro variáveis do Stripe, a menos que `BILLING_UNLIMITED=true` (modo explícito sem limites).
+- **Carência do `past_due` (16.b, N9):** `BILLING_PAST_DUE_GRACE_DAYS`, padrão 7 (aprovado no ⏸A). O webhook grava em `period_end` o menor entre o fim do período e o início do período mais a carência; `past_due` conta como pago até lá. Aviso "Pagamento da assinatura pendente" no painel (Precisa de você) e em `/assinatura`, com o último dia.
+- **Revisão independente:** corrigidos "Reprocessar" sem checar a cota, vagas liberadas ao desconectar a loja, `observedAt` carimbado depois da leitura (passa a ser antes) e portal/expiração de checkout sem limite de tempo; a trava consultiva usa duas chaves (`hashtext('billing-checkout')`, `hashtext(tenant)`).
+
+## 2026-10-16 · Central de notificações (item 25, chat E)
+
+- **Canais:** no app (o sino, que continua lendo os dados ao vivo), e-mail e push. E-mail e push passam pela tabela `notification_deliveries` (migration 0033), uma linha por pessoa, canal e fato, com `dedupe_key` única ("order:<id>:paid"): o mesmo fato avisa uma vez. O worker (`notification-delivery`, a cada 10 s) pega as entregas com `SKIP LOCKED`, como os webhooks de saída, e tenta de novo em 1 min, 5 min, 30 min e 2 h; depois fica "failed". Push ainda não tem provedor: a entrega fecha como "skipped" e a tela não oferece o canal.
+- **O texto é montado na hora do fato** (`shared/domain/notification-events.ts`) e guardado com a entrega; o link é sempre um caminho interno (o worker junta com `APP_URL`). E-mail no layout HTML de `@sellbridge/shared/email-layout`.
+- **Eventos:** venda paga (valor e "organize seu pagamento ao fornecedor"), envio atrasado, pedido entregue (e-mail desligado por padrão, sem entrada no sino), loja desconectada, erro de publicação (só a tentativa final) e resposta do suporte. O aviso entra na mesma transação da mudança, para todos os membros da loja.
+- **Não é notícia:** venda paga ou entregue com mais de 24 h (a importação de uma loja nova não manda 400 e-mails) e atraso que começou há mais de 3 dias. Um aviso com texto inválido é descartado com log e nunca desfaz o pedido, a loja ou o anúncio.
+- **Preferências** por pessoa (não por loja), evento e canal, em `notification_preferences`; sem linha vale o padrão do evento. Perfil › Notificações tem "No app" e "E-mail". Desligar "No app" esconde aquele tipo do sino e da contagem.
+- **Fase 2:** WhatsApp e telefone com consentimento (D9), provedor de push.
+
+## 2026-10-16: E-mail confirmado antes de uma loja nova (item 26.b, chat D)
+
+- O cadastro manda o link de confirmação (`sendOnSignUp: true`); quem entra pelo Google já chega confirmado.
+- **Loja nova** só é salva com o e-mail de quem conecta confirmado: sem isso, a volta do OAuth leva a `/lojas?erro=email_not_verified` ("Confirme seu e-mail antes de conectar uma loja nova…"). **Reconectar** uma loja que a conta já tem (não desconectada) nunca espera a confirmação, para não travar contas antigas.
+- O guia de configuração ganhou a etapa "Confirme seu e-mail" (antes de "Conecte uma loja"), com "Reenviar e-mail"; conta que já tem loja passa direto por ela.
+
+## 2026-10-16: Publicação em massa com as regras do fluxo individual (item 14.a)
+
+- **Mesmas regras nos dois fluxos:** `shared/domain/bulk-publish-plan.ts` decide, produto a produto, o que sai num lote: título e descrição pelos mesmos schemas da publicação individual, estoque e "já publicado". Antes a massa publicava título cortado e descrição crua sem validar (B16).
+- **Sem estoque não publica (E8):** o servidor recusa, nos dois fluxos, produto sem unidades vendáveis, descontando o estoque de segurança que a sincronização já guarda (`STOCK_SAFETY_UNITS`, agora lido também pela web; aprovado no ⏸1). Antes só a tela escondia o botão.
+- **Resultado honesto (E12):** a massa publica os válidos e devolve os pulados com o motivo (`already_published`, `out_of_stock`, `invalid_title`, `invalid_description`, `unavailable`); o aviso diz "fora: 2 já publicado, 1 sem estoque". Se nenhum produto pode sair, o lote é recusado com os primeiros nomes e motivos. O piso de preço e o teto de R$ 1.000.000,00 continuam recusando o lote inteiro (dependem da regra que o revendedor escolheu). A tela completa do resultado e o progresso são as partes 14.b e 14.c.
+
 ## 2026-10-16: Exportar e excluir os próprios dados (item 30.a, chat B)
 
 - **Exportar** (`/api/conta/exportar`, Perfil › Seus dados): um JSON com cadastro, titular (com o CPF, que é da própria pessoa), lojas sem tokens, anúncios, pedidos e itens sem o nome do comprador (dado de terceiro), chamados sem as notas internas da equipe, chaves de API sem o hash, sessões sem o token e preferências de aviso. Recusado durante o "entrar como cliente"; até 3 por hora por conta, em memória.
