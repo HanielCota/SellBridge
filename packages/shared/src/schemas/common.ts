@@ -31,6 +31,27 @@ export function freeText() {
     .overwrite((value) => toWellFormedText(stripControlCharacters(value)).normalize("NFC"));
 }
 
+/** Cuts at `end`, one code unit earlier when that would split an emoji's surrogate pair. */
+export function sliceWholeCharacters(text: string, end: number): string {
+  const lastCode = text.charCodeAt(end - 1);
+  const splitsPair = lastCode >= 0xd800 && lastCode <= 0xdbff;
+  return text.slice(0, splitsPair ? end - 1 : end);
+}
+
+/** Longest text a list search matches on; the search boxes stop typing here too. */
+export const MAX_SEARCH_LENGTH = 100;
+
+/**
+ * A list's search text, cut to `MAX_SEARCH_LENGTH` instead of refused. A refused search fell
+ * back to "no filter", so a pasted 120-character title showed (and exported) every order; its
+ * first 100 characters still narrow the list to what was meant.
+ */
+export function searchQuery() {
+  return freeText()
+    .trim()
+    .transform((value) => sliceWholeCharacters(value, MAX_SEARCH_LENGTH).trimEnd());
+}
+
 /**
  * Deepest page a list serves. Beyond it the offset only scans rows to return nothing, and at
  * Number.MAX_SAFE_INTEGER it no longer converts exactly to the database's bigint.

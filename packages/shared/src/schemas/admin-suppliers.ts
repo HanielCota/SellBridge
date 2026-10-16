@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { stateSchema } from "../domain/cep.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
@@ -34,7 +34,7 @@ const imageUrlSchema = z
 const MAX_MERCADO_LIVRE_ATTRIBUTES = 100;
 
 export const adminSupplierSearchSchema = z.object({
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });

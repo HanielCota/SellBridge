@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { freeText, stripControlCharacters } from "./common.ts";
+import { freeText, MAX_SEARCH_LENGTH, searchQuery, stripControlCharacters } from "./common.ts";
 import { replyTicketSchema } from "./support.ts";
 
 describe("free text", () => {
@@ -21,5 +21,23 @@ describe("free text", () => {
 
   it("stores an accent typed as two characters the same as the composed one", () => {
     expect(freeText().parse("CAFÉ")).toBe("CAFÉ");
+  });
+});
+
+describe("searchQuery", () => {
+  it("keeps a search of exactly the limit", () => {
+    const text = "a".repeat(MAX_SEARCH_LENGTH);
+    expect(searchQuery().parse(text)).toBe(text);
+  });
+
+  // Regression: a 101+ character search was refused, which dropped the filter and listed (and
+  // exported) every order.
+  it("cuts a longer search to the limit instead of dropping it", () => {
+    expect(searchQuery().parse(`${"b".repeat(MAX_SEARCH_LENGTH)}c`)).toBe("b".repeat(100));
+  });
+
+  it("never cuts an emoji in half at the limit", () => {
+    const text = `${"a".repeat(MAX_SEARCH_LENGTH - 1)}😀`;
+    expect(searchQuery().parse(text)).toBe("a".repeat(MAX_SEARCH_LENGTH - 1));
   });
 });

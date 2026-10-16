@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { stateSchema } from "../domain/cep.ts";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema } from "./stores.ts";
 
@@ -26,7 +26,7 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
 
 /** Search params of the supplier catalog page; money filters are in cents. */
 export const catalogSearchSchema = z.object({
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   category: optionalParameter(freeText().trim().max(100)),
   minCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
   maxCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
@@ -49,7 +49,7 @@ export const SUPPLIER_SORT_LABELS: Record<SupplierSort, string> = {
 
 export const supplierListSearchSchema = z.object({
   /** A niche or a product the reseller wants to sell. */
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   niche: optionalParameter(freeText().trim().max(100)),
   /** Where the supplier is: suppliers sell anywhere, so this only narrows the choice. */
   state: optionalParameter(stateSchema),
@@ -61,7 +61,7 @@ export type SupplierListSearch = z.infer<typeof supplierListSearchSchema>;
 
 /** Search params of the catalog with every product the tenant can sell, from every supplier. */
 export const sellableCatalogSearchSchema = z.object({
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   category: optionalParameter(freeText().trim().max(100)),
   supplier: optionalParameter(z.uuid()),
   inStock: optionalParameter(z.coerce.boolean()),

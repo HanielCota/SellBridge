@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, MAX_PAGE } from "./common.ts";
+import { freeText, MAX_PAGE, searchQuery } from "./common.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { isoDateSchema, PERIOD_PRESETS } from "./period.ts";
 
@@ -148,12 +148,14 @@ export const operationsSearchSchema = z.object({
  */
 export const operationsUrlSearchSchema = z.object({
   view: withFallback(z.enum(["operations", "reviews"]).default("operations"), "operations"),
-  opQuery: optionalParameter(z.string().trim().max(100)),
+  opQuery: optionalParameter(searchQuery()),
   stage: withFallback(z.enum(OPERATION_STAGES).default("all"), "all"),
   period: withFallback(z.enum(OPERATION_PERIODS).default("all"), "all"),
   from: optionalParameter(isoDateSchema),
   to: optionalParameter(isoDateSchema),
   store: optionalParameter(z.uuid()),
-  opPage: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  // Same ceiling as the server's `page`: past it the server refused the whole request and the
+  // tab showed an error instead of the last page.
+  opPage: withFallback(z.coerce.number().int().min(1).max(MAX_PAGE).default(1), 1),
 });
 export type OperationsUrlSearch = z.infer<typeof operationsUrlSearchSchema>;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
@@ -44,7 +44,7 @@ export const SNOOZE_DAYS = [1, 3, 7] as const;
 
 export const customersSearchSchema = z.object({
   view: withFallback(customerViewSchema.default("list"), "list"),
-  query: withFallback(freeText().trim().max(100).optional(), undefined),
+  query: withFallback(searchQuery().optional(), undefined),
   issue: optionalParameter(customerIssueKindSchema),
   sort: withFallback(customerSortSchema.default("health"), "health"),
   queue: withFallback(issueQueueSchema.default("open"), "open"),
@@ -58,7 +58,7 @@ export const customersSearchSchema = z.object({
 export type CustomersSearch = z.infer<typeof customersSearchSchema>;
 
 export const customerIssuesSearchSchema = z.object({
-  query: withFallback(freeText().trim().max(100).optional(), undefined),
+  query: withFallback(searchQuery().optional(), undefined),
   issue: optionalParameter(customerIssueKindSchema),
   queue: withFallback(issueQueueSchema.default("open"), "open"),
 });
