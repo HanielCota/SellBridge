@@ -3,6 +3,8 @@ import {
   MIN_PASSWORD_LENGTH,
   nameSchema,
   newPasswordSchema,
+  PASSWORD_COMPROMISED_CODE,
+  PASSWORD_COMPROMISED_MESSAGE,
   signUpSchema,
 } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -35,6 +37,7 @@ const SIGN_UP_ERRORS: Record<string, string> = {
   USER_ALREADY_EXISTS: EXISTING_ACCOUNT_MESSAGE,
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: EXISTING_ACCOUNT_MESSAGE,
   PASSWORD_TOO_SHORT: "A senha é muito curta.",
+  [PASSWORD_COMPROMISED_CODE]: PASSWORD_COMPROMISED_MESSAGE,
 };
 
 function signUpErrorMessage(code: string | undefined): string {

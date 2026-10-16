@@ -5,6 +5,8 @@ export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";
+export * from "./account-export.ts";
+export * from "./account-deletion.ts";
 export * from "./listings.ts";
 export * from "./listing-sync.ts";
 export * from "./listing-overview.ts";

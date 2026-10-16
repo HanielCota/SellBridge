@@ -1,6 +1,8 @@
 import {
   MIN_PASSWORD_LENGTH,
   newPasswordSchema,
+  PASSWORD_COMPROMISED_CODE,
+  PASSWORD_COMPROMISED_MESSAGE,
   resetPasswordSchema,
 } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -37,6 +39,10 @@ function useResetPasswordForm(token: string) {
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       const result = await authClient.resetPassword({ newPassword: value.password, token });
+      if (result.error?.code === PASSWORD_COMPROMISED_CODE) {
+        setSubmitError(PASSWORD_COMPROMISED_MESSAGE);
+        return;
+      }
       if (result.error) {
         setSubmitError(INVALID_LINK_MESSAGE);
         return;
