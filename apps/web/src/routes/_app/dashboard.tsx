@@ -139,7 +139,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
 function DashboardSkeleton() {
   // Same sizes as the loaded layout, so nothing jumps when the data arrives.
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando visão geral">
+    <output className="block space-y-6" aria-busy="true" aria-label="Carregando visão geral">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
           <Skeleton className="h-6 w-48" />
@@ -159,6 +159,6 @@ function DashboardSkeleton() {
           <Skeleton className="h-80 rounded-3xl" />
         </div>
       </div>
-    </div>
+    </output>
   );
 }
