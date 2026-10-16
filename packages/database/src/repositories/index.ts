@@ -4,6 +4,8 @@ export * from "./stores.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";
+export * from "./account-export.ts";
+export * from "./account-deletion.ts";
 export * from "./listings.ts";
 export * from "./listing-overview.ts";
 export * from "./reports.ts";

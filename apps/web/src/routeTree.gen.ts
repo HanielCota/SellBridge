@@ -40,6 +40,7 @@ import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index
 import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$ticketId'
 import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiContaExportarRouteImport } from './routes/api/conta/exportar'
 import { Route as ApiDiagnosticsErrorsRouteImport } from './routes/api/diagnostics/errors'
 import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
 import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
@@ -230,6 +231,11 @@ const AppSuporteNovoRoute = AppSuporteNovoRouteImport.update({
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiContaExportarRoute = ApiContaExportarRouteImport.update({
+  id: '/api/conta/exportar',
+  path: '/api/conta/exportar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDiagnosticsErrorsRoute = ApiDiagnosticsErrorsRouteImport.update({
@@ -460,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
@@ -526,6 +533,7 @@ export interface FileRoutesByTo {
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
@@ -597,6 +605,7 @@ export interface FileRoutesById {
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
@@ -667,6 +676,7 @@ export interface FileRouteTypes {
     | '/suporte/$ticketId'
     | '/suporte/novo'
     | '/api/auth/$'
+    | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
@@ -733,6 +743,7 @@ export interface FileRouteTypes {
     | '/suporte/$ticketId'
     | '/suporte/novo'
     | '/api/auth/$'
+    | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
     | '/api/auth/$'
+    | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
@@ -854,6 +866,7 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiContaExportarRoute: typeof ApiContaExportarRoute
   ApiDiagnosticsErrorsRoute: typeof ApiDiagnosticsErrorsRoute
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
@@ -1102,6 +1115,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/conta/exportar': {
+      id: '/api/conta/exportar'
+      path: '/api/conta/exportar'
+      fullPath: '/api/conta/exportar'
+      preLoaderRoute: typeof ApiContaExportarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/diagnostics/errors': {
@@ -1498,6 +1518,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiContaExportarRoute: ApiContaExportarRoute,
   ApiDiagnosticsErrorsRoute: ApiDiagnosticsErrorsRoute,
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,

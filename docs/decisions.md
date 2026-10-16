@@ -547,3 +547,11 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 ## 2026-10-16: E-mail de loja expirada fica com a central de notificações (item 24.c, chat B)
 
 - A 24.c (03b4410, e-mail direto do job de renovação) foi revertida. O 25.b do chat E (3a2a29a) já gera o aviso `store_expired` em toda expiração (`markStoreStatus`), e o despachante manda o e-mail conforme as preferências de cada pessoa. Com os dois, o dono receberia dois e-mails.
+
+## 2026-10-16: Exportar e excluir os próprios dados (item 30.a, chat B)
+
+- **Exportar** (`/api/conta/exportar`, Perfil › Seus dados): um JSON com cadastro, titular (com o CPF, que é da própria pessoa), lojas sem tokens, anúncios, pedidos e itens sem o nome do comprador (dado de terceiro), chamados sem as notas internas da equipe, chaves de API sem o hash, sessões sem o token e preferências de aviso. Recusado durante o "entrar como cliente"; até 3 por hora por conta, em memória.
+- **Excluir** (rota `/delete-user` do Better Auth, ligada com `beforeDelete`): sempre com a senha (o Better Auth aceitaria só uma sessão recente) e nunca por link; bloqueada durante o "entrar como cliente"; recusada para a equipe e o dono da plataforma. Antes de apagar o usuário: as organizações em que a pessoa é a única dona vão junto, nesta ordem: cliente da Stripe apagado (cancela a assinatura; se falhar, nada é apagado), lojas conectadas desconectadas com os anúncios pausados (como na 24.b), organização apagada (tudo cascateia) e arquivos de anexos e da foto removidos do disco. Organização com outro dono fica com ele.
+- **Falhas no meio:** o cliente da Stripe é esquecido logo depois de apagado (e um "cliente já apagado" conta como feito), então uma exclusão repetida depois de um passo que falhou segue em frente. As pausas das lojas têm um orçamento total de 30 s; depois dele, as lojas restantes são desconectadas sem pausar, para a pessoa não ficar presa no diálogo. `/delete-user` tem limite próprio de 5 tentativas por minuto (em produção), contra quem tenta adivinhar a senha com uma sessão roubada.
+- **Pedidos:** apagados com a conta (decisão do ⏸A). Se o cliente decidir guardar pedidos anonimizados por prazo fiscal, entra como ajuste.
+- Contas que entram só com Google não têm senha: o card manda pedir a exclusão pelo Suporte (fica em "Refinar depois").

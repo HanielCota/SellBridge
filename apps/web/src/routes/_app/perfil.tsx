@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionCard } from "@/components/layout/section-card";
 import { roleLabel } from "@/components/layout/user-menu";
+import { AccountDataSection } from "@/components/profile/account-data-section";
 import { AvatarEditor } from "@/components/profile/avatar-editor";
 import { PasswordSection } from "@/components/profile/password-form";
 import { ProfileNameForm } from "@/components/profile/profile-name-form";
@@ -65,7 +66,8 @@ function ProfilePage() {
 
       {isImpersonating ? (
         <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
-          Senha e dispositivos conectados ficam ocultos enquanto você usa o app como este cliente.
+          Senha, dispositivos conectados e seus dados ficam ocultos enquanto você usa o app como
+          este cliente.
         </p>
       ) : (
         <>
@@ -80,6 +82,12 @@ function ProfilePage() {
             description="Onde sua conta está aberta. Desconecte o que você não reconhecer."
           >
             <SessionsList />
+          </SectionCard>
+          <SectionCard
+            title="Seus dados"
+            description="Uma cópia do que o SellBridge guarda sobre você, ou a exclusão de tudo (LGPD)."
+          >
+            <AccountDataSection />
           </SectionCard>
         </>
       )}

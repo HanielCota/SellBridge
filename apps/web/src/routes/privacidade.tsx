@@ -31,7 +31,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "4. Seus direitos (LGPD)",
     paragraphs: [
-      "Você pode pedir acesso, correção, portabilidade ou exclusão dos seus dados, e revogar consentimentos, pelo Suporte dentro do app.",
+      "Em Meu perfil › Seus dados, você baixa uma cópia dos seus dados e exclui a conta. Correções e outros pedidos, como revogar consentimentos, são feitos pelo Suporte dentro do app.",
     ],
   },
   {
