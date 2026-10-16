@@ -15,6 +15,16 @@ export function createRateLimiter(options: {
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
 }) {
+  // Below one token per interval the bucket never holds a whole token and `acquire` waits forever;
+  // at zero the wait is Infinity, which setTimeout turns into a 1 ms busy loop.
+  if (!Number.isFinite(options.tokensPerInterval) || options.tokensPerInterval < 1) {
+    throw new RangeError(`tokensPerInterval must be at least 1, got ${options.tokensPerInterval}`);
+  }
+  if (!Number.isFinite(options.intervalMilliseconds) || options.intervalMilliseconds <= 0) {
+    throw new RangeError(
+      `intervalMilliseconds must be positive, got ${options.intervalMilliseconds}`,
+    );
+  }
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? defaultSleep;
   const buckets = new Map<string, TokenBucket>();
@@ -23,7 +33,8 @@ export function createRateLimiter(options: {
   function refill(key: string): TokenBucket {
     const current = now();
     const bucket = buckets.get(key) ?? { tokens: options.tokensPerInterval, updatedAt: current };
-    const elapsed = current - bucket.updatedAt;
+    // A clock set back (NTP) must not drain the bucket below zero.
+    const elapsed = Math.max(0, current - bucket.updatedAt);
     const tokens = Math.min(
       options.tokensPerInterval,
       bucket.tokens + elapsed * refillPerMilliseconds,

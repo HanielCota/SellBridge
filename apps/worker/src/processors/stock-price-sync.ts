@@ -22,6 +22,8 @@ export interface StockPriceSyncDependencies {
   acquireRateLimit: (key: string) => Promise<void>;
   /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
   safetyUnits: number;
+  /** How long one run may take; defaults to `SYNC_RUN_BUDGET_MILLISECONDS` (tests shorten it). */
+  runBudgetMilliseconds?: number;
 }
 
 export interface StockPriceSyncSummary {
@@ -80,6 +82,7 @@ const SYNC_RUN_BUDGET_MILLISECONDS = 4 * 60 * 1000;
 
 async function syncBatch(
   dependencies: StockPriceSyncDependencies,
+  deadline: number,
 ): Promise<StockPriceSyncSummary & { size: number }> {
   const targets = await findTargetsNeedingSync(
     dependencies.database,
@@ -88,6 +91,12 @@ async function syncBatch(
   );
   const batch = { synced: 0, failed: 0, size: targets.length };
   for (const target of targets) {
+    // Checked per listing, not per batch: in a marketplace outage one listing takes ~90 s of
+    // retries, so a batch of 200 held the queue for hours. The rest keep their old attempt
+    // time and come first next run.
+    if (Date.now() >= deadline) {
+      break;
+    }
     const ok = await syncOne(dependencies, target);
     batch[ok ? "synced" : "failed"] += 1;
   }
@@ -97,13 +106,14 @@ async function syncBatch(
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
 export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDependencies) {
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
-    const deadline = Date.now() + SYNC_RUN_BUDGET_MILLISECONDS;
+    const deadline =
+      Date.now() + (dependencies.runBudgetMilliseconds ?? SYNC_RUN_BUDGET_MILLISECONDS);
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
-    let batch = await syncBatch(dependencies);
+    let batch = await syncBatch(dependencies, deadline);
     summary.synced += batch.synced;
     summary.failed += batch.failed;
     while (batch.size === SYNC_BATCH_SIZE && Date.now() < deadline) {
-      batch = await syncBatch(dependencies);
+      batch = await syncBatch(dependencies, deadline);
       summary.synced += batch.synced;
       summary.failed += batch.failed;
     }
