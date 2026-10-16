@@ -48,7 +48,7 @@ export interface ShipmentLateEvent {
  * starts calling it late), or the end of the wait for a confirmation. Dating it at the deadline
  * itself put it before a bell opened during that day, so the alert never counted as new.
  */
-function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
+export function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
   if (delay === "dispatch_overdue" && shipment.dispatchDeadlineAt !== null) {
     return overdueSince(shipment.dispatchDeadlineAt);
   }
