@@ -1,7 +1,9 @@
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import type { Database } from "../client.ts";
 import { saveBillingHolder } from "../repositories/region.ts";
+import { recordTermsAcceptance } from "../repositories/terms-acceptances.ts";
 import { ensureAccount, type SeededAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { seedAdminWorkspace, seedCustomers, seedStarterSupplierFromListings } from "./customers.ts";
@@ -32,6 +34,8 @@ async function seedAdmin(database: Database, password: string): Promise<SeededAc
     role: "admin",
     organizationSlug: ADMIN_ORGANIZATION_SLUG,
   });
+  // Seeded accounts start with the terms accepted, as a sign-up through /cadastro does (26.a).
+  await recordTermsAcceptance(database, admin.userId, TERMS_VERSION);
   logger.info("seed.admin_ready", { created: admin.created });
   return admin;
 }
@@ -46,6 +50,7 @@ async function seedDemo(context: SeedContext): Promise<SeededAccount> {
     organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
   await saveBillingHolder(database, demo.tenantId, DEMO_ACCOUNT.holder);
+  await recordTermsAcceptance(database, demo.userId, TERMS_VERSION);
   const sales = await seedDemoSales({
     database,
     random,

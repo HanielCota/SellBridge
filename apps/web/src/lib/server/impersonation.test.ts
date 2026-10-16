@@ -33,6 +33,15 @@ function exportedServerFunctions(directory: string): string[] {
   });
 }
 
+// Item 26.a (L4): accepting the terms is the customer's own act.
+describe("terms acceptance during a visit", () => {
+  it("refuses accepting the terms in the customer's name", () => {
+    expect(() => assertAllowedWhileImpersonating(asAdmin("acceptTermsFn"))).toThrow(
+      "aceitar os termos de uso",
+    );
+  });
+});
+
 const asAdmin = (functionName: string, method = "POST"): ImpersonatedCall => ({
   impersonatedBy: "admin-1",
   customerId: "customer-1",

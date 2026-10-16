@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { findBillingHolder } from "./region.ts";
 import type { Database } from "../client.ts";
 import {
   account,
@@ -10,7 +11,6 @@ import {
   orders,
   session,
   storeConnections,
-  tenantProfile,
   ticketMessages,
   tickets,
   user,
@@ -54,12 +54,9 @@ async function exportUser(database: Database, userId: string) {
   return row ?? null;
 }
 
+/** The holder with phone and company (item 26.a): every personal field the account keeps. */
 async function exportHolder(database: Database, tenantId: string) {
-  const [row] = await database
-    .select({ fullName: tenantProfile.fullName, cpf: tenantProfile.cpf })
-    .from(tenantProfile)
-    .where(eq(tenantProfile.tenantId, tenantId));
-  return row ?? null;
+  return findBillingHolder(database, tenantId);
 }
 
 /** Stores without their tokens: those are keys to the marketplace, not the seller's data. */

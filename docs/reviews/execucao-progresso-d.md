@@ -23,15 +23,18 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado · ⏭ fase 2
 
-| Item | Título                                 | Situação | Commit            | Notas                                                          |
-| ---- | -------------------------------------- | -------- | ----------------- | -------------------------------------------------------------- |
-| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                              |
-| 26   | Onboarding previsível e conta completa | ⬜       | —                 | 26.a ⬜ · 26.b ✅ 232ded1 · 26.c ✅ 50e66ec                    |
-| 31   | Planos como no PDF                     | ⬜       | —                 | 31.a ✅ (flag desligada, D10) · 31.b ⏭ fase 2                  |
-| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2 |
+| Item | Título                                 | Situação | Commit            | Notas                                                           |
+| ---- | -------------------------------------- | -------- | ----------------- | --------------------------------------------------------------- |
+| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                               |
+| 26   | Onboarding previsível e conta completa | ✅       | —                 | 26.a ✅ d449008 (migration) · 26.b ✅ 232ded1 · 26.c ✅ 50e66ec |
+| 31   | Planos como no PDF                     | ⬜       | —                 | 31.a ✅ (flag desligada, D10) · 31.b ⏭ fase 2                   |
+| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2  |
 
 ## Refinar depois
 
+- Revisão do 26.a: `acceptTermsFn` usa `tenantMiddleware` (quem ficou sem organização não consegue aceitar; trocar por um middleware só de sessão com a trava de visita); `getAppSession` consulta o aceite a cada navegação (guardar no cookie da sessão); a exportação LGPD não leva os aceites, e o `cascade` apaga a prova de consentimento ao excluir a conta (decidir com o jurídico).
+- 26.a: no cadastro vazio, o erro da caixa de termos só aparece depois que os outros campos estão certos (o TanStack Form para no primeiro erro); a caixa não fica com borda vermelha.
+- 26.a: depois de mudar o schema, o servidor de preview precisa reiniciar (o HMR manteve o schema antigo e as consultas do perfil falharam até reiniciar).
 - U-5: `/assinatura` ainda usa `Card`/`Button` crus e texto solto; trazer para `PageHeader`, `SectionCard`, `ToneStatus` e `Money` como as telas irmãs.
 - `notification-deliveries.test.ts` (área do E) falhou uma vez no `pnpm test` completo e passou isolado e na repetição: possível teste instável.
 - 26.b: a loja nova só é recusada na volta do marketplace (o usuário passa pelo consentimento antes); bloquear já no início quando a conta não tem loja nenhuma.

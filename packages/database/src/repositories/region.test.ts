@@ -22,7 +22,30 @@ describe("billing holder", () => {
     }
     const holder = { fullName: "Bruno Costa Reis", cpf: testCpf() };
     await saveBillingHolder(database, tenantC, holder);
-    expect(await findBillingHolder(database, tenantC)).toEqual(holder);
+    expect(await findBillingHolder(database, tenantC)).toEqual({
+      ...holder,
+      phone: null,
+      company: null,
+    });
+  });
+
+  // Item 26.a (L2): phone, and CNPJ and legal name for who sells as a company.
+  it("keeps the phone and the company, and clears the company when it goes", async () => {
+    const [tenantA, , tenantC] = tenants.ids;
+    if (!tenantA || !tenantC) {
+      throw new Error("tenants de teste não criados");
+    }
+    const holder = {
+      fullName: "Alice Prado Lima",
+      cpf: testCpf(),
+      phone: "11987654321",
+      company: { cnpj: "11222333000181", companyName: "Alice Modas Ltda" },
+    };
+    await saveBillingHolder(database, tenantA, holder);
+    expect(await findBillingHolder(database, tenantA)).toEqual(holder);
+    await saveBillingHolder(database, tenantA, { ...holder, company: null });
+    expect((await findBillingHolder(database, tenantA))?.company).toBeNull();
+    expect((await findBillingHolder(database, tenantC))?.phone).toBeNull();
   });
 
   it("refuses a CPF already used by another account", async () => {
@@ -45,6 +68,6 @@ describe("billing holder", () => {
     }
     const holder = { fullName: "Carla Dias Moura", cpf: testCpf() };
     await saveBillingHolder(database, tenantB, holder);
-    await expect(saveBillingHolder(database, tenantB, holder)).resolves.toEqual(holder);
+    await expect(saveBillingHolder(database, tenantB, holder)).resolves.toMatchObject(holder);
   });
 });
