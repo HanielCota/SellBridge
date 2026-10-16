@@ -5,7 +5,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
 import { saveBillingHolder, saveCachedCep, saveStarterSupplier } from "../repositories/region.ts";
 import { listings, supplierProducts } from "../schema/index.ts";
-import { ensureAccount } from "./accounts.ts";
+import { ensureAccount, ensureExtraProfile } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { ADMIN_ACCOUNT, CACHED_CEPS, DEMO_ACCOUNT } from "./data.ts";
 import { createRandom, type Random } from "./random.ts";
@@ -15,6 +15,8 @@ import { z } from "zod";
 
 const DEMO_ORGANIZATION_SLUG = "ana-revendedora-demo";
 const ADMIN_ORGANIZATION_SLUG = "sellbridge-admin";
+/** The demo account's second seller profile, for the profile-per-tab checks. */
+const DEMO_SECOND_PROFILE = { name: "Ana Acessórios", slug: "ana-acessorios-demo" } as const;
 
 /** Seed passwords come from the environment so no credential lives in the code. */
 const seedEnvironmentSchema = z.object({
@@ -61,7 +63,7 @@ async function resetDomain(database: Database): Promise<void> {
     sql`delete from "user" where email in (${DEMO_ACCOUNT.email}, ${ADMIN_ACCOUNT.email})`,
   );
   await database.execute(
-    sql`delete from organization where slug in (${DEMO_ORGANIZATION_SLUG}, ${ADMIN_ORGANIZATION_SLUG})`,
+    sql`delete from organization where slug in (${DEMO_ORGANIZATION_SLUG}, ${DEMO_SECOND_PROFILE.slug}, ${ADMIN_ORGANIZATION_SLUG})`,
   );
   logger.info("seed.domain_reset");
 }
@@ -91,6 +93,7 @@ async function seedDemo(context: SeedContext): Promise<void> {
     role: "user",
     organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
+  await ensureExtraProfile(database, { userId: demo.userId, ...DEMO_SECOND_PROFILE });
   await saveBillingHolder(database, demo.tenantId, DEMO_ACCOUNT.holder);
   const sales = await seedDemoSales({
     database,
