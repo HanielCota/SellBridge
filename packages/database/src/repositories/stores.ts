@@ -5,6 +5,7 @@ import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { oauthStates, storeConnections } from "../schema/index.ts";
+import { notifyStoreExpired } from "./notification-producers.ts";
 
 type StoreConnectionRow = typeof storeConnections.$inferSelect;
 export type Marketplace = StoreConnectionRow["marketplace"];
@@ -255,12 +256,20 @@ export async function markStoreStatus(
   if (change.accessTokenEnc !== undefined) {
     conditions.push(eq(storeConnections.accessTokenEnc, change.accessTokenEnc));
   }
-  const updated = await database
-    .update(storeConnections)
-    .set({ status: change.status, lastError: change.lastError })
-    .where(and(...conditions))
-    .returning({ id: storeConnections.id });
-  return updated.length > 0;
+  return database.transaction(async (transaction) => {
+    const updated = await transaction
+      .update(storeConnections)
+      .set({ status: change.status, lastError: change.lastError })
+      .where(and(...conditions))
+      .returning({ id: storeConnections.id });
+    if (updated.length === 0) {
+      return false;
+    }
+    if (change.status === "expired") {
+      await notifyStoreExpired(transaction, change.storeConnectionId, new Date());
+    }
+    return true;
+  });
 }
 
 /** A burst of events writes the store row once a minute, not once per event. */

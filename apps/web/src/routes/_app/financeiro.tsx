@@ -71,14 +71,14 @@ function FinancialHeader() {
 
 function FinancialSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
+    <output className="block space-y-4" aria-busy="true" aria-label="Carregando financeiro">
       <Skeleton className="h-[26rem] rounded-3xl" />
       <div className="space-y-px overflow-hidden rounded-3xl">
         {SKELETON_ROWS.map((key) => (
           <Skeleton key={key} className="h-[68px] rounded-none" />
         ))}
       </div>
-    </div>
+    </output>
   );
 }
 

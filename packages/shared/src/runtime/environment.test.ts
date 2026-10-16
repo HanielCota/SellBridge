@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { logLevelEnvironmentSchema, parseEnvironment } from "./environment.ts";
+import {
+  alertWebhookUrlEnvironmentSchema,
+  logLevelEnvironmentSchema,
+  parseEnvironment,
+} from "./environment.ts";
 
 const schema = z.object({ DATABASE_URL: z.url(), PORT: z.coerce.number().default(3000) });
 
@@ -53,5 +57,18 @@ describe("logLevelEnvironmentSchema", () => {
 
   it("rejects unknown levels", () => {
     expect(logLevelEnvironmentSchema.safeParse("verbose").success).toBe(false);
+  });
+});
+
+describe("alertWebhookUrlEnvironmentSchema", () => {
+  it("accepts an HTTPS webhook or nothing, and refuses plain HTTP", () => {
+    const alertSchema = z.object({ ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema });
+    expect(parseEnvironment(alertSchema, { ALERT_WEBHOOK_URL: "" })).toEqual({});
+    expect(
+      parseEnvironment(alertSchema, { ALERT_WEBHOOK_URL: "https://hooks.example.test/x" }),
+    ).toEqual({ ALERT_WEBHOOK_URL: "https://hooks.example.test/x" });
+    expect(() =>
+      parseEnvironment(alertSchema, { ALERT_WEBHOOK_URL: "http://hooks.example.test/x" }),
+    ).toThrow(/ALERT_WEBHOOK_URL/);
   });
 });

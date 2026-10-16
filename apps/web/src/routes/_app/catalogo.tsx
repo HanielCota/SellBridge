@@ -324,7 +324,7 @@ function CatalogResults({ data }: { data: CatalogData }) {
 
 function CatalogSkeleton() {
   return (
-    <div
+    <output
       className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
       aria-busy="true"
       aria-label="Carregando produtos"
@@ -332,7 +332,7 @@ function CatalogSkeleton() {
       {Array.from({ length: 8 }, (_, index) => (
         <Skeleton key={index} className="aspect-[3/4] rounded-3xl" />
       ))}
-    </div>
+    </output>
   );
 }
 

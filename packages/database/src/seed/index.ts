@@ -3,11 +3,11 @@ import { parseEnvironment } from "@sellbridge/shared/environment";
 import { logger } from "@sellbridge/shared/logger";
 import { asc, eq, sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
-import { saveBillingHolder, saveCachedCep, saveStarterSupplier } from "../repositories/region.ts";
+import { saveBillingHolder, saveStarterSupplier } from "../repositories/region.ts";
 import { listings, supplierProducts } from "../schema/index.ts";
 import { ensureAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
-import { ADMIN_ACCOUNT, CACHED_CEPS, DEMO_ACCOUNT } from "./data.ts";
+import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
 import { createRandom, type Random } from "./random.ts";
 import { seedDemoReviews } from "./reputation.ts";
 import { seedDemoSales } from "./sales.ts";
@@ -46,11 +46,9 @@ const DOMAIN_TABLES = [
   "oauth_states",
   "store_connections",
   "supplier_products",
-  "supplier_coverage",
   "suppliers",
   "categories",
   "tenant_profile",
-  "cep_cache",
 ];
 
 async function resetDomain(database: Database): Promise<void> {
@@ -64,12 +62,6 @@ async function resetDomain(database: Database): Promise<void> {
     sql`delete from organization where slug in (${DEMO_ORGANIZATION_SLUG}, ${ADMIN_ORGANIZATION_SLUG})`,
   );
   logger.info("seed.domain_reset");
-}
-
-async function seedCepCache(database: Database): Promise<void> {
-  for (const entry of CACHED_CEPS) {
-    await saveCachedCep(database, { ...entry }, "seed", { source: "seed" });
-  }
 }
 
 async function seedAdmin(database: Database, password: string): Promise<void> {
@@ -136,7 +128,6 @@ async function main(): Promise<void> {
     if (process.argv.includes("--reset")) {
       await resetDomain(database);
     }
-    await seedCepCache(database);
     const catalog = await seedCatalog(database, context.random);
     logger.info("seed.catalog_ready", { created: catalog.created });
     await seedAdmin(database, environment.SEED_ADMIN_PASSWORD);

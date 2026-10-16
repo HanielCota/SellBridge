@@ -76,7 +76,7 @@ export interface ShipmentLateEvent {
  * it at the deadline itself put it before a bell opened during that day, so it never counted
  * as new.
  */
-function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
+export function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
   return lateSinceFor(shipment, delay) ?? new Date(0);
 }
 

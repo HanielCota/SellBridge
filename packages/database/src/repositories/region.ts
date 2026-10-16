@@ -1,47 +1,9 @@
-import type { ResolvedAddress } from "@sellbridge/shared/cep";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
-import { cepCache, suppliers, tenantProfile } from "../schema/index.ts";
+import { suppliers, tenantProfile } from "../schema/index.ts";
 import { assertActiveSupplier } from "./store-suppliers.ts";
-
-export interface CachedCep {
-  cep: string;
-  state: string;
-  city: string;
-  neighborhood: string | null;
-  street: string | null;
-  provider: string;
-  fetchedAt: Date;
-}
-
-export async function findCachedCep(database: Database, cep: string): Promise<CachedCep | null> {
-  const row = await database.query.cepCache.findFirst({ where: eq(cepCache.cep, cep) });
-  return row ?? null;
-}
-
-export async function saveCachedCep(
-  database: Database,
-  address: ResolvedAddress,
-  provider: string,
-  payload: unknown,
-): Promise<void> {
-  const values = {
-    cep: address.cep,
-    state: address.state,
-    city: address.city,
-    neighborhood: address.neighborhood,
-    street: address.street,
-    provider,
-    payload: payload ?? {},
-    fetchedAt: new Date(),
-  };
-  await database.insert(cepCache).values(values).onConflictDoUpdate({
-    target: cepCache.cep,
-    set: values,
-  });
-}
 
 /** Who invoices and charges go to. */
 export interface BillingHolder {
@@ -97,10 +59,7 @@ export async function findBillingHolder(
   return { fullName: row.fullName, cpf: row.cpf };
 }
 
-/**
- * Saves who invoices and charges go to, keeping any address an older profile has. A CPF
- * already used by another account is refused with a conflict.
- */
+/** Saves who invoices and charges go to. A CPF already used by another account is refused. */
 export async function saveBillingHolder(
   database: Database,
   tenantId: string,
