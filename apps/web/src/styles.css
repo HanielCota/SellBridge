@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/manrope";
+@import "./styles/native-controls.css";
+@import "./styles/print.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -41,15 +43,6 @@
   --color-finance-fee: var(--finance-fee);
   --color-finance-refund: var(--finance-refund);
   --color-brand-wordmark: var(--brand-wordmark);
-  --color-brand-wordmark-inverse: var(--brand-wordmark-inverse);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -100,7 +93,6 @@
   /* Brand green for text: dark enough to read on white. */
   --brand-text: oklch(0.5 0.13 152);
   --brand-wordmark: #008a58;
-  --brand-wordmark-inverse: #00dc8a;
   --background: oklch(0.97 0.002 260);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -126,14 +118,6 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0.0015 260);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.74 0.19 153);
-  --sidebar-primary-foreground: var(--brand-ink);
-  --sidebar-accent: oklch(0.94 0.004 260);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0 0 0 / 8%);
-  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
@@ -172,14 +156,6 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.165 0.003 260);
-  --sidebar-foreground: oklch(0.97 0 0);
-  --sidebar-primary: oklch(0.87 0.16 152);
-  --sidebar-primary-foreground: oklch(0.18 0.02 160);
-  --sidebar-accent: oklch(0.27 0.004 260);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 7%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -188,9 +164,67 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* The page never bounces or pulls-to-refresh past its edges; scrolling areas inside it do. */
+    overscroll-behavior-y: none;
+  }
+  /*
+   * A text link with no focus style of its own gets the app's ring instead of the browser's
+   * default outline. `:where` keeps it weaker than any component that styles its own focus.
+   */
+  :where(a):focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+  /*
+   * A fieldset is as wide as its content by default (`min-inline-size: min-content`), so a row of
+   * tabs inside one ignores `max-width` and pushes the page sideways on a phone.
+   */
+  fieldset {
+    min-inline-size: 0;
+  }
+  /* Images are content, not things to drag out of the page. */
+  img {
+    -webkit-user-drag: none;
   }
   html {
     @apply font-sans;
+    /* Native controls, scrollbars and the caret follow the theme instead of staying light. */
+    color-scheme: light;
+    /* The app gives its own touch feedback (active:scale); no grey flash on top of it. */
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /*
+   * Autofilled fields keep the theme's field colors instead of the browser's pale blue: the
+   * background change is held off, not covered with an inset box-shadow, which would hide the
+   * focus ring (also a box-shadow).
+   */
+  input:-webkit-autofill,
+  textarea:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    transition:
+      background-color 600000s 0s,
+      color 600000s 0s;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--brand) 32%, transparent);
+  }
+  /* Links get the same focus ring as buttons, not the browser's thin outline. */
+  a:focus-visible {
+    @apply rounded-sm outline-none ring-3 ring-ring/50;
+  }
+  /* Below 16px iOS zooms the page in on focus and leaves it zoomed. */
+  @media (pointer: coarse) {
+    input,
+    textarea {
+      font-size: max(16px, 1em);
+    }
   }
 }
 /*
@@ -254,6 +288,12 @@
     --surface-tone-hover: 4.5%;
   }
   transition: transform 160ms ease-out;
+
+  /* Keyboard focus shows on the card itself, like the hover edge but unmistakable. */
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+  }
 
   /* Feedback on press, not on release. */
   &:active {
@@ -576,14 +616,36 @@ body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
   --glyph-play: glyph-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 380ms both;
 }
 
+/* Onboarding: the rocket lifts off its pad and its flame flickers. */
+.glyph-lift {
+  --glyph-play: glyph-lift 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glyph-flame {
+  transform-origin: 50% 0;
+  --glyph-play: glyph-flame 600ms ease-in-out;
+}
+
+/* Sales drop: the line draws itself downhill and the arrow lands at its end. */
+.glyph-trace {
+  stroke-dasharray: 1;
+  --glyph-play: glyph-draw 500ms ease-out both;
+}
+
+.glyph-land {
+  --glyph-play: glyph-drop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) 350ms both;
+}
+
 /* Hover only where a pointer can hover: on touch, `:hover` sticks after the tap. */
 @media (hover: hover) {
-  a:hover .glyph {
+  a:hover .glyph,
+  [data-glyph-trigger]:hover .glyph {
     animation: var(--glyph-play);
   }
 }
 
-a:focus-visible .glyph {
+a:focus-visible .glyph,
+[data-glyph-trigger]:focus-within .glyph {
   animation: var(--glyph-play);
 }
 
@@ -653,6 +715,22 @@ a:focus-visible .glyph {
   }
 }
 
+@keyframes glyph-lift {
+  40% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes glyph-flame {
+  25%,
+  75% {
+    transform: scaleY(1.5);
+  }
+  50% {
+    transform: scaleY(0.8);
+  }
+}
+
 @keyframes glyph-ring {
   15% {
     transform: rotate(-8deg);
@@ -709,6 +787,9 @@ a:focus-visible .glyph {
   .glyph-draw {
     stroke-dasharray: none;
     animation: glyph-mark-fade 520ms ease-out both;
+  }
+  .glyph-trace {
+    stroke-dasharray: none;
   }
 }
 

@@ -1,17 +1,15 @@
-import { STORE_STATUS_LABELS, type StoreStatus } from "@sellbridge/shared/schemas";
-import { type StatusTone, TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
+import { STORE_STATUS_LABELS } from "@sellbridge/shared/schemas";
+import { STORE_ATTENTION_LABEL, type StoreHealth } from "@sellbridge/shared/store-attention";
+import { type StatusTone, TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 
-const STORE_TONES: Record<StoreStatus, StatusTone> = {
+const STORE_TONES: Record<StoreHealth, StatusTone> = {
   connected: "success",
+  attention: "warning",
   expired: "warning",
   error: "danger",
   disconnected: "muted",
 };
-
-export function StoreStatusBadge({ status }: { status: StoreStatus }) {
-  return <ToneStatus tone={STORE_TONES[status]} label={STORE_STATUS_LABELS[status]} />;
-}
 
 const TONE_CHIP_CLASSES: Record<StatusTone, string> = {
   success: "bg-emerald-500/14 text-emerald-700 dark:text-emerald-400",
@@ -21,8 +19,15 @@ const TONE_CHIP_CLASSES: Record<StatusTone, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
+function healthLabel(status: StoreHealth): string {
+  if (status === "attention") {
+    return STORE_ATTENTION_LABEL;
+  }
+  return STORE_STATUS_LABELS[status];
+}
+
 /** The status as a tinted pill, for headers where the dot alone would be too quiet. */
-export function StoreStatusChip({ status }: { status: StoreStatus }) {
+export function StoreStatusChip({ status }: { status: StoreHealth }) {
   const tone = STORE_TONES[status];
   return (
     <span
@@ -32,23 +37,23 @@ export function StoreStatusChip({ status }: { status: StoreStatus }) {
       )}
     >
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", TONE_DOT_CLASSES[tone])} />
-      {STORE_STATUS_LABELS[status]}
+      {healthLabel(status)}
     </span>
   );
 }
 
 /** The status as a dot pinned to a store's mark, with its label kept for screen readers. */
-export function StoreStatusDot({ status, className }: { status: StoreStatus; className?: string }) {
+export function StoreStatusDot({ status, className }: { status: StoreHealth; className?: string }) {
   return (
     <span
-      title={STORE_STATUS_LABELS[status]}
+      title={healthLabel(status)}
       className={cn(
         "size-3 rounded-full ring-[2.5px] ring-card",
         TONE_DOT_CLASSES[STORE_TONES[status]],
         className,
       )}
     >
-      <span className="sr-only">{STORE_STATUS_LABELS[status]}</span>
+      <span className="sr-only">{healthLabel(status)}</span>
     </span>
   );
 }

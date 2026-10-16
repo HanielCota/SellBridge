@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   apply: vi.fn<(...input: unknown[]) => Promise<void>>(),
   lock: vi.fn<(...input: unknown[]) => Promise<{ subscriptionId: string } | null>>(),
-  retrieve: vi.fn<(id: string) => Promise<unknown>>(),
-  list: vi.fn<(input: unknown) => Promise<unknown>>(),
+  retrieve: vi.fn<(id: string, ...options: unknown[]) => Promise<unknown>>(),
+  list: vi.fn<(input: unknown, options?: unknown) => Promise<unknown>>(),
   transaction: vi.fn<(operation: (executor: object) => Promise<void>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -75,6 +75,18 @@ describe("signed billing webhook", () => {
       {},
       expect.objectContaining({ eventId: "evt_test", plan: "pro", status: "active" }),
     );
+  });
+  // Regression: Stripe was read under the account lock with the client defaults (15 s, 2 retries),
+  // holding the row and a pooled connection for up to ~90 s.
+  it("reads Stripe under the lock with a short timeout and one retry", async () => {
+    mocks.list.mockResolvedValue({ data: [] });
+    await handleBillingWebhook(request());
+    const limits = { timeout: 5_000, maxNetworkRetries: 1 };
+    expect(mocks.list).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_test" }),
+      limits,
+    );
+    expect(mocks.retrieve).toHaveBeenCalledWith("sub_test", {}, limits);
   });
   it("uses the current subscription for delayed cancellation of an old one", async () => {
     mocks.list.mockResolvedValue({

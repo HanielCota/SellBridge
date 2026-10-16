@@ -12,6 +12,10 @@ export const financialSummarySchema = z.object({
     .describe("Período considerado."),
   orders: z.number().int().describe("Pedidos que contam como venda."),
   cancelledOrders: z.number().int().describe("Pedidos cancelados ou devolvidos."),
+  pendingCostOrders: z
+    .number()
+    .int()
+    .describe("Vendas com custo pendente: entram na receita, mas não no lucro."),
   averageTicketCents: z
     .number()
     .int()
@@ -30,6 +34,7 @@ export function presentFinancialSummary(
     period: { from: period.fromDate, to: period.toDate },
     orders: summary.orders,
     cancelledOrders: summary.cancelledOrders,
+    pendingCostOrders: summary.pendingCostOrders,
     averageTicketCents: summary.averageTicketCents,
     totals: presentFinancialTotals(summary),
   };

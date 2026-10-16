@@ -16,6 +16,9 @@ describe("webhook endpoint rules", () => {
 
   it("accepts public https URLs in production", () => {
     expect(() => assertAcceptableWebhookUrl("https://erp.example.com/hooks", false)).not.toThrow();
+    expect(() =>
+      assertAcceptableWebhookUrl("https://[2606:4700::1111]/hooks", false),
+    ).not.toThrow();
   });
 
   it.each([
@@ -26,6 +29,8 @@ describe("webhook endpoint rules", () => {
     "https://169.254.169.254/latest",
     "https://[::1]/hooks",
     "https://[::ffff:10.0.0.1]/hooks",
+    "https://postgres/hooks",
+    "https://redis:6379/hooks",
   ])("refuses %s in production", (url) => {
     expect(() => assertAcceptableWebhookUrl(url, false)).toThrow(
       expect.objectContaining({ code: "VALIDATION" }),

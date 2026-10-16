@@ -76,7 +76,9 @@ export const sendWebhookRequest: SendWebhookRequest = async (webhook) => {
       },
       (response) => {
         clearTimeout(deadline);
-        response.resume();
+        // The body is never read: closing the socket now keeps a receiver that trickles it from
+        // holding the connection (and a file descriptor) open after the status arrived.
+        response.destroy();
         resolve(response.statusCode ?? 0);
       },
     );

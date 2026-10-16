@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SmartDate } from "@/components/data/smart-date";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supplierReputationQueryOptions } from "@/features/suppliers/suppliers.queries";
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 import {
   formatAverage,
@@ -25,7 +26,6 @@ import {
   StarAverage,
 } from "./reputation";
 
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const precisePercent = new Intl.NumberFormat("pt-BR", {
   style: "percent",
   maximumFractionDigits: 1,
@@ -73,8 +73,8 @@ function ScoreColumn({ reputation }: { reputation: SupplierReputation }) {
       </div>
       {sentiment ? (
         <p className="text-xs text-muted-foreground">
-          {percent.format(sentiment.positive)} positivas · {percent.format(sentiment.neutral)}{" "}
-          neutras · {percent.format(sentiment.negative)} negativas
+          {formatPercent(sentiment.positive)} positivas · {formatPercent(sentiment.neutral)} neutras
+          · {formatPercent(sentiment.negative)} negativas
         </p>
       ) : null}
     </div>
@@ -125,7 +125,7 @@ function BreakdownColumn({ reputation }: { reputation: SupplierReputation }) {
         <CheckRow
           key={aspect.aspect}
           label={REVIEW_ASPECT_LABELS[aspect.aspect]}
-          value={aspect.share === null ? "Poucas menções" : percent.format(aspect.share)}
+          value={aspect.share === null ? "Poucas menções" : formatPercent(aspect.share)}
           ok={aspect.share === null ? null : aspect.share >= GOOD_ASPECT_SHARE}
         />
       ))}

@@ -2,6 +2,7 @@ import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useRef } from "react";
 import {
+  ArrowsLeftRightIcon,
   DotsThreeIcon,
   PackageIcon,
   PlugIcon,
@@ -9,9 +10,11 @@ import {
   StorefrontIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreStatusChip, StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
+import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +30,12 @@ import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
+
+/** The supplier a shop sells, as its row names it. */
+export interface StoreSupplierLabel {
+  name: string;
+  active: boolean;
+}
 
 /** Identity, three figures and the row menu; the figures fold under the name on small screens. */
 const ROW_COLUMNS =
@@ -47,24 +56,59 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ConnectionProblem({ store }: { store: StoreWithActivity }) {
-  if (store.status === "connected") {
-    return null;
+type StoreProblem = Exclude<StoreWithActivity["status"], "connected">;
+
+/** Why a store stopped syncing, in its tone: an expired grant warns, a failure is an error. */
+const PROBLEM_TONES: Record<StoreProblem, string> = {
+  expired: "text-amber-700 dark:text-amber-400",
+  error: "text-destructive",
+  disconnected: "text-muted-foreground",
+};
+
+/** What to say when the marketplace left no message of its own. */
+const PROBLEM_FALLBACKS: Record<StoreProblem, string> = {
+  expired: "A autorização da loja expirou",
+  error: "A loja parou de sincronizar",
+  disconnected: "A loja foi desconectada",
+};
+
+/** A stored message as a sentence fragment: trimmed, without its closing period. */
+function trimMessage(message: string) {
+  return message.trim().replace(/\.+$/, "");
+}
+
+/** The store's problem as one sentence, ready to take the "sincronização pausada" suffix. */
+function problemMessage(status: StoreProblem, lastError: string | null) {
+  const message = trimMessage(lastError ?? "");
+  if (message === "") {
+    return PROBLEM_FALLBACKS[status];
   }
+  return message;
+}
+
+/**
+ * A connected store whose last refresh failed for a passing reason: it keeps syncing and is
+ * retried, so the figures stay, but the reason replaces "Conectada" in the warning tone.
+ */
+function AttentionSubtitle({
+  message,
+  failedListings,
+  storeName,
+}: {
+  message: string;
+  failedListings: number;
+  storeName: string;
+}) {
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-2xl bg-destructive/10 p-3 text-sm md:ml-20">
-      <WarningCircleIcon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
-      <p className="flex-1">
-        {store.lastError ??
-          "O acesso a esta loja expirou. Reconecte para voltar a sincronizar pedidos e estoque."}
-      </p>
-      <Button asChild size="sm">
-        <a href={`/api/oauth/${store.marketplace}/start`}>
-          <PlugIcon aria-hidden="true" />
-          Reconectar
-        </a>
-      </Button>
-    </div>
+    <p className="text-sm text-amber-700 md:truncate dark:text-amber-400" title={message}>
+      {message}
+      {failedListings > 0 && (
+        <>
+          {" · "}
+          <FailedListingsLink count={failedListings} storeName={storeName} />
+        </>
+      )}
+    </p>
   );
 }
 
@@ -74,37 +118,154 @@ function isIdle(store: StoreWithActivity) {
   return store.status === "connected" && liveListings === 0 && failedListings === 0;
 }
 
-/**
- * The store's next step, as a small button beside its name so every row keeps the same height:
- * fix failed listings first, otherwise send an idle store to the catalog. Stores already selling
- * get none.
- */
-function NextStepAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  const { failedListings } = store.activity;
-  if (failedListings > 0) {
+/** Failed listings as a quiet link in the store's subtitle, leading to the listings to fix. */
+function FailedListingsLink({ count, storeName }: { count: number; storeName: string }) {
+  const label = count === 1 ? "1 publicação com erro" : `${count} publicações com erro`;
+  return (
+    <Link
+      to="/publicacoes"
+      search={{ status: "error" }}
+      aria-label={`${label} em ${storeName}`}
+      className="text-destructive underline-offset-4 hover:underline"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function StoreSubtitle({
+  store,
+  storeName,
+  marketplaceLabel,
+}: {
+  store: StoreWithActivity;
+  storeName: string;
+  marketplaceLabel: string;
+}) {
+  if (store.status !== "connected") {
+    const problem = `${problemMessage(store.status, store.lastError)} · sincronização pausada`;
+    // Truncated on wide screens, so the full message stays one hover away.
     return (
-      <Button asChild variant="destructive" size="sm" className="shrink-0">
-        <Link
-          to="/publicacoes"
-          search={{ status: "error" }}
-          aria-label={`${failedListings} ${failedListings === 1 ? "publicação com erro" : "publicações com erro"} em ${storeName}`}
-        >
-          <WarningCircleIcon weight="bold" aria-hidden="true" />
-          {failedListings} com erro
-        </Link>
-      </Button>
+      <p className={cn("text-sm md:truncate", PROBLEM_TONES[store.status])} title={problem}>
+        {problem}
+      </p>
     );
   }
+  const { failedListings } = store.activity;
+  if (storeHealth(store) === "attention") {
+    return (
+      <AttentionSubtitle
+        message={trimMessage(store.lastError ?? "")}
+        failedListings={failedListings}
+        storeName={storeName}
+      />
+    );
+  }
+  return (
+    <p className="text-sm text-muted-foreground md:truncate">
+      {marketplaceLabel} · Conectada{" "}
+      <time
+        dateTime={store.connectedAt.toISOString()}
+        title={formatAbsoluteTime(store.connectedAt)}
+        suppressHydrationWarning
+      >
+        {formatRelativeTime(store.connectedAt)}
+      </time>
+      {failedListings > 0 && (
+        <>
+          {" · "}
+          <FailedListingsLink count={failedListings} storeName={storeName} />
+        </>
+      )}
+    </p>
+  );
+}
+
+/** Who the shop sells; a shop with no supplier yet asks for one before it can publish again. */
+function StoreSupplierLine({
+  store,
+  supplier,
+  onChangeSupplier,
+}: {
+  store: StoreWithActivity;
+  supplier: StoreSupplierLabel | undefined;
+  onChangeSupplier: () => void;
+}) {
+  if (store.supplierId === null || supplier === undefined) {
+    return (
+      <button
+        type="button"
+        onClick={onChangeSupplier}
+        className="flex items-center gap-1.5 rounded-md text-left text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none dark:text-amber-400"
+      >
+        <WarningCircleIcon weight="fill" className="size-4 shrink-0" aria-hidden="true" />
+        Escolha o fornecedor desta loja
+      </button>
+    );
+  }
+  return (
+    <p className="text-sm text-muted-foreground md:truncate">
+      Vende <span className="font-medium text-foreground">{supplier.name}</span>
+      {supplier.active ? null : " · fornecedor inativo"}
+    </p>
+  );
+}
+
+/** An idle store gets one small step beside its name; stores already selling get none. */
+function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
   if (!isIdle(store)) {
     return null;
   }
   return (
-    <Button asChild variant="secondary" size="sm" className="shrink-0">
+    <Button asChild variant="outline" size="sm" className="shrink-0">
       <Link to="/catalogo" aria-label={`Publicar produtos em ${storeName}`}>
         <PackageIcon weight="bold" aria-hidden="true" />
-        Publicar
+        {/* On a phone the label would squeeze the subtitle into a column; the icon carries it. */}
+        <span className="max-md:sr-only">Publicar</span>
       </Link>
     </Button>
+  );
+}
+
+/** Figures a disconnected store can't vouch for give way to the one action that fixes it. */
+function ReconnectAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
+  const locked = useStoresLocked();
+  return (
+    <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
+      {locked ? (
+        <Button variant="outline" size="sm" disabled title={STORES_LOCKED_REASON}>
+          <PlugIcon weight="bold" aria-hidden="true" />
+          Reconectar
+        </Button>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
+            <PlugIcon weight="bold" aria-hidden="true" />
+            Reconectar
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function StoreFigures({ store }: { store: StoreWithActivity }) {
+  const { activity } = store;
+  return (
+    <>
+      {/* An idle store's zeros are filler, not figures: they step back behind its button. */}
+      <dl
+        className={cn(
+          "col-span-2 row-start-2 grid grid-cols-3 gap-3 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
+          isIdle(store) && "[&_dd]:font-medium [&_dd]:text-muted-foreground",
+        )}
+      >
+        <Stat label="Publicações" value={activity.liveListings.toLocaleString("pt-BR")} />
+        <Stat label="Vendas" value={activity.orders.toLocaleString("pt-BR")} />
+        <Stat label="Receita" value={compactMoney.format(activity.revenueCents / 100)} />
+      </dl>
+      <span className="sr-only">Receita exata: {formatCents(activity.revenueCents)}</span>
+    </>
   );
 }
 
@@ -113,6 +274,8 @@ const MENU_TILE_TONES = {
   publish:
     "bg-emerald-500/14 text-emerald-600 group-data-highlighted/dropdown-menu-item:bg-emerald-500/22 dark:text-emerald-400",
   view: "bg-sky-500/14 text-sky-600 group-data-highlighted/dropdown-menu-item:bg-sky-500/22 dark:text-sky-400",
+  supplier:
+    "bg-violet-500/14 text-violet-600 group-data-highlighted/dropdown-menu-item:bg-violet-500/22 dark:text-violet-400",
   danger: "bg-destructive/12 group-data-highlighted/dropdown-menu-item:bg-destructive/22",
 } as const;
 
@@ -138,17 +301,23 @@ function MenuTile({ tone, children }: { tone: keyof typeof MENU_TILE_TONES; chil
 }
 
 /** What the store menu offers: who it is, where to go next and, set apart, disconnecting. */
+interface StoreRowActions {
+  onDisconnect: () => void;
+  onChangeSupplier: () => void;
+}
+
 function StoreMenuEntries({
   store,
   storeName,
   marketplaceLabel,
-  onDisconnect,
+  actions,
 }: {
   store: StoreWithActivity;
   storeName: string;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  actions: StoreRowActions;
 }) {
+  const locked = useStoresLocked();
   return (
     <>
       <DropdownMenuLabel className="flex items-center gap-3 px-2.5 pt-2 pb-2.5">
@@ -156,7 +325,7 @@ function StoreMenuEntries({
           <span className="block truncate text-sm font-semibold text-foreground">{storeName}</span>
           <span className="block truncate text-xs font-normal">{marketplaceLabel}</span>
         </span>
-        <StoreStatusChip status={store.status} />
+        <StoreStatusChip status={storeHealth(store)} />
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
@@ -175,10 +344,18 @@ function StoreMenuEntries({
           Ver publicações
         </Link>
       </DropdownMenuItem>
+      <DropdownMenuItem onSelect={actions.onChangeSupplier} className="gap-2.5 py-1.5 pl-1.5">
+        <MenuTile tone="supplier">
+          <ArrowsLeftRightIcon weight="bold" />
+        </MenuTile>
+        {store.supplierId === null ? "Escolher fornecedor" : "Trocar fornecedor"}
+      </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
-        onSelect={onDisconnect}
+        disabled={locked}
+        title={locked ? STORES_LOCKED_REASON : undefined}
+        onSelect={actions.onDisconnect}
         className={cn("gap-2.5 py-1.5 pl-1.5", NEUTRAL_DESTRUCTIVE_HIGHLIGHT)}
       >
         <MenuTile tone="danger">
@@ -194,12 +371,12 @@ function StoreMenu({
   store,
   storeName,
   marketplaceLabel,
-  onDisconnect,
+  actions,
 }: {
   store: StoreWithActivity;
   storeName: string;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  actions: StoreRowActions;
 }) {
   // Opened with the mouse, the menu leaves focus where it is on close; returning it to the
   // trigger would light up its keyboard focus ring for a pointer user.
@@ -236,7 +413,7 @@ function StoreMenu({
           store={store}
           storeName={storeName}
           marketplaceLabel={marketplaceLabel}
-          onDisconnect={onDisconnect}
+          actions={actions}
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -246,13 +423,14 @@ function StoreMenu({
 function StoreRow({
   store,
   marketplaceLabel,
-  onDisconnect,
+  supplier,
+  actions,
 }: {
   store: StoreWithActivity;
   marketplaceLabel: string;
-  onDisconnect: () => void;
+  supplier: StoreSupplierLabel | undefined;
+  actions: StoreRowActions;
 }) {
-  const { activity } = store;
   const name = displayStoreName(store.shopName);
   return (
     <li className="px-5 py-4">
@@ -260,58 +438,64 @@ function StoreRow({
         <div className="flex min-w-0 items-center gap-4">
           <MarkSlot>
             <MarketplaceMark marketplace={store.marketplace} className="size-10" />
-            <StoreStatusDot status={store.status} className="absolute right-0 -bottom-0.5" />
+            <StoreStatusDot status={storeHealth(store)} className="absolute right-0 -bottom-0.5" />
           </MarkSlot>
           <div className="min-w-0 flex-1 space-y-0.5">
             <h2 className="truncate font-semibold" title={store.shopName}>
               {name}
             </h2>
-            <p className="text-sm text-muted-foreground md:truncate">
-              {marketplaceLabel} · Conectada{" "}
-              <time
-                dateTime={store.connectedAt.toISOString()}
-                title={formatAbsoluteTime(store.connectedAt)}
-                suppressHydrationWarning
-              >
-                {formatRelativeTime(store.connectedAt)}
-              </time>
-            </p>
+            <StoreSubtitle store={store} storeName={name} marketplaceLabel={marketplaceLabel} />
+            <StoreSupplierLine
+              store={store}
+              supplier={supplier}
+              onChangeSupplier={actions.onChangeSupplier}
+            />
           </div>
-          <NextStepAction store={store} storeName={name} />
+          <PublishAction store={store} storeName={name} />
         </div>
-        {/* An idle store's zeros are filler, not figures: they step back behind its button. */}
-        <dl
-          className={cn(
-            "col-span-2 row-start-2 grid grid-cols-3 gap-3 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
-            isIdle(store) && "[&_dd]:font-medium [&_dd]:text-muted-foreground",
-          )}
-        >
-          <Stat label="Publicações" value={activity.liveListings.toLocaleString("pt-BR")} />
-          <Stat label="Vendas" value={activity.orders.toLocaleString("pt-BR")} />
-          <Stat label="Receita" value={compactMoney.format(activity.revenueCents / 100)} />
-        </dl>
-        <span className="sr-only">Receita exata: {formatCents(activity.revenueCents)}</span>
+        {store.status === "connected" ? (
+          <StoreFigures store={store} />
+        ) : (
+          <ReconnectAction store={store} storeName={name} />
+        )}
         <StoreMenu
           store={store}
           storeName={name}
           marketplaceLabel={marketplaceLabel}
-          onDisconnect={onDisconnect}
+          actions={actions}
         />
       </div>
-      <ConnectionProblem store={store} />
     </li>
   );
 }
 
-/** Connected stores as one grouped list, with the 30-day figures lined up in columns. */
+/** A syncing store whose last refresh failed comes first, then the healthy ones, then the rest. */
+function listRank(store: StoreWithActivity) {
+  const health = storeHealth(store);
+  if (health === "attention") {
+    return 0;
+  }
+  return health === "connected" ? 1 : 2;
+}
+
+/** Stores that sync lead the list; the ones waiting on a reconnect settle at the bottom. */
+function byConnectedFirst(stores: StoreWithActivity[]) {
+  return stores.toSorted((left, right) => listRank(left) - listRank(right));
+}
+
+/** Stores as one grouped list, with the 30-day figures lined up in columns. */
 export function StoreList({
   stores,
   labels,
+  suppliers,
   onDisconnect,
+  onChangeSupplier,
 }: {
   stores: StoreWithActivity[];
   labels: Map<string, string>;
+  suppliers: Map<string, StoreSupplierLabel>;
   onDisconnect: (store: StoreWithActivity) => void;
+  onChangeSupplier: (store: StoreWithActivity) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -319,18 +503,22 @@ export function StoreList({
         aria-hidden="true"
         className={`hidden gap-x-4 px-5 text-footnote text-muted-foreground md:grid ${ROW_COLUMNS}`}
       >
-        <span>Conectadas · {stores.length}</span>
+        <span>Lojas · {stores.length}</span>
         <span className="text-right">Publicações</span>
         <span className="text-right">Vendas</span>
         <span className="text-right">Receita</span>
       </div>
       <GroupedList>
-        {stores.map((store) => (
+        {byConnectedFirst(stores).map((store) => (
           <StoreRow
             key={store.id}
             store={store}
             marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
-            onDisconnect={() => onDisconnect(store)}
+            supplier={store.supplierId === null ? undefined : suppliers.get(store.supplierId)}
+            actions={{
+              onDisconnect: () => onDisconnect(store),
+              onChangeSupplier: () => onChangeSupplier(store),
+            }}
           />
         ))}
       </GroupedList>

@@ -183,10 +183,14 @@ describe("publishing", () => {
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () =>
         json(200, [{ category_id: "MLB31447" }]),
       [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
-      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: "https://produto/MLB1" }),
+      [`POST ${API}/items`]: () =>
+        json(201, { id: "MLB1", permalink: "https://produto.mercadolivre.com.br/MLB-1" }),
     });
     const result = await ml.publishProduct(store, product);
-    expect(result).toEqual({ externalId: "MLB1", externalUrl: "https://produto/MLB1" });
+    expect(result).toEqual({
+      externalId: "MLB1",
+      externalUrl: "https://produto.mercadolivre.com.br/MLB-1",
+    });
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created).toMatchObject({
       category_id: "MLB31447",
@@ -339,6 +343,30 @@ describe("notifications", () => {
     expect(malformed).toMatchObject({ valid: false, payload: null });
   });
 
+  // Regression: the unsigned notification was stored whole, so a forged post padded with 60 KB
+  // of extra fields grew the events table by 60 KB a request.
+  it("keeps only the documented fields of the notification", async () => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, pad: "x".repeat(60_000) }),
+    });
+    expect(result.valid && result.event.payload).toEqual(notification);
+  });
+
+  it.each([
+    ["an _id", { _id: "x".repeat(129) }],
+    ["a topic", { topic: "x".repeat(65) }],
+    ["a resource", { resource: `/orders/${"9".repeat(250)}` }],
+  ])("refuses %s longer than any real notification", async (_field, override) => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, ...override }),
+    });
+    expect(result.valid).toBe(false);
+  });
+
   it("reads the seller and order from stored order notifications", () => {
     const { ml } = connector({});
     expect(ml.parseStoredOrderEvent("orders_v2", notification)).toEqual({
@@ -364,11 +392,14 @@ const publishRoutes: Record<string, Responder> = {
   [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
 };
 
-function publicationGuard(reconcileOnly = false) {
+/** `minutesAgo`: when an earlier attempt began creating the item; omitted when none did. */
+function publicationGuard(minutesAgo?: number) {
   return {
-    reconcileOnly,
+    creationStartedAt:
+      minutesAgo === undefined ? null : new Date(fixedNow.getTime() - minutesAgo * 60_000),
     beforeCreate: vi.fn<() => Promise<void>>(async () => {}),
     creationRejected: vi.fn<() => Promise<void>>(async () => {}),
+    creationAbsent: vi.fn<() => Promise<void>>(async () => {}),
   };
 }
 
@@ -474,7 +505,7 @@ const remoteItem = {
   seller_id: 999,
   seller_custom_field: product.idempotencyKey,
   status: "active",
-  permalink: "https://produto/MLB1",
+  permalink: "https://produto.mercadolivre.com.br/MLB-1",
 };
 const recoveryRoutes: Record<string, Responder> = {
   [`GET ${API}/users/999/items/search`]: () =>
@@ -486,7 +517,7 @@ const recoveryRoutes: Record<string, Responder> = {
 
 describe("publication recovery", () => {
   it("recovers the exact target and syncs price and stock without creating again", async () => {
-    const guard = publicationGuard(true);
+    const guard = publicationGuard(30);
     const { ml, calls } = connector(recoveryRoutes);
     await expect(ml.publishProduct(store, product, guard)).resolves.toEqual({
       externalId: "MLB1",
@@ -555,13 +586,87 @@ describe("publication recovery", () => {
     });
   });
 
-  it("does not create after an uncertain attempt even if search returns no results", async () => {
+  it("does not create within 10 minutes of an uncertain attempt, even if search finds nothing", async () => {
+    const guard = publicationGuard(9);
     const { ml, calls } = connector(publishRoutes);
-    await expect(ml.publishProduct(store, product, publicationGuard(true))).rejects.toMatchObject({
-      message: expect.stringContaining("criação anterior"),
+    await expect(ml.publishProduct(store, product, guard)).rejects.toMatchObject({
+      message: expect.stringMatching(/aguarde alguns minutos/i),
+      details: { retryable: false },
     });
     expect(calls.every((call) => call.method === "GET")).toBe(true);
+    expect(guard.creationAbsent).not.toHaveBeenCalled();
   });
+
+  it("clears the guard and creates once 10 minutes passed with no item found", async () => {
+    const guard = publicationGuard(10);
+    const order: string[] = [];
+    guard.creationAbsent.mockImplementationOnce(async () => {
+      order.push("absent");
+    });
+    guard.beforeCreate.mockImplementationOnce(async () => {
+      order.push("guard");
+    });
+    const { ml, calls } = connector(publishRoutes);
+    await expect(ml.publishProduct(store, product, guard)).resolves.toMatchObject({
+      externalId: "MLB1",
+    });
+    expect(order).toEqual(["absent", "guard"]);
+    expect(
+      calls.filter((call) => call.method === "POST" && call.url === `${API}/items`),
+    ).toHaveLength(1);
+  });
+
+  it("does not report a missing item when a fresh publication finds none", async () => {
+    const guard = publicationGuard();
+    const { ml } = connector(publishRoutes);
+    await ml.publishProduct(store, product, guard);
+    expect(guard.creationAbsent).not.toHaveBeenCalled();
+  });
+
+  const creationFailures: [string, Responder][] = [
+    [
+      "timeout",
+      () => {
+        throw new DOMException("tempo esgotado", "TimeoutError");
+      },
+    ],
+    ["HTTP 500", () => json(500, {})],
+    ["HTTP 502", () => json(502, {})],
+  ];
+  it.each(creationFailures)(
+    "after a %s on creation: waits, then creates or adopts",
+    async (_label, failure) => {
+      const failed = publicationGuard();
+      const first = connector({ ...publishRoutes, [`POST ${API}/items`]: failure });
+      await expect(first.ml.publishProduct(store, product, failed)).rejects.toMatchObject({
+        details: { retryable: false },
+      });
+      expect(failed.beforeCreate).toHaveBeenCalledOnce();
+      expect(failed.creationRejected).not.toHaveBeenCalled();
+      expect(first.calls.filter((call) => call.url === `${API}/items`)).toHaveLength(1);
+
+      const retried = connector(publishRoutes);
+      await expect(
+        retried.ml.publishProduct(store, product, publicationGuard(0)),
+      ).rejects.toBeDefined();
+      expect(retried.calls.some((call) => call.method === "POST")).toBe(false);
+
+      const neverCreated = connector(publishRoutes);
+      await expect(
+        neverCreated.ml.publishProduct(store, product, publicationGuard(15)),
+      ).resolves.toMatchObject({ externalId: "MLB1" });
+
+      const created = publicationGuard(15);
+      const landed = connector({ ...publishRoutes, ...recoveryRoutes });
+      await expect(landed.ml.publishProduct(store, product, created)).resolves.toMatchObject({
+        externalId: "MLB1",
+      });
+      expect(
+        landed.calls.some((call) => call.method === "POST" && call.url === `${API}/items`),
+      ).toBe(false);
+      expect(created.creationAbsent).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([400, 401, 429, 500])(
     "clears the guard only for definitive refusal: HTTP %i",
@@ -618,5 +723,47 @@ describe("per-unit sale fees", () => {
         }),
     });
     expect((await ml.fetchOrder(store, "/orders/1")).marketplaceFeeCents).toBe(2269);
+  });
+
+  it("rounds a fee with fractions of a cent once per line, not once per unit", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () =>
+        json(200, {
+          ...rawOrder,
+          // R$ 0,004 × 1.000 units is R$ 4,00; rounding each unit first would give zero.
+          order_items: [{ ...rawOrder.order_items[0], quantity: 1000, sale_fee: 0.004 }],
+        }),
+    });
+    expect((await ml.fetchOrder(store, "/orders/1")).marketplaceFeeCents).toBe(400);
+  });
+});
+
+describe("order amounts out of range", () => {
+  it.each([
+    ["a negative total", { total_amount: -10 }],
+    ["a total past what an order row stores", { total_amount: 21_474_836.48 }],
+    ["an unreadable date", { date_created: "ontem" }],
+  ])("refuses %s as a malformed order", async (_label, change) => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () => json(200, { ...rawOrder, ...change }),
+    });
+    await expect(ml.fetchOrder(store, "/orders/1")).rejects.toThrow("Resposta inesperada");
+  });
+
+  it("refuses a negative fee or price on a line", async () => {
+    for (const line of [{ sale_fee: -1 }, { unit_price: -0.01 }]) {
+      const { ml } = connector({
+        [`GET ${API}/orders/1`]: () =>
+          json(200, { ...rawOrder, order_items: [{ ...rawOrder.order_items[0], ...line }] }),
+      });
+      await expect(ml.fetchOrder(store, "/orders/1")).rejects.toThrow("Resposta inesperada");
+    }
+  });
+
+  it("accepts the largest total an order row stores", async () => {
+    const { ml } = connector({
+      [`GET ${API}/orders/1`]: () => json(200, { ...rawOrder, total_amount: 21_474_836.47 }),
+    });
+    expect((await ml.fetchOrder(store, "/orders/1")).totalCents).toBe(2_147_483_647);
   });
 });

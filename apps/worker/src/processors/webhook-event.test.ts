@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces";
+import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPublishedTestTarget,
   createTestProduct,
@@ -15,7 +16,13 @@ import { createWebhookEventProcessor } from "./webhook-event.ts";
 
 const environment = createWorkerTestEnvironment();
 const { database } = environment;
-const processWebhook = createWebhookEventProcessor(environment);
+const requestStockSync = vi.fn<() => Promise<void>>();
+const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
+const processWebhook = createWebhookEventProcessor({
+  ...environment,
+  requestStockSync,
+  requestAutoForward,
+});
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
@@ -65,23 +72,41 @@ function job(webhookEventId: string) {
   return { data: { webhookEventId }, attemptsMade: 0, maxAttempts: 5 };
 }
 
-const orderResource = () =>
+beforeEach(() => {
+  requestStockSync.mockReset();
+  requestStockSync.mockResolvedValue(undefined);
+  requestAutoForward.mockReset();
+  requestAutoForward.mockResolvedValue(undefined);
+});
+
+const orderResource = (
+  externalListingId = "MOCK-ITEM-WH",
+  status: "paid" | "pending" = "paid",
+  externalOrderId = `SIM-${randomUUID()}`,
+) =>
   encodeMockOrderResource({
-    externalOrderId: `SIM-${randomUUID()}`,
-    status: "paid",
+    externalOrderId,
+    status,
     totalCents: 4990,
     marketplaceFeeCents: 700,
     buyerName: "Comprador",
     orderedAt: new Date().toISOString(),
     items: [
       {
-        externalListingId: "MOCK-ITEM-WH",
+        externalListingId,
         title: "Anúncio webhook",
         quantity: 1,
         unitPriceCents: 4990,
       },
     ],
   });
+
+async function setStoreStatus(status: "connected" | "expired") {
+  await database
+    .update(schema.storeConnections)
+    .set({ status })
+    .where(eq(schema.storeConnections.externalShopId, shopId));
+}
 
 describe("webhook-event processor", () => {
   it("fetches the order, stores it with our cost and is idempotent", async () => {
@@ -96,6 +121,100 @@ describe("webhook-event processor", () => {
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
   });
 
+  it("asks to forward a paid order on its own, not one still waiting for payment", async () => {
+    const externalOrderId = `SIM-${randomUUID()}`;
+    const paid = await recordEvent({
+      shopId,
+      resource: orderResource("MOCK-ITEM-WH", "paid", externalOrderId),
+    });
+    expect(await processWebhook(job(paid))).toBe("order_created");
+    const [paidOrder] = await database
+      .select({ id: schema.orders.id })
+      .from(schema.orders)
+      .where(eq(schema.orders.externalOrderId, externalOrderId));
+    expect(requestAutoForward).toHaveBeenCalledWith(paidOrder?.id);
+
+    requestAutoForward.mockClear();
+    const pending = await recordEvent({
+      shopId,
+      resource: orderResource("MOCK-ITEM-WH", "pending"),
+    });
+    expect(await processWebhook(job(pending))).toBe("order_created");
+    expect(requestAutoForward).not.toHaveBeenCalled();
+  });
+
+  it("keeps the order when asking to forward it fails", async () => {
+    requestAutoForward.mockRejectedValue(new Error("Redis fora do ar"));
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+  });
+
+  it("asks for a stock sync right away when the order moved supplier stock", async () => {
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+    expect(requestStockSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not ask for a sync when the order touched no stock of ours", async () => {
+    const eventId = await recordEvent({ shopId, resource: orderResource("NOT-OURS") });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+    expect(requestStockSync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the order when the sync request fails: the scheduled sync catches up", async () => {
+    requestStockSync.mockRejectedValue(new Error("Redis indisponível"));
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
+  });
+
+  it("holds a sale while the store has lost its access, and takes it once reconnected", async () => {
+    await setStoreStatus("expired");
+    try {
+      const eventId = await recordEvent({ shopId, resource: orderResource() });
+      expect(await processWebhook(job(eventId))).toBe("awaiting_reconnection");
+      const held = await database.query.webhookEvents.findFirst({
+        where: eq(schema.webhookEvents.id, eventId),
+      });
+      // Not processed: the sweeper keeps retrying it.
+      expect(held?.processedAt).toBeNull();
+
+      await setStoreStatus("connected");
+      expect(await processWebhook(job(eventId))).toBe("order_created");
+    } finally {
+      await setStoreStatus("connected");
+    }
+  });
+
+  it("delivers a shop's sale to the organization connected to it now, never a former one", async () => {
+    const owners = await createTestTenants(database, 2);
+    const [formerOwner, currentOwner] = owners.ids;
+    if (formerOwner === undefined || currentOwner === undefined) {
+      throw new Error("tenants ausentes");
+    }
+    try {
+      const current = await createTestStore(environment, currentOwner);
+      await database.insert(schema.storeConnections).values({
+        tenantId: formerOwner,
+        marketplace: "mock",
+        externalShopId: current.externalShopId,
+        shopName: "Loja antiga",
+        status: "disconnected",
+      });
+      const eventId = await recordEvent({
+        shopId: current.externalShopId,
+        resource: orderResource("NOT-OURS"),
+      });
+      expect(await processWebhook(job(eventId))).toBe("order_created");
+      const owned = await database
+        .select({ tenantId: schema.orders.tenantId })
+        .from(schema.orders)
+        .where(inArray(schema.orders.tenantId, owners.ids));
+      expect(owned).toEqual([{ tenantId: currentOwner }]);
+    } finally {
+      await owners.cleanup();
+    }
+  });
+
   it("ignores other topics and events from unknown shops", async () => {
     expect(
       await processWebhook(job(await recordEvent({ shopId, resource: "x" }, "questions"))),
@@ -105,14 +224,14 @@ describe("webhook-event processor", () => {
     ).toBe("unknown_store");
   });
 
-  it("keeps the event pending with the error when the resource is invalid", async () => {
+  it("closes the event with the reason when the marketplace's answer can never be stored", async () => {
     const eventId = await recordEvent({ shopId, resource: "mock-order.invalido" });
-    await expect(processWebhook(job(eventId))).rejects.toThrow(
-      "Pedido simulado em formato inválido",
-    );
+    // No retry and no sweep: the same answer would come back every time.
+    await expect(processWebhook(job(eventId))).rejects.toBeInstanceOf(UnrecoverableError);
     const row = await database.query.webhookEvents.findFirst({
       where: eq(schema.webhookEvents.id, eventId),
     });
-    expect(row).toMatchObject({ processedAt: null, error: "Pedido simulado em formato inválido" });
+    expect(row?.processedAt).toBeInstanceOf(Date);
+    expect(row?.error).toBe("Pedido simulado em formato inválido");
   });
 });

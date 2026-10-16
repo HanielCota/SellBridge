@@ -1,32 +1,39 @@
 import {
-  getRegionProducts,
-  listRegionCatalog,
-  listRegionCategories,
+  getSellableProducts,
+  listActiveSuppliers,
+  listSellableCatalog,
+  listSellableCategories,
   listStoreConnections,
-  listSuppliersForRegion,
 } from "@sellbridge/database/repositories";
+import { validationError } from "@sellbridge/shared/errors";
+import { assertBatchKeepsMargin } from "@sellbridge/shared/fee-model";
 import {
   bulkPublishSchema,
   fitListingTitle,
+  listingPriceCentsSchema,
   priceForRule,
-  regionCatalogSearchSchema,
+  sellableCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
-import { assertConnectedStores, publishListings } from "@/features/listings/publish-listing.server";
+import {
+  assertConnectedStores,
+  assertStoresSellSuppliers,
+  publishListings,
+} from "@/features/listings/publish-listing.server";
+import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { requireTenantRegion } from "@/features/region/region.server";
 
 /** One list with every product the tenant can sell, plus what the filters and publishing need. */
-export const getRegionCatalog = createServerFn({ method: "GET" })
+export const getSellableCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .validator(regionCatalogSearchSchema)
+  .validator(sellableCatalogSearchSchema)
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
     const [products, categories, suppliers, stores] = await Promise.all([
-      listRegionCatalog(
+      listSellableCatalog(
         database,
-        { region, tenantId: context.tenantId },
+        context.tenantId,
         {
           search: data.query,
           categorySlug: data.category,
@@ -37,12 +44,11 @@ export const getRegionCatalog = createServerFn({ method: "GET" })
         },
         { page: data.page, pageSize: data.pageSize },
       ),
-      listRegionCategories(database, region),
-      listSuppliersForRegion(database, region, {}),
+      listSellableCategories(database),
+      listActiveSuppliers(database, {}),
       listStoreConnections(database, context.tenantId),
     ]);
     return {
-      region,
       products,
       categories,
       suppliers: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
@@ -52,6 +58,7 @@ export const getRegionCatalog = createServerFn({ method: "GET" })
           id: store.id,
           shopName: store.shopName,
           marketplace: store.marketplace,
+          supplierId: store.supplierId,
         })),
     };
   });
@@ -64,24 +71,44 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(bulkPublishSchema)
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
     const storeIds = await assertConnectedStores(context.tenantId, data.storeConnectionIds);
-    const products = await getRegionProducts(database, { region, tenantId: context.tenantId }, [
+    const products = await getSellableProducts(database, context.tenantId, [
       ...new Set(data.productIds),
     ]);
-    const toPublish = products.filter((product) => !product.published);
-    await publishListings(
+    await assertStoresSellSuppliers(
       context.tenantId,
-      toPublish.map((product) => ({
-        supplierProductId: product.id,
-        title: fitListingTitle(product.title),
-        description: product.description,
-        priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
-      })),
       storeIds,
+      products.map((product) => product.supplierId),
     );
+    const toPublish = products.filter((product) => !product.published);
+    const drafts = toPublish.map((product) => ({
+      supplierProductId: product.id,
+      title: fitListingTitle(product.title),
+      description: product.description,
+      priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
+    }));
+    // Checked before anything is written, so one product priced out of range cannot leave
+    // the batch half published.
+    const outOfRange = drafts.find(
+      (draft) => !listingPriceCentsSchema.safeParse(draft.priceCents).success,
+    );
+    if (outOfRange) {
+      throw validationError(
+        `O preço de "${outOfRange.title}" ficaria acima de R$ 1.000.000,00. Ajuste a regra de preço.`,
+      );
+    }
+    // Same floor as one listing at a time: no product of the batch may lose money after fees.
+    const toPublishById = new Map(toPublish.map((product) => [product.id, product]));
+    assertBatchKeepsMargin(
+      drafts.flatMap((draft) => {
+        const product = toPublishById.get(draft.supplierProductId);
+        return product === undefined ? [] : [{ ...draft, costCents: product.costCents }];
+      }),
+      feeScheduleFrom(environment),
+    );
+    await publishListings(context.tenantId, drafts, storeIds);
     return {
       published: toPublish.length,
-      skipped: data.productIds.length - toPublish.length,
+      skipped: new Set(data.productIds).size - toPublish.length,
     };
   });

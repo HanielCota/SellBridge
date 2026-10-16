@@ -4,7 +4,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { financialSearchSchema, ORDER_STAGE_STATUSES } from "@sellbridge/shared/schemas";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
-import { buildReportScope } from "@/features/reports/report-scope.server";
+import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 
@@ -20,6 +20,27 @@ async function findTenantSession(headers: Headers) {
   }
 }
 
+/** The period's rows, or a 422 saying why there is no file (too many orders for one export). */
+async function exportRows(
+  scope: Parameters<typeof exportOrderFinancials>[1],
+  search: ReturnType<typeof financialSearchSchema.parse>,
+) {
+  try {
+    return await exportOrderFinancials(database, scope, {
+      filters: {
+        statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
+        search: search.query,
+      },
+      sort: { field: search.sort, direction: search.direction },
+    });
+  } catch (error) {
+    if (isAppError(error) && error.code === "VALIDATION") {
+      return new Response(error.message, { status: 422 });
+    }
+    throw error;
+  }
+}
+
 async function handleExport(request: Request): Promise<Response> {
   const session = await findTenantSession(request.headers);
   if (!session) {
@@ -27,15 +48,15 @@ async function handleExport(request: Request): Promise<Response> {
   }
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);
-  const rows = await exportOrderFinancials(database, scope, {
-    filters: {
-      statuses: search.stage ? ORDER_STAGE_STATUSES[search.stage] : undefined,
-      search: search.query,
-    },
-    sort: { field: search.sort, direction: search.direction },
-  });
+  const picked = narrowToDay(scope, period, search.day);
+  const rows = await exportRows(picked.scope, search);
+  if (rows instanceof Response) {
+    return rows;
+  }
   logger.info("financial.exported", { tenantId: session.tenantId, rows: rows.length });
-  const fileName = `financeiro-${period.fromDate}-a-${period.toDate}.csv`;
+  const fileName = picked.day
+    ? `financeiro-${picked.day}.csv`
+    : `financeiro-${period.fromDate}-a-${period.toDate}.csv`;
   return new Response(buildFinancialCsv(rows), {
     headers: {
       "content-type": "text/csv; charset=utf-8",

@@ -1,27 +1,45 @@
 import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
+import {
+  hasStaffPermission,
+  staffRoleOf,
+  type StaffPermission,
+  type StaffRole,
+} from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
-import { findFirstOrganizationId } from "./membership.ts";
+import { assertVisitNotOver } from "./impersonation-window.ts";
+import { findFirstOrganizationId, isMemberOf } from "./membership.ts";
 
 export interface TenantSession {
   tenantId: string;
   userId: string;
   role: string;
+  /** The admin inside the account through "Entrar como cliente", or null for the customer. */
+  impersonatedBy: string | null;
 }
 
 /**
  * Resolves the authenticated user and tenant from request headers.
  * Sessions created during sign-up may exist before the organization does, so it
- * falls back to the user's first organization and stores it as the active one.
+ * falls back to the user's first organization and stores it as the active one. The active
+ * organization saved in the session is only trusted while the user is still its member:
+ * someone removed from an organization keeps their session, not its data.
  */
 export async function requireTenantSession(headers: Headers): Promise<TenantSession> {
   const session = await auth.api.getSession({ headers });
   if (!session) {
     throw unauthorizedError();
   }
-  const base = { userId: session.user.id, role: session.user.role ?? "user" };
+  assertVisitNotOver(session.session);
+  const base = {
+    userId: session.user.id,
+    role: session.user.role ?? "user",
+    impersonatedBy: session.session.impersonatedBy ?? null,
+  };
   const activeId = session.session.activeOrganizationId;
-  if (activeId) {
+  // The session only remembers the organization; membership is checked every time.
+  if (activeId && (await isMemberOf(session.user.id, activeId))) {
     return { ...base, tenantId: activeId };
   }
   const organizationId = await findFirstOrganizationId(session.user.id);
@@ -36,7 +54,13 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   return { ...base, tenantId: organizationId };
 }
 
-export async function requireAdminSession(headers: Headers): Promise<{ userId: string }> {
+export interface AdminSession {
+  userId: string;
+  /** Who is acting, as the owner rules read it (`canManageAccount`). */
+  actor: AccountIdentity;
+}
+
+export async function requireAdminSession(headers: Headers): Promise<AdminSession> {
   const session = await auth.api.getSession({ headers });
   if (!session) {
     throw unauthorizedError();
@@ -44,5 +68,27 @@ export async function requireAdminSession(headers: Headers): Promise<{ userId: s
   if (session.user.role !== "admin") {
     throw forbiddenError();
   }
-  return { userId: session.user.id };
+  const { email, emailVerified, role } = session.user;
+  return { userId: session.user.id, actor: { email, emailVerified, role } };
+}
+
+export interface StaffSession {
+  userId: string;
+  role: StaffRole;
+}
+
+/** A member of the SellBridge team allowed to do `permission` (see staff-access.ts). */
+export async function requireStaffSession(
+  headers: Headers,
+  permission: StaffPermission,
+): Promise<StaffSession> {
+  const session = await auth.api.getSession({ headers });
+  if (!session) {
+    throw unauthorizedError();
+  }
+  const role = staffRoleOf(session.user.role);
+  if (!role || !hasStaffPermission(role, permission)) {
+    throw forbiddenError();
+  }
+  return { userId: session.user.id, role };
 }

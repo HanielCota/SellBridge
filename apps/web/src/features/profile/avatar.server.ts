@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { unauthorizedError, validationError } from "@sellbridge/shared/errors";
-import { detectAttachmentType } from "@sellbridge/shared/file-signature";
+import { detectAttachmentType, hasAcceptableImageSize } from "@sellbridge/shared/file-signature";
+import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
-import { handleApi, jsonResponse } from "@/lib/server/http";
+import { environment } from "@/lib/server/environment";
+import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
+import { assertVisitNotOver } from "@/lib/server/impersonation-window";
+import { assertUploadAllowed, avatarUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
 
 /** The browser already crops and shrinks the photo; this only guards the server. */
@@ -43,7 +47,12 @@ function avatarStorageKey(imageUrl: string | null | undefined, ownerId: string):
 }
 
 async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; type: AvatarType }> {
-  const file = (await request.formData()).get("file");
+  // Room for the multipart framing around a photo at the size limit.
+  const form = await readFormDataWithin(request, MAX_AVATAR_BYTES + 64 * 1024);
+  if (!form) {
+    throw validationError("A foto deve ter no máximo 2 MB");
+  }
+  const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw validationError("Escolha uma imagem para enviar");
   }
@@ -55,6 +64,9 @@ async function readAvatarFile(request: Request): Promise<{ bytes: Uint8Array; ty
   if (!isAvatarType(type)) {
     throw validationError("Envie uma imagem PNG, JPG ou WEBP");
   }
+  if (!hasAcceptableImageSize(bytes, type)) {
+    throw validationError("A foto é grande demais: envie uma imagem de até 64 megapixels");
+  }
   return { bytes, type };
 }
 
@@ -63,6 +75,7 @@ async function requireSession(headers: Headers) {
   if (!session) {
     throw unauthorizedError();
   }
+  assertVisitNotOver(session.session);
   return session;
 }
 
@@ -81,7 +94,9 @@ async function replaceImage(
 /** POST /api/perfil/foto: multipart "file"; replaces the signed-in user's photo. */
 export function handleUploadAvatar(request: Request) {
   return handleApi("profile.upload_avatar", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireSession(request.headers);
+    assertUploadAllowed(avatarUploads, session.user.id);
     const { bytes, type } = await readAvatarFile(request);
     const fileName = `${randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
     await fileStorage.put(`avatars/${session.user.id}/${fileName}`, bytes);
@@ -95,6 +110,7 @@ export function handleUploadAvatar(request: Request) {
 /** DELETE /api/perfil/foto: back to the initials. */
 export function handleDeleteAvatar(request: Request) {
   return handleApi("profile.delete_avatar", async () => {
+    assertSameOrigin(request, environment.APP_URL);
     const session = await requireSession(request.headers);
     await replaceImage(request.headers, session.user, null);
     logger.info("profile.avatar_removed", { userId: session.user.id });

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  daySplit,
+  foldRows,
   formatDayHeading,
   groupOrdersByDay,
   orderAdjustments,
   orderCostsCents,
+  orderMargin,
   orderSplit,
-  perHundred,
-  reportDayKey,
 } from "./financial-rows";
 
 describe("orderCostsCents", () => {
@@ -46,10 +47,33 @@ describe("orderAdjustments", () => {
   });
 });
 
+describe("orderSplit with an unknown cost", () => {
+  it("is one neutral part the size of the revenue", () => {
+    expect(
+      orderSplit({
+        costPending: true,
+        revenueCents: 9000,
+        costCents: 0,
+        feeCents: 0,
+        platformFeeCents: 0,
+        refundCents: 0,
+        profitCents: 0,
+      }),
+    ).toEqual([{ kind: "pending", cents: 9000 }]);
+  });
+
+  it("has no margin", () => {
+    expect(orderMargin({ costPending: true, revenueCents: 9000, profitCents: 0 })).toBeNull();
+    expect(orderMargin({ costPending: false, revenueCents: 9000, profitCents: 900 })).toBe(0.1);
+  });
+});
+
 describe("orderSplit", () => {
   it("splits the sale into outflows and what was left, dropping empty parts", () => {
     expect(
       orderSplit({
+        costPending: false,
+        revenueCents: 0,
         costCents: 6000,
         feeCents: 1500,
         platformFeeCents: 100,
@@ -65,6 +89,8 @@ describe("orderSplit", () => {
 
   it("keeps only the outflows on a loss", () => {
     const parts = orderSplit({
+      costPending: false,
+      revenueCents: 0,
       costCents: 5000,
       feeCents: 0,
       platformFeeCents: 0,
@@ -75,26 +101,43 @@ describe("orderSplit", () => {
   });
 });
 
-describe("perHundred", () => {
-  it("rounds the shares so they still add up to 100", () => {
-    const shares = perHundred([125_018, 37_243, 105_393]);
-    expect(shares).toEqual([47, 14, 39]);
-    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+describe("foldRows", () => {
+  it("folds rows with the same key where the first one stood", () => {
+    const rows = ["a1", "b1", "a2", "c1", "a3"];
+    expect(foldRows(rows, (row) => row.charAt(0))).toEqual([
+      { key: "a", rows: ["a1", "a2", "a3"] },
+      { key: "b", rows: ["b1"] },
+      { key: "c", rows: ["c1"] },
+    ]);
   });
 
-  it("gives the leftover unit to the share that lost the most in rounding", () => {
-    expect(perHundred([1, 1, 1])).toEqual([34, 33, 33]);
-  });
-
-  it("is all zeros when there is nothing to split", () => {
-    expect(perHundred([0, 0])).toEqual([0, 0]);
+  it("returns nothing for no rows", () => {
+    expect(foldRows([], String)).toEqual([]);
   });
 });
 
-describe("reportDayKey", () => {
-  it("reads the day in Brazil time, not UTC", () => {
-    expect(reportDayKey(new Date("2026-10-10T02:00:00Z"))).toBe("2026-10-09");
-    expect(reportDayKey(new Date("2026-10-10T03:00:00Z"))).toBe("2026-10-10");
+describe("daySplit", () => {
+  const base = { salesInDay: 23, isFirstDay: false, isLastDay: false, page: 1, totalPages: 2 };
+
+  it("says nothing when the whole day is on the page", () => {
+    expect(daySplit({ ...base, salesOnPage: 23, isLastDay: true })).toEqual({
+      fromPrevious: false,
+      toNext: false,
+    });
+  });
+
+  it("marks the last day as going on and the next page's first day as continued", () => {
+    expect(daySplit({ ...base, salesOnPage: 19, isLastDay: true }).toNext).toBe(true);
+    expect(daySplit({ ...base, salesOnPage: 4, isFirstDay: true, page: 2 }).fromPrevious).toBe(
+      true,
+    );
+  });
+
+  it("never points past the first or the last page", () => {
+    expect(daySplit({ ...base, salesOnPage: 4, isFirstDay: true, page: 1 }).fromPrevious).toBe(
+      false,
+    );
+    expect(daySplit({ ...base, salesOnPage: 4, isLastDay: true, page: 2 }).toNext).toBe(false);
   });
 });
 

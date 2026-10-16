@@ -1,5 +1,7 @@
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import type { ApiScope } from "@sellbridge/shared/public-api";
 import type { z } from "zod";
+import { parseJsonFindingNul } from "@/lib/server/nul-character";
 import { type ApiCaller, authenticateApiKey, requireScope } from "./authenticate.server";
 import { type ApiIssue, proceed, stop, type StepResult } from "./problem";
 import { enforceRateLimit, type RateLimitHeaders } from "./rate-limit.server";
@@ -47,14 +49,10 @@ function bodyTooLarge<TValue>(): StepResult<TValue> {
   });
 }
 
-/** Refuses oversized bodies by their declared length first, so they are never read. */
+/** Refuses oversized bodies by their declared length, then by the bytes actually streamed. */
 export async function readBody(request: Request): Promise<StepResult<string>> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) {
-    return bodyTooLarge();
-  }
-  const text = await request.text();
-  if (Buffer.byteLength(text) > MAX_BODY_BYTES) {
+  const text = await readTextWithin(request, MAX_BODY_BYTES);
+  if (text === null) {
     return bodyTooLarge();
   }
   return proceed(text);
@@ -65,7 +63,16 @@ export function parseJson(text: string): StepResult<unknown> {
     return proceed({});
   }
   try {
-    return proceed(JSON.parse(text));
+    const { value, hasNul } = parseJsonFindingNul(text);
+    // Postgres text and jsonb refuse it: a 400 here, not a 500 (replayed by idempotency) later.
+    if (hasNul) {
+      return stop({
+        status: 400,
+        code: "validation_failed",
+        detail: "O corpo não pode conter o caractere nulo (\\u0000).",
+      });
+    }
+    return proceed(value);
   } catch {
     return stop({
       status: 400,

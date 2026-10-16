@@ -16,6 +16,7 @@ import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { connectors, oauthCallbackUrl } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { freeText } from "@sellbridge/shared/schemas";
 
 export interface MarketplaceOption {
   id: MarketplaceId;
@@ -79,7 +80,7 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(
     z.object({
-      shopName: z.string().trim().min(3, "Informe o nome da loja").max(80),
+      shopName: freeText().trim().min(3, "Informe o nome da loja").max(80),
       state: z.string().min(1),
       redirectUri: z.url(),
     }),

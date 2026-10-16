@@ -135,6 +135,29 @@ describe("webhook-delivery processor", () => {
     expect(delivery?.nextAttemptAt.getTime()).toBe(now.getTime() + 30_000);
   });
 
+  // Regression: the time read at the start of a run dated every batch of it, so a batch claimed
+  // seconds later got a retry time (and a signature) from the past.
+  it("dates each batch with the time it runs, not the time the run began", async () => {
+    const endpoint = await createEndpoint("/fail-later");
+    await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
+    responseStatus = 500;
+    const base = Date.now();
+    let reads = 0;
+    const deliver = createWebhookDeliveryProcessor({
+      database,
+      cipher,
+      allowPrivateUrls: true,
+      now: () => {
+        reads += 1;
+        return new Date(base + reads * 60_000);
+      },
+      tenantId,
+    });
+    await deliver();
+    const [delivery] = await deliveriesOf(endpoint.id);
+    expect(delivery?.nextAttemptAt.getTime()).toBe(base + 2 * 60_000 + 30_000);
+  });
+
   it("refuses private addresses unless allowed, without calling the receiver", async () => {
     const endpoint = await createEndpoint("/private");
     await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
@@ -150,5 +173,25 @@ describe("webhook-delivery processor", () => {
     expect(delivery).toMatchObject({ status: "pending", attempts: 1, lastStatusCode: null });
     expect(delivery?.lastError).toContain("não público");
     expect(received.filter((item) => item.headers["sellbridge-signature"])).toHaveLength(before);
+  });
+
+  it("records a network failure by kind, without the addresses Node puts in its message", async () => {
+    const endpoint = await createEndpoint("/refused");
+    await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
+    const refused = Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:443"), {
+      code: "ECONNREFUSED",
+    });
+    const deliver = createWebhookDeliveryProcessor({
+      database,
+      cipher,
+      allowPrivateUrls: true,
+      tenantId,
+      sendRequest: async () => {
+        throw refused;
+      },
+    });
+    await deliver();
+    const [delivery] = await deliveriesOf(endpoint.id);
+    expect(delivery?.lastError).toBe("Conexão recusada pelo servidor");
   });
 });

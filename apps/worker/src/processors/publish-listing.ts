@@ -16,11 +16,22 @@ import {
   type StoreCredentials,
 } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { hasErrorCode, isAppError } from "@sellbridge/shared/errors";
+import { unavailableMessage, unavailableReason } from "@sellbridge/shared/catalog-availability";
+import {
+  STORE_SUPPLIER_CHANGED_MESSAGE,
+  storeSupplierRefusal,
+} from "@sellbridge/shared/store-supplier";
+import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
-import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
+import {
+  expireStoreOnAuthError,
+  resolveStoreCredentials,
+  storeRateKey,
+} from "../lib/store-access.ts";
+import type { JobContext } from "../lib/job-context.ts";
 
 export interface PublishDependencies {
   database: Database;
@@ -28,31 +39,21 @@ export interface PublishDependencies {
   cipher: TokenCipher;
   /** Waits for the per-store rate limit before calling the marketplace. */
   acquireRateLimit: (key: string) => Promise<void>;
-}
-
-export interface PublishJobContext {
-  data: unknown;
-  /** Attempts already made before this one (BullMQ `job.attemptsMade`). */
-  attemptsMade: number;
-  maxAttempts: number;
+  /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
+  safetyUnits: number;
 }
 
 /** `not_pending`: another job owns the target, or it already failed or is paused. */
 export type PublishOutcome = "published" | "already_published" | "not_pending";
 
-function failureReason(error: unknown): string {
-  if (isAppError(error)) {
-    return error.userMessage;
-  }
-  return "Erro inesperado ao publicar. Tente reprocessar.";
-}
+const UNEXPECTED_FAILURE_REASON = "Erro inesperado ao publicar. Tente reprocessar.";
 
 async function loadTarget(dependencies: PublishDependencies, tenantId: string, targetId: string) {
   try {
     return await getTargetForPublishing(dependencies.database, tenantId, targetId);
   } catch (error) {
     if (hasErrorCode(error, "NOT_FOUND")) {
-      throw new UnrecoverableError(`Publicação ${targetId} não encontrada para o tenant`);
+      throw new UnrecoverableError(`Publicação ${targetId} não encontrada para esta conta`);
     }
     throw error;
   }
@@ -78,13 +79,13 @@ function publishingCredentials(
   return resolveStoreCredentials(dependencies.cipher, row.store);
 }
 
-function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
+function toPublishProductInput(row: TargetForPublishing, safetyUnits: number): PublishProductInput {
   return {
     idempotencyKey: row.target.idempotencyKey,
     title: row.listing.title,
     description: row.listing.description,
     priceCents: row.listing.priceCents,
-    stock: row.product.stock,
+    stock: offeredUnits(row.product.stock, row.product.reservedStock, safetyUnits),
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
@@ -93,14 +94,14 @@ function toPublishProductInput(row: TargetForPublishing): PublishProductInput {
 
 interface PublishAttempt {
   readonly dependencies: PublishDependencies;
-  readonly job: PublishJobContext;
+  readonly job: JobContext;
   readonly tenantId: string;
   readonly listingTargetId: string;
   readonly row: TargetForPublishing;
   readonly credentials: StoreCredentials;
 }
 
-function parsePublishJob(job: PublishJobContext): { tenantId: string; listingTargetId: string } {
+function parsePublishJob(job: JobContext): { tenantId: string; listingTargetId: string } {
   const parsed = publishListingJobSchema.safeParse(job.data);
   if (!parsed.success) {
     throw new UnrecoverableError("Payload do job de publicação inválido");
@@ -112,11 +113,17 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
   const { dependencies, row } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
   try {
-    return await connector.publishProduct(attempt.credentials, toPublishProductInput(row), {
-      reconcileOnly: row.target.creationStartedAt != null,
-      beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
-      creationRejected: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
-    });
+    return await connector.publishProduct(
+      attempt.credentials,
+      toPublishProductInput(row, dependencies.safetyUnits),
+      {
+        creationStartedAt: row.target.creationStartedAt,
+        beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
+        creationRejected: () =>
+          setTargetCreationStarted(dependencies.database, row.target.id, false),
+        creationAbsent: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
+      },
+    );
   } catch (error) {
     return handlePublishFailure(attempt, error);
   }
@@ -149,7 +156,7 @@ async function recordInitialSync(attempt: PublishAttempt): Promise<void> {
   const { dependencies, row, listingTargetId } = attempt;
   try {
     await markTargetSynced(dependencies.database, listingTargetId, {
-      stock: row.product.stock,
+      stock: offeredUnits(row.product.stock, row.product.reservedStock, dependencies.safetyUnits),
       priceCents: row.listing.priceCents,
     });
   } catch (error) {
@@ -171,8 +178,8 @@ async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOut
 
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
   const { dependencies, job, tenantId, listingTargetId } = attempt;
-  const reason = failureReason(error);
-  await expireStoreOnAuthError(dependencies.database, attempt.row.store.id, error);
+  const reason = userMessageOr(error, UNEXPECTED_FAILURE_REASON);
+  await expireStoreOnAuthError(dependencies.database, attempt.row.store, error);
   const isFinal = !isRetryableError(error) || job.attemptsMade + 1 >= job.maxAttempts;
   await markTargetFailed(dependencies.database, listingTargetId, reason, { final: isFinal });
   logger.warn("listing.publish_failed", { tenantId, listingTargetId, reason, isFinal, error });
@@ -191,6 +198,23 @@ function outcomeWithoutPublishing(row: TargetForPublishing): PublishOutcome | nu
     return "not_pending";
   }
   return null;
+}
+
+/**
+ * A product deactivated after the job was queued is not sent, nor one whose shop moved to another
+ * supplier meanwhile (each shop sells a single supplier).
+ */
+async function requireSellable(
+  dependencies: PublishDependencies,
+  row: TargetForPublishing,
+): Promise<void> {
+  const reason = unavailableReason(row.availability);
+  if (reason !== null) {
+    await failPermanently(dependencies, row.target.id, unavailableMessage(reason));
+  }
+  if (storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier") {
+    await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
+  }
 }
 
 async function requireCredentials(
@@ -213,18 +237,19 @@ async function claimWhenRateAllows(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
 ): Promise<boolean> {
-  await dependencies.acquireRateLimit(`${row.store.marketplace}:${row.store.id}`);
+  await dependencies.acquireRateLimit(storeRateKey(row.store));
   return claimTargetForPublishing(dependencies.database, row.target.id);
 }
 
 export function createPublishListingProcessor(dependencies: PublishDependencies) {
-  return async function processPublishListing(job: PublishJobContext): Promise<PublishOutcome> {
+  return async function processPublishListing(job: JobContext): Promise<PublishOutcome> {
     const { tenantId, listingTargetId } = parsePublishJob(job);
     const row = await loadTarget(dependencies, tenantId, listingTargetId);
     const skipped = outcomeWithoutPublishing(row);
     if (skipped) {
       return skipped;
     }
+    await requireSellable(dependencies, row);
     const credentials = await requireCredentials(dependencies, row);
     const claimed = await claimWhenRateAllows(dependencies, row);
     if (!claimed) {

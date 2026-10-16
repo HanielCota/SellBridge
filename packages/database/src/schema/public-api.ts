@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
+  check,
   index,
   integer,
   jsonb,
@@ -95,6 +97,8 @@ export const apiEvents = pgTable(
   (table) => [
     uniqueIndex("api_events_sequence_idx").on(table.sequence),
     index("api_events_tenant_sequence_idx").on(table.tenantId, table.sequence),
+    /** Retention: the worker deletes events older than 30 days by this date. */
+    index("api_events_created_idx").on(table.createdAt),
   ],
 );
 
@@ -144,5 +148,11 @@ export const webhookDeliveries = pgTable(
     uniqueIndex("webhook_deliveries_endpoint_event_idx").on(table.endpointId, table.eventId),
     index("webhook_deliveries_due_idx").on(table.status, table.nextAttemptAt),
     index("webhook_deliveries_endpoint_idx").on(table.endpointId, table.createdAt),
+    /**
+     * Deleting an event cascades to its deliveries: without this each deleted event would scan
+     * the whole table (the other indexes start with the endpoint).
+     */
+    index("webhook_deliveries_event_idx").on(table.eventId),
+    check("webhook_deliveries_attempts_check", sql`${table.attempts} >= 0`),
   ],
 );

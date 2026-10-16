@@ -55,7 +55,7 @@ Cada chave tem um conjunto de escopos. Uma operação fora dos escopos da chave 
 
 | Escopo            | Permite                                           |
 | ----------------- | ------------------------------------------------- |
-| `catalog:read`    | Ler o catálogo de produtos da região              |
+| `catalog:read`    | Ler o catálogo de produtos                        |
 | `stores:read`     | Ler as lojas conectadas                           |
 | `listings:read`   | Ler anúncios e o status em cada loja              |
 | `listings:write`  | Criar anúncios, mudar preço, pausar e reativar    |

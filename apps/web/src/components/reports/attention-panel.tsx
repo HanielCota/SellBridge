@@ -32,12 +32,12 @@ function plural(count: number, one: string, many: string): string {
 
 interface AttentionCounts {
   failedListings: number;
-  answeredTickets: number;
+  unreadSupportReplies: number;
   pendingReviews: number;
 }
 
 function buildItems(counts: AttentionCounts, stores: readonly StoreState[]): AttentionItem[] {
-  const { failedListings, answeredTickets, pendingReviews } = counts;
+  const { failedListings, unreadSupportReplies, pendingReviews } = counts;
   const items: AttentionItem[] = stores
     .filter((store) => store.status === "expired" || store.status === "error")
     .map((store) => ({
@@ -58,13 +58,20 @@ function buildItems(counts: AttentionCounts, stores: readonly StoreState[]): Att
       to: "/publicacoes",
     });
   }
-  if (answeredTickets > 0) {
+  if (unreadSupportReplies > 0) {
     items.push({
       key: "tickets",
       icon: SupportHeadsetIcon,
       tone: "info",
-      title: plural(answeredTickets, "resposta do suporte", "respostas do suporte"),
-      description: "A equipe respondeu seu chamado.",
+      title: plural(
+        unreadSupportReplies,
+        "chamado com resposta nova",
+        "chamados com resposta nova",
+      ),
+      description:
+        unreadSupportReplies === 1
+          ? "A equipe respondeu seu chamado."
+          : "A equipe respondeu seus chamados.",
       to: "/suporte",
     });
   }
@@ -109,7 +116,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   const items = buildItems(
     {
       failedListings: counts.data?.failedListings ?? 0,
-      answeredTickets: counts.data?.answeredTickets ?? 0,
+      unreadSupportReplies: counts.data?.unreadSupportReplies ?? 0,
       pendingReviews: counts.data?.pendingReviews ?? 0,
     },
     stores,

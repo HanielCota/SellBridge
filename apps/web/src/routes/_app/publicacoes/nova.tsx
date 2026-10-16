@@ -3,6 +3,7 @@ import {
   LISTING_DESCRIPTION_MAX_LENGTH,
   LISTING_TITLE_MAX_LENGTH,
   listingDescriptionSchema,
+  listingPriceCentsSchema,
   listingTitleSchema,
   optionalParameter,
 } from "@sellbridge/shared/schemas";
@@ -14,16 +15,19 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { ProductVisual } from "@/components/catalog/product-visual";
+import { ToneStatus } from "@/components/data/tone-status";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import {
+  FeeLines,
   PROFIT_SPLIT_COLORS,
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
+  totalFeeCents,
 } from "@/components/listings/profit-split";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -34,13 +38,15 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createListing, getNewListingData } from "@/features/listings/listings.functions";
 import { newListingQueryOptions } from "@/features/listings/listings.queries";
+import { type FeeSchedule, priceFloorProblem } from "@sellbridge/shared/fee-model";
 import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
   estimateProfit,
   isThinMargin,
   priceForMargin,
   type ProfitEstimate,
+  wholeMarginPercent,
 } from "@/features/listings/profit";
+import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -57,7 +63,10 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
   },
   loaderDeps: ({ search }) => ({ productId: search.productId }),
   loader: ({ context }) =>
-    prefetchOnServer(context.queryClient, newListingQueryOptions(context.productId)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, newListingQueryOptions(context.productId)),
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
@@ -81,10 +90,10 @@ function NewListingPage() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { product, stores } = query.data;
+  const { product, stores, hasOtherStores } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
           <ArrowLeftIcon aria-hidden="true" />
           {product.supplierName}
@@ -98,11 +107,21 @@ function NewListingPage() {
           />
           <EmptyState
             icon={StorefrontIcon}
-            title="Conecte uma loja antes de publicar"
-            description="Você ainda não tem lojas conectadas."
+            title={
+              hasOtherStores
+                ? `Nenhuma loja vende ${product.supplierName}`
+                : "Conecte uma loja antes de publicar"
+            }
+            description={
+              hasOtherStores
+                ? "Cada loja vende os produtos de um único fornecedor. Conecte uma loja para este fornecedor."
+                : "Você ainda não tem lojas conectadas."
+            }
             action={
               <Button asChild>
-                <Link to="/lojas">Conectar loja</Link>
+                <Link to="/lojas" hash="adicionar-loja">
+                  {hasOtherStores ? "Conectar uma loja para este fornecedor" : "Conectar loja"}
+                </Link>
               </Button>
             }
           />
@@ -119,7 +138,12 @@ type NewListingData = Awaited<ReturnType<typeof getNewListingData>>;
 const listingFormSchema = z.object({
   title: listingTitleSchema,
   description: listingDescriptionSchema,
-  price: z.string().refine((value) => (parseBrlToCents(value) ?? 0) > 0, "Informe um preço válido"),
+  price: z
+    .string()
+    .refine(
+      (value) => listingPriceCentsSchema.safeParse(parseBrlToCents(value)).success,
+      "Informe um preço entre R$ 0,01 e R$ 1.000.000,00",
+    ),
   storeConnectionIds: z.array(z.string()).min(1, "Escolha ao menos uma loja de destino"),
 });
 
@@ -137,16 +161,29 @@ function successMessage(targetCount: number): string {
     : "Publicação enviada para a fila";
 }
 
+/** The only store that can still take the product starts ticked; otherwise the reseller picks. */
+function preselectedStores(stores: readonly ListingStore[]): string[] {
+  const open = stores.filter((store) => !store.listed);
+  return open.length === 1 ? open.map((store) => store.id) : [];
+}
+
 function useListingForm({ product, stores }: Pick<NewListingData, "product" | "stores">) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const schedule = useFeeSchedule();
 
   async function submit(value: ListingFormValues) {
     setSubmitError(null);
     const priceCents = parseBrlToCents(value.price);
     if (priceCents === null) {
       setSubmitError("Informe um preço válido");
+      return;
+    }
+    // The server's own floor and words, said before the request.
+    const floorProblem = priceFloorProblem(priceCents, { costCents: product.costCents }, schedule);
+    if (floorProblem !== null) {
+      setSubmitError(floorProblem);
       return;
     }
     try {
@@ -173,7 +210,7 @@ function useListingForm({ product, stores }: Pick<NewListingData, "product" | "s
       title: product.title,
       description: product.description,
       price: formatCentsForInput(product.suggestedPriceCents),
-      storeConnectionIds: stores.length === 1 ? stores.map((store) => store.id) : [],
+      storeConnectionIds: preselectedStores(stores),
     },
     validators: { onSubmit: listingFormSchema },
     onSubmit: ({ value }) => submit(value),
@@ -228,7 +265,7 @@ function ProfitSentence({
   priceCents: number | null;
   costCents: number;
 }) {
-  const estimate = estimateProfit(priceCents, costCents);
+  const estimate = estimateProfit(priceCents, costCents, useFeeSchedule());
   if (!estimate) {
     return (
       <p className="text-sm text-muted-foreground">Informe o preço de venda para ver o lucro.</p>
@@ -249,7 +286,7 @@ function ProfitSentence({
   return (
     <p className="text-sm text-muted-foreground">
       Você lucra <Strong className={tone}>{formatCents(estimate.profitCents)}</Strong> por venda,
-      com <Strong className={tone}>{Math.round(estimate.marginPercent)}% de margem</Strong>.
+      com <Strong className={tone}>{wholeMarginPercent(estimate.marginPercent)}% de margem</Strong>.
     </p>
   );
 }
@@ -389,12 +426,18 @@ interface PricePreset {
 }
 
 /** The supplier's suggestion first, then the margin presets that land above the cost. */
-function pricePresets(product: ListingProduct): PricePreset[] {
+/** A preset the server would refuse is left out: it would only lead to an error. */
+function keepsFloor(product: ListingProduct, schedule: FeeSchedule) {
+  return (preset: PricePreset) =>
+    priceFloorProblem(preset.priceCents, { costCents: product.costCents }, schedule) === null;
+}
+
+function pricePresets(product: ListingProduct, schedule: FeeSchedule): PricePreset[] {
   const presets: PricePreset[] = [
     { key: "suggested", label: "Sugerido", priceCents: product.suggestedPriceCents },
   ];
   for (const margin of MARGIN_PRESETS) {
-    const priceCents = priceForMargin(product.costCents, margin);
+    const priceCents = priceForMargin(product.costCents, margin, schedule);
     if (priceCents !== null) {
       presets.push({ key: `margin-${margin}`, label: `Margem ${margin}%`, priceCents });
     }
@@ -426,7 +469,7 @@ function MarginBadge({ estimate }: { estimate: ProfitEstimate | null }) {
         profitTone(estimate.profitCents, estimate.marginPercent),
       )}
     >
-      {isLoss ? "Prejuízo" : `${Math.round(estimate.marginPercent)}% de margem`}
+      {isLoss ? "Prejuízo" : `${wholeMarginPercent(estimate.marginPercent)}% de margem`}
     </span>
   );
 }
@@ -440,23 +483,26 @@ function PricePresets({
   readonly priceCents: number | null;
   readonly onPick: (value: string) => void;
 }) {
+  const schedule = useFeeSchedule();
   return (
     <fieldset className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       <legend className="sr-only">Preços prontos</legend>
-      {pricePresets(product).map((preset) => (
-        <button
-          key={preset.key}
-          type="button"
-          aria-pressed={priceCents === preset.priceCents}
-          onClick={() => onPick(formatCentsForInput(preset.priceCents))}
-          className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
-        >
-          {preset.label}
-          <span className="font-normal tabular-nums opacity-80">
-            {formatCents(preset.priceCents)}
-          </span>
-        </button>
-      ))}
+      {pricePresets(product, schedule)
+        .filter(keepsFloor(product, schedule))
+        .map((preset) => (
+          <button
+            key={preset.key}
+            type="button"
+            aria-pressed={priceCents === preset.priceCents}
+            onClick={() => onPick(formatCentsForInput(preset.priceCents))}
+            className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
+          >
+            {preset.label}
+            <span className="font-normal tabular-nums opacity-80">
+              {formatCents(preset.priceCents)}
+            </span>
+          </button>
+        ))}
     </fieldset>
   );
 }
@@ -479,7 +525,7 @@ function PriceField({
   readonly onChange: (value: string) => void;
 }) {
   const priceCents = parseBrlToCents(value);
-  const estimate = estimateProfit(priceCents, product.costCents);
+  const estimate = estimateProfit(priceCents, product.costCents, useFeeSchedule());
   const message = firstErrorMessage(errors);
   return (
     <div className="grid gap-2">
@@ -495,6 +541,8 @@ function PriceField({
           id="price"
           inputMode="decimal"
           autoComplete="off"
+          // "1.000.000,00" plus room for a typo the field can still show and explain.
+          maxLength={16}
           value={value}
           onChange={(event) => onChange(event.target.value.replace(/[^\d.,]/g, ""))}
           onBlur={() => {
@@ -529,6 +577,17 @@ function storeSubtitle(store: ListingStore): string | null {
   return displayStoreName(store.shopName) === store.shopName ? null : "Loja simulada";
 }
 
+/** Under the store name: that it already sells the product, or what kind of store it is. */
+function StoreNote({ listed, subtitle }: { listed: boolean; subtitle: string | null }) {
+  if (listed) {
+    return <ToneStatus tone="success" label="Já publicado aqui" />;
+  }
+  if (subtitle === null) {
+    return null;
+  }
+  return <span className="block text-xs text-muted-foreground">{subtitle}</span>;
+}
+
 function StoreOption({
   store,
   checked,
@@ -542,16 +601,23 @@ function StoreOption({
   return (
     <Label
       htmlFor={`store-${store.id}`}
-      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand"
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border border-field-border bg-field px-3 py-2.5 font-normal transition-[border-color,background-color] duration-200 has-data-checked:border-brand-strong has-data-checked:bg-brand/5 dark:has-data-checked:border-brand",
+        // Only the name greys out: dimming the whole card too would fade the disabled box twice.
+        store.listed ? "cursor-not-allowed" : "cursor-pointer",
+      )}
     >
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{displayStoreName(store.shopName)}</span>
-        {subtitle ? <span className="block text-xs text-muted-foreground">{subtitle}</span> : null}
+        <span className={cn("block truncate font-medium", store.listed && "text-muted-foreground")}>
+          {displayStoreName(store.shopName)}
+        </span>
+        <StoreNote listed={store.listed} subtitle={subtitle} />
       </span>
       <Checkbox
         id={`store-${store.id}`}
         checked={checked}
+        disabled={store.listed}
         onCheckedChange={(next) => onCheckedChange(next === true)}
       />
     </Label>
@@ -570,14 +636,15 @@ function StoreSelection({
   readonly onChange: (storeConnectionIds: string[]) => void;
 }) {
   const message = firstErrorMessage(errors);
-  const allSelected = selectedIds.length === stores.length;
+  const open = stores.filter((store) => !store.listed);
+  const allSelected = selectedIds.length === open.length;
   return (
     <fieldset>
       <legend className="float-left mb-3 text-sm font-medium">Publicar em</legend>
-      {stores.length > 1 ? (
+      {open.length > 1 ? (
         <button
           type="button"
-          onClick={() => onChange(allSelected ? [] : stores.map((store) => store.id))}
+          onClick={() => onChange(allSelected ? [] : open.map((store) => store.id))}
           className="float-right rounded-md text-xs font-medium text-brand-text transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {allSelected ? "Limpar seleção" : "Selecionar todas"}
@@ -597,7 +664,17 @@ function StoreSelection({
           />
         ))}
       </div>
-      {message ? <p className="mt-2 text-sm text-destructive">{message}</p> : null}
+      {open.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Este produto já está publicado em todas as suas lojas. Para mudar preço ou texto, edite o
+          anúncio em Publicações.
+        </p>
+      ) : null}
+      {message ? (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {message}
+        </p>
+      ) : null}
     </fieldset>
   );
 }
@@ -698,7 +775,8 @@ function ProfitCard({
   priceCents: number | null;
   product: ListingProduct;
 }) {
-  const estimate = estimateProfit(priceCents, product.costCents);
+  const schedule = useFeeSchedule();
+  const estimate = estimateProfit(priceCents, product.costCents, schedule);
   const isLoss = estimate !== null && estimate.profitCents < 0;
   return (
     <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
@@ -712,7 +790,7 @@ function ProfitCard({
         {estimate ? (
           <ProfitSplitBar
             costCents={product.costCents}
-            feeCents={estimate.feeCents}
+            feeCents={totalFeeCents(estimate)}
             profitCents={estimate.profitCents}
           />
         ) : null}
@@ -722,11 +800,7 @@ function ProfitCard({
             label="Custo do fornecedor"
             value={formatCents(product.costCents)}
           />
-          <ProfitSplitLine
-            swatch={PROFIT_SPLIT_COLORS.fee}
-            label={`Taxa estimada (${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})`}
-            value={estimate ? formatCents(estimate.feeCents) : "—"}
-          />
+          <FeeLines estimate={estimate} schedule={schedule} />
           <ProfitSplitLine
             swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
             label={isLoss ? "Seu prejuízo" : "Seu lucro"}
@@ -796,7 +870,7 @@ function PublishBar({
               {publishSummary(selected)}
             </p>
             <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando..." : publishLabel(selected.length)}
+              {isSubmitting ? "Enviando…" : publishLabel(selected.length)}
             </Button>
           </section>
         );

@@ -9,16 +9,46 @@ import {
 } from "./chart-view";
 
 const points = [
-  { date: "2026-09-01", orders: 2, revenueCents: 10_000, profitCents: 2_000 },
-  { date: "2026-09-02", orders: 0, revenueCents: 0, profitCents: 0 },
-  { date: "2026-09-03", orders: 1, revenueCents: 30_000, profitCents: -3_000 },
+  {
+    date: "2026-09-01",
+    orders: 2,
+    revenueCents: 10_000,
+    profitCents: 2_000,
+    pendingCostRevenueCents: 0,
+  },
+  { date: "2026-09-02", orders: 0, revenueCents: 0, profitCents: 0, pendingCostRevenueCents: 0 },
+  {
+    date: "2026-09-03",
+    orders: 1,
+    revenueCents: 30_000,
+    profitCents: -3_000,
+    pendingCostRevenueCents: 0,
+  },
 ];
 
 const previous = {
   points: [
-    { date: "2026-08-02", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
-    { date: "2026-08-03", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
-    { date: "2026-08-04", orders: 1, revenueCents: 5_000, profitCents: 1_000 },
+    {
+      date: "2026-08-02",
+      orders: 1,
+      revenueCents: 5_000,
+      profitCents: 1_000,
+      pendingCostRevenueCents: 0,
+    },
+    {
+      date: "2026-08-03",
+      orders: 1,
+      revenueCents: 5_000,
+      profitCents: 1_000,
+      pendingCostRevenueCents: 0,
+    },
+    {
+      date: "2026-08-04",
+      orders: 1,
+      revenueCents: 5_000,
+      profitCents: 1_000,
+      pendingCostRevenueCents: 0,
+    },
   ],
   offsetDays: 30,
 };
@@ -28,6 +58,7 @@ const week = (date: string, revenueCents: number) => ({
   orders: 1,
   revenueCents,
   profitCents: revenueCents / 10,
+  pendingCostRevenueCents: 0,
 });
 
 /** `count` weekly buckets from the Monday `first`, the revenue of each from its position. */
@@ -48,6 +79,24 @@ describe("buildChartPoints", () => {
       cost: 8_000,
       margin: 20,
     });
+  });
+
+  it("keeps the revenue of unknown cost apart from the costs and the margin", () => {
+    const [point] = buildChartPoints([
+      {
+        date: "2026-09-01",
+        orders: 3,
+        revenueCents: 30_000,
+        profitCents: 4_000,
+        pendingCostRevenueCents: 10_000,
+      },
+    ]);
+    expect(point).toMatchObject({ revenue: 30_000, pending: 10_000, cost: 16_000, margin: 20 });
+  });
+
+  it("carries the pending revenue in running totals", () => {
+    const pendingPoints = points.map((point) => ({ ...point, pendingCostRevenueCents: 1_000 }));
+    expect(buildChartPoints(pendingPoints, { cumulative: true }).at(-1)?.pending).toBe(3_000);
   });
 
   it("leaves the margin empty on a day without sales", () => {
@@ -124,18 +173,76 @@ describe("buildChartPoints", () => {
 describe("groupByWeek", () => {
   it("sums days into weeks that start on Monday, dated by their first day", () => {
     const days = [
-      { date: "2026-09-06", orders: 1, revenueCents: 100, profitCents: 10 },
-      { date: "2026-09-07", orders: 1, revenueCents: 200, profitCents: 20 },
-      { date: "2026-09-13", orders: 2, revenueCents: 300, profitCents: 30 },
+      {
+        date: "2026-09-06",
+        orders: 1,
+        revenueCents: 100,
+        profitCents: 10,
+        pendingCostRevenueCents: 0,
+      },
+      {
+        date: "2026-09-07",
+        orders: 1,
+        revenueCents: 200,
+        profitCents: 20,
+        pendingCostRevenueCents: 0,
+      },
+      {
+        date: "2026-09-13",
+        orders: 2,
+        revenueCents: 300,
+        profitCents: 30,
+        pendingCostRevenueCents: 0,
+      },
     ];
     expect(groupByWeek(days)).toEqual([
-      { date: "2026-09-06", orders: 1, revenueCents: 100, profitCents: 10 },
-      { date: "2026-09-07", orders: 3, revenueCents: 500, profitCents: 50 },
+      {
+        date: "2026-09-06",
+        orders: 1,
+        revenueCents: 100,
+        profitCents: 10,
+        pendingCostRevenueCents: 0,
+      },
+      {
+        date: "2026-09-07",
+        orders: 3,
+        revenueCents: 500,
+        profitCents: 50,
+        pendingCostRevenueCents: 0,
+      },
+    ]);
+  });
+});
+
+describe("groupByWeek with pending revenue", () => {
+  it("adds up the pending revenue of the week", () => {
+    const days = ["2026-09-07", "2026-09-08"].map((date) => ({
+      date,
+      orders: 1,
+      revenueCents: 5_000,
+      profitCents: 1_000,
+      pendingCostRevenueCents: 2_000,
+    }));
+    expect(groupByWeek(days)).toEqual([
+      {
+        date: "2026-09-07",
+        orders: 2,
+        revenueCents: 10_000,
+        profitCents: 2_000,
+        pendingCostRevenueCents: 4_000,
+      },
     ]);
   });
 });
 
 describe("niceScale", () => {
+  it("keeps a handful of ticks when a deep loss dwarfs a tiny gain", () => {
+    const { ticks, domain } = niceScale([1, -500_000]);
+    expect(ticks.length).toBeLessThanOrEqual(8);
+    expect(domain[0]).toBeLessThanOrEqual(-500_000);
+    expect(domain[1]).toBeGreaterThan(1);
+  });
+
   it("starts at zero with round steps", () => {
     expect(niceScale([0, 120_000, 150_000]).ticks).toEqual([0, 50_000, 100_000, 150_000]);
   });
@@ -190,6 +297,7 @@ describe("buildWaterfall", () => {
     refundCents: 0,
     commissionCents: 1_000,
     profitCents: 37_000,
+    pendingCostRevenueCents: 0,
   };
 
   it("walks from revenue down to profit", () => {
@@ -202,8 +310,28 @@ describe("buildWaterfall", () => {
     ]);
   });
 
+  it("sets the revenue of unknown cost apart before the costs", () => {
+    const steps = buildWaterfall({
+      ...summary,
+      costCents: 40_000,
+      pendingCostRevenueCents: 20_000,
+      profitCents: 27_000,
+    });
+    expect(steps.slice(0, 3)).toEqual([
+      { key: "revenue", label: "Receita", cents: 100_000, range: [0, 100_000] },
+      { key: "pending", label: "Custo pendente", cents: -20_000, range: [80_000, 100_000] },
+      { key: "cost", label: "Custo dos produtos", cents: -40_000, range: [40_000, 80_000] },
+    ]);
+    expect(steps.at(-1)).toMatchObject({ key: "profit", cents: 27_000 });
+  });
+
   it("hangs a loss below zero", () => {
-    const loss = buildWaterfall({ ...summary, costCents: 95_000, profitCents: -8_000 });
+    const loss = buildWaterfall({
+      ...summary,
+      costCents: 95_000,
+      profitCents: -8_000,
+      pendingCostRevenueCents: 0,
+    });
     expect(loss.at(-1)?.range).toEqual([-8_000, 0]);
   });
 });
@@ -216,13 +344,33 @@ describe("periodMargin", () => {
   it("is empty without revenue", () => {
     expect(periodMargin([])).toBeNull();
   });
+
+  it("leaves the revenue of unknown cost out of the margin", () => {
+    const day = {
+      date: "2026-09-01",
+      orders: 2,
+      revenueCents: 20_000,
+      profitCents: 2_000,
+      pendingCostRevenueCents: 10_000,
+    };
+    expect(periodMargin([day])).toBe(20);
+    expect(periodMargin([{ ...day, profitCents: 0, pendingCostRevenueCents: 20_000 }])).toBeNull();
+  });
 });
 
 describe("hasSales", () => {
   it("is false when every bucket is zero", () => {
-    expect(hasSales([{ date: "2026-09-02", orders: 0, revenueCents: 0, profitCents: 0 }])).toBe(
-      false,
-    );
+    expect(
+      hasSales([
+        {
+          date: "2026-09-02",
+          orders: 0,
+          revenueCents: 0,
+          profitCents: 0,
+          pendingCostRevenueCents: 0,
+        },
+      ]),
+    ).toBe(false);
     expect(hasSales(points)).toBe(true);
   });
 });

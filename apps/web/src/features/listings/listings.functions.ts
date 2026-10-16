@@ -1,9 +1,10 @@
 import {
-  getCatalogProductForRegion,
+  getSellableCatalogProduct,
   getTargetForPublishing,
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
+  storesListingProduct,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -11,6 +12,7 @@ import {
   createListingSchema,
   listingPriceCentsSchema,
   listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -21,7 +23,6 @@ import {
   requireMockWebhookSecret,
   sendMockWebhook,
 } from "@/features/listings/mock-sale.server";
-import { requireTenantRegion } from "@/features/region/region.server";
 import {
   createListingForTenant,
   setListingsPausedForTenant,
@@ -33,12 +34,22 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    const [product, stores] = await Promise.all([
-      getCatalogProductForRegion(database, region, data.productId),
+    const [product, stores, listedOn] = await Promise.all([
+      getSellableCatalogProduct(database, data.productId),
       listStoreConnections(database, context.tenantId),
+      storesListingProduct(database, context.tenantId, data.productId),
     ]);
-    return { product, stores: stores.filter((store) => store.status === "connected") };
+    // One listing per product and store: a store that already sells it is shown, not offered.
+    const listedIds = new Set(listedOn.map((store) => store.storeId));
+    const connected = stores.filter((store) => store.status === "connected");
+    // Each store sells a single supplier: only the ones selling this product's supplier qualify.
+    return {
+      product,
+      stores: connected
+        .filter((store) => store.supplierId === product.supplierId)
+        .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
+      hasOtherStores: connected.some((store) => store.supplierId !== product.supplierId),
+    };
   });
 
 export const createListing = createServerFn({ method: "POST" })
@@ -66,7 +77,9 @@ export const listListings = createServerFn({ method: "GET" })
     ),
   );
 
-const listingIdsSchema = z.object({ listingIds: z.array(z.uuid()).min(1).max(100) });
+const listingIdsSchema = z.object({
+  listingIds: z.array(z.uuid()).min(1).max(MAX_LISTING_BATCH),
+});
 
 /** Puts every failed store of the chosen listings back in the publishing queue. */
 export const retryListings = createServerFn({ method: "POST" })

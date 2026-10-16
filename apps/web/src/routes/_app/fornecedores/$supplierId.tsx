@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, PackageIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -35,6 +35,7 @@ import {
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { normalizeCostRange } from "@/features/catalog/cost-range";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -69,7 +70,7 @@ function CatalogPage() {
   const { supplier } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
         <Link to="/fornecedores">
           <ArrowLeftIcon aria-hidden="true" />
           Fornecedores
@@ -78,6 +79,14 @@ function CatalogPage() {
       <PageHeader
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
+        actions={
+          <Button asChild>
+            <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
+              <StorefrontIcon weight="bold" aria-hidden="true" />
+              Vender este fornecedor
+            </Link>
+          </Button>
+        }
       />
       <ReputationPanel supplierId={supplier.id} />
       <CatalogFilters categories={query.data.categories} />
@@ -219,7 +228,14 @@ function CostRangeInputs({ minCost, maxCost, onChange }: CostRangeInputsProps) {
   const [max, setMax] = useState(formatCentsForInput(maxCost));
 
   function commit() {
-    onChange({ minCost: parseOptionalBrlToCents(min), maxCost: parseOptionalBrlToCents(max) });
+    const range = normalizeCostRange({
+      minCost: parseOptionalBrlToCents(min),
+      maxCost: parseOptionalBrlToCents(max),
+    });
+    // The fields show the filter that was applied, not what was typed.
+    setMin(formatCentsForInput(range.minCost));
+    setMax(formatCentsForInput(range.maxCost));
+    onChange(range);
   }
 
   return (

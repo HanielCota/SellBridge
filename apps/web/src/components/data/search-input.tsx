@@ -1,12 +1,15 @@
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { MAX_SEARCH_LENGTH } from "@sellbridge/shared/schemas";
 
 /** Text box with a magnifying glass, used by the search filters above lists. */
 export function SearchInput({
   label,
   placeholder,
-  maxLength,
+  // The lists cut a search at this length; stopping the typing here keeps the box and the
+  // filter in agreement.
+  maxLength = MAX_SEARCH_LENGTH,
   value,
   onValueChange,
   className,
@@ -32,6 +35,8 @@ export function SearchInput({
         aria-hidden="true"
       />
       <Input
+        type="search"
+        autoComplete="off"
         aria-label={label}
         placeholder={placeholder}
         maxLength={maxLength}

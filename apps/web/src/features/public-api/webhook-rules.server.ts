@@ -26,8 +26,13 @@ export function assertAcceptableWebhookUrl(url: string, allowPrivate: boolean): 
     throw validationError("A URL do webhook precisa usar https");
   }
   const hostname = hostnameWithoutBrackets(parsed.hostname).toLowerCase();
+  // A name with no dot ("postgres", "redis") only resolves inside a private network: refused
+  // here, so the delivery error can never tell which internal names exist.
+  const isSingleLabel = !hostname.includes(".") && !hostname.includes(":");
   const isLocalName =
-    hostname === "localhost" || LOCAL_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+    isSingleLabel ||
+    hostname === "localhost" ||
+    LOCAL_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
   if (isLocalName || isNonPublicAddress(hostname)) {
     throw validationError("A URL do webhook precisa apontar para um endereço público da internet");
   }

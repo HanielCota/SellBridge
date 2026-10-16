@@ -305,7 +305,7 @@ export function CommandPalette() {
                   value={term}
                   onValueChange={setTerm}
                   placeholder="Buscar produtos, publicações, pedidos ou páginas"
-                  className="h-14 flex-1 bg-transparent text-subhead outline-none placeholder:text-muted-foreground"
+                  className="h-14 flex-1 bg-transparent text-body outline-none sm:text-subhead placeholder:text-muted-foreground"
                 />
               </div>
               <Command.List className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]">

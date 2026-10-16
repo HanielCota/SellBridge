@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { ArrowFatUpIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { type ComponentProps, type KeyboardEvent, type ReactNode, useState } from "react";
+import { keyboardDefaultsForType } from "@/lib/input-keyboard";
 import { firstErrorMessage } from "./form-field";
 
 type NativeInputProps = Omit<ComponentProps<"input">, "id" | "onChange" | "value" | "placeholder">;
@@ -18,6 +19,8 @@ interface FloatingFieldProps extends NativeInputProps {
 }
 
 interface FloatingInputProps extends FloatingFieldProps {
+  /** Icon at the start of the field; the label moves over to clear it. */
+  leading?: ReactNode;
   trailing?: ReactNode;
   notice?: ReactNode;
 }
@@ -60,6 +63,7 @@ function FloatingInput({
   onValueChange,
   hint,
   invalid,
+  leading,
   trailing,
   notice,
   className,
@@ -72,6 +76,7 @@ function FloatingInput({
     <div className="grid gap-1.5">
       <div className="relative">
         <input
+          {...keyboardDefaultsForType(inputProps.type)}
           id={id}
           value={value}
           placeholder=" "
@@ -82,14 +87,23 @@ function FloatingInput({
             "peer h-14 w-full rounded-xl border border-field-border bg-field px-4 pt-5 pb-1.5 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
             "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
             "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
+            leading ? "pl-11" : null,
             trailing ? "pr-12" : null,
             className,
           )}
           {...inputProps}
         />
+        {leading ? (
+          <span className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-muted-foreground transition-colors duration-150 peer-focus:text-brand-text">
+            {leading}
+          </span>
+        ) : null}
         <label
           htmlFor={id}
-          className="pointer-events-none absolute top-1/2 left-4 origin-left -translate-y-1/2 text-body text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none"
+          className={cn(
+            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-[top,font-size,color] duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
+            leading ? "left-11" : "left-4",
+          )}
         >
           {label}
         </label>
@@ -101,7 +115,9 @@ function FloatingInput({
   );
 }
 
-export function FloatingTextField(props: FloatingFieldProps) {
+export function FloatingTextField(
+  props: FloatingFieldProps & Pick<FloatingInputProps, "leading" | "trailing">,
+) {
   return <FloatingInput {...props} />;
 }
 
@@ -139,7 +155,7 @@ export function FloatingPasswordField({ onBlur, ...props }: Omit<FloatingFieldPr
       onClick={state.toggleVisibility}
       aria-label={state.isVisible ? "Ocultar senha" : "Mostrar senha"}
       aria-pressed={state.isVisible}
-      className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
+      className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
     >
       <ToggleIcon className="size-[18px]" aria-hidden="true" />
     </button>

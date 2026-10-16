@@ -1,6 +1,6 @@
 import { notFoundError } from "@sellbridge/shared/errors";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { apiKeys, apiRateLimits, organization } from "../schema/index.ts";
 
 export interface ApiKeySummary {
@@ -35,7 +35,10 @@ export interface NewApiKey {
   expiresAt: Date | null;
 }
 
-export async function createApiKey(database: Database, key: NewApiKey): Promise<ApiKeySummary> {
+export async function createApiKey(
+  database: DatabaseExecutor,
+  key: NewApiKey,
+): Promise<ApiKeySummary> {
   const [created] = await database
     .insert(apiKeys)
     .values({ ...key, scopes: [...key.scopes] })
@@ -47,7 +50,10 @@ export async function createApiKey(database: Database, key: NewApiKey): Promise<
 }
 
 /** Newest first, revoked keys included so the page can show what was turned off. */
-export async function listApiKeys(database: Database, tenantId: string): Promise<ApiKeySummary[]> {
+export async function listApiKeys(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<ApiKeySummary[]> {
   return database
     .select(summaryColumns)
     .from(apiKeys)
@@ -161,4 +167,17 @@ export async function getApiKeyIdentity(
     throw notFoundError("Chave de API não encontrada");
   }
   return found;
+}
+
+/**
+ * Revokes every key of the organization still in use (its owner was blocked): the public API
+ * must stop answering for an account the platform shut out. Returns how many were revoked.
+ */
+export async function revokeTenantApiKeys(database: Database, tenantId: string): Promise<number> {
+  const revoked = await database
+    .update(apiKeys)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(apiKeys.tenantId, tenantId), isNull(apiKeys.revokedAt)))
+    .returning({ id: apiKeys.id });
+  return revoked.length;
 }

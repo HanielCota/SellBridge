@@ -1,17 +1,26 @@
+import { formatCents } from "@sellbridge/shared/money";
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import {
   bestPoint,
   explainRevenue,
   OFF_SCALE_PERCENT,
+  profitMargin,
   trendOf,
 } from "@/features/reports/dashboard-insights";
-import { formatPointDate, type MetricPoint } from "@/features/reports/dashboard-metrics";
+import {
+  firstDayWithin,
+  formatPointDate,
+  type MetricPoint,
+} from "@/features/reports/dashboard-metrics";
 
 interface Totals {
   revenueCents: number;
   orders: number;
   profitCents: number;
+  pendingCostOrders: number;
+  pendingCostRevenueCents: number;
 }
 
 interface PeriodSummaryProps {
@@ -19,6 +28,8 @@ interface PeriodSummaryProps {
   previous: Totals;
   points: MetricPoint[];
   bucket: "day" | "week";
+  /** First day of the period (YYYY-MM-DD): a partial first week is named from it. */
+  fromDate: string;
   className?: string;
 }
 
@@ -37,6 +48,7 @@ export function PeriodSummary({
   previous,
   points,
   bucket,
+  fromDate,
   className,
 }: PeriodSummaryProps) {
   const best = points.length > 1 ? bestPoint(points, (point) => point.revenueCents) : null;
@@ -48,12 +60,13 @@ export function PeriodSummary({
       )}
     >
       <ProfitSentence current={current} previous={previous} />
+      <PendingCostNote current={current} />
       <Headline current={current} previous={previous} />
       {best ? (
         <>
           {" "}
           {bucket === "week" ? "Sua melhor semana começou em " : "Seu melhor dia foi "}
-          <Strong>{withPeriod(formatPointDate(best.date))}</Strong>
+          <Strong>{withPeriod(formatPointDate(firstDayWithin(best.date, fromDate)))}</Strong>
         </>
       ) : null}
     </p>
@@ -125,10 +138,10 @@ const wholeReais = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 0,
 });
 
-const percentFormat = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
+/** Whole reais, except under one real, where rounding would say "R$ 0" for a real loss. */
+function sentenceReais(cents: number): string {
+  return Math.abs(cents) < 100 ? formatCents(cents) : wholeReais.format(cents / 100);
+}
 
 /** "Você lucrou R$ 1.130 no período, 10% a mais que no anterior, com 37% de margem." */
 function ProfitSentence({ current, previous }: { current: Totals; previous: Totals }) {
@@ -140,18 +153,18 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       <>
         Você teve{" "}
         <span className="font-medium text-destructive">
-          prejuízo de {wholeReais.format(-current.profitCents / 100)}
+          prejuízo de {sentenceReais(-current.profitCents)}
         </span>{" "}
         no período.{" "}
       </>
     );
   }
   const trend = trendOf(current.profitCents, previous.profitCents);
-  const margin = current.revenueCents > 0 ? current.profitCents / current.revenueCents : null;
+  const margin = profitMargin(current);
   const moved = trend !== null && trend.direction !== "flat";
   return (
     <>
-      Você lucrou <Strong>{wholeReais.format(current.profitCents / 100)}</Strong> no período
+      Você lucrou <Strong>{sentenceReais(current.profitCents)}</Strong> no período
       {moved ? (
         <>
           ,{" "}
@@ -172,10 +185,25 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       ) : null}
       {margin === null ? null : (
         <>
-          , com <Strong>{percentFormat.format(margin)} de margem</Strong>
+          , com <Strong>{formatPercent(margin)} de margem</Strong>
         </>
       )}
       .{" "}
+    </>
+  );
+}
+
+/** "R$ 120 em 1 venda com custo pendente ficou fora do lucro." Only when there is some. */
+function PendingCostNote({ current }: { current: Totals }) {
+  if (current.pendingCostOrders === 0) {
+    return null;
+  }
+  const one = current.pendingCostOrders === 1;
+  return (
+    <>
+      <Strong>{sentenceReais(current.pendingCostRevenueCents)}</Strong> em{" "}
+      {current.pendingCostOrders} {one ? "venda" : "vendas"} com custo pendente{" "}
+      {one ? "ficou" : "ficaram"} fora do lucro.{" "}
     </>
   );
 }

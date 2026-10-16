@@ -10,7 +10,12 @@ import {
 } from "@/components/integrations/delete-webhook-dialog";
 import { IntegrationsSection } from "@/components/integrations/integrations-layout";
 import { WebhookEndpointList } from "@/components/integrations/webhook-endpoint-list";
+import {
+  INTEGRATIONS_LOCKED_REASON,
+  useIntegrationsLocked,
+} from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { webhookEndpointsQueryOptions } from "@/features/public-api/webhooks.queries";
 import { errorMessage } from "@/lib/errors";
@@ -23,6 +28,7 @@ function WebhooksContent({
   onDelete: (endpoint: WebhookToDelete) => void;
 }) {
   const query = useQuery(webhookEndpointsQueryOptions());
+  const locked = useIntegrationsLocked();
   if (query.isPending) {
     return (
       <Skeleton className="h-40 rounded-3xl" aria-busy="true" aria-label="Carregando webhooks" />
@@ -38,10 +44,12 @@ function WebhooksContent({
         title="Nenhum webhook cadastrado"
         description="Cadastre uma URL para receber pedidos e mudanças de anúncios assim que acontecem, sem precisar consultar a API."
         action={
-          <Button onClick={onCreate}>
-            <PlusIcon aria-hidden="true" />
-            Novo webhook
-          </Button>
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button disabled={locked} onClick={onCreate}>
+              <PlusIcon aria-hidden="true" />
+              Novo webhook
+            </Button>
+          </DisabledHint>
         }
       />
     );
@@ -58,16 +66,19 @@ function WebhooksContent({
 export function WebhooksSection() {
   const [isCreating, setIsCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<WebhookToDelete | null>(null);
+  const locked = useIntegrationsLocked();
   return (
     <IntegrationsSection
       id="webhooks"
       title="Webhooks"
       description="O SellBridge avisa seu sistema por um POST assinado a cada pedido ou mudança de anúncio. Entregas que falham são tentadas de novo."
       action={
-        <Button variant="outline" size="sm" onClick={() => setIsCreating(true)}>
-          <PlusIcon aria-hidden="true" />
-          Novo webhook
-        </Button>
+        <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+          <Button variant="outline" size="sm" disabled={locked} onClick={() => setIsCreating(true)}>
+            <PlusIcon aria-hidden="true" />
+            Novo webhook
+          </Button>
+        </DisabledHint>
       }
     >
       <WebhooksContent onCreate={() => setIsCreating(true)} onDelete={setPendingDelete} />

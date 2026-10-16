@@ -1,4 +1,5 @@
 import { notFoundError } from "@sellbridge/shared/errors";
+import type { OrderFinanceInput } from "@sellbridge/shared/finance";
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
@@ -8,6 +9,7 @@ import {
   orders,
   storeConnections,
 } from "../schema/index.ts";
+import type { Marketplace } from "./stores.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
 type OrderAdjustmentType = (typeof orderAdjustments.$inferSelect)["type"];
@@ -37,6 +39,7 @@ export interface OrderDetail {
   externalOrderId: string;
   storeConnectionId: string;
   storeName: string;
+  marketplace: Marketplace;
   status: OrderStatus;
   totalCents: number;
   marketplaceFeeCents: number;
@@ -54,6 +57,7 @@ async function selectOrder(database: Database, tenantId: string, orderId: string
       externalOrderId: orders.externalOrderId,
       storeConnectionId: orders.storeConnectionId,
       storeName: storeConnections.shopName,
+      marketplace: storeConnections.marketplace,
       status: orders.status,
       totalCents: orders.totalCents,
       marketplaceFeeCents: orders.marketplaceFeeCents,
@@ -114,4 +118,18 @@ export async function getOrderDetail(
     selectAdjustments(database, tenantId, orderId),
   ]);
   return { ...order, items, adjustments };
+}
+
+/**
+ * The order as `computeOrderFinance` reads it: an item without a catalog product came from a
+ * listing that is not ours, so its cost is unknown (null), never zero.
+ */
+export function orderFinanceInput(order: OrderDetail): OrderFinanceInput {
+  return {
+    ...order,
+    items: order.items.map((item) => ({
+      quantity: item.quantity,
+      knownUnitCostCents: item.productId === null ? null : item.unitCostCents,
+    })),
+  };
 }

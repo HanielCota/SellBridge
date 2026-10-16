@@ -35,6 +35,12 @@ describe("webhook signature", () => {
     );
   });
 
+  // Regression: Buffer.from(hex) stops at the first non-hex character, so trailing junk matched.
+  it("rejects a valid signature followed by junk", () => {
+    const header = `${signWebhookPayload({ secret, timestamp, body })}zz`;
+    expect(verifyWebhookSignature({ secret, header, body, now })).toBe(false);
+  });
+
   it("accepts any matching v1 (secret rotation sends more than one)", () => {
     const valid = signWebhookPayload({ secret, timestamp, body }).split(",")[1] ?? "";
     const header = `t=${timestamp},v1=${"0".repeat(64)},${valid}`;

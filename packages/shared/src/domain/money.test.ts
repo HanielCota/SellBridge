@@ -24,12 +24,35 @@ describe("money", () => {
     ["12", 1200],
     ["R$ 0,99", 99],
     ["-3,10", -310],
+    ["59.90", 5990],
+    ["1.5", 150],
+    ["1.234", 123400],
+    ["21.474.836,47", 2_147_483_647],
+    ["-0,00", 0],
   ])("parses %s", (input, expected) => {
     expect(parseBrlToCents(input)).toBe(expected);
   });
 
-  it.each(["", "abc", "1,234", "12,345"])("returns null for invalid input %j", (input) => {
+  it.each([
+    "",
+    "abc",
+    "1,234",
+    "12,345",
+    "1.2.3",
+    "12.34.567",
+    "1e5",
+    "21.474.836,48",
+    "9999999999999999999",
+    // Regression: any "R" or "$" was dropped wherever it stood, so these read R$ 12 and R$ 1.234.
+    "1R2",
+    "12$34",
+    "1,00R$",
+  ])("returns null for invalid or oversized input %j", (input) => {
     expect(parseBrlToCents(input)).toBeNull();
+  });
+
+  it("reads minus zero as plain zero", () => {
+    expect(Object.is(parseBrlToCents("-0,00"), 0)).toBe(true);
   });
 
   it("applies basis points with rounding", () => {

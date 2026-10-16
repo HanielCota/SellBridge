@@ -2,12 +2,14 @@ import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import {
   LISTING_SORT_LABELS,
   LISTING_SORTS,
-  listingsSearchSchema,
   type ListingsSearch,
+  listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MegaphoneIcon } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -29,6 +31,7 @@ import { listingsQueryOptions } from "@/features/listings/listings.queries";
 import { useSelection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { feeScheduleQueryOptions } from "@/features/reports/fee-schedule.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 /** The catalog's grid, so a product looks the same before and after it is published. */
@@ -39,7 +42,11 @@ export const Route = createFileRoute("/_app/publicacoes/")({
   validateSearch: listingsSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+      // The cards' margin and the price dialog count every fee the server charges.
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Publicações | SellBridge" }] }),
   component: ListingsPage,
 });
@@ -159,7 +166,7 @@ function ListingsGrid() {
         description={
           isFiltered
             ? "Ajuste a busca ou escolha outro status."
-            : "Escolha produtos no catálogo da sua região e publique nas suas lojas."
+            : "Escolha produtos no catálogo e publique nas suas lojas."
         }
         action={
           isFiltered ? null : (
@@ -177,7 +184,7 @@ function ListingsGrid() {
 function ListingsCards({ data }: { data: ListingsPageData }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const selection = useSelection(listingId);
+  const selection = useSelection(listingId, { limit: MAX_LISTING_BATCH });
   const pageById = new Map(data.items.map((row) => [row.listingId, row]));
   // Prefer the fresh row from the current page so optimistic status changes show up.
   const selectedRows = [...selection.selected.values()].map(
@@ -191,7 +198,15 @@ function ListingsCards({ data }: { data: ListingsPageData }) {
             <ListingCard
               row={row}
               selected={selection.isSelected(row.listingId)}
-              onSelectedChange={(checked) => selection.toggle(row, checked)}
+              onSelectedChange={(checked) => {
+                if (checked && selection.selected.size >= MAX_LISTING_BATCH) {
+                  toast.info(`Dá para selecionar até ${MAX_LISTING_BATCH} publicações por vez`, {
+                    id: "selection-limit",
+                  });
+                  return;
+                }
+                selection.toggle(row, checked);
+              }}
             />
           </li>
         ))}

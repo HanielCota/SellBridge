@@ -1,5 +1,5 @@
 import {
-  findTenantRegion,
+  findOnboardingProfile,
   getSalesByStore,
   getSalesSummary,
   getSalesTimeseries,
@@ -14,28 +14,34 @@ import {
   ORDER_STAGE_STATUSES,
   periodSearchSchema,
 } from "@sellbridge/shared/schemas";
+import { comparablePreviousRange } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { buildReportScope } from "@/features/reports/report-scope.server";
+import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
+
+/** How many orders a picked day loads at once: the schema's largest page. */
+const PICKED_DAY_PAGE_SIZE = 100;
 
 /** Above this many days, the composition chart groups the sales by month. */
 const MONTHLY_FROM_DAYS = 120;
 
 async function loadOnboardingState(tenantId: string) {
-  const [region, stores, listings] = await Promise.all([
-    findTenantRegion(database, tenantId),
+  const [profile, stores, listings] = await Promise.all([
+    findOnboardingProfile(database, tenantId),
     listStoreConnections(database, tenantId),
     listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
   ]);
   return {
-    hasRegion: region !== null,
+    hasHolder: profile.holder !== null,
+    hasSupplier:
+      profile.starterSupplier !== null || stores.some((store) => store.supplierId !== null),
     hasStore: stores.length > 0,
     hasPublishedListing: listings.total > 0,
   };
 }
 
-/** Where a new account stands in the setup: region, a store, a first publication. */
+/** Where a new account stands in the setup: holder, supplier, a store, a first publication. */
 export const getSetupProgress = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .handler(async ({ context }) => loadOnboardingState(context.tenantId));
@@ -49,6 +55,12 @@ export const getDashboard = createServerFn({ method: "GET" })
       ...scope,
       range: { from: period.previousFrom, to: period.previousTo },
     };
+    // The totals compare like with like (an ongoing period against the same stretch before it);
+    // the chart keeps the whole previous period, drawn day by day behind the current one.
+    const comparableScope: ReportScope = {
+      ...scope,
+      range: comparablePreviousRange(period, new Date()),
+    };
     const [
       summary,
       previous,
@@ -61,7 +73,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       onboarding,
     ] = await Promise.all([
       getSalesSummary(database, scope),
-      getSalesSummary(database, previousScope),
+      getSalesSummary(database, comparableScope),
       getSalesTimeseries(database, scope, period.bucket),
       getSalesTimeseries(database, previousScope, period.bucket),
       // Long periods also get one bar per month, for the composition chart.
@@ -101,31 +113,62 @@ export const getFinancials = createServerFn({ method: "GET" })
       ...scope,
       range: { from: period.previousFrom, to: period.previousTo },
     };
-    const [summary, previous, days, orders, stores] = await Promise.all([
-      getSalesSummary(database, scope),
+    // A picked day narrows the summary and the statement; the chart keeps the whole period.
+    const picked = narrowToDay(scope, period, data.day);
+    const [
+      summary,
+      periodSummary,
+      previous,
+      days,
+      bucketed,
+      previousTimeseries,
+      monthly,
+      orders,
+      stores,
+    ] = await Promise.all([
+      getSalesSummary(database, picked.scope),
+      picked.day ? getSalesSummary(database, scope) : null,
       getSalesSummary(database, previousScope),
       // Whole-day totals for the statement's day headings, so a day split across pages still
       // shows what it really made.
       getSalesTimeseries(database, scope, "day"),
-      listOrderFinancials(database, scope, {
+      // The chart uses the dashboard's buckets; daily ones are the query above.
+      period.bucket === "day" ? null : getSalesTimeseries(database, scope, period.bucket),
+      getSalesTimeseries(database, previousScope, period.bucket),
+      period.days > MONTHLY_FROM_DAYS ? getSalesTimeseries(database, scope, "month") : null,
+      listOrderFinancials(database, picked.scope, {
         filters: {
           statuses: data.stage ? ORDER_STAGE_STATUSES[data.stage] : undefined,
           search: data.query,
         },
         sort: { field: data.sort, direction: data.direction },
-        pagination: { page: data.page, pageSize: data.pageSize },
+        // A picked day comes whole (up to the page cap), so its identical sales fold together.
+        pagination: picked.day
+          ? { page: data.page, pageSize: PICKED_DAY_PAGE_SIZE }
+          : { page: data.page, pageSize: data.pageSize },
       }),
       listStoreConnections(database, context.tenantId),
     ]);
     return {
-      period: { fromDate: period.fromDate, toDate: period.toDate },
+      period: {
+        fromDate: period.fromDate,
+        toDate: period.toDate,
+        days: period.days,
+        bucket: period.bucket,
+      },
+      day: picked.day,
       summary,
+      /** The whole period, for the chart's headline while a day narrows `summary`. */
+      periodSummary: periodSummary ?? summary,
       previous,
       days: days.map((day) => ({
         date: day.date,
         orders: day.orders,
         profitCents: day.profitCents,
       })),
+      timeseries: bucketed ?? days,
+      previousTimeseries,
+      monthly,
       orders,
       stores: stores.map((store) => ({ id: store.id, name: store.shopName })),
     };

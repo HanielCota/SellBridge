@@ -5,7 +5,16 @@ import { ProductVisual } from "@/components/catalog/product-visual";
 import { SmartDate } from "@/components/data/smart-date";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { formatDayHeading, groupOrdersByDay } from "@/features/reports/financial-rows";
+import { CaretDownIcon } from "@phosphor-icons/react";
+import { useId, useState } from "react";
+import {
+  type DaySplit,
+  daySplit,
+  foldRows,
+  formatDayHeading,
+  groupOrdersByDay,
+} from "@/features/reports/financial-rows";
+import { displayBuyerName } from "@/features/orders/buyer-name";
 import { displayStoreName } from "@/features/stores/store-name";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
@@ -17,6 +26,8 @@ import {
   ProfitAmount,
   signedCents,
 } from "./order-parts";
+import { PendingCostStatus } from "@/components/reports/pending-cost";
+import { Hint } from "@/components/ui/hint";
 
 export interface DayTotal {
   date: string;
@@ -59,7 +70,7 @@ function OrderDetail({ row }: { row: OrderFinancialRow }) {
         <p className="text-xs text-muted-foreground">
           {formatAbsoluteTime(row.orderedAt)}
           {" · "}
-          {row.buyerName ?? "Comprador não informado"}
+          {displayBuyerName(row.buyerName)}
           {margin ? ` · margem ${margin}` : null}
         </p>
       </div>
@@ -120,14 +131,63 @@ function RowSummary({
   );
 }
 
+/** What the row says under its amount: the sale it came from, or why it is out of the math. */
+function AmountNote({ row, revenueCents }: { row: OrderFinancialRow; revenueCents: number }) {
+  if (isVoidOrder(row)) {
+    return "fora da receita";
+  }
+  return (
+    <>
+      de {formatCents(revenueCents)}
+      {/* On a phone the status above already says it; the line stays as short as its siblings'. */}
+      {row.costPending ? <span className="max-sm:hidden"> · fora do lucro</span> : null}
+    </>
+  );
+}
+
+/** The profit, or "Custo pendente" when the cost is unknown: a zero there would read as real. */
+function RowProfit({ row, profitCents }: { row: OrderFinancialRow; profitCents: number }) {
+  if (row.costPending) {
+    return (
+      <span className="block text-sm">
+        <PendingCostStatus />
+      </span>
+    );
+  }
+  return <ProfitAmount cents={profitCents} plus className="block text-sm" />;
+}
+
 /** The profit on top, lined up with every other row's, and the sale it came from below. */
 function RowAmount({ row }: { row: OrderFinancialRow }) {
   return (
     <span className="shrink-0 space-y-0.5 text-right">
-      <ProfitAmount row={row} plus className="block text-sm" />
+      <RowProfit row={row} profitCents={row.profitCents} />
       <span className="block text-xs text-muted-foreground tabular-nums">
-        {isVoidOrder(row) ? "fora da receita" : `de ${formatCents(row.revenueCents)}`}
+        <AmountNote row={row} revenueCents={row.revenueCents} />
       </span>
+    </span>
+  );
+}
+
+/** The hairline starts where the text does, like a grouped list, so the thumbnails stay a column. */
+const ROW_DIVIDER =
+  "relative not-first:before:absolute not-first:before:top-0 not-first:before:right-4 not-first:before:left-[4.25rem] not-first:before:h-px not-first:before:bg-border sm:not-first:before:right-5 sm:not-first:before:left-[4.75rem]";
+
+/** Highlights on press, not on release, so the row answers the instant it's touched. */
+const ROW_BUTTON =
+  "flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:bg-foreground/[0.06] sm:gap-3.5 sm:px-5";
+
+function RowThumb({ row }: { row: OrderFinancialRow }) {
+  return (
+    <span className="size-11 shrink-0 overflow-hidden rounded-xl">
+      <ProductVisual
+        imageUrl={row.product?.imageUrl ?? null}
+        title={row.product?.title ?? row.items}
+        categoryName={row.product?.categoryName ?? null}
+        soldOut={isVoidOrder(row)}
+        compact
+        className="size-full"
+      />
     </span>
   );
 }
@@ -141,27 +201,15 @@ function StatementRow({
   byDay: boolean;
   showStore: boolean;
 }) {
-  const isVoid = isVoidOrder(row);
   return (
-    // The hairline starts where the text does, like a grouped list, so the thumbnails stay a column.
-    <li className="relative not-first:before:absolute not-first:before:top-0 not-first:before:right-4 not-first:before:left-[4.25rem] not-first:before:h-px not-first:before:bg-border sm:not-first:before:right-5 sm:not-first:before:left-[4.75rem]">
+    <li className={ROW_DIVIDER}>
       <Popover>
         <PopoverTrigger asChild>
-          {/* Highlights on press, not on release, so the row answers the instant it's touched. */}
           <button
             type="button"
-            className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:bg-foreground/[0.06] data-[state=open]:bg-foreground/[0.04] sm:gap-3.5 sm:px-5"
+            className={cn(ROW_BUTTON, "data-[state=open]:bg-foreground/[0.04]")}
           >
-            <span className="size-11 shrink-0 overflow-hidden rounded-xl">
-              <ProductVisual
-                imageUrl={row.product?.imageUrl ?? null}
-                title={row.product?.title ?? row.items}
-                categoryName={row.product?.categoryName ?? null}
-                soldOut={isVoid}
-                compact
-                className="size-full"
-              />
-            </span>
+            <RowThumb row={row} />
             <RowSummary row={row} byDay={byDay} showStore={showStore} />
             <RowAmount row={row} />
           </button>
@@ -172,20 +220,208 @@ function StatementRow({
   );
 }
 
+/**
+ * What makes two orders of a day the same line: same items from the same store, same amounts,
+ * and a status that reads the same (the quiet ones count as one).
+ */
+function sameSaleKey(row: OrderFinancialRow): string {
+  const status = NOTABLE_STATUSES.has(row.status) ? row.status : "counted";
+  return [
+    row.items,
+    row.storeName,
+    status,
+    row.revenueCents,
+    row.profitCents,
+    row.costPending,
+  ].join("|");
+}
+
+/** One order inside an opened group: its time and number, with its own detail on click. */
+function GroupedOrder({ row }: { row: OrderFinancialRow }) {
+  return (
+    <li>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs outline-none hover:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-ring/50 active:bg-foreground/[0.07] data-[state=open]:bg-foreground/[0.05]"
+          >
+            <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <time
+                dateTime={row.orderedAt.toISOString()}
+                className="shrink-0 text-foreground tabular-nums"
+              >
+                {clockTime.format(row.orderedAt)}
+              </time>
+              <span aria-hidden="true">·</span>
+              <span className="truncate">{row.externalOrderId}</span>
+            </span>
+            {row.costPending ? (
+              <PendingCostStatus />
+            ) : (
+              <ProfitAmount cents={row.profitCents} plus />
+            )}
+          </button>
+        </PopoverTrigger>
+        <OrderDetail row={row} />
+      </Popover>
+    </li>
+  );
+}
+
+/** "08:30 – 22:21 · R$ 49,07 cada", plus the store and a status only when they matter. */
+function GroupSummaryLine({
+  rows,
+  first,
+  showStore,
+}: {
+  rows: readonly OrderFinancialRow[];
+  first: OrderFinancialRow;
+  showStore: boolean;
+}) {
+  const times = rows.map((row) => row.orderedAt.getTime());
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+      <span className="shrink-0 tabular-nums">
+        {clockTime.format(new Date(Math.min(...times)))} –{" "}
+        {clockTime.format(new Date(Math.max(...times)))}
+      </span>
+      {/* On a phone the line keeps only the times; the per-sale amount joins from sm up. Sales
+          out of the math (void, or cost pending) have no amount each; the right side says why. */}
+      {isVoidOrder(first) || first.costPending ? null : (
+        <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
+          <span aria-hidden="true">·</span>
+          <span className="truncate tabular-nums">{signedCents(first.profitCents)} cada</span>
+        </span>
+      )}
+      {showStore ? (
+        <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
+          <span aria-hidden="true">·</span>
+          <span className="truncate">{displayStoreName(first.storeName)}</span>
+        </span>
+      ) : null}
+      {NOTABLE_STATUSES.has(first.status) ? (
+        <span className="ml-1 shrink-0 text-foreground">
+          <OrderStatusBadge status={first.status} />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** The group's orders, unfolding in place: height grows from 0fr to 1fr under the line. */
+function GroupOrders({
+  id,
+  open,
+  rows,
+  label,
+}: {
+  id: string;
+  open: boolean;
+  rows: readonly OrderFinancialRow[];
+  label: string;
+}) {
+  return (
+    // Closed, it is out of the tab order and hidden from assistive tech, not just squashed.
+    <div
+      id={id}
+      inert={!open}
+      className={cn(
+        "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-opacity",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <ul
+          aria-label={`${rows.length} pedidos de ${label}`}
+          className="grid gap-0.5 pr-4 pb-3 pl-[3.75rem] sm:pr-5 sm:pl-[4.25rem]"
+        >
+          {rows.map((row) => (
+            <GroupedOrder key={row.id} row={row} />
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Identical sales of a day as one line: how many, from when to when, what each made and the
+ * total. It opens in place into the orders themselves, each still with its own detail.
+ */
+function GroupRow({ rows, showStore }: { rows: readonly OrderFinancialRow[]; showStore: boolean }) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const [first] = rows;
+  if (!first) {
+    return null;
+  }
+  const profit = rows.reduce((sum, row) => sum + row.profitCents, 0);
+  const revenue = rows.reduce((sum, row) => sum + row.revenueCents, 0);
+  const isVoid = isVoidOrder(first);
+  return (
+    <li className={ROW_DIVIDER}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(ROW_BUTTON, open && "bg-foreground/[0.02]")}
+      >
+        <RowThumb row={first} />
+        <span className="min-w-0 flex-1 space-y-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={cn("truncate text-sm font-medium", isVoid && "text-muted-foreground")}>
+              {itemsLabel(first.items)}
+            </span>
+            <span className="shrink-0 rounded-full bg-brand/15 px-2 py-px text-xs font-semibold text-brand-text tabular-nums">
+              <span className="sr-only">vendido </span>×{rows.length}
+            </span>
+          </span>
+          <GroupSummaryLine rows={rows} first={first} showStore={showStore} />
+        </span>
+        <span className="shrink-0 space-y-0.5 text-right">
+          <RowProfit row={first} profitCents={profit} />
+          <span className="block text-xs text-muted-foreground tabular-nums">
+            <AmountNote row={first} revenueCents={revenue} />
+          </span>
+        </span>
+        <CaretDownIcon
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      <GroupOrders id={listId} open={open} rows={rows} label={itemsLabel(first.items)} />
+    </li>
+  );
+}
+
 function StatementCard({
   rows,
   byDay,
   showStore,
+  foldSales,
 }: {
   rows: readonly OrderFinancialRow[];
   byDay: boolean;
   showStore: boolean;
+  foldSales: boolean;
 }) {
+  const groups = foldSales
+    ? foldRows(rows, sameSaleKey)
+    : rows.map((row) => ({ key: row.id, rows: [row] }));
   return (
     <ul className="surface-card overflow-hidden rounded-3xl bg-card py-1.5">
-      {rows.map((row) => (
-        <StatementRow key={row.id} row={row} byDay={byDay} showStore={showStore} />
-      ))}
+      {groups.map((group) => {
+        const [only] = group.rows;
+        if (only && group.rows.length === 1) {
+          return <StatementRow key={only.id} row={only} byDay={byDay} showStore={showStore} />;
+        }
+        return <GroupRow key={group.key} rows={group.rows} showStore={showStore} />;
+      })}
     </ul>
   );
 }
@@ -194,7 +430,8 @@ function StatementCard({
  * "3 vendas" counts only orders that still count as a sale; when the day also lists cancelled or
  * returned orders, it says "válidas" so the number does not read as a count of the rows below.
  */
-const VOID_ROWS_HINT = "Pedidos cancelados ou devolvidos não contam como venda.";
+const VOID_ROWS_HINT =
+  "Pedidos aguardando pagamento, cancelados ou devolvidos não contam como venda.";
 
 function salesLabel(sales: number, hasVoidRows: boolean): string {
   const noun = sales === 1 ? "venda" : "vendas";
@@ -208,32 +445,75 @@ function DayHeading({
   dayKey,
   total,
   hasVoidRows,
+  continued,
 }: {
   dayKey: string;
   total: DayTotal | undefined;
   hasVoidRows: boolean;
+  /** The day began on the previous page; its totals still cover the whole day. */
+  continued: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 px-1 pb-2.5">
       {/* "Hoje" depends on the clock, so server and browser may disagree right at midnight. */}
       <h3 className="text-sm font-medium" suppressHydrationWarning>
         {formatDayHeading(dayKey)}
+        {continued ? (
+          <span className="font-normal text-muted-foreground"> · continuação</span>
+        ) : null}
       </h3>
       {total && total.orders > 0 ? (
-        <p
-          className="text-xs text-muted-foreground tabular-nums"
-          title={hasVoidRows ? VOID_ROWS_HINT : undefined}
-        >
-          {salesLabel(total.orders, hasVoidRows)}
-          {" · "}
-          <span
-            className={cn(
-              "font-medium",
-              total.profitCents >= 0 ? "text-foreground" : "text-destructive",
-            )}
-          >
-            {signedCents(total.profitCents, { plus: true })}
-          </span>
+        <Hint label={hasVoidRows ? VOID_ROWS_HINT : undefined}>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {salesLabel(total.orders, hasVoidRows)}
+            {" · "}
+            <span
+              className={cn(
+                "font-medium",
+                total.profitCents >= 0 ? "text-foreground" : "text-destructive",
+              )}
+            >
+              {signedCents(total.profitCents, { plus: true })}
+            </span>
+          </p>
+        </Hint>
+      ) : null}
+    </div>
+  );
+}
+
+/** One day of the statement: its heading, its orders, and a note when the page cut it. */
+function StatementDay({
+  dayKey,
+  rows,
+  total,
+  split,
+  showHeading,
+  showStore,
+  foldSales,
+}: {
+  dayKey: string;
+  rows: readonly OrderFinancialRow[];
+  total: DayTotal | undefined;
+  split: DaySplit;
+  showHeading: boolean;
+  showStore: boolean;
+  foldSales: boolean;
+}) {
+  return (
+    <div>
+      {showHeading ? (
+        <DayHeading
+          dayKey={dayKey}
+          total={total}
+          hasVoidRows={rows.some(isVoidOrder)}
+          continued={split.fromPrevious}
+        />
+      ) : null}
+      <StatementCard rows={rows} byDay showStore={showStore} foldSales={foldSales} />
+      {split.toNext ? (
+        <p className="px-1 pt-2.5 text-xs text-muted-foreground">
+          Mais vendas deste dia na próxima página.
         </p>
       ) : null}
     </div>
@@ -250,31 +530,55 @@ export function OrderStatement({
   dayTotals,
   byDay,
   showStore,
+  showDayHeadings = true,
+  foldSales = true,
+  page = 1,
+  totalPages = 1,
 }: {
   rows: readonly OrderFinancialRow[];
   /** Whole-day totals; null when a filter narrows the list and they would not match it. */
   dayTotals: ReadonlyMap<string, DayTotal> | null;
   byDay: boolean;
   showStore: boolean;
+  /** Off when the statement already shows a single picked day in its title. */
+  showDayHeadings?: boolean;
+  /**
+   * Identical sales of a day fold into one "×N" line. Off while searching or filtering: then the
+   * reseller is after specific orders and each one gets its own row.
+   */
+  foldSales?: boolean;
+  /** Where this page sits, so a day cut by the page break says so on both sides. */
+  page?: number;
+  totalPages?: number;
 }) {
   if (!byDay) {
     return (
       <section aria-label="Financeiro por pedido">
-        <StatementCard rows={rows} byDay={false} showStore={showStore} />
+        <StatementCard rows={rows} byDay={false} showStore={showStore} foldSales={false} />
       </section>
     );
   }
+  const days = groupOrdersByDay(rows);
   return (
     <section aria-label="Financeiro por pedido" className="space-y-6">
-      {groupOrdersByDay(rows).map((day) => (
-        <div key={day.key}>
-          <DayHeading
-            dayKey={day.key}
-            total={dayTotals?.get(day.key)}
-            hasVoidRows={day.rows.some(isVoidOrder)}
-          />
-          <StatementCard rows={day.rows} byDay showStore={showStore} />
-        </div>
+      {days.map((day, index) => (
+        <StatementDay
+          key={day.key}
+          dayKey={day.key}
+          rows={day.rows}
+          total={dayTotals?.get(day.key)}
+          split={daySplit({
+            salesOnPage: day.rows.filter((row) => !isVoidOrder(row)).length,
+            salesInDay: dayTotals?.get(day.key)?.orders ?? 0,
+            isFirstDay: index === 0,
+            isLastDay: index === days.length - 1,
+            page,
+            totalPages,
+          })}
+          showHeading={showDayHeadings}
+          showStore={showStore}
+          foldSales={foldSales}
+        />
       ))}
     </section>
   );

@@ -1,42 +1,89 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn, signUp } from "./helpers";
+import { DEMO_USER, gotoHydrated, pickSupplier, signIn, signUp, testCpf } from "./helpers";
 
-test.describe("onboarding de região", () => {
-  test("novo usuário informa o CEP e vê fornecedores da região", async ({ page }) => {
+test.describe("cadastro do revendedor", () => {
+  test("novo usuário informa nome e CPF e escolhe o fornecedor", async ({ page }) => {
+    const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
-    await expect(page.getByRole("heading", { name: "Onde você está?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Seu cadastro" })).toBeVisible();
+    await expect(page.getByText("Etapa 1 de 2 · Seus dados")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Os dados informados neste cadastro serão utilizados para emissão de notas fiscais e cobranças. Confira se estão corretos.",
+      ),
+    ).toBeVisible();
 
-    await page.getByLabel("CEP").fill("123");
-    await page.getByRole("button", { name: "Salvar região" }).click();
-    await expect(page.getByText("Informe um CEP com 8 dígitos")).toBeVisible();
+    // The account name fills the full name; the CPF is checked before the supplier step.
+    await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page.getByText("Informe os 11 dígitos do CPF")).toBeVisible();
+    await page.getByLabel("CPF").fill("52998224726");
+    await expect(page.getByLabel("CPF")).toHaveValue("529.982.247-26");
+    await expect(page.getByText("Confira o CPF: os dígitos não batem")).toBeVisible();
+    await page.getByLabel("CPF").fill(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
 
-    // CEP pre-cached by the seed: no external API call.
-    await page.getByLabel("CEP").fill("30130010");
-    await expect(page.getByLabel("CEP")).toHaveValue("30130-010");
-    await page.getByRole("button", { name: "Salvar região" }).click();
+    // No address: the second step picks the supplier, from any state.
+    await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+    await expect(page.getByLabel("CEP")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Continuar", exact: true })).toBeDisabled();
 
-    // After the region the guide sends to the next step (stores); suppliers follow the region.
+    // Going back keeps the saved data.
+    await page.getByRole("button", { name: "Voltar" }).click();
+    await expect(page.getByLabel("CPF")).toHaveValue(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
+
+    await pickSupplier(page, "Rio Pet Atacado");
+    await page.getByRole("button", { name: "Continuar com Rio Pet Atacado" }).click();
+
+    // After the profile the guide sends to the next step (stores).
     await expect(page).toHaveURL(/\/lojas/);
+    await gotoHydrated(page, "/onboarding");
+    await expect(page.getByRole("heading", { name: "Alterar seus dados" })).toBeVisible();
+    await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
+    await expect(page.getByLabel("CPF")).toHaveValue(cpf);
+    await expect(page.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
+  });
+
+  test("recusa um CPF já usado por outra conta", async ({ page }) => {
+    const cpf = testCpf();
+    await signUp(page, "Primeira Conta");
+    await page.getByLabel("CPF").fill(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+
+    await page.context().clearCookies();
+    await signUp(page, "Segunda Conta");
+    await page.getByLabel("CPF").fill(cpf);
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(
+      page.getByText("Este CPF já está cadastrado em outra conta do SellBridge.", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByText("Etapa 1 de 2 · Seus dados")).toBeVisible();
+  });
+});
+
+test.describe("busca de fornecedores", () => {
+  test("sem endereço, mostra fornecedores de todo o Brasil, sem falar em região", async ({
+    page,
+  }) => {
+    await signUp(page, "Sem Endereço");
     await gotoHydrated(page, "/fornecedores");
-    await expect(page.getByRole("link", { name: /Belo Horizonte - MG/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/fornecedores(\?|$)/);
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
+    await expect(page.getByText(/sua região|seu CEP/)).toHaveCount(0);
   });
 
-  test("redireciona para o onboarding quem ainda não tem região", async ({ page }) => {
-    await signUp(page, "Sem Região");
-    await gotoHydrated(page, "/fornecedores");
-    await expect(page).toHaveURL(/\/onboarding\?redirect=/);
-  });
-
-  test("mostra estado vazio quando nenhum fornecedor atende a região", async ({ page }) => {
-    await signUp(page, "Revendedor Manaus");
-    await page.getByLabel("CEP").fill("69005010");
-    await page.getByRole("button", { name: "Salvar região" }).click();
-    await expect(page).toHaveURL(/\/lojas/);
-    await gotoHydrated(page, "/fornecedores");
-    await expect(page.getByText("Ainda não há fornecedores atendendo a sua região.")).toBeVisible();
+  test("sem endereço, abre o catálogo com produtos de todos os fornecedores", async ({ page }) => {
+    await signUp(page, "Catálogo Sem Endereço");
+    await gotoHydrated(page, "/catalogo");
+    await expect(page).toHaveURL(/\/catalogo/);
+    await expect(
+      page.getByText("Produtos de fornecedores de todo o Brasil.", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole("article").first()).toBeVisible();
   });
 });
 
@@ -45,19 +92,31 @@ test.describe("fornecedores e catálogo", () => {
     await signIn(page, DEMO_USER);
   });
 
-  test("filtra fornecedores por nicho e busca", async ({ page }) => {
+  test("busca pelo nicho ou pelo produto e filtra pelos atalhos de nicho", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores");
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
 
-    await page.getByLabel("Buscar fornecedor").fill("franca");
-    await expect(page).toHaveURL(/query=franca/);
+    const search = page.getByPlaceholder("Qual nicho ou produto você quer vender?");
+    await search.fill("vestido");
+    await expect(page).toHaveURL(/query=vestido/);
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toHaveCount(0);
+
+    await search.fill("calcados");
     await expect(
       page.getByRole("link", { name: "Franca Calçados Direto da Fábrica" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toHaveCount(0);
 
-    await page.getByLabel("Buscar fornecedor").fill("zzz-inexistente");
+    await search.fill("zzz-inexistente");
     await expect(page.getByText("Nenhum fornecedor encontrado")).toBeVisible();
+
+    await search.fill("");
+    await page.getByRole("button", { name: "Pet", exact: true }).click();
+    await expect(page).toHaveURL(/niche=Pet/);
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toHaveCount(0);
   });
 
   test("abre o catálogo, filtra por estoque e pagina pela URL", async ({ page }) => {
@@ -79,8 +138,52 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("heading", { level: 3, name: /Vestido/ }).first()).toBeVisible();
   });
 
-  test("mostra erro amigável para fornecedor fora da região", async ({ page }) => {
+  test("publica de um fornecedor de outro estado", async ({ page }) => {
+    // The demo account is in Belo Horizonte; Rio Pet is in Rio de Janeiro.
+    await gotoHydrated(page, "/fornecedores");
+    await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
+    await expect(page.getByRole("heading", { name: "Rio Pet Atacado" })).toBeVisible();
+    await expect(page.getByText(/não entrega/)).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Publicar" }).first()).toBeVisible();
+  });
+
+  test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
+    await gotoHydrated(page, "/fornecedores");
+    await page.getByRole("combobox", { name: "Estado do fornecedor" }).click();
+    await page.getByRole("option", { name: "MG", exact: true }).click();
+    await expect(page).toHaveURL(/state=MG/);
+    await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toHaveCount(0);
+
+    await page.getByRole("combobox", { name: "Cidade do fornecedor" }).click();
+    await page.getByRole("option", { name: "Divinópolis", exact: true }).click();
+    await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toHaveCount(0);
+
+    await page.getByPlaceholder("Qual nicho ou produto você quer vender?").fill("zzz-inexistente");
+    await expect(page.getByText("Nenhum fornecedor encontrado")).toBeVisible();
+    await page.getByRole("button", { name: "Limpar filtros" }).click();
+    await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
+  });
+
+  test("leva do fornecedor à conexão de uma loja que vende ele", async ({ page }) => {
+    await gotoHydrated(page, "/fornecedores");
+    await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
+    await page.getByRole("link", { name: "Vender este fornecedor" }).click();
+    await expect(page).toHaveURL(/\/lojas/);
+    const addStore = page.getByRole("region", { name: "Adicionar loja" });
+    await expect(addStore.getByText("A nova loja vende")).toBeVisible();
+    await expect(addStore.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
+    await expect(addStore.getByRole("link", { name: "Conectar Loja simulada" })).toHaveAttribute(
+      "href",
+      /fornecedor=/,
+    );
+  });
+
+  test("mostra erro amigável para fornecedor inexistente", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores/00000000-0000-4000-8000-000000000000");
-    await expect(page.getByText("Fornecedor não encontrado na sua região")).toBeVisible();
+    await expect(page.getByText("Fornecedor não encontrado")).toBeVisible();
   });
 });

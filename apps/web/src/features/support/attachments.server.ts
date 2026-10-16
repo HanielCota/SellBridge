@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { NewAttachment } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
-import { detectAttachmentType, sanitizeFileName } from "@sellbridge/shared/file-signature";
+import {
+  detectAttachmentType,
+  hasAcceptableImageSize,
+  sanitizeFileName,
+} from "@sellbridge/shared/file-signature";
+import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@sellbridge/shared/schemas";
 import type { FileStorage } from "@/lib/server/storage";
 
@@ -12,10 +17,27 @@ export interface ValidatedFile {
   sizeBytes: number;
 }
 
+/** Every attachment at its limit, plus the text fields and the multipart framing. */
+const MAX_SUPPORT_FORM_BYTES = MAX_ATTACHMENTS * MAX_ATTACHMENT_BYTES + 256 * 1024;
+
+/** A support form, refused before it is parsed when it cannot fit its attachments' limits. */
+export async function readSupportForm(request: Request): Promise<FormData> {
+  const form = await readFormDataWithin(request, MAX_SUPPORT_FORM_BYTES);
+  if (!form) {
+    throw validationError(`Envie no máximo ${MAX_ATTACHMENTS} anexos de até 5 MB cada`);
+  }
+  return form;
+}
+
 function filesFrom(formData: FormData): File[] {
   return formData
     .getAll("files")
     .filter((value): value is File => value instanceof File && value.size > 0);
+}
+
+/** Whether the form carries any file at all, valid or not. */
+export function hasFiles(formData: FormData): boolean {
+  return filesFrom(formData).length > 0;
 }
 
 /** Validates count, size and the real file type (magic bytes) of uploaded attachments. */
@@ -34,6 +56,9 @@ export async function validateAttachments(formData: FormData): Promise<Validated
     if (!mimeType) {
       throw validationError(`"${file.name}" não é um formato aceito (PNG, JPG, WEBP ou PDF)`);
     }
+    if (mimeType !== "application/pdf" && !hasAcceptableImageSize(bytes, mimeType)) {
+      throw validationError(`"${file.name}" é uma imagem grande demais (máximo de 64 megapixels)`);
+    }
     validated.push({
       bytes,
       fileName: sanitizeFileName(file.name),
@@ -44,26 +69,55 @@ export async function validateAttachments(formData: FormData): Promise<Validated
   return validated;
 }
 
+/**
+ * Writes the files one by one. When one fails (full disk, permissions), the ones already
+ * written are deleted before the error goes on: a half-stored message leaves nothing behind.
+ */
 export async function storeAttachments(
   storage: FileStorage,
   tenantId: string,
   files: readonly ValidatedFile[],
 ): Promise<NewAttachment[]> {
   const stored: NewAttachment[] = [];
-  for (const file of files) {
-    const storageKey = `tickets/${tenantId}/${randomUUID()}-${file.fileName}`;
-    await storage.put(storageKey, file.bytes);
-    stored.push({
-      storageKey,
-      fileName: file.fileName,
-      mimeType: file.mimeType,
-      sizeBytes: file.sizeBytes,
-    });
+  try {
+    for (const file of files) {
+      const storageKey = `tickets/${tenantId}/${randomUUID()}-${file.fileName}`;
+      await storage.put(storageKey, file.bytes);
+      stored.push({
+        storageKey,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes,
+      });
+    }
+    return stored;
+  } catch (error) {
+    await Promise.allSettled(stored.map((attachment) => storage.delete(attachment.storageKey)));
+    throw error;
   }
-  return stored;
 }
 
 export function textField(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Runs the write that records the attachments, and deletes their files if it fails (an unknown
+ * ticket, a closed one, a database error): files are stored first, and without this every failed
+ * message would leave its uploads on disk with nothing pointing at them.
+ */
+export async function saveWithAttachments<TResult>(
+  storage: FileStorage,
+  attachments: readonly NewAttachment[],
+  save: () => Promise<TResult>,
+): Promise<TResult> {
+  try {
+    return await save();
+  } catch (error) {
+    await Promise.allSettled(
+      attachments.map((attachment) => storage.delete(attachment.storageKey)),
+    );
+    throw error;
+  }
 }

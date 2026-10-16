@@ -3,11 +3,21 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
-import type { Database, DatabaseExecutor } from "../client.ts";
+import type { CatalogAvailability } from "@sellbridge/shared/catalog-availability";
+import { safetyMargin } from "@sellbridge/shared/stock-reservation";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { availableStock } from "./sql/available-stock.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
+import { sellableOnMarketplace } from "./sql/sellable.ts";
+import {
+  listings,
+  listingTargets,
+  storeConnections,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -28,6 +38,54 @@ export function listingIdempotencyKey(listingId: string, storeConnectionId: stri
   return `${listingId}:${storeConnectionId}`;
 }
 
+/** The tenant's stores that already carry a listing of this product, by name. */
+export async function storesListingProduct(
+  executor: DatabaseExecutor,
+  tenantId: string,
+  supplierProductId: string,
+): Promise<{ storeId: string; storeName: string }[]> {
+  return executor
+    .selectDistinct({ storeId: storeConnections.id, storeName: storeConnections.shopName })
+    .from(listingTargets)
+    .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .where(
+      and(eq(listingTargets.tenantId, tenantId), eq(listings.supplierProductId, supplierProductId)),
+    )
+    .orderBy(asc(storeConnections.shopName), asc(storeConnections.id));
+}
+
+/**
+ * One listing per product and store. The stores are locked first, always in the same order, so
+ * two publications of the same product wait for each other and the second one sees the first.
+ */
+async function assertNotListedYet(
+  transaction: Transaction,
+  tenantId: string,
+  supplierProductId: string,
+  storeConnectionIds: readonly string[],
+): Promise<void> {
+  await transaction
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        inArray(storeConnections.id, [...storeConnectionIds]),
+      ),
+    )
+    .orderBy(asc(storeConnections.id))
+    .for("update");
+  const listed = (await storesListingProduct(transaction, tenantId, supplierProductId)).find(
+    (store) => storeConnectionIds.includes(store.storeId),
+  );
+  if (listed) {
+    throw conflictError(
+      `Este produto já está publicado em ${listed.storeName}. Edite o anúncio existente em Publicações.`,
+    );
+  }
+}
+
 export async function createListingWithTargets(
   database: Database,
   tenantId: string,
@@ -39,6 +97,7 @@ export async function createListingWithTargets(
   }
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
+    await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
     if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
     const [listing] = await transaction
       .insert(listings)
@@ -149,6 +208,7 @@ export interface TargetForPublishing {
   listing: typeof listings.$inferSelect;
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
+  availability: CatalogAvailability;
 }
 
 export async function getTargetForPublishing(
@@ -162,17 +222,23 @@ export async function getTargetForPublishing(
       listing: listings,
       product: supplierProducts,
       store: storeConnections,
+      supplierActive: suppliers.active,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)))
     .limit(1);
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  return row;
+  const { supplierActive, ...target } = row;
+  return {
+    ...target,
+    availability: { productActive: row.product.active, supplierActive },
+  };
 }
 
 /**
@@ -339,11 +405,19 @@ export interface TargetNeedingSync {
   store: typeof storeConnections.$inferSelect;
 }
 
-/** Stock to show on the marketplace: zero while the reseller has the listing paused. */
-const liveStock =
-  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${supplierProducts.stock} end`.mapWith(
+/**
+ * Stock to show on the marketplace: zero while the reseller has the listing paused or the
+ * product can no longer be sold (inactive product or supplier), and never
+ * the last `safetyUnits` sellable units (a buffer against counts that lag behind the shelf).
+ * The margin is a validated integer from the environment, inlined because a parameter inside
+ * CASE would reach Postgres as text.
+ */
+function liveStock(safetyUnits: number) {
+  const margin = sql.raw(String(safetyMargin(safetyUnits)));
+  return sql<number>`case when ${listingTargets.status} = 'paused' or not ${sellableOnMarketplace()} then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
     Number,
   );
+}
 
 /**
  * Live listings whose stock or price differs from what was last sent to the marketplace
@@ -353,25 +427,28 @@ const liveStock =
 export async function findTargetsNeedingSync(
   database: Database,
   limit = 200,
+  safetyUnits = 0,
 ): Promise<TargetNeedingSync[]> {
+  const live = liveStock(safetyUnits);
   const rows = await database
     .select({
       targetId: listingTargets.id,
       externalId: listingTargets.externalId,
-      stock: liveStock,
+      stock: live,
       priceCents: listings.priceCents,
       store: storeConnections,
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
     .where(
       and(
         sql`${listingTargets.status} in ('published', 'paused')`,
         eq(storeConnections.status, "connected"),
         sql`${listingTargets.externalId} is not null`,
-        sql`(${listingTargets.syncedStock} is distinct from ${liveStock}
+        sql`(${listingTargets.syncedStock} is distinct from ${live}
           or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
       ),
     )

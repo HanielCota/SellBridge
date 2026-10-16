@@ -1,9 +1,13 @@
+import type { BillingPlanId } from "@sellbridge/shared/billing";
+import { formatCents } from "@sellbridge/shared/money";
+import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { billingQueryOptions } from "@/features/billing/billing.queries";
 import { checkoutBilling, manageBilling } from "@/features/billing/billing.functions";
+import { errorMessage } from "@/lib/errors";
 
 const STATUS_LABELS: Record<string, string> = {
   free: "Gratuito",
@@ -16,8 +20,6 @@ const STATUS_LABELS: Record<string, string> = {
   canceled: "Cancelada",
   paused: "Pausada",
 };
-const money = (value: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value / 100);
 
 function useBillingAction() {
   return useMutation({
@@ -26,8 +28,59 @@ function useBillingAction() {
         plan === "portal" ? await manageBilling() : await checkoutBilling({ data: { plan } });
       window.location.assign(result.url);
     },
-    onError: (error) => toast.error(error.message || "Não foi possível abrir o pagamento"),
+    onError: (error) => toast.error(errorMessage(error)),
   });
+}
+
+function periodEndLabel(account: { status: string; cancelAtPeriodEnd: boolean }): string {
+  if (account.status === "canceled") {
+    return "Encerrada em";
+  }
+  if (account.cancelAtPeriodEnd) {
+    return "Cancelamento previsto para";
+  }
+  return "Fim do período atual";
+}
+
+function PlanPrice({
+  planId,
+  priceCents,
+}: {
+  planId: BillingPlanId;
+  priceCents: number | undefined;
+}) {
+  if (planId === "free") {
+    return "R$ 0";
+  }
+  if (priceCents === undefined) {
+    return "Em breve";
+  }
+  return `${formatCents(priceCents)}/mês`;
+}
+
+function PlanAction({
+  planId,
+  isCurrent,
+  canSelect,
+  onSelect,
+}: {
+  planId: BillingPlanId;
+  isCurrent: boolean;
+  canSelect: boolean;
+  onSelect: (planId: Exclude<BillingPlanId, "free">) => void;
+}) {
+  if (planId === "free") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {isCurrent ? "Plano atual" : "Disponível após o encerramento da assinatura"}
+      </p>
+    );
+  }
+  return (
+    <Button className="w-full" disabled={!canSelect || isCurrent} onClick={() => onSelect(planId)}>
+      {isCurrent ? "Plano atual" : "Selecionar plano"}
+    </Button>
+  );
 }
 
 function CurrentSubscription() {
@@ -39,21 +92,16 @@ function CurrentSubscription() {
         <CardTitle>Seu plano: {data.effectivePlan.name}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p>Status: {STATUS_LABELS[data.account?.status ?? "free"] ?? "Em atualização"}</p>
+        <p>Situação: {STATUS_LABELS[data.account?.status ?? "free"] ?? "Em atualização"}</p>
         <p>
           {data.usage.stores} de {data.effectivePlan.stores} lojas · {data.usage.listings} de{" "}
           {data.effectivePlan.listings} anúncios
         </p>
         {data.account?.periodEnd ? (
           <p>
-            {data.account.status === "canceled"
-              ? "Encerrada em"
-              : data.account.cancelAtPeriodEnd
-                ? "Cancelamento previsto para"
-                : "Fim do período atual"}
-            :{" "}
+            {periodEndLabel(data.account)}:{" "}
             {new Date(data.account.periodEnd).toLocaleDateString("pt-BR", {
-              timeZone: "America/Sao_Paulo",
+              timeZone: REPORT_TIME_ZONE,
             })}
           </p>
         ) : null}
@@ -91,37 +139,19 @@ function PlanChoices() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-2xl font-semibold">
-                {plan.id === "free"
-                  ? "R$ 0"
-                  : price
-                    ? `${money(price.priceCents)}/mês`
-                    : "Em breve"}
+                <PlanPrice planId={plan.id} priceCents={price?.priceCents} />
               </p>
               <ul className="space-y-2">
                 <li>Até {plan.stores} lojas conectadas</li>
                 <li>Até {plan.listings} anúncios</li>
-                <li>Catálogo, dashboard, finanças e suporte</li>
+                <li>Catálogo, painel, finanças e suporte</li>
               </ul>
-              {plan.id === "free" ? (
-                <p className="text-sm text-muted-foreground">
-                  {data.effectivePlan.id === "free"
-                    ? "Plano atual"
-                    : "Disponível após o encerramento da assinatura"}
-                </p>
-              ) : (
-                <Button
-                  className="w-full"
-                  disabled={
-                    !data.enabled ||
-                    !data.canManage ||
-                    action.isPending ||
-                    data.effectivePlan.id === plan.id
-                  }
-                  onClick={() => action.mutate(plan.id === "pro" ? "pro" : "business")}
-                >
-                  {data.effectivePlan.id === plan.id ? "Plano atual" : "Selecionar plano"}
-                </Button>
-              )}
+              <PlanAction
+                planId={plan.id}
+                isCurrent={data.effectivePlan.id === plan.id}
+                canSelect={data.enabled && data.canManage && !action.isPending}
+                onSelect={(planId) => action.mutate(planId)}
+              />
             </CardContent>
           </Card>
         );
@@ -133,7 +163,7 @@ function PlanChoices() {
 export function BillingPage({ returned }: { returned?: string | undefined }) {
   const { data } = useSuspenseQuery(billingQueryOptions());
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-semibold">Planos e assinatura</h1>
         <p className="mt-2 text-muted-foreground">
@@ -163,6 +193,6 @@ export function BillingPage({ returned }: { returned?: string | undefined }) {
         Ao encerrar um plano, os dados são preservados. Novos anúncios e conexões ficam sujeitos aos
         limites do plano disponível.
       </p>
-    </main>
+    </div>
   );
 }

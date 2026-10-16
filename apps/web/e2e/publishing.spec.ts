@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
@@ -9,10 +9,9 @@ function cardStatus(page: Page, status: string) {
   return page.getByText(status, { exact: true }).filter({ visible: true });
 }
 
-async function onboardInBeloHorizonte(page: Page) {
+async function onboardWithBhBeauty(page: Page) {
   await expect(page).toHaveURL(/\/onboarding/);
-  await page.getByLabel("CEP").fill("30130010");
-  await page.getByRole("button", { name: "Salvar região" }).click();
+  await completeOnboarding(page, "BH Beauty Distribuidora");
   // Next setup step: connect a store.
   await expect(page).toHaveURL(/\/lojas/);
 }
@@ -39,6 +38,15 @@ async function connectMockStore(page: Page, shopName: string) {
   ).toBeVisible();
 }
 
+/** The supplier's cost shown on the publish form, plus one cent, in the field's format. */
+async function centAboveCost(page: Page): Promise<string> {
+  const hint = await page.locator("#price-hint").innerText();
+  const match = /Custo do fornecedor:\s*R\$\s*([\d.]+),(\d{2})/.exec(hint);
+  if (!match) throw new Error(`Custo não encontrado em: ${hint}`);
+  const cents = Number(`${match[1]?.replaceAll(".", "")}${match[2]}`) + 1;
+  return `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, "0")}`;
+}
+
 async function openPublishFormForFirstProduct(page: Page) {
   await gotoHydrated(page, "/fornecedores");
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
@@ -51,7 +59,7 @@ async function openPublishFormForFirstProduct(page: Page) {
 
 test("conecta loja simulada, publica produto e acompanha o status", async ({ page }) => {
   await signUp(page, "Revendedora Publicação");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja E2E");
 
   await openPublishFormForFirstProduct(page);
@@ -73,11 +81,29 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   );
 });
 
+test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ page }) => {
+  await signUp(page, "Revendedora Duplicado");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Única");
+
+  await openPublishFormForFirstProduct(page);
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(page).toHaveURL(/\/publicacoes/);
+
+  // Same product again: the store that already has it is shown and cannot be chosen.
+  await openPublishFormForFirstProduct(page);
+  const store = page.getByRole("checkbox", { name: /Loja Única/ });
+  await expect(store).toBeDisabled();
+  await expect(store).not.toBeChecked();
+  await expect(page.getByText("Já publicado aqui").filter({ visible: true })).toBeVisible();
+});
+
 test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await signUp(page, "Revendedora Ações");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Ações");
   await openPublishFormForFirstProduct(page);
+  const justAboveCost = await centAboveCost(page);
   await page.getByLabel("Título").fill("Produto com ações");
   await page.getByRole("button", { name: "Publicar" }).click();
   await expect(cardStatus(page, "No ar na Loja Ações")).toBeVisible({ timeout: STATUS_TIMEOUT });
@@ -88,6 +114,14 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
   await price.fill("0,50");
   await expect(
     page.getByText(/O preço precisa ser maior que o custo/).filter({ visible: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Salvar preço" })).toBeDisabled();
+  // Above the cost but under the break-even: the dialog names the lowest price that pays.
+  await price.fill(justAboveCost);
+  await expect(
+    page
+      .getByText(/Abaixo de R\$\s[\d.,]+ você tem prejuízo depois das taxas/)
+      .filter({ visible: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar preço" })).toBeDisabled();
   await price.fill("999,90");
@@ -115,7 +149,7 @@ test("edita preço, pausa e reativa uma publicação", async ({ page }) => {
 
 test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
   await signUp(page, "Revendedor Erro");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Recusa");
 
   await openPublishFormForFirstProduct(page);
@@ -139,7 +173,7 @@ test("mostra erro com motivo e permite reprocessar", async ({ page }) => {
 
 test("valida o formulário de publicação e bloqueia preço abaixo do custo", async ({ page }) => {
   await signUp(page, "Revendedor Validação");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Validação");
 
   await openPublishFormForFirstProduct(page);
@@ -157,11 +191,20 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
       .getByText("O preço de venda precisa ser maior que o custo do fornecedor")
       .filter({ visible: true }),
   ).toBeVisible();
+
+  // One cent above the cost: no longer below it, but the fees turn it into a loss.
+  await page.getByLabel("Preço de venda", { exact: true }).fill(await centAboveCost(page));
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(
+    page
+      .getByText(/Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/)
+      .filter({ visible: true }),
+  ).toBeVisible();
 });
 
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
   await signUp(page, "Revendedor Sem Loja");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await openPublishFormForFirstProduct(page);
   await expect(
     page.getByText("Conecte uma loja antes de publicar").filter({ visible: true }),
@@ -173,7 +216,7 @@ test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) 
 
 test("desconecta uma loja após confirmação", async ({ page }) => {
   await signUp(page, "Revendedor Desconecta");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Temporária");
   await page.getByRole("button", { name: "Opções de Loja Temporária" }).click();
   await page.getByRole("menuitem", { name: "Desconectar" }).click();
@@ -185,10 +228,11 @@ test("desconecta uma loja após confirmação", async ({ page }) => {
 
 test("publica vários produtos do catálogo de uma vez com regra de preço", async ({ page }) => {
   await signUp(page, "Revendedora Lote");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Lote");
 
-  await gotoHydrated(page, "/catalogo");
+  // The store sells BH Beauty only: pick two of its products.
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   await expect(page.getByRole("heading", { name: "Catálogo" })).toBeVisible();
   const boxes = page.getByRole("checkbox", { name: /^Selecionar / });
   await boxes.nth(0).click();
@@ -201,6 +245,14 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await expect(
     dialog.getByText("Use um valor entre 5% e 300%").filter({ visible: true }),
   ).toBeVisible();
+  // 5% over the cost does not pay the 14% marketplace fee: the dialog says so and holds the batch.
+  await dialog.getByLabel("Acréscimo sobre o custo").fill("5");
+  await expect(
+    dialog
+      .getByRole("alert")
+      .filter({ hasText: /Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/ }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Publicar em 1 loja" })).toBeDisabled();
   await dialog.getByLabel("Acréscimo sobre o custo").fill("80");
   await expect(dialog.getByText(/,90$/).filter({ visible: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
@@ -213,7 +265,7 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
     timeout: STATUS_TIMEOUT,
   });
 
-  await gotoHydrated(page, "/catalogo");
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   await expect(page.getByText("Publicado", { exact: true }).filter({ visible: true })).toHaveCount(
     2,
   );
@@ -221,10 +273,11 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
 
 test("publica em lote com margem própria para um dos produtos", async ({ page }) => {
   await signUp(page, "Revendedora Margem");
-  await onboardInBeloHorizonte(page);
+  await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Margem");
 
-  await gotoHydrated(page, "/catalogo");
+  // The store sells BH Beauty only: pick two of its products.
+  await gotoHydrated(page, "/catalogo?query=BH%20Beauty");
   const boxes = page.getByRole("checkbox", { name: /^Selecionar / });
   await boxes.nth(0).click();
   await boxes.nth(1).click();

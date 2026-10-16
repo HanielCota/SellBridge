@@ -40,11 +40,13 @@ export interface PublishProductInput {
 }
 
 export interface PublishOptions {
-  /** A previous creation may have succeeded; only reconcile, never create again. */
-  reconcileOnly: boolean;
+  /** When an earlier attempt began creating the item (it may have landed); null if none did. */
+  creationStartedAt: Date | null;
   beforeCreate: () => Promise<void>;
   /** Only called when the API definitively refused creation. */
   creationRejected: () => Promise<void>;
+  /** Reconciliation, past the settle window, found no item: the earlier creation never landed. */
+  creationAbsent: () => Promise<void>;
 }
 
 export interface PublishedListing {
@@ -70,6 +72,11 @@ export interface MarketplaceOrder {
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
   totalCents: Cents;
   marketplaceFeeCents: Cents;
+  /**
+   * Money already given back to the buyer across the order's payments (latest total); undefined
+   * when the source did not report payments this time.
+   */
+  refundedCents?: Cents | undefined;
   buyerName: string | null;
   orderedAt: Date;
   items: MarketplaceOrderItem[];

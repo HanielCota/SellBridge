@@ -1,18 +1,24 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
 import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldOut: boolean }) {
-  const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
+function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; soldOut: boolean }) {
+  const schedule = useFeeSchedule();
+  const margin = estimateProfit(
+    product.suggestedPriceCents,
+    product.costCents,
+    schedule,
+  )?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
       <p
@@ -30,7 +36,7 @@ function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldO
           <>
             {" · "}
             <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
-              margem {Math.round(margin)}%
+              margem {wholeMarginPercent(margin)}%
             </span>
           </>
         )}
@@ -39,7 +45,7 @@ function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldO
   );
 }
 
-function CardBody({ product }: { product: RegionCatalogProduct }) {
+function CardBody({ product }: { product: SellableCatalogProduct }) {
   const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
@@ -55,10 +61,13 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
   );
 }
 
-function StockFooter({ product }: { product: RegionCatalogProduct }) {
+function StockFooter({ product }: { product: SellableCatalogProduct }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-      <ProductStockLine stock={product.stock} />
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+      {/* As tall as the publish button, so published cards keep the price row level. */}
+      <span className="flex min-h-8 items-center">
+        <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
+      </span>
       {product.published ? null : (
         <Button asChild variant="secondary" size="sm">
           <Link to="/publicacoes/nova" search={{ productId: product.id }}>
@@ -77,7 +86,7 @@ export function CatalogProductCard({
   selected,
   onSelectedChange,
 }: {
-  product: RegionCatalogProduct;
+  product: SellableCatalogProduct;
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {

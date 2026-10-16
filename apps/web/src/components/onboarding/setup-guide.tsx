@@ -108,7 +108,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
         </div>
         <ProgressBar progress={progress} />
       </div>
-      <ol className="grid gap-3 md:grid-cols-3">
+      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {SETUP_STEPS.map((step, index) => (
           <StepCard
             key={step.key}

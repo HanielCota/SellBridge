@@ -1,181 +1,440 @@
-import { formatCep, normalizeCep } from "@sellbridge/shared/cep";
-import { useForm } from "@tanstack/react-form";
+import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repositories";
+import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
+import { fullNameSchema, internalPathSchema } from "@sellbridge/shared/schemas";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { optionalParameter } from "@sellbridge/shared/schemas";
-import { TextField } from "@/components/form/form-field";
-import { CurrentRegionCard } from "@/components/region/current-region-card";
-import { RegionPreview } from "@/components/region/region-preview";
+import { FloatingTextField } from "@/components/form/floating-field";
+import { PageHeader } from "@/components/layout/page-header";
+import { type PickableSupplier, SupplierPicker } from "@/components/onboarding/supplier-picker";
+import { BillingNotice, StepProgress } from "@/components/region/billing-holder";
+import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { getRegionOverview, updateTenantRegion } from "@/features/region/region.functions";
+import {
+  getOnboardingProfile,
+  saveOnboardingHolder,
+  saveOnboardingSupplier,
+} from "@/features/onboarding/onboarding.functions";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
-import { cepSearchParameter } from "@/lib/cep-search-parameter";
-import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
-  redirect: optionalParameter(z.string().startsWith("/")),
-  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
-  cep: cepSearchParameter,
-});
-
-const cepFormSchema = z.object({
-  cep: z.string().refine((value) => normalizeCep(value) !== null, "Informe um CEP com 8 dígitos"),
+  redirect: internalPathSchema,
 });
 
 export const Route = createFileRoute("/_app/onboarding")({
   validateSearch: onboardingSearchSchema,
-  head: () => ({ meta: [{ title: "Sua região | SellBridge" }] }),
-  loader: () => getRegionOverview(),
+  head: () => ({ meta: [{ title: "Seus dados | SellBridge" }] }),
+  loader: () => getOnboardingProfile(),
   component: OnboardingPage,
 });
 
-function maskCep(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
-}
-
-type TenantRegion = Awaited<ReturnType<typeof getRegionOverview>>["region"];
-
-function ChangeRegionCard({ region }: { readonly region: TenantRegion }) {
-  return (
-    <section
-      aria-labelledby={region ? "change-region" : undefined}
-      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
-    >
-      {region ? (
-        <div className="space-y-1">
-          <h2 id="change-region" className="text-subhead font-semibold">
-            Trocar região
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Digite o novo CEP e veja o que muda no seu catálogo antes de salvar.
-          </p>
-        </div>
-      ) : null}
-      <RegionForm region={region} />
-    </section>
-  );
-}
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Seu fornecedor" }] as const;
 
 function OnboardingPage() {
-  const { region, suppliers } = Route.useLoaderData();
-  return (
-    // Without a region there is nothing to compare, so the form stays a single narrow column.
-    <div className={cn("mx-auto w-full space-y-6", region ? "max-w-5xl" : "max-w-2xl")}>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {region ? "Alterar sua região" : "Onde você está?"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Usamos seu CEP para mostrar só fornecedores que entregam na sua região.
-        </p>
-      </div>
-      {region ? (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          <CurrentRegionCard region={region} suppliers={suppliers} />
-          {/* Sticky so the preview stays beside the supplier list while scrolling. */}
-          <div className="lg:sticky lg:top-24">
-            <ChangeRegionCard region={region} />
-          </div>
-        </div>
-      ) : (
-        <ChangeRegionCard region={null} />
-      )}
-    </div>
-  );
-}
-
-function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
-  if (region) {
-    return formatCep(region.cep);
+  const profile = Route.useLoaderData();
+  if (profile.holder !== null && profile.starterSupplier !== null) {
+    return <EditProfile holder={profile.holder} supplier={profile.starterSupplier} />;
   }
-  return fromLanding ? formatCep(fromLanding) : "";
+  return <FirstVisit profile={profile} />;
 }
 
-function useRegionForm(region: TenantRegion) {
+/** After saving, the next setup step: the stores while there is none, else the catalog. */
+function useFinishOnboarding() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  return async function finish() {
+    await router.invalidate();
+    const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
+    await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
+  };
+}
 
+/**
+ * A new account fills two short steps: who invoices go to (name and CPF), then the supplier the
+ * first shop sells, from anywhere in Brazil. Each step saves on its own, so a CPF already in use
+ * is refused right away and coming back later resumes where the account stopped.
+ */
+function FirstVisit({ profile }: { profile: OnboardingProfile }) {
+  const [step, setStep] = useState(profile.holder === null ? 0 : 1);
+  const [holder, setHolder] = useState(profile.holder);
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <PageHeader
+        title="Seu cadastro"
+        description="Seus dados e o fornecedor da sua primeira loja. Venda sem estoque, de qualquer lugar do Brasil."
+      />
+      <section
+        aria-label="Cadastro"
+        className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8"
+      >
+        <StepProgress steps={SIGNUP_STEPS} current={step} />
+        {step === 0 ? (
+          <HolderForm
+            holder={holder}
+            submitLabel="Continuar"
+            onSaved={(saved) => {
+              setHolder(saved);
+              setStep(1);
+            }}
+          />
+        ) : (
+          <SupplierStep
+            initialSupplierId={profile.starterSupplier?.id ?? null}
+            onBack={() => setStep(0)}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function holderDefaults(holder: BillingHolder | null, accountName: string) {
+  return {
+    fullName: holder?.fullName ?? accountName,
+    cpf: holder === null ? "" : formatCpf(holder.cpf),
+  };
+}
+
+function useHolderForm(holder: BillingHolder | null, onSaved: (saved: BillingHolder) => void) {
+  const { session } = Route.useRouteContext();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm({
-    defaultValues: { cep: initialCep(region, search.cep) },
-    validators: { onSubmit: cepFormSchema },
+    defaultValues: holderDefaults(holder, session.user.name),
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
-        await updateTenantRegion({ data: { cep: value.cep } });
+        onSaved(await saveOnboardingHolder({ data: value }));
       } catch (error) {
         setSubmitError(errorMessage(error));
-        return;
       }
-      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      // Impact previews were computed against the old region.
-      queryClient.removeQueries({ queryKey: ["region", "preview"] });
-      await router.invalidate();
-      const progress = await queryClient.fetchQuery({
-        ...setupProgressQueryOptions(),
-        staleTime: 0,
-      });
-      await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
     },
   });
   return { form, submitError };
 }
 
-function RegionForm({ region }: { readonly region: TenantRegion }) {
-  const { form, submitError } = useRegionForm(region);
+type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
+
+/** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
+function visibleErrors(errors: readonly unknown[], hasSubmitted: boolean): readonly unknown[] {
+  return hasSubmitted ? errors : [];
+}
+
+/**
+ * On a first attempt, TanStack Form stops at the first field with an error; validating both
+ * first flags name and CPF at once.
+ */
+async function submitHolder(form: HolderFormApi) {
+  await form.validateAllFields("submit");
+  await form.handleSubmit();
+}
+
+function HolderForm({
+  holder,
+  submitLabel,
+  onSaved,
+}: {
+  holder: BillingHolder | null;
+  submitLabel: string;
+  onSaved: (saved: BillingHolder) => void;
+}) {
+  const { form, submitError } = useHolderForm(holder, onSaved);
+  const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   return (
-    <>
+    <form
+      noValidate
+      className="grid grid-cols-1 gap-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submitHolder(form);
+      }}
+    >
+      <HolderFields form={form} showErrors={hasSubmitted} />
       {submitError ? (
         <Alert variant="destructive">
           <AlertDescription>{submitError}</AlertDescription>
         </Alert>
       ) : null}
-      <form
-        noValidate
-        className="grid gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
-        <form.Field name="cep">
-          {(field) => (
-            <TextField
-              id="cep"
-              label="CEP"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              placeholder="00000-000"
+      <BillingNotice />
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-fit">
+            {isSubmitting ? "Salvando…" : submitLabel}
+          </Button>
+        )}
+      </form.Subscribe>
+    </form>
+  );
+}
+
+function HolderFields({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <form.Field name="fullName" validators={{ onChange: fullNameSchema }}>
+        {(field) => (
+          <div className="sm:col-span-2">
+            <FloatingTextField
+              id="holder-full-name"
+              label="Nome completo"
+              autoComplete="name"
               value={field.state.value}
-              errors={field.state.meta.errors}
+              errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
-              onValueChange={(value) => field.handleChange(maskCep(value))}
+              onValueChange={field.handleChange}
             />
-          )}
-        </form.Field>
-        <form.Subscribe selector={(state) => normalizeCep(state.values.cep)}>
-          {(cep) =>
-            // The saved CEP needs no preview; any other complete CEP shows what would change.
-            cep && cep !== region?.cep ? (
-              <RegionPreview cep={cep} hasRegion={region !== null} />
-            ) : null
-          }
-        </form.Subscribe>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting} className="justify-self-start">
-              {isSubmitting ? "Consultando CEP..." : "Salvar região"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </form>
-    </>
+          </div>
+        )}
+      </form.Field>
+      <form.Field name="cpf" validators={{ onChange: cpfSchema }}>
+        {(field) => (
+          <FloatingTextField
+            id="holder-cpf"
+            label="CPF"
+            inputMode="numeric"
+            autoComplete="off"
+            value={field.state.value}
+            errors={visibleErrors(field.state.meta.errors, showErrors)}
+            onBlur={field.handleBlur}
+            onValueChange={(next) => field.handleChange(formatCpf(next))}
+          />
+        )}
+      </form.Field>
+    </div>
+  );
+}
+
+/** Saves the picked supplier; `onSaved` runs only when it was stored. */
+function useSaveSupplier(onSaved: () => Promise<void>) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save(supplierId: string) {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await saveOnboardingSupplier({ data: { supplierId } });
+    } catch (caught) {
+      setError(errorMessage(caught));
+      setIsSaving(false);
+      return;
+    }
+    setIsSaved(true);
+    await onSaved();
+  }
+  return { save, isSaving, isSaved, error };
+}
+
+function SupplierStep({
+  initialSupplierId,
+  onBack,
+}: {
+  initialSupplierId: string | null;
+  onBack: () => void;
+}) {
+  const finish = useFinishOnboarding();
+  const [picked, setPicked] = useState<PickableSupplier | null>(null);
+  const saving = useSaveSupplier(finish);
+  const pickedId = picked?.id ?? initialSupplierId;
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-5">
+      <div className="space-y-1">
+        <h2 className="text-subhead font-semibold">Escolha seu fornecedor</h2>
+        <p className="text-sm text-muted-foreground">
+          Ele vende pela sua primeira loja e entrega direto ao seu cliente. Para vender de outro
+          fornecedor, conecte outra loja depois.
+        </p>
+      </div>
+      <SupplierPicker value={pickedId} onChange={setPicked} />
+      {saving.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{saving.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {/* Pinned while the supplier list scrolls, so the choice can be confirmed from anywhere. */}
+      <div className="sticky bottom-3 z-10 -mx-2 flex items-center gap-2 rounded-3xl bg-card/80 p-2 backdrop-blur-xl backdrop-saturate-150 contrast-more:bg-card">
+        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
+          <ArrowLeftIcon aria-hidden="true" />
+          Voltar
+        </Button>
+        <ContinueButton
+          supplierName={picked?.name ?? null}
+          disabled={pickedId === null || saving.isSaving || saving.isSaved}
+          isSaving={saving.isSaving}
+          isSaved={saving.isSaved}
+          onClick={() => {
+            if (pickedId !== null) {
+              void saving.save(pickedId);
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContinueButton({
+  supplierName,
+  disabled,
+  isSaving,
+  isSaved,
+  onClick,
+}: {
+  supplierName: string | null;
+  disabled: boolean;
+  isSaving: boolean;
+  isSaved: boolean;
+  onClick: () => void;
+}) {
+  if (isSaved) {
+    return (
+      <Button type="button" size="lg" disabled className="min-w-0 flex-1 sm:flex-none">
+        <CheckIcon
+          weight="bold"
+          className="animate-in duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] zoom-in-50 motion-reduce:zoom-in-100"
+          aria-hidden="true"
+        />
+        Fornecedor salvo
+      </Button>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size="lg"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-w-0 flex-1 sm:flex-none"
+    >
+      {isSaving ? "Salvando…" : null}
+      {/* Phones keep it short; the picked card already shows the name. */}
+      {!isSaving && supplierName !== null ? (
+        <>
+          <span className="sm:hidden">Continuar</span>
+          <span className="hidden truncate sm:inline">Continuar com {supplierName}</span>
+        </>
+      ) : null}
+      {!isSaving && supplierName === null ? "Continuar" : null}
+      {isSaving ? null : <ArrowRightIcon aria-hidden="true" />}
+    </Button>
+  );
+}
+
+/** Both steps done: change the holder data or the supplier of the first shop, side by side. */
+function EditProfile({
+  holder,
+  supplier,
+}: {
+  holder: BillingHolder;
+  supplier: NonNullable<OnboardingProfile["starterSupplier"]>;
+}) {
+  const router = useRouter();
+  const [savedHolder, setSavedHolder] = useState(false);
+  return (
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <PageHeader
+        title="Alterar seus dados"
+        description="Seus dados de cobrança e o fornecedor escolhido no cadastro."
+      />
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <section
+          aria-labelledby="holder-data"
+          className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
+        >
+          <h2 id="holder-data" className="text-subhead font-semibold">
+            Seus dados
+          </h2>
+          <HolderForm
+            holder={holder}
+            submitLabel={savedHolder ? "Dados salvos" : "Salvar dados"}
+            onSaved={() => {
+              setSavedHolder(true);
+              void router.invalidate();
+            }}
+          />
+        </section>
+        <StarterSupplierCard supplier={supplier} />
+      </div>
+    </div>
+  );
+}
+
+function StarterSupplierCard({
+  supplier,
+}: {
+  supplier: NonNullable<OnboardingProfile["starterSupplier"]>;
+}) {
+  const [isChanging, setIsChanging] = useState(false);
+  return (
+    <section
+      aria-labelledby="starter-supplier"
+      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <h2 id="starter-supplier" className="text-subhead font-semibold">
+          Fornecedor escolhido no cadastro
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          A primeira loja que você conectar vende os produtos dele.
+        </p>
+      </div>
+      <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-4">
+        <SupplierLogo name={supplier.name} logoUrl={supplier.logoUrl} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{supplier.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {supplier.niche} · {supplier.city} - {supplier.state}
+          </p>
+        </div>
+      </div>
+      {isChanging ? (
+        <SupplierChange currentId={supplier.id} onDone={() => setIsChanging(false)} />
+      ) : (
+        <Button type="button" variant="outline" onClick={() => setIsChanging(true)}>
+          Trocar fornecedor
+        </Button>
+      )}
+    </section>
+  );
+}
+
+/** Picks another starter supplier; saving or cancelling closes the picker. */
+function SupplierChange({ currentId, onDone }: { currentId: string; onDone: () => void }) {
+  const router = useRouter();
+  const [picked, setPicked] = useState<string | null>(null);
+  const saving = useSaveSupplier(async () => {
+    await router.invalidate();
+    onDone();
+  });
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-4">
+      <SupplierPicker value={picked ?? currentId} onChange={(next) => setPicked(next.id)} />
+      {saving.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{saving.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+        <Button type="button" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          disabled={picked === null || picked === currentId || saving.isSaving}
+          onClick={() => {
+            if (picked !== null) {
+              void saving.save(picked);
+            }
+          }}
+        >
+          {saving.isSaving ? "Salvando…" : "Salvar fornecedor"}
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -1,9 +1,10 @@
 import { createTokenCipher, type TokenCipher } from "@sellbridge/shared/token-cipher";
 import { parseEnvironment } from "@sellbridge/shared/environment";
 import { logger } from "@sellbridge/shared/logger";
-import { sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
-import { saveCachedCep, saveTenantRegion } from "../repositories/region.ts";
+import { saveBillingHolder, saveCachedCep, saveStarterSupplier } from "../repositories/region.ts";
+import { listings, supplierProducts } from "../schema/index.ts";
 import { ensureAccount } from "./accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { ADMIN_ACCOUNT, CACHED_CEPS, DEMO_ACCOUNT } from "./data.ts";
@@ -90,24 +91,35 @@ async function seedDemo(context: SeedContext): Promise<void> {
     role: "user",
     organizationSlug: DEMO_ORGANIZATION_SLUG,
   });
-  const demoCep = CACHED_CEPS.find((entry) => entry.cep === DEMO_ACCOUNT.cep);
-  if (!demoCep) {
-    throw new Error("CEP da conta demo não está no cache de seed");
-  }
-  await saveTenantRegion(database, demo.tenantId, { ...demoCep });
+  await saveBillingHolder(database, demo.tenantId, DEMO_ACCOUNT.holder);
   const sales = await seedDemoSales({
     database,
     random,
     tenantId: demo.tenantId,
-    region: demoCep,
     cipher,
   });
+  await seedDemoStarterSupplier(database, demo.tenantId);
   const reviews = await seedDemoReviews({ database, random, tenantId: demo.tenantId });
   logger.info("seed.demo_ready", {
     created: demo.created,
     orders: sales.orders,
     reviews: reviews.reviews,
   });
+}
+
+/** The demo account finished onboarding: its starter supplier is the one of its first listing. */
+async function seedDemoStarterSupplier(database: Database, tenantId: string): Promise<void> {
+  const [first] = await database
+    .select({ supplierId: supplierProducts.supplierId })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .where(eq(listings.tenantId, tenantId))
+    .orderBy(asc(listings.createdAt), asc(listings.id))
+    .limit(1);
+  if (first === undefined) {
+    throw new Error("Conta demo sem anúncios para escolher o fornecedor inicial");
+  }
+  await saveStarterSupplier(database, tenantId, first.supplierId);
 }
 
 async function main(): Promise<void> {

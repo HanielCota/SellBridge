@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeConnections } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, testStoreInput } from "../testing/fixtures.ts";
@@ -52,6 +52,44 @@ describe("store connections are tenant-scoped", () => {
     expect(found.map((store) => store.id)).toEqual([storeA]);
   });
 
+  it("refuses a shop already connected to another organization, until it disconnects there", async () => {
+    const shopId = `shop-a-${tenantA}`;
+    await expect(
+      upsertStoreConnection(database, testStoreInput(tenantB, shopId)),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const otherShop = `shared-${tenantA}`;
+    const first = await upsertStoreConnection(database, testStoreInput(tenantA, otherShop));
+    await disconnectStore(database, tenantA, first.id);
+    const second = await upsertStoreConnection(database, testStoreInput(tenantB, otherShop));
+    expect(second.id).not.toBe(first.id);
+  });
+
+  it("refuses with a conflict the organization that loses a race for the same shop", async () => {
+    const shopId = `race-${tenantA}`;
+    const rival = createTestDatabase();
+    const released = signal();
+    const rivalInserted = signal();
+    // The rival's row is written but not committed: the check of tenant A cannot see it yet,
+    // so tenant A only finds out when its own insert hits the unique index.
+    const rivalTransaction = rival.transaction(async (transaction) => {
+      await transaction.insert(storeConnections).values(testStoreInput(tenantB, shopId));
+      rivalInserted.fire();
+      await released.promise;
+    });
+    try {
+      await rivalInserted.promise;
+      const outcome = settle(upsertStoreConnection(database, testStoreInput(tenantA, shopId)));
+      await waitForLockWait();
+      released.fire();
+      await rivalTransaction;
+      expect(await outcome).toMatchObject({ code: "CONFLICT" });
+    } finally {
+      released.fire();
+      await settle(rivalTransaction);
+      await rival.$client.end();
+    }
+  });
+
   it("reconnecting the same shop reuses the connection", async () => {
     const again = await upsertStoreConnection(
       database,
@@ -87,6 +125,7 @@ describe("oauth state", () => {
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
     ).toEqual({
       codeVerifier: null,
+      supplierId: null,
     });
     expect(
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
@@ -152,7 +191,11 @@ const rotatedTokens = {
 describe("token refresh compare-and-swap", () => {
   it("rotates the tokens while the refresh token is unchanged", async () => {
     const storeId = await connectShop(`shop-rotate-${tenantA}`);
-    await recordStoreError(database, storeId, "Instabilidade");
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh",
+    });
     const swapped = await updateStoreTokens(database, {
       storeConnectionId: storeId,
       previousRefreshTokenEnc: "enc-refresh",
@@ -165,6 +208,16 @@ describe("token refresh compare-and-swap", () => {
       refreshTokenEnc: "enc-refresh-new",
       lastError: null,
     });
+  });
+
+  it("keeps a late failure from an old refresh token off a reconnected store", async () => {
+    const storeId = await connectShop(`shop-late-failure-${tenantA}`);
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh-before-reconnect",
+    });
+    expect(await storeRow(storeId)).toMatchObject({ status: "connected", lastError: null });
   });
 
   it("does not reconnect a store the seller disconnected during the refresh", async () => {
@@ -221,3 +274,37 @@ describe("token refresh compare-and-swap", () => {
     expect(await storeRow(storeId)).toMatchObject({ status: "disconnected" });
   });
 });
+
+async function settle(attempt: Promise<unknown>): Promise<unknown> {
+  try {
+    await attempt;
+    return { code: "CONNECTED" };
+  } catch (error) {
+    return error;
+  }
+}
+
+/** Waits until some insert into store_connections is blocked on a row lock (the unique index). */
+async function waitForLockWait(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await database.execute(sql`
+      select 1 from pg_stat_activity
+      where wait_event_type = 'Lock' and query ilike 'insert into "store_connections"%'`);
+    if (rows.length > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("o insert concorrente nunca esperou pelo índice único");
+}
+
+function doNothing(): void {}
+
+/** A promise the test settles by hand, to order steps across two connections. */
+function signal(): { promise: Promise<void>; fire: () => void } {
+  const handle = { resolve: doNothing };
+  const promise = new Promise<void>((resolve) => {
+    handle.resolve = resolve;
+  });
+  return { promise, fire: () => handle.resolve() };
+}

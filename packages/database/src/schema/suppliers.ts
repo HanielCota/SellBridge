@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -21,10 +22,22 @@ export const suppliers = pgTable(
     state: text().notNull(),
     city: text().notNull(),
     logoUrl: text(),
+    /** Where the order e-mails go; admin-only, never shown to resellers. */
+    contactEmail: text(),
+    /** Hours the supplier has to accept a forwarded order. */
+    acceptWithinHours: integer().notNull().default(24),
+    /** Hours the supplier has to dispatch it, counted from the forward. */
+    dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("suppliers_state_idx").on(table.state)],
+  (table) => [
+    index("suppliers_state_idx").on(table.state),
+    check(
+      "suppliers_deadlines_check",
+      sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,
+    ),
+  ],
 );
 
 export const supplierCoverage = pgTable(
@@ -67,7 +80,10 @@ export const supplierProducts = pgTable(
     description: text().notNull().default(""),
     costCents: integer().notNull(),
     suggestedPriceCents: integer().notNull(),
+    /** Shelf count, as the supplier reports it (admin form and CSV). */
     stock: integer().notNull().default(0),
+    /** Units held by paid orders that have not shipped; sellable = stock − reservedStock. */
+    reservedStock: integer().notNull().default(0),
     imageUrls: text()
       .array()
       .notNull()
@@ -84,5 +100,18 @@ export const supplierProducts = pgTable(
     uniqueIndex("supplier_products_sku_idx").on(table.supplierId, table.sku),
     index("supplier_products_supplier_idx").on(table.supplierId),
     index("supplier_products_category_idx").on(table.categoryId),
+    /**
+     * The catalog search ("calca verde" finds "Calça jeans - Verde") matches `sellbridge_fold`
+     * of title and SKU with `like '%word%'`: trigram indexes answer it without a full scan.
+     */
+    index("supplier_products_title_trgm_idx").using(
+      "gin",
+      sql`sellbridge_fold(${table.title}) gin_trgm_ops`,
+    ),
+    index("supplier_products_sku_trgm_idx").using(
+      "gin",
+      sql`sellbridge_fold(${table.sku}) gin_trgm_ops`,
+    ),
+    check("supplier_products_reserved_stock_check", sql`${table.reservedStock} >= 0`),
   ],
 );

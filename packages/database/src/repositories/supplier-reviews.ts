@@ -15,12 +15,17 @@ import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import { supplierReviews } from "../schema/index.ts";
+import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-
-const countSchema = z.coerce.number().int();
 
 /** Statuses that close an order: only these count for the cancellation and return rates. */
 const FINISHED_STATUSES = sql.raw("('delivered', 'shipped', 'cancelled', 'returned')");
+
+/**
+ * Cancelled before anyone paid (an unpaid boleto): the items never left "pending". That is the
+ * buyer's doing, so it counts neither as a cancellation nor as a finished order of the supplier.
+ */
+const UNPAID_CANCELLATION = sql.raw("(o.status = 'cancelled' and oi.stock_state = 'pending')");
 
 function uuidList(ids: readonly string[]): SQL {
   return sql.join(
@@ -29,26 +34,26 @@ function uuidList(ids: readonly string[]): SQL {
   );
 }
 
-function since(date: Date): SQL {
-  return sql`${date.toISOString()}::timestamptz`;
-}
-
 const reviewTotalsSchema = z.object({
   supplier_id: z.string(),
-  reviews: countSchema,
-  rating_sum: countSchema,
-  positive: countSchema,
-  neutral: countSchema,
-  negative: countSchema,
+  reviews: sqlIntegerSchema,
+  rating_sum: sqlIntegerSchema,
+  positive: sqlIntegerSchema,
+  neutral: sqlIntegerSchema,
+  negative: sqlIntegerSchema,
 });
 
-const tagTotalsSchema = z.object({ supplier_id: z.string(), tag: z.string(), total: countSchema });
+const tagTotalsSchema = z.object({
+  supplier_id: z.string(),
+  tag: z.string(),
+  total: sqlIntegerSchema,
+});
 
 const orderTotalsSchema = z.object({
   supplier_id: z.string(),
-  finished: countSchema,
-  cancelled: countSchema,
-  returned: countSchema,
+  finished: sqlIntegerSchema,
+  cancelled: sqlIntegerSchema,
+  returned: sqlIntegerSchema,
 });
 
 async function reviewTotals(database: Database, ids: readonly string[], from: Date) {
@@ -58,7 +63,7 @@ async function reviewTotals(database: Database, ids: readonly string[], from: Da
       count(*) filter (where r.rating = 3) as neutral,
       count(*) filter (where r.rating <= 2) as negative
     from supplier_reviews r
-    where r.supplier_id in (${uuidList(ids)}) and r.created_at >= ${since(from)}
+    where r.supplier_id in (${uuidList(ids)}) and r.created_at >= ${timestampOf(from)}
     group by r.supplier_id
   `);
   return z.array(reviewTotalsSchema).parse([...rows]);
@@ -68,22 +73,40 @@ async function tagTotals(database: Database, ids: readonly string[], from: Date)
   const rows = await database.execute(sql`
     select r.supplier_id, tag, count(*) as total
     from supplier_reviews r cross join lateral unnest(r.tags) as tag
-    where r.supplier_id in (${uuidList(ids)}) and r.created_at >= ${since(from)}
+    where r.supplier_id in (${uuidList(ids)}) and r.created_at >= ${timestampOf(from)}
     group by r.supplier_id, tag
   `);
   return z.array(tagTotalsSchema).parse([...rows]);
 }
 
+/**
+ * The order was a sale at some point: a buyer who never paid (a cart left at "payment required",
+ * cancelled by the marketplace) says nothing about the supplier. Orders stored before status
+ * changes were recorded have no history to tell, and keep counting as before.
+ */
+const reachedSale = sql`(
+  exists (
+    select 1 from order_status_changes c
+    where c.order_id = o.id and c.status in ('paid', 'shipped', 'delivered')
+  )
+  or not exists (select 1 from order_status_changes c where c.order_id = o.id)
+)`;
+
 async function orderTotals(database: Database, ids: readonly string[], from: Date) {
   const rows = await database.execute(sql`
     select sp.supplier_id,
-      count(distinct o.id) filter (where o.status in ${FINISHED_STATUSES}) as finished,
-      count(distinct o.id) filter (where o.status = 'cancelled') as cancelled,
+      count(distinct o.id) filter (
+        where o.status in ${FINISHED_STATUSES} and not ${UNPAID_CANCELLATION}
+      ) as finished,
+      count(distinct o.id) filter (
+        where o.status = 'cancelled' and not ${UNPAID_CANCELLATION}
+      ) as cancelled,
       count(distinct o.id) filter (where o.status = 'returned') as returned
     from orders o
     join order_items oi on oi.order_id = o.id
     join supplier_products sp on sp.id = oi.supplier_product_id
-    where sp.supplier_id in (${uuidList(ids)}) and o.ordered_at >= ${since(from)}
+    where sp.supplier_id in (${uuidList(ids)}) and o.ordered_at >= ${timestampOf(from)}
+      and ${reachedSale}
     group by sp.supplier_id
   `);
   return z.array(orderTotalsSchema).parse([...rows]);
@@ -209,7 +232,7 @@ export async function listRecentSupplierReviews(
     .array(
       z.object({
         id: z.string(),
-        rating: countSchema,
+        rating: sqlIntegerSchema,
         tags: z.array(z.string()),
         comment: z.string(),
         created_at: z.coerce.date(),
@@ -259,8 +282,8 @@ const reviewableRowSchema = z.object({
   supplier_name: z.string(),
   logo_url: z.string().nullable(),
   item_titles: z.string(),
-  units: countSchema,
-  rating: countSchema.nullable(),
+  units: sqlIntegerSchema,
+  rating: sqlIntegerSchema.nullable(),
   tags: z.array(z.string()).nullable(),
   comment: z.string().nullable(),
   review_updated_at: z.coerce.date().nullable(),
@@ -303,7 +326,7 @@ function reviewConditions(filters: ReviewableOrderFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.filter === "pending") {
     conditions.push(
-      sql`o.status = 'delivered' and ${DELIVERED_AT} >= ${since(filters.reviewableSince)} and r.id is null`,
+      sql`o.status = 'delivered' and ${DELIVERED_AT} >= ${timestampOf(filters.reviewableSince)} and r.id is null`,
     );
   }
   if (filters.filter === "done") {
@@ -356,7 +379,7 @@ export async function listReviewableOrders(
     `),
     database.execute(sql`with ${cte} select count(*) as total from pairs`),
   ]);
-  const total = z.object({ total: countSchema }).parse(totals[0]).total;
+  const total = z.object({ total: sqlIntegerSchema }).parse(totals[0]).total;
   const items = z
     .array(reviewableRowSchema)
     .parse([...rows])
@@ -374,7 +397,9 @@ export async function countPendingReviews(
   const rows = await database.execute(sql`
     with ${cte} select count(*) as total, max(delivered_at) as latest from pairs
   `);
-  const row = z.object({ total: countSchema, latest: z.coerce.date().nullable() }).parse(rows[0]);
+  const row = z
+    .object({ total: sqlIntegerSchema, latest: z.coerce.date().nullable() })
+    .parse(rows[0]);
   return { total: row.total, latestDeliveredAt: row.latest };
 }
 

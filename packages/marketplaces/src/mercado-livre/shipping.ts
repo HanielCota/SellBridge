@@ -1,9 +1,12 @@
 import { z } from "zod";
-import { deliveryAddressSchema } from "@sellbridge/shared/schemas";
+import { deliveryAddressSchema, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
 import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
 import { requestJson, type MercadoLivreConfig, type MercadoLivreContext } from "./client.ts";
+import { externalIdSchema } from "./schemas.ts";
+
+const MAX_LABEL_BYTES = 10 * 1024 * 1024;
 
 const remoteAddressSchema = z.object({
   receiver_name: z.string().nullable().optional(),
@@ -16,7 +19,8 @@ const remoteAddressSchema = z.object({
   state: z.object({ id: z.string(), name: z.string().optional() }),
 });
 const shippingSchema = z.object({
-  id: z.union([z.number(), z.string()]),
+  // A rounded shipment id names another shipment (and another label): safe integers only.
+  id: externalIdSchema,
   status: z.string(),
   type: z.string().optional(),
   substatus: z.string().nullable().optional(),
@@ -25,6 +29,8 @@ const shippingSchema = z.object({
   tracking_number: z.string().nullable().optional(),
   tracking_method: z.string().nullable().optional(),
   receiver_address: remoteAddressSchema.nullable().optional(),
+  // Read on its own (`deliveryTimes`): a malformed estimate must not block the whole shipment.
+  lead_time: z.unknown().optional(),
   destination: z
     .object({
       receiver_name: z.string().nullable().optional(),
@@ -33,8 +39,68 @@ const shippingSchema = z.object({
     .optional(),
 });
 const shippingOrderSchema = z.object({
-  seller: z.object({ id: z.union([z.string(), z.number()]) }),
+  seller: z.object({ id: externalIdSchema }),
 });
+/** Hosted View of `GET /orders/{id}/shipments`: ids and types only; 204 (no body) until created. */
+const shipmentRefsSchema = z.array(z.object({ id: externalIdSchema, type: z.string() })).nullable();
+
+/**
+ * A dated node of `lead_time`, as the "Mercado Envios" pages show it. The estimate's `type` says
+ * how firm it is: "unknown" and "unknown_frame" dates are placeholders, never an estimate.
+ */
+const leadTimeDateSchema = z.object({
+  type: z.string().optional(),
+  date: z.iso.datetime({ offset: true }),
+});
+const leadTimeSchema = z.object({
+  estimated_delivery_time: z.unknown().optional(),
+  estimated_handling_limit: z.unknown().optional(),
+});
+
+/** One node read on its own: a malformed estimate never hides a valid deadline. */
+function leadTimeDate(node: unknown): Date | null {
+  const parsed = leadTimeDateSchema.safeParse(node);
+  if (!parsed.success || parsed.data.type?.startsWith("unknown") === true) {
+    return null;
+  }
+  return new Date(parsed.data.date);
+}
+
+/** The delivery estimate and the dispatch deadline of a shipment (`lead_time`), when known. */
+function deliveryTimes(leadTime: unknown) {
+  const parsed = leadTimeSchema.safeParse(leadTime ?? {});
+  if (!parsed.success) {
+    return { estimatedDeliveryAt: null, dispatchDeadlineAt: null };
+  }
+  return {
+    estimatedDeliveryAt: leadTimeDate(parsed.data.estimated_delivery_time),
+    dispatchDeadlineAt: leadTimeDate(parsed.data.estimated_handling_limit),
+  };
+}
+
+/** `not_delivered` substatuses that mean the parcel is back with the seller, not just failed. */
+const RETURNED_SUBSTATUSES = new Set([
+  "returned",
+  "returned_to_warehouse",
+  "returned_to_hub",
+  "returned_to_agency",
+]);
+
+/**
+ * What the shipment says once the parcel left the supplier; null while it has not (pending,
+ * handling, ready_to_ship), when the supplier's own steps are the better account, and for
+ * statuses this table does not know. Source: `GET /shipment_statuses`, gerenciamento-de-envios.
+ */
+export function shipmentTrackingStatus(
+  status: string,
+  substatus: string | null,
+): MarketplaceTrackingStatus | null {
+  if (status === "shipped" || status === "stale_shipped") return "shipped";
+  if (status === "delivered") return "delivered";
+  if (status === "cancelled") return "cancelled";
+  if (status !== "not_delivered") return null;
+  return substatus !== null && RETURNED_SUBSTATUSES.has(substatus) ? "returned" : "not_delivered";
+}
 function shippingContext(config: MercadoLivreConfig): MercadoLivreContext {
   return {
     config,
@@ -42,7 +108,8 @@ function shippingContext(config: MercadoLivreConfig): MercadoLivreContext {
     now: config.now ?? (() => new Date()),
   };
 }
-export async function getMercadoLivreShipping(
+/** The order's sale shipment (and the list it came from), checked to belong to the store. */
+async function loadSaleShipment(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
@@ -57,43 +124,82 @@ export async function getMercadoLivreShipping(
   });
   if (String(order.seller.id) !== store.externalShopId)
     throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
-  // Hosted shipment view, including recipient PII (official Orders docs, 2026-08-07).
-  const response = await requestJson(context, {
-    schema: z.union([shippingSchema, z.array(shippingSchema)]),
-    path: `/orders/${orderId}/shipments?views=destination`,
-    init: {
-      accessToken: store.accessToken,
-      headers: { "x-new-domain": "true", "x-api-version": "2" },
-    },
+  // Hosted View (official Orders docs; the full view was retired at the end of September 2026):
+  // the list holds only ids and types, in no promised order, so the sale is picked by type.
+  const refs = await requestJson(context, {
+    schema: shipmentRefsSchema,
+    path: `/orders/${orderId}/shipments`,
+    init: { accessToken: store.accessToken },
   });
-  const shipments = Array.isArray(response)
-    ? response.filter(
-        (shipment) => shipment.type !== "return" && shipment.type !== "return_to_buyer",
-      )
-    : [response];
-  const raw = shipments[0];
-  if (shipments.length !== 1 || !raw)
+  if (refs === null)
+    throw marketplaceError(
+      "O Mercado Livre ainda não criou o envio deste pedido. Tente de novo em alguns minutos.",
+      { retryable: false },
+    );
+  const forward = refs.filter((ref) => ref.type === "forward");
+  const [sale] = forward;
+  if (forward.length !== 1 || !sale)
     throw marketplaceError("O pedido precisa ter um único envio de compra para esta operação", {
       retryable: false,
     });
+  const raw = await requestJson(context, {
+    schema: shippingSchema,
+    path: `/shipments/${encodeURIComponent(String(sale.id))}`,
+    init: { accessToken: store.accessToken, headers: { "x-format-new": "true" } },
+  });
   const parsedAddress = parseDeliveryAddress(raw);
-  return {
+  const shipping = {
     shipmentId: String(raw.id),
     status: raw.status,
     substatus: raw.substatus ?? null,
+    trackingStatus: shipmentTrackingStatus(raw.status, raw.substatus ?? null),
     mode: raw.mode,
     logisticType: raw.logistic_type,
     trackingCode: raw.tracking_number ?? null,
     carrier: raw.tracking_method ?? null,
     address: parsedAddress?.success ? parsedAddress.data : null,
+    ...deliveryTimes(raw.lead_time),
   };
+  return { context, refs, shipping };
+}
+
+/**
+ * Whether a buyer's return parcel (`type: "return"`, sent to the seller) already arrived. Only
+ * read when the order has one; a return re-sent to the buyer (`return_to_buyer`) does not count.
+ */
+async function buyerReturnDelivered(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  refs: readonly { id: number | string; type: string }[],
+): Promise<boolean> {
+  const returns = await Promise.all(
+    refs
+      .filter((ref) => ref.type === "return")
+      .map((ref) =>
+        requestJson(context, {
+          schema: z.object({ status: z.string() }),
+          path: `/shipments/${encodeURIComponent(String(ref.id))}`,
+          init: { accessToken: store.accessToken, headers: { "x-format-new": "true" } },
+        }),
+      ),
+  );
+  return returns.some((parcel) => parcel.status === "delivered");
+}
+
+export async function getMercadoLivreShipping(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderId: string,
+) {
+  const { context, refs, shipping } = await loadSaleShipment(config, store, orderId);
+  return { ...shipping, buyerReturnDelivered: await buyerReturnDelivered(context, store, refs) };
 }
 export async function getMercadoLivreLabel(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
 ) {
-  const shipping = await getMercadoLivreShipping(config, store, orderId);
+  const { shipping } = await loadSaleShipment(config, store, orderId);
   const allowed = ["drop_off", "xd_drop_off", "cross_docking", "self_service"];
   if (shipping.mode !== "me2" || !allowed.includes(shipping.logisticType))
     throw marketplaceError("Este tipo de envio não permite emitir etiqueta de postagem", {
@@ -109,11 +215,10 @@ export async function getMercadoLivreLabel(
   const response = await fetchWithRetry(
     config.fetchImplementation ?? fetch,
     `https://api.mercadolibre.com/shipment_labels?shipment_ids=${encodeURIComponent(shipping.shipmentId)}&response_type=pdf`,
-    {
-      headers: { authorization: `Bearer ${store.accessToken}` },
-      signal: AbortSignal.timeout(30000),
-    },
-    config.retry,
+    { headers: { authorization: `Bearer ${store.accessToken}` } },
+    // A label is a PDF of up to 10 MB. The 30s deadline is per attempt: a caller signal shared by
+    // every attempt fired in the middle of the second one and read as "cancelled".
+    { ...config.retry, timeoutMilliseconds: 30_000, maxBodyBytes: MAX_LABEL_BYTES },
   );
   if (!response.ok)
     throw marketplaceError(`Não foi possível emitir a etiqueta (HTTP ${response.status})`, {
@@ -121,7 +226,7 @@ export async function getMercadoLivreLabel(
       retryable: response.status >= 500,
     });
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.length > 10 * 1024 * 1024 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
+  if (bytes.length > MAX_LABEL_BYTES || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
     throw marketplaceError("O marketplace não retornou uma etiqueta PDF válida", {
       retryable: false,
     });

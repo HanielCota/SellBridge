@@ -18,11 +18,21 @@ export function SoldOutRibbon({ placement = "corner" }: { placement?: "corner" |
   );
 }
 
-/** Replaces the card's status line when sold out; the ribbon already says it, this gives the context. */
-export function SoldOutFooter() {
+/**
+ * Replaces the card's status line while the supplier keeps the product off: sold out (the
+ * ribbon already says it, this gives the context) or no longer offered, with what to do.
+ */
+export function SoldOutFooter({
+  label = "Sem estoque no fornecedor",
+  detail = null,
+}: {
+  label?: string;
+  detail?: string | null;
+}) {
   return (
-    <div className="bg-destructive/12 px-4 py-3 text-footnote font-medium text-destructive">
-      Sem estoque no fornecedor
+    <div className="space-y-1 bg-destructive/12 px-4 py-3 text-destructive">
+      <p className="text-footnote font-medium">{label}</p>
+      {detail === null ? null : <p className="text-xs">{detail}</p>}
     </div>
   );
 }

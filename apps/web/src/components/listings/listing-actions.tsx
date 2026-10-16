@@ -118,7 +118,11 @@ function RunStateItem({ row }: { row: ListingOverviewRow }) {
   const pauseMotion = usePauseMotion();
   const playMotion = usePlayMotion();
   const state = listingRunState(row);
-  if (state === "off") {
+  // A product the supplier keeps off can still be live somewhere (outside the region): it
+  // cannot be switched on, but it can be paused.
+  const canStillPause =
+    row.unavailable !== null && row.stores.some((store) => store.status === "published");
+  if (state === "off" && !canStillPause) {
     return <UnavailableItem />;
   }
   if (state === "paused") {

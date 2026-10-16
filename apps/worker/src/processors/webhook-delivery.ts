@@ -8,6 +8,7 @@ import {
   pruneIdempotencyKeys,
   type DueWebhookDelivery,
 } from "@sellbridge/database/repositories";
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { signWebhookPayload, WEBHOOK_SIGNATURE_HEADER } from "@sellbridge/shared/webhook-signature";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
@@ -49,8 +50,32 @@ const USER_AGENT = "SellBridge-Webhooks/1.0";
 type AttemptResult =
   { ok: true; statusCode: number } | { ok: false; statusCode: number | null; error: string };
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** Node network codes, in the words the integrator reads on the deliveries screen. */
+const NETWORK_ERRORS: Readonly<Record<string, string>> = {
+  ECONNREFUSED: "Conexão recusada pelo servidor",
+  ECONNRESET: "Conexão encerrada pelo servidor",
+  ENOTFOUND: "Endereço não encontrado",
+  EAI_AGAIN: "Endereço não encontrado",
+  ETIMEDOUT: "Tempo esgotado",
+  UND_ERR_CONNECT_TIMEOUT: "Tempo esgotado",
+};
+
+/**
+ * What the deliveries screen shows for a failed attempt: our own messages as written, network
+ * failures by kind. Raw Node messages ("connect ECONNREFUSED 10.0.0.5:443") would expose the
+ * addresses the endpoint resolves to and the worker's internals.
+ */
+function deliveryErrorMessage(error: unknown): string {
+  if (isAppError(error)) {
+    return error.userMessage;
+  }
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    return "Tempo esgotado";
+  }
+  const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+  return (
+    (typeof code === "string" ? NETWORK_ERRORS[code] : undefined) ?? "Falha de rede na entrega"
+  );
 }
 
 async function sendDelivery(
@@ -104,7 +129,24 @@ async function trySendDelivery(
   try {
     return await sendDelivery(dependencies, delivery, now);
   } catch (error) {
-    return { ok: false, statusCode: null, error: errorMessage(error) };
+    return { ok: false, statusCode: null, error: deliveryErrorMessage(error) };
+  }
+}
+
+/**
+ * One delivery whose bookkeeping failed (the database, not the endpoint) must not discard the
+ * other results of the batch; its lease expires and it is retried.
+ */
+async function attemptDeliverySafely(
+  dependencies: WebhookDeliveryDependencies,
+  delivery: DueWebhookDelivery,
+  now: Date,
+): Promise<boolean> {
+  try {
+    return await attemptDelivery(dependencies, delivery, now);
+  } catch (error) {
+    logger.error("webhook.delivery_bookkeeping_failed", { deliveryId: delivery.id, error });
+    return false;
   }
 }
 
@@ -153,6 +195,26 @@ async function pruneExpiredRecords(database: Database, now: Date): Promise<void>
   }
 }
 
+/** How long one run keeps claiming full batches; a little under the 10 s between runs. */
+const DRAIN_MILLISECONDS = 8000;
+
+async function deliverBatch(
+  dependencies: WebhookDeliveryDependencies,
+  now: Date,
+): Promise<WebhookDeliverySummary> {
+  const deliveries = await claimDueWebhookDeliveries(dependencies.database, {
+    tenantId: dependencies.tenantId,
+    now,
+    limit: BATCH_SIZE,
+    leaseMilliseconds: LEASE_MILLISECONDS,
+  });
+  const results = await Promise.all(
+    deliveries.map(async (delivery) => attemptDeliverySafely(dependencies, delivery, now)),
+  );
+  const delivered = results.filter(Boolean).length;
+  return { delivered, failed: results.length - delivered };
+}
+
 /**
  * Sends due outbound webhooks of every tenant (signed POSTs), records each attempt with its
  * retry time, and now and then prunes old events and idempotency keys.
@@ -167,16 +229,22 @@ export function createWebhookDeliveryProcessor(dependencies: WebhookDeliveryDepe
       lastPrunedAt = now.getTime();
       await pruneExpiredRecords(dependencies.database, now);
     }
-    const deliveries = await claimDueWebhookDeliveries(dependencies.database, {
-      tenantId: dependencies.tenantId,
-      now,
-      limit: BATCH_SIZE,
-      leaseMilliseconds: LEASE_MILLISECONDS,
-    });
-    const results = await Promise.all(
-      deliveries.map(async (delivery) => attemptDelivery(dependencies, delivery, now)),
-    );
-    const delivered = results.filter(Boolean).length;
-    return { delivered, failed: results.length - delivered };
+    const summary: WebhookDeliverySummary = { delivered: 0, failed: 0 };
+    const startedAt = Date.now();
+    // Full batches mean more are due: keep claiming for a while instead of waiting 10 s for the
+    // next run, so a burst of events drains at more than 25 per run.
+    for (;;) {
+      // Read per batch: the loop runs for seconds, and a time from its start would date later
+      // attempts, their retry times and signatures in the past.
+      const batch = await deliverBatch(dependencies, currentTime());
+      summary.delivered += batch.delivered;
+      summary.failed += batch.failed;
+      const keepGoing =
+        batch.delivered + batch.failed === BATCH_SIZE &&
+        Date.now() - startedAt < DRAIN_MILLISECONDS;
+      if (!keepGoing) {
+        return summary;
+      }
+    }
   };
 }

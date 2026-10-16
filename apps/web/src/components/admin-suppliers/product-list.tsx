@@ -16,6 +16,8 @@ import {
   adminSetProductActive,
   type adminListProducts,
 } from "@/features/admin-suppliers/suppliers.functions";
+import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
+import { shelfLabel, shelfParts } from "@/features/admin-suppliers/shelf-label";
 import { adminProductsQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useCatalogAction } from "@/features/admin-suppliers/use-catalog-action";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
@@ -29,7 +31,9 @@ function ProductActions({
   product: AdminSupplierProduct;
   onEdit: (product: AdminSupplierProduct) => void;
 }) {
-  const setActive = useCatalogAction(adminSetProductActive, "Status do produto atualizado");
+  const setActive = useCatalogAction(adminSetProductActive, (result) =>
+    catalogStatusMessage("Produto", result),
+  );
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" size="sm" onClick={() => onEdit(product)}>
@@ -49,9 +53,20 @@ function ProductActions({
           })
         }
       >
-        {setActive.isPending ? "Salvando..." : product.active ? "Desativar" : "Ativar"}
+        {setActive.isPending ? "Salvando…" : product.active ? "Desativar" : "Ativar"}
       </Button>
     </div>
+  );
+}
+
+/** The shelf count in the row's color; what paid orders hold, quieter beside it. */
+function ShelfCount({ stock, reservedStock }: { stock: number; reservedStock: number }) {
+  const { shelf, held } = shelfParts(stock, reservedStock);
+  return (
+    <span className="tabular-nums">
+      {shelf}
+      {held === null ? null : <span className="text-muted-foreground"> · {held}</span>}
+    </span>
   );
 }
 
@@ -64,7 +79,15 @@ function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
       header: "Custo",
       cell: (information) => formatCents(information.getValue()),
     }),
-    columnHelper.accessor("stock", { header: "Estoque" }),
+    columnHelper.accessor("stock", {
+      header: "Estoque",
+      cell: (information) => (
+        <ShelfCount
+          stock={information.getValue()}
+          reservedStock={information.row.original.reservedStock}
+        />
+      ),
+    }),
     columnHelper.accessor("active", {
       header: "Status",
       cell: (information) => (
@@ -117,7 +140,8 @@ function ProductTable({
           <div className="space-y-1">
             <p className="font-medium">{row.title}</p>
             <p className="text-sm text-muted-foreground">
-              {row.sku} · {formatCents(row.costCents)} · Estoque: {row.stock}
+              {row.sku} · {formatCents(row.costCents)} · Estoque:{" "}
+              {shelfLabel(row.stock, row.reservedStock)}
             </p>
             <ToneStatus
               tone={row.active ? "success" : "muted"}
@@ -165,7 +189,8 @@ export function ProductList({
         <Button onClick={() => setSelected(null)}>Novo produto</Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Desativar oculta o produto do catálogo. Anúncios e pedidos existentes continuam disponíveis.
+        Desativar tira o produto do catálogo e pausa os anúncios dos revendedores. Os pedidos
+        existentes continuam.
       </p>
       {selected === undefined ? null : (
         <ProductForm

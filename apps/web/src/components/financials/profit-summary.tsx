@@ -1,54 +1,14 @@
 import type { SalesSummary } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
-import { MoneyFigure, TrendBadge } from "@/components/reports/figures";
-import { perHundred } from "@/features/reports/financial-rows";
+import { InfoIcon, XIcon } from "@phosphor-icons/react";
+import type { ComponentProps, ReactNode } from "react";
+import { CashFlowChart } from "@/components/reports/cash-flow-chart";
+import { PENDING_COST_HINT } from "@/components/reports/pending-cost";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDayHeading } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 
-const marginFormat = new Intl.NumberFormat("pt-BR", {
-  style: "percent",
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
-const wholeReais = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  maximumFractionDigits: 0,
-});
-
-interface FlowPart {
-  key: string;
-  label: string;
-  cents: number;
-  /** Background utility shared by the bar segment and the legend dot. */
-  color: string;
-}
-
-/** Where the money that came in went, in the order the bar draws it; empty parts are dropped. */
-function flowParts(summary: SalesSummary): FlowPart[] {
-  const parts: FlowPart[] = [
-    { key: "cost", label: "Produtos", cents: summary.costCents, color: "bg-finance-cost" },
-    {
-      key: "fee",
-      label: "Taxas",
-      cents: summary.feeCents + summary.platformFeeCents,
-      color: "bg-finance-fee",
-    },
-    {
-      key: "refund",
-      label: "Reembolsos",
-      cents: summary.refundCents,
-      color: "bg-finance-refund",
-    },
-    {
-      key: "profit",
-      label: "Seu lucro",
-      cents: Math.max(summary.profitCents, 0),
-      color: "bg-brand",
-    },
-  ];
-  return parts.filter((part) => part.cents > 0);
-}
+const FEES_HINT = "Comissão do marketplace pela venda e a tarifa da SellBridge, somadas.";
 
 function ordersLine(summary: SalesSummary): string {
   const parts = [`${summary.orders} ${summary.orders === 1 ? "pedido" : "pedidos"}`];
@@ -60,162 +20,226 @@ function ordersLine(summary: SalesSummary): string {
   if (summary.returnCents > 0) {
     parts.push(`${formatCents(summary.returnCents)} devolvidos`);
   }
+  if (summary.pendingCostOrders > 0) {
+    parts.push(`${summary.pendingCostOrders} com custo pendente`);
+  }
   return parts.join(" · ");
 }
 
-/** The answer first: what was left, out of how much was sold, and how it compares. */
-function ProfitFigure({ summary, previous }: { summary: SalesSummary; previous: SalesSummary }) {
-  const profit = summary.profitCents;
-  const revenue = summary.revenueCents;
-  const isLoss = profit < 0;
+/** An amount in the sentence, underlined in its part's color so it maps to the money it names. */
+function Amount({
+  cents,
+  color,
+  strong = false,
+}: {
+  cents: number;
+  color: string;
+  strong?: boolean;
+}) {
   return (
-    <div className="flex min-w-0 flex-col gap-4 lg:pr-10">
-      <div className="flex flex-wrap items-center gap-2">
-        <p
-          className={cn(
-            "text-sm font-medium",
-            isLoss ? "text-destructive" : "text-muted-foreground",
-          )}
-        >
-          {isLoss ? "Prejuízo" : "Lucro líquido"}
-          <span className="sr-only">: {formatCents(profit)}</span>
-        </p>
-        {revenue > 0 ? (
-          <span
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums",
-              isLoss ? "bg-destructive/10 text-destructive" : "bg-muted text-foreground",
-            )}
-          >
-            {marginFormat.format(profit / revenue)} de margem
-          </span>
-        ) : null}
-      </div>
-      <div className="space-y-2">
-        <MoneyFigure
-          cents={profit}
-          withCents
-          className={cn("text-[44px] leading-none sm:text-[56px]", isLoss && "text-destructive")}
-        />
-        <p className="text-sm text-muted-foreground">
-          de{" "}
-          <span className="font-medium text-foreground tabular-nums">{formatCents(revenue)}</span>{" "}
-          em vendas
-        </p>
-      </div>
-      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
-        <TrendBadge
-          current={summary.profitCents}
-          previous={previous.profitCents}
-          suffix="vs. período anterior"
-        />
-        <span title="Cancelados e devolvidos não entram na receita nem no lucro">
-          {ordersLine(summary)}
-        </span>
-      </div>
-    </div>
+    <span
+      className={cn(
+        "border-b-2 pb-px font-semibold whitespace-nowrap tabular-nums",
+        color,
+        strong && "text-brand-text",
+      )}
+    >
+      {formatCents(cents)}
+    </span>
   );
 }
 
-/** One bar split into the parts, each a pill with a floor width so a sliver stays visible. */
-function FlowBar({ parts }: { parts: readonly FlowPart[] }) {
-  const total = parts.reduce((sum, part) => sum + part.cents, 0);
+/** A small "i" beside a word; the explanation opens on hover or focus, never in the way. */
+function Hint({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div aria-hidden="true" className="flex h-3 gap-1">
-      {parts.map((part) => (
-        <span
-          key={part.key}
-          className={cn("h-full min-w-2 rounded-full", part.color)}
-          style={{ width: `${(part.cents / total) * 100}%` }}
-        />
-      ))}
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          // Drawn at the icon's size so it hugs the word; the invisible ::after keeps a fair touch target.
+          className="relative ml-1 inline-flex size-3 items-center justify-center rounded-full align-[-1px] text-muted-foreground/70 outline-none after:absolute after:-inset-2 hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <InfoIcon aria-hidden="true" className="size-3" weight="bold" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6}>
+        {children}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
 /**
- * Every hundred reais that came in, split into where it went. Whole reais per hundred read
- * faster than percentages, and the exact amount sits right under each one.
+ * Sales of unknown cost, set apart before the costs: "R$ 120,00 de 1 venda ainda não tem custo e
+ * ficou fora do lucro." Underlined dashed, in the gray of the chart's hatched layer.
  */
-function MoneyFlow({ summary }: { summary: SalesSummary }) {
-  const parts = flowParts(summary);
-  if (parts.length === 0) {
+function PendingClause({ summary }: { summary: SalesSummary }) {
+  const one = summary.pendingCostOrders === 1;
+  return (
+    <>
+      <Amount
+        cents={summary.pendingCostRevenueCents}
+        color="border-dashed border-muted-foreground/60 text-foreground"
+      />{" "}
+      de {summary.pendingCostOrders} {one ? "venda" : "vendas"} ainda{" "}
+      {one ? "não tem custo e ficou" : "não têm custo e ficaram"} fora do lucro
+      <Hint label={one ? "Por que ficou fora do lucro" : "Por que ficaram fora do lucro"}>
+        {PENDING_COST_HINT}
+      </Hint>
+      .{" "}
+    </>
+  );
+}
+
+/** Every sale has an unknown cost and nothing else moved: there is no "rest" to break down. */
+function isOnlyPendingCost(summary: SalesSummary): boolean {
+  return (
+    summary.pendingCostRevenueCents === summary.revenueCents &&
+    summary.refundCents === 0 &&
+    summary.commissionCents === 0
+  );
+}
+
+/**
+ * Where the money went, said as a sentence instead of a second chart: each amount underlined
+ * in the color of its part, adding up to what was left.
+ */
+function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: string }) {
+  const revenue = summary.revenueCents;
+  const fees = summary.feeCents + summary.platformFeeCents;
+  const profit = summary.profitCents;
+  if (revenue === 0 && summary.refundCents === 0 && summary.commissionCents === 0) {
+    return <p className="mt-3 text-sm text-muted-foreground">Nenhuma venda {scope}.</p>;
+  }
+  if (isOnlyPendingCost(summary)) {
     return (
-      <p className="self-center text-sm text-muted-foreground">
-        Quando houver vendas no período, você vê aqui para onde vai cada real que entra.
+      <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+        Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
+        <PendingClause summary={summary} />
       </p>
     );
   }
-  const isLoss = summary.profitCents < 0;
-  const shares = perHundred(parts.map((part) => part.cents));
   return (
-    <div className="flex min-w-0 flex-1 flex-col justify-center gap-5">
-      <h2 className="text-sm font-medium">
-        {isLoss ? "Para onde foi cada R$ 100 gasto" : "Para onde vai cada R$ 100 que entra"}
-      </h2>
-      <FlowBar parts={parts} />
-      <dl className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-x-4 gap-y-5">
-        {parts.map((part, index) => (
-          <div key={part.key} className="min-w-0 space-y-1">
-            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", part.color)} />
-              <span className="truncate">{part.label}</span>
-            </dt>
-            <dd
-              className={cn(
-                "text-xl font-semibold tracking-tight tabular-nums",
-                part.key === "profit" && "text-brand-text",
-              )}
-            >
-              {shares[index] === 0 ? "< R$ 1" : wholeReais.format(shares[index] ?? 0)}
-            </dd>
-            <dd className="text-xs text-muted-foreground tabular-nums">
-              {formatCents(part.cents)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <FlowNote summary={summary} />
+    <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+      Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
+      {summary.pendingCostOrders > 0 ? (
+        <>
+          <PendingClause summary={summary} />
+          Do restante,{" "}
+        </>
+      ) : (
+        "Desse valor, "
+      )}
+      <Amount cents={summary.costCents} color="border-finance-cost text-foreground" /> pagaram os
+      produtos e <Amount cents={fees} color="border-finance-fee text-foreground" /> foram taxas
+      <Hint label="O que entra em taxas">{FEES_HINT}</Hint>
+      {summary.refundCents > 0 ? (
+        <>
+          , e <Amount cents={summary.refundCents} color="border-finance-refund text-foreground" />{" "}
+          voltaram em reembolsos
+        </>
+      ) : null}
+      .{" "}
+      {profit < 0 ? (
+        <span className="text-destructive">
+          Os custos passaram as vendas em{" "}
+          <span className="font-semibold tabular-nums">{formatCents(-profit)}</span>.
+        </span>
+      ) : (
+        <>
+          {summary.commissionCents > 0 ? (
+            <>
+              Com <Amount cents={summary.commissionCents} color="border-brand text-foreground" /> de
+              comissões, sobraram{" "}
+            </>
+          ) : (
+            "Sobraram "
+          )}
+          <Amount cents={profit} color="border-brand" strong /> para você.
+        </>
+      )}
+    </p>
+  );
+}
+
+/** Which orders the sentence covers, and the way back to the whole period while a day is picked. */
+function FooterLine({
+  summary,
+  pickedDay,
+  canPick,
+  onClear,
+}: {
+  summary: SalesSummary;
+  pickedDay: string | null;
+  canPick: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs text-muted-foreground">
+      {/* "Hoje" depends on the clock, so server and browser may disagree right at midnight. */}
+      <p suppressHydrationWarning>
+        {pickedDay ? (
+          <span className="font-medium text-foreground">{formatDayHeading(pickedDay)} · </span>
+        ) : null}
+        {ordersLine(summary)}
+        <Hint label="O que fica fora da receita">
+          Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro
+        </Hint>
+      </p>
+      {pickedDay ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted py-1 pr-2 pl-3 text-xs font-medium text-foreground outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]"
+        >
+          Ver o período todo
+          <XIcon aria-hidden="true" className="size-3" weight="bold" />
+        </button>
+      ) : null}
+      {!pickedDay && canPick ? (
+        <span className="max-sm:hidden">Clique num dia do gráfico para ver só ele</span>
+      ) : null}
     </div>
   );
 }
 
-/** The one thing the bar can't show: income on top of sales, or how far costs passed them. */
-function FlowNote({ summary }: { summary: SalesSummary }) {
-  if (summary.profitCents < 0) {
-    return (
-      <p className="text-xs text-destructive">
-        Os custos passaram as vendas em {formatCents(-summary.profitCents)}.
-      </p>
-    );
-  }
-  if (summary.commissionCents > 0) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Inclui {formatCents(summary.commissionCents)} em comissões recebidas.
-      </p>
-    );
-  }
-  return null;
-}
+type ChartProps = ComponentProps<typeof CashFlowChart>;
 
-/** The period in one card: the profit on the left, the arithmetic behind it on the right. */
+/**
+ * The period in one card, the same chart as the dashboard's: the profit and its trend, the
+ * chart with every kind and layer, and under it the arithmetic said in one sentence. Clicking
+ * a day narrows the sentence and the statement below to that day.
+ */
 export function ProfitSummary({
   summary,
-  previous,
+  pickedDay,
+  onPickDay,
+  chart,
 }: {
+  /** The whole period, or the picked day. */
   summary: SalesSummary;
-  previous: SalesSummary;
+  /** The day the summary is narrowed to, or null for the whole period. */
+  pickedDay: string | null;
+  onPickDay: (day: string | null) => void;
+  chart: Omit<ChartProps, "pickedDate" | "onPickDate" | "footer">;
 }) {
   return (
-    <section
-      aria-label="Resumo do período"
-      className="surface-card grid gap-8 rounded-3xl bg-card p-6 sm:p-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-0"
-    >
-      <ProfitFigure summary={summary} previous={previous} />
-      <div className="flex border-t border-border pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
-        <MoneyFlow summary={summary} />
-      </div>
-    </section>
+    <CashFlowChart
+      {...chart}
+      pickedDate={pickedDay}
+      onPickDate={onPickDay}
+      footer={
+        <div className="mt-6 border-t border-border pt-5">
+          <FooterLine
+            summary={summary}
+            pickedDay={pickedDay}
+            canPick={chart.bucket === "day"}
+            onClear={() => onPickDay(null)}
+          />
+          <MoneySentence summary={summary} scope={pickedDay ? "neste dia" : "no período"} />
+        </div>
+      }
+    />
   );
 }

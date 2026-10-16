@@ -86,7 +86,10 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
   const { onboarding, summary, previous } = data;
   const onboardingComplete =
-    onboarding.hasRegion && onboarding.hasStore && onboarding.hasPublishedListing;
+    onboarding.hasHolder &&
+    onboarding.hasSupplier &&
+    onboarding.hasStore &&
+    onboarding.hasPublishedListing;
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
     return (
       <>
@@ -105,6 +108,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
             previous={previous}
             points={data.timeseries}
             bucket={data.period.bucket}
+            fromDate={data.period.fromDate}
             className="max-w-2xl text-lg"
           />
         }

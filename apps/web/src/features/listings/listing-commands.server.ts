@@ -1,15 +1,21 @@
 import {
   type CreatedListing,
-  getCatalogProductForRegion,
+  getSellableCatalogProduct,
   setListingsPaused,
   updateListingPrice,
 } from "@sellbridge/database/repositories";
-import { assertSellablePrice } from "@sellbridge/shared/listing-rules";
+import { assertPriceKeepsMargin } from "@sellbridge/shared/fee-model";
 import { logger } from "@sellbridge/shared/logger";
+import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
-import { requireTenantRegion } from "@/features/region/region.server";
+import { environment } from "@/lib/server/environment";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { type DraftOverrides, resolveListingDraft } from "./listing-draft";
-import { assertConnectedStores, publishListing } from "./publish-listing.server";
+import {
+  assertConnectedStores,
+  assertStoresSellSuppliers,
+  publishListing,
+} from "./publish-listing.server";
 
 /**
  * The listing write rules, in one place for every entry point (the app's server functions
@@ -22,29 +28,40 @@ export interface CreateListingCommand extends DraftOverrides {
 }
 
 /**
- * Sells a catalog product of the tenant's region on its connected stores: checks the price
- * against the cost, creates the listing and queues one publication per store.
+ * Sells a catalog product on the tenant's connected stores: checks the price against the cost
+ * and every fee (the floor of fee-model.ts),
+ * creates the listing and queues one publication per store.
  */
 export async function createListingForTenant(
   tenantId: string,
   command: CreateListingCommand,
 ): Promise<CreatedListing> {
-  const region = await requireTenantRegion(tenantId);
-  const product = await getCatalogProductForRegion(database, region, command.productId);
+  const product = await getSellableCatalogProduct(database, command.productId);
   const draft = resolveListingDraft(product, command);
-  assertSellablePrice(draft.priceCents, product.costCents);
+  assertPriceKeepsMargin(
+    draft.priceCents,
+    { costCents: product.costCents },
+    feeScheduleFrom(environment),
+  );
   const storeIds = await assertConnectedStores(tenantId, command.storeConnectionIds);
+  await assertStoresSellSuppliers(tenantId, storeIds, [product.supplierId]);
   return publishListing(tenantId, draft, storeIds);
 }
 
-/** The repository rejects a price at or below cost, the same rule creation applies. */
+/** The repository rejects a price under the fee floor, the same rule creation applies. */
 export async function updateListingPriceForTenant(
   tenantId: string,
   listingId: string,
   priceCents: number,
 ): Promise<void> {
-  await updateListingPrice(database, tenantId, listingId, priceCents);
+  await updateListingPrice(database, tenantId, {
+    listingId,
+    priceCents,
+    feeSchedule: feeScheduleFrom(environment),
+  });
   logger.info("listing.price_updated", { tenantId, listingId });
+  // The marketplaces get the new price now, as the screen promises, not at the next scheduled run.
+  await requestStockSync("listing.sync_deferred");
 }
 
 /** Pauses (zero stock on the marketplace) or resumes listings; returns the stores changed. */
@@ -55,5 +72,9 @@ export async function setListingsPausedForTenant(
 ): Promise<number> {
   const changed = await setListingsPaused(database, tenantId, listingIds, paused);
   logger.info(paused ? "listing.paused" : "listing.resumed", { tenantId, targets: changed });
+  // A paused listing must show zero stock right away, or sales keep coming in for up to 15 min.
+  if (changed > 0) {
+    await requestStockSync("listing.sync_deferred");
+  }
   return changed;
 }

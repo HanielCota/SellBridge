@@ -47,16 +47,69 @@ export async function signUp(page: Page, name: string): Promise<string> {
   return email;
 }
 
-/** Turns on admin mode from the profile menu (admins only; it is off by default). */
+function cpfCheckDigit(digits: readonly number[]): number {
+  const weightedSum = digits.reduce(
+    (sum, digit, index) => sum + digit * (digits.length + 1 - index),
+    0,
+  );
+  const remainder = (weightedSum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
+}
+
+/**
+ * A random CPF with valid check digits, formatted as typed (000.000.000-00). Each account needs
+ * its own: the same CPF is refused on a second account.
+ */
+export function testCpf(): string {
+  const base = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  const first = cpfCheckDigit(base);
+  const digits = [...base, first, cpfCheckDigit([...base, first])].join("");
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** First onboarding step: full name and a fresh CPF of the billing holder. */
+export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
+  await page.getByLabel("Nome completo").fill(fullName);
+  await page.getByLabel("CPF").fill(testCpf());
+  await page.getByRole("button", { name: "Continuar" }).click();
+}
+
+/** Picks a supplier in the onboarding picker: search by name, then choose its card. */
+export async function pickSupplier(page: Page, supplierName: string): Promise<void> {
+  await page.getByLabel("Buscar fornecedor por nome, nicho ou produto").fill(supplierName);
+  await page
+    .getByRole("radiogroup", { name: "Fornecedores" })
+    .getByText(supplierName, { exact: true })
+    .click();
+  await expect(page.getByRole("radio", { name: new RegExp(supplierName) })).toBeChecked();
+}
+
+/**
+ * Fills the first-visit onboarding: holder step (name and a fresh CPF), then the supplier of the
+ * first shop, and continues.
+ */
+export async function completeOnboarding(
+  page: Page,
+  supplierName = "BH Beauty Distribuidora",
+): Promise<void> {
+  await fillBillingHolder(page);
+  await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+  await pickSupplier(page, supplierName);
+  await page.getByRole("button", { name: `Continuar com ${supplierName}` }).click();
+}
+
+/** Turns on admin mode from the profile menu (team accounts only; it is off by default). */
 export async function enableAdminMode(page: Page): Promise<void> {
   // The menu only opens once React owns the page; callers may arrive from a full page load.
   await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
-  const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
+  // Admins see "Modo administrador"; agents and supervisors, "Modo equipe".
+  const toggle = page.getByRole("menuitemcheckbox", { name: /^Modo (administrador|equipe)$/ });
   if ((await toggle.getAttribute("aria-checked")) !== "true") {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-checked", "true");
   }
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("link", { name: "Clientes" })).toBeVisible();
+  // Every team role sees the support inbox; customer accounts are for admins only.
+  await expect(page.getByRole("link", { name: "Chamados" })).toBeVisible();
 }

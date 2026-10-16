@@ -67,6 +67,7 @@ const PROBLEM_BY_APP_CODE: Record<AppErrorCode, { status: number; code: ApiError
   EXTERNAL_PROVIDER: { status: 502, code: "upstream_error" },
   EXTERNAL_PROVIDER_AUTH: { status: 502, code: "upstream_error" },
   CONFIGURATION: { status: 500, code: "internal_error" },
+  RATE_LIMITED: { status: 429, code: "rate_limited" },
 };
 
 /** Domain errors keep their user message; unknown errors never leak details. */

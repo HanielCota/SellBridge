@@ -1,162 +1,342 @@
 import {
+  DELIVERY_CONFIRMED_BY,
+  DISPATCHED_FULFILLMENT_STATUSES,
   FULFILLMENT_LABELS,
   FULFILLMENT_NEXT,
   shipmentUpdateSchema,
   type DeliveryAddress,
   type FulfillmentStatus,
+  SETTLED_FULFILLMENT_STATUSES,
+  type ShipmentOperator,
 } from "@sellbridge/shared/schemas";
-import { useState } from "react";
+import { SHIPMENT_DELAY_LABELS, type ShipmentDelay } from "@sellbridge/shared/shipment-delay";
+import { type ComponentProps, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
+import { SmartDate } from "@/components/data/smart-date";
+import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { FormErrorAlert } from "@/components/form/form-feedback";
+import { TextareaField } from "@/components/form/textarea-field";
+import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/errors";
 import { printShipment } from "@/features/fulfillment/print-shipment";
+import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
 
 export interface ShipmentView {
   id: string;
   supplierName: string;
   status: FulfillmentStatus;
-  address: DeliveryAddress;
+  /** Null on a supplier link once the parcel or the order is over: the buyer's data stops there. */
+  address: DeliveryAddress | null;
   items: { title: string; sku: string; quantity: number }[];
   notes: string;
   carrier: string | null;
   trackingCode: string | null;
   trackingUrl: string | null;
+  /** The marketplace's dates and what is late; absent on the supplier link. */
+  estimatedDeliveryAt?: Date | null;
+  dispatchDeadlineAt?: Date | null;
+  delay?: ShipmentDelay | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
+
+/** The supplier's part ends at dispatch: the marketplace or the reseller confirms the delivery. */
+function nextStepFor(
+  status: FulfillmentStatus,
+  actsAs: ShipmentOperator,
+): FulfillmentStatus | null {
+  const next = FULFILLMENT_NEXT[status];
+  return actsAs === "supplier" && next === "delivered" ? null : next;
+}
+
 export function ShipmentPanel({
   shipment,
   externalOrderId,
   onUpdate,
   children,
   blocked = false,
+  actsAs = "reseller",
 }: {
   shipment: ShipmentView;
   externalOrderId: string;
   blocked?: boolean;
+  /** Who works the panel: the supplier (by link) cannot declare the delivery. */
+  actsAs?: ShipmentOperator;
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
-  const {
-    carrier,
-    setCarrier,
-    trackingCode,
-    setTrackingCode,
-    trackingUrl,
-    setTrackingUrl,
-    note,
-    setNote,
-    mutation,
-  } = useShipmentUpdate(shipment, onUpdate);
-  const next = FULFILLMENT_NEXT[shipment.status];
-  const closed = shipment.status === "delivered" || shipment.status === "cancelled";
+  const update = useShipmentUpdate(shipment, onUpdate);
+  const next = nextStepFor(shipment.status, actsAs);
+  const closed = SETTLED_FULFILLMENT_STATUSES.includes(shipment.status);
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
       <ShipmentSummary shipment={shipment} />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "label")}>
-          Imprimir etiqueta de identificação
-        </Button>
-        <Button variant="outline" onClick={() => printShipment(shipment, externalOrderId, "order")}>
-          Imprimir ordem de fornecimento
-        </Button>
+      <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId}>
         {children}
-      </div>
+      </ShipmentToolbar>
       {closed ? null : (
         <ShipmentActions
+          update={update}
+          shipment={shipment}
           next={blocked ? null : next}
-          carrier={carrier}
-          trackingCode={trackingCode}
-          trackingUrl={trackingUrl}
-          note={note}
-          setCarrier={setCarrier}
-          setTrackingCode={setTrackingCode}
-          setTrackingUrl={setTrackingUrl}
-          setNote={setNote}
-          pending={mutation.isPending}
-          status={shipment.status}
-          onSubmit={(status) => mutation.mutate(status)}
+          actsAs={actsAs}
         />
       )}
       <ShipmentHistory shipment={shipment} />
     </section>
   );
 }
-function ShipmentActions(props: {
-  next: FulfillmentStatus | null;
-  status: FulfillmentStatus;
-  carrier: string;
-  trackingCode: string;
-  trackingUrl: string;
-  note: string;
-  pending: boolean;
-  setCarrier: (value: string) => void;
-  setTrackingCode: (value: string) => void;
-  setTrackingUrl: (value: string) => void;
-  setNote: (value: string) => void;
-  onSubmit: (status: FulfillmentStatus) => void;
+/** Printing, plus whatever the page adds (the reseller's link, the official label). */
+function ShipmentToolbar({
+  shipment,
+  externalOrderId,
+  children,
+}: {
+  shipment: ShipmentView;
+  externalOrderId: string;
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="space-y-3">
-      {props.next === "shipped" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Transportadora" value={props.carrier} onChange={props.setCarrier} />
-          <Field
-            label="Código de rastreio"
-            value={props.trackingCode}
-            onChange={props.setTrackingCode}
-          />
-          <div className="sm:col-span-2">
-            <Field
-              label="Link de rastreio (HTTPS, opcional)"
-              value={props.trackingUrl}
-              onChange={props.setTrackingUrl}
-            />
-          </div>
-        </div>
+    // On the narrowest phones a long label wraps inside its button instead of overflowing.
+    <div className="flex flex-wrap gap-2 [&>*]:h-auto [&>*]:min-h-9 [&>*]:max-w-full [&>*]:py-1.5 [&>*]:whitespace-normal">
+      {/* Both documents carry the buyer's address, which a finished supplier link no longer has. */}
+      {shipment.address ? (
+        <>
+          <Button
+            variant="outline"
+            onClick={() => printShipment(shipment, externalOrderId, "label")}
+          >
+            Imprimir etiqueta de identificação
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => printShipment(shipment, externalOrderId, "order")}
+          >
+            Imprimir ordem de fornecimento
+          </Button>
+        </>
       ) : null}
-      <Field label="Ocorrência ou observação" value={props.note} onChange={props.setNote} />
+      {children}
+    </div>
+  );
+}
+
+type ShipmentUpdate = ReturnType<typeof useShipmentUpdate>;
+
+/** What dispatch needs: carrier and tracking. */
+function DispatchFields({ update }: { update: ShipmentUpdate }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
+      {/* Codes and links are typed exactly: no capital first letter or "correction" on phones. */}
+      <Field
+        label="Código de rastreio"
+        value={update.trackingCode}
+        onChange={update.setTrackingCode}
+        autoCapitalize="characters"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+      <div className="sm:col-span-2">
+        <Field
+          label="Link de rastreio (opcional)"
+          value={update.trackingUrl}
+          onChange={update.setTrackingUrl}
+          type="url"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+const EMPTY_OCCURRENCE = "Escreva a ocorrência antes de registrar";
+
+function ShipmentActions({
+  update,
+  shipment,
+  next,
+  actsAs,
+}: {
+  update: ShipmentUpdate;
+  shipment: ShipmentView;
+  next: FulfillmentStatus | null;
+  actsAs: ShipmentOperator;
+}) {
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const pending = update.mutation.isPending;
+  const registerOccurrence = () => {
+    if (!update.note.trim()) {
+      setNoteError(EMPTY_OCCURRENCE);
+      return;
+    }
+    update.mutation.mutate({ status: shipment.status, note: update.note });
+  };
+  return (
+    <div className="space-y-3">
+      {/* Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */}
+      {actsAs === "supplier" && shipment.status === "shipped" ? (
+        <p className="text-sm text-muted-foreground">{DELIVERY_CONFIRMED_BY}</p>
+      ) : null}
+      {next === "shipped" ? <DispatchFields update={update} /> : null}
+      <Field
+        label="Ocorrência ou observação"
+        value={update.note}
+        error={noteError}
+        onChange={(value) => {
+          update.setNote(value);
+          setNoteError(null);
+        }}
+      />
       <div className="flex flex-wrap gap-2">
-        {props.next ? (
-          <Button disabled={props.pending} onClick={() => props.next && props.onSubmit(props.next)}>
-            {FULFILLMENT_LABELS[props.next]}
+        {next ? (
+          <Button
+            disabled={pending}
+            onClick={() => update.mutation.mutate({ status: next, note: update.note })}
+          >
+            {FULFILLMENT_LABELS[next]}
           </Button>
         ) : null}
-        <Button
-          variant="outline"
-          disabled={props.pending || !props.note.trim()}
-          onClick={() => props.onSubmit(props.status)}
-        >
+        <Button variant="outline" disabled={pending} onClick={registerOccurrence}>
           Registrar ocorrência
         </Button>
-        {["shipped", "delivered"].includes(props.status) ? null : (
-          <Button
-            variant="destructive"
-            disabled={props.pending || !props.note.trim()}
-            onClick={() => props.onSubmit("cancelled")}
-          >
-            Cancelar envio
-          </Button>
+        {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
+          <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
         )}
       </div>
     </div>
   );
 }
+
+/** What cancelling means for whoever does it: the supplier hands the order back to the store. */
+function cancelCopy(actsAs: ShipmentOperator, supplierName: string) {
+  if (actsAs === "supplier") {
+    return {
+      title: "Cancelar este envio?",
+      description:
+        "A loja é avisada com o motivo e pode encaminhar o pedido a outro fornecedor. Depois disso, este link só mostra o histórico.",
+    };
+  }
+  return {
+    title: `Cancelar o envio de ${supplierName}?`,
+    description:
+      "O link do fornecedor deixa de valer. Enquanto o pedido estiver pago, dá para reencaminhar depois, com um link novo.",
+  };
+}
+
+/** The cancel dialog's state; whatever was typed as an occurrence opens as the reason. */
+function useCancelShipment(update: ShipmentUpdate) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  return {
+    open,
+    setOpen,
+    reason,
+    error,
+    start: () => {
+      setReason(update.note);
+      setError(null);
+      setOpen(true);
+    },
+    edit: (value: string) => {
+      setReason(value);
+      setError(null);
+    },
+    confirm: () => {
+      if (!reason.trim()) {
+        setError("Informe o motivo do cancelamento");
+        return;
+      }
+      update.mutation.mutate(
+        { status: "cancelled", note: reason },
+        { onSuccess: () => setOpen(false) },
+      );
+    },
+  };
+}
+
+/** One tap never cancels: the dialog asks for the reason the store (or supplier) will read. */
+function CancelShipment({
+  update,
+  supplierName,
+  actsAs,
+}: {
+  update: ShipmentUpdate;
+  supplierName: string;
+  actsAs: ShipmentOperator;
+}) {
+  const dialog = useCancelShipment(update);
+  const copy = cancelCopy(actsAs, supplierName);
+  return (
+    <>
+      <Button variant="destructive" disabled={update.mutation.isPending} onClick={dialog.start}>
+        Cancelar envio
+      </Button>
+      <ConfirmDialog
+        open={dialog.open}
+        onOpenChange={dialog.setOpen}
+        title={copy.title}
+        description={copy.description}
+        confirmLabel="Cancelar envio"
+        pendingLabel="Cancelando…"
+        cancelLabel="Voltar"
+        destructive
+        isPending={update.mutation.isPending}
+        onConfirm={dialog.confirm}
+      >
+        <div className="grid gap-3">
+          <TextareaField
+            id="cancel-shipment-reason"
+            label="Motivo do cancelamento"
+            value={dialog.reason}
+            errors={[]}
+            maxLength={500}
+            aria-invalid={dialog.error ? true : undefined}
+            onValueChange={dialog.edit}
+          />
+          <FormErrorAlert message={dialog.error} />
+        </div>
+      </ConfirmDialog>
+    </>
+  );
+}
+
+/** A labelled text field; the rest of the input's attributes (autocomplete, keyboard) pass through. */
 export function Field({
   label,
   value,
   onChange,
+  error = null,
+  ...inputProps
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-}) {
+  /** Shown under the field after an action that needs it, announced to screen readers. */
+  error?: string | null;
+} & Omit<ComponentProps<typeof Input>, "value" | "onChange">) {
   return (
     <Label className="grid gap-2">
       {label}
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input
+        {...inputProps}
+        value={value}
+        aria-invalid={error ? true : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {error ? (
+        <span role="alert" className="text-sm font-normal text-destructive">
+          {error}
+        </span>
+      ) : null}
     </Label>
   );
 }
@@ -170,14 +350,14 @@ function useShipmentUpdate(
   const [trackingUrl, setTrackingUrl] = useState(shipment.trackingUrl ?? "");
   const [note, setNote] = useState("");
   const mutation = useMutation({
-    mutationFn: async (status: FulfillmentStatus) => {
+    mutationFn: async (change: { status: FulfillmentStatus; note: string }) => {
       const parsed = shipmentUpdateSchema.safeParse({
         shipmentId: shipment.id,
-        status,
+        status: change.status,
         carrier,
         trackingCode,
         trackingUrl,
-        note,
+        note: change.note,
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira os dados");
       await onUpdate(parsed.data);
@@ -201,16 +381,43 @@ function useShipmentUpdate(
   };
 }
 
+/** The marketplace's date that matters now: when to dispatch, then when it should arrive. */
+function ShipmentDates({ shipment }: { shipment: ShipmentView }) {
+  if (shipment.status === "shipped" && shipment.estimatedDeliveryAt) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Entrega prevista: <SmartDate date={shipment.estimatedDeliveryAt} />
+      </p>
+    );
+  }
+  const atSupplier = ["forwarded", "accepted", "picking", "ready"].includes(shipment.status);
+  if (atSupplier && shipment.dispatchDeadlineAt) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Despachar até: <SmartDate date={shipment.dispatchDeadlineAt} />
+      </p>
+    );
+  }
+  return null;
+}
+
 function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   return (
     <>
       {" "}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-medium">{shipment.supplierName}</h3>
-        <span className="rounded-full bg-muted px-3 py-1 text-xs">
-          {FULFILLMENT_LABELS[shipment.status]}
-        </span>
+        <div className="flex flex-col items-start gap-1 sm:items-end">
+          <ToneStatus
+            tone={FULFILLMENT_TONES[shipment.status]}
+            label={FULFILLMENT_LABELS[shipment.status]}
+          />
+          {shipment.delay ? (
+            <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
+          ) : null}
+        </div>
       </div>
+      <ShipmentDates shipment={shipment} />
       <ul className="space-y-1 text-sm">
         {shipment.items.map((item, index) => (
           <li key={`${item.sku}-${index}`}>
@@ -218,11 +425,13 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
           </li>
         ))}
       </ul>
-      <p className="text-sm text-muted-foreground">
-        {shipment.address.recipient} · {shipment.address.street}, {shipment.address.number}{" "}
-        {shipment.address.complement} · {shipment.address.neighborhood} · {shipment.address.city}/
-        {shipment.address.state} · CEP {shipment.address.postalCode}
-      </p>
+      {shipment.address ? (
+        <p className="text-sm text-muted-foreground">
+          {shipment.address.recipient} · {shipment.address.street}, {shipment.address.number}{" "}
+          {shipment.address.complement} · {shipment.address.neighborhood} · {shipment.address.city}/
+          {shipment.address.state} · CEP {shipment.address.postalCode}
+        </p>
+      ) : null}
       {shipment.notes ? <p className="text-sm">Instruções: {shipment.notes}</p> : null}
       {shipment.trackingCode ? (
         <p className="text-sm">
@@ -243,16 +452,25 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   );
 }
 
+/** Newest first on a rail, like the customer timeline: each step in its status color. */
 function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
   return (
-    <ol className="space-y-2 border-t pt-3 text-xs" aria-label="Histórico do envio">
-      {shipment.events.map((event) => (
-        <li key={event.id}>
-          <span className="font-medium">{FULFILLMENT_LABELS[event.status]}</span> · {event.actor} ·{" "}
-          {new Date(event.createdAt).toLocaleString("pt-BR")}
-          {event.note ? <p className="text-muted-foreground">{event.note}</p> : null}
-        </li>
-      ))}
-    </ol>
+    <div className="border-t pt-4">
+      <DotTimeline label="Histórico do envio">
+        {shipmentTimeline(shipment.events).map((event) => (
+          <DotTimelineItem
+            key={event.id}
+            dotClassName={TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]]}
+            date={event.createdAt}
+          >
+            <span className="block text-foreground">{FULFILLMENT_LABELS[event.status]}</span>
+            <span className="block text-muted-foreground">por {event.actor}</span>
+            {event.note ? (
+              <span className="block break-words text-muted-foreground">{event.note}</span>
+            ) : null}
+          </DotTimelineItem>
+        ))}
+      </DotTimeline>
+    </div>
   );
 }

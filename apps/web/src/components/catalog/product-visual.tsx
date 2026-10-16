@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   BabyIcon,
@@ -71,12 +72,15 @@ export function ProductVisual({
   compact = false,
   className,
 }: ProductVisualProps) {
-  if (imageUrl) {
+  // Supplier photos live on other servers: a dead link falls back to the tile, not a broken icon.
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  if (imageUrl && imageUrl !== failedImage) {
     return (
       <img
         src={imageUrl}
         alt=""
         loading="lazy"
+        onError={() => setFailedImage(imageUrl)}
         className={cn(
           "w-full bg-muted object-cover",
           soldOut && "brightness-75 grayscale",

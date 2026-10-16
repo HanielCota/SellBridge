@@ -1,19 +1,19 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { priceForRule, type PriceRule } from "@sellbridge/shared/schemas";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  FeeLines,
   PROFIT_SPLIT_COLORS,
   ProfitSplitBar,
   ProfitSplitLine,
   profitTone,
+  totalFeeCents,
 } from "@/components/listings/profit-split";
-import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
-  estimateProfit,
-} from "@/features/listings/profit";
+import { estimateProfit, wholeMarginPercent } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { cn } from "@/lib/utils";
 
 function ProductStepper({
@@ -67,21 +67,22 @@ export function PriceReceipt({
   ruleFor,
   adjust,
 }: {
-  products: RegionCatalogProduct[];
-  ruleFor: (product: RegionCatalogProduct) => PriceRule;
-  adjust?: ((product: RegionCatalogProduct) => React.ReactNode) | undefined;
+  products: SellableCatalogProduct[];
+  ruleFor: (product: SellableCatalogProduct) => PriceRule;
+  adjust?: ((product: SellableCatalogProduct) => React.ReactNode) | undefined;
 }) {
   const [index, setIndex] = useState(0);
+  const schedule = useFeeSchedule();
   const product = products[index % products.length];
   if (!product) {
     return null;
   }
   const price = priceForRule(product, ruleFor(product));
-  const estimate = estimateProfit(price, product.costCents);
+  const estimate = estimateProfit(price, product.costCents, schedule);
   if (!estimate) {
     return null;
   }
-  const { feeCents, profitCents, marginPercent } = estimate;
+  const { profitCents, marginPercent } = estimate;
   const isLoss = profitCents < 0;
   return (
     <div className="space-y-3 px-3.5 py-3">
@@ -92,7 +93,11 @@ export function PriceReceipt({
         onIndexChange={setIndex}
       />
       {adjust ? adjust(product) : null}
-      <ProfitSplitBar costCents={product.costCents} feeCents={feeCents} profitCents={profitCents} />
+      <ProfitSplitBar
+        costCents={product.costCents}
+        feeCents={totalFeeCents(estimate)}
+        profitCents={profitCents}
+      />
 
       <dl className="space-y-1.5 text-sm">
         <ProfitSplitLine
@@ -100,15 +105,11 @@ export function PriceReceipt({
           label="Custo do fornecedor"
           value={formatCents(product.costCents)}
         />
-        <ProfitSplitLine
-          swatch={PROFIT_SPLIT_COLORS.fee}
-          label={`Taxa do marketplace (~${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL})`}
-          value={formatCents(feeCents)}
-        />
+        <FeeLines estimate={estimate} schedule={schedule} />
         <ProfitSplitLine
           swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
           label={isLoss ? "Seu prejuízo" : "Seu lucro"}
-          value={`${formatCents(Math.abs(profitCents))} (${Math.round(marginPercent)}%)`}
+          value={`${formatCents(Math.abs(profitCents))} (${wholeMarginPercent(marginPercent)}%)`}
           valueClassName={cn("font-medium", profitTone(profitCents, marginPercent))}
         />
         <div className="flex items-center justify-between border-t border-border pt-2 font-medium">

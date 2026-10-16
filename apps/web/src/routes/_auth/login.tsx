@@ -1,4 +1,4 @@
-import { emailSchema, signInSchema } from "@sellbridge/shared/schemas";
+import { emailSchema, internalPathSchema, signInSchema } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,7 +12,8 @@ import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
 const loginSearchSchema = z.object({
-  redirect: z.string().startsWith("/").optional(),
+  /** Only a path on this site: `//host` or a scheme is dropped, never followed. */
+  redirect: internalPathSchema,
   /** Set by Better Auth when a social sign-in fails. */
   error: z.string().optional(),
   /** Set after a successful password reset. */
@@ -133,11 +134,7 @@ function LoginForm() {
       </Link>
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <AuthSubmitButton
-            isPending={isSubmitting}
-            idleLabel="Entrar"
-            pendingLabel="Entrando..."
-          />
+          <AuthSubmitButton isPending={isSubmitting} idleLabel="Entrar" pendingLabel="Entrando…" />
         )}
       </form.Subscribe>
     </form>

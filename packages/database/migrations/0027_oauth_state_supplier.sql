@@ -1,0 +1,2 @@
+ALTER TABLE "oauth_states" ADD COLUMN "supplier_id" uuid;--> statement-breakpoint
+ALTER TABLE "oauth_states" ADD CONSTRAINT "oauth_states_supplier_id_suppliers_id_fk" FOREIGN KEY ("supplier_id") REFERENCES "public"."suppliers"("id") ON DELETE set null ON UPDATE no action;

@@ -1,6 +1,6 @@
 import { notFoundError } from "@sellbridge/shared/errors";
-import { and, count, desc, eq } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { webhookEndpoints } from "../schema/index.ts";
 
 /** An endpoint as callers see it: the encrypted secret is read only by `getWebhookEndpointSecret`. */
@@ -36,7 +36,7 @@ function endpointCondition(tenantId: string, endpointId: string) {
 }
 
 export async function createWebhookEndpoint(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   endpoint: NewWebhookEndpoint,
 ): Promise<WebhookEndpointSummary> {
@@ -62,7 +62,10 @@ export async function listWebhookEndpoints(
     .orderBy(desc(webhookEndpoints.createdAt));
 }
 
-export async function countWebhookEndpoints(database: Database, tenantId: string): Promise<number> {
+export async function countWebhookEndpoints(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<number> {
   const [row] = await database
     .select({ total: count() })
     .from(webhookEndpoints)
@@ -130,4 +133,17 @@ export async function getWebhookEndpointSecret(
     throw notFoundError("Endpoint de webhook não encontrado");
   }
   return row.secretEnc;
+}
+
+/** Turns off every endpoint of the organization (its owner was blocked); returns how many. */
+export async function disableTenantWebhookEndpoints(
+  database: Database,
+  tenantId: string,
+): Promise<number> {
+  const disabled = await database
+    .update(webhookEndpoints)
+    .set({ disabledAt: new Date() })
+    .where(and(eq(webhookEndpoints.tenantId, tenantId), isNull(webhookEndpoints.disabledAt)))
+    .returning({ id: webhookEndpoints.id });
+  return disabled.length;
 }

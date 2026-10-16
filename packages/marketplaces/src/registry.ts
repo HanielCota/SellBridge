@@ -40,7 +40,7 @@ export function createConnectorRegistry(config: ConnectorRegistryConfig): Connec
       clientId: config.mercadoLivre?.clientId,
       clientSecret: config.mercadoLivre?.clientSecret,
     }),
-    // TODO: conectores reais da Shopee e do TikTok Shop depois do Mercado Livre.
+    // No real connector yet: Shopee and TikTok Shop come after Mercado Livre.
     shopee: createUnavailableConnector("shopee", MARKETPLACE_LABELS.shopee),
     tiktok_shop: createUnavailableConnector("tiktok_shop", MARKETPLACE_LABELS.tiktok_shop),
   };

@@ -1,23 +1,24 @@
 import { randomBytes } from "node:crypto";
+import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingIdempotencyKey } from "../repositories/listings.ts";
-import { getSupplierIdsForRegion } from "../repositories/suppliers.ts";
 import {
   listings,
   listingTargets,
   orderAdjustments,
   orderItems,
   orders,
+  orderStatusChanges,
   storeConnections,
   supplierProducts,
+  suppliers,
 } from "../schema/index.ts";
 import { DEMO_STORES } from "./data.ts";
 import type { Random } from "./random.ts";
 import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
 
-const DAY_MILLISECONDS = 86_400_000;
 const SIX_HOURS_MILLISECONDS = 6 * 60 * 60 * 1000;
 const HISTORY_DAYS = 180;
 const DELIVERY_DAYS = 3;
@@ -59,11 +60,6 @@ const BUYERS = [
   "Patrícia C.",
   "Diego N.",
 ] as const;
-
-interface Region {
-  readonly state: string;
-  readonly city: string;
-}
 
 interface SeedSalesContext {
   readonly database: Database;
@@ -110,7 +106,30 @@ function simulatedToken(prefix: string): string {
   return `${prefix}-${randomBytes(12).toString("hex")}`;
 }
 
-async function ensureDemoStores(database: Database, tenantId: string, cipher: TokenCipher) {
+interface DemoStore {
+  id: string;
+  supplierId: string | null;
+}
+
+async function demoSupplierIds(database: Database): Promise<Map<string, string>> {
+  const rows = await database
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(
+      inArray(
+        suppliers.name,
+        DEMO_STORES.map((store) => store.supplierName),
+      ),
+    );
+  return new Map(rows.map((row) => [row.name, row.id]));
+}
+
+async function ensureDemoStores(
+  database: Database,
+  tenantId: string,
+  cipher: TokenCipher,
+): Promise<DemoStore[]> {
+  const supplierIds = await demoSupplierIds(database);
   await database
     .insert(storeConnections)
     .values(
@@ -119,6 +138,7 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
         marketplace: "mock" as const,
         externalShopId: store.externalShopId,
         shopName: store.shopName,
+        supplierId: supplierIds.get(store.supplierName) ?? null,
         status: "connected" as const,
         // Simulated marketplace tokens, encrypted like real ones, so webhooks and sync work.
         accessTokenEnc: cipher.encrypt(simulatedToken("mock-access")),
@@ -128,7 +148,7 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
     )
     .onConflictDoNothing();
   return database
-    .select({ id: storeConnections.id })
+    .select({ id: storeConnections.id, supplierId: storeConnections.supplierId })
     .from(storeConnections)
     .where(
       and(
@@ -141,16 +161,30 @@ async function ensureDemoStores(database: Database, tenantId: string, cipher: To
     );
 }
 
-async function chooseDemoProducts(database: Database, region: Region): Promise<Product[]> {
-  const supplierIds = await getSupplierIdsForRegion(database, region);
+async function chooseDemoProducts(
+  database: Database,
+  supplierIds: readonly string[],
+): Promise<Product[]> {
   if (supplierIds.length === 0) {
-    throw new Error("Nenhum fornecedor atende a região da conta demo");
+    throw new Error("Nenhum fornecedor das lojas demo encontrado no catálogo");
   }
-  const products = await database
-    .select()
+  const rows = await database
+    .select({ product: supplierProducts })
     .from(supplierProducts)
-    .where(inArray(supplierProducts.supplierId, supplierIds))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(
+      and(
+        eq(suppliers.active, true),
+        eq(supplierProducts.active, true),
+        inArray(supplierProducts.supplierId, [...supplierIds]),
+      ),
+    )
+    .orderBy(asc(supplierProducts.sku))
     .limit(80);
+  const products = rows.map((row) => row.product);
+  if (products.length === 0) {
+    throw new Error("Nenhum produto ativo para a conta demo");
+  }
   const step = Math.ceil(products.length / LISTING_COUNT);
   return products.filter((_, index) => index % step === 0);
 }
@@ -196,18 +230,21 @@ async function insertPublishedTarget(
   return target;
 }
 
+/** Each product is listed in the demo shops that sell its supplier, and only those. */
 async function createDemoListings(
   context: SeedSalesContext,
-  region: Region,
-  storeIds: readonly string[],
+  stores: readonly DemoStore[],
 ): Promise<DemoSale[]> {
-  const products = await chooseDemoProducts(context.database, region);
+  const supplierIds = stores.flatMap((store) =>
+    store.supplierId === null ? [] : [store.supplierId],
+  );
+  const products = await chooseDemoProducts(context.database, supplierIds);
   const sales: DemoSale[] = [];
   for (const product of products) {
     const listing = await insertDemoListing(context, product);
-    const storesForListing = context.random.chance(0.4)
-      ? storeIds
-      : [context.random.pick(storeIds)];
+    const storesForListing = stores
+      .filter((store) => store.supplierId === product.supplierId)
+      .map((store) => store.id);
     for (const storeConnectionId of storesForListing) {
       const target = await insertPublishedTarget(context, listing, storeConnectionId);
       sales.push({ target, listing, product });
@@ -355,12 +392,30 @@ async function insertDemoOrder(context: SeedSalesContext, demoOrder: DemoOrder):
     quantity: demoOrder.quantity,
     unitPriceCents: sale.listing.priceCents,
     unitCostCents: sale.product.costCents,
+    // Demo history: counted in the seeded shelf already, never held or taken again.
+    stockState: "untracked",
   });
   if (demoOrder.adjustment) {
     await database
       .insert(orderAdjustments)
       .values({ tenantId, orderId: order.id, ...demoOrder.adjustment });
   }
+  await database
+    .insert(orderStatusChanges)
+    .values(
+      demoStatusChanges(demoOrder).map((change) => ({ tenantId, orderId: order.id, ...change })),
+    );
+}
+
+/** The order page's progress: the sale, then where the order ended up (when it moved on). */
+function demoStatusChanges(demoOrder: DemoOrder) {
+  if (demoOrder.status === "pending" || demoOrder.status === "paid") {
+    return [{ status: demoOrder.status, changedAt: demoOrder.orderedAt }];
+  }
+  return [
+    { status: "paid" as const, changedAt: demoOrder.orderedAt },
+    { status: demoOrder.status, changedAt: demoOrder.deliveredAt ?? demoOrder.orderedAt },
+  ];
 }
 
 async function seedOrderHistory(
@@ -385,7 +440,6 @@ async function countOrders(database: Database, tenantId: string): Promise<number
 }
 
 export interface SeedDemoSalesInput extends SeedSalesContext {
-  readonly region: Region;
   readonly cipher: TokenCipher;
 }
 
@@ -403,8 +457,7 @@ export async function seedDemoSales(
     tenantId: input.tenantId,
   };
   const stores = await ensureDemoStores(input.database, input.tenantId, input.cipher);
-  const storeIds = stores.map((store) => store.id);
-  const sales = await createDemoListings(context, input.region, storeIds);
+  const sales = await createDemoListings(context, stores);
   const orderCount = await seedOrderHistory(context, sales);
   return { created: true, orders: orderCount };
 }

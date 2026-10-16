@@ -30,9 +30,6 @@ function isCheckedSource(path: string): boolean {
   if (GENERATED_FILES.test(normalized)) {
     return false;
   }
-  if (normalized.includes("/components/ui/")) {
-    return false;
-  }
   return SOURCE_EXTENSIONS.test(normalized);
 }
 

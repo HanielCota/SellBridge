@@ -98,16 +98,21 @@ export async function applyBillingEvent(
     .where(eq(billingAccounts.tenantId, account.tenantId));
 }
 
+/**
+ * Refuses when `requested` more stores or listings would pass the plan. A batch asks for all of
+ * its items at once, so it is refused whole instead of stopping halfway at the limit.
+ */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
   tenantId: string,
   resource: "stores" | "listings",
+  requested = 1,
 ) {
   await lockBillingTenant(database, tenantId);
   const account = await getBillingAccount(database, tenantId);
   const plan = effectiveBillingPlan(account);
   const usage = await billingUsage(database, tenantId);
-  if (usage[resource] >= plan[resource]) {
+  if (usage[resource] + requested > plan[resource]) {
     throw forbiddenError(
       `Limite do plano ${plan.name} atingido. Gerencie sua assinatura para ampliar ${resource === "stores" ? "as lojas" : "os anúncios"}.`,
     );

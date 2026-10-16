@@ -1,7 +1,8 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { DEMO_USER, signIn } from "./helpers";
 import { requireEnvironmentVariable } from "./environment";
+import { simulateSale } from "./sales";
 
 const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
 
@@ -48,17 +49,7 @@ test.describe("endpoint de webhooks", () => {
 
 test("venda simulada chega por webhook e aparece no financeiro", async ({ page }) => {
   await signIn(page, DEMO_USER);
-  await gotoHydrated(page, "/publicacoes?status=published");
-  await page
-    .getByRole("button", { name: /^Ações de / })
-    .first()
-    .click();
-  await page.getByRole("menuitem", { name: "Simular venda" }).click();
-  await expect(
-    page
-      .getByText("Venda simulada enviada. Ela aparece no financeiro em instantes.")
-      .filter({ visible: true }),
-  ).toBeVisible();
+  await simulateSale(page);
 
   await expect(async () => {
     await page.goto("/financeiro?period=7d&query=SIM-", { waitUntil: "networkidle" });

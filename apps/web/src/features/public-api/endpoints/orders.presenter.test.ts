@@ -1,4 +1,8 @@
-import type { OrderDetail, OrderFinancialRow } from "@sellbridge/database/repositories";
+import type {
+  OrderDetail,
+  OrderDetailItem,
+  OrderFinancialRow,
+} from "@sellbridge/database/repositories";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { presentOrderDetail, presentOrderSummary } from "./orders.presenter";
@@ -8,6 +12,7 @@ const detail: OrderDetail = {
   externalOrderId: "ML-1",
   storeConnectionId: "store-1",
   storeName: "Loja da Ana",
+  marketplace: "mercado_livre",
   status: "delivered",
   totalCents: 10_000,
   marketplaceFeeCents: 1400,
@@ -48,6 +53,31 @@ describe("presentOrderDetail", () => {
       commissionsCents: 300,
       platformFeeCents: 250,
       profitCents: 4650,
+      pendingCostRevenueCents: 0,
+    });
+  });
+
+  it("keeps an order with an item outside the catalog out of the profit", () => {
+    const outside: OrderDetailItem = {
+      id: "item-2",
+      quantity: 1,
+      unitPriceCents: 3000,
+      title: "Anúncio de fora",
+      unitCostCents: 0,
+      listingId: null,
+      productId: null,
+    };
+    const dto = presentOrderDetail({ ...detail, items: [...detail.items, outside] }, 250);
+    expect(dto.totals).toEqual({
+      revenueCents: 10_000,
+      costCents: 0,
+      marketplaceFeeCents: 0,
+      refundsCents: 0,
+      returnsCents: 0,
+      commissionsCents: 0,
+      platformFeeCents: 0,
+      profitCents: 0,
+      pendingCostRevenueCents: 10_000,
     });
   });
 
@@ -87,6 +117,8 @@ describe("presentOrderSummary", () => {
     commissionCents: 0,
     platformFeeCents: 250,
     profitCents: 4250,
+    costPending: false,
+    pendingCostRevenueCents: 0,
     product: null,
   };
 

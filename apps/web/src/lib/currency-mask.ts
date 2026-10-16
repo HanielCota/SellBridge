@@ -1,3 +1,5 @@
+import { parseBrlToCents } from "@sellbridge/shared/money";
+
 /** Up to R$ 9.999.999,99; more digits than that are ignored as they are typed. */
 const MAX_DIGITS = 9;
 
@@ -22,4 +24,21 @@ export function maskCurrencyInput(typed: string): string {
     return "";
   }
   return formatCentsForField(Number.parseInt(digits, 10));
+}
+
+/** The largest amount the field holds: `MAX_DIGITS` digits of cents. */
+const MAX_FIELD_CENTS = 10 ** MAX_DIGITS - 1;
+
+/**
+ * A whole amount pasted into the field, read as written: "59.9" is R$ 59,90 and "R$ 1.259,9" is
+ * R$ 1.259,90, where the card-machine mask (last two digits are the cents) read them as 5,99 and
+ * 125,99. Null when the text is not an amount the field can hold, so the paste is refused
+ * instead of becoming another number.
+ */
+export function readPastedCurrency(pasted: string): string | null {
+  const cents = parseBrlToCents(pasted);
+  if (cents === null || cents <= 0 || cents > MAX_FIELD_CENTS) {
+    return null;
+  }
+  return formatCentsForField(cents);
 }

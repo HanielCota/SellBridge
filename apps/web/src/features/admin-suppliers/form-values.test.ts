@@ -1,6 +1,11 @@
-import { adminSaveProductSchema } from "@sellbridge/shared/schemas";
+import { adminSaveProductSchema, adminSaveSupplierSchema } from "@sellbridge/shared/schemas";
 import { describe, expect, it } from "vitest";
-import { productFormInput, productFormValues } from "./form-values";
+import {
+  productFormInput,
+  productFormValues,
+  supplierFormInput,
+  supplierFormValues,
+} from "./form-values";
 
 function parseAttributes(mercadoLivreAttributes: string) {
   const values = { ...productFormValues(), sku: "SKU-1", title: "Produto", mercadoLivreAttributes };
@@ -29,5 +34,35 @@ describe("Mercado Livre attributes in the product form", () => {
 
   it("allows products with no Mercado Livre attributes", () => {
     expect(parseAttributes("").data?.mercadoLivreAttributes).toEqual({});
+  });
+});
+
+describe("supplier contact and deadlines in the supplier form", () => {
+  const filled = { ...supplierFormValues(), name: "Fornecedor", niche: "Moda", city: "Recife" };
+
+  it("starts a new supplier with no e-mail and the default deadlines", () => {
+    expect(supplierFormValues()).toMatchObject({
+      contactEmail: "",
+      acceptWithinHours: "24",
+      dispatchWithinHours: "48",
+    });
+  });
+
+  it("sends the deadlines as numbers and an empty e-mail as none", () => {
+    const parsed = adminSaveSupplierSchema.safeParse(
+      supplierFormInput({ ...filled, contactEmail: "  ", acceptWithinHours: "12" }, undefined),
+    );
+    expect(parsed.data).toMatchObject({
+      contactEmail: null,
+      acceptWithinHours: 12,
+      dispatchWithinHours: 48,
+    });
+  });
+
+  it("rejects a deadline typed with letters instead of guessing", () => {
+    const parsed = adminSaveSupplierSchema.safeParse(
+      supplierFormInput({ ...filled, dispatchWithinHours: "dois dias" }, undefined),
+    );
+    expect(parsed.success).toBe(false);
   });
 });

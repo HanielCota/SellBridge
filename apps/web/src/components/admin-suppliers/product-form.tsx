@@ -7,6 +7,13 @@ import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feed
 import { SectionCard } from "@/components/layout/section-card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { adminSaveProduct } from "@/features/admin-suppliers/suppliers.functions";
 import {
   catalogFormErrors,
@@ -30,6 +37,18 @@ const productFields = [
   { name: "stock", label: "Estoque" },
 ] as const;
 
+/** Stock is whole units, money takes a comma; the phone keyboard follows. */
+const FIELD_KEYBOARDS = {
+  sku: "text",
+  title: "text",
+  cost: "decimal",
+  suggestedPrice: "decimal",
+  stock: "numeric",
+} as const;
+
+/** Codes and links are typed as they are: no capital first letter, autocorrect or spell check. */
+const CODE_INPUT = { autoCapitalize: "off", autoCorrect: "off", spellCheck: false } as const;
+
 function ProductTextFields({
   values,
   errors,
@@ -49,12 +68,16 @@ function ProductTextFields({
           value={values[field.name]}
           errors={errors["error" in field ? field.error : field.name] ?? []}
           onValueChange={(next) => onChange({ [field.name]: next })}
-          inputMode={["cost", "suggestedPrice", "stock"].includes(field.name) ? "decimal" : "text"}
+          inputMode={FIELD_KEYBOARDS[field.name]}
+          {...(field.name === "sku" ? CODE_INPUT : {})}
         />
       ))}
     </div>
   );
 }
+
+/** The select needs a value for "no category"; the form keeps it as an empty string. */
+const NO_CATEGORY = "none";
 
 function CategoryField({
   categories,
@@ -68,19 +91,22 @@ function CategoryField({
   return (
     <div className="grid gap-2">
       <Label htmlFor="product-category">Categoria</Label>
-      <select
-        id="product-category"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-xl border border-field-border bg-card px-3"
+      <Select
+        value={value === "" ? NO_CATEGORY : value}
+        onValueChange={(choice) => onChange(choice === NO_CATEGORY ? "" : choice)}
       >
-        <option value="">Sem categoria</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id="product-category" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={category.id}>
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -91,7 +117,7 @@ function ProductFormActions({ isPending, onClose }: { isPending: boolean; onClos
       <PendingSubmitButton
         isPending={isPending}
         idleLabel="Salvar produto"
-        pendingLabel="Salvando..."
+        pendingLabel="Salvando…"
       />
       <Button type="button" variant="outline" onClick={onClose}>
         Cancelar
@@ -112,6 +138,7 @@ function MercadoLivreAttributesField({
   return (
     <TextareaField
       id="product-mercado-livre-attributes"
+      {...CODE_INPUT}
       label="Atributos do Mercado Livre (um por linha, como BRAND=Marca e MODEL=Modelo)"
       value={value}
       errors={errors}
@@ -126,9 +153,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
   const save = useCatalogAction(adminSaveProduct, "Produto salvo", onClose);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = adminSaveProductSchema.safeParse(
-      productFormInput(values, supplierId, product?.id),
-    );
+    const parsed = adminSaveProductSchema.safeParse(productFormInput(values, supplierId, product));
     setErrors(parsed.success ? {} : catalogFormErrors(parsed.error));
     if (parsed.success) {
       save.mutate({ data: parsed.data });
@@ -162,6 +187,7 @@ export function ProductForm({ supplierId, product, categories, onClose }: Produc
           <TextareaField
             id="product-images"
             label="URLs de imagem (uma por linha)"
+            {...CODE_INPUT}
             value={values.images}
             errors={errors.imageUrls ?? []}
             onValueChange={(images) => setValues((current) => ({ ...current, images }))}

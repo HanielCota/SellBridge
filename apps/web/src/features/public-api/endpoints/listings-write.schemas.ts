@@ -14,7 +14,7 @@ import { z } from "zod";
 const MAX_STORES_PER_LISTING = 50;
 
 export const createListingBodySchema = z.object({
-  productId: z.uuid().describe("ID do produto no catálogo de fornecedores da sua região."),
+  productId: z.uuid().describe("ID do produto no catálogo de fornecedores."),
   title: listingTitleSchema
     .optional()
     .describe(
@@ -30,7 +30,7 @@ export const createListingBodySchema = z.object({
   priceCents: listingPriceCentsSchema
     .optional()
     .describe(
-      "Preço de venda em centavos (BRL); precisa ser maior que o custo do fornecedor. " +
+      "Preço de venda em centavos (BRL); precisa cobrir o custo do fornecedor e todas as taxas (marketplace, SellBridge e a margem mínima configurada). " +
         "Se omitido, usa o preço sugerido do produto.",
     ),
   storeIds: z
@@ -43,7 +43,9 @@ export const createListingBodySchema = z.object({
 export const updateListingBodySchema = z.object({
   priceCents: listingPriceCentsSchema
     .optional()
-    .describe("Novo preço de venda em centavos (BRL); precisa ser maior que o custo."),
+    .describe(
+      "Novo preço de venda em centavos (BRL); precisa cobrir o custo e todas as taxas, como na criação.",
+    ),
   paused: z
     .boolean()
     .optional()

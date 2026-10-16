@@ -1,7 +1,11 @@
 import type {
   importSupplierProducts,
   previewSupplierProductImport,
+  saveAdminSupplier,
+  reserveShortItems,
   saveAdminSupplierProduct,
+  setAdminSupplierActive,
+  setAdminSupplierProductActive,
   SupplierProductImportPlan,
 } from "@sellbridge/database/repositories";
 import { describe, expect, it, beforeEach, vi } from "vitest";
@@ -10,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   preview: vi.fn<typeof previewSupplierProductImport>(),
   importProducts: vi.fn<typeof importSupplierProducts>(),
   saveProduct: vi.fn<typeof saveAdminSupplierProduct>(),
+  saveSupplier: vi.fn<typeof saveAdminSupplier>(),
+  setSupplierActive: vi.fn<typeof setAdminSupplierActive>(),
+  setProductActive: vi.fn<typeof setAdminSupplierProductActive>(),
+  reserveShort: vi.fn<typeof reserveShortItems>(),
   enqueue: vi.fn<() => Promise<void>>(),
   warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -17,14 +25,21 @@ vi.mock("@sellbridge/database/repositories", () => ({
   previewSupplierProductImport: mocks.preview,
   importSupplierProducts: mocks.importProducts,
   saveAdminSupplierProduct: mocks.saveProduct,
+  saveAdminSupplier: mocks.saveSupplier,
+  setAdminSupplierActive: mocks.setSupplierActive,
+  setAdminSupplierProductActive: mocks.setProductActive,
+  reserveShortItems: mocks.reserveShort,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
-vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn } }));
+vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn, error: mocks.warn } }));
 import {
   confirmAdminProductCsv,
   previewAdminProductCsv,
   writeAdminProduct,
+  writeAdminSupplier,
+  writeProductActive,
+  writeSupplierActive,
 } from "./suppliers.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
@@ -42,6 +57,20 @@ const product = {
   mercadoLivreAttributes: {},
   active: true,
 };
+const savedSupplier = {
+  id: supplierId,
+  name: "Fornecedor",
+  niche: "Casa",
+  description: "",
+  state: "MG",
+  city: "Belo Horizonte",
+  logoUrl: null,
+  contactEmail: null,
+  acceptWithinHours: 24,
+  dispatchWithinHours: 48,
+  active: true,
+  createdAt: new Date("2026-10-01T00:00:00Z"),
+};
 function importPlan(revision = "initial"): SupplierProductImportPlan {
   return { created: 1, updated: 0, errors: [], products: [product], revision };
 }
@@ -49,9 +78,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.preview.mockResolvedValue(importPlan());
   mocks.enqueue.mockResolvedValue(undefined);
+  mocks.reserveShort.mockResolvedValue(0);
   mocks.importProducts.mockImplementation(async (_database, input) => {
     input.validatePreview(importPlan());
-    return { created: 1, updated: 0 };
+    return { created: 1, updated: 0, pausedTargets: 0, productIds: ["product-1"] };
   });
 });
 
@@ -61,9 +91,19 @@ describe("admin CSV orchestration", () => {
     expect(preview).toMatchObject({ created: 1, updated: 0, errors: [] });
     await expect(
       confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken }),
-    ).resolves.toEqual({ created: 1, updated: 0, synchronizationQueued: true });
+    ).resolves.toEqual({
+      created: 1,
+      updated: 0,
+      pausedTargets: 0,
+      synchronizationQueued: true,
+    });
     expect(mocks.enqueue).toHaveBeenCalledOnce();
     expect(mocks.importProducts.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
+    );
+    // Restocked units go to paid orders that were short before the sync offers them.
+    expect(mocks.reserveShort).toHaveBeenCalledWith({}, ["product-1"]);
+    expect(mocks.reserveShort.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
     );
   });
@@ -84,7 +124,7 @@ describe("admin CSV orchestration", () => {
     const preview = await previewAdminProductCsv({ supplierId, content });
     mocks.importProducts.mockImplementation(async (_database, input) => {
       input.validatePreview(importPlan("changed"));
-      return { created: 1, updated: 0 };
+      return { created: 1, updated: 0, pausedTargets: 0, productIds: ["product-1"] };
     });
     await expect(
       confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken }),
@@ -119,6 +159,7 @@ describe("admin CSV orchestration", () => {
     mocks.saveProduct.mockResolvedValue({
       ...product,
       id: "e937a566-b7bc-4305-b3c0-448e7133fcfe",
+      reservedStock: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -147,5 +188,59 @@ describe("admin CSV orchestration", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("enqueues synchronization after saving a supplier", async () => {
+    mocks.saveSupplier.mockResolvedValue(savedSupplier);
+
+    await expect(
+      writeAdminSupplier({
+        supplierId,
+        name: "Fornecedor",
+        niche: "Casa",
+        description: "",
+        state: "MG",
+        city: "Belo Horizonte",
+        logoUrl: null,
+        contactEmail: null,
+        acceptWithinHours: 24,
+        dispatchWithinHours: 48,
+      }),
+    ).resolves.toEqual({ ...savedSupplier, synchronizationQueued: true });
+    expect(mocks.saveSupplier.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enqueue.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("reports the paused listings and enqueues synchronization when switching off", async () => {
+    mocks.setSupplierActive.mockResolvedValue({
+      supplier: { ...savedSupplier, active: false },
+      pausedTargets: 4,
+    });
+    mocks.setProductActive.mockResolvedValue({
+      product: {
+        ...product,
+        id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
+        reservedStock: 0,
+        active: false,
+        createdAt: new Date("2026-10-01T00:00:00Z"),
+        updatedAt: new Date("2026-10-01T00:00:00Z"),
+      },
+      pausedTargets: 1,
+    });
+
+    await expect(writeSupplierActive({ supplierId, active: false })).resolves.toMatchObject({
+      active: false,
+      pausedTargets: 4,
+      synchronizationQueued: true,
+    });
+    await expect(
+      writeProductActive({
+        supplierId,
+        productId: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
+        active: false,
+      }),
+    ).resolves.toMatchObject({ active: false, pausedTargets: 1, synchronizationQueued: true });
+    expect(mocks.enqueue).toHaveBeenCalledTimes(2);
   });
 });

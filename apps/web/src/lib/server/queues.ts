@@ -1,8 +1,9 @@
 import {
   enqueueWebhookEventJob,
-  PUBLISH_BACKOFF_MILLISECONDS,
-  PUBLISH_JOB_ATTEMPTS,
+  PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
+  STOCK_SYNC_JOB_NAME,
+  STOCK_SYNC_JOB_OPTIONS,
   type PublishListingJob,
 } from "@sellbridge/shared/queues";
 import { Queue } from "bullmq";
@@ -17,12 +18,7 @@ function getPublishQueue(): Queue {
   }
   publishQueue = new Queue(QUEUE_NAMES.publishListing, {
     connection: { url: environment.REDIS_URL },
-    defaultJobOptions: {
-      attempts: PUBLISH_JOB_ATTEMPTS,
-      backoff: { type: "exponential", delay: PUBLISH_BACKOFF_MILLISECONDS },
-      removeOnComplete: 1000,
-      removeOnFail: 5000,
-    },
+    defaultJobOptions: PUBLISH_JOB_OPTIONS,
   });
   return publishQueue;
 }
@@ -53,16 +49,10 @@ export async function enqueueWebhookEvent(webhookEventId: string): Promise<void>
 
 let stockPriceSyncQueue: Queue | null = null;
 
-/** A fresh job avoids losing an update while an earlier sync job is already active. */
+/** One follow-up at most per running sync (see `STOCK_SYNC_JOB_OPTIONS`). */
 export async function enqueueStockPriceSync(): Promise<void> {
   stockPriceSyncQueue ??= new Queue(QUEUE_NAMES.stockPriceSync, {
     connection: { url: environment.REDIS_URL },
-    defaultJobOptions: {
-      attempts: 5,
-      backoff: { type: "exponential", delay: 5000 },
-      removeOnComplete: 100,
-      removeOnFail: 1000,
-    },
   });
-  await stockPriceSyncQueue.add("sync-stock-and-price", {});
+  await stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
 }

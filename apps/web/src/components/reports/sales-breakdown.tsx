@@ -2,7 +2,9 @@ import { formatCents } from "@sellbridge/shared/money";
 import { ArrowUpRightIcon } from "@phosphor-icons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { profitMargin } from "@/features/reports/dashboard-insights";
 import { displayStoreName } from "@/features/stores/store-name";
+import { formatPercent } from "@/lib/percent";
 
 interface StoreRow {
   storeConnectionId: string;
@@ -10,6 +12,7 @@ interface StoreRow {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
 interface ProductRow {
@@ -17,8 +20,6 @@ interface ProductRow {
   units: number;
   revenueCents: number;
 }
-
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 
 function BreakdownSection({
   title,
@@ -56,9 +57,17 @@ function EmptyRows() {
   );
 }
 
+/** "12% de margem" over the revenue whose cost is known; "custo pendente" when none is known. */
+function marginText(store: StoreRow): string {
+  const margin = profitMargin(store);
+  if (margin !== null) {
+    return `${formatPercent(margin)} de margem`;
+  }
+  return store.pendingCostRevenueCents > 0 ? "custo pendente" : `${formatPercent(0)} de margem`;
+}
+
 function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: number }) {
   const share = totalRevenue > 0 ? store.revenueCents / totalRevenue : 0;
-  const margin = store.revenueCents > 0 ? store.profitCents / store.revenueCents : 0;
   const name = displayStoreName(store.storeName);
   return (
     <li className="space-y-2">
@@ -76,13 +85,13 @@ function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: nu
           />
         </div>
         <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-          {percent.format(share)}
+          {formatPercent(share)}
           <span className="sr-only"> da receita</span>
         </span>
       </div>
       <p className="text-xs text-muted-foreground tabular-nums">
         {store.orders} {store.orders === 1 ? "venda" : "vendas"} · lucro{" "}
-        {formatCents(store.profitCents)} · {percent.format(margin)} de margem
+        {formatCents(store.profitCents)} · {marginText(store)}
       </p>
     </li>
   );

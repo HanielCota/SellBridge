@@ -86,12 +86,17 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await page.getByLabel("Título", { exact: true }).fill("Produto editado");
   await page.getByRole("button", { name: "Salvar produto" }).click();
   await expect(manualRow).toContainText("Produto editado");
-  await page.getByRole("textbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
+  await page.getByRole("searchbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
   await expect(page).toHaveURL(/query=CSV-MANUAL/);
   await expect(page.getByRole("row", { name: /CSV-NEW/ })).toHaveCount(0);
   await manualRow.getByRole("button", { name: "Desativar", exact: true }).click();
   await expect(manualRow).toContainText("Desativado");
   await page.getByRole("button", { name: "Desativar fornecedor", exact: true }).click();
+  // Deactivating asks first, with how many resellers sell the supplier.
+  await page
+    .getByRole("dialog", { name: `Desativar ${supplierName}?` })
+    .getByRole("button", { name: "Desativar fornecedor" })
+    .click();
   await expect(page.getByRole("button", { name: "Ativar fornecedor", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -100,4 +105,32 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test("admin informa o e-mail para pedidos e os prazos do fornecedor", async ({ page }) => {
+  const name = `${supplierName} prazos`;
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/fornecedores");
+  await page.getByRole("button", { name: "Novo fornecedor", exact: true }).click();
+  await page.getByLabel("Nome", { exact: true }).fill(name);
+  await page.getByLabel("Nicho", { exact: true }).fill("Teste prazos");
+  await page.getByLabel("Cidade de origem").fill("Recife");
+  await expect(page.getByLabel("Prazo para aceitar (horas)")).toHaveValue("24");
+  await expect(page.getByLabel("Prazo para despachar (horas)")).toHaveValue("48");
+
+  await page.getByLabel("E-mail para pedidos (opcional)").fill("pedidos@");
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
+  await expect(page.getByText("Informe um e-mail válido")).toBeVisible();
+
+  await page.getByLabel("E-mail para pedidos (opcional)").fill("pedidos@fornecedor-e2e.com.br");
+  await page.getByLabel("Prazo para aceitar (horas)").fill("12");
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("E-mail para pedidos (opcional)")).toHaveValue(
+    "pedidos@fornecedor-e2e.com.br",
+  );
+  await expect(page.getByLabel("Prazo para aceitar (horas)")).toHaveValue("12");
+  await database.delete(suppliers).where(eq(suppliers.name, name));
 });

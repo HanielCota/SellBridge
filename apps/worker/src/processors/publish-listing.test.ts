@@ -2,6 +2,8 @@ import { UnrecoverableError } from "bullmq";
 import { eq } from "drizzle-orm";
 import { schema } from "@sellbridge/database";
 import { marketplaceError, type MarketplaceConnector } from "@sellbridge/marketplaces";
+import { unavailableMessage } from "@sellbridge/shared/catalog-availability";
+import { STORE_SUPPLIER_CHANGED_MESSAGE } from "@sellbridge/shared/store-supplier";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestProduct,
@@ -41,11 +43,13 @@ const processPublish = createPublishListingProcessor({
     mock: { ...environment.connectors.mock, publishProduct },
   },
   acquireRateLimit: async () => {},
+  safetyUnits: 0,
 });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
 let tenantIds: string[] = [];
+const extraCatalogs: { cleanup: () => Promise<void> }[] = [];
 let connectedStoreId = "";
 let disconnectedStoreId = "";
 
@@ -70,6 +74,18 @@ async function targetRow(targetId: string) {
   return row;
 }
 
+async function productOfTarget(targetId: string) {
+  const [row] = await database
+    .select({ productId: schema.listings.supplierProductId })
+    .from(schema.listingTargets)
+    .innerJoin(schema.listings, eq(schema.listings.id, schema.listingTargets.listingId))
+    .where(eq(schema.listingTargets.id, targetId));
+  if (!row) {
+    throw new Error("produto do destino não encontrado");
+  }
+  return row.productId;
+}
+
 beforeAll(async () => {
   tenants = await createTestTenants(database, 2);
   tenantIds = tenants.ids;
@@ -81,6 +97,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
+  for (const extra of extraCatalogs) {
+    await extra.cleanup();
+  }
   await database.$client.end();
 });
 
@@ -179,14 +198,15 @@ describe("publish-listing processor", () => {
   });
 
   it("persists the remote creation guard and retains it across manual reprocessing", async () => {
-    const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
+    // Before the target: each target lists its own copy of the fixture product.
     await database
       .update(schema.supplierProducts)
       .set({ mercadoLivreAttributes: { BRAND: "Acme", MODEL: "A1" } })
       .where(eq(schema.supplierProducts.id, catalog.productId));
+    const { tenantId, targetId } = await createTarget("Criação remota com resposta perdida");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
     publishProduct.mockImplementationOnce(async (_credentials, input, options) => {
-      expect(options?.reconcileOnly).toBe(false);
+      expect(options?.creationStartedAt).toBeNull();
       expect(input.mercadoLivreAttributes).toEqual({ BRAND: "Acme", MODEL: "A1" });
       await options?.beforeCreate();
       expect((await targetRow(targetId)).creationStartedAt).toBeInstanceOf(Date);
@@ -199,11 +219,30 @@ describe("publish-listing processor", () => {
       .set({ status: "pending" })
       .where(eq(schema.listingTargets.id, targetId));
     publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
-      expect(options?.reconcileOnly).toBe(true);
+      expect(options?.creationStartedAt).toBeInstanceOf(Date);
       return { externalId: "MLB-recovered", externalUrl: null };
     });
     expect(await processPublish(job)).toBe("published");
     expect((await targetRow(targetId)).externalId).toBe("MLB-recovered");
+  });
+
+  it("clears the guard when reprocessing confirms the item never landed", async () => {
+    const { tenantId, targetId } = await createTarget("Criação que nunca chegou ao marketplace");
+    const startedAt = new Date(Date.now() - 15 * 60_000);
+    await database
+      .update(schema.listingTargets)
+      .set({ creationStartedAt: startedAt })
+      .where(eq(schema.listingTargets.id, targetId));
+    publishProduct.mockImplementationOnce(async (_credentials, _input, options) => {
+      expect(options?.creationStartedAt).toEqual(startedAt);
+      await options?.creationAbsent();
+      expect((await targetRow(targetId)).creationStartedAt).toBeNull();
+      await options?.beforeCreate();
+      return { externalId: "MLB-recreated", externalUrl: null };
+    });
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    expect(await processPublish(job)).toBe("published");
+    expect((await targetRow(targetId)).externalId).toBe("MLB-recreated");
   });
 
   it("clears the durable guard when creation was definitively refused", async () => {
@@ -221,6 +260,97 @@ describe("publish-listing processor", () => {
       }),
     ).rejects.toBeInstanceOf(UnrecoverableError);
     expect((await targetRow(targetId)).creationStartedAt).toBeNull();
+  });
+
+  it("refuses a product taken out of the catalog after it was queued", async () => {
+    const { tenantId, targetId } = await createTarget("Produto desativado na fila");
+    await database
+      .update(schema.supplierProducts)
+      .set({ active: false })
+      .where(eq(schema.supplierProducts.id, await productOfTarget(targetId)));
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect(await targetRow(targetId)).toMatchObject({
+      status: "error",
+      errorReason: unavailableMessage("product_inactive"),
+    });
+  });
+
+  it("refuses every product of a supplier deactivated after it was queued", async () => {
+    const own = await createTestProduct(database, {
+      sku: "W-INATIVO",
+      title: "Produto de fornecedor inativo",
+      stock: 3,
+    });
+    extraCatalogs.push(own);
+    const tenantId = tenants.first;
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: own.productId,
+      storeId: connectedStoreId,
+      title: "Produto de fornecedor desativado",
+    });
+    await database
+      .update(schema.suppliers)
+      .set({ active: false })
+      .where(eq(schema.suppliers.id, own.supplierId));
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("supplier_inactive"));
+  });
+
+  it("publishes for a reseller anywhere in Brazil, whatever address an older profile kept", async () => {
+    const [, tenantId] = tenantIds;
+    if (tenantId === undefined) {
+      throw new Error("tenant ausente");
+    }
+    await database
+      .insert(schema.tenantProfile)
+      .values({ tenantId, cep: "69900062", state: "AC", city: "Rio Branco" });
+    const store = await createTestStore(environment, tenantId, "connected");
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: catalog.productId,
+      storeId: store.id,
+      title: "Produto vendido do Acre",
+    });
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    expect(await processPublish(job)).toBe("published");
+    expect((await targetRow(targetId)).errorReason).toBeNull();
+  });
+
+  it("refuses a publication whose shop moved to another supplier after it was queued", async () => {
+    const other = await createTestProduct(database, {
+      sku: "W-OUTRO",
+      title: "Produto de outro fornecedor",
+      stock: 3,
+    });
+    extraCatalogs.push(other);
+    const tenantId = tenants.first;
+    const store = await createTestStore(environment, tenantId, "connected");
+    await database
+      .update(schema.storeConnections)
+      .set({ supplierId: other.supplierId })
+      .where(eq(schema.storeConnections.id, store.id));
+    const targetId = await createTestTarget(database, {
+      tenantId,
+      productId: catalog.productId,
+      storeId: store.id,
+      title: "Produto de fornecedor que a loja deixou de vender",
+    });
+    publishProduct.mockClear();
+
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(publishProduct).not.toHaveBeenCalled();
+    expect((await targetRow(targetId)).errorReason).toBe(STORE_SUPPLIER_CHANGED_MESSAGE);
   });
 
   it("rejects malformed payloads", async () => {

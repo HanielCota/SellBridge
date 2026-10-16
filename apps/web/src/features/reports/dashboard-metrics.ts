@@ -3,6 +3,8 @@ export interface MetricPoint {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  /** Revenue of sales whose cost is unknown: part of `revenueCents`, left out of the profit. */
+  pendingCostRevenueCents: number;
 }
 
 const shortDate = new Intl.DateTimeFormat("pt-BR", {
@@ -28,6 +30,15 @@ export function formatDateRange(from: string, to: string): string {
 
 export function formatPointDate(value: string): string {
   return shortDate.format(parseIsoDate(value));
+}
+
+/**
+ * The first day of a bucket that falls inside the period. A weekly bucket is dated by its Monday,
+ * so a period starting on a Sunday has a first week dated the Monday before it, a day the reseller
+ * never chose.
+ */
+export function firstDayWithin(bucketDate: string, periodFromDate: string): string {
+  return bucketDate < periodFromDate ? periodFromDate : bucketDate;
 }
 
 const monthShort = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });

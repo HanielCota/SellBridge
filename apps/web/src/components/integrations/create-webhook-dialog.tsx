@@ -104,7 +104,7 @@ function WebhookForm({
             <PendingSubmitButton
               isPending={isSubmitting}
               idleLabel="Criar webhook"
-              pendingLabel="Criando..."
+              pendingLabel="Criando…"
             />
           )}
         </form.Subscribe>

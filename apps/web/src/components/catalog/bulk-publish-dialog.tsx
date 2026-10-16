@@ -1,4 +1,4 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
 import { CaretDownIcon, MinusIcon, PlusIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { PriceReceipt } from "./price-receipt";
+import { batchPriceProblem } from "@sellbridge/shared/fee-model";
+import { priceForRule } from "@sellbridge/shared/schemas";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +34,21 @@ export interface PublishStore {
   id: string;
   shopName: string;
   marketplace: string;
+  /** Each store sells a single supplier; null while the seller has not picked one. */
+  supplierId: string | null;
+}
+
+/** Stores that sell the supplier of every chosen product; none when they come from several. */
+function storesForProducts(
+  products: readonly SellableCatalogProduct[],
+  stores: readonly PublishStore[],
+): PublishStore[] {
+  const supplierIds = new Set(products.map((product) => product.supplierId));
+  const [only] = supplierIds;
+  if (supplierIds.size !== 1 || only === undefined) {
+    return [];
+  }
+  return stores.filter((store) => store.supplierId === only);
 }
 
 const MARKUP_STEP = 5;
@@ -123,7 +141,7 @@ function StoreSummaryRow({
       type="button"
       aria-expanded={expanded}
       onClick={onToggle}
-      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted"
+      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
     >
       <span className="flex shrink-0" aria-hidden="true">
         {chosen.slice(0, 3).map((store) => (
@@ -237,13 +255,14 @@ function PercentStepper({
       >
         <MinusIcon aria-hidden="true" />
       </Button>
-      <span className="flex items-center text-sm font-medium tabular-nums">
+      <span className="flex items-center rounded-md text-sm font-medium tabular-nums has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
         <input
           aria-label={label}
           inputMode="numeric"
           value={percent}
           onChange={(event) => onPercentChange(event.target.value.replace(/\D/g, ""))}
-          className="w-8 bg-transparent text-right outline-none"
+          // 17px on phones: iOS zooms into any field under 16px when it gets focus.
+          className="w-9 rounded-md bg-transparent text-right text-body outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:w-8 sm:text-sm"
         />
         %
       </span>
@@ -360,16 +379,16 @@ function PriceRulePicker({
   draft,
   overrides,
 }: {
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   draft: ReturnType<typeof usePriceRuleDraft>;
   overrides: ReturnType<typeof usePriceOverrides>;
 }) {
   const isMarkup = draft.kind === "markup";
-  const ruleFor = (product: RegionCatalogProduct) =>
+  const ruleFor = (product: SellableCatalogProduct) =>
     (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule;
   // The markup the preview really applies: a half-typed shared value falls back to the default.
   const sharedPercent = draft.rule.kind === "markup" ? String(draft.rule.percent) : draft.percent;
-  const adjust = (product: RegionCatalogProduct) => (
+  const adjust = (product: SellableCatalogProduct) => (
     <ProductMarkupAdjust
       sharedPercent={sharedPercent}
       percent={overrides.percentFor(product.id)}
@@ -397,12 +416,30 @@ function PriceRulePicker({
   );
 }
 
-function NoStores() {
+function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
+  if (new Set(products.map((product) => product.supplierId)).size > 1) {
+    return "Os produtos escolhidos são de fornecedores diferentes, e cada loja vende um único fornecedor. Selecione produtos de um fornecedor por vez.";
+  }
+  if (hasStores) {
+    return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";
+  }
+  return "Conecte uma loja antes de publicar.";
+}
+
+function NoStores({
+  products,
+  hasStores,
+}: {
+  products: readonly SellableCatalogProduct[];
+  hasStores: boolean;
+}) {
   return (
     <div className="space-y-3 text-sm">
-      <p>Conecte uma loja antes de publicar.</p>
+      <p>{noStoresMessage(products, hasStores)}</p>
       <Button asChild size="sm">
-        <Link to="/lojas">Conectar loja</Link>
+        <Link to="/lojas" hash="adicionar-loja">
+          Conectar loja
+        </Link>
       </Button>
     </div>
   );
@@ -426,7 +463,9 @@ function useBulkPublish(onDone: () => void) {
       onDone();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
-        queryClient.invalidateQueries({ queryKey: ["region-catalog"] }),
+        queryClient.invalidateQueries({ queryKey: ["sellable-catalog"] }),
+        // The page it opens next lists them: a cached list from 30 s ago would not.
+        queryClient.invalidateQueries({ queryKey: ["listings"] }),
       ]);
       await navigate({ to: "/publicacoes" });
     },
@@ -434,12 +473,47 @@ function useBulkPublish(onDone: () => void) {
   });
 }
 
+/**
+ * The batch's floor on screen, in the server's own words: a price rule that would lose money on
+ * any product is said here, before the batch goes out to be refused.
+ */
+function useBatchFloorProblem(
+  products: readonly SellableCatalogProduct[],
+  draft: ReturnType<typeof usePriceRuleDraft>,
+  overrides: ReturnType<typeof usePriceOverrides>,
+): string | null {
+  const schedule = useFeeSchedule();
+  const isMarkup = draft.kind === "markup";
+  return batchPriceProblem(
+    products.map((product) => ({
+      title: product.title,
+      costCents: product.costCents,
+      priceCents: priceForRule(
+        product,
+        (isMarkup ? overrides.rules[product.id] : undefined) ?? draft.rule,
+      ),
+    })),
+    schedule,
+  );
+}
+
+function FloorProblem({ problem }: { problem: string | null }) {
+  if (problem === null) {
+    return null;
+  }
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {problem}
+    </p>
+  );
+}
+
 function BulkPublishForm({
   products,
   stores,
   onDone,
 }: {
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   stores: PublishStore[];
   onDone: () => void;
 }) {
@@ -451,8 +525,13 @@ function BulkPublishForm({
   const mutation = useBulkPublish(onDone);
   const isMarkup = draft.kind === "markup";
   const adjusted = isMarkup ? overrides.count : 0;
+  const floorProblem = useBatchFloorProblem(products, draft, overrides);
   const canSubmit =
-    storeIds.size > 0 && draft.isValid && (!isMarkup || overrides.isValid) && !mutation.isPending;
+    storeIds.size > 0 &&
+    draft.isValid &&
+    (!isMarkup || overrides.isValid) &&
+    floorProblem === null &&
+    !mutation.isPending;
   const listings = products.length * storeIds.size;
   return (
     <form
@@ -473,9 +552,10 @@ function BulkPublishForm({
       <StorePicker stores={stores} selected={storeIds} onChange={setStoreIds} />
       <PriceRulePicker products={products} draft={draft} overrides={overrides} />
       <div className="space-y-2">
+        <FloorProblem problem={floorProblem} />
         <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
           {mutation.isPending
-            ? "Publicando..."
+            ? "Publicando…"
             : `Publicar em ${pluralize(storeIds.size, "loja", "lojas")}`}
         </Button>
         <p className="text-center text-xs text-muted-foreground tabular-nums">
@@ -489,7 +569,7 @@ function BulkPublishForm({
 }
 
 /** "Bermuda azul, Blusa verde e mais 3": names the selection without listing it all. */
-function selectionSummary(products: RegionCatalogProduct[]): string {
+function selectionSummary(products: SellableCatalogProduct[]): string {
   const named = products.slice(0, 2).map((product) => product.title);
   const rest = products.length - named.length;
   if (rest <= 0) {
@@ -507,9 +587,10 @@ export function BulkPublishDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  products: RegionCatalogProduct[];
+  products: SellableCatalogProduct[];
   stores: PublishStore[];
 }) {
+  const eligible = storesForProducts(products, stores);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-md">
@@ -519,13 +600,13 @@ export function BulkPublishDialog({
           </DialogTitle>
           <DialogDescription className="truncate">{selectionSummary(products)}</DialogDescription>
         </DialogHeader>
-        {stores.length === 0 ? (
-          <NoStores />
+        {eligible.length === 0 ? (
+          <NoStores products={products} hasStores={stores.length > 0} />
         ) : (
           open && (
             <BulkPublishForm
               products={products}
-              stores={stores}
+              stores={eligible}
               onDone={() => onOpenChange(false)}
             />
           )

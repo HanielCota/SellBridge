@@ -1,5 +1,7 @@
 import type { ListingOverviewRow } from "@sellbridge/database/repositories";
+import type { FeeSchedule } from "@sellbridge/shared/fee-model";
 import { formatCents, parseBrlToCents } from "@sellbridge/shared/money";
+import { LISTING_MAX_PRICE_CENTS } from "@sellbridge/shared/schemas";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,15 +13,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ListingRunState } from "@/features/listings/listing-health";
+import { totalFeeCents } from "@/components/listings/profit-split";
 import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
   estimateProfit,
+  feePercentLabel,
   isThinMargin,
+  minimumPrice,
   priceForMargin,
   type ProfitEstimate,
+  wholeMarginPercent,
 } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useUpdatePrice } from "@/features/listings/use-listing-actions";
-import { formatCentsForField, maskCurrencyInput } from "@/lib/currency-mask";
+import { formatCentsForField, maskCurrencyInput, readPastedCurrency } from "@/lib/currency-mask";
 import { cn } from "@/lib/utils";
 import { RUN_STATE_DOT, RUN_STATE_TEXT, RUN_STATE_TINT } from "./run-state-style";
 
@@ -52,14 +58,40 @@ const TILE_ACTIVE: Record<MarginTone, string> = {
   off: "bg-destructive/12 ring-destructive/55",
 };
 
-function priceProblem(priceCents: number | null, costCents: number): string | null {
+/** The server's floor, said before saving: the lowest price that pays after every fee. */
+function belowFloorProblem(
+  priceCents: number,
+  costCents: number,
+  schedule: FeeSchedule,
+): string | null {
+  const floorCents = minimumPrice(costCents, schedule);
+  if (floorCents === null) {
+    return "As taxas configuradas não deixam lucro para este produto";
+  }
+  if (priceCents >= floorCents) {
+    return null;
+  }
+  if (schedule.minimumMarginPercent === 0) {
+    return `Abaixo de ${formatCents(floorCents)} você tem prejuízo depois das taxas`;
+  }
+  return `Abaixo de ${formatCents(floorCents)} a margem fica menor que ${schedule.minimumMarginPercent}%`;
+}
+
+function priceProblem(
+  priceCents: number | null,
+  costCents: number,
+  schedule: FeeSchedule,
+): string | null {
   if (priceCents === null || priceCents <= 0) {
     return "Informe um preço válido";
+  }
+  if (priceCents > LISTING_MAX_PRICE_CENTS) {
+    return `O preço de venda pode ser de até ${formatCents(LISTING_MAX_PRICE_CENTS)}`;
   }
   if (priceCents <= costCents) {
     return `O preço precisa ser maior que o custo (${formatCents(costCents)})`;
   }
-  return null;
+  return belowFloorProblem(priceCents, costCents, schedule);
 }
 
 function toneOfMargin(marginPercent: number): MarginTone {
@@ -94,7 +126,7 @@ function MarginChip({ tone, estimate }: { tone: MarginTone; estimate: ProfitEsti
       )}
     >
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", RUN_STATE_DOT[tone])} />
-      {estimate ? `${Math.round(estimate.marginPercent)}% · ` : null}
+      {estimate ? `${wholeMarginPercent(estimate.marginPercent)}% · ` : null}
       {MARGIN_NAMES[tone]}
     </span>
   );
@@ -134,6 +166,12 @@ function PriceField({
           inputMode="numeric"
           autoComplete="off"
           value={value}
+          onPaste={(event) => {
+            // A pasted amount replaces the field whole; it is not typed digit by digit.
+            event.preventDefault();
+            const pasted = readPastedCurrency(event.clipboardData.getData("text"));
+            if (pasted !== null) onChange(pasted);
+          }}
           onChange={(event) => {
             const field = event.currentTarget;
             onChange(maskCurrencyInput(field.value));
@@ -169,12 +207,13 @@ function MarginShortcuts({
   tone: MarginTone;
   onPick: (priceCents: number) => void;
 }) {
+  const schedule = useFeeSchedule();
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">Margem</p>
       <div className="grid grid-cols-4 gap-1.5">
         {MARGIN_SHORTCUTS.map((margin) => {
-          const exact = priceForMargin(costCents, margin);
+          const exact = priceForMargin(costCents, margin, schedule);
           const price = exact === null ? null : shelfPrice(exact);
           const active = price !== null && price === priceCents;
           return (
@@ -182,7 +221,7 @@ function MarginShortcuts({
               key={margin}
               type="button"
               aria-pressed={active}
-              disabled={price === null}
+              disabled={price === null || margin < schedule.minimumMarginPercent}
               onClick={() => {
                 if (price !== null) {
                   onPick(price);
@@ -215,7 +254,15 @@ function MarginShortcuts({
   );
 }
 
-/** Where the price goes: supplier cost, marketplace fee and the profit, in the margin's color. */
+/** "Taxa 14%", or just "Taxas" when SellBridge's fee joins the marketplace's. */
+function feesLabel(schedule: FeeSchedule): string {
+  if (schedule.platformFeeBasisPoints > 0 || schedule.estimatedShippingCents > 0) {
+    return "Taxas";
+  }
+  return `Taxa ${feePercentLabel(schedule.marketplaceFeeBasisPoints)}`;
+}
+
+/** Where the price goes: supplier cost, every fee and the profit, in the margin's color. */
 function PriceBreakdown({
   costCents,
   estimate,
@@ -225,11 +272,12 @@ function PriceBreakdown({
   estimate: ProfitEstimate | null;
   tone: MarginTone;
 }) {
+  const schedule = useFeeSchedule();
   const parts = [
     { label: "Custo", value: formatCents(costCents), className: "" },
     {
-      label: `Taxa ${ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL}`,
-      value: estimate ? formatCents(estimate.feeCents) : "—",
+      label: feesLabel(schedule),
+      value: estimate ? formatCents(totalFeeCents(estimate)) : "—",
       className: "",
     },
     {
@@ -257,9 +305,10 @@ function storesLabel(count: number): string {
 function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: () => void }) {
   const [value, setValue] = useState(formatCentsForField(listing.priceCents));
   const mutation = useUpdatePrice(onDone);
+  const schedule = useFeeSchedule();
   const priceCents = parseBrlToCents(value);
-  const problem = priceProblem(priceCents, listing.costCents);
-  const estimate = estimateProfit(priceCents, listing.costCents);
+  const problem = priceProblem(priceCents, listing.costCents, schedule);
+  const estimate = estimateProfit(priceCents, listing.costCents, schedule);
   const tone = toneOf(estimate, problem);
   return (
     <form
@@ -292,7 +341,7 @@ function EditPriceForm({ listing, onDone }: { listing: PricedListing; onDone: ()
           Cancelar
         </Button>
         <Button type="submit" disabled={problem !== null || mutation.isPending}>
-          {mutation.isPending ? "Salvando..." : "Salvar preço"}
+          {mutation.isPending ? "Salvando…" : "Salvar preço"}
         </Button>
       </DialogFooter>
     </form>

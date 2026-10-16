@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { initials } from "./user-menu";
+import { initials } from "@/lib/initials";
 
 /** Profile photo, or the initials on the brand color when there is none (or it fails to load). */
 export function UserAvatar({

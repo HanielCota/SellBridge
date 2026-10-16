@@ -111,19 +111,36 @@ describe("admin catalog schemas", () => {
       pageSize: 20,
     });
   });
-  it("rejects duplicate coverage regardless of city case", () => {
-    const result = adminSupplierValuesSchema.safeParse({
+  it("asks only where the supplier ships from, with no delivery area", () => {
+    const values = {
       name: "Teste",
       niche: "Teste",
       description: "",
       state: "SP",
       city: "São Paulo",
       logoUrl: null,
-      coverage: [
-        { state: "SP", city: "Santos" },
-        { state: "SP", city: "santos" },
-      ],
-    });
-    expect(result.success).toBe(false);
+      contactEmail: null,
+      acceptWithinHours: 24,
+      dispatchWithinHours: 48,
+    };
+    expect(adminSupplierValuesSchema.parse(values)).toEqual(values);
+    expect(adminSupplierValuesSchema.safeParse({ ...values, city: " " }).success).toBe(false);
+  });
+
+  it("refuses a line with more columns than any import needs, before the import blocks", () => {
+    const columns = "sku;titulo;custo;estoque";
+    expect(() =>
+      parseProductCsv(`${columns}
+A;B;1;1${";".repeat(60)}`),
+    ).toThrow("no máximo 50 colunas");
+    expect(() =>
+      parseProductCsv(`${columns}
+${";".repeat(2_000_000)}`),
+    ).toThrow("no máximo 50 colunas");
+  });
+
+  it("caps cost and suggested price at the listing ceiling", () => {
+    expect(parseCsvMoney("1000000,00")).toBe(100_000_000);
+    expect(parseCsvMoney("1000000,01")).toBeNull();
   });
 });

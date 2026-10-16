@@ -5,7 +5,9 @@ import {
   listAdminCategories,
   listAdminSupplierProducts,
   listAdminSuppliers,
+  listSupplierSellers,
   previewSupplierProductImport,
+  reserveShortItems,
   saveAdminSupplier,
   saveAdminSupplierProduct,
   setAdminSupplierActive,
@@ -14,7 +16,6 @@ import {
 } from "@sellbridge/database/repositories";
 import { AppError, conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { withDeadline } from "@sellbridge/shared/deadline";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import type { z } from "zod";
 import type {
@@ -26,18 +27,20 @@ import type {
   adminSetProductActiveSchema,
 } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
-import { enqueueStockPriceSync } from "@/lib/server/queues";
+import { requestStockSync } from "@/lib/server/stock-sync";
 
 export async function loadAdminSuppliers(search: AdminSupplierSearch) {
   return await listAdminSuppliers(database, search.query, search);
 }
 
+/** The supplier, the categories for its products and the shops that sell it. */
 export async function loadAdminSupplier(supplierId: string) {
-  const [detail, categories] = await Promise.all([
+  const [detail, categories, sellers] = await Promise.all([
     getAdminSupplier(database, supplierId),
     listAdminCategories(database),
+    listSupplierSellers(database, supplierId),
   ]);
-  return { ...detail, categories };
+  return { ...detail, categories, sellers };
 }
 
 export async function loadAdminProducts(input: AdminSupplierSearch & { supplierId: string }) {
@@ -57,34 +60,49 @@ async function catalogWrite<TResult>(write: () => Promise<TResult>): Promise<TRe
   }
 }
 
-/** A committed write remains successful if Redis fails; the scheduled worker retries from the database. */
-async function requestSynchronization(): Promise<boolean> {
+/**
+ * Paid items that came up short get the new units first, before the sync offers them to new
+ * buyers. Runs after the catalog write commits: a failure here leaves the shortage as it was
+ * (it is retried on the next count or order update), never the count unsaved.
+ */
+async function reserveRestockedShortages(productIds: readonly string[]): Promise<void> {
   try {
-    await withDeadline(enqueueStockPriceSync(), 3000, "Sincronização do catálogo");
-    return true;
+    await reserveShortItems(database, productIds);
   } catch (error) {
-    logger.warn("admin.catalog_sync_deferred", { error });
-    return false;
+    logger.error("admin.short_reservation_failed", { productIds: productIds.length, error });
   }
 }
 
-export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplierSchema>) {
-  return await catalogWrite(async () => await saveAdminSupplier(database, input));
+/** A committed write remains successful if Redis fails; the scheduled worker retries from the database. */
+async function requestSynchronization(): Promise<boolean> {
+  return await requestStockSync("admin.catalog_sync_deferred");
 }
 
+/** Like every catalog write, a saved supplier asks the worker to sync right away. */
+export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplierSchema>) {
+  const supplier = await catalogWrite(async () => await saveAdminSupplier(database, input));
+  return { ...supplier, synchronizationQueued: await requestSynchronization() };
+}
+
+/** Deactivating pauses the supplier's live listings; the sync sends their zero stock right away. */
 export async function writeSupplierActive(input: { supplierId: string; active: boolean }) {
-  return await catalogWrite(
+  const { supplier, pausedTargets } = await catalogWrite(
     async () => await setAdminSupplierActive(database, input.supplierId, input.active),
   );
+  return { ...supplier, pausedTargets, synchronizationQueued: await requestSynchronization() };
 }
 
 export async function writeAdminProduct(input: z.infer<typeof adminSaveProductSchema>) {
   const product = await catalogWrite(async () => await saveAdminSupplierProduct(database, input));
+  await reserveRestockedShortages([product.id]);
   return { product, synchronizationQueued: await requestSynchronization() };
 }
 
 export async function writeProductActive(input: z.infer<typeof adminSetProductActiveSchema>) {
-  return await catalogWrite(async () => await setAdminSupplierProductActive(database, input));
+  const { product, pausedTargets } = await catalogWrite(
+    async () => await setAdminSupplierProductActive(database, input),
+  );
+  return { ...product, pausedTargets, synchronizationQueued: await requestSynchronization() };
 }
 
 function previewToken(content: string, plan: SupplierProductImportPlan): string {
@@ -123,5 +141,7 @@ export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmP
         },
       }),
   );
-  return { ...result, synchronizationQueued: await requestSynchronization() };
+  const { productIds, ...counts } = result;
+  await reserveRestockedShortages(productIds);
+  return { ...counts, synchronizationQueued: await requestSynchronization() };
 }

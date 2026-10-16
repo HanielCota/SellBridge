@@ -1,7 +1,21 @@
-import { computeOrderFinance, type OrderFinanceInput } from "@sellbridge/shared/finance";
+import {
+  DEFAULT_FEE_SCHEDULE,
+  estimatedMarketplaceFeeCents,
+  estimateSale,
+} from "@sellbridge/shared/fee-model";
+import {
+  computeOrderFinance,
+  type OrderFinance,
+  type OrderFinanceInput,
+} from "@sellbridge/shared/finance";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { orderAdjustments, orderItems, orders, storeConnections } from "../schema/index.ts";
-import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
+import {
+  createTestDatabase,
+  createTestSupplierProduct,
+  createTestTenants,
+} from "../testing/fixtures.ts";
 import {
   exportOrderFinancials,
   getSalesByStore,
@@ -14,6 +28,7 @@ import {
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
+let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let tenantA = "";
 let tenantB = "";
 let storeA1 = "";
@@ -41,7 +56,7 @@ const ORDERS_A1: SeedOrder[] = [
     status: "delivered",
     totalCents: 10_000,
     marketplaceFeeCents: 1400,
-    items: [{ quantity: 1, unitCostCents: 4000 }],
+    items: [{ quantity: 1, knownUnitCostCents: 4000 }],
     adjustments: [{ type: "commission", amountCents: 300 }],
   },
   {
@@ -54,7 +69,7 @@ const ORDERS_A1: SeedOrder[] = [
     status: "shipped",
     totalCents: 10_000,
     marketplaceFeeCents: 1200,
-    items: [{ quantity: 2, unitCostCents: 2000 }],
+    items: [{ quantity: 2, knownUnitCostCents: 2000 }],
     adjustments: [{ type: "refund", amountCents: 1000 }],
   },
   {
@@ -66,7 +81,7 @@ const ORDERS_A1: SeedOrder[] = [
     status: "returned",
     totalCents: 8000,
     marketplaceFeeCents: 1000,
-    items: [{ quantity: 1, unitCostCents: 3000 }],
+    items: [{ quantity: 1, knownUnitCostCents: 3000 }],
     adjustments: [{ type: "return", amountCents: 8000 }],
   },
 ];
@@ -80,7 +95,7 @@ const ORDER_A2: SeedOrder = {
   status: "paid",
   totalCents: 20_000,
   marketplaceFeeCents: 2800,
-  items: [{ quantity: 1, unitCostCents: 9000 }],
+  items: [{ quantity: 1, knownUnitCostCents: 9000 }],
   adjustments: [],
 };
 
@@ -123,14 +138,16 @@ async function insertOrder(tenantId: string, storeConnectionId: string, seed: Se
   if (!order) {
     throw new Error("pedido não criado");
   }
+  // A known cost comes from our catalog; an unknown one is an item of a listing that is not ours.
   await database.insert(orderItems).values(
     seed.items.map((item) => ({
       tenantId,
       orderId: order.id,
+      supplierProductId: item.knownUnitCostCents === null ? null : catalog.productId,
       title: seed.title,
       quantity: item.quantity,
       unitPriceCents: seed.unitPriceCents,
-      unitCostCents: item.unitCostCents,
+      unitCostCents: item.knownUnitCostCents ?? 0,
     })),
   );
   if (seed.adjustments.length > 0) {
@@ -154,11 +171,17 @@ function scope(overrides: Partial<ReportScope> = {}): ReportScope {
 const expectedFinances = [...ORDERS_A1, ORDER_A2].map((order) =>
   computeOrderFinance(order, PLATFORM_FEE_BASIS_POINTS),
 );
-function expectedSum(key: keyof (typeof expectedFinances)[number]): number {
+function expectedSum(key: Exclude<keyof OrderFinance, "costPending">): number {
   return expectedFinances.reduce((total, finance) => total + finance[key], 0);
 }
 
 beforeAll(async () => {
+  catalog = await createTestSupplierProduct(database, {
+    sku: "REPORTS-1",
+    title: "Produto dos relatórios",
+    costCents: 1000,
+    suggestedPriceCents: 2000,
+  });
   tenants = await createTestTenants(database, 2);
   const [first, second] = tenants.ids;
   if (!first || !second) {
@@ -179,6 +202,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await tenants.cleanup();
+  await catalog.cleanup();
   await database.$client.end();
 });
 
@@ -196,6 +220,8 @@ describe("sales summary", () => {
       commissionCents: expectedSum("commissionCents"),
       platformFeeCents: expectedSum("platformFeeCents"),
       profitCents: expectedSum("profitCents"),
+      pendingCostOrders: 0,
+      pendingCostRevenueCents: 0,
     });
     expect(summary.averageTicketCents).toBe(Math.round(40_000 / 3));
   });
@@ -215,6 +241,194 @@ describe("sales summary", () => {
       revenueCents: 0,
       profitCents: 0,
       averageTicketCents: null,
+    });
+  });
+});
+
+describe("listing preview and financial report", () => {
+  it("give the same profit for the same sale", async () => {
+    // A sale whose marketplace charged what the fee model estimates: the preview promised the
+    // profit the financial page then shows, the SellBridge fee included.
+    const feeSchedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+    // 14% of R$ 25,25 is 353,5 cents: the half cent the two sides must round alike.
+    const sales = [
+      { priceCents: 15_990, costCents: 7_450 },
+      { priceCents: 2_525, costCents: 1_000 },
+    ];
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja da prévia");
+      for (const [index, sale] of sales.entries()) {
+        await insertOrder(tenantId, store, {
+          ...ORDER_A2,
+          externalOrderId: `PREVIEW-${index}`,
+          totalCents: sale.priceCents,
+          unitPriceCents: sale.priceCents,
+          marketplaceFeeCents: estimatedMarketplaceFeeCents(sale, feeSchedule),
+          items: [{ quantity: 1, knownUnitCostCents: sale.costCents }],
+        });
+      }
+      const rows = await exportOrderFinancials(
+        database,
+        scope({ tenantId, platformFeeBasisPoints: feeSchedule.platformFeeBasisPoints }),
+        { filters: {}, sort: { field: "orderedAt", direction: "asc" } },
+      );
+      const reported = new Map(rows.map((row) => [row.externalOrderId, row.profitCents]));
+      for (const [index, sale] of sales.entries()) {
+        expect(reported.get(`PREVIEW-${index}`)).toBe(estimateSale(sale, feeSchedule).profitCents);
+      }
+    } finally {
+      await extra.cleanup();
+    }
+  });
+});
+
+describe("unknown item cost", () => {
+  // A sale of a listing created outside SellBridge: its revenue is real, its cost is not known.
+  const UNKNOWN_COST: SeedOrder = {
+    ...ORDER_A2,
+    externalOrderId: "UNK-1",
+    orderedAt: "2026-03-02T15:00:00Z",
+    title: "Anúncio de fora",
+    items: [
+      { quantity: 1, knownUnitCostCents: 9000 },
+      { quantity: 1, knownUnitCostCents: null },
+    ],
+    adjustments: [
+      { type: "refund", amountCents: 500 },
+      { type: "return", amountCents: 700 },
+      { type: "commission", amountCents: 300 },
+    ],
+  };
+  // Not a sale: an unknown cost changes nothing, and its refund still counts as before.
+  const CANCELLED_UNKNOWN: SeedOrder = {
+    ...UNKNOWN_COST,
+    externalOrderId: "UNK-CANCELLED",
+    orderedAt: "2026-03-04T15:00:00Z",
+    status: "cancelled",
+    adjustments: [{ type: "refund", amountCents: 400 }],
+  };
+  const KNOWN_COST: SeedOrder = { ...ORDER_A2, externalOrderId: "KNOWN-1" };
+  let extra: Awaited<ReturnType<typeof createTestTenants>>;
+  let tenantId = "";
+
+  beforeAll(async () => {
+    extra = await createTestTenants(database, 1);
+    tenantId = extra.ids[0] ?? "";
+    const store = await insertStore(tenantId, "Loja com anúncio de fora");
+    await insertOrder(tenantId, store, KNOWN_COST);
+    await insertOrder(tenantId, store, UNKNOWN_COST);
+    await insertOrder(tenantId, store, CANCELLED_UNKNOWN);
+  });
+
+  afterAll(async () => {
+    await extra.cleanup();
+  });
+
+  const known = computeOrderFinance(KNOWN_COST, PLATFORM_FEE_BASIS_POINTS);
+
+  it("keeps the revenue whole and the order out of the profit", async () => {
+    const summary = await getSalesSummary(database, scope({ tenantId }));
+    expect(summary).toMatchObject({
+      orders: 2,
+      revenueCents: 40_000,
+      pendingCostOrders: 1,
+      pendingCostRevenueCents: 20_000,
+      costCents: known.costCents,
+      feeCents: known.feeCents,
+      refundCents: 400,
+      returnCents: 0,
+      commissionCents: 0,
+      platformFeeCents: known.platformFeeCents,
+      profitCents: known.profitCents - 400,
+    });
+  });
+
+  it.each([UNKNOWN_COST, CANCELLED_UNKNOWN])(
+    "matches the shared formula for $externalOrderId",
+    async (seed) => {
+      const [row] = await exportOrderFinancials(database, scope({ tenantId }), {
+        filters: { search: seed.externalOrderId },
+        sort: { field: "orderedAt", direction: "asc" },
+      });
+      const expected = computeOrderFinance(seed, PLATFORM_FEE_BASIS_POINTS);
+      expect(expected.costPending).toBe(seed.status !== "cancelled");
+      expect(row).toMatchObject(expected);
+    },
+  );
+
+  it("puts the pending revenue on its day of the timeseries", async () => {
+    const points = await getSalesTimeseries(database, scope({ tenantId }), "day");
+    expect(points[1]).toMatchObject({
+      date: "2026-03-02",
+      orders: 1,
+      revenueCents: 20_000,
+      pendingCostRevenueCents: 20_000,
+      profitCents: 0,
+    });
+    expect(points[5]).toMatchObject({ date: "2026-03-06", pendingCostRevenueCents: 0 });
+  });
+
+  it("flags the row in the list and the store breakdown", async () => {
+    const page = await listOrderFinancials(database, scope({ tenantId }), {
+      filters: {},
+      sort: { field: "orderedAt", direction: "asc" },
+      pagination: { page: 1, pageSize: 10 },
+    });
+    expect(page.items.map((item) => [item.externalOrderId, item.costPending])).toEqual([
+      ["UNK-1", true],
+      ["UNK-CANCELLED", false],
+      ["KNOWN-1", false],
+    ]);
+    const [store] = await getSalesByStore(database, scope({ tenantId }));
+    expect(store).toMatchObject({
+      revenueCents: 40_000,
+      pendingCostRevenueCents: 20_000,
+      // The cancelled order's refund still counts, as for any order that is not a sale.
+      profitCents: known.profitCents - 400,
+    });
+  });
+
+  it("never shows another tenant's pending orders", async () => {
+    const summary = await getSalesSummary(database, scope());
+    expect(summary).toMatchObject({ pendingCostOrders: 0, pendingCostRevenueCents: 0 });
+  });
+});
+
+describe("large orders", () => {
+  it("adds up an item whose cost times quantity passes the database integer", async () => {
+    // 20.000 units at R$ 2.000,00 cost R$ 40 milhões: 4.000.000.000 cents, above int4.
+    const store = await insertStore(tenantB, `Atacado ${tenantB}`);
+    await database.insert(orders).values({
+      tenantId: tenantB,
+      storeConnectionId: store,
+      externalOrderId: "B-ATACADO",
+      status: "paid",
+      totalCents: 2_000_000_000,
+      orderedAt: new Date("2026-03-02T15:00:00Z"),
+    });
+    const [order] = await database
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.externalOrderId, "B-ATACADO"));
+    await database.insert(orderItems).values({
+      tenantId: tenantB,
+      orderId: order?.id ?? "",
+      supplierProductId: catalog.productId,
+      title: "Caixa atacado",
+      quantity: 20_000,
+      unitPriceCents: 300_000,
+      unitCostCents: 200_000,
+    });
+
+    const wholesale = scope({ tenantId: tenantB, storeConnectionId: store });
+    expect((await getSalesSummary(database, wholesale)).costCents).toBe(4_000_000_000);
+    expect((await getTopProducts(database, wholesale, 5))[0]).toMatchObject({
+      revenueCents: 6_000_000_000,
     });
   });
 });
@@ -293,5 +507,57 @@ describe("order financials list", () => {
     expect(rows.reduce((total, row) => total + row.profitCents, 0)).toBe(
       expectedSum("profitCents"),
     );
+  });
+
+  it("counts an order awaiting payment neither as a sale nor as cancelled", async () => {
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja pendente");
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "PEND-1",
+        status: "pending",
+      });
+      const summary = await getSalesSummary(database, scope({ tenantId }));
+      expect(summary).toMatchObject({ orders: 0, cancelledOrders: 0, revenueCents: 0 });
+    } finally {
+      await extra.cleanup();
+    }
+  });
+
+  it("adds item costs past the 32-bit integer without failing the report", async () => {
+    const extra = await createTestTenants(database, 1);
+    const [tenantId] = extra.ids;
+    if (!tenantId) {
+      throw new Error("tenant não criado");
+    }
+    try {
+      const store = await insertStore(tenantId, "Loja grande");
+      // 1.000 units costing R$ 30.000,00 each: R$ 30 mi, more than an int4 holds.
+      await insertOrder(tenantId, store, {
+        ...ORDER_A2,
+        externalOrderId: "BIG-1",
+        unitPriceCents: 1,
+        items: [{ quantity: 1000, knownUnitCostCents: 3_000_000 }],
+      });
+      const summary = await getSalesSummary(database, scope({ tenantId }));
+      expect(summary.costCents).toBe(3_000_000_000);
+    } finally {
+      await extra.cleanup();
+    }
+  });
+
+  it("exports a period exactly at the row limit and refuses one past it", async () => {
+    const sort = { field: "orderedAt", direction: "asc" } as const;
+    expect(
+      await exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 4 }),
+    ).toHaveLength(4);
+    await expect(
+      exportOrderFinancials(database, scope(), { filters: {}, sort, maxRows: 3 }),
+    ).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringContaining("mais de 3") });
   });
 });

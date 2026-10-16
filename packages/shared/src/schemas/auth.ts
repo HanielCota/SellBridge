@@ -1,14 +1,21 @@
 import { z } from "zod";
+import { freeText } from "./common.ts";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
 export const MAX_NAME_LENGTH = 100;
 
-export const nameSchema = z
-  .string()
+/**
+ * Bidirectional overrides flip how the rest of a line reads, so a name could show as someone
+ * else's. A name is shown to the staff next to others, so it never carries one.
+ */
+const BIDI_CONTROLS = /[‪-‮⁦-⁩]/;
+
+export const nameSchema = freeText()
   .trim()
   .min(2, "Informe seu nome")
-  .max(MAX_NAME_LENGTH, `O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
+  .max(MAX_NAME_LENGTH, `O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`)
+  .refine((name) => !BIDI_CONTROLS.test(name), "O nome tem caracteres inválidos");
 export const emailSchema = z.email("Informe um e-mail válido");
 export const newPasswordSchema = z
   .string()
