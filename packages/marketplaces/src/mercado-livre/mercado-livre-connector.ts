@@ -28,6 +28,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
     publishProduct: async (store, input, options) => publishProduct(context, store, input, options),
     updateStockPrice: async (store, update) => updateStockPrice(context, store, update),
+    updateDescription: async () => {},
     listOrders: async (store, since) => listOrders(context, store, since),
     fetchOrder: async (store, resource) => fetchOrder(context, store, resource),
     verifyWebhook: async (request) => verifyWebhook(config, request),

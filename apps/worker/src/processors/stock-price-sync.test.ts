@@ -18,6 +18,7 @@ let catalog: Awaited<ReturnType<typeof createTestProduct>>;
 let tenantId = "";
 let targetId = "";
 let failingTargetId = "";
+let describedTargetId = "";
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
@@ -38,6 +39,18 @@ beforeAll(async () => {
     title: "Anúncio apagado no marketplace",
     externalId: "MOCK-ITEM-GONE",
   });
+  describedTargetId = await createPublishedTestTarget(database, {
+    tenantId,
+    productId: catalog.productId,
+    storeId: store.id,
+    title: "Anúncio sem descrição",
+    externalId: "MOCK-ITEM-DESC",
+  });
+  // The marketplace refused its description when it was published.
+  await database
+    .update(schema.listingTargets)
+    .set({ descriptionError: "A descrição não chegou", descriptionFailedAt: new Date() })
+    .where(eq(schema.listingTargets.id, describedTargetId));
 });
 
 /** Mock connectors whose stock update fails for the listing deleted on the marketplace. */
@@ -98,6 +111,18 @@ describe("stock-price-sync processor", () => {
     });
     expect(row).toMatchObject({ syncedStock: 5, syncedPriceCents: 4990 });
     expect(row?.syncedAt).not.toBeNull();
+  });
+
+  it("resends a description the marketplace refused and clears the warning", async () => {
+    await sync();
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, describedTargetId),
+    });
+    expect(row).toMatchObject({
+      descriptionError: null,
+      descriptionFailedAt: null,
+      descriptionAttempts: 0,
+    });
   });
 
   it("records the failed attempt so the target goes to the back of the queue", async () => {

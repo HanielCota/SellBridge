@@ -6,6 +6,7 @@ export * from "./store-activity.ts";
 export * from "./listings.ts";
 export * from "./listing-overview.ts";
 export * from "./reports.ts";
+export * from "./listing-descriptions.ts";
 export * from "./webhooks.ts";
 export * from "./orders.ts";
 export * from "./support.ts";

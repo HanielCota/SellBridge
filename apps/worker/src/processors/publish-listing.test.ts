@@ -116,6 +116,16 @@ describe("publish-listing processor", () => {
     expect((await targetRow(targetId)).attempts).toBe(1);
   });
 
+  it("keeps the listing live and records a description the marketplace refused", async () => {
+    const { tenantId, targetId } = await createTarget("Camiseta lisa [sem descricao]");
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    expect(await processPublish(job)).toBe("published");
+    const row = await targetRow(targetId);
+    expect(row).toMatchObject({ status: "published", errorReason: null, descriptionAttempts: 0 });
+    expect(row.descriptionError).toMatch(/descrição/);
+    expect(row.descriptionFailedAt).not.toBeNull();
+  });
+
   it("marks permanent rejections as error without retrying", async () => {
     const { tenantId, targetId } = await createTarget("Produto proibido [falha]");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };

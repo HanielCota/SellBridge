@@ -212,6 +212,7 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
     refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
     publishProduct: async (credentials, input) => publishProduct(context, credentials, input),
     updateStockPrice: async (credentials, update) => updateStockPrice(context, credentials, update),
+    updateDescription: async () => {},
     listOrders: async (credentials) => listOrders(context, credentials),
     fetchOrder: async (credentials, resource) => fetchOrder(context, credentials, resource),
     verifyWebhook: async (request) => verifyWebhook(config, request),

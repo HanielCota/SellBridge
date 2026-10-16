@@ -178,6 +178,52 @@ const product = {
   imageUrls: ["https://img/1.jpg"],
 };
 
+describe("descriptions", () => {
+  it("publishes the item and reports a description the marketplace refused", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () =>
+        json(400, ERROR_FIXTURES.descriptionNotPlainText),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+    const result = await ml.publishProduct(store, product);
+    expect(result).toMatchObject({ externalId: "MLB1" });
+    expect(result.descriptionError).toMatch(/^A descrição tem caracteres que o Mercado Livre/);
+  });
+
+  it("reports no description error when it goes through", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+    expect((await ml.publishProduct(store, product)).descriptionError).toBeNull();
+  });
+
+  it("replaces a description with PUT, as the official page says", async () => {
+    const { ml, calls } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () => json(200, {}),
+    });
+    await ml.updateDescription(store, { externalId: "MLB9", plainText: "Texto novo" });
+    const call = calls.find((recorded) => recorded.method === "PUT");
+    expect(call?.url).toBe(`${API}/items/MLB9/description?api_version=2`);
+    expect(JSON.parse(call?.body ?? "{}")).toEqual({ plain_text: "Texto novo" });
+  });
+
+  it("refuses a resend with the reason in Portuguese", async () => {
+    const { ml } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () =>
+        json(400, ERROR_FIXTURES.descriptionNotPlainText),
+    });
+    await expect(
+      ml.updateDescription(store, { externalId: "MLB9", plainText: "Texto < br > 😀" }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringMatching(/^A descrição tem caracteres/),
+    });
+  });
+});
+
 describe("publishing", () => {
   it("predicts the category, creates the item and sends the description", async () => {
     const { ml, calls } = connector({
