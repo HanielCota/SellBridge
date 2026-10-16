@@ -13,6 +13,7 @@ function store(
     storeConnectionId: `store-${storeName}`,
     status,
     errorReason,
+    descriptionError: null,
     attempts: 1,
     externalUrl: null,
     publishedAt: null,

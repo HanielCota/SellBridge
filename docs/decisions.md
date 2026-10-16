@@ -547,3 +547,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 ## 2026-10-16: E-mail de loja expirada fica com a central de notificações (item 24.c, chat B)
 
 - A 24.c (03b4410, e-mail direto do job de renovação) foi revertida. O 25.b do chat E (3a2a29a) já gera o aviso `store_expired` em toda expiração (`markStoreStatus`), e o despachante manda o e-mail conforme as preferências de cada pessoa. Com os dois, o dono receberia dois e-mails.
+
+## 2026-10-16: Descrição que não chegou ao marketplace (item 13.b)
+
+- **O anúncio continua no ar:** a descrição é enviada depois de o item existir; se o marketplace recusa, a publicação não falha (o item existe de fato), mas o erro (traduzido pela 13.a) fica no alvo (`listing_targets.description_error`, migration 0032) e o card mostra "Descrição não enviada" com o motivo e "Reenviar descrição".
+- **Reenvio:** pelo job de sincronização que já roda (`stock-price-sync`), sem fila nova: até 3 tentativas automáticas (aprovado no ⏸1), depois só o botão, que zera as tentativas e pede a sincronização na hora. No Mercado Livre o reenvio é `PUT /items/{id}/description?api_version=2` (a página oficial "Descrição de produtos": POST só cria; um segundo POST é recusado).
+- **Tela atualizada sozinha:** a lista de Publicações continua consultando até 5 minutos depois de uma falha ou de um pedido de reenvio, e o aviso some sem recarregar.
+- **Mock:** título com "[sem descricao]" publica e recusa a descrição; reenvio com "[descricao recusada]" é recusado (para testes).
