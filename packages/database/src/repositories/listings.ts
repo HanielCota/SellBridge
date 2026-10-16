@@ -98,7 +98,10 @@ export async function createListingWithTargets(
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
-    if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
+    if (billingEnabled) {
+      // One plan slot per destination store (item 16, N7).
+      await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
+    }
     const [listing] = await transaction
       .insert(listings)
       .values({ ...values, tenantId })

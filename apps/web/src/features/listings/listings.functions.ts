@@ -1,3 +1,4 @@
+import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   getSellableCatalogProduct,
   getTargetForPublishing,
@@ -86,7 +87,14 @@ export const retryListings = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(listingIdsSchema)
   .handler(async ({ context, data }) => {
-    const targetIds = await resetListingErrorsForRetry(database, context.tenantId, data.listingIds);
+    const targetIds = await resetListingErrorsForRetry(
+      database,
+      context.tenantId,
+      data.listingIds,
+      {
+        billingEnabled: billingConfigured(),
+      },
+    );
     await enqueueTargets(context.tenantId, targetIds);
     logger.info("listing.retry_requested", {
       tenantId: context.tenantId,

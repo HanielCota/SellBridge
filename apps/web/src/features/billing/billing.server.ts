@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { BILLING_PLANS, effectiveBillingPlan } from "@sellbridge/shared/billing";
+import { BILLING_PLANS, billingNotice, effectiveBillingPlan } from "@sellbridge/shared/billing";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import {
   billingUsage,
@@ -10,13 +10,15 @@ import {
 } from "@sellbridge/database/repositories";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import type { BillingNoticeView } from "./billing-notice";
 import { availablePlans, billingConfigured, priceId, stripeClient } from "./stripe.server";
 
 export async function billingSummary(tenantId: string, userId: string) {
-  const [account, usage, prices] = await Promise.all([
+  const [account, usage, prices, notice] = await Promise.all([
     getBillingAccount(database, tenantId),
     billingUsage(database, tenantId),
     availablePlans(),
+    findBillingNotice(tenantId),
   ]);
   let canManage = false;
   try {
@@ -31,19 +33,33 @@ export async function billingSummary(tenantId: string, userId: string) {
     plans: BILLING_PLANS,
     prices,
     canManage,
+    notice,
     enabled: billingConfigured(),
     effectivePlan: effectiveBillingPlan(account),
   };
 }
 
+export async function findBillingNotice(tenantId: string): Promise<BillingNoticeView | null> {
+  const notice = billingNotice(await getBillingAccount(database, tenantId));
+  if (notice === null) return null;
+  if (notice.kind === "payment_failed") return notice;
+  return { kind: "past_due", accessUntil: notice.accessUntil.toISOString() };
+}
+
+/** Stripe's answer bounds every billing call (item 16.a): the client default waits up to ~45 s. */
+const STRIPE_CHECKOUT_LIMITS = { timeout: 5_000, maxNetworkRetries: 1 } as const;
+
 async function portal(customerId: string) {
-  return stripeClient().billingPortal.sessions.create({
-    customer: customerId,
-    ...(environment.STRIPE_PORTAL_CONFIGURATION_ID
-      ? { configuration: environment.STRIPE_PORTAL_CONFIGURATION_ID }
-      : {}),
-    return_url: new URL("/assinatura", environment.APP_URL).toString(),
-  });
+  return stripeClient().billingPortal.sessions.create(
+    {
+      customer: customerId,
+      ...(environment.STRIPE_PORTAL_CONFIGURATION_ID
+        ? { configuration: environment.STRIPE_PORTAL_CONFIGURATION_ID }
+        : {}),
+      return_url: new URL("/assinatura", environment.APP_URL).toString(),
+    },
+    STRIPE_CHECKOUT_LIMITS,
+  );
 }
 
 export async function openBillingPortal(tenantId: string, userId: string) {
@@ -53,9 +69,6 @@ export async function openBillingPortal(tenantId: string, userId: string) {
   const session = await portal(account.customerId);
   return { url: session.url };
 }
-
-/** Stripe's answer bounds every checkout call (item 16.a): the client default waits up to ~45 s. */
-const STRIPE_CHECKOUT_LIMITS = { timeout: 5_000, maxNetworkRetries: 1 } as const;
 
 type StripeClient = ReturnType<typeof stripeClient>;
 
@@ -89,7 +102,11 @@ async function openCheckout(
     { customer: input.customerId, status: "open", limit: 100 },
     STRIPE_CHECKOUT_LIMITS,
   );
-  for (const session of sessions.data) await stripe.checkout.sessions.expire(session.id);
+  await Promise.all(
+    sessions.data.map(async (session) =>
+      stripe.checkout.sessions.expire(session.id, {}, STRIPE_CHECKOUT_LIMITS),
+    ),
+  );
   const checkout = await stripe.checkout.sessions.create(
     {
       integration_identifier: `sellbridge_${Array.from(randomBytes(8), (value) => String.fromCharCode(97 + (value % 26))).join("")}`,
