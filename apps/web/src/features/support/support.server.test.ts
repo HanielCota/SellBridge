@@ -32,7 +32,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
   createTicket: mocks.createTicket,
   findTicketForMessage: mocks.findTicketForMessage,
   getAttachment: vi.fn<() => Promise<null>>(),
+  linkTicketAbout: vi.fn<() => Promise<void>>(),
   queueSupportReplyNotices: mocks.queueSupportReplyNotices,
+  requireTicketAbout: vi.fn<() => Promise<unknown>>(),
 }));
 // A budget of two uploads keeps the limit test short; the real budgets are in the module.
 vi.mock("@/lib/server/upload-rate-limit", async (importOriginal) => {

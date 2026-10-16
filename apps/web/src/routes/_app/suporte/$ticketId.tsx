@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeftIcon, CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
+import { BackLink } from "@/components/layout/page-header";
+import { createFileRoute } from "@tanstack/react-router";
+import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
 import { useRef, type RefObject } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -185,12 +186,7 @@ function TicketView({ detail }: { detail: TicketDetail }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit print:hidden">
-        <Link to="/suporte">
-          <ArrowLeftIcon aria-hidden="true" />
-          Suporte
-        </Link>
-      </Button>
+      <BackLink to="/suporte" label="Suporte" />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="min-w-0 space-y-6">
           <TicketHeader detail={detail} />
@@ -204,7 +200,12 @@ function TicketView({ detail }: { detail: TicketDetail }) {
           <TicketComposer ticket={ticket} composerRef={composer} />
           {isClosed ? null : <CloseTicketBar closeTicket={closeTicket} />}
         </div>
-        <TicketContextPanel ticket={ticket} orders={detail.orders} followers={detail.followers} />
+        <TicketContextPanel
+          ticket={ticket}
+          orders={detail.orders}
+          followers={detail.followers}
+          subject={detail.subject}
+        />
       </div>
     </div>
   );
