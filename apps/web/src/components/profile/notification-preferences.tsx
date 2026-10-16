@@ -116,21 +116,23 @@ function ChannelHeader() {
 
 function PreferencesSkeleton() {
   return (
-    <ul className="divide-y divide-border" aria-busy="true" aria-label="Carregando preferências">
-      {Array.from({ length: 6 }, (_, index) => (
-        <li key={index} className="flex items-center gap-4 py-3.5 first:pt-0 last:pb-0">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-full max-w-64" />
-          </div>
-          {PREFERENCE_CHANNELS.map((channel) => (
-            <div key={channel} className={`flex justify-center ${CELL_WIDTH}`}>
-              <Skeleton className="h-6 w-10 rounded-full" />
+    <output className="block" aria-busy="true" aria-label="Carregando preferências">
+      <ul className="divide-y divide-border">
+        {Array.from({ length: 6 }, (_, index) => (
+          <li key={index} className="flex items-center gap-4 py-3.5 first:pt-0 last:pb-0">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-full max-w-64" />
             </div>
-          ))}
-        </li>
-      ))}
-    </ul>
+            {PREFERENCE_CHANNELS.map((channel) => (
+              <div key={channel} className={`flex justify-center ${CELL_WIDTH}`}>
+                <Skeleton className="h-6 w-10 rounded-full" />
+              </div>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </output>
   );
 }
 
