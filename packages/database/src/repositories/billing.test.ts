@@ -165,4 +165,28 @@ describe("tenant billing persistence", () => {
       "Limite do plano",
     );
   });
+
+  // Last: it moves tenant A's newest event past 2038, so no earlier event applies after it.
+  // Regression: `last_event_created` was int4, and Stripe's `created` (Unix seconds) passes
+  // 2_147_483_647 on 2038-01-19, failing every webhook with "integer out of range".
+  it("stores a Stripe event created after 2038", async () => {
+    const eventCreated = 2_200_000_000;
+    const lateEventId = `evt_${randomUUID()}`;
+    await database.transaction(async (transaction) =>
+      applyBillingEvent(transaction, {
+        eventId: lateEventId,
+        eventCreated,
+        customerId,
+        subscriptionId: "sub_test",
+        plan: "pro",
+        status: "active",
+        periodEnd: new Date(Date.now() + 86400000),
+        cancelAtPeriodEnd: false,
+      }),
+    );
+    expect((await getBillingAccount(database, tenants.tenantA))?.lastEventCreated).toBe(
+      eventCreated,
+    );
+    await database.delete(billingEvents).where(eq(billingEvents.id, lateEventId));
+  });
 });
