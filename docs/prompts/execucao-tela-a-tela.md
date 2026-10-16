@@ -13,6 +13,7 @@ Meta do usuário: fechar o que falta **em 2 dias**, com o site em MVP, e ir refi
 
 - Sem ⏸2: o teste que falha continua obrigatório (escrever, rodar, ver falhar pelo motivo certo), mas a saída vai no pacote do ⏸B.
 - Cada parte continua sendo **um commit local** com todos os portões de código verdes. O commit sai **sem esperar** o OK; o ⏸B aprova o item. Se vier `Ajuste`, a correção sai num commit novo.
+- **Nunca** commit, merge ou push na `main`: tudo vai por branch e pull request, e o merge é do revisor no GitHub (regra de Git na seção 0 do `coordenacao.md`).
 - Pare e pergunte só quando: a decisão é do cliente (❓Dn), o plano aprovado não serve, ou um portão não fecha.
 
 **Portões no MVP:**
@@ -348,7 +349,7 @@ Há 3 pontos de parada. Neles você **para, envia o pacote indicado e espera** `
 9. **Commitar** (só depois do OK do ⏸3 e com todos os portões verdes).
    - Na branch `feat/client-phase-1`, um commit por parte, com mensagem gerada pela skill `caveman-commit` e o trailer `Co-Authored-By` usado no histórico do repositório.
    - Inclua o `routeTree.gen.ts` se mudou.
-   - **Depois do commit, faça push e abra o PR para `main`** (ou atualize o PR já aberto da branch), conforme a regra de Git do `CLAUDE.md`.
+   - **Depois do commit, faça push da branch de trabalho e abra o PR para `main`** (ou atualize o PR já aberto da branch), conforme a regra de Git do `CLAUDE.md`. Nunca faça push, commit ou merge direto na `main`; nos chats B a F, quem faz o push é o principal.
    - Se algum portão falhou, **não commite**: deixe as mudanças na árvore e explique.
    - **Sai quando:** `git status` limpo, branch enviada, link do PR e hash anotados no andamento.
 10. **Relatar** no formato da seção 7, enviar as capturas e limpar o bloco "Em andamento".
