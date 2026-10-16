@@ -260,6 +260,13 @@
       "when": 1792179373470,
       "tag": "0036_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792181775034,
+      "tag": "0037_account_details_and_terms",
+      "breakpoints": true
     }
   ]
 }
