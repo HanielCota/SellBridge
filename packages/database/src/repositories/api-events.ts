@@ -12,6 +12,16 @@ export interface ApiEventRecord {
 }
 
 /**
+ * Events younger than this are held back. Sequences are taken when a transaction inserts but
+ * become visible when it commits, so a slow transaction can surface a lower sequence after a
+ * higher one was read; a client polling with `after` would skip it. Transactions here take
+ * milliseconds, so a few seconds of delay closes that gap.
+ */
+const EVENT_SETTLE_SECONDS = 5;
+/** Longest lock wait after an event is written; kept below `EVENT_SETTLE_SECONDS`. */
+const EVENT_LOCK_TIMEOUT_SECONDS = 3;
+
+/**
  * Records an event and queues one delivery per webhook endpoint subscribed to it. Pass the
  * transaction that made the change, so the event exists exactly when the change does.
  */
@@ -19,13 +29,23 @@ export async function recordApiEvent<TType extends ApiEventType>(
   executor: DatabaseExecutor,
   event: { tenantId: string; type: TType; data: ApiEventData<TType> },
 ): Promise<string> {
+  // Dated when the sequence is taken, not when the transaction began (`now()`): a transaction
+  // that waited on a lock before this insert would otherwise look settled the moment it commits.
   const [created] = await executor
     .insert(apiEvents)
-    .values({ tenantId: event.tenantId, type: event.type, data: event.data })
+    .values({
+      tenantId: event.tenantId,
+      type: event.type,
+      data: event.data,
+      createdAt: sql`clock_timestamp()`,
+    })
     .returning({ id: apiEvents.id });
   if (!created) {
     throw new Error("Não foi possível gravar o evento");
   }
+  // From here to the commit the sequence is taken but invisible. A lock wait longer than the
+  // settle window would let a client read a higher sequence first and skip this one for good.
+  await executor.execute(sql.raw(`set local lock_timeout = '${EVENT_LOCK_TIMEOUT_SECONDS}s'`));
   await executor.execute(sql`
     insert into ${webhookDeliveries} (tenant_id, endpoint_id, event_id)
     select ${webhookEndpoints.tenantId}, ${webhookEndpoints.id}, ${created.id}::uuid
@@ -38,14 +58,6 @@ export async function recordApiEvent<TType extends ApiEventType>(
   `);
   return created.id;
 }
-
-/**
- * Events younger than this are held back. Sequences are taken when a transaction inserts but
- * become visible when it commits, so a slow transaction can surface a lower sequence after a
- * higher one was read; a client polling with `after` would skip it. Transactions here take
- * milliseconds, so a few seconds of delay closes that gap.
- */
-const EVENT_SETTLE_SECONDS = 5;
 
 /** Events after `afterSequence`, oldest first: a client keeps the last sequence it read. */
 export async function listApiEvents(
