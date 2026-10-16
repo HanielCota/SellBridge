@@ -39,7 +39,10 @@
     "./deadline": "./src/runtime/deadline.ts",
     "./network-address": "./src/runtime/network-address.ts",
     "./customer-health": "./src/domain/customer-health.ts",
-    "./billing": "./src/domain/billing.ts"
+    "./billing": "./src/domain/billing.ts",
+    "./mailer": "./src/email/mailer.ts",
+    "./email-layout": "./src/email/layout.ts",
+    "./supplier-order-email": "./src/email/supplier-order-email.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

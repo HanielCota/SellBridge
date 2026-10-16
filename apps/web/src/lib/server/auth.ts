@@ -19,7 +19,7 @@ import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.
 import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
 import { IMPERSONATION_SECONDS, isImpersonationOver } from "./impersonation-window.ts";
 import { database } from "./database.ts";
-import { renderActionEmail } from "./email-layout.ts";
+import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";

@@ -53,7 +53,7 @@ import { PROTECTED_ACCOUNT_MESSAGE } from "@/lib/server/account-protection";
 import { auth, isAdminEmail } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { renderActionEmail } from "@/lib/server/email-layout";
+import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { sendEmail } from "@/lib/server/mailer";
 import { adminMiddleware } from "@/lib/server/middleware";
 import { requestStockSync } from "@/lib/server/stock-sync";
