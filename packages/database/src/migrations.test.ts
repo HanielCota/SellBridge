@@ -235,4 +235,28 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(rows[1]?.last_error).toBeNull();
     expect(rows[2]?.access_token_enc).toBe("cipher");
   });
+  it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {
+    const url = await throwawayDatabase();
+    await runMigrator(url);
+    const leftovers = await withClient(
+      url,
+      (sql) => sql<{ name: string }[]>`
+        select table_name as name from information_schema.tables
+        where table_schema = 'public' and table_name in ('supplier_coverage', 'cep_cache')
+        union all
+        select column_name from information_schema.columns
+        where table_schema = 'public' and table_name = 'tenant_profile'
+          and column_name in ('cep', 'state', 'city', 'neighborhood', 'street', 'number', 'complement')`,
+    );
+    expect(leftovers.map((row) => row.name)).toEqual([]);
+    const holder = await withClient(
+      url,
+      (sql) => sql<{ name: string }[]>`
+        select column_name as name from information_schema.columns
+        where table_schema = 'public' and table_name = 'tenant_profile'
+          and column_name in ('full_name', 'cpf', 'starter_supplier_id')
+        order by column_name`,
+    );
+    expect(holder.map((row) => row.name)).toEqual(["cpf", "full_name", "starter_supplier_id"]);
+  });
 });

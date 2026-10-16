@@ -1,4 +1,4 @@
-import { stateSchema } from "@sellbridge/shared/cep";
+import { stateSchema } from "@sellbridge/shared/brazilian-states";
 import {
   SUPPLIER_SORT_LABELS,
   SUPPLIER_SORTS,
