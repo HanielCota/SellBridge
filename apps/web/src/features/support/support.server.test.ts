@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createTicket: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   requireTenantSession: vi.fn<() => Promise<unknown>>(),
   requireStaffSession: vi.fn<() => Promise<unknown>>(),
+  queueSupportReplyNotices: vi.fn<(database: unknown, input: unknown) => Promise<number>>(),
 }));
 
 vi.mock("@/lib/server/storage", () => ({
@@ -19,7 +20,6 @@ vi.mock("@/lib/server/environment", () => ({
   environment: { APP_URL: "https://sellbridge.test" },
 }));
 vi.mock("@/lib/server/auth", () => ({ auth: { api: { getSession: vi.fn<() => null>() } } }));
-vi.mock("@/lib/server/mailer", () => ({ sendEmail: vi.fn<() => Promise<void>>() }));
 vi.mock("@/lib/server/impersonation", () => ({
   recordImpersonatedCall: vi.fn<() => Promise<void>>(),
 }));
@@ -31,9 +31,8 @@ vi.mock("@sellbridge/database/repositories", () => ({
   addTicketMessage: mocks.addTicketMessage,
   createTicket: mocks.createTicket,
   findTicketForMessage: mocks.findTicketForMessage,
-  findTicketEmailRecipients: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
-  findTicketRequester: vi.fn<() => Promise<null>>().mockResolvedValue(null),
   getAttachment: vi.fn<() => Promise<null>>(),
+  queueSupportReplyNotices: mocks.queueSupportReplyNotices,
 }));
 // A budget of two uploads keeps the limit test short; the real budgets are in the module.
 vi.mock("@/lib/server/upload-rate-limit", async (importOriginal) => {
@@ -83,6 +82,7 @@ beforeEach(() => {
   mocks.put.mockResolvedValue(undefined);
   mocks.remove.mockResolvedValue(undefined);
   mocks.addTicketMessage.mockResolvedValue({ status: "open" });
+  mocks.queueSupportReplyNotices.mockResolvedValue(1);
 });
 
 describe("support uploads write no file for a message that cannot be saved", () => {
@@ -166,5 +166,39 @@ describe("support upload budget against refused files", () => {
     expect((await tenantReply(junkForm())).status).toBe(400);
     expect((await tenantReply(junkForm())).status).toBe(429);
     expect(mocks.put).not.toHaveBeenCalled();
+  });
+});
+
+const adminMessage = (kind: string) =>
+  handleAdminReply(
+    post(
+      `/api/admin/chamados/${TICKET_ID}/mensagens`,
+      messageForm({ kind, body: "Confira o rastreio." }, false),
+    ),
+    TICKET_ID,
+  );
+
+describe("support reply notices", () => {
+  it("queues the e-mail to the store when the team replies", async () => {
+    mocks.findTicketForMessage.mockResolvedValue({ status: "open" });
+    expect((await adminMessage("reply")).status).toBe(201);
+    await vi.waitFor(() =>
+      expect(mocks.queueSupportReplyNotices).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ ticketId: TICKET_ID }),
+      ),
+    );
+  });
+
+  it("keeps internal notes away from the store", async () => {
+    mocks.findTicketForMessage.mockResolvedValue({ status: "open" });
+    expect((await adminMessage("note")).status).toBe(201);
+    expect(mocks.queueSupportReplyNotices).not.toHaveBeenCalled();
+  });
+
+  it("still saves the reply when queuing the e-mail fails", async () => {
+    mocks.findTicketForMessage.mockResolvedValue({ status: "open" });
+    mocks.queueSupportReplyNotices.mockRejectedValue(new Error("banco fora"));
+    expect((await adminMessage("reply")).status).toBe(201);
   });
 });

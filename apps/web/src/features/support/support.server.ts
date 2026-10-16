@@ -1,10 +1,9 @@
 import {
   addTicketMessage,
   createTicket,
-  findTicketEmailRecipients,
   findTicketForMessage,
-  findTicketRequester,
   getAttachment,
+  queueSupportReplyNotices,
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
@@ -20,7 +19,6 @@ import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
-import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
@@ -33,7 +31,6 @@ import {
   textField,
   validateAttachments,
 } from "./attachments.server";
-import { supportReplyEmail } from "./support-reply-email";
 
 const idSchema = z.uuid();
 
@@ -171,42 +168,15 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
 }
 
 /**
- * Tells the store by e-mail that support answered: the requester and the colleagues following
- * the ticket, minus whoever turned the e-mails off. A failed e-mail never fails the reply: the
- * answer is saved and also shows up in the app.
+ * Queues the e-mail telling the store that support answered (requester and followers, per their
+ * choices); the notification worker sends it in the branded layout and retries it. A failure to
+ * queue never fails the reply: the answer is saved and also shows up in the app's bell.
  */
 async function notifyFollowers(ticketId: string): Promise<void> {
   try {
-    const requester = await findTicketRequester(database, ticketId);
-    if (!requester) {
-      return;
-    }
-    const recipients = await findTicketEmailRecipients(database, ticketId);
-    const results = await Promise.allSettled(
-      recipients.map((recipient) =>
-        sendEmail(
-          supportReplyEmail(
-            { ...recipient, subject: requester.subject },
-            ticketId,
-            environment.APP_URL,
-          ),
-        ),
-      ),
-    );
-    // One bad address must not hide who did get the answer.
-    const failures = results.filter(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    );
-    if (failures.length > 0) {
-      logger.warn("support.reply_email_failed", {
-        ticketId,
-        failed: failures.length,
-        sent: results.length - failures.length,
-        error: failures[0]?.reason,
-      });
-    }
+    await queueSupportReplyNotices(database, { ticketId, at: new Date() });
   } catch (error) {
-    logger.warn("support.reply_email_failed", { ticketId, error });
+    logger.warn("support.reply_notice_failed", { ticketId, error });
   }
 }
 

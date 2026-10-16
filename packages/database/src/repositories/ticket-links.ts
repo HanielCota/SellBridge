@@ -237,7 +237,7 @@ export async function listTicketFollowers(
 export async function findTicketEmailRecipients(
   database: Database,
   ticketId: string,
-): Promise<{ name: string; email: string }[]> {
+): Promise<{ userId: string; name: string; email: string }[]> {
   const followers = await listTicketFollowers(database, ticketId);
   const activeMembers = await database
     .select({ userId: member.userId })
@@ -248,7 +248,7 @@ export async function findTicketEmailRecipients(
   const activeIds = new Set(activeMembers.map((row) => row.userId));
   return followers
     .filter((follower) => follower.notify && activeIds.has(follower.userId))
-    .map(({ name, email }) => ({ name, email }));
+    .map(({ userId, name, email }) => ({ userId, name, email }));
 }
 
 /** Turns the support e-mails of this ticket on or off for one person of the store. */
