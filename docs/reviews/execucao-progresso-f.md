@@ -4,7 +4,7 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 
 ## Em andamento
 
-- ⏸A aprovado em 2026-10-16 (alertas por webhook). F1, F2, 32.a, 32.d, 32.e e a nota do 32.b/32.c fechados; próximo: F3 (seed).
+- ⏸A aprovado em 2026-10-16 (alertas por webhook). Fila do F fechada em 2026-10-16 (F1, F2, 32.a, 32.d, 32.e, notas do 32.b/32.c e F3).
 
 ## Ambiente
 
@@ -22,9 +22,13 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 | 32.e | Sync em paralelo por loja                    | ✅       | 06f90a7           | até 5 lojas ao mesmo tempo                   |
 | 32.b | Backup e restore                             | 📝       | (docs)            | fase 2: nota em `docs/deploy-infra.md`       |
 | 32.c | Adapter S3/R2                                | 📝       | (docs)            | fase 2: nota em `docs/deploy-infra.md`       |
-| F3   | Seed mais completo                           | ⬜       |                   |                                              |
+| F3   | Seed mais completo                           | ✅       | 39ce5bb           | admin com loja, 3 clientes, 7 chamados       |
 
 ## Refinar depois
+
+- `seed.test.ts` leva ~70 s (seed completo duas vezes num banco descartável) e deixa a máquina carregada durante o `pnpm test`: numa rodada, `stock-reservations.test.ts` ("lists one entry per short order…") estourou o timeout de 5 s; sozinho e na rodada seguinte passou. Dá para encolher o seed do teste (menos pedidos por conta) ou movê-lo para um job próprio.
+- `.local/scripts/audit.ts` só audita a pasta principal: rodado da worktree, quebrou num arquivo que só existe lá. Pede um parâmetro de raiz.
+- O teste paralelo do sync (`stock-price-sync-parallel.test.ts`) sincroniza a fila inteira do banco, como o teste antigo; anúncios de outros testes no mesmo banco geram logs de falha de token. Filtrar por tenant exigiria mudar o `findTargetsNeedingSync`.
 
 ## Histórico
 
@@ -60,3 +64,10 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 ### 2026-10-16 · 32.b e 32.c · fase 2
 
 - Só nota de deploy em `docs/deploy-infra.md`: backup agendado + `pg_dump`/`pg_restore` em banco novo, volume de uploads, e o desenho do adapter S3/R2.
+
+### 2026-10-16 · F3 · seed mais completo (39ce5bb)
+
+- `runSeed` (`seed/run.ts`, testável) chamado pelo `index.ts`; `customers.ts` (workspace do admin: "Vitrine SellBridge" com Curitiba Tech, ~420 pedidos; Bruno vendendo, Carla com loja `expired` para reconectar, Daniel parado no cadastro sem CPF); `support.ts` (7 chamados: open, answered e closed, as 4 prioridades e as categorias, com `awaitingSince`, `firstResponseAt`, responsável, `closedAt` e nota). `seedDemoSales` ganhou o parâmetro `stores`. A conta demo é semeada antes das outras para tirar os mesmos números aleatórios de antes (pedidos iguais). `--reset` apaga também os clientes.
+- Teste novo `seed.test.ts` (banco descartável, roda o seed duas vezes); antes falhava com `expected 0 to be greater than or equal to 1` (admin sem loja), `conta bruno@sellbridge.local não criada` e `expected Set{} to deeply equal Set{ 'open', 'answered', 'closed' }`.
+- C7 da área (specs que entram como admin, 10 arquivos): 20/24 na primeira rodada; as 4 falhas eram do ambiente sem `.env` (`MOCK_WEBHOOK_SECRET` e `ADMIN_EMAILS` ausentes: sem "Conectar Loja simulada" nem "Dono da plataforma"); com as variáveis, 9/9 nos 4 specs. C1–C6 ✅, C5 1622/1622 (uma rodada anterior teve o timeout descrito em "Refinar depois").
+- Seed aplicado no `sellbridge_desk_f`: admin 419 pedidos, 3 clientes, 7 chamados.
