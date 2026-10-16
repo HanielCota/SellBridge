@@ -66,13 +66,44 @@ function serializeError(error: Error): Record<string, unknown> {
   };
 }
 
+/** An error-level entry as written: `line` is the JSON already redacted. */
+export interface ErrorLogEntry {
+  readonly event: string;
+  readonly line: string;
+}
+
+let errorLogListener: ((entry: ErrorLogEntry) => void) | null = null;
+
+/** Hears every error-level entry (error alerts); null removes it. One listener at a time. */
+export function setErrorLogListener(listener: ((entry: ErrorLogEntry) => void) | null): void {
+  errorLogListener = listener;
+}
+
+/** A failing listener must never break the caller that was only logging an error. */
+function notifyErrorListener(entry: ErrorLogEntry): void {
+  if (errorLogListener === null) {
+    return;
+  }
+  try {
+    errorLogListener(entry);
+  } catch (error) {
+    const failure = { level: "warn", event: "logger.listener_failed", error: String(error) };
+    process.stderr.write(`${JSON.stringify(failure)}\n`);
+  }
+}
+
 function write(level: LogLevel, event: string, fields: LogFields): void {
   if (LEVEL_PRIORITY[level] < LEVEL_PRIORITY[minimumLevel()]) {
     return;
   }
   const entry = { level, event, time: new Date().toISOString(), ...fields };
   const line = `${JSON.stringify(entry, serializeValue)}\n`;
-  if (level === "error" || level === "warn") {
+  if (level === "error") {
+    process.stderr.write(line);
+    notifyErrorListener({ event, line: line.trimEnd() });
+    return;
+  }
+  if (level === "warn") {
     process.stderr.write(line);
     return;
   }
