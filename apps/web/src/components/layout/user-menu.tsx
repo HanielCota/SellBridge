@@ -146,7 +146,7 @@ function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
         aria-hidden="true"
         className={cn(
           "ml-auto flex h-5 w-8 shrink-0 items-center rounded-full p-0.5 transition-colors",
-          enabled ? "bg-brand" : "bg-input",
+          enabled ? "bg-brand" : "bg-foreground/45 dark:bg-input",
         )}
       >
         <span
@@ -227,7 +227,7 @@ function MenuCaret({ hasSupportReplies }: { hasSupportReplies: boolean }) {
       />
       {hasSupportReplies ? (
         <span
-          className="absolute top-2 right-2 size-2 rounded-full bg-brand sm:hidden"
+          className="absolute top-2 right-2 size-2 rounded-full bg-brand-mark sm:hidden"
           aria-hidden="true"
         />
       ) : null}
