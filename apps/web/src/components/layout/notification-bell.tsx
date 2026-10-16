@@ -383,6 +383,15 @@ export function NotificationBell() {
         <Popover.Content
           align="end"
           sideOffset={10}
+          tabIndex={-1}
+          // Focus lands on the panel, not on its first button: the sound toggle's hint would
+          // open on focus and take the first Escape, leaving the panel open.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            if (event.currentTarget instanceof HTMLElement) {
+              event.currentTarget.focus();
+            }
+          }}
           className="z-50 w-[min(24rem,calc(100vw-2rem))] rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >
           <PanelHeader canClear={items.length > 0} />

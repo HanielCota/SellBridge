@@ -86,7 +86,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await page.getByLabel("Título", { exact: true }).fill("Produto editado");
   await page.getByRole("button", { name: "Salvar produto" }).click();
   await expect(manualRow).toContainText("Produto editado");
-  await page.getByRole("textbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
+  await page.getByRole("searchbox", { name: "Buscar produtos" }).fill("CSV-MANUAL");
   await expect(page).toHaveURL(/query=CSV-MANUAL/);
   await expect(page.getByRole("row", { name: /CSV-NEW/ })).toHaveCount(0);
   await manualRow.getByRole("button", { name: "Desativar", exact: true }).click();
