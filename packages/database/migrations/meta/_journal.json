@@ -267,6 +267,13 @@
       "when": 1792181775034,
       "tag": "0037_account_details_and_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792183571890,
+      "tag": "0038_global_audit",
+      "breakpoints": true
     }
   ]
 }
