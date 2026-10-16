@@ -4,6 +4,7 @@ import {
   findTicketForMessage,
   getAttachment,
   linkTicketAbout,
+  queueNewTicketNotices,
   queueSupportReplyNotices,
   requireTicketAbout,
 } from "@sellbridge/database/repositories";
@@ -101,6 +102,8 @@ export function handleCreateTicket(request: Request) {
       about,
     });
     logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
+    // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
+    void notifyTeamOfNewTicket(ticketId);
     await recordImpersonatedCall({
       impersonatedBy: session.impersonatedBy,
       customerId: session.userId,
@@ -193,6 +196,15 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
     });
     return jsonResponse(201, { ok: true });
   });
+}
+
+/** Queues the e-mail to the support team; a failure is logged, the ticket stays opened. */
+async function notifyTeamOfNewTicket(ticketId: string): Promise<void> {
+  try {
+    await queueNewTicketNotices(database, ticketId);
+  } catch (error) {
+    logger.warn("support.new_ticket_notice_failed", { ticketId, error });
+  }
 }
 
 /**
