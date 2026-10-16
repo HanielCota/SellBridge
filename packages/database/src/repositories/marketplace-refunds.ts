@@ -10,10 +10,12 @@ const REFUND_KEY = "refund";
 /**
  * How money given back to the buyer counts, by order status (docs/decisions.md, phase 3):
  * on a sale that still counts it is taken off profit; on a returned order (no revenue) it is
- * shown as a return; a cancelled order has no revenue to correct, so nothing is kept.
+ * shown as a return; a cancelled order has no revenue to correct, so nothing is kept. Neither has
+ * an unpaid one (e.g. a paid order held as pending for fraud risk): kept as a refund, it showed
+ * as a loss on an order with no revenue. The next sync after it is paid writes it back.
  */
 function refundType(status: OrderStatus): "refund" | "return" | null {
-  if (status === "cancelled") return null;
+  if (status === "cancelled" || status === "pending") return null;
   return status === "returned" ? "return" : "refund";
 }
 
