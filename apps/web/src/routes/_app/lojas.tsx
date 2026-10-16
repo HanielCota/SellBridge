@@ -281,10 +281,10 @@ function StoresContent() {
   const newStore = useNewStoreChoice((query.data?.stores.length ?? 0) > 0);
   if (query.isPending) {
     return (
-      <div className="space-y-8" aria-busy="true" aria-label="Carregando lojas">
+      <output className="block space-y-8" aria-busy="true" aria-label="Carregando lojas">
         <Skeleton className="h-20 rounded-3xl" />
         <Skeleton className="h-64 rounded-3xl" />
-      </div>
+      </output>
     );
   }
   if (query.isError) {

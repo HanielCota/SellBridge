@@ -1,6 +1,7 @@
 import type { Database } from "@sellbridge/database";
 import {
   claimDueNotificationDeliveries,
+  queueLateShipmentNotices,
   markNotificationAttemptFailed,
   markNotificationSent,
   markNotificationSkipped,
@@ -36,6 +37,8 @@ export interface NotificationDeliverySummary {
 const BATCH_SIZE = 25;
 /** Longer than an e-mail send can take (the mailer times out at 10 s). */
 const LEASE_MILLISECONDS = 2 * 60 * 1000;
+/** Delays move by the hour; looking for new ones every 15 minutes is plenty. */
+const LATE_SWEEP_INTERVAL_MILLISECONDS = 15 * 60 * 1000;
 
 type AttemptResult = ChannelOutcome | { status: "failed"; error: string };
 
@@ -122,7 +125,25 @@ function summarize(statuses: readonly (AttemptResult["status"] | null)[]) {
   };
 }
 
-/** Sends due e-mail and push notifications, recording each attempt with its retry time. */
+/** A failed sweep is retried on the next interval; it must not stop the deliveries. */
+async function sweepLateShipments(dependencies: NotificationDeliveryDependencies, now: Date) {
+  try {
+    const queued = await queueLateShipmentNotices(dependencies.database, {
+      now,
+      tenantId: dependencies.tenantId,
+    });
+    if (queued > 0) {
+      logger.info("notification.late_shipments_queued", { queued });
+    }
+  } catch (error) {
+    logger.error("notification.late_sweep_failed", { error });
+  }
+}
+
+/**
+ * Sends due e-mail and push notifications, recording each attempt with its retry time, and now
+ * and then queues notices for parcels that just became late.
+ */
 export function createNotificationDeliveryProcessor(
   dependencies: NotificationDeliveryDependencies,
 ) {
@@ -133,8 +154,14 @@ export function createNotificationDeliveryProcessor(
     ),
   );
 
+  let lastSweptAt = 0;
+
   return async function processNotificationDeliveries(): Promise<NotificationDeliverySummary> {
     const now = currentTime();
+    if (now.getTime() - lastSweptAt >= LATE_SWEEP_INTERVAL_MILLISECONDS) {
+      lastSweptAt = now.getTime();
+      await sweepLateShipments(dependencies, now);
+    }
     const deliveries = await claimDueNotificationDeliveries(dependencies.database, {
       tenantId: dependencies.tenantId,
       now,

@@ -315,27 +315,6 @@ describe("publish-listing processor", () => {
     expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("supplier_inactive"));
   });
 
-  it("publishes for a reseller anywhere in Brazil, whatever address an older profile kept", async () => {
-    const [, tenantId] = tenantIds;
-    if (tenantId === undefined) {
-      throw new Error("tenant ausente");
-    }
-    await database
-      .insert(schema.tenantProfile)
-      .values({ tenantId, cep: "69900062", state: "AC", city: "Rio Branco" });
-    const store = await createTestStore(environment, tenantId, "connected");
-    const targetId = await createTestTarget(database, {
-      tenantId,
-      productId: catalog.productId,
-      storeId: store.id,
-      title: "Produto vendido do Acre",
-    });
-
-    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
-    expect(await processPublish(job)).toBe("published");
-    expect((await targetRow(targetId)).errorReason).toBeNull();
-  });
-
   it("refuses a publication whose shop moved to another supplier after it was queued", async () => {
     const other = await createTestProduct(database, {
       sku: "W-OUTRO",

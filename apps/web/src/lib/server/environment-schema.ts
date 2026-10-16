@@ -1,4 +1,5 @@
 import {
+  alertWebhookUrlEnvironmentSchema,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
   mockWebhookSecretEnvironmentSchema,
@@ -42,6 +43,7 @@ const serverEnvironmentShape = z.object({
     ),
   MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
+  ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
   /** Transactional e-mail (password reset). Without it, development logs the message. */
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),

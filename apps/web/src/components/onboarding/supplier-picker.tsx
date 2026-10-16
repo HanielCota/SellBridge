@@ -1,5 +1,5 @@
 import { CheckCircleIcon, MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
-import { stateSchema } from "@sellbridge/shared/cep";
+import { stateSchema } from "@sellbridge/shared/brazilian-states";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { SearchInput } from "@/components/data/search-input";
@@ -215,7 +215,7 @@ function SupplierOption({
 
 function SupplierOptionsSkeleton() {
   return (
-    <div
+    <output
       className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       aria-busy="true"
       aria-label="Carregando fornecedores"
@@ -223,6 +223,6 @@ function SupplierOptionsSkeleton() {
       {Array.from({ length: 4 }, (_, index) => (
         <Skeleton key={index} className="h-40 rounded-3xl" />
       ))}
-    </div>
+    </output>
   );
 }
