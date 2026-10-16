@@ -131,7 +131,6 @@ export interface SeedSupplier {
   state: string;
   city: string;
   /** States covered entirely, and specific cities covered in other states. */
-  coverage: { state: string; city?: string }[];
   /** How the demo history treats this supplier: review stars, cancellations and returns. */
   reputation?: SupplierReputationProfile;
 }
@@ -146,7 +145,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Confecção própria no polo de moda de Divinópolis, com coleções a cada 45 dias.",
     state: "MG",
     city: "Divinópolis",
-    coverage: [{ state: "MG" }, { state: "SP" }, { state: "RJ" }, { state: "ES" }],
   },
   {
     name: "Brás Atacado Masculino",
@@ -155,7 +153,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Atacadista do Brás com básicos masculinos e reposição semanal.",
     state: "SP",
     city: "São Paulo",
-    coverage: [{ state: "SP" }, { state: "MG" }, { state: "PR" }],
   },
   {
     name: "Franca Calçados Direto da Fábrica",
@@ -164,7 +161,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Fábrica de calçados de couro em Franca com envio em 24 horas.",
     state: "SP",
     city: "Franca",
-    coverage: [{ state: "SP" }, { state: "MG" }, { state: "GO" }, { state: "RJ" }],
   },
   {
     name: "BH Beauty Distribuidora",
@@ -173,7 +169,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Distribuidora de cosméticos nacionais com produtos registrados na Anvisa.",
     state: "MG",
     city: "Belo Horizonte",
-    coverage: [{ state: "MG" }],
   },
   {
     name: "Blumenau Têxtil Casa",
@@ -181,7 +176,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Cama, mesa e banho do polo têxtil do Vale do Itajaí.",
     state: "SC",
     city: "Blumenau",
-    coverage: [{ state: "SC" }, { state: "PR" }, { state: "RS" }, { state: "SP" }],
   },
   {
     name: "Cozinha Gaúcha Utilidades",
@@ -189,7 +183,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Utilidades domésticas com estoque próprio em Porto Alegre.",
     state: "RS",
     city: "Porto Alegre",
-    coverage: [{ state: "RS" }, { state: "SC" }],
   },
   {
     name: "Curitiba Tech Acessórios",
@@ -198,12 +191,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Acessórios para celular e eletrônicos com garantia de 90 dias.",
     state: "PR",
     city: "Curitiba",
-    coverage: [
-      { state: "PR" },
-      { state: "SC" },
-      { state: "SP" },
-      { state: "MG", city: "Belo Horizonte" },
-    ],
   },
   {
     name: "Rio Pet Atacado",
@@ -211,7 +198,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Produtos pet com foco em acessórios e conforto.",
     state: "RJ",
     city: "Rio de Janeiro",
-    coverage: [{ state: "RJ" }, { state: "ES" }, { state: "MG", city: "Juiz de Fora" }],
   },
   {
     name: "Goiânia Fit Wear",
@@ -220,7 +206,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Moda fitness e acessórios para treino, produção própria em Goiânia.",
     state: "GO",
     city: "Goiânia",
-    coverage: [{ state: "GO" }, { state: "DF" }, { state: "MG" }, { state: "TO" }],
   },
   {
     name: "Papelaria Recife Criativa",
@@ -228,7 +213,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Papelaria criativa e organização com envio para todo o Nordeste.",
     state: "PE",
     city: "Recife",
-    coverage: [{ state: "PE" }, { state: "PB" }, { state: "AL" }, { state: "RN" }, { state: "CE" }],
   },
   {
     name: "Salvador Kids Distribuidora",
@@ -236,7 +220,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Brinquedos certificados pelo Inmetro e moda bebê.",
     state: "BA",
     city: "Salvador",
-    coverage: [{ state: "BA" }, { state: "SE" }, { state: "PE" }],
   },
   {
     name: "Fortaleza Moda Praia",
@@ -244,7 +227,6 @@ export const SUPPLIERS: SeedSupplier[] = [
     description: "Moda praia e resort com tecidos de proteção UV.",
     state: "CE",
     city: "Fortaleza",
-    coverage: [{ state: "CE" }, { state: "RN" }, { state: "PI" }, { state: "MA" }],
   },
 ];
 
@@ -284,7 +266,6 @@ export const CACHED_CEPS = [
 export const DEMO_ACCOUNT = {
   name: "Ana Revendedora",
   email: "demo@sellbridge.local",
-  cep: "30130010",
   /** Billing holder for invoices; a well-known test CPF, valid check digits, nobody's real one. */
   holder: { fullName: "Ana Revendedora Souza", cpf: "52998224725" },
 } as const;

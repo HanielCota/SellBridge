@@ -1,15 +1,8 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cepCache } from "../schema/index.ts";
+import { cepCache, tenantProfile } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, testCpf } from "../testing/fixtures.ts";
-import {
-  findBillingHolder,
-  findCachedCep,
-  findTenantRegion,
-  saveBillingHolder,
-  saveCachedCep,
-  saveTenantRegion,
-} from "./region.ts";
+import { findBillingHolder, findCachedCep, saveBillingHolder, saveCachedCep } from "./region.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -27,81 +20,6 @@ afterAll(async () => {
   await database.$client.end();
 });
 
-describe("tenant region", () => {
-  it("returns null when the tenant has no region yet", async () => {
-    const [tenantA] = tenants.ids;
-    expect(tenantA).toBeDefined();
-    expect(await findTenantRegion(database, tenantA ?? "")).toBeNull();
-  });
-
-  it("isolates regions between tenants", async () => {
-    const [tenantA, tenantB] = tenants.ids;
-    if (!tenantA || !tenantB) {
-      throw new Error("tenants de teste não criados");
-    }
-    await saveTenantRegion(database, tenantA, {
-      cep: "30130010",
-      state: "MG",
-      city: "Belo Horizonte",
-      neighborhood: "Centro",
-      street: null,
-    });
-    expect(await findTenantRegion(database, tenantB)).toBeNull();
-    expect(await findTenantRegion(database, tenantA)).toMatchObject({
-      state: "MG",
-      city: "Belo Horizonte",
-    });
-  });
-
-  it("updates the region on a second save", async () => {
-    const [tenantA] = tenants.ids;
-    if (!tenantA) {
-      throw new Error("tenant de teste não criado");
-    }
-    await saveTenantRegion(database, tenantA, {
-      cep: "01001000",
-      state: "SP",
-      city: "São Paulo",
-      neighborhood: null,
-      street: null,
-    });
-    expect(await findTenantRegion(database, tenantA)).toMatchObject({
-      state: "SP",
-      neighborhood: null,
-    });
-  });
-
-  it("keeps the billing holder when a later save changes only the CEP", async () => {
-    const [tenantA] = tenants.ids;
-    if (!tenantA) {
-      throw new Error("tenant de teste não criado");
-    }
-    const address = {
-      cep: "30130010",
-      state: "MG" as const,
-      city: "Belo Horizonte",
-      neighborhood: "Centro",
-      street: "Avenida Afonso Pena",
-    };
-    const cpf = testCpf();
-    await saveTenantRegion(database, tenantA, {
-      ...address,
-      holder: { fullName: "Ana Souza Lima", cpf },
-    });
-    const afterCepChange = await saveTenantRegion(database, tenantA, {
-      ...address,
-      cep: "01001000",
-      state: "SP",
-      city: "São Paulo",
-    });
-    expect(afterCepChange).toMatchObject({
-      city: "São Paulo",
-      fullName: "Ana Souza Lima",
-      cpf,
-    });
-  });
-});
-
 describe("billing holder", () => {
   it("saves the holder alone, with no address and so no region", async () => {
     const [, , tenantC] = tenants.ids;
@@ -111,7 +29,6 @@ describe("billing holder", () => {
     const holder = { fullName: "Bruno Costa Reis", cpf: testCpf() };
     await saveBillingHolder(database, tenantC, holder);
     expect(await findBillingHolder(database, tenantC)).toEqual(holder);
-    expect(await findTenantRegion(database, tenantC)).toBeNull();
   });
 
   it("keeps the address an older profile has when the holder changes", async () => {
@@ -119,9 +36,16 @@ describe("billing holder", () => {
     if (!tenantA) {
       throw new Error("tenant de teste não criado");
     }
+    await database
+      .insert(tenantProfile)
+      .values({ tenantId: tenantA, cep: "01001000", state: "SP", city: "São Paulo" });
     const holder = { fullName: "Ana Souza Lima Neta", cpf: testCpf() };
     await saveBillingHolder(database, tenantA, holder);
-    expect(await findTenantRegion(database, tenantA)).toMatchObject({ ...holder, state: "SP" });
+    const [row] = await database
+      .select()
+      .from(tenantProfile)
+      .where(eq(tenantProfile.tenantId, tenantA));
+    expect(row).toMatchObject({ ...holder, cep: "01001000", state: "SP" });
   });
 
   it("refuses a CPF already used by another account", async () => {

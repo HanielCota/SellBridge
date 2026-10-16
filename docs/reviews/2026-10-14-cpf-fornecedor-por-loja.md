@@ -1,6 +1,19 @@
 # Mudança de modelo: CPF na entrada, fornecedor de qualquer lugar, um fornecedor por loja
 
-Data: 2026-10-14 · Branch base: `feat/client-phase-1` · Status: **plano, nada implementado**
+Data: 2026-10-14 · Branch: `feat/cpf-supplier-per-store` (juntada na `feat/client-phase-1`) · Status: **implementado, etapas 1 a 8**
+
+| Etapa                        | Commit               | O que entrou                                                                   |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| 1. Base de dados             | `242a497`            | `store_connections.supplier_id`, endereço opcional, CPF único (migration 0025) |
+| 2. Fim da trava por região   | `97d0748`            | catálogo, publicação, busca, API e sync sem CEP                                |
+| 3. Onboarding                | `14e3104`, `9fb280a` | nome e CPF, depois o fornecedor da primeira loja (migration 0026)              |
+| 4. Lojas                     | `279e6ff`, `1dd4647` | uma loja, um fornecedor; troca com prévia de impacto (migration 0027)          |
+| 5. Diretório de fornecedores | `a6360cc`            | filtros de UF e cidade; "Vender este fornecedor"                               |
+| 6. Admin, Clientes           | `1fc4c5c`            | fornecedor de cada loja, filtro, troca pelo admin, status do CPF               |
+| 7. Admin, Fornecedores       | `0f8b55b`            | sem cobertura; lojistas vinculados; confirmação da desativação                 |
+| 8. Textos, docs e limpeza    | este commit          | Termos, Privacidade, menu, código de região sem uso, seed, `decisions.md`      |
+
+Ficou para decidir com o cliente: apagar a tabela `supplier_coverage` e as colunas de endereço de `tenant_profile`, que estão sem uso.
 
 ## 1. O pedido do cliente
 

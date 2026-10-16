@@ -8,8 +8,8 @@ const SECTIONS: readonly LegalSection[] = [
     title: "1. Dados que coletamos",
     paragraphs: [
       "Dados da conta: nome, e-mail e senha (guardada apenas como hash, nunca em texto).",
-      "Dados do titular: nome completo, CPF e endereço, usados nas notas fiscais e nas cobranças da assinatura.",
-      "Dados de uso do serviço: sua região, as lojas que você conecta, anúncios, pedidos, valores de vendas e chamados de suporte com seus anexos.",
+      "Dados do titular: nome completo e CPF, usados nas notas fiscais e nas cobranças da assinatura. O CPF fica restrito a esse uso e não aparece para a nossa equipe de suporte.",
+      "Dados de uso do serviço: as lojas que você conecta e o fornecedor de cada uma, anúncios, pedidos, valores de vendas e chamados de suporte com seus anexos.",
       "Acessos aos marketplaces: os tokens de acesso das lojas conectadas, guardados criptografados.",
     ],
   },

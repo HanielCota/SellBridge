@@ -27,8 +27,8 @@ docker-compose.yml · .oxlintrc.json · turbo.json · .github/workflows/ci.yml
 ## Modelo de dados
 
 - **Auth (Better Auth):** user, session, account, verification + plugin organization (organization, member). O tenant é a organization; cada usuário recebe uma no cadastro.
-- **Região:** `cep_cache` (cep, uf, cidade, bairro, payload, fetched_at); `tenant_profile` (tenant_id, cep, uf, cidade).
-- **Fornecedores** (globais, gerenciados pelo admin): `suppliers` (nome, nicho, uf, cidade), `supplier_coverage` (supplier_id, uf, cidade opcional), `categories`, `supplier_products` (sku, título, cost_cents, estoque, categoria, imagens).
+- **Cadastro do lojista:** `tenant_profile` (tenant_id, nome completo, CPF único, fornecedor inicial). As colunas de endereço e o `cep_cache` ficaram sem uso desde 2026-10-15 (ver `decisions.md`).
+- **Fornecedores** (globais, gerenciados pelo admin): `suppliers` (nome, nicho, uf e cidade de onde envia), `store_connections.supplier_id` (uma loja, um fornecedor), `categories`, `supplier_products` (sku, título, cost_cents, estoque, categoria, imagens).
 - **Lojas:** `store_connections` (tenant_id, marketplace, external_shop_id, access_token_enc, refresh_token_enc, expires_at, status: connected | expired | error | disconnected).
 - **Publicação:** `listings` (tenant_id, supplier_product_id, título, descrição, price_cents); `listing_targets` (listing_id, store_connection_id, status: pending | publishing | published | error, external_id, error_reason, attempts, idempotency_key).
 - **Vendas:** `orders` (tenant_id, store_connection_id, external_order_id único por loja, status, total_cents, marketplace_fee_cents, ordered_at); `order_items` (listing_target_id, qty, unit_price_cents, unit_cost_cents); `order_adjustments` (refund | return | commission, amount_cents).
