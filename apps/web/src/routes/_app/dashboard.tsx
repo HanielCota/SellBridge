@@ -15,6 +15,7 @@ import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { SetupGuide } from "@/components/onboarding/setup-guide";
+import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateRange } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
@@ -85,11 +86,7 @@ function DashboardPage() {
 function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
   const { onboarding, summary, previous } = data;
-  const onboardingComplete =
-    onboarding.hasHolder &&
-    onboarding.hasSupplier &&
-    onboarding.hasStore &&
-    onboarding.hasPublishedListing;
+  const onboardingComplete = findNextStep(onboarding) === undefined;
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
     return (
       <>
