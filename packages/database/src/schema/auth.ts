@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index, integer } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { pgTable, text, timestamp, boolean, index, integer, check } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -81,14 +81,23 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const organization = pgTable("organization", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  logo: text("logo"),
-  createdAt: timestamp("created_at").notNull(),
-  metadata: text("metadata"),
-});
+/** What an organization is to its members: a reseller's store or a supplier's catalog. */
+export const ORGANIZATION_KINDS = ["seller", "supplier"] as const;
+export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number];
+
+export const organization = pgTable(
+  "organization",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    logo: text("logo"),
+    createdAt: timestamp("created_at").notNull(),
+    metadata: text("metadata"),
+    kind: text("kind", { enum: ORGANIZATION_KINDS }).default("seller").notNull(),
+  },
+  (table) => [check("organization_kind_check", sql`${table.kind} in ('seller', 'supplier')`)],
+);
 
 export const member = pgTable(
   "member",
