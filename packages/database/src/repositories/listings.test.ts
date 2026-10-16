@@ -8,14 +8,12 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { findTargetsNeedingSync, markTargetSynced, markTargetSyncFailed } from "./listing-sync.ts";
 import {
   createListingWithTargets,
-  findTargetsNeedingSync,
   listListingTargets,
   markTargetFailed,
   markTargetPublished,
-  markTargetSynced,
-  markTargetSyncFailed,
 } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
