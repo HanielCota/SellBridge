@@ -25,7 +25,7 @@ import {
 } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useUpdatePrice } from "@/features/listings/use-listing-actions";
-import { formatCentsForField, maskCurrencyInput } from "@/lib/currency-mask";
+import { formatCentsForField, maskCurrencyInput, readPastedCurrency } from "@/lib/currency-mask";
 import { cn } from "@/lib/utils";
 import { RUN_STATE_DOT, RUN_STATE_TEXT, RUN_STATE_TINT } from "./run-state-style";
 
@@ -166,6 +166,12 @@ function PriceField({
           inputMode="numeric"
           autoComplete="off"
           value={value}
+          onPaste={(event) => {
+            // A pasted amount replaces the field whole; it is not typed digit by digit.
+            event.preventDefault();
+            const pasted = readPastedCurrency(event.clipboardData.getData("text"));
+            if (pasted !== null) onChange(pasted);
+          }}
           onChange={(event) => {
             const field = event.currentTarget;
             onChange(maskCurrencyInput(field.value));
