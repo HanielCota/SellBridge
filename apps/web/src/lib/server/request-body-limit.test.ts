@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { serve } from "srvx";
 import {
   bodyLimitFor,
   limitRequestBody,
@@ -32,6 +33,44 @@ describe("bodyLimitFor", () => {
 });
 
 describe("limitRequestBody", () => {
+  it.each(["/api/auth/sign-in/email", "/api/auth/sign-up/email", "/_serverFn/example"])(
+    "passes a real production-server request through %s",
+    async (path) => {
+      const server = serve({
+        hostname: "127.0.0.1",
+        port: 0,
+        silent: true,
+        fetch: async (request) => {
+          const limited = limitRequestBody(request);
+          if (limited instanceof Response) return limited;
+          return Response.json({
+            method: limited.method,
+            path: new URL(limited.url).pathname,
+            contentType: limited.headers.get("content-type"),
+            body: await limited.json(),
+          });
+        },
+      });
+      try {
+        await server.ready();
+        const response = await fetch(new URL(path, server.url), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message: "production request" }),
+        });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({
+          method: "POST",
+          path,
+          contentType: "application/json",
+          body: { message: "production request" },
+        });
+      } finally {
+        await server.close(true);
+      }
+    },
+  );
+
   // Regression: a server function parsed any body whole, so a 1 GB POST filled the memory.
   it("answers 413 when the declared length passes the cap by one byte", () => {
     const request = post("/api/auth/sign-in/email", "{}", {
