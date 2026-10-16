@@ -2,16 +2,11 @@ import { relations } from "drizzle-orm";
 import { listings, listingTargets } from "./listings.ts";
 import { orderAdjustments, orderItems, orders } from "./orders.ts";
 import { storeConnections } from "./stores.ts";
-import { categories, supplierCoverage, supplierProducts, suppliers } from "./suppliers.ts";
+import { categories, supplierProducts, suppliers } from "./suppliers.ts";
 import { ticketAttachments, ticketMessages, tickets } from "./support.ts";
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
-  coverage: many(supplierCoverage),
   products: many(supplierProducts),
-}));
-
-export const supplierCoverageRelations = relations(supplierCoverage, ({ one }) => ({
-  supplier: one(suppliers, { fields: [supplierCoverage.supplierId], references: [suppliers.id] }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({

@@ -230,39 +230,6 @@ export const SUPPLIERS: SeedSupplier[] = [
   },
 ];
 
-/** CEPs pre-cached so local development and E2E tests do not depend on external APIs. */
-export const CACHED_CEPS = [
-  {
-    cep: "30130010",
-    state: "MG",
-    city: "Belo Horizonte",
-    neighborhood: "Centro",
-    street: "Avenida Afonso Pena",
-  },
-  { cep: "01001000", state: "SP", city: "São Paulo", neighborhood: "Sé", street: "Praça da Sé" },
-  {
-    cep: "20040002",
-    state: "RJ",
-    city: "Rio de Janeiro",
-    neighborhood: "Centro",
-    street: "Rua da Assembleia",
-  },
-  {
-    cep: "80010000",
-    state: "PR",
-    city: "Curitiba",
-    neighborhood: "Centro",
-    street: "Praça Tiradentes",
-  },
-  {
-    cep: "69005010",
-    state: "AM",
-    city: "Manaus",
-    neighborhood: "Centro",
-    street: "Rua Marcílio Dias",
-  },
-] as const;
-
 export const DEMO_ACCOUNT = {
   name: "Ana Revendedora",
   email: "demo@sellbridge.local",
