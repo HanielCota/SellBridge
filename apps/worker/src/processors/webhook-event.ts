@@ -28,6 +28,8 @@ export interface WebhookDependencies {
   cipher: TokenCipher;
   /** Asks the stock and price sync to run now instead of at its next scheduled run. */
   requestStockSync: () => Promise<void>;
+  /** Asks to forward a paid order to its suppliers on its own (item 21.b; a no-op when off). */
+  requestAutoForward: (orderId: string) => Promise<void>;
 }
 
 export type WebhookOutcome =
@@ -168,6 +170,18 @@ async function requestStockSyncSafely(
   }
 }
 
+/** Same as the stock sync: the order is saved, and a failed request is logged, not thrown. */
+async function requestAutoForwardSafely(
+  dependencies: WebhookDependencies,
+  context: { webhookEventId: string; orderId: string },
+): Promise<void> {
+  try {
+    await dependencies.requestAutoForward(context.orderId);
+  } catch (error) {
+    logger.warn("order.auto_forward_deferred", { ...context, error });
+  }
+}
+
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
   // Decrypted here, inside the caller's try, so a bad token is recorded on the event.
@@ -188,6 +202,12 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   await markWebhookProcessed(dependencies.database, sync.webhookEventId);
   if (result.stockMoves > 0) {
     await requestStockSyncSafely(dependencies, sync.webhookEventId);
+  }
+  if (order.status === "paid") {
+    await requestAutoForwardSafely(dependencies, {
+      webhookEventId: sync.webhookEventId,
+      orderId: result.orderId,
+    });
   }
   logger.info("webhook.order_synced", {
     webhookEventId: sync.webhookEventId,
