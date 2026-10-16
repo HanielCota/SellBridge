@@ -1,11 +1,9 @@
-import { daysBefore } from "@sellbridge/shared/time";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { and, count, eq, inArray, sql, sum } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingTargets, orders } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
-
-const ACTIVITY_WINDOW_DAYS = 30;
 
 export interface StoreActivity {
   /** Listings live in the store (published or paused). */
@@ -45,7 +43,9 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
 }
 
 async function recentSales(database: Database, tenantId: string, storeIds: string[]) {
-  const since = daysBefore(ACTIVITY_WINDOW_DAYS);
+  // The dashboard's "30 dias" (today and the 29 days before it, in Brazil): 30 x 24 h back from
+  // now started mid-day, and the store card and the dashboard filtered to it disagreed.
+  const since = resolvePeriod({ period: "30d" }, new Date()).from;
   return database
     .select({
       storeId: orders.storeConnectionId,
