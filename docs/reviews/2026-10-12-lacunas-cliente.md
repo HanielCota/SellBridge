@@ -83,6 +83,7 @@ A tabela abaixo vale **por cima** das seções seguintes. Um ID que não aparece
 | B20                | ✅ (15/10)       | `redirect` do login e do onboarding aceita só caminho interno; `//host`, `/\host` e esquemas são descartados (item 19).                                                                                       |
 | B15                | ✅ (15/10)       | Falha de renovação que não é de autorização deixa a loja conectada em "Atenção" no card, com o motivo; sem gravar `error`, para seguir tentando (item 19).                                                    |
 | F7                 | ✅ (16/10)       | Saúde da loja no menu de /lojas e na ficha do admin: última sincronização, último aviso do marketplace e acesso (item 24.a).                                                                                  |
+| F6                 | ✅ (16/10)       | Desconectar oferece pausar os anúncios no marketplace (estoque zero), marcado por padrão; o que não pausar é avisado (item 24.b).                                                                             |
 | B8 / N6            | ✅ (14/10)       | Organização sem criação nem exclusão, /organization/* fechado por HTTP e membro reconferido em requireTenantSession (audit + 10.b).                                                                           |
 
 ### Decisões do cliente que o código já assumiu (confirmar com ele)

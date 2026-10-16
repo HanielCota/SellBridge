@@ -531,3 +531,9 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Leitor de tela:** um menu só percorre os itens, então o botão "Opções de…" leva o resumo da saúde como descrição acessível.
 - **Ficha do cliente no admin:** cada loja mostra o mesmo chip ("Atenção" inclusive) e os mesmos fatos numa frase corrida embaixo da linha, para o suporte ler o que o revendedor lê.
 - Partes seguintes: 24.b (pausar os anúncios ao desconectar, marcado por padrão) e 24.c (e-mail de loja expirada, depois que a 21.b do principal levar o mailer para `@sellbridge/shared`).
+
+## 2026-10-16: Desconectar pausa os anúncios por padrão (item 24.b, chat B)
+
+- O diálogo de desconectar a loja traz "Pausar os anúncios desta loja no marketplace", marcado por padrão (decisão do ⏸1: o padrão mais seguro). Um anúncio que continua ativo depois da desconexão vende sem sincronizar estoque.
+- Antes de apagar os tokens, o servidor manda estoque zero para cada anúncio publicado da loja, um por vez, com teto de 20 s para a pessoa não ficar presa no diálogo, e marca como pausados os que o marketplace aceitou. Uma falha nunca impede a desconexão: o aviso diz quantos anúncios continuam ativos e pede para pausar direto no marketplace. Depois de reconectar, a pessoa reativa os anúncios em Publicações.
+- A desconexão feita pelo admin na ficha do cliente continua sem pausar (fica em "Refinar depois").
