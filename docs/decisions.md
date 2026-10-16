@@ -516,3 +516,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **E-mail que falha não desfaz o encaminhamento:** o envio ganha no histórico "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele." e o revendedor compartilha o link à mão. Os logs levam só ids (nada de e-mail, endereço ou link).
 - **Envio de e-mail compartilhado** em `@sellbridge/shared/mailer` (Resend, web e worker), e o layout em `@sellbridge/shared/email-layout` (saiu de `apps/web/src/lib/server`). O item 25 (central de notificações) troca o envio direto pela fila de canais.
 - **Pendências aceitas:** um job perdido (Redis fora no instante do webhook) não é refeito pelo sweeper, e o pedido fica com o revendedor; o worker sem `RESEND_API_KEY` em produção recusa o e-mail e anota a falha no histórico.
+
+## 2026-10-15: Erros do Mercado Livre em português, com o que fazer (item 13.a)
+
+- **De onde vêm as regras:** a página oficial "Validações" (developers.mercadolivre.com.br/pt_br/validacoes, lida em 2026-10-15) dá o formato do erro (`cause[]` com `cause_id`, `type`, `code`, `references`, `message`) e a tabela de códigos. Só os códigos dessa tabela ganharam frase própria; nenhum foi inventado.
+- **O que o revendedor lê:** "o que aconteceu. o que fazer.", no tom das mensagens de indisponível do item 08: atributos obrigatórios (com os nomes que o ML deu), preço mínimo da categoria em reais, fotos pequenas, título curto, marca não autorizada, GTIN recusado e outros. Só `type: "error"` bloqueia: avisos (`warning`) não aparecem. Até dois erros por mensagem. Código desconhecido: "O Mercado Livre recusou o anúncio: <palavras do ML>. Revise o anúncio e tente de novo.", com o trecho do ML cortado em 300 caracteres. Resposta sem `cause` mantém a mensagem de antes.
+- **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
+- **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
