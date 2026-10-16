@@ -41,4 +41,5 @@ export * from "./notification-producers.ts";
 export * from "./notification-late-shipments.ts";
 export * from "./notification-preferences.ts";
 export * from "./email-verification.ts";
+export * from "./staff-team.ts";
 export * from "./ticket-subjects.ts";

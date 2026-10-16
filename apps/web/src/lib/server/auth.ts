@@ -1,5 +1,6 @@
 import { schema } from "@sellbridge/database";
 import {
+  isPendingTeamInvite,
   promoteVerifiedOwner,
   recordAdminEvent,
   touchUserActivity,
@@ -24,6 +25,7 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
+import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
 import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
 import {
   afterAccountDeletion,
@@ -196,7 +198,21 @@ function googleProvider() {
   };
 }
 
-async function sendResetPasswordEmail({ user, url }: { user: { email: string }; url: string }) {
+async function sendResetPasswordEmail({
+  user,
+  url,
+}: {
+  user: { id: string; email: string };
+  url: string;
+}) {
+  // A team invite (item 28.a) sends the same link, worded as a welcome.
+  if (await isPendingTeamInvite(database, user.id)) {
+    await sendEmail({
+      to: user.email,
+      ...renderActionEmail(teamInviteEmail(url), environment.APP_URL),
+    });
+    return;
+  }
   const email = renderActionEmail(
     {
       subject: "Redefinir sua senha do SellBridge",
