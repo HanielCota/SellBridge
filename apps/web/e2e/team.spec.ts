@@ -62,3 +62,30 @@ test("um admin que não é dono vê a equipe, mas não convida", async ({ browse
   await expect(page.getByRole("button", { name: "Convidar pessoa" }).first()).toBeDisabled();
   await page.close();
 });
+
+// Regression (review of ca7ddbb): the invite gave the role to whoever already held the address.
+// The unconfirmed-address refusal is covered in shared/domain/team-invite.test.ts.
+test("recusa convidar o e-mail de uma conta que já existe fora da equipe", async ({ browser }) => {
+  const squatter = await browser.newPage();
+  const email = await signUp(squatter, "Quem Chegou Antes");
+  await squatter.close();
+
+  const page = await browser.newPage();
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/equipe");
+  await page.getByRole("button", { name: "Convidar pessoa" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Convidar para a equipe" });
+  await dialog.getByLabel("Nome").fill("Pessoa Certa");
+  await dialog.getByLabel("E-mail").fill(email);
+  await dialog.getByRole("button", { name: "Administrador" }).click();
+  await dialog.getByRole("button", { name: "Enviar convite" }).click();
+
+  await expect(dialog.getByRole("alert")).toContainText("conta de cliente");
+  const [account] = await database
+    .select({ role: user.role })
+    .from(user)
+    .where(eq(user.email, email));
+  expect(account?.role).toBe("user");
+  await page.close();
+});

@@ -3,10 +3,11 @@ import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { user, userActivity } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
-import { findAccountByEmail, listStaffMembers } from "./staff-team.ts";
+import { findAccountByEmail, isPendingTeamInvite, listStaffMembers } from "./staff-team.ts";
 
 const database = createTestDatabase();
 const agent = `team-agent-${randomUUID()}`;
+const invited = `team-invited-${randomUUID()}`;
 const reseller = `team-reseller-${randomUUID()}`;
 const lastSeen = new Date("2026-01-02T10:00:00.000Z");
 
@@ -14,12 +15,13 @@ beforeAll(async () => {
   await database.insert(user).values([
     { id: agent, name: "Atendente", email: `${agent}@sellbridge.test`, role: "agent" },
     { id: reseller, name: "Revendedora", email: `${reseller}@sellbridge.test` },
+    { id: invited, name: "Convidada", email: `${invited}@sellbridge.test`, role: "supervisor" },
   ]);
   await database.insert(userActivity).values({ userId: agent, lastSeenAt: lastSeen });
 });
 
 afterAll(async () => {
-  await database.delete(user).where(inArray(user.id, [agent, reseller]));
+  await database.delete(user).where(inArray(user.id, [agent, reseller, invited]));
   await database.$client.end();
 });
 
@@ -39,7 +41,15 @@ describe("listStaffMembers", () => {
 describe("findAccountByEmail", () => {
   it("finds the account whatever the case of the address", async () => {
     const found = await findAccountByEmail(database, `${reseller}@SellBridge.test`.toUpperCase());
-    expect(found?.id).toBe(reseller);
+    expect(found).toMatchObject({ id: reseller, emailVerified: false });
     expect(await findAccountByEmail(database, "ninguem@sellbridge.test")).toBeNull();
+  });
+});
+
+describe("isPendingTeamInvite", () => {
+  it("is true only for someone on the team who never came in", async () => {
+    expect(await isPendingTeamInvite(database, invited)).toBe(true);
+    expect(await isPendingTeamInvite(database, agent)).toBe(false);
+    expect(await isPendingTeamInvite(database, reseller)).toBe(false);
   });
 });

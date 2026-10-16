@@ -1,19 +1,9 @@
 import type { ActionEmailContent } from "@sellbridge/shared/email-layout";
 
 /**
- * Where an invited person lands after setting the password. The marker tells the reset e-mail
- * (auth.ts) to read as an invitation instead of "you asked for a new password".
+ * The set-password e-mail, worded as a welcome, for someone invited to the team who never came
+ * in (`isPendingTeamInvite`, checked by auth.ts on the account, never on the request).
  */
-export const TEAM_INVITE_CALLBACK = "/redefinir-senha?convite=1";
-
-/** Whether Better Auth's set-password link was asked for by a team invite. */
-export function isTeamInviteLink(url: string): boolean {
-  if (!URL.canParse(url)) {
-    return false;
-  }
-  return new URL(url).searchParams.get("callbackURL") === TEAM_INVITE_CALLBACK;
-}
-
 export function teamInviteEmail(url: string): ActionEmailContent {
   return {
     subject: "Você foi convidado para a equipe do SellBridge",
