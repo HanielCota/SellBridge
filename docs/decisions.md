@@ -604,3 +604,8 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **100% só no fim:** a porcentagem é arredondada para baixo (199 de 200 = 99%).
 - **Falha conta como terminada só quando é definitiva:** a falha que o worker ainda vai tentar de novo fica como pendente, e a barra não para antes da hora.
 - **Sem migration:** o andamento sai de `listing_targets` (`status`, `createdAt`, `publishedAt`, `updatedAt`), pelos ids que a publicação em massa devolve.
+
+## 2026-10-16: Resultado da publicação em massa no diálogo (item 14.c)
+
+- **O diálogo acompanha o lote até o fim:** depois de "Publicar" ele não fecha nem leva à lista; mostra o andamento e, no fim, quantos anúncios foram ao ar, quantos falharam (o motivo fica em Publicações) e quais produtos ficaram fora, com o motivo. Fechar antes não para nada: a publicação continua no worker.
+- **A seleção é limpa ao fechar depois de um lote**, para a próxima abertura não repetir produtos já publicados.
