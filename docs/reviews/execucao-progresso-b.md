@@ -4,11 +4,11 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 24 · Saúde das lojas (F6, F7, F9; proposta de dividir em 24.a saúde, 24.b desconectar, 24.c e-mail)
-- Última etapa concluída: 2 · Diagnóstico (pacote ⏸1 apresentado em 2026-10-15, aguardando OK e três decisões)
-- Próximo passo: depois do OK, testes falhando da parte 24.a
-- Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: —
+- Item/parte: 24.a · Saúde da loja (F7) — 24.b desconectar e 24.c e-mail (depois da 21.b do principal) em seguida
+- Última etapa concluída: 8 · Revisão (pacote ⏸3 apresentado em 2026-10-16, aguardando OK)
+- Próximo passo: depois do OK, commit, junção, portões e hash ao principal; depois 24.b
+- Arquivos tocados: repositories/stores(.test).ts, store-activity(.test).ts, worker webhook-event(.test).ts, shared/domain/store-attention(.test).ts, components/stores/store-health.tsx e store-menu.tsx (novos; o menu saiu de store-list.tsx, que caiu para menos de 500 linhas), store-list.tsx, admin/customer-stores.tsx, features/admin/customer-stores.server.ts (novo), customers.functions.ts, public-api stores.presenter.test.ts, e2e/store-health.spec.ts (novo), decisions.md, relatório de lacunas
+- Decisões tomadas nos pontos de parada: ⏸1 OK com as recomendações (migration 0030; pausar anúncios marcado por padrão; e-mail agora, mas depois da 21.b, sem mexer no environment do worker)
 - Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base

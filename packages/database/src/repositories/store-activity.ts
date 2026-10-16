@@ -1,5 +1,5 @@
 import { daysBefore } from "@sellbridge/shared/time";
-import { and, count, eq, inArray, sql, sum } from "drizzle-orm";
+import { and, count, eq, inArray, max, sql, sum } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { listingTargets, orders } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
@@ -14,6 +14,8 @@ export interface StoreActivity {
   /** Last 30 days, ignoring cancelled and returned orders. */
   orders: number;
   revenueCents: number;
+  /** The most recent listing sync sent to the marketplace; null before the first one. */
+  lastSyncedAt: Date | null;
 }
 
 export const EMPTY_STORE_ACTIVITY: StoreActivity = {
@@ -21,6 +23,7 @@ export const EMPTY_STORE_ACTIVITY: StoreActivity = {
   failedListings: 0,
   orders: 0,
   revenueCents: 0,
+  lastSyncedAt: null,
 };
 
 async function listingCounts(database: Database, tenantId: string, storeIds: string[]) {
@@ -33,6 +36,7 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
       failed: sql<number>`count(*) filter (where ${listingTargets.status} = 'error')`.mapWith(
         Number,
       ),
+      lastSyncedAt: max(listingTargets.syncedAt),
     })
     .from(listingTargets)
     .where(
@@ -64,7 +68,7 @@ async function recentSales(database: Database, tenantId: string, storeIds: strin
     .groupBy(orders.storeConnectionId);
 }
 
-/** Listings and last-30-days sales per store, for the store cards. */
+/** Listings, last sync and last-30-days sales per store, for the store cards. */
 export async function getStoreActivity(
   database: Database,
   tenantId: string,
@@ -91,8 +95,32 @@ export async function getStoreActivity(
           failedListings: listingCount?.failed ?? EMPTY_STORE_ACTIVITY.failedListings,
           orders: sales?.orders ?? EMPTY_STORE_ACTIVITY.orders,
           revenueCents: sales?.revenueCents ?? EMPTY_STORE_ACTIVITY.revenueCents,
+          lastSyncedAt: listingCount?.lastSyncedAt ?? EMPTY_STORE_ACTIVITY.lastSyncedAt,
         },
       ];
     }),
   );
+}
+
+/** Only when each store last synced a listing, for screens without the sales figures (admin). */
+export async function getStoreLastSyncs(
+  database: Database,
+  tenantId: string,
+  storeIds: readonly string[],
+): Promise<Map<string, Date | null>> {
+  const ids = [...storeIds];
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const rows = await database
+    .select({
+      storeId: listingTargets.storeConnectionId,
+      lastSyncedAt: max(listingTargets.syncedAt),
+    })
+    .from(listingTargets)
+    .where(
+      and(eq(listingTargets.tenantId, tenantId), inArray(listingTargets.storeConnectionId, ids)),
+    )
+    .groupBy(listingTargets.storeConnectionId);
+  return new Map(rows.map((row) => [row.storeId, row.lastSyncedAt]));
 }

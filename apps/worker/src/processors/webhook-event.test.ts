@@ -109,7 +109,52 @@ describe("webhook-event processor", () => {
       .where(eq(schema.orderItems.tenantId, tenantId));
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
   });
+});
 
+async function storeStamp(eventId: string) {
+  const [row] = await database
+    .select({
+      lastWebhookAt: schema.storeConnections.lastWebhookAt,
+      receivedAt: schema.webhookEvents.receivedAt,
+    })
+    .from(schema.storeConnections)
+    .innerJoin(schema.webhookEvents, eq(schema.webhookEvents.id, eventId))
+    .where(eq(schema.storeConnections.externalShopId, shopId));
+  return row;
+}
+
+/** The store as if no event had come yet, so the next one stamps it (stamps step a minute). */
+async function clearStoreStamp() {
+  await database
+    .update(schema.storeConnections)
+    .set({ lastWebhookAt: null })
+    .where(eq(schema.storeConnections.externalShopId, shopId));
+}
+
+describe("store health stamp", () => {
+  it("stamps the store with the time of the marketplace's event", async () => {
+    await clearStoreStamp();
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    await processWebhook(job(eventId));
+    const row = await storeStamp(eventId);
+    expect(row?.lastWebhookAt).toEqual(row?.receivedAt);
+  });
+
+  it("stamps a store waiting on a reconnection too: the marketplace still talks about it", async () => {
+    await clearStoreStamp();
+    await setStoreStatus("expired");
+    try {
+      const eventId = await recordEvent({ shopId, resource: orderResource() });
+      expect(await processWebhook(job(eventId))).toBe("awaiting_reconnection");
+      const row = await storeStamp(eventId);
+      expect(row?.lastWebhookAt).toEqual(row?.receivedAt);
+    } finally {
+      await setStoreStatus("connected");
+    }
+  });
+});
+
+describe("webhook-event processor: stock and held sales", () => {
   it("asks for a stock sync right away when the order moved supplier stock", async () => {
     const eventId = await recordEvent({ shopId, resource: orderResource() });
     expect(await processWebhook(job(eventId))).toBe("order_created");
