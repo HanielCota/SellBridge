@@ -178,14 +178,14 @@ function FooterLine({
   return (
     <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs text-muted-foreground">
       {/* "Hoje" depends on the clock, so server and browser may disagree right at midnight. */}
-      <p
-        title="Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro"
-        suppressHydrationWarning
-      >
+      <p suppressHydrationWarning>
         {pickedDay ? (
           <span className="font-medium text-foreground">{formatDayHeading(pickedDay)} · </span>
         ) : null}
         {ordersLine(summary)}
+        <Hint label="O que fica fora da receita">
+          Aguardando pagamento, cancelados e devolvidos não entram na receita nem no lucro
+        </Hint>
       </p>
       {pickedDay ? (
         <button
