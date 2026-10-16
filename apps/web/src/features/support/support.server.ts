@@ -3,7 +3,9 @@ import {
   createTicket,
   findTicketForMessage,
   getAttachment,
+  linkTicketAbout,
   queueSupportReplyNotices,
+  requireTicketAbout,
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
@@ -13,6 +15,8 @@ import {
   adminTicketMessageSchema,
   createTicketSchema,
   replyTicketSchema,
+  ticketAboutSchema,
+  type TicketAboutInput,
 } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
@@ -47,6 +51,23 @@ function firstIssue(error: z.ZodError): string {
 }
 
 /** POST /api/suporte/chamados: opens a ticket (multipart: category, subject, body, files). */
+/**
+ * The order, store and listing the ticket was opened from, checked against the account before
+ * anything is saved, so a stale or foreign link never leaves a half-made ticket.
+ */
+async function readTicketAbout(formData: FormData, tenantId: string): Promise<TicketAboutInput> {
+  const about = ticketAboutSchema.safeParse({
+    orderId: textField(formData, "orderId"),
+    storeConnectionId: textField(formData, "storeConnectionId"),
+    listingId: textField(formData, "listingId"),
+  });
+  if (!about.success) {
+    throw validationError(firstIssue(about.error));
+  }
+  await requireTicketAbout(database, tenantId, about.data);
+  return about.data;
+}
+
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
@@ -60,6 +81,7 @@ export function handleCreateTicket(request: Request) {
     if (!input.success) {
       throw validationError(firstIssue(input.error));
     }
+    const about = await readTicketAbout(formData, session.tenantId);
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
     const { ticketId } = await saveWithAttachments(fileStorage, attachments, () =>
@@ -72,6 +94,12 @@ export function handleCreateTicket(request: Request) {
         attachments,
       }),
     );
+    await linkTicketAbout(database, {
+      ticketId,
+      tenantId: session.tenantId,
+      actorId: session.userId,
+      about,
+    });
     logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
     await recordImpersonatedCall({
       impersonatedBy: session.impersonatedBy,
