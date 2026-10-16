@@ -12,7 +12,7 @@ import {
   profitTone,
   totalFeeCents,
 } from "@/components/listings/profit-split";
-import { estimateProfit } from "@/features/listings/profit";
+import { estimateProfit, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { cn } from "@/lib/utils";
 
@@ -109,7 +109,7 @@ export function PriceReceipt({
         <ProfitSplitLine
           swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
           label={isLoss ? "Seu prejuízo" : "Seu lucro"}
-          value={`${formatCents(Math.abs(profitCents))} (${Math.round(marginPercent)}%)`}
+          value={`${formatCents(Math.abs(profitCents))} (${wholeMarginPercent(marginPercent)}%)`}
           valueClassName={cn("font-medium", profitTone(profitCents, marginPercent))}
         />
         <div className="flex items-center justify-between border-t border-border pt-2 font-medium">

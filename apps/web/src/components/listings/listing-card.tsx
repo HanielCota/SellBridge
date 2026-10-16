@@ -9,7 +9,7 @@ import { SoldOutFooter, SoldOutRibbon } from "@/components/catalog/sold-out";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useBulkListingActions } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -48,7 +48,7 @@ function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolea
             {" · "}
             <Hint label="Estimativa com o custo do fornecedor e a taxa média do marketplace">
               <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
-                margem {Math.round(margin)}%
+                margem {wholeMarginPercent(margin)}%
               </span>
             </Hint>
           </>

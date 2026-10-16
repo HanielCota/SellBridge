@@ -21,6 +21,7 @@ import {
   minimumPrice,
   priceForMargin,
   type ProfitEstimate,
+  wholeMarginPercent,
 } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useUpdatePrice } from "@/features/listings/use-listing-actions";
@@ -125,7 +126,7 @@ function MarginChip({ tone, estimate }: { tone: MarginTone; estimate: ProfitEsti
       )}
     >
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", RUN_STATE_DOT[tone])} />
-      {estimate ? `${Math.round(estimate.marginPercent)}% · ` : null}
+      {estimate ? `${wholeMarginPercent(estimate.marginPercent)}% · ` : null}
       {MARGIN_NAMES[tone]}
     </span>
   );

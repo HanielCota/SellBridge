@@ -44,6 +44,7 @@ import {
   isThinMargin,
   priceForMargin,
   type ProfitEstimate,
+  wholeMarginPercent,
 } from "@/features/listings/profit";
 import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -285,7 +286,7 @@ function ProfitSentence({
   return (
     <p className="text-sm text-muted-foreground">
       Você lucra <Strong className={tone}>{formatCents(estimate.profitCents)}</Strong> por venda,
-      com <Strong className={tone}>{Math.round(estimate.marginPercent)}% de margem</Strong>.
+      com <Strong className={tone}>{wholeMarginPercent(estimate.marginPercent)}% de margem</Strong>.
     </p>
   );
 }
@@ -468,7 +469,7 @@ function MarginBadge({ estimate }: { estimate: ProfitEstimate | null }) {
         profitTone(estimate.profitCents, estimate.marginPercent),
       )}
     >
-      {isLoss ? "Prejuízo" : `${Math.round(estimate.marginPercent)}% de margem`}
+      {isLoss ? "Prejuízo" : `${wholeMarginPercent(estimate.marginPercent)}% de margem`}
     </span>
   );
 }
