@@ -8,8 +8,6 @@ export const tokenResponseSchema = z.object({
   refresh_token: z.string().min(1).optional(),
 });
 
-export const userSchema = z.object({ id: z.union([z.number(), z.string()]), nickname: z.string() });
-
 export const errorBodySchema = z
   .object({ error: z.string().optional(), message: z.string().optional() })
   .passthrough();
@@ -49,7 +47,10 @@ const MAX_ORDER_LINE_QUANTITY = 100_000;
  * Numeric ids from the marketplace. Above 2^53 JSON.parse has already rounded them, and a
  * rounded id names another order: `.int()` (safe integers only) refuses it instead.
  */
-const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
+export const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
+
+/** The connected seller: its id becomes the store's `externalShopId`, so it must not be rounded. */
+export const userSchema = z.object({ id: externalIdSchema, nickname: z.string() });
 
 export const orderSchema = z.object({
   id: externalIdSchema,
@@ -120,7 +121,7 @@ export const itemSearchSchema = z.object({
   paging: z.object({ total: z.number().int().nonnegative() }),
 });
 export const reconciledItemSchema = createdItemSchema.extend({
-  seller_id: z.union([z.number(), z.string()]),
+  seller_id: externalIdSchema,
   seller_custom_field: z.string().nullable(),
   status: z.string(),
 });

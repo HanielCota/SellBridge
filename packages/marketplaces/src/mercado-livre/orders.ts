@@ -48,7 +48,12 @@ const MAX_STORED_CENTS = 2_147_483_647;
 /** A total built from several lines (fee × quantity, refunds of several payments) must still fit. */
 function storedCents(cents: number, field: string): number {
   if (cents > MAX_STORED_CENTS) {
-    throw new Error(`Mercado Livre order ${field} is too large to store: ${cents} cents`);
+    // A final answer, not a retryable failure: asking again returns the same order, and the
+    // webhook job only stops retrying on a non-retryable marketplace error.
+    throw marketplaceError(
+      `Pedido do Mercado Livre com ${field} acima do armazenável: ${cents} centavos (máximo ${MAX_STORED_CENTS})`,
+      { retryable: false },
+    );
   }
   return cents;
 }
@@ -137,7 +142,10 @@ export async function fetchOrder(
 ): Promise<MarketplaceOrder> {
   const match = /^\/?orders\/(\d+)$/.exec(resource);
   if (!match?.[1]) {
-    throw marketplaceError(`Recurso de pedido inválido: ${resource}`, { retryable: false });
+    // The resource comes from an unsigned notification; a long one stays out of the logs.
+    throw marketplaceError(`Recurso de pedido inválido: ${resource.slice(0, 100)}`, {
+      retryable: false,
+    });
   }
   const raw = await requestJson(context, {
     schema: orderSchema,
