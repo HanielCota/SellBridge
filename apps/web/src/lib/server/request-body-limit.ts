@@ -64,8 +64,13 @@ export function limitRequestBody(request: Request): Request | Response {
   }
   // A streamed request body needs `duplex: "half"`, which the DOM `RequestInit` type lacks.
   const init: RequestInit & { duplex: "half" } = {
+    method: request.method,
+    headers: request.headers,
+    signal: request.signal,
     body: request.body.pipeThrough(countingStream(limit)),
     duplex: "half",
   };
-  return new Request(request, init);
+  // srvx's Node request has the Fetch API shape but lacks Undici's private Request state.
+  // Construct from its URL and public fields instead of passing it to the native copy constructor.
+  return new Request(request.url, init);
 }
