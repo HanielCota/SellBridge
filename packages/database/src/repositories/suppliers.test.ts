@@ -1,6 +1,6 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listings, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import { listings, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
   getDirectorySupplier,
@@ -23,27 +23,22 @@ const ids: { stateWide: string; cityOnly: string; otherState: string; inactive: 
 let visibleProductId = "";
 let hiddenProductId = "";
 
-async function insertSupplier(
-  name: string,
-  coverage: { state: string; city: string | null },
-  active = true,
-) {
+async function insertSupplier(name: string, state: string, active = true) {
   const [row] = await database
     .insert(suppliers)
-    .values({ name, niche: "Teste", state: coverage.state, city: "Origem", active })
+    .values({ name, niche: "Teste", state, city: "Origem", active })
     .returning({ id: suppliers.id });
   if (!row) {
     throw new Error("falha ao criar fornecedor de teste");
   }
-  await database.insert(supplierCoverage).values({ supplierId: row.id, ...coverage });
   return row.id;
 }
 
 beforeAll(async () => {
-  ids.stateWide = await insertSupplier("Teste Estado Inteiro", { state: TEST_STATE, city: null });
-  ids.cityOnly = await insertSupplier("Teste Só Capital", { state: TEST_STATE, city: "Capital" });
-  ids.otherState = await insertSupplier("Teste Outro Estado", { state: "YY", city: null });
-  ids.inactive = await insertSupplier("Teste Inativo", { state: TEST_STATE, city: null }, false);
+  ids.stateWide = await insertSupplier("Teste Estado Inteiro", TEST_STATE);
+  ids.cityOnly = await insertSupplier("Teste Só Capital", TEST_STATE);
+  ids.otherState = await insertSupplier("Teste Outro Estado", "YY");
+  ids.inactive = await insertSupplier("Teste Inativo", TEST_STATE, false);
 
   const products = await database
     .insert(supplierProducts)

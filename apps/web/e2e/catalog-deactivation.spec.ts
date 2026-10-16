@@ -5,10 +5,8 @@ import {
   listings,
   member,
   storeConnections,
-  supplierCoverage,
   supplierProducts,
   suppliers,
-  tenantProfile,
   user,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
@@ -22,37 +20,31 @@ const productTitle = `Luminária desativada ${stamp}`;
 let supplierId = "";
 let productId = "";
 
-/** The demo reseller's tenant, region and first connected store. */
+/** The demo reseller's tenant and first connected store. */
 async function demoSeller() {
   const [row] = await database
-    .select({
-      tenantId: member.organizationId,
-      storeId: storeConnections.id,
-      state: tenantProfile.state,
-    })
+    .select({ tenantId: member.organizationId, storeId: storeConnections.id })
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
     .innerJoin(storeConnections, eq(storeConnections.tenantId, member.organizationId))
-    .innerJoin(tenantProfile, eq(tenantProfile.tenantId, member.organizationId))
     .where(eq(user.email, DEMO_USER.email))
     .limit(1);
-  if (row === undefined || row.state === null) {
-    throw new Error("Conta demo sem loja ou sem região no banco de teste");
+  if (row === undefined) {
+    throw new Error("Conta demo sem loja no banco de teste");
   }
-  return { ...row, state: row.state };
+  return row;
 }
 
 test.beforeAll(async () => {
   const seller = await demoSeller();
   const [supplier] = await database
     .insert(suppliers)
-    .values({ name: supplierName, niche: "Casa", state: seller.state, city: "Teste" })
+    .values({ name: supplierName, niche: "Casa", state: "SP", city: "Teste" })
     .returning();
   if (!supplier) {
     throw new Error("fornecedor não criado");
   }
   supplierId = supplier.id;
-  await database.insert(supplierCoverage).values({ supplierId, state: seller.state, city: null });
   const [product] = await database
     .insert(supplierProducts)
     .values({
