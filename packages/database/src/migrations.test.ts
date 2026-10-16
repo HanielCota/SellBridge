@@ -12,6 +12,9 @@ import { z } from "zod";
  * Runs the real migrations on throwaway databases (created and dropped here), so the journal's
  * ordering problems show up in `pnpm test`, not on a customer's old database.
  */
+/** Migration setup and cleanup both create or drop several complete databases. */
+const MIGRATION_TEST_TIMEOUT = 60_000;
+
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 const journal = z
   .object({ entries: z.array(z.object({ idx: z.number(), tag: z.string(), when: z.number() })) })
@@ -64,7 +67,7 @@ beforeAll(() => {
 afterAll(async () => {
   for (const name of created) await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
   await admin.end();
-});
+}, MIGRATION_TEST_TIMEOUT);
 
 /** A new empty database on the same server, dropped after the tests. */
 async function throwawayDatabase(): Promise<string> {
@@ -135,9 +138,6 @@ const expectedObjects = {
   indexes: PUBLIC_API_INDEXES.toSorted(),
   foreignKeys: PUBLIC_API_FOREIGN_KEYS.toSorted(),
 };
-
-/** Each test creates databases and runs every migration: far slower than a query. */
-const MIGRATION_TEST_TIMEOUT = 60_000;
 
 describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
   it("M1: a new database takes every migration, and a second run changes nothing", async () => {
