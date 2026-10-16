@@ -225,6 +225,13 @@
       "when": 1792114410642,
       "tag": "0031_boundary_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792168633054,
+      "tag": "0032_listing_description_error",
+      "breakpoints": true
     }
   ]
 }
