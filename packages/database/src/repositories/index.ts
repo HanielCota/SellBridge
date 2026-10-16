@@ -1,6 +1,7 @@
 export * from "./region.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
+export * from "./store-names.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-activity.ts";
 export * from "./store-disconnect.ts";

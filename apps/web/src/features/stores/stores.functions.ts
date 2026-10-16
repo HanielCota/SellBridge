@@ -1,6 +1,7 @@
 import {
   EMPTY_STORE_ACTIVITY,
   getStoreActivity,
+  isStoreNameTaken,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
 import {
@@ -8,7 +9,7 @@ import {
   MARKETPLACE_LABELS,
   type MarketplaceId,
 } from "@sellbridge/marketplaces";
-import { validationError } from "@sellbridge/shared/errors";
+import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -84,12 +85,18 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
       redirectUri: z.url(),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     if (!connectors.mock.isConfigured()) {
       throw validationError("A loja simulada não está disponível");
     }
     if (data.redirectUri !== oauthCallbackUrl("mock")) {
       throw validationError("Endereço de retorno não autorizado");
+    }
+    const shop = { tenantId: context.tenantId, shopName: data.shopName };
+    if (await isStoreNameTaken(database, shop)) {
+      throw conflictError(
+        `O nome "${data.shopName}" não está disponível: você já tem uma loja com ele`,
+      );
     }
     const url = new URL(data.redirectUri);
     url.searchParams.set("code", encodeMockAuthorizationCode(data.shopName));
