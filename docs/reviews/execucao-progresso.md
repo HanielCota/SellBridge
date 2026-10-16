@@ -72,6 +72,25 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
+### 2026-10-16 · Junção contínua do MVP (corte de sábado, `4273792`)
+
+- Pelo corte, cada branch entra assim que chega o hash.
+- **Migrations:** 0035 (E, chamados ligados a loja e anúncio), 0036 (B, tabela two_factor, ainda sem uso), 0037 (D, dados da conta e aceite dos termos) e 0038 (E, auditoria que sobrevive à exclusão da conta). Todas foram aplicadas no `sellbridge_desk`, com `generate` sem diferença e a trava liberada.
+- **Itens juntados:**
+  - B: 30.a (exportar e excluir os próprios dados), 30.c (senha vazada, só em produção) e a nota de auditoria anônima.
+  - C: 14.a, 14.b e 14.c (publicação em massa com validação, progresso e resultado) e o refactor de `listing-overview.ts` e `bulk-publish-dialog.tsx`, que voltaram para menos de 500 linhas.
+  - D: 26.a (termos e "Seus dados"), 26.b (loja nova só com e-mail confirmado) e 26.c. O 31.a foi revertido para a fase 2 (`wip/d-31a-plan-matrix`).
+  - E: 25, 27.a, 27.c e 28.a (convite da equipe com cargo, já com as correções da revisão).
+  - F: F3 (seed), 18 (atributos do ML no CSV), contraste do modo claro, rolagem do Financeiro e 28.b (`/admin/auditoria`).
+  - Sessões fora dos chats, commitadas direto nesta pasta: `b70a5d7` (nome da loja e fornecedor ao conectar) e `a00b03b` (selo da venda no sino).
+- **Conflitos resolvidos à mão:** o `bulk-publish-dialog.tsx` nas junções 14.b e 14.c (o `NoStores` com o fornecedor no link fica em `bulk-publish-stores.tsx`; `PublishStore` e `storesForProducts` ficam no `bulk-store-picker.tsx` do C), e os exports em `repositories/index.ts`.
+- **Correções deste chat:**
+  - `0d8e8db`: "pedidos para avaliar" agora abre a aba Avaliações já filtrada, com teste de regressão.
+  - `a25a33a`: os itens do painel de atenção foram para um módulo sem código de servidor, e o teste passa sem `.env`.
+- **Testes instáveis corrigidos pelos donos:** `account-export.test` (B, CPF do seed) e `support.test` (E, fila paginada com mais de 70 chamados no banco).
+- **Verificação:** a ponta `0c587b9` foi conferida numa worktree limpa (`.claude/worktrees/principal-verify`), porque a pasta principal tem trabalho de relatórios sem commit de outra sessão. Tipos, lint, formatação, sem else e build ✅; testes 1815/1815 ✅; cabeçalho do admin com 10 abas sem rolagem nas 8 larguras (a 1024 vira o menu).
+- **Falta:** o e2e completo final. Ele espera a sessão dos relatórios commitar, ou a autorização para copiar o `.env` para a worktree limpa.
+
 ### 2026-10-16 · Junção: chats D, E e F (lotes 1 e 2) e migration 0034
 
 - Lote 1: E 25.a (`516a5ca`, canais de aviso com nova tentativa), F F1 (`a788b05`, limpeza da loja viva duplicada na 0023, alterada no lugar com nota em `docs/deploy-infra.md`) e D 16.a (`00e4199`, Stripe fora da trava da organização). Antes do lote, o índice do git estava com sobras das tentativas de commit barradas e foi limpo com `git reset` (sem mudança nos arquivos). E2E 104/105: a falha era real, porque 33 esqueletos de carregamento tinham `aria-label` sem papel.
