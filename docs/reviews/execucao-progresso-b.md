@@ -4,12 +4,12 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: — (19 concluído; próximo é o 24, aguardando "Próximo")
+- Item/parte: — (24 concluído no modo MVP; ⏸B do 24 e ⏸A do 30 apresentados em 2026-10-16)
 - Última etapa concluída: —
-- Próximo passo: item 24 · Saúde das lojas (inclui o estado "Atenção" na ficha do cliente no admin)
+- Próximo passo: item 30 depois do OK do ⏸A
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: —
-- Pendências: item 12 parado e guardado em `wip/b-item-12-address` (ec5bfc8), sem commit nesta branch: a etapa 6 do chat de CPF tira da ficha o formulário de CEP e o endereço do admin, e o principal vai propor marcar o 12 como "não se aplica". O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
+- Decisões tomadas nos pontos de parada: modo MVP aprovado pelo usuário em 2026-10-16 (⏸A e ⏸B)
+- Pendências: item 12 fechado como "não se aplica" (coordenação de 2026-10-16: o CPF tirou o endereço do admin); o commit wip fica guardado em `wip/b-item-12-address` (ec5bfc8). O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
 
 ## Linha de base
 
@@ -24,22 +24,30 @@ C5 no banco B no item 11 (base feat/client-phase-1 14ab0ae): shared 340, marketp
 
 ## Situação dos itens
 
-Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado
+Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado · ➖ não se aplica
 
-| Item | Título                                 | Situação | Commit  | Notas                                                                                |
-| ---- | -------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------ |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                                       |
-| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas)                |
-| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                      |
-| 12   | Admin muda a região e apaga o endereço | ⛔       | —       | Parado em `wip/b-item-12-address` (ec5bfc8): etapa 6 do CPF tira o endereço do admin |
-| 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                      |
-| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                      |
-| 24   | Saúde das lojas                        | ⬜       | —       |                                                                                      |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                          |
+| Item | Título                                 | Situação | Commit  | Notas                                                                                    |
+| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                                           |
+| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas)                    |
+| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                          |
+| 12   | Admin muda a região e apaga o endereço | ➖       | —       | Não se aplica: o CPF tirou o endereço do admin; wip em `wip/b-item-12-address` (ec5bfc8) |
+| 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                          |
+| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                          |
+| 24   | Saúde das lojas                        | ✅       | 1172873 |                                                                                          |
+| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                              |
+
+Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios.
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873; 24.c revertida)
+
+- 24.a: saúde da loja no menu de /lojas e na ficha do admin (migration 0030 bae7945).
+- 24.b: desconectar pausa os anúncios no marketplace, marcado por padrão.
+- 24.c: e-mail ao dono quando a loja expira (03b4410) foi revertido: o 25.b do chat E (3a2a29a) já avisa toda expiração pela central de notificações, com as preferências de cada pessoa; manter os dois mandaria dois e-mails. F9 fica com o 25.b.
 
 ### 2026-10-15 · Item 19 · Pequenos de segurança e status — ✅ concluído (bcac77a, commit local; junção 7c84cc2)
 

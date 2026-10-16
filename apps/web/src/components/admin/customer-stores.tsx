@@ -6,6 +6,8 @@ import {
   type AdminStoreSupplierTarget,
 } from "@/components/admin/admin-store-supplier-dialog";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
+import { storeHealth } from "@sellbridge/shared/store-attention";
+import { StoreHealthLine } from "@/components/stores/store-health";
 import { StoreStatusChip } from "@/components/stores/store-status-badge";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,9 @@ interface CustomerStore {
   marketplace: string;
   marketplaceLabel: string;
   status: StoreStatus;
+  lastError: string | null;
+  lastSyncedAt: Date | null;
+  lastWebhookAt: Date | null;
   /** The one supplier the shop sells; null while pending. */
   supplier: { id: string; name: string } | null;
 }
@@ -63,13 +68,13 @@ function StoreRow({
   onDisconnect: () => void;
 }) {
   return (
-    <li className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift">
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-xl" />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="truncate text-sm font-medium">{store.shopName}</p>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-footnote text-muted-foreground">
           {store.marketplaceLabel}
-          <StoreStatusChip status={store.status} />
+          <StoreStatusChip status={storeHealth(store)} />
         </p>
         <p className="text-footnote text-muted-foreground">
           <StoreSupplierLine store={store} />
@@ -82,6 +87,10 @@ function StoreRow({
         <Button size="sm" variant="ghost" onClick={onDisconnect}>
           Desconectar
         </Button>
+      </div>
+      {/* Full width under the row, lined up with the text: the buttons never squeeze it. */}
+      <div className="basis-full pl-12">
+        <StoreHealthLine store={store} />
       </div>
     </li>
   );
