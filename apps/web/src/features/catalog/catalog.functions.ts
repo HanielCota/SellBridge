@@ -5,11 +5,11 @@ import {
   listSellableCategories,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
+import { type BulkPublishSkip, planBulkPublish } from "@sellbridge/shared/bulk-publish-plan";
 import { validationError } from "@sellbridge/shared/errors";
 import { assertBatchKeepsMargin } from "@sellbridge/shared/fee-model";
 import {
   bulkPublishSchema,
-  fitListingTitle,
   listingPriceCentsSchema,
   priceForRule,
   sellableCatalogSearchSchema,
@@ -20,6 +20,7 @@ import {
   assertStoresSellSuppliers,
   publishListings,
 } from "@/features/listings/publish-listing.server";
+import { BULK_SKIP_REASONS } from "@/features/catalog/bulk-skip-reasons";
 import { feeScheduleFrom } from "@/features/reports/fee-schedule";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -63,9 +64,19 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
     };
   });
 
+/** Nothing in the batch can go out: the reseller reads why, product by product. */
+function nothingToPublish(skipped: readonly BulkPublishSkip[]): never {
+  const named = skipped
+    .slice(0, 3)
+    .map((skip) => `"${skip.title ?? "produto"}" (${BULK_SKIP_REASONS[skip.reason]})`)
+    .join(", ");
+  throw validationError(`Nenhum produto pode ser publicado: ${named}.`);
+}
+
 /**
- * Publishes many catalog products at once with one price rule. Products already listed by
- * the tenant are skipped, so running it twice does not duplicate listings.
+ * Publishes many catalog products at once with one price rule, by the rules of publishing one
+ * at a time (title, description, stock). Products that cannot go out are skipped and named
+ * with the reason, so running it twice does not duplicate listings and nothing is hidden.
  */
 export const publishProductsInBulk = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
@@ -80,13 +91,23 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       storeIds,
       products.map((product) => product.supplierId),
     );
-    const toPublish = products.filter((product) => !product.published);
-    const drafts = toPublish.map((product) => ({
-      supplierProductId: product.id,
-      title: fitListingTitle(product.title),
-      description: product.description,
-      priceCents: priceForRule(product, data.priceOverrides?.[product.id] ?? data.priceRule),
-    }));
+    const plan = planBulkPublish({
+      requestedIds: data.productIds,
+      products,
+      safetyUnits: environment.STOCK_SAFETY_UNITS,
+    });
+    if (plan.drafts.length === 0) {
+      nothingToPublish(plan.skipped);
+    }
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    const drafts = plan.drafts.flatMap((draft) => {
+      const product = productsById.get(draft.supplierProductId);
+      if (product === undefined) {
+        return [];
+      }
+      const rule = data.priceOverrides?.[product.id] ?? data.priceRule;
+      return [{ ...draft, priceCents: priceForRule(product, rule) }];
+    });
     // Checked before anything is written, so one product priced out of range cannot leave
     // the batch half published.
     const outOfRange = drafts.find(
@@ -98,17 +119,13 @@ export const publishProductsInBulk = createServerFn({ method: "POST" })
       );
     }
     // Same floor as one listing at a time: no product of the batch may lose money after fees.
-    const toPublishById = new Map(toPublish.map((product) => [product.id, product]));
     assertBatchKeepsMargin(
       drafts.flatMap((draft) => {
-        const product = toPublishById.get(draft.supplierProductId);
+        const product = productsById.get(draft.supplierProductId);
         return product === undefined ? [] : [{ ...draft, costCents: product.costCents }];
       }),
       feeScheduleFrom(environment),
     );
     await publishListings(context.tenantId, drafts, storeIds);
-    return {
-      published: toPublish.length,
-      skipped: new Set(data.productIds).size - toPublish.length,
-    };
+    return { published: drafts.length, skipped: plan.skipped };
   });

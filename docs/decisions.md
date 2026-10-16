@@ -577,3 +577,9 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - O cadastro manda o link de confirmação (`sendOnSignUp: true`); quem entra pelo Google já chega confirmado.
 - **Loja nova** só é salva com o e-mail de quem conecta confirmado: sem isso, a volta do OAuth leva a `/lojas?erro=email_not_verified` ("Confirme seu e-mail antes de conectar uma loja nova…"). **Reconectar** uma loja que a conta já tem (não desconectada) nunca espera a confirmação, para não travar contas antigas.
 - O guia de configuração ganhou a etapa "Confirme seu e-mail" (antes de "Conecte uma loja"), com "Reenviar e-mail"; conta que já tem loja passa direto por ela.
+
+## 2026-10-16: Publicação em massa com as regras do fluxo individual (item 14.a)
+
+- **Mesmas regras nos dois fluxos:** `shared/domain/bulk-publish-plan.ts` decide, produto a produto, o que sai num lote: título e descrição pelos mesmos schemas da publicação individual, estoque e "já publicado". Antes a massa publicava título cortado e descrição crua sem validar (B16).
+- **Sem estoque não publica (E8):** o servidor recusa, nos dois fluxos, produto sem unidades vendáveis, descontando o estoque de segurança que a sincronização já guarda (`STOCK_SAFETY_UNITS`, agora lido também pela web; aprovado no ⏸1). Antes só a tela escondia o botão.
+- **Resultado honesto (E12):** a massa publica os válidos e devolve os pulados com o motivo (`already_published`, `out_of_stock`, `invalid_title`, `invalid_description`, `unavailable`); o aviso diz "fora: 2 já publicado, 1 sem estoque". Se nenhum produto pode sair, o lote é recusado com os primeiros nomes e motivos. O piso de preço e o teto de R$ 1.000.000,00 continuam recusando o lote inteiro (dependem da regra que o revendedor escolheu). A tela completa do resultado e o progresso são as partes 14.b e 14.c.

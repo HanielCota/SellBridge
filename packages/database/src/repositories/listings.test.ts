@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { apiEvents, listingTargets } from "../schema/index.ts";
 import {
   createTestDatabase,
@@ -230,8 +230,17 @@ describe("stock and price sync queue", () => {
   it("serves the oldest failed attempt first and clears the error on success", async () => {
     const older = await createPublishedTarget("Falhou primeiro", "EXT-OLD");
     const newer = await createPublishedTarget("Falhou depois", "EXT-NEWER");
-    await markTargetSyncFailed(database, older, "Tempo esgotado");
-    await markTargetSyncFailed(database, newer, "Tempo esgotado");
+    // Fixed clock, a second apart: two failures in the same millisecond tie on syncAttemptedAt
+    // and the queue falls back to the random id, which made this flaky on a fast CI runner.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-12T12:00:00Z"));
+      await markTargetSyncFailed(database, older, "Tempo esgotado");
+      vi.setSystemTime(new Date("2026-10-12T12:00:01Z"));
+      await markTargetSyncFailed(database, newer, "Tempo esgotado");
+    } finally {
+      vi.useRealTimers();
+    }
 
     const [olderPosition, newerPosition] = await syncQueuePositions([older, newer]);
     expect(olderPosition).toBeGreaterThanOrEqual(0);
