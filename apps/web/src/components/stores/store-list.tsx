@@ -202,7 +202,12 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
   }
   return (
     <Button asChild variant="outline" size="sm" className="shrink-0">
-      <Link to="/catalogo" aria-label={`Publicar produtos em ${storeName}`}>
+      {/* Only this store's supplier: products of another one could not be published here. */}
+      <Link
+        to="/catalogo"
+        search={{ supplier: store.supplierId ?? undefined }}
+        aria-label={`Publicar produtos em ${storeName}`}
+      >
         <PackageIcon weight="bold" aria-hidden="true" />
         {/* On a phone the label would squeeze the subtitle into a column; the icon carries it. */}
         <span className="max-md:sr-only">Publicar</span>
