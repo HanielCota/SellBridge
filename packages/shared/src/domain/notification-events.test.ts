@@ -4,6 +4,7 @@ import { notificationContentSchema } from "./notification-content.ts";
 import {
   channelEnabled,
   listingFailedContent,
+  newTicketContent,
   orderDeliveredContent,
   salePaidContent,
   shipmentLateContent,
@@ -64,6 +65,12 @@ describe("every event renders valid content", () => {
     storeExpiredContent({ storeName: "Loja Centro" }),
     listingFailedContent({ listingTitle: "Fone", reason: null }),
     supportReplyContent({ ticketId: "t-1", subject: "Pedido atrasado" }),
+    newTicketContent({
+      ticketId: "t-1",
+      subject: "Repasse",
+      storeName: "Loja Centro",
+      categoryLabel: "Pagamento ou repasse",
+    }),
   ])("%#", (content) => {
     expect(notificationContentSchema.safeParse(content).success).toBe(true);
   });

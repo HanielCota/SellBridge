@@ -8,23 +8,28 @@ import {
 import {
   channelEnabled,
   listingFailedContent,
+  newTicketContent,
   orderDeliveredContent,
   salePaidContent,
   storeExpiredContent,
   supportReplyContent,
   type NotificationEventName,
 } from "@sellbridge/shared/notification-events";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { STAFF_ROLES } from "@sellbridge/shared/staff-access";
+import { TICKET_CATEGORY_LABELS } from "@sellbridge/shared/schemas";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   listings,
   listingTargets,
   member,
   notificationPreferences,
+  organization,
   orderItems,
   orders,
   storeConnections,
   tickets,
+  user,
 } from "../schema/index.ts";
 import { findTicketEmailRecipients } from "./ticket-links.ts";
 import {
@@ -263,6 +268,44 @@ export async function queueSupportReplyNotices(
     content: supportReplyContent({
       ticketId: reply.ticketId,
       subject: clipText(ticket.subject, TITLE_LENGTH),
+    }),
+    recipients,
+  });
+}
+
+/** The support team, minus banned accounts: who hears about a new ticket. */
+async function activeStaffIds(database: Database): Promise<string[]> {
+  const rows = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(and(inArray(user.role, [...STAFF_ROLES]), sql`coalesce(${user.banned}, false) = false`));
+  return rows.map((row) => row.id);
+}
+
+/** A store opened a ticket: e-mails the support team (per their choice), once per ticket. */
+export async function queueNewTicketNotices(database: Database, ticketId: string): Promise<number> {
+  const [ticket] = await database
+    .select({ subject: tickets.subject, category: tickets.category, storeName: organization.name })
+    .from(tickets)
+    .innerJoin(organization, eq(organization.id, tickets.tenantId))
+    .where(eq(tickets.id, ticketId));
+  if (ticket === undefined) {
+    return 0;
+  }
+  const recipients = await resolveNotificationRecipients(
+    database,
+    await activeStaffIds(database),
+    "ticket_created",
+  );
+  return enqueueNotificationDeliveries(database, {
+    tenantId: null,
+    event: "ticket_created",
+    dedupeKey: `ticket:${ticketId}:created`,
+    content: newTicketContent({
+      ticketId,
+      subject: clipText(ticket.subject, TITLE_LENGTH),
+      storeName: clipText(ticket.storeName, TITLE_LENGTH),
+      categoryLabel: TICKET_CATEGORY_LABELS[ticket.category],
     }),
     recipients,
   });
