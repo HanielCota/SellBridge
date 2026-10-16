@@ -16,6 +16,8 @@ export const QUEUE_NAMES = {
   ticketAutoClose: "ticket-auto-close",
   /** Reads the marketplace's tracking of parcels still on their way. */
   shipmentTracking: "shipment-tracking",
+  /** Forwards a paid order to its suppliers on its own and e-mails them (item 21.b, flagged). */
+  orderAutoForward: "order-auto-forward",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -27,6 +29,24 @@ export type PublishListingJob = z.infer<typeof publishListingJobSchema>;
 export const webhookEventJobSchema = z.object({
   webhookEventId: z.uuid(),
 });
+
+export const autoForwardJobSchema = z.object({ orderId: z.uuid() });
+
+/**
+ * Mercado Livre creates the sale's parcel (and its address) minutes after payment: 5 attempts
+ * from 1 min apart, doubling, wait about half an hour before the order is left to the reseller.
+ */
+export const AUTO_FORWARD_JOB_OPTIONS = {
+  attempts: 5,
+  backoff: { type: "exponential", delay: 60_000 },
+  removeOnComplete: 1000,
+  removeOnFail: 5000,
+} as const;
+
+/** One job per order: repeated "paid" notifications of the same sale add nothing. */
+export function autoForwardJobId(orderId: string): string {
+  return `auto-forward-${orderId}`;
+}
 
 /** Publishing retries: 5 attempts with exponential backoff starting at 5 s. */
 export const PUBLISH_JOB_ATTEMPTS = 5;

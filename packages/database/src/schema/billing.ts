@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { bigint, boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 
 export const billingAccounts = pgTable("billing_accounts", {
@@ -11,7 +11,11 @@ export const billingAccounts = pgTable("billing_accounts", {
   status: text("status").notNull().default("free"),
   periodEnd: timestamp("period_end", { withTimezone: true }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-  lastEventCreated: integer("last_event_created").notNull().default(0),
+  /**
+   * Stripe's `event.created`, in Unix seconds. bigint: an int4 overflows on 2038-01-19 and every
+   * Stripe webhook would then fail with "integer out of range".
+   */
+  lastEventCreated: bigint("last_event_created", { mode: "number" }).notNull().default(0),
 });
 
 export const billingEvents = pgTable("billing_events", {

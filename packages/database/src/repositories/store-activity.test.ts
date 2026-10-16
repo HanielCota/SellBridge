@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listingTargets } from "../schema/index.ts";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
+import { listingTargets, orders } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -79,5 +80,27 @@ describe("store activity", () => {
     expect(lastSyncs.get(storeA)).toEqual(activity.get(storeA)?.lastSyncedAt);
     // Another tenant's store never reads this tenant's listings.
     expect(lastSyncs.has(storeB)).toBe(false);
+  });
+
+  // Regression: the store card counted 30 x 24 h back from now while the dashboard's "30 dias"
+  // starts at midnight (Brazil) 29 days ago, so the two disagreed for the same store.
+  it("counts sales from the start of the dashboard's 30-day window, not 30 x 24 h", async () => {
+    const windowStart = resolvePeriod({ period: "30d" }, new Date()).from;
+    const sale = (externalOrderId: string, orderedAt: Date) => ({
+      tenantId: tenantB,
+      storeConnectionId: storeB,
+      externalOrderId,
+      status: "paid" as const,
+      totalCents: 1000,
+      orderedAt,
+    });
+    await database
+      .insert(orders)
+      .values([
+        sale("WINDOW-START", windowStart),
+        sale("BEFORE-WINDOW", new Date(windowStart.getTime() - 1)),
+      ]);
+    const activity = await getStoreActivity(database, tenantB, [storeB]);
+    expect(activity.get(storeB)).toMatchObject({ orders: 1, revenueCents: 1000 });
   });
 });

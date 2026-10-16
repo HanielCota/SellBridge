@@ -14,6 +14,7 @@ import {
   ORDER_STAGE_STATUSES,
   periodSearchSchema,
 } from "@sellbridge/shared/schemas";
+import { comparablePreviousRange } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
@@ -54,6 +55,12 @@ export const getDashboard = createServerFn({ method: "GET" })
       ...scope,
       range: { from: period.previousFrom, to: period.previousTo },
     };
+    // The totals compare like with like (an ongoing period against the same stretch before it);
+    // the chart keeps the whole previous period, drawn day by day behind the current one.
+    const comparableScope: ReportScope = {
+      ...scope,
+      range: comparablePreviousRange(period, new Date()),
+    };
     const [
       summary,
       previous,
@@ -66,7 +73,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       onboarding,
     ] = await Promise.all([
       getSalesSummary(database, scope),
-      getSalesSummary(database, previousScope),
+      getSalesSummary(database, comparableScope),
       getSalesTimeseries(database, scope, period.bucket),
       getSalesTimeseries(database, previousScope, period.bucket),
       // Long periods also get one bar per month, for the composition chart.

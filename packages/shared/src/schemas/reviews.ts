@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { REDACTED, redactContactDetails } from "../domain/contact-details.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
@@ -101,7 +101,7 @@ export const REVIEW_FILTER_LABELS: Record<ReviewFilter, string> = {
 /** Search params of the orders page: one row per order and supplier. */
 export const orderReviewSearchSchema = z.object({
   review: withFallback(reviewFilterSchema.default("pending"), "pending"),
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(20), 20),
 });

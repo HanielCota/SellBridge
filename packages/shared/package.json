@@ -39,19 +39,22 @@
     "./deadline": "./src/runtime/deadline.ts",
     "./network-address": "./src/runtime/network-address.ts",
     "./customer-health": "./src/domain/customer-health.ts",
-    "./billing": "./src/domain/billing.ts"
+    "./billing": "./src/domain/billing.ts",
+    "./mailer": "./src/email/mailer.ts",
+    "./email-layout": "./src/email/layout.ts",
+    "./supplier-order-email": "./src/email/supplier-order-email.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@sellbridge/config": "workspace:*",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.4"
   }
 }

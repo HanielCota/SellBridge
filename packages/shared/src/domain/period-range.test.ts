@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayRangeWithin, resolvePeriod } from "./period-range.ts";
+import { comparablePreviousRange, dayRangeWithin, resolvePeriod } from "./period-range.ts";
 import { periodSearchSchema } from "../schemas/period.ts";
 
 const now = new Date("2026-10-08T15:30:00Z");
@@ -93,5 +93,39 @@ describe("periodSearchSchema", () => {
     expect(
       resolvePeriod({ period: "custom", from: "2000-01-01", to: "2000-01-31" }, today).days,
     ).toBe(31);
+  });
+});
+
+describe("comparablePreviousRange", () => {
+  const period = {
+    from: new Date("2026-10-09T03:00:00Z"),
+    to: new Date("2026-10-16T03:00:00Z"),
+    previousFrom: new Date("2026-10-02T03:00:00Z"),
+    previousTo: new Date("2026-10-09T03:00:00Z"),
+  };
+
+  // Regression: at 09:00 the current 7 days held 6 days and 9 hours against 7 whole days before.
+  it("cuts the previous window to the stretch of the current one already lived", () => {
+    const morning = new Date("2026-10-15T12:00:00Z");
+    expect(comparablePreviousRange(period, morning)).toEqual({
+      from: period.previousFrom,
+      to: new Date("2026-10-08T12:00:00Z"),
+    });
+  });
+
+  it("compares whole windows once the period is over", () => {
+    expect(comparablePreviousRange(period, period.to)).toEqual({
+      from: period.previousFrom,
+      to: period.previousTo,
+    });
+    expect(comparablePreviousRange(period, new Date("2027-01-01T00:00:00Z")).to).toEqual(
+      period.previousTo,
+    );
+  });
+
+  it("compares whole windows for a period that has not started", () => {
+    expect(comparablePreviousRange(period, new Date("2026-01-01T00:00:00Z")).to).toEqual(
+      period.previousTo,
+    );
   });
 });

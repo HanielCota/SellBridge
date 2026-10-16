@@ -56,8 +56,11 @@ describe("supplier link server functions", () => {
     );
     const byGet = files.flatMap((file) =>
       serverFunctions(readFileSync(join(features, file), "utf8"))
-        .filter((fn) => fn.method === "GET" && fn.body.includes("supplierTokenSchema"))
-        .map((fn) => fn.name),
+        .filter(
+          (serverFunction) =>
+            serverFunction.method === "GET" && serverFunction.body.includes("supplierTokenSchema"),
+        )
+        .map((serverFunction) => serverFunction.name),
     );
     expect(byGet).toEqual([]);
   });

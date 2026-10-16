@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCentsForField, maskCurrencyInput } from "./currency-mask";
+import { formatCentsForField, maskCurrencyInput, readPastedCurrency } from "./currency-mask";
 
 describe("maskCurrencyInput", () => {
   it("fills the cents first as digits are typed", () => {
@@ -30,5 +30,22 @@ describe("formatCentsForField", () => {
   it("writes cents with thousands and two decimals", () => {
     expect(formatCentsForField(12_590)).toBe("125,90");
     expect(formatCentsForField(125_990)).toBe("1.259,90");
+  });
+});
+
+describe("readPastedCurrency", () => {
+  // Regression: pasting "59.9" read "5,99" and "R$ 1.259,9" read "125,99".
+  it.each([
+    ["59.9", "59,90"],
+    ["R$ 1.259,9", "1.259,90"],
+    ["1.259,90", "1.259,90"],
+    ["12", "12,00"],
+    ["9.999.999,99", "9.999.999,99"],
+  ])("reads %s as %s", (pasted, field) => {
+    expect(readPastedCurrency(pasted)).toBe(field);
+  });
+
+  it.each(["", "abc", "0", "-5", "10.000.000,00", "1R2"])("refuses %j", (pasted) => {
+    expect(readPastedCurrency(pasted)).toBeNull();
   });
 });

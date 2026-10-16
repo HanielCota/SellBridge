@@ -43,6 +43,10 @@ describe("money", () => {
     "1e5",
     "21.474.836,48",
     "9999999999999999999",
+    // Regression: any "R" or "$" was dropped wherever it stood, so these read R$ 12 and R$ 1.234.
+    "1R2",
+    "12$34",
+    "1,00R$",
   ])("returns null for invalid or oversized input %j", (input) => {
     expect(parseBrlToCents(input)).toBeNull();
   });

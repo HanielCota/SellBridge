@@ -36,6 +36,14 @@ const workerEnvironmentSchema = z.object({
    * Off in production: otherwise a customer could make the server call internal services.
    */
   WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
+  /**
+   * Forwards a paid order to its suppliers on its own and e-mails each one its link (item 21.b).
+   * Off by default until the supplier login decision (D6); see docs/decisions.md.
+   */
+  AUTO_FORWARD_ENABLED: booleanFlagEnvironmentSchema,
+  /** Resend key for the supplier e-mails; without it development logs them and production refuses. */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
 });
 
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;

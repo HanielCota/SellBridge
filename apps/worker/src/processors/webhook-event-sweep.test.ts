@@ -58,12 +58,14 @@ async function recordOrderEvent(): Promise<string> {
 
 /** The sweeper does not care about the stock sync; the webhook processor needs one anyway. */
 const requestStockSync = async () => {};
+const requestAutoForward = async () => {};
 
 describe("webhook event sweeper", () => {
   it("creates the order once the marketplace recovers from the failed retries", async () => {
     const outage = createWebhookEventProcessor({
       ...environment,
       requestStockSync,
+      requestAutoForward,
       connectors: {
         ...connectors,
         mock: {
@@ -81,7 +83,11 @@ describe("webhook event sweeper", () => {
       ).rejects.toThrow("indisponível");
     }
 
-    const processWebhook = createWebhookEventProcessor({ ...environment, requestStockSync });
+    const processWebhook = createWebhookEventProcessor({
+      ...environment,
+      requestStockSync,
+      requestAutoForward,
+    });
     const sweep = createWebhookEventSweepProcessor({
       database,
       now: () => new Date(Date.now() + 15 * 60 * 1000),

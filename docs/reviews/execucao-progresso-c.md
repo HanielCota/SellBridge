@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 15.b · Prévia com o modelo único e piso de margem (telas)
-- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-15); ⏸1 e ⏸2 aprovados em 2026-10-15
-- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1` (traz a 0028: migrate no `sellbridge_desk_c`), portões e aviso ao principal; o item 15 fecha
-- Arquivos tocados: shared/domain/fee-model(.test).ts, listing-rules(.test).ts; database/repositories/listing-overview(.test).ts; web/features/listings/profit(.test).ts, listing-commands.server.ts; web/features/catalog/catalog.functions.ts; web/features/reports/fee-schedule.queries.ts (novo); web/components/catalog/price-receipt.tsx, catalog-product-card.tsx, bulk-publish-dialog.tsx; web/components/listings/listing-card.tsx, edit-price-dialog.tsx, profit-split.tsx; web/routes/_app/catalogo.tsx, publicacoes/index.tsx, publicacoes/nova.tsx; web/features/public-api/endpoints/listings-write.schemas.ts e listings-write.server.ts (só textos); e2e/publishing.spec.ts; docs
+- Item/parte: 13.a · Erros do ML com `cause[]` traduzidos no conector
+- Última etapa concluída: 9 · Commit (⏸3 aprovado em 2026-10-16); ⏸1 aprovado em 2026-10-15; junção eae3e54
+- Próximo passo: a 13.b (descrição que falha: estado, reenviar e tela)
+- Arquivos tocados: marketplaces/src/mercado-livre/error-messages(.test).ts e fixtures/errors.ts (novos), client.ts, schemas.ts, mercado-livre-connector.test.ts; marketplaces/src/errors.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -26,19 +26,24 @@ C5 de 2026-10-15 no banco C: 1125 no início (shared 298, marketplaces 149, web 
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit                      | Notas                                       |
-| ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------- |
-| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)            |
-| 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30 |
-| 13   | Erros de publicação claros                     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit        |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| Item | Título                                         | Situação | Commit                      | Notas                                                  |
+| ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------------------ |
+| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)                       |
+| 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30            |
+| 13   | Erros de publicação claros                     | 🟡       | —                           | Retomado pelo usuário em 15/10 ("próximo"); 13.a no ⏸1 |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit                   |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
+| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-15 · Item 13.a · Erros do ML com `cause[]` em português — ✅ concluído (commit local)
+
+- `error-messages.ts` traduz os códigos da página oficial "Validações" do ML ("o que aconteceu. o que fazer."), ignora avisos, mostra até dois erros, cita o ML (até 300 caracteres) quando o código é desconhecido e mantém a mensagem antiga sem `cause`. `readError` usa a tradução e leva os códigos em `details.causes` para o log. Fixtures no formato da documentação.
+- Sem revisão independente (item pequeno: sem dinheiro, auth ou migration; 7 arquivos); autorrevisão sem achados.
 
 ### 2026-10-15 · Item 15.b · Prévia com todas as taxas e piso de preço — ✅ concluído (commit local; item 15 ✅)
 

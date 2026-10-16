@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { orderAdjustmentTypeEnum, orderItemStockStateEnum, orderStatusEnum } from "./enums.ts";
 import { listingTargets } from "./listings.ts";
@@ -68,6 +77,8 @@ export const orderItems = pgTable(
     index("order_items_short_idx")
       .on(table.tenantId)
       .where(sql`${table.stockState} = 'short'`),
+    // A zero or negative quantity would hand stock back on a sale (stock-reservations).
+    check("order_items_quantity_check", sql`${table.quantity} > 0`),
   ],
 );
 

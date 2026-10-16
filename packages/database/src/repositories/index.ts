@@ -24,6 +24,7 @@ export * from "./customer-care.ts";
 export * from "./admin-suppliers.ts";
 export * from "./billing.ts";
 export * from "./fulfillment.ts";
+export * from "./auto-forward.ts";
 export { reserveShortItems } from "./stock-reservations.ts";
 export * from "./ticket-links.ts";
 export * from "./owner-promotion.ts";

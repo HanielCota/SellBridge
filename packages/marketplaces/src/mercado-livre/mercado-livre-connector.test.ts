@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
+import { ERROR_FIXTURES } from "./fixtures/errors.ts";
 
 interface Recorded {
   method: string;
@@ -226,6 +227,23 @@ describe("publishing", () => {
     });
   });
 
+  it("translates the validation causes of a refused item, with what to do", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(400, ERROR_FIXTURES.missingRequiredAttributes),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: {
+        retryable: false,
+        status: 400,
+        causes: ["item.attributes.missing_required"],
+      },
+      message: expect.stringMatching(
+        /^Faltam atributos obrigatórios .*: BRAND, MODEL\. Preencha esses campos/,
+      ),
+    });
+  });
+
   it("marks rate limiting as retryable after the HTTP retries run out", async () => {
     const { ml, fetchImplementation } = connector({
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () =>
@@ -341,6 +359,30 @@ describe("notifications", () => {
     expect(other).toMatchObject({ valid: false });
     const malformed = await ml.verifyWebhook({ headers: new Headers(), rawBody: "not json" });
     expect(malformed).toMatchObject({ valid: false, payload: null });
+  });
+
+  // Regression: the unsigned notification was stored whole, so a forged post padded with 60 KB
+  // of extra fields grew the events table by 60 KB a request.
+  it("keeps only the documented fields of the notification", async () => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, pad: "x".repeat(60_000) }),
+    });
+    expect(result.valid && result.event.payload).toEqual(notification);
+  });
+
+  it.each([
+    ["an _id", { _id: "x".repeat(129) }],
+    ["a topic", { topic: "x".repeat(65) }],
+    ["a resource", { resource: `/orders/${"9".repeat(250)}` }],
+  ])("refuses %s longer than any real notification", async (_field, override) => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, ...override }),
+    });
+    expect(result.valid).toBe(false);
   });
 
   it("reads the seller and order from stored order notifications", () => {

@@ -1,6 +1,5 @@
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import { firstShippedAt, withShipmentDelay } from "./shipment-timing.ts";
-import { createHash, randomBytes } from "node:crypto";
 import {
   and,
   asc,
@@ -48,18 +47,8 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-
-/** A new supplier link: the raw token goes to the reseller, only its hash is stored. */
-function issueSupplierLink(): { token: string; hash: string; expiresAt: Date } {
-  const token = randomBytes(32).toString("hex");
-  return {
-    token,
-    hash: hashToken(token),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-  };
-}
+import { FORWARD_CREDIT, type ForwardActor, supplierGroups } from "./supplier-groups.ts";
+import { hashSupplierToken, issueSupplierLink } from "./supplier-link.ts";
 
 /** The operations list's filters; dates are already resolved to Brazil calendar days. */
 export interface OperationalSearch {
@@ -281,41 +270,15 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   };
 }
 
-async function supplierGroups(tx: Transaction, tenantId: string, orderId: string) {
-  const items = await tx
-    .select({
-      orderItemId: orderItems.id,
-      title: orderItems.title,
-      quantity: orderItems.quantity,
-      sku: supplierProducts.sku,
-      supplierId: supplierProducts.supplierId,
-      active: suppliers.active,
-    })
-    .from(orderItems)
-    .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
-    .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
-  const linked = items.filter(
-    (item): item is (typeof items)[number] & { supplierId: string } =>
-      item.supplierId !== null && item.active === true,
-  );
-  if (!items.length || linked.length !== items.length)
-    throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
-  const grouped = new Map<string, typeof linked>();
-  for (const item of linked) {
-    grouped.set(item.supplierId, [...(grouped.get(item.supplierId) ?? []), item]);
-  }
-  return grouped;
-}
-
 /** Lock the order before grouping items; retries cannot dispatch the same items twice. */
 export async function forwardOrder(
   database: Database,
   tenantId: string,
-  input: z.infer<typeof forwardOrderSchema>,
+  input: z.infer<typeof forwardOrderSchema> & { actor?: ForwardActor },
 ) {
-  return database.transaction(async (tx) => {
-    const [order] = await tx
+  const credit = FORWARD_CREDIT[input.actor ?? "reseller"];
+  return database.transaction(async (transaction) => {
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, tenantId)))
@@ -323,16 +286,16 @@ export async function forwardOrder(
     if (!order) throw notFoundError("Pedido não encontrado");
     if (order.status !== "paid")
       throw conflictError("Somente pedidos pagos podem ser encaminhados");
-    const existing = await tx
+    const existing = await transaction
       .select({ id: orderShipments.id })
       .from(orderShipments)
       .where(eq(orderShipments.orderId, order.id));
     if (existing.length) throw conflictError("Este pedido já foi encaminhado");
-    const grouped = await supplierGroups(tx, tenantId, order.id);
+    const grouped = await supplierGroups(transaction, tenantId, order.id);
     const links: { shipmentId: string; supplierId: string; token: string }[] = [];
     for (const [supplierId, lines] of grouped) {
       const link = issueSupplierLink();
-      const [shipment] = await tx
+      const [shipment] = await transaction
         .insert(orderShipments)
         .values({
           tenantId,
@@ -351,11 +314,10 @@ export async function forwardOrder(
         })
         .returning({ id: orderShipments.id });
       if (!shipment) throw new Error("Não foi possível encaminhar o pedido");
-      await tx.insert(shipmentEvents).values({
+      await transaction.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status: "forwarded",
-        actor: SHIPMENT_ACTORS.reseller,
-        note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
+        ...credit,
       });
       links.push({ shipmentId: shipment.id, supplierId, token: link.token });
     }
@@ -368,14 +330,14 @@ export async function forwardOrder(
  * one stops working), and a fresh start at "forwarded". The cancellation stays in its history.
  */
 export async function reforwardShipment(database: Database, tenantId: string, shipmentId: string) {
-  return database.transaction(async (tx) => {
-    const [candidate] = await tx
+  return database.transaction(async (transaction) => {
+    const [candidate] = await transaction
       .select({ orderId: orderShipments.orderId })
       .from(orderShipments)
       .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.tenantId, tenantId)));
     if (!candidate) throw notFoundError("Envio não encontrado");
     // The order first, like every other fulfillment write.
-    const [order] = await tx
+    const [order] = await transaction
       .select({ status: orders.status })
       .from(orders)
       .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, tenantId)))
@@ -383,7 +345,7 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
     if (order?.status !== "paid")
       throw conflictError("Somente pedidos pagos podem ser reencaminhados");
     const link = issueSupplierLink();
-    const [shipment] = await tx
+    const [shipment] = await transaction
       .update(orderShipments)
       .set({
         status: "forwarded",
@@ -395,13 +357,13 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
       .returning({ id: orderShipments.id, supplierId: orderShipments.supplierId });
     if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
     // The same rule as the first forward: a supplier turned off by the admin gets no new parcel.
-    const [supplier] = await tx
+    const [supplier] = await transaction
       .select({ active: suppliers.active })
       .from(suppliers)
       .where(eq(suppliers.id, shipment.supplierId));
     if (!supplier?.active)
       throw conflictError("Este fornecedor foi desativado e não recebe mais pedidos");
-    await tx.insert(shipmentEvents).values({
+    await transaction.insert(shipmentEvents).values({
       shipmentId,
       status: "forwarded",
       actor: SHIPMENT_ACTORS.reseller,
@@ -452,7 +414,7 @@ export async function getSupplierShipment(database: Database, token: string) {
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
-        eq(orderShipments.supplierTokenHash, hashToken(token)),
+        eq(orderShipments.supplierTokenHash, hashSupplierToken(token)),
         gt(orderShipments.supplierTokenExpiresAt, new Date()),
       ),
     );
@@ -491,8 +453,8 @@ export async function getSupplierShipment(database: Database, token: string) {
  */
 export const MAX_SHIPMENT_EVENTS = 100;
 
-async function assertRoomForNote(tx: Transaction, shipmentId: string) {
-  const [row] = await tx
+async function assertRoomForNote(transaction: Transaction, shipmentId: string) {
+  const [row] = await transaction
     .select({ events: count() })
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, shipmentId));
@@ -504,7 +466,7 @@ async function assertRoomForNote(tx: Transaction, shipmentId: string) {
 }
 
 async function writeShipmentStatus(
-  tx: Transaction,
+  transaction: Transaction,
   shipment: typeof orderShipments.$inferSelect,
   input: z.infer<typeof shipmentUpdateSchema>,
   by: ShipmentOperator,
@@ -529,11 +491,11 @@ async function writeShipmentStatus(
     throw conflictError("Este envio já foi encerrado");
   if (input.status === shipment.status && !input.note)
     throw conflictError("Informe uma ocorrência ou avance a etapa");
-  if (input.status === shipment.status) await assertRoomForNote(tx, shipment.id);
+  if (input.status === shipment.status) await assertRoomForNote(transaction, shipment.id);
   const shipsNow = input.status === "shipped" && shipment.status !== "shipped";
   if (shipsNow && (!input.carrier || !input.trackingCode))
     throw validationError("Informe transportadora e código de rastreio");
-  await tx
+  await transaction
     .update(orderShipments)
     .set({
       status: input.status,
@@ -549,7 +511,7 @@ async function writeShipmentStatus(
         : {}),
     })
     .where(eq(orderShipments.id, shipment.id));
-  await tx.insert(shipmentEvents).values({
+  await transaction.insert(shipmentEvents).values({
     shipmentId: shipment.id,
     status: input.status,
     actor: SHIPMENT_ACTORS[by],
@@ -577,20 +539,20 @@ export async function updateShipment(
   input: z.infer<typeof shipmentUpdateSchema>,
   access: { tenantId: string } | { token: string },
 ) {
-  return database.transaction(async (tx) => {
+  return database.transaction(async (transaction) => {
     const accessFilter =
       "tenantId" in access
         ? eq(orderShipments.tenantId, access.tenantId)
         : and(
-            eq(orderShipments.supplierTokenHash, hashToken(access.token)),
+            eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
             gt(orderShipments.supplierTokenExpiresAt, new Date()),
           );
-    const [candidate] = await tx
+    const [candidate] = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.id, input.shipmentId), accessFilter));
     if (!candidate) throw notFoundError("Envio não encontrado");
-    const [order] = await tx
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, candidate.tenantId)))
@@ -598,14 +560,19 @@ export async function updateShipment(
     if (!order) throw notFoundError("Pedido não encontrado");
     if (["cancelled", "returned", "pending"].includes(order.status) && input.status !== "cancelled")
       throw conflictError("O pedido não está liberado para envio");
-    const [shipment] = await tx
+    const [shipment] = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.id, candidate.id), accessFilter))
       .for("update");
     if (!shipment) throw notFoundError("Link revogado ou expirado");
-    await writeShipmentStatus(tx, shipment, input, "tenantId" in access ? "reseller" : "supplier");
-    await syncOrderFromShipments(tx, order);
+    await writeShipmentStatus(
+      transaction,
+      shipment,
+      input,
+      "tenantId" in access ? "reseller" : "supplier",
+    );
+    await syncOrderFromShipments(transaction, order);
     // An occurrence note keeps the step: nothing moved, so no stock to push.
     return { statusChanged: input.status !== shipment.status };
   });
@@ -728,8 +695,8 @@ export async function applyMarketplaceShipment(
     dispatchDeadlineAt?: Date | null;
   },
 ) {
-  return database.transaction(async (tx) => {
-    const [order] = await tx
+  return database.transaction(async (transaction) => {
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
@@ -738,7 +705,7 @@ export async function applyMarketplaceShipment(
     if (order.status === "cancelled") throw conflictError("Pedido cancelado");
     // Settled: a later reading (the return seen again, a lagging "shipped") changes nothing.
     if (order.status === "returned") return { changed: false };
-    const shipments = await tx
+    const shipments = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
@@ -750,7 +717,7 @@ export async function applyMarketplaceShipment(
     const shipment = shipments[0];
     if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");
     const status = trackedShipmentStatus(shipment.status, shipping.trackingStatus);
-    await tx
+    await transaction
       .update(orderShipments)
       .set({ status, ...trackedValues(shipping, shipment), ...linkFieldsFor(status) })
       .where(eq(orderShipments.id, shipment.id));
@@ -759,14 +726,16 @@ export async function applyMarketplaceShipment(
         ? shipping.trackingCode
         : null;
     if (status !== shipment.status || newTrackingCode)
-      await tx.insert(shipmentEvents).values({
+      await transaction.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status,
         actor: SHIPMENT_ACTORS.marketplace,
         // The status label says what happened; the note only adds a tracking code that just arrived.
         note: newTrackingCode ? `Código de rastreio ${newTrackingCode}` : "",
       });
-    await syncOrderFromShipments(tx, order, { buyerReturned: shipping.buyerReturnDelivered });
+    await syncOrderFromShipments(transaction, order, {
+      buyerReturned: shipping.buyerReturnDelivered,
+    });
     return { changed: status !== shipment.status || newTrackingCode !== null };
   });
 }

@@ -31,6 +31,15 @@ afterEach(() => {
 });
 
 describe("diagnostic receiver", () => {
+  // Regression: APP_URL was read raw, so a malformed value made `new URL` throw and the receiver
+  // answered 500 — and it exists to report exactly that kind of broken configuration.
+  it("falls back to BETTER_AUTH_URL when APP_URL is malformed", async () => {
+    vi.stubEnv("APP_URL", "not a url");
+    vi.stubEnv("BETTER_AUTH_URL", "https://app.example");
+    const { handleErrorReport } = await import("./error-reports");
+    expect((await handleErrorReport(request())).status).toBe(204);
+  });
+
   it("logs an accepted report with its reference and browser/server builds", async () => {
     const { handleErrorReport } = await import("./error-reports");
     const response = await handleErrorReport(

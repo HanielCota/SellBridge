@@ -114,8 +114,22 @@ describe("unprocessed webhook sweep", () => {
       receivedBefore: minutesAgo(10),
       limit: 10_000,
     });
-    const ours = found.filter((id) => [older, stale, recent, processed, abandoned].includes(id));
+    const ours = found
+      .map((event) => event.id)
+      .filter((id) => [older, stale, recent, processed, abandoned].includes(id));
     expect(ours).toEqual([older, stale]);
+
+    // The next page starts after the cursor, so a backlog never hides the newer events.
+    const [first] = found.filter((event) => event.id === older);
+    if (first === undefined) throw new Error("missing event");
+    const rest = await findUnprocessedWebhookEvents(database, {
+      receivedAfter: minutesAgo(24 * 60),
+      receivedBefore: minutesAgo(10),
+      limit: 10_000,
+      after: first,
+    });
+    expect(rest.map((event) => event.id)).toContain(stale);
+    expect(rest.map((event) => event.id)).not.toContain(older);
 
     await database
       .delete(webhookEvents)

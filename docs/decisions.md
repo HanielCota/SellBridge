@@ -507,6 +507,23 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Admin:** Clientes mostra o fornecedor de cada loja, filtra por fornecedor e troca o fornecedor de uma loja; Fornecedores não tem mais cobertura, lista os lojistas vinculados e confirma o impacto antes de desativar. A saúde do cliente conta os passos "Dados" e "Fornecedor" no lugar de "Região".
 - **O que ficou no banco sem uso:** a tabela `supplier_coverage` e as colunas de endereço de `tenant_profile` (cep, state, city, rua…). Nada lê nem grava; apagá-las fica para uma migration depois da validação com o cliente. O `cep_cache` e o domínio de CEP (`shared/domain/cep*.ts`) também ficaram sem chamadas no app.
 
+## 2026-10-16: Encaminhar sozinho e e-mail ao fornecedor (item 21.b)
+
+- **Flag `AUTO_FORWARD_ENABLED`** (worker, padrão `false`) até a decisão D6 (fornecedor com login). Desligada, nenhum job é criado e nada muda: o pedido pago espera o revendedor encaminhar, como antes.
+- **Ligada:** quando um pedido chega pago (webhook do marketplace), o worker põe na fila `order-auto-forward` um job por pedido (`jobId` com o id do pedido; notificações repetidas não somam). O job encaminha **só o caso sem dúvida**: pedido pago, ainda não encaminhado, todos os itens com fornecedor ativo e todo fornecedor com e-mail de pedidos (21.a). O endereço vem do envio da venda no Mercado Livre; enquanto o ML ainda não criou o envio, o job tenta de novo (5 tentativas a partir de 1 min, cerca de meia hora) e depois desiste. Qualquer outro caso (item sem fornecedor, fornecedor sem e-mail, outro marketplace, loja desconectada, sem endereço) fica com o revendedor, sem aviso novo.
+- **No histórico do envio** o primeiro passo fica "por SellBridge": "Pedido encaminhado automaticamente e enviado ao fornecedor por e-mail." (`SHIPMENT_ACTORS.sellbridge`).
+- **E-mail ao fornecedor** (também no encaminhamento manual, quando o fornecedor tem e-mail): número do pedido, itens, os dois prazos na mesma unidade ("12 horas e 48 horas" ou "1 dia e 3 dias") e o link de 30 dias. **Não leva nome nem endereço do comprador**: ficam atrás do link, que expira. O diálogo mostra "Enviamos este link para o e-mail do fornecedor."
+- **E-mail que falha não desfaz o encaminhamento:** o envio ganha no histórico "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele." e o revendedor compartilha o link à mão. Os logs levam só ids (nada de e-mail, endereço ou link).
+- **Envio de e-mail compartilhado** em `@sellbridge/shared/mailer` (Resend, web e worker), e o layout em `@sellbridge/shared/email-layout` (saiu de `apps/web/src/lib/server`). O item 25 (central de notificações) troca o envio direto pela fila de canais.
+- **Pendências aceitas:** um job perdido (Redis fora no instante do webhook) não é refeito pelo sweeper, e o pedido fica com o revendedor; o worker sem `RESEND_API_KEY` em produção recusa o e-mail e anota a falha no histórico.
+
+## 2026-10-15: Erros do Mercado Livre em português, com o que fazer (item 13.a)
+
+- **De onde vêm as regras:** a página oficial "Validações" (developers.mercadolivre.com.br/pt_br/validacoes, lida em 2026-10-15) dá o formato do erro (`cause[]` com `cause_id`, `type`, `code`, `references`, `message`) e a tabela de códigos. Só os códigos dessa tabela ganharam frase própria; nenhum foi inventado.
+- **O que o revendedor lê:** "o que aconteceu. o que fazer.", no tom das mensagens de indisponível do item 08: atributos obrigatórios (com os nomes que o ML deu), preço mínimo da categoria em reais, fotos pequenas, título curto, marca não autorizada, GTIN recusado e outros. Só `type: "error"` bloqueia: avisos (`warning`) não aparecem. Até dois erros por mensagem. Código desconhecido: "O Mercado Livre recusou o anúncio: <palavras do ML>. Revise o anúncio e tente de novo.", com o trecho do ML cortado em 300 caracteres. Resposta sem `cause` mantém a mensagem de antes.
+- **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
+- **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
+
 ## 2026-10-16: Saúde da loja (item 24.a, chat B)
 
 - **Menu da loja em /lojas** ganhou "Saúde da loja": última sincronização (o `synced_at` mais recente dos anúncios da loja), último aviso de pedido do marketplace (`store_connections.last_webhook_at`, migration 0030) e o acesso. A validade do token não aparece como data: no Mercado Livre ele dura 6 horas e renova sozinho, então a linha diz "Em dia, renova sozinho", "Renovação falhou, tentaremos de novo" ou pede para reconectar.

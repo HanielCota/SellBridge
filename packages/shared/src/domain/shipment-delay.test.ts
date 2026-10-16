@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFIRMATION_REMINDER_DAYS, shipmentDelay } from "./shipment-delay.ts";
+import { CONFIRMATION_REMINDER_DAYS, overdueSince, shipmentDelay } from "./shipment-delay.ts";
 
 const now = new Date("2026-10-15T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 3_600_000);
@@ -64,5 +64,23 @@ describe("shipmentDelay", () => {
         ),
       ).toBeNull();
     }
+  });
+});
+
+describe("overdueSince", () => {
+  // Regression: the late alert was dated at the deadline (00:00 of the day), before a bell
+  // opened during that day, so it never counted as new once the day was over.
+  it("is the end of the missed day in Brazil, the instant the parcel turns late", () => {
+    const deadline = new Date("2026-10-15T00:00:00-03:00");
+    const since = overdueSince(deadline);
+    expect(since.toISOString()).toBe("2026-10-16T03:00:00.000Z");
+    const timing = {
+      status: "accepted" as const,
+      dispatchDeadlineAt: deadline,
+      estimatedDeliveryAt: null,
+      shippedAt: null,
+    };
+    expect(shipmentDelay(timing, new Date(since.getTime() - 1))).toBeNull();
+    expect(shipmentDelay(timing, since)).toBe("dispatch_overdue");
   });
 });

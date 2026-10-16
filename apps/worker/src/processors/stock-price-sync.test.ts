@@ -72,6 +72,24 @@ const sync = createStockPriceSyncProcessor({
 });
 
 describe("stock-price-sync processor", () => {
+  // Runs first, while both targets still need a sync. Regression: the budget was checked only
+  // between batches of 200, so one batch in an outage held the queue for hours.
+  it("stops at the run budget even in the middle of a batch", async () => {
+    const outOfTime = createStockPriceSyncProcessor({
+      database,
+      connectors: connectorsWithDeletedItem,
+      cipher,
+      acquireRateLimit: async () => {},
+      safetyUnits: 0,
+      runBudgetMilliseconds: 0,
+    });
+    expect(await outOfTime()).toEqual({ synced: 0, failed: 0 });
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, targetId),
+    });
+    expect(row?.syncAttemptedAt ?? null).toBeNull();
+  });
+
   it("pushes changed stock and price and marks the target as synced", async () => {
     const summary = await sync();
     expect(summary.synced).toBeGreaterThanOrEqual(1);

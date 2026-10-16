@@ -1,5 +1,5 @@
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
-import { and, asc, desc, eq, ne, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne, notExists, sql } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import {
@@ -118,6 +118,12 @@ export async function listLinkableOrders(
     .limit(input.limit);
 }
 
+/**
+ * Orders one ticket may pin. A conversation is about a few orders; without a ceiling the thread
+ * listed every one of them (no LIMIT) and a script could pin thousands.
+ */
+export const MAX_TICKET_ORDERS = 20;
+
 /** Pins an order of the same store to the ticket; linking it twice changes nothing. */
 export async function linkTicketOrder(
   database: Database,
@@ -127,6 +133,16 @@ export async function linkTicketOrder(
   await database.transaction(async (transaction) => {
     const ticket = await lockTenantTicket(transaction, input.ticketId, input.tenantId);
     const order = await findTenantOrder(transaction, input.orderId, input.tenantId);
+    // Counted under the ticket's lock, so two links at once cannot both take the last place.
+    const [linked] = await transaction
+      .select({ total: count() })
+      .from(ticketOrders)
+      .where(and(eq(ticketOrders.ticketId, ticket.id), ne(ticketOrders.orderId, order.id)));
+    if ((linked?.total ?? 0) >= MAX_TICKET_ORDERS) {
+      throw validationError(
+        `Um chamado pode ter até ${MAX_TICKET_ORDERS} pedidos vinculados; desvincule um para incluir outro`,
+      );
+    }
     const inserted = await transaction
       .insert(ticketOrders)
       .values({ ticketId: ticket.id, orderId: order.id, linkedById: input.actorId, createdAt: now })

@@ -21,13 +21,16 @@ export function parseJsonText(text: string): unknown {
   }
 }
 
+/** A request or a response: anything with headers and a body stream. */
+type MessageWithBody = Pick<Request, "headers" | "body">;
+
 /**
- * The request body as bytes, reading at most `maxBytes`; null when it is larger. The declared
- * length is only a first check: a chunked body has none, so the stream itself is counted and
- * reading stops at the limit instead of buffering whatever the sender keeps sending.
+ * The request (or response) body as bytes, reading at most `maxBytes`; null when it is larger.
+ * The declared length is only a first check: a chunked body has none, so the stream itself is
+ * counted and reading stops at the limit instead of buffering whatever the sender keeps sending.
  */
 export async function readBodyWithin(
-  request: Request,
+  request: MessageWithBody,
   maxBytes: number,
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   const declared = Number(request.headers.get("content-length") ?? "0");
@@ -90,8 +93,12 @@ export async function readFormDataWithin(
  * True when a parsed JSON value holds half of a UTF-16 pair on its own ("\ud800"). `JSON.parse`
  * accepts it, but Postgres refuses it in jsonb, so storing the value would fail with a 500.
  * `JSON.stringify` writes exactly those halves as `\uXXXX` escapes, never well-formed text.
+ * An escape starts after an even run of backslashes: in `"\\\ud800"` the first two are an
+ * escaped backslash and the lone half still follows (a one-backslash lookbehind missed it).
  */
-const LONE_SURROGATE_ESCAPE = new RegExp(String.raw`(?<!\\)\\u[dD][89a-fA-F][0-9a-fA-F]{2}`);
+const LONE_SURROGATE_ESCAPE = new RegExp(
+  String.raw`(?<!\\)(?:\\\\)*\\u[dD][89a-fA-F][0-9a-fA-F]{2}`,
+);
 
 export function hasLoneSurrogate(value: unknown): boolean {
   return LONE_SURROGATE_ESCAPE.test(JSON.stringify(value ?? null));

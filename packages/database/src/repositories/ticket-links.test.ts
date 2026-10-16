@@ -8,6 +8,7 @@ import {
   addTicketFollower,
   findTicketEmailRecipients,
   linkTicketOrder,
+  MAX_TICKET_ORDERS,
   listLinkableOrders,
   listTenantColleagues,
   listTicketFollowers,
@@ -291,5 +292,33 @@ describe("ticket followers", () => {
     expect(colleagues.map((person) => person.userId).toSorted()).toEqual(
       [reseller, colleague].toSorted(),
     );
+  });
+});
+
+// Last: it adds 21 orders to tenant A, which the listing tests above would see.
+describe("ticket order ceiling", () => {
+  it("refuses a link past the ceiling, and still accepts relinking one already pinned", async () => {
+    const ticketId = await openTicket();
+    const orderIds = await Promise.all(
+      Array.from({ length: MAX_TICKET_ORDERS + 1 }, (_, index) =>
+        insertOrder(tenantA, `ML-CAP-${index}`, "2026-10-01T12:00:00Z"),
+      ),
+    );
+    for (const orderId of orderIds.slice(0, MAX_TICKET_ORDERS)) {
+      await linkTicketOrder(database, { ticketId, tenantId: tenantA, orderId, actorId: reseller });
+    }
+    const [first] = orderIds;
+    const extra = orderIds.at(-1);
+    if (first === undefined || extra === undefined) throw new Error("missing orders");
+    await expect(
+      linkTicketOrder(database, { ticketId, tenantId: tenantA, orderId: extra, actorId: reseller }),
+    ).rejects.toThrow("até 20 pedidos");
+    await linkTicketOrder(database, {
+      ticketId,
+      tenantId: tenantA,
+      orderId: first,
+      actorId: reseller,
+    });
+    expect(await listTicketOrders(database, ticketId)).toHaveLength(MAX_TICKET_ORDERS);
   });
 });

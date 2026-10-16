@@ -1,12 +1,24 @@
 import { lookup } from "node:dns/promises";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { validationError } from "@sellbridge/shared/errors";
 import { hostnameWithoutBrackets, isNonPublicAddress } from "@sellbridge/shared/network-address";
 
 /** Every address a host name resolves to (A and AAAA). */
 export type ResolveHost = (hostname: string) => Promise<string[]>;
 
+/**
+ * A lookup runs on libuv's 4-thread pool with no timeout of its own: a receiver whose name
+ * servers stall could hold a delivery batch past its 2-minute lease (and be sent twice) and slow
+ * every other lookup in the worker. The guard gives up after this long.
+ */
+const LOOKUP_DEADLINE_MILLISECONDS = 5_000;
+
 export const resolveHostWithDns: ResolveHost = async (hostname) => {
-  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  const addresses = await withDeadline(
+    lookup(hostname, { all: true, verbatim: true }),
+    LOOKUP_DEADLINE_MILLISECONDS,
+    "Resolução de DNS do webhook",
+  );
   return addresses.map((entry) => entry.address);
 };
 

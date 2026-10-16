@@ -312,9 +312,15 @@ export async function recordStoreError(
 }
 
 /** Connected stores whose access token expires before `threshold` (worker job, all tenants). */
+/**
+ * Connections whose token expires before `threshold`, soonest first and at most `limit` of them:
+ * one run refreshes them one by one, and with thousands of stores (or a slow marketplace) an
+ * unbounded run outlasted the 10 minutes until the next one. The rest come next run.
+ */
 export async function findConnectionsExpiringBefore(
   database: Database,
   threshold: Date,
+  limit = 500,
 ): Promise<StoreConnectionRow[]> {
   return database
     .select()
@@ -325,7 +331,9 @@ export async function findConnectionsExpiringBefore(
         isNotNull(storeConnections.refreshTokenEnc),
         lt(storeConnections.expiresAt, threshold),
       ),
-    );
+    )
+    .orderBy(asc(storeConnections.expiresAt))
+    .limit(limit);
 }
 
 export async function createOAuthState(

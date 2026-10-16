@@ -32,7 +32,14 @@ function parseSignatureHeader(header: string): { timestamp: number; signatures: 
   return { timestamp, signatures };
 }
 
+/** A v1 signature is exactly 64 lowercase hex digits (HMAC-SHA256). */
+const SIGNATURE_HEX = /^[0-9a-f]{64}$/;
+
 function sameHex(expected: string, received: string): boolean {
+  // Buffer.from(hex) stops at the first non-hex character, so "<valid>zz" would still match.
+  if (!SIGNATURE_HEX.test(received)) {
+    return false;
+  }
   const expectedBytes = Buffer.from(expected, "hex");
   const receivedBytes = Buffer.from(received, "hex");
   // timingSafeEqual needs equal lengths; the length itself is not a secret.

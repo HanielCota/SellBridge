@@ -31,7 +31,8 @@ const DOT_DECIMAL_BRL = /^(-?)(\d+)\.(\d{1,2})$/;
  * when the text is not an amount or is larger than a money column holds.
  */
 export function parseBrlToCents(input: string): Cents | null {
-  const compact = input.replace(/[R$\s]/g, "");
+  // Only a leading "R$" (after an optional minus) is a currency sign; "1R2" is not an amount.
+  const compact = input.replace(/\s/g, "").replace(/^(-?)R\$/, "$1");
   const match =
     GROUPED_BRL.exec(compact) ?? PLAIN_BRL.exec(compact) ?? DOT_DECIMAL_BRL.exec(compact);
   if (match === null) {

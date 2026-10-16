@@ -246,6 +246,31 @@ describe("marketplace orders and sync", () => {
     expect(await adjustments()).toEqual([{ type: "commission", amountCents: 300 }]);
   });
 
+  // Regression: a paid order held as pending for fraud risk kept its refund as a "refund", which
+  // took R$ 100 off the profit of an order that counts no revenue.
+  it("keeps no refund on an unpaid order, and writes it once the order is paid", async () => {
+    const incoming = {
+      externalOrderId: `ORD-${randomUUID()}`,
+      status: "pending" as const,
+      totalCents: 10_000,
+      marketplaceFeeCents: 0,
+      buyerName: null,
+      orderedAt: new Date(),
+      items: [],
+      refundedCents: 10_000,
+    };
+    const { orderId } = await upsertMarketplaceOrder(database, tenantA, storeA, incoming);
+    const refunds = () =>
+      database
+        .select({ type: orderAdjustments.type, amountCents: orderAdjustments.amountCents })
+        .from(orderAdjustments)
+        .where(eq(orderAdjustments.orderId, orderId));
+
+    expect(await refunds()).toEqual([]);
+    await upsertMarketplaceOrder(database, tenantA, storeA, { ...incoming, status: "paid" });
+    expect(await refunds()).toEqual([{ type: "refund", amountCents: 10_000 }]);
+  });
+
   it("never moves a dispatched order back to pending, nor a delivered one back to shipped", async () => {
     const incoming = {
       externalOrderId: `ORD-${randomUUID()}`,

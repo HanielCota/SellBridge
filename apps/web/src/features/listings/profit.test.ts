@@ -5,6 +5,7 @@ import {
   feePercentLabel,
   isLowStock,
   isThinMargin,
+  wholeMarginPercent,
   priceForMargin,
 } from "./profit";
 
@@ -60,5 +61,15 @@ describe("listing health rules", () => {
   it("labels a fee in basis points as a percentage", () => {
     expect(feePercentLabel(1400)).toBe("14%");
     expect(feePercentLabel(1250)).toBe("12,5%");
+  });
+});
+
+describe("wholeMarginPercent", () => {
+  // Regression: 14.9% showed as "15%" while painted as a thin (under 15%) margin.
+  it("rounds down so the number agrees with the thin-margin color", () => {
+    expect(wholeMarginPercent(14.9)).toBe(14);
+    expect(isThinMargin(14.9)).toBe(true);
+    expect(wholeMarginPercent(15)).toBe(15);
+    expect(wholeMarginPercent(-3.4)).toBe(-4);
   });
 });
