@@ -1,7 +1,8 @@
 import { marketplaceError, MOCK_REVOKED_REFRESH_TOKEN } from "@sellbridge/marketplaces";
 import { schema } from "@sellbridge/database";
+import type { SendEmail } from "@sellbridge/shared/mailer";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTestStore,
   createTestTenants,
@@ -11,6 +12,10 @@ import { createTokenRefreshProcessor } from "./token-refresh.ts";
 
 const environment = createWorkerTestEnvironment();
 const { database, connectors, cipher } = environment;
+const notices = {
+  sendEmail: vi.fn<SendEmail>(async () => undefined),
+  appUrl: "https://app.sellbridge.test",
+};
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let tenantIds: string[] = [];
@@ -43,7 +48,12 @@ describe("token-refresh processor", () => {
       .set({ expiresAt: soon, refreshTokenEnc: cipher.encrypt(MOCK_REVOKED_REFRESH_TOKEN) })
       .where(eq(schema.storeConnections.id, revoked.id));
 
-    const summary = await createTokenRefreshProcessor({ database, connectors, cipher })();
+    const summary = await createTokenRefreshProcessor({
+      database,
+      connectors,
+      cipher,
+      ...notices,
+    })();
     expect(summary.refreshed).toBeGreaterThanOrEqual(1);
     expect(summary.expired).toBeGreaterThanOrEqual(1);
 
@@ -86,6 +96,7 @@ describe("token-refresh on a marketplace outage", () => {
       database,
       connectors: unavailable,
       cipher,
+      ...notices,
     })();
     expect(summary.failed).toBeGreaterThanOrEqual(1);
 

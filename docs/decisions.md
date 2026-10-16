@@ -537,3 +537,9 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - O diálogo de desconectar a loja traz "Pausar os anúncios desta loja no marketplace", marcado por padrão (decisão do ⏸1: o padrão mais seguro). Um anúncio que continua ativo depois da desconexão vende sem sincronizar estoque.
 - Antes de apagar os tokens, o servidor manda estoque zero para cada anúncio publicado da loja, um por vez, com teto de 20 s para a pessoa não ficar presa no diálogo, e marca como pausados os que o marketplace aceitou. Uma falha nunca impede a desconexão: o aviso diz quantos anúncios continuam ativos e pede para pausar direto no marketplace. Depois de reconectar, a pessoa reativa os anúncios em Publicações.
 - A desconexão feita pelo admin na ficha do cliente continua sem pausar (fica em "Refinar depois").
+
+## 2026-10-16: E-mail de loja expirada (item 24.c, chat B)
+
+- O job de renovação de tokens (a cada 10 min) também avisa por e-mail os donos (`member.role = owner`) de lojas que ficaram expiradas nas últimas 24 h, venha a expiração da própria renovação ou de uma sincronização ou publicação que encontrou o token recusado. Lojas expiradas antes disso ficam só com o sino.
+- Uma vez por dono e por conexão perdida: a chave de deduplicação usa a loja e um hash do token cifrado, e fica em `notification_deliveries` (tabela do item 25), gravada como enviada antes do envio, para duas execuções nunca mandarem em dobro. Se o envio falha, a reserva é desfeita e a próxima execução tenta de novo. Uma falha nos avisos nunca derruba a renovação.
+- Usa o mailer do worker (21.b), criado uma vez no `index.ts` e passado como dependência. `TODO(item 25)`: passar para a fila da central de notificações quando o envio dela entrar.

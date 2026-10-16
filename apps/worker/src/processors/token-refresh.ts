@@ -9,11 +9,25 @@ import { type ConnectorRegistry, isMarketplaceAuthError } from "@sellbridge/mark
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { SendEmail } from "@sellbridge/shared/mailer";
+import { notifyExpiredStores } from "./store-expiry-notice.ts";
 
 export interface TokenRefreshDependencies {
   database: Database;
   connectors: ConnectorRegistry;
   cipher: TokenCipher;
+  /** Tells owners about stores that just lost their access (this run's or a sync's). */
+  sendEmail: SendEmail;
+  appUrl: string;
+}
+
+/** The expiry e-mails are a courtesy: a failure is logged and never fails the refresh run. */
+async function notifyExpiredStoresSafely(dependencies: TokenRefreshDependencies): Promise<void> {
+  try {
+    await notifyExpiredStores(dependencies);
+  } catch (error) {
+    logger.warn("store.expiry_notices_failed", { error });
+  }
 }
 
 /** Refreshes tokens expiring within this window, before they actually expire. */
@@ -118,6 +132,9 @@ export function createTokenRefreshProcessor(dependencies: TokenRefreshDependenci
     if (expiring.length > 0) {
       logger.info("store.token_refresh_run", { ...summary });
     }
+    // Every run, not only this one's expiries: a sync or publish that met a revoked token
+    // expires the store elsewhere, and this job is the one that runs on a schedule.
+    await notifyExpiredStoresSafely(dependencies);
     return summary;
   };
 }
