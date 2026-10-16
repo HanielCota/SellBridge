@@ -18,6 +18,7 @@ vi.mock("@/lib/server/environment", () => ({
     STRIPE_WEBHOOK_SECRET: "whsec_test",
     STRIPE_PRO_PRICE_ID: "price_pro",
     STRIPE_BUSINESS_PRICE_ID: "price_business",
+    BILLING_PAST_DUE_GRACE_DAYS: 7,
   },
 }));
 vi.mock("./stripe.server", () => ({
@@ -33,7 +34,15 @@ const subscription = {
   customer: "cus_test",
   status: "active",
   cancel_at_period_end: false,
-  items: { data: [{ current_period_end: 1800000000, price: { id: "price_pro" } }] },
+  items: {
+    data: [
+      {
+        current_period_start: 1797408000,
+        current_period_end: 1800000000,
+        price: { id: "price_pro" },
+      },
+    ],
+  },
 };
 function request(
   type = "customer.subscription.updated",
@@ -102,12 +111,18 @@ describe("signed billing webhook", () => {
   // Fetching outside the lock lets two deliveries race: the newest read wins, not the newest event.
   it("orders states by when they were read from Stripe", async () => {
     const before = Date.now();
+    let readAt = 0;
+    mocks.list.mockImplementation(async () => {
+      readAt = Date.now();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { data: [subscription] };
+    });
     await handleBillingWebhook(request());
     const [, applied] = mocks.apply.mock.calls[0] ?? [];
-    expect(applied).toMatchObject({ observedAt: expect.any(Number) });
     const observedAt = z.object({ observedAt: z.number() }).parse(applied).observedAt;
     expect(observedAt).toBeGreaterThanOrEqual(before);
-    expect(observedAt).toBeLessThanOrEqual(Date.now());
+    // Review of item 16: stamped after a slow answer, an older read beat a newer one.
+    expect(observedAt).toBeLessThanOrEqual(readAt);
   });
   // Regression: the client defaults (15 s, 2 retries) kept a webhook waiting up to ~90 s.
   it("reads Stripe with a short timeout and one retry", async () => {
@@ -126,7 +141,15 @@ describe("signed billing webhook", () => {
         {
           ...subscription,
           id: "sub_new",
-          items: { data: [{ current_period_end: 1800000000, price: { id: "price_business" } }] },
+          items: {
+            data: [
+              {
+                current_period_start: 1797408000,
+                current_period_end: 1800000000,
+                price: { id: "price_business" },
+              },
+            ],
+          },
         },
       ],
     });
@@ -209,6 +232,23 @@ describe("signed billing webhook", () => {
     expect(mocks.apply).toHaveBeenCalledWith(
       {},
       expect.objectContaining({ status: "canceled", periodEnd: new Date(1798000000 * 1000) }),
+    );
+  });
+  // Regression (item 16, N9): a failed renewal dropped the reseller to Gratuito at once.
+  it("keeps a past_due subscription paid until the grace after the failed renewal", async () => {
+    mocks.list.mockResolvedValue({ data: [{ ...subscription, status: "past_due" }] });
+    await handleBillingWebhook(
+      request("invoice.payment_failed", true, {
+        customer: "cus_test",
+        parent: { subscription_details: { subscription: "sub_test" } },
+      }),
+    );
+    expect(mocks.apply).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        status: "past_due",
+        periodEnd: new Date((1797408000 + 7 * 86_400) * 1000),
+      }),
     );
   });
 });

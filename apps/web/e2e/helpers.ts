@@ -1,5 +1,15 @@
 import { expect, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
+import { user } from "@sellbridge/database/schema";
+import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
+
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+
+/** Marks the account's e-mail as confirmed, as opening the link sent on sign-up would. */
+export async function confirmEmail(email: string): Promise<void> {
+  await database.update(user).set({ emailVerified: true }).where(eq(user.email, email));
+}
 
 /**
  * Waits until React has hydrated the current document. Needed after any full page load:
@@ -36,7 +46,15 @@ export function uniqueEmail(prefix = "e2e"): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10_000)}@sellbridge.test`;
 }
 
-export async function signUp(page: Page, name: string): Promise<string> {
+/**
+ * Creates an account through /cadastro. The e-mail comes back confirmed, since a new store waits
+ * for it (item 26.b); `confirm: false` keeps it pending.
+ */
+export async function signUp(
+  page: Page,
+  name: string,
+  options: { confirm?: boolean } = {},
+): Promise<string> {
   const email = uniqueEmail();
   await gotoHydrated(page, "/cadastro");
   await page.getByLabel("Nome").fill(name);
@@ -44,6 +62,9 @@ export async function signUp(page: Page, name: string): Promise<string> {
   await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
+  if (options.confirm !== false) {
+    await confirmEmail(email);
+  }
   return email;
 }
 

@@ -5,12 +5,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listings, storeConnections, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, testStoreInput } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  findTargetsNeedingSync,
-  markTargetPublished,
-  markTargetSynced,
-} from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
   getSellableCatalogProduct,

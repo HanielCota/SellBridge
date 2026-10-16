@@ -17,6 +17,13 @@ const serverEnvironmentShape = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
+  /**
+   * Production without Stripe refuses to start unless this says so: no Stripe means no plan
+   * limits at all (item 16, N8).
+   */
+  BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
+  /** Days a failed renewal (past_due) keeps the paid limits before falling back to Gratuito. */
+  BILLING_PAST_DUE_GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
   NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
@@ -66,10 +73,16 @@ const serverEnvironmentShape = z.object({
   CLIENT_IP_HEADER: z.string().trim().toLowerCase().default("x-forwarded-for"),
 });
 
-export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
-  if (value.NODE_ENV !== "production") {
-    return;
-  }
+const STRIPE_REQUIRED_KEYS = [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRO_PRICE_ID",
+  "STRIPE_BUSINESS_PRICE_ID",
+] as const;
+
+type ServerEnvironmentShape = z.infer<typeof serverEnvironmentShape>;
+
+function checkPlaceholderSecret(value: ServerEnvironmentShape, context: z.RefinementCtx) {
   if (!value.BETTER_AUTH_SECRET.startsWith(PLACEHOLDER_SECRET_PREFIX)) {
     return;
   }
@@ -78,6 +91,30 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
     path: ["BETTER_AUTH_SECRET"],
     message: "ainda é o valor do .env.example; gere outro com openssl rand -base64 32",
   });
+}
+
+function checkProductionBilling(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  if (value.BILLING_UNLIMITED) {
+    return;
+  }
+  for (const key of STRIPE_REQUIRED_KEYS) {
+    if (value[key] !== undefined) {
+      continue;
+    }
+    context.addIssue({
+      code: "custom",
+      path: [key],
+      message: "obrigatória em produção; sem o Stripe defina BILLING_UNLIMITED=true (sem limites)",
+    });
+  }
+}
+
+export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
+  if (value.NODE_ENV !== "production") {
+    return;
+  }
+  checkPlaceholderSecret(value, context);
+  checkProductionBilling(value, context);
 });
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;

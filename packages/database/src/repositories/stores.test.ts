@@ -10,6 +10,7 @@ import {
   listStoreConnections,
   markStoreStatus,
   recordStoreError,
+  recordStoreWebhook,
   updateStoreTokens,
   upsertStoreConnection,
 } from "./stores.ts";
@@ -308,3 +309,53 @@ function signal(): { promise: Promise<void>; fire: () => void } {
   });
   return { promise, fire: () => handle.resolve() };
 }
+
+describe("store webhook time", () => {
+  it("keeps the latest event time and lists it with the store", async () => {
+    const storeId = await connectShop(`shop-webhook-${tenantA}`);
+    const latest = new Date("2026-10-15T12:00:00.000Z");
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: latest });
+    // A retry of an older event arrives later: the store still shows the newest one.
+    await recordStoreWebhook(database, {
+      storeConnectionId: storeId,
+      receivedAt: new Date("2026-10-15T09:00:00.000Z"),
+    });
+    const listed = await listStoreConnections(database, tenantA);
+    expect(listed.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(latest);
+  });
+
+  it("leaves the store's updatedAt alone: the bell dates a store's problem by it", async () => {
+    const storeId = await connectShop(`shop-webhook-updated-${tenantA}`);
+    const before = new Date("2026-10-01T08:00:00.000Z");
+    await database
+      .update(storeConnections)
+      .set({ updatedAt: sql`${before.toISOString()}::timestamptz` })
+      .where(eq(storeConnections.id, storeId));
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: new Date() });
+    const [row] = await database
+      .select({
+        updatedAt: storeConnections.updatedAt,
+        lastWebhookAt: storeConnections.lastWebhookAt,
+      })
+      .from(storeConnections)
+      .where(eq(storeConnections.id, storeId));
+    expect(row?.lastWebhookAt).not.toBeNull();
+    expect(row?.updatedAt).toEqual(before);
+  });
+
+  it("writes a burst of events once a minute, not once per event", async () => {
+    const storeId = await connectShop(`shop-webhook-burst-${tenantA}`);
+    const first = new Date("2026-10-15T12:00:00.000Z");
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: first });
+    await recordStoreWebhook(database, {
+      storeConnectionId: storeId,
+      receivedAt: new Date("2026-10-15T12:00:30.000Z"),
+    });
+    const later = new Date("2026-10-15T12:01:30.000Z");
+    const afterBurst = await listStoreConnections(database, tenantA);
+    expect(afterBurst.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(first);
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: later });
+    const listed = await listStoreConnections(database, tenantA);
+    expect(listed.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(later);
+  });
+});

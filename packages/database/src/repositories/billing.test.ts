@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { count, eq } from "drizzle-orm";
-import { billingAccounts, billingEvents, listings } from "../schema/index.ts";
+import { eq } from "drizzle-orm";
+import { billingAccounts, billingEvents, listings, listingTargets } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestTenantPair,
@@ -11,6 +11,7 @@ import {
 import {
   applyBillingEvent,
   assertBillingCapacity,
+  billingUsage,
   getBillingAccount,
   saveBillingCustomer,
   tryLockBillingCheckout,
@@ -26,6 +27,41 @@ function deferred() {
   return { promise, resolve: () => settlers.resolve() };
 }
 const database = createTestDatabase();
+
+/** Takes `amount` plan slots: listings live in one store, as the quota counts them. */
+async function fillLiveSlots(tenantId: string, storeId: string, amount: number) {
+  if (amount <= 0) return;
+  const created = await database
+    .insert(listings)
+    .values(
+      Array.from({ length: amount }, () => ({
+        tenantId,
+        supplierProductId: catalog.productId,
+        title: "Limite",
+        description: "",
+        priceCents: 2500,
+      })),
+    )
+    .returning({ id: listings.id });
+  await database.insert(listingTargets).values(
+    created.map((listing) => ({
+      tenantId,
+      listingId: listing.id,
+      storeConnectionId: storeId,
+      status: "published" as const,
+      idempotencyKey: randomUUID(),
+    })),
+  );
+}
+
+async function firstStoreOf(tenantId: string) {
+  const stores = await database.query.storeConnections.findMany({
+    where: (store, { eq: equals }) => equals(store.tenantId, tenantId),
+  });
+  const store = stores[0];
+  if (!store) throw new Error("missing fixture store");
+  return store;
+}
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const customerId = `cus_${randomUUID()}`;
@@ -137,10 +173,11 @@ describe("tenant billing persistence", () => {
       upsertStoreConnection(database, { ...connection, externalShopId: store.externalShopId }),
     ).resolves.toMatchObject({ id: store.id });
   });
+  // past_due keeps the plan through the grace (item 16, N9); an unpaid subscription does not.
   it("revoked paid access falls back to free capacity", async () => {
     await database
       .update(billingAccounts)
-      .set({ status: "past_due" })
+      .set({ status: "unpaid" })
       .where(eq(billingAccounts.tenantId, tenants.tenantA));
     await upsertStoreConnection(database, {
       ...testStoreInput(tenants.tenantA, "free-a"),
@@ -158,49 +195,47 @@ describe("tenant billing persistence", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it("cannot exceed listing capacity through simultaneous app/API creates", async () => {
-    const values = {
-      tenantId: tenants.tenantB,
-      supplierProductId: catalog.productId,
-      title: "Limite",
-      description: "",
-      priceCents: 2500,
-    };
-    await database.insert(listings).values(Array.from({ length: 24 }, () => values));
-    const stores = await database.query.storeConnections.findMany({
-      where: (store, { eq: equals }) => equals(store.tenantId, tenants.tenantB),
-    });
-    const store = stores[0];
-    if (!store) throw new Error("missing fixture store");
+    const store = await firstStoreOf(tenants.tenantB);
+    await fillLiveSlots(tenants.tenantB, store.id, 24);
+    const products = await Promise.all(
+      ["RACE-1", "RACE-2"].map(async (sku) =>
+        createTestSupplierProduct(database, {
+          sku,
+          title: "Corrida",
+          costCents: 1000,
+          suggestedPriceCents: 2500,
+        }),
+      ),
+    );
     const outcomes = await Promise.allSettled(
-      [0, 1].map(async () =>
-        createListingWithTargets(database, tenants.tenantB, { ...values, billingEnabled: true }, [
-          store.id,
-        ]),
+      products.map(async (product) =>
+        createListingWithTargets(
+          database,
+          tenants.tenantB,
+          {
+            supplierProductId: product.productId,
+            title: "Limite",
+            description: "",
+            priceCents: 2500,
+            billingEnabled: true,
+          },
+          [store.id],
+        ),
       ),
     );
     expect(outcomes.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(outcomes.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const rejected = outcomes.find((result) => result.status === "rejected");
+    expect(rejected?.reason).toMatchObject({ code: "FORBIDDEN" });
+    await database.delete(listings).where(eq(listings.tenantId, tenants.tenantB));
+    await Promise.all(products.map(async (product) => product.cleanup()));
   });
 
   // Regression: a batch was checked one listing at a time, so 10 products on a plan with room for
   // one published the first and failed on the second.
   it("refuses a whole batch that does not fit the plan, and admits one that fits exactly", async () => {
-    const [existing] = await database
-      .select({ total: count() })
-      .from(listings)
-      .where(eq(listings.tenantId, tenants.tenantA));
-    const missing = 23 - (existing?.total ?? 0);
-    if (missing > 0) {
-      await database.insert(listings).values(
-        Array.from({ length: missing }, () => ({
-          tenantId: tenants.tenantA,
-          supplierProductId: catalog.productId,
-          title: "Limite",
-          description: "",
-          priceCents: 2500,
-        })),
-      );
-    }
+    const store = await firstStoreOf(tenants.tenantA);
+    const usage = await billingUsage(database, tenants.tenantA);
+    await fillLiveSlots(tenants.tenantA, store.id, 23 - usage.listings);
     await expect(
       assertBillingCapacity(database, tenants.tenantA, "listings", 2),
     ).resolves.toBeUndefined();

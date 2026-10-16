@@ -12,6 +12,8 @@ export const STORE_CONNECT_ERROR_MESSAGES = {
   supplier_unavailable:
     "Este fornecedor não está mais disponível. Escolha outro fornecedor para a nova loja.",
   impersonating: "Não é possível conectar lojas durante o acesso como cliente.",
+  email_not_verified:
+    "Confirme seu e-mail antes de conectar uma loja nova. Reenvie o link na Visão geral.",
   failed: "Não foi possível conectar a loja",
 } as const;
 
@@ -28,5 +30,6 @@ export const STORE_CONNECT_ERROR_CODES = [
   "plan_limit",
   "supplier_unavailable",
   "impersonating",
+  "email_not_verified",
   "failed",
 ] as const satisfies readonly StoreConnectErrorCode[];
