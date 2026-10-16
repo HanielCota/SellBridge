@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { serve } from "srvx";
 import { productionStaticFiles, retainAssets } from "./src/lib/server/production-assets.ts";
+import { limitRequestBody } from "./src/lib/server/request-body-limit.ts";
 
 const clientDirectory = fileURLToPath(new URL("./dist/client/", import.meta.url));
 const archiveDirectory =
@@ -14,7 +15,11 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 const serverEntry = new URL("./dist/server/server.js", import.meta.url);
 const { default: app } = await import(serverEntry.href);
 const server = serve({
-  fetch: app.fetch,
+  // Server functions and auth parse whole bodies; the cap is applied while the bytes arrive.
+  fetch: (request: Request) => {
+    const limited = limitRequestBody(request);
+    return limited instanceof Response ? limited : app.fetch(limited);
+  },
   middleware: [productionStaticFiles(clientDirectory, archiveDirectory)],
   hostname: process.env.HOST ?? "0.0.0.0",
   port,
