@@ -15,6 +15,8 @@ export interface SetupStep {
   description: string;
   to: NonNullable<LinkProps["to"]>;
   cta: string;
+  /** Rough minutes the step takes, for the "pronta em ~X min" estimate (item 26.c). */
+  estimatedMinutes: number;
 }
 
 export const SETUP_STEPS: readonly SetupStep[] = [
@@ -24,6 +26,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     description: "Nome completo e CPF para notas fiscais e cobranças.",
     to: "/onboarding",
     cta: "Completar cadastro",
+    estimatedMinutes: 1,
   },
   {
     key: "hasSupplier",
@@ -31,6 +34,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     description: "De qualquer lugar do Brasil. Ele entrega direto ao seu cliente.",
     to: "/onboarding",
     cta: "Escolher fornecedor",
+    estimatedMinutes: 2,
   },
   {
     key: "hasStore",
@@ -38,6 +42,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     description: "Autorize o SellBridge na sua conta do marketplace.",
     to: "/lojas",
     cta: "Conectar loja",
+    estimatedMinutes: 3,
   },
   {
     key: "hasPublishedListing",
@@ -45,6 +50,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     description: "Escolha vários produtos do catálogo e publique de uma vez.",
     to: "/catalogo",
     cta: "Abrir catálogo",
+    estimatedMinutes: 5,
   },
 ];
 
@@ -55,4 +61,26 @@ export function countDoneSteps(progress: SetupProgress): number {
 /** The first step still pending, or undefined when the setup is done. */
 export function findNextStep(progress: SetupProgress): SetupStep | undefined {
   return SETUP_STEPS.find((step) => !progress[step.key]);
+}
+
+/** Share of the steps already done, 0 to 100. */
+export function setupPercent(progress: SetupProgress): number {
+  return Math.round((countDoneSteps(progress) / SETUP_STEPS.length) * 100);
+}
+
+/** Minutes the steps still pending should take. */
+export function remainingSetupMinutes(progress: SetupProgress): number {
+  return SETUP_STEPS.filter((step) => !progress[step.key]).reduce(
+    (total, step) => total + step.estimatedMinutes,
+    0,
+  );
+}
+
+/** "Sua loja fica pronta em ~X min", or null once the setup is done. */
+export function setupEtaLabel(progress: SetupProgress): string | null {
+  const minutes = remainingSetupMinutes(progress);
+  if (minutes === 0) {
+    return null;
+  }
+  return `Sua loja fica pronta em ~${minutes} min`;
 }

@@ -19,6 +19,7 @@ import {
   saveOnboardingHolder,
   saveOnboardingSupplier,
 } from "@/features/onboarding/onboarding.functions";
+import { SETUP_STEPS } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 
@@ -34,6 +35,11 @@ export const Route = createFileRoute("/_app/onboarding")({
 });
 
 const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Seu fornecedor" }] as const;
+
+/** Minutes of the two steps of this page, from the setup estimates (item 26.c). */
+const SIGNUP_MINUTES = SETUP_STEPS.filter(
+  (step) => step.key === "hasHolder" || step.key === "hasSupplier",
+).reduce((total, step) => total + step.estimatedMinutes, 0);
 
 function OnboardingPage() {
   const profile = Route.useLoaderData();
@@ -68,7 +74,7 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="Seu cadastro"
-        description="Seus dados e o fornecedor da sua primeira loja. Venda sem estoque, de qualquer lugar do Brasil."
+        description={`Seus dados e o fornecedor da sua primeira loja, em cerca de ${SIGNUP_MINUTES} min. Venda sem estoque, de qualquer lugar do Brasil.`}
       />
       <section
         aria-label="Cadastro"
