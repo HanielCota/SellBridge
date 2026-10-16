@@ -4,7 +4,8 @@ import {
   type OrderFinance,
 } from "./finance.ts";
 import { conflictError, validationError } from "../runtime/errors.ts";
-import { formatCents, MAX_STORED_CENTS, percentOfCents, type Cents } from "./money.ts";
+import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
+import { formatCents, percentOfCents, type Cents } from "./money.ts";
 
 /**
  * Everything a sale pays before it becomes profit, as the previews estimate it. The financial
@@ -107,7 +108,8 @@ function marginBasisPointsOf(marginPercent: number): number {
 /**
  * Smallest price whose estimated profit is at least `marginPercent` of it, after the cost and
  * every fee. Null when the fees and the margin take the whole price, or when the price would
- * pass what a price can be.
+ * pass what a listing may charge (`LISTING_MAX_PRICE_CENTS`): a floor no listing can reach is
+ * no floor at all, it only told the reseller to ask for a price the server then refuses.
  * The two fees round to whole cents, so the profit is off the exact formula by one cent at most
  * and a higher price may even keep less of it: no price under the exact formula's answer with
  * one cent less of cost can keep the margin, so the search starts there and only goes up.
@@ -128,13 +130,13 @@ export function priceForMargin(
   }
   const fixedCents = input.costCents + schedule.estimatedShippingCents;
   const lowest = Math.max(1, Math.floor(((fixedCents - 1) * 10_000) / keptBasisPoints));
-  if (lowest > MAX_STORED_CENTS) {
+  if (lowest > LISTING_MAX_PRICE_CENTS) {
     return null;
   }
   const priceCents = firstKeepingPrice(lowest, (candidate) =>
     keepsMargin({ ...input, priceCents: candidate }, marginBasisPoints, schedule),
   );
-  return priceCents > MAX_STORED_CENTS ? null : priceCents;
+  return priceCents > LISTING_MAX_PRICE_CENTS ? null : priceCents;
 }
 
 /**
@@ -181,7 +183,15 @@ export function priceFloorProblem(
   if (priceCents <= input.costCents) {
     return "O preço de venda precisa ser maior que o custo do fornecedor";
   }
+  // A markup on a costly product can pass the listing ceiling; the screens say so before the
+  // server refuses the batch.
+  if (priceCents > LISTING_MAX_PRICE_CENTS) {
+    return `O preço de venda pode ser de até ${formatCents(LISTING_MAX_PRICE_CENTS)}`;
+  }
   const minimumCents = minimumPriceCents(input, schedule);
+  if (minimumCents === null && input.costCents >= LISTING_MAX_PRICE_CENTS) {
+    return `O custo do fornecedor já passa do maior preço de um anúncio (${formatCents(LISTING_MAX_PRICE_CENTS)})`;
+  }
   if (minimumCents === null) {
     return noPriceMessage(schedule);
   }

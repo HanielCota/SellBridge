@@ -126,6 +126,14 @@ describe("priceForMargin", () => {
     expect(priceForMargin({ costCents: 2_000_000_000 }, 0, schedule)).toBeNull();
   });
 
+  // Regression: a R$ 950.000 cost asked for a R$ 1.104.651 floor, a price no listing may have.
+  it("is null when the price would pass what a listing may charge", () => {
+    expect(priceForMargin({ costCents: 95_000_000 }, 0, schedule)).toBeNull();
+    const highest = priceForMargin({ costCents: 80_000_000 }, 0, schedule);
+    expect(highest).not.toBeNull();
+    expect(highest ?? Infinity).toBeLessThanOrEqual(100_000_000);
+  });
+
   it.each([Number.NaN, -1, 100])("refuses a margin of %d%%", (marginPercent) => {
     expect(() => priceForMargin({ costCents: 1_000 }, marginPercent, schedule)).toThrow(
       "A margem deve ficar entre 0% e 100%",
@@ -190,6 +198,18 @@ describe("assertPriceKeepsMargin", () => {
 });
 
 describe("batchPriceProblem", () => {
+  // Regression: a 300% markup on a R$ 300.000 cost (R$ 1.200.000) passed the screen's check and
+  // was only refused by the server.
+  it("names a product whose rule passes the listing ceiling", () => {
+    const batch = [
+      { title: "Joia", priceCents: 100_000_000, costCents: 30_000_000 },
+      { title: "Relógio", priceCents: 100_000_001, costCents: 30_000_000 },
+    ];
+    expect(batchPriceProblem(batch, schedule)).toMatch(
+      /^"Relógio": O preço de venda pode ser de até/,
+    );
+  });
+
   it("names the first product of a batch whose price loses money after the fees", () => {
     const minimum = minimumPriceCents({ costCents: 5_000 }, schedule) ?? 0;
     const batch = [
