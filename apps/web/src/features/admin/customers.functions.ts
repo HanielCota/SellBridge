@@ -21,12 +21,10 @@ import {
   revokeTenantApiKeys,
   snoozeIssue,
   type OnboardingProfile,
-  type StoreConnectionSummary,
   type AdminEventDetails,
   type CustomerSummary,
 } from "@sellbridge/database/repositories";
 import { assessCustomerHealth } from "@sellbridge/shared/customer-health";
-import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
 import { conflictError, forbiddenError, notFoundError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -70,6 +68,7 @@ import {
   pageOfCustomers,
   rankCustomers,
 } from "./customer-ranking";
+import { presentCustomerStores } from "./customer-stores.server";
 import { onboardingReminderEmail } from "./onboarding-reminder";
 import { type ProfileSaveSteps, saveCustomerProfile } from "./email-change.server";
 
@@ -244,7 +243,7 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       events,
       weeklyOrders,
       profile: holderStatus(profile),
-      stores: await withSuppliers(stores),
+      stores: await presentCustomerStores(customer.tenantId, stores),
       summary,
       openTickets: tickets.total,
     };
@@ -399,23 +398,6 @@ export const adminSendOnboardingReminder = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
-
-/** Each shop of the customer, with the one supplier it sells (null while pending). */
-async function withSuppliers(stores: readonly StoreConnectionSummary[]) {
-  const suppliers = await findStoreSuppliers(
-    database,
-    stores.flatMap((store) => (store.supplierId === null ? [] : [store.supplierId])),
-  );
-  const byId = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
-  return stores.map((store) => ({
-    id: store.id,
-    shopName: store.shopName,
-    marketplace: store.marketplace,
-    marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
-    status: store.status,
-    supplier: store.supplierId === null ? null : (byId.get(store.supplierId) ?? null),
-  }));
-}
 
 /** What moving a customer's shop to another supplier would pause or stop, without saving. */
 export const adminPreviewStoreSupplier = createServerFn({ method: "GET" })

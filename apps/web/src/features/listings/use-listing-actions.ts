@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 import { type CacheSnapshot, restoreQueries, snapshotQueries } from "@/lib/optimistic";
 import {
+  resendDescriptions,
   retryListings,
   setListingsPausedFn,
   simulateMockSale,
@@ -93,6 +94,21 @@ export function useBulkListingActions(onDone?: () => void) {
     pause,
     isPending: retry.isPending || pause.isPending,
   };
+}
+
+/** "Reenviar descrição" of a live listing whose description the marketplace refused (13.b). */
+export function useResendDescription() {
+  const refresh = useRefreshListings();
+  return useMutation({
+    mutationFn: (listingId: string) => resendDescriptions({ data: { listingIds: [listingId] } }),
+    onSuccess: async ({ resent }) => {
+      toast.success(
+        resent > 0 ? "Descrição reenviada para o marketplace" : "Nenhuma descrição pendente",
+      );
+      await refresh();
+    },
+    onError: showError,
+  });
 }
 
 export function useUpdatePrice(onSaved: () => void) {

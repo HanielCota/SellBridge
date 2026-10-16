@@ -11,10 +11,11 @@ import {
   orderDeliveredContent,
   salePaidContent,
   storeExpiredContent,
+  supportReplyContent,
   type NotificationEventName,
 } from "@sellbridge/shared/notification-events";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import type { DatabaseExecutor } from "../client.ts";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   listings,
   listingTargets,
@@ -23,7 +24,9 @@ import {
   orderItems,
   orders,
   storeConnections,
+  tickets,
 } from "../schema/index.ts";
+import { findTicketEmailRecipients } from "./ticket-links.ts";
 import {
   enqueueNotificationDeliveries,
   type NotificationRecipient,
@@ -229,5 +232,38 @@ export async function notifyListingFailed(
       listingTitle: clipText(target.title, TITLE_LENGTH),
       reason: target.reason === null ? null : clipText(target.reason, 900),
     }),
+  });
+}
+
+/**
+ * Support answered a ticket: e-mails the requester and the colleagues following it, minus who
+ * muted the ticket or turned support e-mails off. One notice per reply (keyed by its time).
+ */
+export async function queueSupportReplyNotices(
+  database: Database,
+  reply: { ticketId: string; at: Date },
+): Promise<number> {
+  const [ticket] = await database
+    .select({ tenantId: tickets.tenantId, subject: tickets.subject })
+    .from(tickets)
+    .where(eq(tickets.id, reply.ticketId));
+  if (ticket === undefined) {
+    return 0;
+  }
+  const followers = await findTicketEmailRecipients(database, reply.ticketId);
+  const recipients = await resolveNotificationRecipients(
+    database,
+    followers.map((follower) => follower.userId),
+    "support_reply",
+  );
+  return enqueueNotificationDeliveries(database, {
+    tenantId: ticket.tenantId,
+    event: "support_reply",
+    dedupeKey: `ticket:${reply.ticketId}:reply:${reply.at.toISOString()}`,
+    content: supportReplyContent({
+      ticketId: reply.ticketId,
+      subject: clipText(ticket.subject, TITLE_LENGTH),
+    }),
+    recipients,
   });
 }

@@ -99,7 +99,10 @@ export async function createListingWithTargets(
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
-    if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
+    if (billingEnabled) {
+      // One plan slot per destination store (item 16, N7).
+      await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
+    }
     const [listing] = await transaction
       .insert(listings)
       .values({ ...values, tenantId })
@@ -347,12 +350,22 @@ const FAILURE_STATUSES = ["pending", "publishing"] as const;
 export async function markTargetPublished(
   database: Database,
   listingTargetId: string,
-  result: { externalId: string; externalUrl: string | null },
+  result: { externalId: string; externalUrl: string | null; descriptionError?: string | null },
 ): Promise<void> {
   await database.transaction(async (transaction) => {
     const [updated] = await transaction
       .update(listingTargets)
-      .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
+      .set({
+        externalId: result.externalId,
+        externalUrl: result.externalUrl,
+        status: "published",
+        errorReason: null,
+        publishedAt: new Date(),
+        // A refused description keeps the listing live, with the warning on its card (13.b).
+        descriptionError: result.descriptionError ?? null,
+        descriptionFailedAt: (result.descriptionError ?? null) === null ? null : new Date(),
+        descriptionAttempts: 0,
+      })
       .where(
         and(
           eq(listingTargets.id, listingTargetId),

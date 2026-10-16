@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 13.a · Erros do ML com `cause[]` traduzidos no conector
-- Última etapa concluída: 9 · Commit (⏸3 aprovado em 2026-10-16); ⏸1 aprovado em 2026-10-15; junção eae3e54
-- Próximo passo: a 13.b (descrição que falha: estado, reenviar e tela)
-- Arquivos tocados: marketplaces/src/mercado-livre/error-messages(.test).ts e fixtures/errors.ts (novos), client.ts, schemas.ts, mercado-livre-connector.test.ts; marketplaces/src/errors.ts; docs
+- Item/parte: 13.b · Descrição que falha calada vira estado visível com reenvio
+- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-16); ⏸1 e ⏸2 aprovados em 2026-10-16; migration 0032 em 8a486c5 (cherry-pick do principal 823a1a4)
+- Próximo passo: depois do OK, commit local, junção e aviso ao principal; o item 13 fecha
+- Arquivos tocados: marketplaces types.ts, unavailable-connector.ts, mock (scenarios, connector e teste), mercado-livre (listings.ts, connector e teste, error-messages e teste, fixtures/errors.ts); database repositories listing-descriptions(.test).ts (novo), listings.ts, listing-overview.ts, active-targets.ts, index.ts; worker processors/description-resend.ts (novo), stock-price-sync.ts e testes, publish-listing.test.ts; web listings.functions.ts, use-listing-actions.ts, components/listings/listing-card.tsx, testes de listing-health e listings-read; e2e/publishing.spec.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -26,19 +26,25 @@ C5 de 2026-10-15 no banco C: 1125 no início (shared 298, marketplaces 149, web 
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (motivo na coluna Notas)
 
-| Item | Título                                         | Situação | Commit                      | Notas                                                  |
-| ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------------------ |
-| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)                       |
-| 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30            |
-| 13   | Erros de publicação claros                     | 🟡       | —                           | Retomado pelo usuário em 15/10 ("próximo"); 13.a no ⏸1 |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
-| 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit                   |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
-| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)                |
+| Item | Título                                         | Situação | Commit                      | Notas                                       |
+| ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------- |
+| 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)            |
+| 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30 |
+| 13   | Erros de publicação claros                     | 🟡       | daf26cc                     | 13.a ✅ daf26cc · 13.b ⏸3                   |
+| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit        |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 13.b · Descrição recusada vira aviso com reenvio — ✅ concluído (commit local; item 13 ✅)
+
+- Conector: `publishProduct` devolve `descriptionError` (em português) sem falhar a publicação; `updateDescription` com PUT `?api_version=2` (página oficial). Migration 0032 (`description_error`, `description_failed_at`, `description_attempts`). O job de sincronização reenvia até 3 vezes; "Reenviar descrição" no card zera as tentativas e pede a sincronização na hora; a lista consulta por até 5 min para o aviso sumir sozinho.
+- Revisão independente: 0 alto; 3 médios corrigidos com teste de regressão que falha sem a correção: (1) a reconciliação (item já criado) postava a descrição de novo com POST, que o ML recusa, e mostrava falso "Descrição não enviada": agora substitui com PUT; (2) recusa do próprio texto gastava as 3 tentativas: agora a recusa não repetível encerra as automáticas na hora, e a mensagem pede o suporte (não há edição de descrição antes do item 23); (3) as descrições rodam primeiro, em fatia própria de 30 s, para a sincronização longa de estoque não deixá-las de fora. Baixos corrigidos: reenvio só para anúncio no ar ou pausado em loja conectada (teste), busca com try/catch, `inArray`, checagem explícita de nulo, motivo longo quebra linha. Aceitos: sem índice parcial para a consulta de "ativos" (exige migration; fica para o 32), só o motivo da primeira loja no card, corrida rara entre reenvio e sincronização (o pior caso é uma tentativa a mais).
+- Achado no D1 e corrigido: no celular o botão passava da borda do card (dois cards por linha); agora "Reenviar", em largura total, com nome acessível completo.
 
 ### 2026-10-15 · Item 13.a · Erros do ML com `cause[]` em português — ✅ concluído (commit local)
 

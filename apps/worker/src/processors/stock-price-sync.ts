@@ -14,6 +14,10 @@ import {
   resolveStoreCredentials,
   storeRateKey,
 } from "../lib/store-access.ts";
+import {
+  DESCRIPTION_RUN_BUDGET_MILLISECONDS,
+  resendPendingDescriptions,
+} from "./description-resend.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -161,6 +165,11 @@ export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDepend
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
     const deadline =
       Date.now() + (dependencies.runBudgetMilliseconds ?? SYNC_RUN_BUDGET_MILLISECONDS);
+    // The descriptions the marketplace refused (13.b) go first, in their own slice of the run.
+    await resendPendingDescriptions(
+      dependencies,
+      Math.min(deadline, Date.now() + DESCRIPTION_RUN_BUDGET_MILLISECONDS),
+    );
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
     let batch = await syncBatch(dependencies, deadline);
     summary.synced += batch.synced;

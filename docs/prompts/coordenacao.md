@@ -23,6 +23,12 @@ Meta: fechar o que falta em 2 dias, site em MVP. Regras de paradas e portões no
 
 **Fluxo de junção no MVP:** cada chat, ao commitar uma parte, faz `git merge feat/client-phase-1` na própria branch, roda C1–C6 e manda ao principal (`SendMessage`) a branch e o hash. O principal junta em lote às 13h e às 18h (ou antes, se houver migration) e avisa os chats para juntarem de volta.
 
+**Git: nunca direto na `main` (regra do usuário, 2026-10-16):**
+
+- Ninguém faz commit, merge ou push na `main`. Ela só recebe mudanças por **pull request**, e quem faz o merge do PR é o revisor do usuário no GitHub. Nenhum chat aprova nem faz merge de PR, nem liga o auto-merge.
+- Os chats B a F commitam só na própria branch e mandam o hash ao principal. **Só o principal faz push**, e só da `feat/client-phase-1`, depois dos portões e da revisão. O push atualiza o PR aberto dessa branch (hoje o #38), sem abrir outro.
+- Trava local: `.git/hooks/pre-push` recusa qualquer push para `main` ou `master`, em todas as worktrees. Nunca contorne com `--no-verify`.
+
 **Fase 2 (fora do MVP):** WhatsApp do 25 (D9), 31.b (D10), 29 sem a D8, 27.d, 27.e, 32.b e 32.c (nota de deploy), refinamentos anotados em "Refinar depois" de cada chat. Bloqueados: 33–37.
 
 ## 0.1 Divisão de 2026-10-15 (3 chats, histórico)
@@ -81,7 +87,7 @@ Lista completa em [2026-10-13-auditoria-ia-design-ux.md](../reviews/2026-10-13-a
 3. **Arquivos compartilhados só recebem acréscimo:** `docs/decisions.md`, o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras.
 4. **Andamento próprio:** cada chat registra no seu arquivo (`execucao-progresso.md`, `-b.md`, `-c.md`, `-d.md`, `-e.md`) e não edita o dos outros.
 5. **Recursos isolados** (seção 4). Nunca rode testes contra o banco de outro chat, e nunca contra `sellbridge`.
-6. **Commits só locais**; o push é um só, no fim, quando o usuário pedir.
+6. **Commits na própria branch**; push só do principal, da `feat/client-phase-1` para o PR aberto. Nunca na `main` (seção 0).
 
 ## 3. Os três ajustes (aprovados pelo usuário em 2026-10-14)
 

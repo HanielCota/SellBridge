@@ -121,6 +121,23 @@ export const ERROR_FIXTURES = {
     references: ["item"],
     message: "Something new went wrong with this item.",
   }),
+  /**
+   * `POST /items/{id}/description` with characters out of plain text, as the official
+   * "Descrição de produtos" page shows it (read on 2026-10-16).
+   */
+  descriptionNotPlainText: {
+    ...envelope,
+    cause: [
+      {
+        department: "items",
+        cause_id: 398,
+        type: "error",
+        code: "item.description.type.invalid",
+        references: ["plain_text[12]"],
+        message: "The description must be in plain text",
+      },
+    ],
+  },
   /** Older endpoints answer with no `cause` at all. */
   withoutCause: { message: "attribute BRAND is required", error: "bad_request", status: 400 },
 } as const;

@@ -213,12 +213,14 @@ describe("listing overview", () => {
   });
 
   it("retries only failed stores of the tenant's listings", async () => {
-    await expect(resetListingErrorsForRetry(database, tenantB, [listingId])).rejects.toMatchObject({
+    await expect(
+      resetListingErrorsForRetry(database, tenantB, [listingId], { billingEnabled: false }),
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect(await resetListingErrorsForRetry(database, tenantA, [listingId])).toEqual([
-      targetIds[1],
-    ]);
+    expect(
+      await resetListingErrorsForRetry(database, tenantA, [listingId], { billingEnabled: false }),
+    ).toEqual([targetIds[1]]);
   });
 });
 
