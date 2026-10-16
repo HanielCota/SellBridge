@@ -18,6 +18,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { notifyListingFailed } from "./notification-producers.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -394,6 +395,9 @@ export async function markTargetFailed(
       return;
     }
     await recordListingEvent(transaction, "listing.failed", updated);
+    if (updated !== undefined) {
+      await notifyListingFailed(transaction, listingTargetId, new Date());
+    }
   });
 }
 
