@@ -57,10 +57,10 @@ function OrderOptions({
   const orders = useQuery(myLinkableOrdersQueryOptions(ticketId, query));
   if (orders.isPending) {
     return (
-      <div className="space-y-1.5 p-1" aria-label="Carregando pedidos">
+      <output className="block space-y-1.5 p-1" aria-label="Carregando pedidos">
         <Skeleton className="h-10 rounded-xl" />
         <Skeleton className="h-10 rounded-xl" />
-      </div>
+      </output>
     );
   }
   if (orders.isError) {

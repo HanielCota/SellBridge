@@ -1,6 +1,7 @@
 import { createDatabase } from "@sellbridge/database/client";
 import { createConnectorRegistry, getMercadoLivreShipping } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
+import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
 import {
@@ -33,6 +34,8 @@ import {
   createWebhookEventPruneProcessor,
   createWebhookEventSweepProcessor,
 } from "./processors/webhook-event-sweep.ts";
+
+installErrorAlerts({ webhookUrl: environment.ALERT_WEBHOOK_URL, service: "worker" });
 
 const connection = { url: environment.REDIS_URL, maxRetriesPerRequest: null };
 const database = createDatabase(environment.DATABASE_URL);
