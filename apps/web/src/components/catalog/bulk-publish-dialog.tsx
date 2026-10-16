@@ -1,10 +1,9 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import type { PriceRule } from "@sellbridge/shared/schemas";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { skippedSummary } from "@/features/catalog/bulk-skip-reasons";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -20,6 +19,7 @@ import { publishProductsInBulk } from "@/features/catalog/catalog.functions";
 import { usePriceOverrides, usePriceRuleDraft } from "@/features/catalog/use-price-rule-draft";
 import { errorMessage } from "@/lib/errors";
 import { PriceRulePicker } from "./bulk-price-rule-picker";
+import { BulkPublishResult, type PublishedBatch } from "./bulk-publish-result";
 import { pluralize } from "./bulk-publish-parts";
 import { type PublishStore, StorePicker, storesForProducts } from "./bulk-store-picker";
 
@@ -54,8 +54,7 @@ function NoStores({
   );
 }
 
-function useBulkPublish(onDone: () => void) {
-  const navigate = useNavigate();
+function useBulkPublish(onPublished: (batch: PublishedBatch) => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: {
@@ -64,19 +63,15 @@ function useBulkPublish(onDone: () => void) {
       priceRule: PriceRule;
       priceOverrides: Record<string, PriceRule>;
     }) => publishProductsInBulk({ data: input }),
-    onSuccess: async ({ published, skipped }) => {
-      const skippedNote = skipped.length > 0 ? ` · fora: ${skippedSummary(skipped)}` : "";
-      toast.success(
-        `${published} ${published === 1 ? "produto enviado" : "produtos enviados"} para publicação${skippedNote}`,
-      );
-      onDone();
+    // The dialog stays open on the batch's progress and honest result (item 14.c).
+    onSuccess: async ({ skipped, targetIds }) => {
+      onPublished({ targetIds, skipped });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["setup-progress"] }),
         queryClient.invalidateQueries({ queryKey: ["sellable-catalog"] }),
         // The page it opens next lists them: a cached list from 30 s ago would not.
         queryClient.invalidateQueries({ queryKey: ["listings"] }),
       ]);
-      await navigate({ to: "/publicacoes" });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -120,18 +115,18 @@ function FloorProblem({ problem }: { problem: string | null }) {
 function BulkPublishForm({
   products,
   stores,
-  onDone,
+  onPublished,
 }: {
   products: SellableCatalogProduct[];
   stores: PublishStore[];
-  onDone: () => void;
+  onPublished: (batch: PublishedBatch) => void;
 }) {
   const [storeIds, setStoreIds] = useState<ReadonlySet<string>>(
     new Set(stores.map((store) => store.id)),
   );
   const draft = usePriceRuleDraft();
   const overrides = usePriceOverrides();
-  const mutation = useBulkPublish(onDone);
+  const mutation = useBulkPublish(onPublished);
   const isMarkup = draft.kind === "markup";
   const adjusted = isMarkup ? overrides.count : 0;
   const floorProblem = useBatchFloorProblem(products, draft, overrides);
@@ -187,21 +182,41 @@ function selectionSummary(products: SellableCatalogProduct[]): string {
   return `${named.join(", ")} e mais ${rest}`;
 }
 
-/** Publishes the selected catalog products to the chosen stores with one price rule. */
+/**
+ * Publishes the selected catalog products to the chosen stores with one price rule, then stays
+ * on the batch's progress and result. Closing after a batch went out calls `onBatchDone` (the
+ * catalog clears its selection) and the next opening starts on the form again.
+ */
 export function BulkPublishDialog({
   open,
   onOpenChange,
+  onBatchDone,
   products,
   stores,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onBatchDone?: () => void;
   products: SellableCatalogProduct[];
   stores: PublishStore[];
 }) {
+  const [batch, setBatch] = useState<PublishedBatch | null>(null);
   const eligible = storesForProducts(products, stores);
+  const changeOpen = (next: boolean) => {
+    if (!next && batch !== null) {
+      setBatch(null);
+      onBatchDone?.();
+    }
+    onOpenChange(next);
+  };
+  const body =
+    batch === null ? (
+      <BulkPublishForm products={products} stores={eligible} onPublished={setBatch} />
+    ) : (
+      <BulkPublishResult batch={batch} onClose={() => changeOpen(false)} />
+    );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="max-h-[90svh] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto rounded-[1.75rem] p-5 sm:max-w-md">
         <DialogHeader className="gap-1 pr-8">
           <DialogTitle className="text-xl font-semibold tracking-tight">
@@ -209,16 +224,11 @@ export function BulkPublishDialog({
           </DialogTitle>
           <DialogDescription className="truncate">{selectionSummary(products)}</DialogDescription>
         </DialogHeader>
-        {eligible.length === 0 ? (
+        {/* A batch already out keeps its result even if the stores list changes meanwhile. */}
+        {eligible.length === 0 && batch === null ? (
           <NoStores products={products} hasStores={stores.length > 0} />
         ) : (
-          open && (
-            <BulkPublishForm
-              products={products}
-              stores={eligible}
-              onDone={() => onOpenChange(false)}
-            />
-          )
+          open && body
         )}
       </DialogContent>
     </Dialog>
