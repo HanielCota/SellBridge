@@ -311,19 +311,28 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
       ? payload.payload
       : undefined;
 
-  let configLabelKey: string = key;
+  const configLabelKey = configLabelKeyOf(payload, payloadPayload, key);
 
+  return configLabelKey in config ? config[configLabelKey] : config[key];
+}
+
+/** The config key named by the payload's `key` field, else by its nested payload's, else `key`. */
+function configLabelKeyOf(
+  payload: object,
+  payloadPayload: object | undefined,
+  key: string,
+): string {
   if (key in payload && typeof payload[key as keyof typeof payload] === "string") {
-    configLabelKey = payload[key as keyof typeof payload] as string;
-  } else if (
+    return payload[key as keyof typeof payload] as string;
+  }
+  if (
     payloadPayload &&
     key in payloadPayload &&
     typeof payloadPayload[key as keyof typeof payloadPayload] === "string"
   ) {
-    configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
+    return payloadPayload[key as keyof typeof payloadPayload] as string;
   }
-
-  return configLabelKey in config ? config[configLabelKey] : config[key];
+  return key;
 }
 
 export {
