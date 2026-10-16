@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  adminAuditEvents,
   billingAccounts,
   member,
+  user,
   organization,
   orders,
   storeConnections,
@@ -154,5 +156,32 @@ describe("account deletion", () => {
       .from(billingAccounts)
       .where(eq(billingAccounts.tenantId, tenantId));
     expect(row).toEqual({ customerId: null, subscriptionId: null });
+  });
+
+  it("keeps the team's audit trail about a deleted account, with no link to the person", async () => {
+    const goneId = randomUUID();
+    await database.insert(user).values({
+      id: goneId,
+      name: "Conta excluída",
+      email: `gone-${goneId}@sellbridge.test`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const [event] = await database
+      .insert(adminAuditEvents)
+      .values({
+        adminId: partner,
+        userId: goneId,
+        action: "ban_changed",
+        details: { banned: true },
+      })
+      .returning({ id: adminAuditEvents.id });
+    await database.delete(user).where(eq(user.id, goneId));
+    const [row] = await database
+      .select({ userId: adminAuditEvents.userId, details: adminAuditEvents.details })
+      .from(adminAuditEvents)
+      .where(eq(adminAuditEvents.id, event?.id ?? ""));
+    expect(row).toEqual({ userId: null, details: { banned: true } });
+    await database.delete(adminAuditEvents).where(eq(adminAuditEvents.id, event?.id ?? ""));
   });
 });

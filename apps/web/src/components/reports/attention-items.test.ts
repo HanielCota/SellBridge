@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttentionItems } from "./attention-panel";
+import { buildAttentionItems } from "./attention-items";
 
 const quiet = { failedListings: 0, unreadSupportReplies: 0, pendingReviews: 0 };
 
