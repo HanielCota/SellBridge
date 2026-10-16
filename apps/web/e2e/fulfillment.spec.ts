@@ -11,6 +11,7 @@ import {
   orders,
   storeConnections,
   supplierProducts,
+  suppliers,
 } from "@sellbridge/database/schema";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { requireEnvironmentVariable } from "./environment";
@@ -443,6 +444,69 @@ test("a parcel past its delivery estimate shows as late in operations, the order
     await page.getByRole("tab", { name: /Problemas/ }).click();
     await expect(page.getByText(`Entrega atrasada no pedido #${externalOrderId}`)).toBeVisible();
   } finally {
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("forwarding e-mails the link to a supplier with an order e-mail", async ({ page }) => {
+  const externalOrderId = `E2E-MAIL-${randomUUID()}`;
+  const [source] = await database.select().from(orders).where(eq(orders.id, orderId));
+  const [item] = await database.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  if (!source || !item?.supplierProductId) throw new Error("Order missing");
+  const [product] = await database
+    .select({ supplierId: supplierProducts.supplierId })
+    .from(supplierProducts)
+    .where(eq(supplierProducts.id, item.supplierProductId));
+  if (!product) throw new Error("Product missing");
+  const [supplier] = await database
+    .select({ contactEmail: suppliers.contactEmail })
+    .from(suppliers)
+    .where(eq(suppliers.id, product.supplierId));
+  const [order] = await database
+    .insert(orders)
+    .values({
+      tenantId: source.tenantId,
+      storeConnectionId: source.storeConnectionId,
+      externalOrderId,
+      status: "paid",
+      totalCents: 9900,
+      buyerName: "Maria Silva",
+      orderedAt: new Date(),
+    })
+    .returning();
+  if (!order) throw new Error("Order missing");
+  await database.insert(orderItems).values({ ...item, id: randomUUID(), orderId: order.id });
+  await database
+    .update(suppliers)
+    .set({ contactEmail: "pedidos@fornecedor-e2e.test" })
+    .where(eq(suppliers.id, product.supplierId));
+  try {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await page.getByRole("button", { name: "Operar pedido" }).click();
+    const dialog = page.getByRole("dialog", { name: "Operar pedido" });
+    for (const [label, value] of Object.entries({
+      Destinatário: "Maria Silva",
+      Rua: "Rua das Flores",
+      Número: "10",
+      Bairro: "Centro",
+      Cidade: "São Paulo",
+      UF: "SP",
+      CEP: "01001-000",
+    }))
+      await dialog.getByLabel(label, { exact: true }).fill(value);
+    await dialog
+      .getByRole("button", { name: "Criar ordens e encaminhar aos fornecedores" })
+      .click();
+    await expect(dialog.getByLabel("Link do fornecedor")).toBeVisible();
+    await expect(dialog.getByText("Enviamos este link para o e-mail do fornecedor.")).toBeVisible();
+  } finally {
+    await database
+      .update(suppliers)
+      .set({ contactEmail: supplier?.contactEmail ?? null })
+      .where(eq(suppliers.id, product.supplierId));
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });

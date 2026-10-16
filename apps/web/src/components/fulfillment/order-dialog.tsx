@@ -70,8 +70,8 @@ function ShipmentList({
 }: {
   detail: Detail;
   blocked: boolean;
-  links: Record<string, string>;
-  setLinks: Dispatch<SetStateAction<Record<string, string>>>;
+  links: Record<string, SupplierLinkView>;
+  setLinks: Dispatch<SetStateAction<Record<string, SupplierLinkView>>>;
   refresh: () => Promise<void>;
 }) {
   return detail.shipments.map((shipment) => (
@@ -90,16 +90,18 @@ function ShipmentList({
         <ReforwardButton
           shipmentId={shipment.id}
           onLink={async (url) => {
-            setLinks((previous) => ({ ...previous, [shipment.id]: url }));
+            setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }));
             await refresh();
           }}
         />
       ) : null}
       <SupplierLink
         shipmentId={shipment.id}
-        url={links[shipment.id]}
+        link={links[shipment.id]}
         closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
-        onLink={(url) => setLinks((previous) => ({ ...previous, [shipment.id]: url }))}
+        onLink={(url) =>
+          setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }))
+        }
       />
     </ShipmentPanel>
   ));
@@ -108,7 +110,7 @@ function ShipmentList({
 export function OrderOperations({ orderId }: { orderId: string }) {
   const query = useQuery(fulfillmentQueryOptions(orderId));
   const client = useQueryClient();
-  const [links, setLinks] = useState<Record<string, string>>({});
+  const [links, setLinks] = useState<Record<string, SupplierLinkView>>({});
   async function refresh() {
     await Promise.all([
       client.invalidateQueries({ queryKey: ["fulfillment", orderId] }),
@@ -181,14 +183,20 @@ function MarketplaceActions({
     </div>
   );
 }
+/** A supplier link shown after it was issued, and whether the supplier already got it by e-mail. */
+interface SupplierLinkView {
+  url: string;
+  emailed: boolean;
+}
+
 function SupplierLink({
   shipmentId,
-  url,
+  link,
   closed,
   onLink,
 }: {
   shipmentId: string;
-  url: string | undefined;
+  link: SupplierLinkView | undefined;
   closed: boolean;
   onLink: (url: string) => void;
 }) {
@@ -206,7 +214,7 @@ function SupplierLink({
     onSuccess: () => toast.success("Acesso do fornecedor atualizado"),
   });
   // A settled parcel with no fresh link has nothing to show: no empty row in the toolbar.
-  if (closed && !url) return null;
+  if (closed && !link?.url) return null;
   return (
     <div className="w-full space-y-2">
       {closed ? null : (
@@ -228,7 +236,7 @@ function SupplierLink({
           </Button>
         </div>
       )}
-      {url ? <CopySupplierLink url={url} /> : null}
+      {link?.url ? <CopySupplierLink url={link.url} emailed={link.emailed} /> : null}
     </div>
   );
 }
@@ -347,9 +355,14 @@ function ForwardForm({
   );
 }
 
-function CopySupplierLink({ url }: { url: string }) {
+function CopySupplierLink({ url, emailed }: { url: string; emailed: boolean }) {
   return (
     <div className="space-y-2">
+      {emailed ? (
+        <p className="text-xs font-medium text-foreground">
+          Enviamos este link para o e-mail do fornecedor.
+        </p>
+      ) : null}
       <p className="text-xs text-muted-foreground">
         Compartilhe este link com o fornecedor para ele receber e atualizar o pedido. Válido por 30
         dias. Um novo link revoga o anterior.
@@ -427,9 +440,12 @@ function ForwardItems({ detail }: { detail: Detail }) {
 
 function supplierLinks(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
   return Object.fromEntries(
-    result.map((link) => [
+    result.map((link): [string, SupplierLinkView] => [
       link.shipmentId,
-      new URL(`/fornecedor/pedido/${link.token}`, window.location.origin).href,
+      {
+        url: new URL(`/fornecedor/pedido/${link.token}`, window.location.origin).href,
+        emailed: link.emailed,
+      },
     ]),
   );
 }
