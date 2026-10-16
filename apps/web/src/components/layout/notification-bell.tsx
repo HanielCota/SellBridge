@@ -140,7 +140,10 @@ function NotificationRow({
             </span>
             {isNew ? (
               <>
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                <span
+                  className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-mark"
+                  aria-hidden="true"
+                />
                 <span className="sr-only">Novo</span>
               </>
             ) : null}
@@ -245,7 +248,7 @@ function TabTrigger({
       {hasNew ? (
         <>
           <span
-            className="absolute top-1.5 left-[calc(50%+0.5rem)] size-2 rounded-full bg-brand ring-2 ring-popover"
+            className="absolute top-1.5 left-[calc(50%+0.5rem)] size-2 rounded-full bg-brand-mark ring-2 ring-popover"
             aria-hidden="true"
           />
           <span className="sr-only">, com novidades</span>

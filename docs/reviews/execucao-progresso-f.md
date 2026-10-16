@@ -4,7 +4,7 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 
 ## Em andamento
 
-- ⏸A aprovado em 2026-10-16 (alertas por webhook). Fila do F fechada em 2026-10-16 (F1, F2, 32.a, 32.d, 32.e, notas do 32.b/32.c e F3).
+- ⏸A aprovado em 2026-10-16 (alertas por webhook). Fila inicial fechada em 2026-10-16. Depois: contraste do modo claro (df50a06), rolagem do Financeiro (41a0ad0) e item 18 (CSV com atributos do ML).
 
 ## Ambiente
 
@@ -25,6 +25,10 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 | F3   | Seed mais completo                           | ✅       | 39ce5bb           | admin com loja, 3 clientes, 7 chamados       |
 
 ## Refinar depois
+
+- Anéis de foco `ring-ring/30`, `/40` e `/50` (57 lugares) seguem abaixo de 3:1 no claro mesmo com o `--ring` novo (a 50% dá 2,2:1); só o contorno global (70%) passa. Pede trocar a opacidade nesses lugares, em várias áreas.
+- Outras bolinhas em `bg-brand` no claro: `ticket-badges.tsx:46`, `store-bridge.tsx:54`, a barra de `admin/chamados/metricas.tsx:161` e o `setup-guide` (1,9:1). Trocar por `bg-brand-mark`.
+- A bolinha amarela (`amber-600`) dá 2,93:1 sobre o fundo da página (3,19:1 nos cartões, onde quase sempre fica).
 
 - `seed.test.ts` leva ~70 s (seed completo duas vezes num banco descartável) e deixa a máquina carregada durante o `pnpm test`: numa rodada, `stock-reservations.test.ts` ("lists one entry per short order…") estourou o timeout de 5 s; sozinho e na rodada seguinte passou. Dá para encolher o seed do teste (menos pedidos por conta) ou movê-lo para um job próprio.
 - `.local/scripts/audit.ts` só audita a pasta principal: rodado da worktree, quebrou num arquivo que só existe lá. Pede um parâmetro de raiz.
@@ -71,3 +75,22 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 - Teste novo `seed.test.ts` (banco descartável, roda o seed duas vezes); antes falhava com `expected 0 to be greater than or equal to 1` (admin sem loja), `conta bruno@sellbridge.local não criada` e `expected Set{} to deeply equal Set{ 'open', 'answered', 'closed' }`.
 - C7 da área (specs que entram como admin, 10 arquivos): 20/24 na primeira rodada; as 4 falhas eram do ambiente sem `.env` (`MOCK_WEBHOOK_SECRET` e `ADMIN_EMAILS` ausentes: sem "Conectar Loja simulada" nem "Dono da plataforma"); com as variáveis, 9/9 nos 4 specs. C1–C6 ✅, C5 1622/1622 (uma rodada anterior teve o timeout descrito em "Refinar depois").
 - Seed aplicado no `sellbridge_desk_f`: admin 419 pedidos, 3 clientes, 7 chamados.
+
+### 2026-10-16 · Contraste do modo claro (df50a06)
+
+- Da pasta antiga `light-mode-verification`, refeito sobre a feat atual e medido (WCAG 1.4.11, 3:1). Cartão branco / fundo: `--brand` em pontos e marcas 1,86/1,71 → `--brand-mark` 3,39/3,11; ganho da cascata (antes `--brand`) → `--finance-gain` 0.62 3,41/3,12 (a proposta antiga, 0.72, dava 2,32); `--ring` 0.50: cheio 5,64, contorno global a 70% 3,17 (antes 1,76); bolinhas 600: verde 3,67, amarela 3,19, azul 4,02; neutra `/70` 3,36; switch desligado `foreground/45` 3,16 (antes 1,32; a proposta antiga, `/20`, dava 1,57). O escuro não muda.
+- Teste `styles-contrast.test.ts` lê o `styles.css`; com o arquivo antigo falhava (`expected 1.76 to be greater than or equal to 3` e tokens ausentes).
+- Capturas no claro (desktop 1440 e celular 390): painel, Financeiro, Lojas, sino. A11y 2/2. C1–C6 ✅.
+
+### 2026-10-16 · Rolagem do Financeiro (41a0ad0)
+
+- `useFinancialNavigation` com `resetScroll: false` (`routes/_app/financeiro.tsx`). `pedidos.tsx` tinha a mesma correção na pasta antiga, mas é área do principal e ficou de fora.
+- E2E `financeiro-scroll.spec.ts`; sem a correção falhava com `Expected: > 299, Received: 0` (`scrollY`). C7 14/14 (com `pending-cost` e `reports`). C avisado.
+
+### 2026-10-16 · Item 18 · CSV com atributos do Mercado Livre
+
+- Sem migration: os atributos vão para `supplier_products.mercado_livre_attributes` (jsonb), que o publicar do ML já envia e confere contra os obrigatórios da categoria (`listings.ts` `validateAttributes`).
+- Colunas novas do CSV (`shared/domain/product-csv-attributes.ts`): `marca` → BRAND, `modelo` → MODEL, `gtin` → GTIN (8, 12, 13 ou 14 dígitos com dígito verificador GS1), `peso_g` → SELLER_PACKAGE_WEIGHT ("850 g", 1 a 100.000), `altura_cm`/`largura_cm`/`comprimento_cm` → SELLER_PACKAGE_* ("32.5 cm", até 300). Erro por linha com a coluna, o valor recebido e o formato esperado; célula vazia mantém o valor do produto (o upsert mescla com `||`). O modelo para baixar ganhou as colunas, e a tela explica cada uma. A prévia com contagem e erros linha a linha já existia.
+- Mock: título com "[exige atributos]" recusa o anúncio sem BRAND, MODEL e GTIN, como uma categoria do ML.
+- Testes novos: parser (5), repositório (criar e mesclar), conector do ML (produto do CSV passa numa categoria que exige BRAND/MODEL/GTIN; sem as colunas é recusado antes de criar), mock (1) e e2e `csv-attributes.spec.ts` (admin importa, revendedora nova publica e o anúncio fica "No ar"). Antes: o parser recusava o cabeçalho (`Cabeçalho inválido`), o upsert não gravava o MODEL novo e o e2e parava na prévia.
+- C1–C6 ✅; C7 `admin-suppliers`, `publishing`, `suppliers` e `csv-attributes`: 23 + 3 ✅ (a primeira rodada do `csv-attributes` falhou porque a frase de conclusão ganhava " · N anúncios pausados" depois de outros specs; a asserção passou a aceitar o complemento).

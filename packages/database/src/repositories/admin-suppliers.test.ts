@@ -313,6 +313,36 @@ describe("admin suppliers", () => {
     ).toBe(false);
   });
 
+  it("creates CSV products with their Mercado Livre attributes and merges them on update", async () => {
+    const header = "sku;titulo;custo;estoque;marca;modelo;gtin;peso_g";
+    await importRows(`${header}
+ATTR-1;Com atributos;12,90;5;Passo Leve;PL-200;7891234567895;850`);
+    const created = await listAdminSupplierProducts(database, supplierId, "ATTR-1", {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(created.items[0]?.mercadoLivreAttributes).toEqual({
+      BRAND: "Passo Leve",
+      MODEL: "PL-200",
+      GTIN: "7891234567895",
+      SELLER_PACKAGE_WEIGHT: "850 g",
+    });
+
+    // Blank cells keep the value; a filled one replaces it.
+    await importRows(`${header}
+ATTR-1;Com atributos;12,90;5;;PL-300;;`);
+    const updated = await listAdminSupplierProducts(database, supplierId, "ATTR-1", {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(updated.items[0]?.mercadoLivreAttributes).toEqual({
+      BRAND: "Passo Leve",
+      MODEL: "PL-300",
+      GTIN: "7891234567895",
+      SELLER_PACKAGE_WEIGHT: "850 g",
+    });
+  });
+
   it("preserves an inactive product when the CSV omits its active flag", async () => {
     const product = await saveAdminSupplierProduct(database, {
       supplierId,

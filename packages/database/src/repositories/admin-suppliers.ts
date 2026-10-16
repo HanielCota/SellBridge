@@ -401,6 +401,7 @@ function planImportRows(input: {
       imageUrls: product.imageUrls,
       active: product.active,
       suggestedPriceCents: product.suggestedPriceCents,
+      mercadoLivreAttributes: product.mercadoLivreAttributes,
     })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
     products: plan.products,
@@ -473,6 +474,8 @@ export async function importSupplierProducts(
           imageUrls: sql`excluded.image_urls`,
           active: sql`excluded.active`,
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
+          // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
+          mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
           updatedAt: new Date(),
         },
       })

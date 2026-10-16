@@ -6,6 +6,8 @@ import type { PublishProductInput, StockPriceUpdate, StoreCredentials } from "..
  * - title containing "[falha]"    → permanent rejection (not retried)
  * - title containing "[instavel]" → temporary failure (retried until attempts run out)
  * - title containing "[sem descricao]" → published, but the description is refused
+ * - title containing "[exige atributos]" → refused without BRAND, MODEL and GTIN, like a
+ *   Mercado Livre category that requires them (item 18)
  * - resent description containing "[descricao recusada]" → the resend is refused
  * - price below R$ 5,00           → permanent rejection
  * - refresh token "mock-refresh-revoked" → store must be reconnected
@@ -42,7 +44,25 @@ export function assertDescriptionAccepted(plainText: string): void {
   }
 }
 
+const DEMANDED_ATTRIBUTES = ["BRAND", "MODEL", "GTIN"] as const;
+
+function assertDemandedAttributes(input: PublishProductInput): void {
+  if (!input.title.toLowerCase().includes("[exige atributos]")) {
+    return;
+  }
+  const missing = DEMANDED_ATTRIBUTES.filter(
+    (id) => (input.mercadoLivreAttributes?.[id] ?? "").trim() === "",
+  );
+  if (missing.length > 0) {
+    throw marketplaceError(`Faltam atributos obrigatórios: ${missing.join(", ")}`, {
+      retryable: false,
+      status: 400,
+    });
+  }
+}
+
 export function assertPublishable(input: PublishProductInput): void {
+  assertDemandedAttributes(input);
   const title = input.title.toLowerCase();
   if (title.includes("[falha]")) {
     throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {

@@ -368,7 +368,7 @@ const WATERFALL_COLORS: Record<WaterfallTone, string> = {
   cost: "var(--finance-cost)",
   fee: "var(--finance-fee)",
   refund: "var(--finance-refund)",
-  gain: "var(--brand)",
+  gain: "var(--finance-gain)",
   profit: PROFIT_COLOR,
 };
 

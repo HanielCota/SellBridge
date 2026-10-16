@@ -82,6 +82,12 @@ function CsvInstructions({ categories }: { categories: { name: string; slug: str
         por |. Ativo aceita sim ou nao; vazio mantém o status atual. Sem preço sugerido, o valor
         atual é mantido; novos produtos usam acréscimo de 50% e final ,90.
       </p>
+      <p className="text-sm text-muted-foreground">
+        Para o Mercado Livre, preencha marca, modelo e gtin (código de barras com 8, 12, 13 ou 14
+        dígitos), o peso da embalagem em gramas (peso_g) e as medidas em centímetros (altura_cm,
+        largura_cm, comprimento_cm). Muitas categorias recusam o anúncio sem marca e modelo. Uma
+        célula vazia mantém o valor que o produto já tem.
+      </p>
       <details className="group text-sm">
         <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg font-medium outline-none focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
           Categorias disponíveis

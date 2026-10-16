@@ -92,6 +92,25 @@ describe("mock connector publishing", () => {
     expect((await connector.publishProduct(credentials, baseProduct)).descriptionError).toBeNull();
   });
 
+  it("requires brand, model and GTIN for a title marked [exige atributos] (item 18)", async () => {
+    const demanding = { ...baseProduct, title: "Tênis [exige atributos]" };
+    await expect(
+      connector.publishProduct(credentials, {
+        ...demanding,
+        mercadoLivreAttributes: { BRAND: "Passo Leve" },
+      }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringContaining("MODEL, GTIN"),
+    });
+    await expect(
+      connector.publishProduct(credentials, {
+        ...demanding,
+        mercadoLivreAttributes: { BRAND: "Passo Leve", MODEL: "PL-200", GTIN: "7891234567895" },
+      }),
+    ).resolves.toMatchObject({ descriptionError: null });
+  });
+
   it("takes a resent description unless it is marked as refused", async () => {
     await expect(
       connector.updateDescription(credentials, { externalId: "MOCK-1", plainText: "Texto" }),
