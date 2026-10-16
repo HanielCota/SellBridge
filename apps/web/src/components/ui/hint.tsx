@@ -37,8 +37,8 @@ export function DisabledHint({
   }
   return (
     <Hint label={reason}>
-      {/* Focusable so keyboard users can reach the reason too. */}
       <span
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a disabled button takes no focus, so its reason hangs on a focusable wrapper keyboard users can reach
         tabIndex={0}
         className={cn(
           "inline-flex w-fit rounded-full outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
