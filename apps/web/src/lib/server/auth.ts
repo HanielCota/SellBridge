@@ -24,6 +24,7 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
+import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
 import {
   afterAccountDeletion,
   assertDeletionRequest,
@@ -414,6 +415,9 @@ export const auth = betterAuth({
       adminRoles: ["admin", "supervisor", "agent"],
       // Explicit, and shown in the banner: a visit to a customer's account ends on its own.
       impersonationSessionDuration: IMPERSONATION_SECONDS,
+    }),
+    leakedPasswordCheck({
+      enabled: isLeakedPasswordCheckOn(environment.LEAKED_PASSWORD_CHECK, environment.NODE_ENV),
     }),
     tanstackStartCookies(),
   ],

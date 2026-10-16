@@ -555,3 +555,9 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Falhas no meio:** o cliente da Stripe é esquecido logo depois de apagado (e um "cliente já apagado" conta como feito), então uma exclusão repetida depois de um passo que falhou segue em frente. As pausas das lojas têm um orçamento total de 30 s; depois dele, as lojas restantes são desconectadas sem pausar, para a pessoa não ficar presa no diálogo. `/delete-user` tem limite próprio de 5 tentativas por minuto (em produção), contra quem tenta adivinhar a senha com uma sessão roubada.
 - **Pedidos:** apagados com a conta (decisão do ⏸A). Se o cliente decidir guardar pedidos anonimizados por prazo fiscal, entra como ajuste.
 - Contas que entram só com Google não têm senha: o card manda pedir a exclusão pelo Suporte (fica em "Refinar depois").
+
+## 2026-10-16: Senha vazada (item 30.c, chat B)
+
+- Cadastro, troca, redefinição e criação de senha recusam uma senha nova que aparece em vazamentos conhecidos (Have I Been Pwned), com a mensagem "Essa senha já apareceu em vazamentos de dados na internet. Escolha outra." Só os 5 primeiros caracteres do SHA-1 saem do servidor (k-anonimidade, com padding).
+- Se o serviço falha ou demora mais de 3 s, a senha passa e a falha vai para o log (decisão do ⏸A). Por isso não usamos o plugin `haveIBeenPwned` do Better Auth: ele bloqueia o cadastro quando o serviço cai e não tem tempo limite.
+- `LEAKED_PASSWORD_CHECK` (`auto`, `on`, `off`; padrão `auto` = só em produção), para os testes e o desenvolvimento local nunca dependerem do serviço externo.
