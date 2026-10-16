@@ -44,10 +44,11 @@ const reaisSchema = z.number().nonnegative().max(21_474_836.47);
 const MAX_ORDER_LINE_QUANTITY = 100_000;
 
 /**
- * Numeric ids from the marketplace. Above 2^53 JSON.parse has already rounded them, and a
- * rounded id names another order: `.int()` (safe integers only) refuses it instead.
+ * Numeric ids from the marketplace: a safe integer, or the exact digits `parseMercadoLivreJson`
+ * keeps for one past 2^53. A number that still arrives rounded is refused by `.int()` (safe
+ * integers only), since a rounded id names another order.
  */
-export const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
+export const externalIdSchema = z.union([z.number().int(), z.string().regex(/^\d{1,20}$/)]);
 
 /** The connected seller: its id becomes the store's `externalShopId`, so it must not be rounded. */
 export const userSchema = z.object({ id: externalIdSchema, nickname: z.string() });

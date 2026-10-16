@@ -1,5 +1,5 @@
 import type { StoredOrderEvent, WebhookRequest, WebhookVerification } from "../types.ts";
-import { parseJsonText } from "@sellbridge/shared/http-body";
+import { parseMercadoLivreJson } from "./json.ts";
 import type { MercadoLivreConfig } from "./client.ts";
 import { notificationSchema, storedOrderNotificationSchema } from "./schemas.ts";
 
@@ -14,7 +14,7 @@ export function verifyWebhook(
   config: MercadoLivreConfig,
   request: WebhookRequest,
 ): WebhookVerification {
-  const payload = parseJsonText(request.rawBody);
+  const payload = parseMercadoLivreJson(request.rawBody);
   const parsed = notificationSchema.safeParse(payload);
   if (!parsed.success) {
     return { valid: false, reason: "Notificação fora do formato documentado", payload };
