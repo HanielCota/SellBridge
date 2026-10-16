@@ -21,6 +21,8 @@ interface AttentionItem {
   title: string;
   description: string;
   to: NonNullable<LinkProps["to"]>;
+  /** Opens the page on the right tab or filter: the reviews item lands on the pending reviews. */
+  search?: { view: "reviews"; review: "pending" };
 }
 
 interface StoreState {
@@ -55,7 +57,7 @@ function billingItems(notice: BillingNoticeView | null | undefined): AttentionIt
   ];
 }
 
-function buildItems(
+export function buildAttentionItems(
   counts: AttentionCounts,
   stores: readonly StoreState[],
   notice: BillingNoticeView | null | undefined,
@@ -108,6 +110,7 @@ function buildItems(
       title: plural(pendingReviews, "pedido para avaliar", "pedidos para avaliar"),
       description: "Conte como o fornecedor se saiu e ajude a formar o score.",
       to: "/pedidos",
+      search: { view: "reviews", review: "pending" },
     });
   }
   return items;
@@ -138,7 +141,7 @@ function AllClear() {
 export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
   const counts = useQuery(attentionCountsQueryOptions());
   const notice = useQuery(billingNoticeQueryOptions());
-  const items = buildItems(
+  const items = buildAttentionItems(
     {
       failedListings: counts.data?.failedListings ?? 0,
       unreadSupportReplies: counts.data?.unreadSupportReplies ?? 0,
@@ -165,6 +168,7 @@ export function AttentionPanel({ stores }: { stores: readonly StoreState[] }) {
             <li key={item.key}>
               <Link
                 to={item.to}
+                {...(item.search === undefined ? {} : { search: item.search })}
                 className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 outline-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <span

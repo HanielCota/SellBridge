@@ -186,6 +186,20 @@ describe("presentNotification", () => {
   });
 });
 
+describe("orders waiting for a review", () => {
+  // Regression: the bell sent the reseller to /pedidos on the operations tab, so the orders it
+  // named were nowhere to be seen.
+  it("opens the orders page on the reviews tab, filtered to the pending ones", () => {
+    const notification = presentNotification({
+      kind: "review_pending",
+      entityId: "reviews",
+      pending: 3,
+      at,
+    });
+    expect(notification.href).toBe("/pedidos?view=reviews&review=pending");
+  });
+});
+
 describe("presentNotificationFeed", () => {
   it("keeps the unread count and the last time the user looked", () => {
     const presented = presentNotificationFeed({
