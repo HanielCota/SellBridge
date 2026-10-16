@@ -4,6 +4,7 @@ import {
   createTestDatabase,
   createTestTenantPair,
   createTestUsers,
+  testCpf,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { collectAccountExport } from "./account-export.ts";
@@ -15,6 +16,8 @@ let users: Awaited<ReturnType<typeof createTestUsers>>;
 let tenantA = "";
 let tenantB = "";
 let userId = "";
+/** A fresh valid CPF: a fixed one collides with the seeded demo account (one account per CPF). */
+const holderCpf = testCpf();
 
 async function addOrder(tenantId: string, storeId: string, externalOrderId: string) {
   const [order] = await database
@@ -51,7 +54,7 @@ beforeAll(async () => {
   await database.insert(tenantProfile).values({
     tenantId: tenantA,
     fullName: "Ana Revendedora",
-    cpf: "52998224725",
+    cpf: holderCpf,
   });
   const storeA = await upsertStoreConnection(database, testStoreInput(tenantA, `exp-a-${tenantA}`));
   const storeB = await upsertStoreConnection(database, testStoreInput(tenantB, `exp-b-${tenantB}`));
@@ -87,7 +90,7 @@ describe("collectAccountExport", () => {
     const exported = await collectAccountExport(database, { userId, tenantId: tenantA });
     expect(exported.format).toBe("sellbridge-account-export/1");
     expect(exported.user?.email).toBe(`test-${userId}@sellbridge.test`);
-    expect(exported.holder).toEqual({ fullName: "Ana Revendedora", cpf: "52998224725" });
+    expect(exported.holder).toEqual({ fullName: "Ana Revendedora", cpf: holderCpf });
     expect(exported.stores).toHaveLength(1);
     expect(exported.orders).toEqual([
       expect.objectContaining({
