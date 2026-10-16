@@ -8,6 +8,7 @@ import {
   salePaidContent,
   shipmentLateContent,
   storeExpiredContent,
+  supportReplyContent,
 } from "./notification-events.ts";
 
 const sale = {
@@ -62,6 +63,7 @@ describe("every event renders valid content", () => {
     }),
     storeExpiredContent({ storeName: "Loja Centro" }),
     listingFailedContent({ listingTitle: "Fone", reason: null }),
+    supportReplyContent({ ticketId: "t-1", subject: "Pedido atrasado" }),
   ])("%#", (content) => {
     expect(notificationContentSchema.safeParse(content).success).toBe(true);
   });
