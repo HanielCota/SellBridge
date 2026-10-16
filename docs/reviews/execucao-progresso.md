@@ -72,6 +72,12 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
+### 2026-10-16 · Junção: `main` (#35, #37) e item 13.a do chat C
+
+- `origin/main` em `e06a9d3`: o #33 tinha juntado a `feat/client-phase-1` na `main` em squash, e vieram depois o #35 (srvx) e o #37 (corpo das requisições em produção). Sem conflitos.
+- Item 13.a do C (`daf26cc`, junção `66ef33f`): as recusas do Mercado Livre com `cause[]` viram frases de "o que aconteceu" e "o que fazer", com os códigos da página oficial de Validações. Avisos são ignorados, e os códigos vão para o log em `details.causes`. Mexe só no conector.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1557/1557; build ✅; e2e `publishing` 9/9.
+
 ### 2026-10-16 · Item 21.b · Encaminhar sozinho (atrás de flag) e e-mail ao fornecedor — ✅ concluído (commit local)
 
 - Envio de e-mail e layout passam para `@sellbridge/shared` (`mailer`, `email-layout`); e-mail do fornecedor com itens e os dois prazos na mesma unidade, sem dados do comprador (4e88997). Repositório `auto-forward.ts` (motivo para não encaminhar, destinatários, nota de e-mail que falhou) e `forwardOrder` com ator SellBridge; `supplierGroups` saiu de `fulfillment.ts` (ce5dc33). Worker: fila `order-auto-forward`, um job por pedido pago, endereço do envio do ML, 5 tentativas e desiste, flag `AUTO_FORWARD_ENABLED` desligada (51cbc74). Encaminhamento manual manda o link por e-mail e o diálogo avisa (95bac9c). Flag e regras em `decisions.md`.
