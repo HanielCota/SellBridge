@@ -2,6 +2,7 @@ import { z } from "zod";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { emailSchema, nameSchema } from "./auth.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
+import { STAFF_ROLES } from "../domain/staff-access.ts";
 
 /** A reseller (`user`) or one of the SellBridge team roles (see staff-access.ts). */
 export const CUSTOMER_ROLES = ["user", "agent", "supervisor", "admin"] as const;
@@ -111,6 +112,14 @@ export const snoozeCustomerIssueSchema = z.object({
     .refine((days) => SNOOZE_DAYS.some((allowed) => allowed === days))
     .nullable(),
 });
+
+/** Inviting a person into the SellBridge team with a role (item 28.a). */
+export const inviteTeamMemberSchema = z.object({
+  name: nameSchema,
+  email: emailSchema,
+  role: z.enum(STAFF_ROLES, { error: "Escolha o cargo" }),
+});
+export type InviteTeamMemberInput = z.infer<typeof inviteTeamMemberSchema>;
 
 /** Where an audit entry comes from: a customer's account, the supplier catalog or a ticket. */
 export const AUDIT_SOURCES = ["account", "catalog", "support"] as const;

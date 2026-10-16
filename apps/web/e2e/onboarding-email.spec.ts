@@ -25,11 +25,14 @@ test("a conta sem e-mail confirmado vê a etapa e não conecta loja nova", async
   ).toBeVisible();
 
   await gotoHydrated(page, "/dashboard");
-  await expect(page.getByText("Confirme seu e-mail")).toBeVisible();
-  await page.getByRole("button", { name: "Reenviar e-mail" }).click();
+  const setup = page.getByRole("region", { name: "Falta pouco para sua primeira venda" });
+  await expect(setup.getByText("Confirme seu e-mail")).toBeVisible();
+  await setup.getByRole("button", { name: "Reenviar e-mail" }).click();
   await expect(page.getByText("Enviamos o link de confirmação para o seu e-mail.")).toBeVisible();
 
   await confirmEmail(email);
   await gotoHydrated(page, "/dashboard");
-  await expect(page.getByRole("link", { name: "Conectar loja" })).toBeVisible();
+  // The step of the setup guide, not any other "/lojas" link the page may show.
+  const guide = page.getByRole("region", { name: "Falta pouco para sua primeira venda" });
+  await expect(guide.getByRole("link", { name: "Conectar loja" })).toBeVisible();
 });

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as AceitarTermosRouteImport } from './routes/aceitar-termos'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
@@ -31,6 +32,7 @@ import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
+import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
 import { Route as AppPedidosIndexRouteImport } from './routes/_app/pedidos/index'
@@ -91,6 +93,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AceitarTermosRoute = AceitarTermosRouteImport.update({
+  id: '/aceitar-termos',
+  path: '/aceitar-termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -186,6 +193,11 @@ const AppAdminAuditoriaRoute = AppAdminAuditoriaRouteImport.update({
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
   id: '/clientes',
   path: '/clientes',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
@@ -448,6 +460,7 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -467,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/equipe': typeof AppAdminEquipeRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -518,6 +532,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -535,6 +550,7 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/equipe': typeof AppAdminEquipeRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -589,6 +605,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/aceitar-termos': typeof AceitarTermosRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRouteRouteWithChildren
@@ -608,6 +625,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -661,6 +679,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -680,6 +699,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/admin/clientes'
     | '/admin/auditoria'
+    | '/admin/equipe'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -731,6 +751,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -748,6 +769,7 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/admin/auditoria'
+    | '/admin/equipe'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -801,6 +823,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/_auth'
+    | '/aceitar-termos'
     | '/privacidade'
     | '/termos'
     | '/_app/admin'
@@ -820,6 +843,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/_app/admin/clientes'
     | '/_app/admin/auditoria'
+    | '/_app/admin/equipe'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
     | '/_app/publicacoes/nova'
@@ -874,6 +898,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  AceitarTermosRoute: typeof AceitarTermosRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -931,6 +956,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aceitar-termos': {
+      id: '/aceitar-termos'
+      path: '/aceitar-termos'
+      fullPath: '/aceitar-termos'
+      preLoaderRoute: typeof AceitarTermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -1064,6 +1096,13 @@ declare module '@tanstack/react-router' {
       path: '/clientes'
       fullPath: '/admin/clientes'
       preLoaderRoute: typeof AppAdminClientesRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/equipe': {
+      id: '/_app/admin/equipe'
+      path: '/equipe'
+      fullPath: '/admin/equipe'
+      preLoaderRoute: typeof AppAdminEquipeRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/fornecedores/': {
@@ -1423,6 +1462,7 @@ const AppAdminClientesRouteRouteWithChildren =
 interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
+  AppAdminEquipeRoute: typeof AppAdminEquipeRoute
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
   AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
@@ -1433,6 +1473,7 @@ interface AppAdminRouteRouteChildren {
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
+  AppAdminEquipeRoute: AppAdminEquipeRoute,
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,
   AppAdminChamadosMetricasRoute: AppAdminChamadosMetricasRoute,
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
@@ -1535,6 +1576,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  AceitarTermosRoute: AceitarTermosRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,

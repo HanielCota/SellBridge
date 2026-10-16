@@ -54,6 +54,7 @@ beforeAll(async () => {
   await database.insert(tenantProfile).values({
     tenantId: tenantA,
     fullName: "Ana Revendedora",
+    // Not the seed demo's CPF (52998224725): the CPF index is unique across accounts.
     cpf: holderCpf,
   });
   const storeA = await upsertStoreConnection(database, testStoreInput(tenantA, `exp-a-${tenantA}`));
@@ -90,7 +91,12 @@ describe("collectAccountExport", () => {
     const exported = await collectAccountExport(database, { userId, tenantId: tenantA });
     expect(exported.format).toBe("sellbridge-account-export/1");
     expect(exported.user?.email).toBe(`test-${userId}@sellbridge.test`);
-    expect(exported.holder).toEqual({ fullName: "Ana Revendedora", cpf: holderCpf });
+    expect(exported.holder).toEqual({
+      fullName: "Ana Revendedora",
+      cpf: holderCpf,
+      phone: null,
+      company: null,
+    });
     expect(exported.stores).toHaveLength(1);
     expect(exported.orders).toEqual([
       expect.objectContaining({

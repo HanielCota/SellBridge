@@ -100,12 +100,13 @@ function NotificationMark({ notification }: { notification: AppNotification }) {
           title={notification.product.title}
           categoryName={notification.product.categoryName}
           compact
+          reserveCorner
           className="size-full"
         />
       </span>
       <span
         className={cn(
-          "absolute -right-1 -bottom-1 flex size-[1.125rem] items-center justify-center rounded-full ring-2 ring-popover",
+          "absolute -right-1.5 -bottom-1.5 flex size-4 items-center justify-center rounded-full ring-2 ring-popover",
           style.className,
         )}
       >

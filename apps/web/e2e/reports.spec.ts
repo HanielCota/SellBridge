@@ -164,6 +164,40 @@ test.describe("avisos", () => {
     await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
   });
 
+  test("keeps the sale badge clear of the product icon and its variant dot", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    const sale = page.getByRole("link", { name: /Nova venda de R\$/ }).first();
+    await expect(async () => {
+      await gotoHydrated(page, "/dashboard");
+      await page.getByRole("button", { name: /^Avisos/ }).click();
+      await expect(sale).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+
+    // The mark is the product tile plus the sale badge overlaid on its bottom-right corner.
+    const [tile, badge] = await sale.locator(":scope > span:first-child > span").all();
+    if (tile === undefined || badge === undefined) {
+      throw new Error("Expected the sale mark to hold a product tile and a badge");
+    }
+    test.skip((await tile.locator("img").count()) > 0, "The sold product has a photo");
+    // The tile's variant dot would sit right under the badge.
+    await expect(tile.locator("span.rounded-full")).toHaveCount(0);
+
+    const iconBox = await tile.locator("svg").boundingBox();
+    const badgeBox = await badge.boundingBox();
+    if (iconBox === null || badgeBox === null) {
+      throw new Error("Expected the product icon and the badge to be rendered");
+    }
+    // The badge is a circle with a 2px ring: its edge must stay off the icon's box corner.
+    const ring = 2;
+    const radius = badgeBox.width / 2 + ring;
+    const centerX = badgeBox.x + badgeBox.width / 2;
+    const centerY = badgeBox.y + badgeBox.height / 2;
+    const cornerX = iconBox.x + iconBox.width;
+    const cornerY = iconBox.y + iconBox.height;
+    expect(Math.hypot(centerX - cornerX, centerY - cornerY)).toBeGreaterThan(radius);
+  });
+
   test("one Escape closes the bell panel, even with the sound toggle's hint", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");

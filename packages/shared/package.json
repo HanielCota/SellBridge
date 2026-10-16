@@ -8,6 +8,8 @@
     "./product-csv": "./src/domain/product-csv.ts",
     "./brazilian-states": "./src/domain/brazilian-states.ts",
     "./cpf": "./src/domain/cpf.ts",
+    "./account-documents": "./src/domain/account-documents.ts",
+    "./terms": "./src/domain/terms.ts",
     "./errors": "./src/runtime/errors.ts",
     "./environment": "./src/runtime/environment.ts",
     "./environment-file": "./src/runtime/environment-file.ts",
@@ -47,7 +49,8 @@
     "./email-layout": "./src/email/layout.ts",
     "./supplier-order-email": "./src/email/supplier-order-email.ts",
     "./notification-content": "./src/domain/notification-content.ts",
-    "./notification-events": "./src/domain/notification-events.ts"
+    "./notification-events": "./src/domain/notification-events.ts",
+    "./team-invite": "./src/domain/team-invite.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -610,3 +610,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 
 - **O diálogo acompanha o lote até o fim:** depois de "Publicar" ele não fecha nem leva à lista; mostra o andamento e, no fim, quantos anúncios foram ao ar, quantos falharam (o motivo fica em Publicações) e quais produtos ficaram fora, com o motivo. Fechar antes não para nada: a publicação continua no worker.
 - **A seleção é limpa ao fechar depois de um lote**, para a próxima abertura não repetir produtos já publicados.
+
+## 2026-10-16: Dados da conta e aceite de termos (item 26.a, chat D)
+
+- **Dados da conta (L2):** o passo "Seus dados" pede nome completo, CPF e **telefone com DDD** (obrigatório, só dígitos; celular com 9 ou fixo de 2 a 5). "Vendo como empresa (CNPJ)" abre CNPJ (dígitos verificadores da Receita) e razão social; desmarcado, a empresa é apagada. Colunas `phone`, `cnpj` e `company_name` em `tenant_profile` (migration 0037). Contas antigas ficam com telefone vazio até editarem os dados; o passo continua contando como feito com nome e CPF.
+- **Aceite de termos (L4):** tabela `terms_acceptances` (pessoa, versão, data), só de inserção. A versão em vigor é `TERMS_VERSION` (`shared/domain/terms.ts`, data da publicação). O cadastro tem a caixa obrigatória "Li e aceito…" e grava o aceite logo depois de criar a conta. Quem entra sem aceite da versão em vigor (Google, contas anteriores, termos novos) vai para `/aceitar-termos` antes de qualquer página do app (aprovado no ⏸A: vale para os usuários atuais). Uma visita de admin ("Entrar como cliente") nunca aceita pelo cliente (`acceptTermsFn` bloqueada e o portão não pede).
+- **Seed:** as contas demo e admin nascem com o aceite gravado.
+- **Exportação (LGPD):** a exportação da conta passa a levar telefone e empresa do titular.

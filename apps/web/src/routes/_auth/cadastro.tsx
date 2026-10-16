@@ -5,17 +5,21 @@ import {
   newPasswordSchema,
   PASSWORD_COMPROMISED_CODE,
   PASSWORD_COMPROMISED_MESSAGE,
-  signUpSchema,
+  signUpFormSchema,
 } from "@sellbridge/shared/schemas";
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { useForm, useStore } from "@tanstack/react-form";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthPageHeader, AuthSubmitButton } from "@/components/auth/auth-page";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
+import { TermsConsentCheckbox } from "@/components/auth/terms-consent-checkbox";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
+import { acceptTermsFn } from "@/features/onboarding/terms.functions";
 import { authClient } from "@/lib/auth-client";
+import { reportRouteError } from "@/lib/report-route-error";
 import { shareMeta } from "@/lib/share-meta";
 
 export const Route = createFileRoute("/_auth/cadastro")({
@@ -47,20 +51,34 @@ function signUpErrorMessage(code: string | undefined): string {
   return SIGN_UP_ERRORS[code] ?? "Não foi possível criar sua conta. Tente novamente.";
 }
 
+/**
+ * Stores the box ticked on sign-up with version and date (item 26.a). If it fails, the account
+ * still exists and the app asks the terms again on the next page (`needsTermsAcceptance`).
+ */
+async function recordAcceptance() {
+  try {
+    await acceptTermsFn({ data: { version: TERMS_VERSION } });
+  } catch (error) {
+    await reportRouteError(error, "/_auth/cadastro");
+  }
+}
+
 function useSignUpForm() {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
-    defaultValues: { name: "", email: "", password: "" },
-    validators: { onSubmit: signUpSchema },
+    defaultValues: { name: "", email: "", password: "", acceptedTerms: false },
+    validators: { onSubmit: signUpFormSchema },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
-      const result = await authClient.signUp.email(value);
+      const { acceptedTerms: _acceptedTerms, ...account } = value;
+      const result = await authClient.signUp.email(account);
       if (result.error) {
         setSubmitError(signUpErrorMessage(result.error.code));
         return;
       }
+      await recordAcceptance();
       await navigate({ to: "/onboarding" });
     },
   });
@@ -108,8 +126,26 @@ function SignUpFields({ form, hasSubmitted }: { form: SignUpFormApi; hasSubmitte
           />
         )}
       </form.Field>
+      <form.Field name="acceptedTerms">
+        {(field) => (
+          <div className="grid gap-1.5">
+            <TermsConsentCheckbox
+              checked={field.state.value}
+              invalid={hasSubmitted && field.state.meta.errors.length > 0}
+              onCheckedChange={(checked) => field.handleChange(checked)}
+            />
+            <InlineFormError
+              message={hasSubmitted ? termsErrorMessage(field.state.meta.errors) : null}
+            />
+          </div>
+        )}
+      </form.Field>
     </>
   );
+}
+
+function termsErrorMessage(errors: readonly unknown[]): string | null {
+  return errors.length > 0 ? "Marque que você aceita os termos para criar a conta." : null;
 }
 
 function SignUpForm() {
@@ -133,23 +169,6 @@ function SignUpForm() {
   );
 }
 
-function TermsConsent() {
-  const linkClassName = "text-foreground underline underline-offset-2";
-  return (
-    <p className="text-center text-footnote leading-relaxed text-muted-foreground">
-      Ao criar a conta, você concorda com os{" "}
-      <Link to="/termos" className={linkClassName}>
-        termos de uso
-      </Link>{" "}
-      e a{" "}
-      <Link to="/privacidade" className={linkClassName}>
-        política de privacidade
-      </Link>
-      .
-    </p>
-  );
-}
-
 function SignUpPage() {
   const signInOptions = authLayoutRoute.useLoaderData();
   return (
@@ -161,7 +180,6 @@ function SignUpPage() {
       <div className="grid gap-5">
         {signInOptions.google ? <GoogleSignIn callbackURL="/dashboard" /> : null}
         <SignUpForm />
-        <TermsConsent />
       </div>
       <p className="text-center text-subhead text-muted-foreground">
         Já tem conta?{" "}

@@ -3,7 +3,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
-  type BillingHolder,
+  type BillingHolderValues,
   saveBillingHolder,
   saveStarterSupplier,
 } from "../repositories/region.ts";
@@ -27,7 +27,7 @@ interface SeedCustomer {
   readonly email: string;
   readonly slug: string;
   /** Null: the customer stopped at onboarding, before the billing holder. */
-  readonly holder: BillingHolder | null;
+  readonly holder: BillingHolderValues | null;
   readonly stores: readonly SeedStore[];
 }
 
