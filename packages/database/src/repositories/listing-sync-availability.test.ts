@@ -10,7 +10,7 @@ import {
   type TestSeller,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { findTargetsNeedingSync, markTargetSynced } from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();

@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
+import { supplierProducts, suppliers } from "@sellbridge/database/schema";
+import { and, eq, like } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
@@ -220,6 +224,39 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
       .getByText(/Com as taxas, o preço mínimo para não ter prejuízo é R\$\s[\d.,]+/)
       .filter({ visible: true }),
   ).toBeVisible();
+});
+
+/** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
+async function outOfStockProductId(): Promise<string> {
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  try {
+    const [row] = await database
+      .select({ id: supplierProducts.id })
+      .from(supplierProducts)
+      .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+      .where(
+        and(
+          like(suppliers.name, "BH Beauty%"),
+          eq(supplierProducts.active, true),
+          eq(supplierProducts.stock, 0),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new Error("Seed sem produto esgotado da BH Beauty");
+    return row.id;
+  } finally {
+    await database.$client.end();
+  }
+}
+
+test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
+  await signUp(page, "Revendedora Sem Estoque");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Sem Estoque");
+  await gotoHydrated(page, `/publicacoes/nova?productId=${await outOfStockProductId()}`);
+  await page.getByLabel("Título").fill("Produto esgotado no fornecedor");
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(page.getByText(/sem estoque no fornecedor/).filter({ visible: true })).toBeVisible();
 });
 
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
