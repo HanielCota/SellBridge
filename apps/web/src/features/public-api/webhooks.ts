@@ -24,6 +24,8 @@ export const webhookDescriptionSchema = freeText()
 
 export const webhookEventTypesSchema = z
   .array(apiEventTypeSchema)
+  // More entries than there are types can only be repeats: a bounded list, not a 64 KB one.
+  .max(apiEventTypeSchema.options.length)
   .transform((types) => [...new Set(types)]);
 
 export const createWebhookEndpointInputSchema = z.object({
