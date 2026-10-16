@@ -39,15 +39,18 @@ export interface ShipmentTiming {
 }
 
 /**
- * Whether the day of a marketplace date is over, in Brazil time. Mercado Livre dates a deadline
- * at midnight (-03:00): the whole day is still on time.
+ * The instant a marketplace date is missed: the end of its day, in Brazil time. Mercado Livre
+ * dates a deadline at midnight (-03:00), and the whole day is still on time.
  */
+export function overdueSince(date: Date): Date {
+  return new Date(startOfBrazilDay(date).getTime() + DAY_MILLISECONDS);
+}
+
 function isPast(date: Date | null, now: Date): boolean {
   if (date === null) {
     return false;
   }
-  const endOfDay = startOfBrazilDay(date).getTime() + DAY_MILLISECONDS;
-  return endOfDay <= now.getTime();
+  return overdueSince(date).getTime() <= now.getTime();
 }
 
 function shippedDelay(timing: ShipmentTiming, now: Date): ShipmentDelay | null {

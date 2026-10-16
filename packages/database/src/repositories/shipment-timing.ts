@@ -1,5 +1,6 @@
 import {
   CONFIRMATION_REMINDER_DAYS,
+  overdueSince,
   shipmentDelay,
   type ShipmentDelay,
 } from "@sellbridge/shared/shipment-delay";
@@ -42,13 +43,17 @@ export interface ShipmentLateEvent {
   delay: ShipmentDelay;
 }
 
-/** When the parcel became late: the missed date, or the end of the wait for a confirmation. */
+/**
+ * When the parcel became late: the end of the missed day (the same instant `shipmentDelay`
+ * starts calling it late), or the end of the wait for a confirmation. Dating it at the deadline
+ * itself put it before a bell opened during that day, so the alert never counted as new.
+ */
 function lateSince(shipment: TimedShipment, delay: ShipmentDelay): Date {
   if (delay === "dispatch_overdue" && shipment.dispatchDeadlineAt !== null) {
-    return shipment.dispatchDeadlineAt;
+    return overdueSince(shipment.dispatchDeadlineAt);
   }
   if (delay === "delivery_overdue" && shipment.estimatedDeliveryAt !== null) {
-    return shipment.estimatedDeliveryAt;
+    return overdueSince(shipment.estimatedDeliveryAt);
   }
   const shippedAt = shipment.shippedAt ?? new Date(0);
   return new Date(shippedAt.getTime() + CONFIRMATION_REMINDER_DAYS * DAY_MILLISECONDS);
