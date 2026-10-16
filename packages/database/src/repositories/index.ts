@@ -4,6 +4,7 @@ export * from "./stores.ts";
 export * from "./store-suppliers.ts";
 export * from "./store-activity.ts";
 export * from "./listings.ts";
+export * from "./listing-sync.ts";
 export * from "./listing-overview.ts";
 export * from "./reports.ts";
 export * from "./webhooks.ts";
