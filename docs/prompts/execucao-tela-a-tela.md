@@ -26,6 +26,8 @@ Meta do usuário: fechar o que falta **em 2 dias**, com o site em MVP, e ir refi
 
 **Fora do MVP (fase 2, registrado no andamento):** WhatsApp do 25 (D9), 31.b, 29 se a D8 não sair, 27.d e 27.e, 32.b e 32.c (viram nota de deploy).
 
+**Corte de 2026-10-16, 16h40 (entrega no sábado, 17/10), vale por cima do que está acima:** saem também 23, 31.a, 28.c, 28.d, 30.b e o design final (D-1, D-2, U-2, U-8, X-2). O ⏸A de todos os itens restantes está aprovado e não há ⏸B: cada parte é commitada quando os portões passam, e o hash vai ao principal sem esperar OK. Filas novas na seção 0.0 do `coordenacao.md`.
+
 ## 0. Como o usuário vai usar (leia primeiro)
 
 O usuário manda comandos curtos, geralmente pelo celular. Interprete assim:
