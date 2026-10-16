@@ -48,6 +48,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { FORWARD_CREDIT, type ForwardActor, supplierGroups } from "./supplier-groups.ts";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -281,39 +282,13 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   };
 }
 
-async function supplierGroups(tx: Transaction, tenantId: string, orderId: string) {
-  const items = await tx
-    .select({
-      orderItemId: orderItems.id,
-      title: orderItems.title,
-      quantity: orderItems.quantity,
-      sku: supplierProducts.sku,
-      supplierId: supplierProducts.supplierId,
-      active: suppliers.active,
-    })
-    .from(orderItems)
-    .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
-    .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
-  const linked = items.filter(
-    (item): item is (typeof items)[number] & { supplierId: string } =>
-      item.supplierId !== null && item.active === true,
-  );
-  if (!items.length || linked.length !== items.length)
-    throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
-  const grouped = new Map<string, typeof linked>();
-  for (const item of linked) {
-    grouped.set(item.supplierId, [...(grouped.get(item.supplierId) ?? []), item]);
-  }
-  return grouped;
-}
-
 /** Lock the order before grouping items; retries cannot dispatch the same items twice. */
 export async function forwardOrder(
   database: Database,
   tenantId: string,
-  input: z.infer<typeof forwardOrderSchema>,
+  input: z.infer<typeof forwardOrderSchema> & { actor?: ForwardActor },
 ) {
+  const credit = FORWARD_CREDIT[input.actor ?? "reseller"];
   return database.transaction(async (tx) => {
     const [order] = await tx
       .select()
@@ -354,8 +329,7 @@ export async function forwardOrder(
       await tx.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status: "forwarded",
-        actor: SHIPMENT_ACTORS.reseller,
-        note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
+        ...credit,
       });
       links.push({ shipmentId: shipment.id, supplierId, token: link.token });
     }
