@@ -237,6 +237,7 @@ describe("publishing", () => {
     expect(result).toEqual({
       externalId: "MLB1",
       externalUrl: "https://produto.mercadolivre.com.br/MLB-1",
+      descriptionError: null,
     });
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created).toMatchObject({
@@ -576,16 +577,35 @@ const recoveryRoutes: Record<string, Responder> = {
     json(200, { results: ["MLB1"], paging: { total: 1 } }),
   [`GET ${API}/items/MLB1`]: () => json(200, remoteItem),
   [`PUT ${API}/items/MLB1`]: () => json(200, {}),
-  [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+  // The item was created before: it may have its description already, and a second POST is a
+  // bad request (official "Descrição de produtos" page), so recovery must replace it with PUT.
+  [`POST ${API}/items/MLB1/description`]: () =>
+    json(400, { message: "Item already has a description", error: "bad_request", status: 400 }),
+  [`PUT ${API}/items/MLB1/description`]: () => json(200, {}),
 };
 
 describe("publication recovery", () => {
+  it("replaces the description of a recovered item instead of creating it again", async () => {
+    const { ml, calls } = connector(recoveryRoutes);
+    const result = await ml.publishProduct(store, product, publicationGuard(30));
+    expect(result.descriptionError).toBeNull();
+    expect(
+      calls.some(
+        (call) => call.method === "PUT" && call.url.startsWith(`${API}/items/MLB1/description`),
+      ),
+    ).toBe(true);
+    expect(calls.some((call) => call.method === "POST" && call.url.includes("/description"))).toBe(
+      false,
+    );
+  });
+
   it("recovers the exact target and syncs price and stock without creating again", async () => {
     const guard = publicationGuard(30);
     const { ml, calls } = connector(recoveryRoutes);
     await expect(ml.publishProduct(store, product, guard)).resolves.toEqual({
       externalId: "MLB1",
       externalUrl: remoteItem.permalink,
+      descriptionError: null,
     });
     expect(
       calls.filter((call) => call.method === "GET" && call.url.includes("/items/search")),

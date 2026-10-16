@@ -68,7 +68,7 @@ describe("explainMercadoLivreError", () => {
   it("asks for a plain-text description", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.descriptionNotPlainText, 400)).toBe(
       "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). " +
-        "Deixe só texto simples na descrição e reenvie.",
+        "Fale com o suporte para deixar só texto simples na descrição.",
     );
   });
 

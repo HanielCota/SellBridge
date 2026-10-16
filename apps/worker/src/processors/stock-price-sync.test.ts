@@ -19,6 +19,7 @@ let tenantId = "";
 let targetId = "";
 let failingTargetId = "";
 let describedTargetId = "";
+let refusedTargetId = "";
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
@@ -51,6 +52,23 @@ beforeAll(async () => {
     .update(schema.listingTargets)
     .set({ descriptionError: "A descrição não chegou", descriptionFailedAt: new Date() })
     .where(eq(schema.listingTargets.id, describedTargetId));
+  // Its text is what the marketplace refuses: resending it as is can never succeed.
+  refusedTargetId = await createPublishedTestTarget(database, {
+    tenantId,
+    productId: catalog.productId,
+    storeId: store.id,
+    title: "Anúncio com descrição recusada",
+    externalId: "MOCK-ITEM-REFUSED",
+  });
+  const [refused] = await database
+    .update(schema.listingTargets)
+    .set({ descriptionError: "A descrição foi recusada", descriptionFailedAt: new Date() })
+    .where(eq(schema.listingTargets.id, refusedTargetId))
+    .returning({ listingId: schema.listingTargets.listingId });
+  await database
+    .update(schema.listings)
+    .set({ description: "Texto [descricao recusada]" })
+    .where(eq(schema.listings.id, refused?.listingId ?? ""));
 });
 
 /** Mock connectors whose stock update fails for the listing deleted on the marketplace. */
@@ -123,6 +141,21 @@ describe("stock-price-sync processor", () => {
       descriptionFailedAt: null,
       descriptionAttempts: 0,
     });
+  });
+
+  it("stops resending on its own when the marketplace refuses the text itself", async () => {
+    // Earlier runs of this file already tried it; one run must be enough to reach the limit.
+    await database
+      .update(schema.listingTargets)
+      .set({ descriptionAttempts: 0 })
+      .where(eq(schema.listingTargets.id, refusedTargetId));
+    await sync();
+    const row = await database.query.listingTargets.findFirst({
+      where: eq(schema.listingTargets.id, refusedTargetId),
+    });
+    // Not retryable: the automatic limit is reached at once; only the reseller's resend is left.
+    expect(row).toMatchObject({ descriptionAttempts: 3 });
+    expect(row?.descriptionError).toMatch(/recusada/);
   });
 
   it("records the failed attempt so the target goes to the back of the queue", async () => {

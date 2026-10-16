@@ -1,6 +1,6 @@
 import type { MarketplaceConnector } from "../types.ts";
 import type { MercadoLivreConfig, MercadoLivreContext } from "./client.ts";
-import { publishProduct, updateStockPrice } from "./listings.ts";
+import { publishProduct, updateDescription, updateStockPrice } from "./listings.ts";
 import { authorizationUrl, exchangeCode, refreshTokens } from "./oauth.ts";
 import { fetchOrder, listOrders } from "./orders.ts";
 import { parseStoredOrderEvent, verifyWebhook } from "./webhook.ts";
@@ -28,7 +28,7 @@ export function createMercadoLivreConnector(config: MercadoLivreConfig): Marketp
     refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
     publishProduct: async (store, input, options) => publishProduct(context, store, input, options),
     updateStockPrice: async (store, update) => updateStockPrice(context, store, update),
-    updateDescription: async () => {},
+    updateDescription: async (store, update) => updateDescription(context, store, update),
     listOrders: async (store, since) => listOrders(context, store, since),
     fetchOrder: async (store, resource) => fetchOrder(context, store, resource),
     verifyWebhook: async (request) => verifyWebhook(config, request),

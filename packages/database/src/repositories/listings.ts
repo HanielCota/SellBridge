@@ -357,6 +357,10 @@ export async function markTargetPublished(
         status: "published",
         errorReason: null,
         publishedAt: new Date(),
+        // A refused description keeps the listing live, with the warning on its card (13.b).
+        descriptionError: result.descriptionError ?? null,
+        descriptionFailedAt: (result.descriptionError ?? null) === null ? null : new Date(),
+        descriptionAttempts: 0,
       })
       .where(
         and(

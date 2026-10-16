@@ -523,3 +523,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **O que o revendedor lê:** "o que aconteceu. o que fazer.", no tom das mensagens de indisponível do item 08: atributos obrigatórios (com os nomes que o ML deu), preço mínimo da categoria em reais, fotos pequenas, título curto, marca não autorizada, GTIN recusado e outros. Só `type: "error"` bloqueia: avisos (`warning`) não aparecem. Até dois erros por mensagem. Código desconhecido: "O Mercado Livre recusou o anúncio: <palavras do ML>. Revise o anúncio e tente de novo.", com o trecho do ML cortado em 300 caracteres. Resposta sem `cause` mantém a mensagem de antes.
 - **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
 - **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
+
+## 2026-10-16: Descrição que não chegou ao marketplace (item 13.b)
+
+- **O anúncio continua no ar:** a descrição é enviada depois de o item existir; se o marketplace recusa, a publicação não falha (o item existe de fato), mas o erro (traduzido pela 13.a) fica no alvo (`listing_targets.description_error`, migration 0032) e o card mostra "Descrição não enviada" com o motivo e "Reenviar descrição".
+- **Reenvio:** pelo job de sincronização que já roda (`stock-price-sync`), sem fila nova: até 3 tentativas automáticas (aprovado no ⏸1), depois só o botão, que zera as tentativas e pede a sincronização na hora. No Mercado Livre o reenvio é `PUT /items/{id}/description?api_version=2` (a página oficial "Descrição de produtos": POST só cria; um segundo POST é recusado).
+- **Tela atualizada sozinha:** a lista de Publicações continua consultando até 5 minutos depois de uma falha ou de um pedido de reenvio, e o aviso some sem recarregar.
+- **Mock:** título com "[sem descricao]" publica e recusa a descrição; reenvio com "[descricao recusada]" é recusado (para testes).

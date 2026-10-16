@@ -41,6 +41,8 @@ export interface ListingStoreStatus {
   storeConnectionId: string;
   status: ListingTargetStatus;
   errorReason: string | null;
+  /** Why the marketplace did not take the description of this live listing; null when it did. */
+  descriptionError: string | null;
   attempts: number;
   externalUrl: string | null;
   publishedAt: Date | null;
@@ -198,6 +200,7 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
       storeConnectionId: listingTargets.storeConnectionId,
       status: listingTargets.status,
       errorReason: listingTargets.errorReason,
+      descriptionError: listingTargets.descriptionError,
       attempts: listingTargets.attempts,
       externalUrl: listingTargets.externalUrl,
       publishedAt: listingTargets.publishedAt,

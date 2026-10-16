@@ -13,6 +13,7 @@ import {
   markDescriptionSent,
   requestDescriptionResend,
 } from "./listing-descriptions.ts";
+import { hasActiveTargets } from "./active-targets.ts";
 import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -92,7 +93,10 @@ describe("listing descriptions the marketplace refused", () => {
   it("stops retrying on its own after three failed attempts", async () => {
     for (const attempt of [1, 2, 3]) {
       expect(await pendingIds()).toContain(targetId);
-      await markDescriptionFailed(database, targetId, `Falha ${attempt}`);
+      await markDescriptionFailed(database, targetId, {
+        reason: `Falha ${attempt}`,
+        retryable: true,
+      });
     }
     expect(await targetRow()).toMatchObject({
       descriptionAttempts: 3,
@@ -110,6 +114,21 @@ describe("listing descriptions the marketplace refused", () => {
       descriptionError: "Falha 3",
     });
     expect(await pendingIds()).toContain(targetId);
+    // The list keeps polling, so the warning leaves the card without a reload.
+    expect(await hasActiveTargets(database, tenants.tenantA)).toBe(true);
+    expect(await hasActiveTargets(database, tenants.tenantB)).toBe(false);
+  });
+
+  it("does not promise a resend for a listing that is not on the marketplace", async () => {
+    await database
+      .update(listingTargets)
+      .set({ status: "error" })
+      .where(eq(listingTargets.id, targetId));
+    expect(await requestDescriptionResend(database, tenants.tenantA, [listingId])).toBe(0);
+    await database
+      .update(listingTargets)
+      .set({ status: "published" })
+      .where(eq(listingTargets.id, targetId));
   });
 
   it("clears the failure once the description goes through", async () => {
