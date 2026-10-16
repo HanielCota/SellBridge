@@ -26,6 +26,10 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 
 ## Refinar depois
 
+- Auditoria (28.b): a consulta junta as duas tabelas inteiras antes de filtrar e conta com `count(*) over ()`; `ticket_events` não tem índice por `created_at`. Bom hoje; com volume, pede índice (migration) e paginação por cursor.
+- Auditoria: a ação de suporte entra pelo cargo **atual** de quem agiu (quem deixou a equipe some do rastro; quem virou equipe traz as próprias ações antigas de revendedor). Gravar "agiu como equipe" no evento resolve.
+- Auditoria: produto do catálogo sem link (só fornecedor tem página); indicadores no topo como os de Clientes; a gravação do catálogo fica fora da transação da escrita (se falhar, a mudança fica sem registro, com log `error`).
+
 - Anéis de foco `ring-ring/30`, `/40` e `/50` (57 lugares) seguem abaixo de 3:1 no claro mesmo com o `--ring` novo (a 50% dá 2,2:1); só o contorno global (70%) passa. Pede trocar a opacidade nesses lugares, em várias áreas.
 - Outras bolinhas em `bg-brand` no claro: `ticket-badges.tsx:46`, `store-bridge.tsx:54`, a barra de `admin/chamados/metricas.tsx:161` e o `setup-guide` (1,9:1). Trocar por `bg-brand-mark`.
 - A bolinha amarela (`amber-600`) dá 2,93:1 sobre o fundo da página (3,19:1 nos cartões, onde quase sempre fica).
@@ -94,3 +98,13 @@ Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · p
 - Mock: título com "[exige atributos]" recusa o anúncio sem BRAND, MODEL e GTIN, como uma categoria do ML.
 - Testes novos: parser (5), repositório (criar e mesclar), conector do ML (produto do CSV passa numa categoria que exige BRAND/MODEL/GTIN; sem as colunas é recusado antes de criar), mock (1) e e2e `csv-attributes.spec.ts` (admin importa, revendedora nova publica e o anúncio fica "No ar"). Antes: o parser recusava o cabeçalho (`Cabeçalho inválido`), o upsert não gravava o MODEL novo e o e2e parava na prévia.
 - C1–C6 ✅; C7 `admin-suppliers`, `publishing`, `suppliers` e `csv-attributes`: 23 + 3 ✅ (a primeira rodada do `csv-attributes` falhou porque a frase de conclusão ganhava " · N anúncios pausados" depois de outros specs; a asserção passou a aceitar o complemento).
+
+### 2026-10-16 · Item 28.b · Auditoria global
+
+- `/admin/auditoria` (tela nova, irmã do admin de Clientes: `PageHeader`, `FilterTabs` Tudo/Contas/Catálogo/Suporte, `SearchInput`, linha de resumo, `DataTable` com linha de celular, `PaginationBar`, `ToneStatus` por área, `SmartDate`; carregando com a forma da tabela, vazio com ação e erro). Entrada no menu da conta (o cabeçalho já tem 9 abas em modo admin).
+- Permissão nova `audit.view`, só do admin (`staff-access.ts`); server function com `staffMiddleware("audit.view")` e `beforeLoad` que manda o resto da equipe para Chamados.
+- Repositório `admin-audit.ts`: junta `admin_audit_events` (contas e, com `entity_type`, catálogo) e `ticket_events` feitos pela equipe (fora os do revendedor e os automáticos); filtros por área, pessoa e texto; paginação; nomes, nunca e-mails.
+- O catálogo passa a ser auditado (pendência do 08.b): salvar, ativar e desativar fornecedor ou produto, e importar CSV, gravam `recordCatalogEvent` depois da escrita.
+- Testes: repositório (5), permissão por cargo (staff-access), textos (2), e2e `admin-audit.spec.ts` (admin desativa produto e vê na auditoria; atendente e revendedor barrados), rota no `accessibility.spec.ts` (2 temas). O teste de permissão falhava por asserção antes; o do repositório falhou de início só porque o banco não tinha a 0038.
+- Revisão independente: sem furo de permissão nem vazamento. Corrigidos: página além do fim (agora oferece voltar à primeira) e detalhe aninhado que derrubaria a página. O resto foi para "Refinar depois".
+- D1 escuro desktop e celular; D2 375/768/1440 sem rolagem lateral; D4 com Clientes: placeholder cortado e falta da linha de resumo, os dois corrigidos. C1–C6 ✅ (C5 1784/1784); C7 8/8.
