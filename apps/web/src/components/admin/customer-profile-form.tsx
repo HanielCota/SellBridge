@@ -60,6 +60,7 @@ export function CustomerProfileForm({ userId, name, email, locked }: ProfileForm
           <TextField
             id="customer-name"
             label="Nome"
+            autoComplete="off"
             value={values.name}
             errors={errors.name ?? []}
             onValueChange={(next) => setValues((current) => ({ ...current, name: next }))}
@@ -68,6 +69,7 @@ export function CustomerProfileForm({ userId, name, email, locked }: ProfileForm
             id="customer-email"
             label="E-mail"
             type="email"
+            autoComplete="off"
             value={values.email}
             errors={errors.email ?? []}
             onValueChange={(next) => setValues((current) => ({ ...current, email: next }))}

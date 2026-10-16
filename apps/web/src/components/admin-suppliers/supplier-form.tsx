@@ -24,7 +24,7 @@ const supplierFields = [
   { name: "name", label: "Nome", maximum: 150 },
   { name: "niche", label: "Nicho", maximum: 100 },
   { name: "city", label: "Cidade de origem", maximum: 120 },
-  { name: "logoUrl", label: "URL do logo (opcional)", maximum: 2048 },
+  { name: "logoUrl", label: "URL do logo (opcional)", maximum: 2048, type: "url" },
 ] as const;
 
 function SupplierTextFields({
@@ -43,6 +43,7 @@ function SupplierTextFields({
           key={field.name}
           id={`supplier-${field.name}`}
           label={field.label}
+          type={"type" in field ? field.type : "text"}
           value={values[field.name]}
           maxLength={field.maximum}
           errors={errors[field.name] ?? []}
