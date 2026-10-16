@@ -611,13 +611,6 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **O diálogo acompanha o lote até o fim:** depois de "Publicar" ele não fecha nem leva à lista; mostra o andamento e, no fim, quantos anúncios foram ao ar, quantos falharam (o motivo fica em Publicações) e quais produtos ficaram fora, com o motivo. Fechar antes não para nada: a publicação continua no worker.
 - **A seleção é limpa ao fechar depois de um lote**, para a próxima abertura não repetir produtos já publicados.
 
-## 2026-10-16: Matriz de planos do PDF atrás de flag (item 31.a, chat D)
-
-- `PENDENTE CLIENTE (D10)`: qual recurso e limite entra em cada plano. Enquanto isso, `PLAN_MATRIX_ENABLED` (padrão `false`) mantém os três planos de hoje (Gratuito 2/25, Pro 10/500, Business 50/5.000, todos os recursos liberados).
-- **Ligada:** os cinco planos do PDF (Start, Pro, Business, Black e Elite, de R$ 97 a R$ 997, preço de referência; o cobrado vem do Stripe) com lojas, anúncios, usuários, prazo do suporte e recursos (`advanced_reports`, `fiscal`, `ai_assistant`, `priority_support`) em `shared/domain/billing-plans.ts`. Os números só respeitam a ordem do PDF (cada plano dá mais que o anterior); o Gratuito continua como reserva de quem não assina (1 loja, 25 anúncios).
-- **No servidor:** a cota de lojas e anúncios lê o catálogo em vigor (`planMatrix` nas entradas dos repositórios); `requirePlanFeature` recusa um recurso fora do plano (M6) e entra nas telas de relatórios, fiscal e IA quando elas existirem. Usuários por plano ainda não são cobrados (não há convite de equipe para o revendedor).
-- **Fase 2 (31.b):** período de teste, página pública de planos e tempo de casa.
-
 ## 2026-10-16: Dados da conta e aceite de termos (item 26.a, chat D)
 
 - **Dados da conta (L2):** o passo "Seus dados" pede nome completo, CPF e **telefone com DDD** (obrigatório, só dígitos; celular com 9 ou fixo de 2 a 5). "Vendo como empresa (CNPJ)" abre CNPJ (dígitos verificadores da Receita) e razão social; desmarcado, a empresa é apagada. Colunas `phone`, `cnpj` e `company_name` em `tenant_profile` (migration 0037). Contas antigas ficam com telefone vazio até editarem os dados; o passo continua contando como feito com nome e CPF.

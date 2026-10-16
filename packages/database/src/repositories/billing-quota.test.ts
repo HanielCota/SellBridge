@@ -45,11 +45,6 @@ afterAll(async () => {
   await database.$client.end();
 });
 
-/** A store connected with billing on and the PDF's plan catalog (item 31.a). */
-function matrixStore(tenantId: string, shop: string) {
-  return { ...testStoreInput(tenantId, shop), billingEnabled: true, planMatrix: true };
-}
-
 function listingInput(productId: string) {
   return {
     supplierProductId: productId,
@@ -169,22 +164,5 @@ describe("listing quota by destination store", () => {
         billingEnabled: false,
       }),
     ).resolves.toHaveLength(1);
-  });
-
-  // Item 31.a (D10): with PLAN_MATRIX_ENABLED the limits come from the PDF's catalog.
-  it("checks the limits of the catalog in force", async () => {
-    await upsertStoreConnection(database, matrixStore(tenants.tenantB, "matrix-a"));
-    // The PDF's fallback allows one store; today's Gratuito allows two.
-    await expect(
-      upsertStoreConnection(database, matrixStore(tenants.tenantB, "matrix-b")),
-    ).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    });
-    await expect(
-      upsertStoreConnection(database, {
-        ...matrixStore(tenants.tenantB, "matrix-b"),
-        planMatrix: false,
-      }),
-    ).resolves.toMatchObject({ shopName: "Loja matrix-b" });
   });
 });

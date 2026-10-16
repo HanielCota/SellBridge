@@ -23,8 +23,6 @@ vi.mock("@/lib/server/environment", () => ({
 }));
 vi.mock("./stripe.server", () => ({
   billingConfigured: () => true,
-  planOfPrice: (price: string | undefined) =>
-    ({ price_pro: "pro", price_business: "business" })[price ?? ""] ?? "free",
   stripeClient: () => ({
     webhooks: new Stripe("sk_test_local").webhooks,
     subscriptions: { retrieve: mocks.retrieve, list: mocks.list },

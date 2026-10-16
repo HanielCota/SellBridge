@@ -6,20 +6,6 @@ obtidos dos preços cadastrados no Stripe, sem valores comerciais presumidos no 
 A assinatura pertence à organização; somente seu proprietário pode contratar ou acessar
 as faturas, atualizar o cartão, trocar de plano e cancelar pelo Stripe Customer Portal.
 
-## Matriz de planos do PDF (atrás de flag)
-
-`PLAN_MATRIX_ENABLED=true` troca os três planos de hoje pelos cinco do PDF: Start (R$ 97),
-Pro (R$ 197), Business (R$ 397), Black (R$ 697) e Elite (R$ 997). Cada plano tem lojas,
-anúncios, usuários, prazo de resposta do suporte e recursos (relatórios avançados, notas
-fiscais, assistente com IA, atendimento prioritário), em `packages/shared/src/domain/billing-plans.ts`.
-Sem assinatura vale o Gratuito, que não é vendido. Os números são provisórios até a decisão
-D10 do cliente. Com a flag ligada, `STRIPE_START_PRICE_ID`, `STRIPE_BLACK_PRICE_ID` e
-`STRIPE_ELITE_PRICE_ID` também são obrigatórias, e `STRIPE_PRO_PRICE_ID` e
-`STRIPE_BUSINESS_PRICE_ID` passam a ser os preços do Pro e do Business do PDF. A cota de lojas
-e anúncios segue o catálogo em vigor; recursos são checados no servidor com
-`requirePlanFeature` quando existirem no produto. Com a flag desligada, todos os recursos ficam
-liberados como hoje.
-
 ## Ativação
 
 1. Crie produtos Pro e Business no Stripe com preços fixos em BRL, recorrência mensal

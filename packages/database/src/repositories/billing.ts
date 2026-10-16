@@ -1,4 +1,4 @@
-import { effectiveBillingPlan, planCatalog } from "@sellbridge/shared/billing";
+import { effectiveBillingPlan } from "@sellbridge/shared/billing";
 import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
@@ -127,23 +127,15 @@ export async function applyBillingEvent(
  * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
  * instead of stopping halfway at the limit.
  */
-export interface CapacityRequest {
-  resource: "stores" | "listings";
-  /** Slots asked at once; 1 when left out. */
-  requested?: number;
-  /** PLAN_MATRIX_ENABLED: the PDF's catalog instead of today's three plans (item 31.a). */
-  planMatrix?: boolean | undefined;
-}
-
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
   tenantId: string,
-  request: CapacityRequest,
+  resource: "stores" | "listings",
+  requested = 1,
 ) {
-  const { resource, requested = 1, planMatrix = false } = request;
   await lockBillingTenant(database, tenantId);
   const account = await getBillingAccount(database, tenantId);
-  const plan = effectiveBillingPlan(account, new Date(), planCatalog(planMatrix));
+  const plan = effectiveBillingPlan(account);
   const usage = await billingUsage(database, tenantId);
   if (usage[resource] + requested > plan[resource]) {
     throw forbiddenError(

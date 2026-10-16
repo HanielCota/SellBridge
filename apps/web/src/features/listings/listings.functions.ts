@@ -1,4 +1,4 @@
-import { billingOptions } from "@/features/billing/stripe.server";
+import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   requestDescriptionResend,
   getSellableCatalogProduct,
@@ -93,7 +93,9 @@ export const retryListings = createServerFn({ method: "POST" })
       database,
       context.tenantId,
       data.listingIds,
-      billingOptions(),
+      {
+        billingEnabled: billingConfigured(),
+      },
     );
     await enqueueTargets(context.tenantId, targetIds);
     logger.info("listing.retry_requested", {

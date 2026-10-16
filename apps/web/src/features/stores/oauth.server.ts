@@ -1,4 +1,4 @@
-import { billingOptions } from "@/features/billing/stripe.server";
+import { billingConfigured } from "@/features/billing/stripe.server";
 import { randomBytes } from "node:crypto";
 import {
   assertActiveSupplier,
@@ -173,7 +173,7 @@ async function connectStore(input: ConnectStoreInput) {
     return null;
   }
   return upsertStoreConnection(database, {
-    ...billingOptions(),
+    billingEnabled: billingConfigured(),
     tenantId: input.tenantId,
     marketplace: input.marketplace,
     externalShopId: shop.externalShopId,

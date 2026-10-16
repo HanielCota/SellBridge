@@ -125,7 +125,7 @@ export async function resetListingErrorsForRetry(
   database: Database,
   tenantId: string,
   listingIds: readonly string[],
-  options: { billingEnabled: boolean; planMatrix?: boolean },
+  options: { billingEnabled: boolean },
 ): Promise<string[]> {
   await requireTenantListings(database, tenantId, listingIds);
   const failedTargets = and(
@@ -139,11 +139,7 @@ export async function resetListingErrorsForRetry(
         .select({ value: count() })
         .from(listingTargets)
         .where(failedTargets);
-      await assertBillingCapacity(transaction, tenantId, {
-        resource: "listings",
-        requested: failed?.value ?? 0,
-        planMatrix: options.planMatrix,
-      });
+      await assertBillingCapacity(transaction, tenantId, "listings", failed?.value ?? 0);
     }
     const reset = await transaction
       .update(listingTargets)

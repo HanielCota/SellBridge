@@ -4,9 +4,9 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: 26.a
-- Última etapa concluída: 31.a commitado (feito antes porque a senha da migration estava com o chat E)
-- Próximo passo: 26.a (senha da migration; CNPJ, telefone e versão dos termos já escritos fora da árvore)
+- Item/parte: — (fila do MVP fechada: 16 e 26)
+- Última etapa concluída: 26.a commitado (d449008 migration · 1672b16 telas · 7438b1c ajuste do e2e); 31.a revertido e guardado em `wip/d-31a-plan-matrix`
+- Próximo passo: esperar o principal; fase 2: 31.a, 31.b, 29 (D8)
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: ⏸A aprovado em 2026-10-16 como proposto: cota por loja de destino (registrar como D10), carência padrão de 7 dias, aceite de termos cobrado também dos usuários atuais; ordem 16.a → 16.b → 26.c → 26.b → 26.a → 31.a
 - Pendências: —
@@ -23,12 +23,12 @@ Registro do chat D na divisão de 2026-10-16 ([coordenacao.md](../prompts/coorde
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado · ⏭ fase 2
 
-| Item | Título                                 | Situação | Commit            | Notas                                                           |
-| ---- | -------------------------------------- | -------- | ----------------- | --------------------------------------------------------------- |
-| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                               |
-| 26   | Onboarding previsível e conta completa | ✅       | —                 | 26.a ✅ d449008 (migration) · 26.b ✅ 232ded1 · 26.c ✅ 50e66ec |
-| 31   | Planos como no PDF                     | ⬜       | —                 | 31.a ✅ (flag desligada, D10) · 31.b ⏭ fase 2                   |
-| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2  |
+| Item | Título                                 | Situação | Commit            | Notas                                                                                                             |
+| ---- | -------------------------------------- | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 16   | Riscos da assinatura                   | ✅       | 00e4199 · b4a9088 | 16.a ✅ 00e4199 · 16.b ✅ b4a9088                                                                                 |
+| 26   | Onboarding previsível e conta completa | ✅       | —                 | 26.a ✅ d449008 (migration) · 26.b ✅ 232ded1 · 26.c ✅ 50e66ec                                                   |
+| 31   | Planos como no PDF                     | ⏭        | —                 | 31.a ⏭ fase 2 (corte de 16/10; feito em 752c0a3, guardado em `wip/d-31a-plan-matrix` e revertido) · 31.b ⏭ fase 2 |
+| 29   | Painel do mockup do cliente            | ⏭        | —                 | D8 não registrada em `docs/decisions.md` em 2026-10-16: fase 2                                                    |
 
 ## Refinar depois
 
@@ -46,7 +46,7 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado ·
 
 ## Histórico
 
-### 2026-10-16 · Item 31.a · Matriz de planos atrás de flag — ✅ concluído (commit local)
+### 2026-10-16 · Item 31.a · Matriz de planos atrás de flag — ⏭ fase 2 (revertido pelo corte do MVP; guardado em `wip/d-31a-plan-matrix`)
 
 - Catálogos em `shared/domain/billing-plans.ts`: hoje (3 planos, tudo liberado) e o do PDF (Start a Elite, R$ 97 a R$ 997 de referência, usuários, prazo do suporte e recursos), com `TODO(client:D10)`. `PLAN_MATRIX_ENABLED` desligada por padrão; ligada, pede os preços do Start, Black e Elite (produção não inicia sem eles). Cota, webhook (preço → plano), checkout e `/assinatura` seguem o catálogo em vigor; `requirePlanFeature` pronto para as telas que vierem.
 - Portões: C1–C6 ✅ (1694 testes); e2e billing e store-supplier 2/2; D2 0 px em 375/768/1440 com a flag ligada.

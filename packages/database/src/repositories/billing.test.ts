@@ -135,7 +135,7 @@ describe("tenant billing persistence", () => {
     );
     const capacity = async () => {
       await database.transaction(async (transaction) =>
-        assertBillingCapacity(transaction, tenants.tenantA, { resource: "listings", requested: 0 }),
+        assertBillingCapacity(transaction, tenants.tenantA, "listings", 0),
       );
       return "checked";
     };
@@ -237,11 +237,11 @@ describe("tenant billing persistence", () => {
     const usage = await billingUsage(database, tenants.tenantA);
     await fillLiveSlots(tenants.tenantA, store.id, 23 - usage.listings);
     await expect(
-      assertBillingCapacity(database, tenants.tenantA, { resource: "listings", requested: 2 }),
+      assertBillingCapacity(database, tenants.tenantA, "listings", 2),
     ).resolves.toBeUndefined();
-    await expect(
-      assertBillingCapacity(database, tenants.tenantA, { resource: "listings", requested: 3 }),
-    ).rejects.toThrow("Limite do plano");
+    await expect(assertBillingCapacity(database, tenants.tenantA, "listings", 3)).rejects.toThrow(
+      "Limite do plano",
+    );
   });
 
   // Last: it moves tenant A's newest observation past 2038, so no earlier state applies after it.

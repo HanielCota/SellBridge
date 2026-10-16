@@ -75,8 +75,6 @@ export async function findConnectedStores(
 
 export interface UpsertStoreConnectionInput {
   billingEnabled?: boolean;
-  /** PLAN_MATRIX_ENABLED (item 31.a): which plan catalog the store limit reads. */
-  planMatrix?: boolean;
   tenantId: string;
   marketplace: Marketplace;
   externalShopId: string;
@@ -160,19 +158,9 @@ async function saveStoreConnection(
           ne(storeConnections.status, "disconnected"),
         ),
       );
-    if (!existing) {
-      await assertBillingCapacity(executor, input.tenantId, {
-        resource: "stores",
-        planMatrix: input.planMatrix,
-      });
-    }
+    if (!existing) await assertBillingCapacity(executor, input.tenantId, "stores");
   }
-  const {
-    billingEnabled: _billingEnabled,
-    planMatrix: _planMatrix,
-    supplierId = null,
-    ...connection
-  } = input;
+  const { billingEnabled: _billingEnabled, supplierId = null, ...connection } = input;
   const values = { ...connection, status: "connected" as const, lastError: null };
   const [row] = await executor
     .insert(storeConnections)

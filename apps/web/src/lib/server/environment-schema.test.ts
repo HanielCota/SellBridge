@@ -96,21 +96,6 @@ describe("serverEnvironmentSchema", () => {
       expect(unlimited.success).toBe(true);
     });
 
-    // Item 31.a (D10): the PDF's matrix needs the price of each of its five plans.
-    it("asks the prices of the PDF's plans when the matrix is on", () => {
-      const parsed = serverEnvironmentSchema.safeParse({
-        ...production,
-        ...stripe,
-        PLAN_MATRIX_ENABLED: "true",
-      });
-      expect(parsed.error?.issues.map((issue) => issue.path[0])).toEqual([
-        "STRIPE_START_PRICE_ID",
-        "STRIPE_BLACK_PRICE_ID",
-        "STRIPE_ELITE_PRICE_ID",
-      ]);
-      expect(serverEnvironmentSchema.parse(validEnvironment).PLAN_MATRIX_ENABLED).toBe(false);
-    });
-
     it("keeps development free of Stripe and defaults the grace to 7 days", () => {
       expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
         BILLING_UNLIMITED: false,
