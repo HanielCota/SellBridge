@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   bigserial,
+  check,
   index,
   integer,
   jsonb,
@@ -151,5 +153,6 @@ export const webhookDeliveries = pgTable(
      * the whole table (the other indexes start with the endpoint).
      */
     index("webhook_deliveries_event_idx").on(table.eventId),
+    check("webhook_deliveries_attempts_check", sql`${table.attempts} >= 0`),
   ],
 );

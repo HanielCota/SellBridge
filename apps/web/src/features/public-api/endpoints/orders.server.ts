@@ -7,6 +7,7 @@ import {
   type OrderStage,
   type OrderStatus,
 } from "@sellbridge/shared/schemas";
+import { freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { buildReportScope } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
@@ -37,8 +38,8 @@ const ordersQuerySchema = pageQuerySchema.extend(periodQuerySchema.shape).extend
     .describe(
       "Etapa do pedido: `open` (pending e paid), `shipping` (shipped), `done` (delivered) ou `issue` (cancelled e returned).",
     ),
-  search: z
-    .string()
+  // Same cleanup as every typed text: no control characters, and "É" in one form only.
+  search: freeText()
     .trim()
     .min(1)
     .max(100)

@@ -97,7 +97,10 @@ export const ticketAttachments = pgTable(
     sizeBytes: integer().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("ticket_attachments_ticket_idx").on(table.ticketId)],
+  (table) => [
+    index("ticket_attachments_ticket_idx").on(table.ticketId),
+    check("ticket_attachments_size_check", sql`${table.sizeBytes} >= 0`),
+  ],
 );
 
 /**

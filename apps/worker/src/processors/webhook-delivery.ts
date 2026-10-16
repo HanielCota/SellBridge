@@ -234,7 +234,9 @@ export function createWebhookDeliveryProcessor(dependencies: WebhookDeliveryDepe
     // Full batches mean more are due: keep claiming for a while instead of waiting 10 s for the
     // next run, so a burst of events drains at more than 25 per run.
     for (;;) {
-      const batch = await deliverBatch(dependencies, now);
+      // Read per batch: the loop runs for seconds, and a time from its start would date later
+      // attempts, their retry times and signatures in the past.
+      const batch = await deliverBatch(dependencies, currentTime());
       summary.delivered += batch.delivered;
       summary.failed += batch.failed;
       const keepGoing =

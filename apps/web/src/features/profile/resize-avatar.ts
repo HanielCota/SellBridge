@@ -18,7 +18,7 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
  * phone photo uploads as ~50 KB and every avatar has the same shape.
  */
 export async function resizeAvatar(file: File): Promise<Blob> {
-  if (!(ACCEPTED_AVATAR_TYPES as readonly string[]).includes(file.type)) {
+  if (!ACCEPTED_AVATAR_TYPES.some((type) => type === file.type)) {
     throw new Error("Escolha uma imagem PNG, JPG ou WEBP");
   }
   if (file.size > MAX_ORIGINAL_BYTES) {

@@ -190,7 +190,7 @@ describe("admin CSV orchestration", () => {
     }
   });
 
-  it("enqueues synchronization after saving a supplier, whose coverage may have shrunk", async () => {
+  it("enqueues synchronization after saving a supplier", async () => {
     mocks.saveSupplier.mockResolvedValue(savedSupplier);
 
     await expect(
@@ -202,7 +202,6 @@ describe("admin CSV orchestration", () => {
         state: "MG",
         city: "Belo Horizonte",
         logoUrl: null,
-        coverage: [{ state: "MG", city: null }],
         contactEmail: null,
         acceptWithinHours: 24,
         dispatchWithinHours: 48,

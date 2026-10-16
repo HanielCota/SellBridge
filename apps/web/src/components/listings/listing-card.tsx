@@ -9,7 +9,7 @@ import { SoldOutFooter, SoldOutRibbon } from "@/components/catalog/sold-out";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { useBulkListingActions } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
@@ -18,6 +18,7 @@ import { EditPriceDialog } from "./edit-price-dialog";
 import { ListingMenu } from "./listing-actions";
 import { RUN_STATE_DOT } from "./run-state-style";
 import { SalesSparkline } from "./sales-sparkline";
+import { Hint } from "@/components/ui/hint";
 
 /** Every store and its status, for the tooltip of the status line. */
 function storesSummary(row: ListingOverviewRow): string {
@@ -45,12 +46,11 @@ function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolea
         {margin === undefined ? null : (
           <>
             {" · "}
-            <span
-              className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}
-              title="Estimativa com o custo do fornecedor e a taxa média do marketplace"
-            >
-              margem {Math.round(margin)}%
-            </span>
+            <Hint label="Estimativa com o custo do fornecedor e a taxa média do marketplace">
+              <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
+                margem {wholeMarginPercent(margin)}%
+              </span>
+            </Hint>
           </>
         )}
       </p>

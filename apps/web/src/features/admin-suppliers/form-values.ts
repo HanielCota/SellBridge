@@ -16,14 +16,7 @@ export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
   return errors;
 }
 
-export interface CoverageDraft {
-  state: string;
-  city: string;
-}
-export function supplierFormValues(detail?: {
-  supplier: AdminSupplier;
-  coverage: { state: string; city: string | null }[];
-}) {
+export function supplierFormValues(detail?: { supplier: AdminSupplier }) {
   const supplier = detail?.supplier;
   return {
     name: supplier?.name ?? "",
@@ -39,10 +32,6 @@ export function supplierFormValues(detail?: {
     dispatchWithinHours: String(
       supplier?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
     ),
-    coverage: detail?.coverage.map((region) => ({
-      state: region.state,
-      city: region.city ?? "",
-    })) ?? [{ state: "SP", city: "" }],
   };
 }
 
@@ -64,10 +53,6 @@ export function supplierFormInput(
     contactEmail: values.contactEmail.trim() || null,
     acceptWithinHours: hoursInput(values.acceptWithinHours),
     dispatchWithinHours: hoursInput(values.dispatchWithinHours),
-    coverage: values.coverage.map((region) => ({
-      state: region.state,
-      city: region.city.trim() || null,
-    })),
   };
 }
 

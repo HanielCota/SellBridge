@@ -15,7 +15,7 @@ import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feed
 import { TextField } from "@/components/form/form-field";
 import { Button } from "@/components/ui/button";
 import {
-  BRIDGE_REWIND_MS,
+  BRIDGE_REWIND_MILLISECONDS,
   StoreBridge,
   type StoreBridgeStatus,
 } from "@/components/stores/store-bridge";
@@ -77,22 +77,22 @@ const REQUESTED_PERMISSIONS = [
  * The arc draws and the permissions tick for at least this long, even when the server answers
  * sooner, so the link reads as something that happened. Feeds `--link-duration` in the CSS.
  */
-const LINK_MS = 1500;
+const LINK_MILLISECONDS = 1500;
 
 /** Long enough to register the latch and the check before the page leaves for the callback. */
-const CONNECTED_PAUSE_MS = 700;
+const CONNECTED_PAUSE_MILLISECONDS = 700;
 
 /** The checks undo last-first, this far apart. */
-const CHECK_REWIND_STAGGER_MS = 60;
-const CHECK_REWIND_MS = 200;
+const CHECK_REWIND_STAGGER_MILLISECONDS = 60;
+const CHECK_REWIND_MILLISECONDS = 200;
 
 /** Holds `failed` until the arc and the checks are back, then the page settles to idle. */
-const FAILED_HOLD_MS = BRIDGE_REWIND_MS + 2 * CHECK_REWIND_STAGGER_MS;
+const FAILED_HOLD_MILLISECONDS = BRIDGE_REWIND_MILLISECONDS + 2 * CHECK_REWIND_STAGGER_MILLISECONDS;
 
-const linkDurationStyle: CSSProperties = { "--link-duration": `${LINK_MS}ms` };
+const linkDurationStyle: CSSProperties = { "--link-duration": `${LINK_MILLISECONDS}ms` };
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 type ConsentSearch = z.infer<typeof consentSearchSchema>;
@@ -115,7 +115,7 @@ function useConsentForm(search: ConsentSearch) {
     if (!failed) {
       return undefined;
     }
-    const timer = setTimeout(() => setFailed(false), FAILED_HOLD_MS);
+    const timer = setTimeout(() => setFailed(false), FAILED_HOLD_MILLISECONDS);
     return () => clearTimeout(timer);
   }, [failed]);
 
@@ -125,7 +125,7 @@ function useConsentForm(search: ConsentSearch) {
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       setFailed(false);
-      const chime = startLinkChime(LINK_MS);
+      const chime = startLinkChime(LINK_MILLISECONDS);
       try {
         const [result] = await Promise.all([
           approveMockAuthorization({
@@ -135,11 +135,11 @@ function useConsentForm(search: ConsentSearch) {
               redirectUri: search.redirect_uri,
             },
           }),
-          wait(LINK_MS),
+          wait(LINK_MILLISECONDS),
         ]);
         setConnected(true);
         chime.linked();
-        await wait(CONNECTED_PAUSE_MS);
+        await wait(CONNECTED_PAUSE_MILLISECONDS);
         window.location.assign(result.redirectTo);
       } catch (error) {
         chime.failed();
@@ -195,8 +195,8 @@ function useRewindChecks(status: StoreBridgeStatus) {
     const rows = Array.from(list.children);
     const animations = rows.flatMap((row, index) => {
       const options = {
-        duration: CHECK_REWIND_MS,
-        delay: (rows.length - 1 - index) * CHECK_REWIND_STAGGER_MS,
+        duration: CHECK_REWIND_MILLISECONDS,
+        delay: (rows.length - 1 - index) * CHECK_REWIND_STAGGER_MILLISECONDS,
         easing: "ease-out",
       };
       const icon = row.querySelector(".consent-permission-icon");
@@ -329,7 +329,11 @@ function MockConsentPage() {
   const { form, submitError, connected, failed } = useConsentForm(search);
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-4 py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-svh items-center justify-center bg-background px-4 py-10"
+    >
       <div
         className="surface-card w-full max-w-md space-y-8 rounded-3xl bg-card p-6 sm:p-8"
         style={linkDurationStyle}

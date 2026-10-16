@@ -1,0 +1,1 @@
+ALTER TABLE "store_connections" ADD COLUMN "last_webhook_at" timestamp with time zone;

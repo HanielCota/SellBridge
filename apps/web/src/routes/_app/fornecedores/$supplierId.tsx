@@ -35,6 +35,7 @@ import {
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { normalizeCostRange } from "@/features/catalog/cost-range";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -227,7 +228,14 @@ function CostRangeInputs({ minCost, maxCost, onChange }: CostRangeInputsProps) {
   const [max, setMax] = useState(formatCentsForInput(maxCost));
 
   function commit() {
-    onChange({ minCost: parseOptionalBrlToCents(min), maxCost: parseOptionalBrlToCents(max) });
+    const range = normalizeCostRange({
+      minCost: parseOptionalBrlToCents(min),
+      maxCost: parseOptionalBrlToCents(max),
+    });
+    // The fields show the filter that was applied, not what was typed.
+    setMin(formatCentsForInput(range.minCost));
+    setMax(formatCentsForInput(range.maxCost));
+    onChange(range);
   }
 
   return (

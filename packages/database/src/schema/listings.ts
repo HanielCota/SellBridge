@@ -1,4 +1,14 @@
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { listingTargetStatusEnum } from "./enums.ts";
 import { storeConnections } from "./stores.ts";
@@ -73,6 +83,7 @@ export const listingTargets = pgTable(
     index("listing_targets_listing_idx").on(table.listingId),
     uniqueIndex("listing_targets_idempotency_idx").on(table.idempotencyKey),
     uniqueIndex("listing_targets_listing_store_idx").on(table.listingId, table.storeConnectionId),
+    check("listing_targets_attempts_check", sql`${table.attempts} >= 0`),
     /** Every incoming order maps the marketplace's listing ids of one store to our targets. */
     index("listing_targets_store_external_idx").on(table.storeConnectionId, table.externalId),
   ],

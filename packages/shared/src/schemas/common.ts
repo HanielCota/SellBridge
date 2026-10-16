@@ -8,6 +8,17 @@ export function stripControlCharacters(value: string): string {
   return value.replace(CONTROL_CHARACTERS, "");
 }
 
+/** Half of a UTF-16 pair with no other half next to it. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Text with each lone surrogate replaced by U+FFFD, as `String.prototype.toWellFormed` does (not
+ * in the ES2023 lib). Postgres refuses such a half in jsonb, and the save failed with a 500.
+ */
+export function toWellFormedText(value: string): string {
+  return value.replace(LONE_SURROGATE, "�");
+}
+
 /**
  * Text typed or pasted by people (and read from CSV): invisible control characters are dropped
  * before any other rule, so a pasted NUL never turns a save into a database error. NFC makes "É"
@@ -15,7 +26,30 @@ export function stripControlCharacters(value: string): string {
  * typed on Windows must match).
  */
 export function freeText() {
-  return z.string().overwrite((value) => stripControlCharacters(value).normalize("NFC"));
+  return z
+    .string()
+    .overwrite((value) => toWellFormedText(stripControlCharacters(value)).normalize("NFC"));
+}
+
+/** Cuts at `end`, one code unit earlier when that would split an emoji's surrogate pair. */
+export function sliceWholeCharacters(text: string, end: number): string {
+  const lastCode = text.charCodeAt(end - 1);
+  const splitsPair = lastCode >= 0xd800 && lastCode <= 0xdbff;
+  return text.slice(0, splitsPair ? end - 1 : end);
+}
+
+/** Longest text a list search matches on; the search boxes stop typing here too. */
+export const MAX_SEARCH_LENGTH = 100;
+
+/**
+ * A list's search text, cut to `MAX_SEARCH_LENGTH` instead of refused. A refused search fell
+ * back to "no filter", so a pasted 120-character title showed (and exported) every order; its
+ * first 100 characters still narrow the list to what was meant.
+ */
+export function searchQuery() {
+  return freeText()
+    .trim()
+    .transform((value) => sliceWholeCharacters(value, MAX_SEARCH_LENGTH).trimEnd());
 }
 
 /**

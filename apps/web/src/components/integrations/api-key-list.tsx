@@ -7,6 +7,7 @@ import {
   useIntegrationsLocked,
 } from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   API_KEY_STATUS_LABELS,
@@ -90,17 +91,21 @@ function ApiKeyRow({
         <KeyDates apiKey={apiKey} />
       </div>
       {status === "revoked" ? null : (
-        <Button
-          variant="destructive"
-          size="sm"
+        <DisabledHint
+          reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
           className="self-start"
-          disabled={locked}
-          title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-          aria-label={`Revogar a chave ${apiKey.name}`}
-          onClick={() => onRevoke(apiKey)}
         >
-          Revogar
-        </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="self-start"
+            disabled={locked}
+            aria-label={`Revogar a chave ${apiKey.name}`}
+            onClick={() => onRevoke(apiKey)}
+          >
+            Revogar
+          </Button>
+        </DisabledHint>
       )}
     </li>
   );

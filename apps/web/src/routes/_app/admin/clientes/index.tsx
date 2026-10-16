@@ -51,6 +51,7 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
+import { attentionSummary } from "@/features/admin/customer-summary";
 
 export const Route = createFileRoute("/_app/admin/clientes/")({
   validateSearch: customersSearchSchema,
@@ -403,14 +404,6 @@ function ListView({ search }: { search: CustomersSearch }) {
       />
     </>
   );
-}
-
-function attentionSummary(data: CustomersPageData): string {
-  const customers = `${data.customerCount} ${data.customerCount === 1 ? "cliente" : "clientes"}`;
-  if (data.needingAttention === 0) {
-    return `${customers}, todos em dia.`;
-  }
-  return `${customers} · ${data.needingAttention} ${data.needingAttention === 1 ? "precisa" : "precisam"} de atenção agora.`;
 }
 
 function NoCustomers({

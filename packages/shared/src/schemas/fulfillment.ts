@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, MAX_PAGE } from "./common.ts";
+import { freeText, MAX_PAGE, searchQuery } from "./common.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { isoDateSchema, PERIOD_PRESETS } from "./period.ts";
 
@@ -46,9 +46,11 @@ export const SHIPMENT_ACTORS = {
   reseller: "Revendedor",
   supplier: "Fornecedor",
   marketplace: "Mercado Livre",
+  /** The automatic forward (item 21.b), done for the reseller when the order is paid. */
+  sellbridge: "SellBridge",
 } as const;
 /** Who moves a shipment by hand: the reseller in the app, or the supplier through its link. */
-export type ShipmentOperator = Exclude<keyof typeof SHIPMENT_ACTORS, "marketplace">;
+export type ShipmentOperator = Exclude<keyof typeof SHIPMENT_ACTORS, "marketplace" | "sellbridge">;
 /** Why the supplier link stops at dispatch; said by the server and shown on the link alike. */
 export const DELIVERY_CONFIRMED_BY =
   "Quem confirma a entrega é a loja que fez a venda, ou o rastreio do Mercado Livre quando a venda é de lá.";
@@ -111,19 +113,23 @@ export const shipmentUpdateSchema = z
       .default(""),
     note: freeText().trim().max(1000).default(""),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((data, context) => {
     // Shipping needs the carrier and code; an occurrence on a parcel already shipped (it has a
     // note) may come without them: the marketplace may never have said which carrier it was.
     // The server checks the move into "shipped" itself (fulfillment.ts).
     if (data.status === "shipped" && !data.note && (!data.carrier || !data.trackingCode)) {
-      ctx.addIssue({
+      context.addIssue({
         code: "custom",
         message: "Informe transportadora e código de rastreio",
         path: ["trackingCode"],
       });
     }
     if (data.status === "cancelled" && !data.note) {
-      ctx.addIssue({ code: "custom", message: "Informe o motivo do cancelamento", path: ["note"] });
+      context.addIssue({
+        code: "custom",
+        message: "Informe o motivo do cancelamento",
+        path: ["note"],
+      });
     }
   });
 export const supplierTokenSchema = z.string().regex(/^[a-f0-9]{64}$/, "Link inválido");
@@ -148,12 +154,14 @@ export const operationsSearchSchema = z.object({
  */
 export const operationsUrlSearchSchema = z.object({
   view: withFallback(z.enum(["operations", "reviews"]).default("operations"), "operations"),
-  opQuery: optionalParameter(z.string().trim().max(100)),
+  opQuery: optionalParameter(searchQuery()),
   stage: withFallback(z.enum(OPERATION_STAGES).default("all"), "all"),
   period: withFallback(z.enum(OPERATION_PERIODS).default("all"), "all"),
   from: optionalParameter(isoDateSchema),
   to: optionalParameter(isoDateSchema),
   store: optionalParameter(z.uuid()),
-  opPage: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  // Same ceiling as the server's `page`: past it the server refused the whole request and the
+  // tab showed an error instead of the last page.
+  opPage: withFallback(z.coerce.number().int().min(1).max(MAX_PAGE).default(1), 1),
 });
 export type OperationsUrlSearch = z.infer<typeof operationsUrlSearchSchema>;

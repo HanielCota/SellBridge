@@ -8,8 +8,6 @@ export const tokenResponseSchema = z.object({
   refresh_token: z.string().min(1).optional(),
 });
 
-export const userSchema = z.object({ id: z.union([z.number(), z.string()]), nickname: z.string() });
-
 export const errorBodySchema = z
   .object({
     error: z.string().optional(),
@@ -51,10 +49,14 @@ const reaisSchema = z.number().nonnegative().max(21_474_836.47);
 const MAX_ORDER_LINE_QUANTITY = 100_000;
 
 /**
- * Numeric ids from the marketplace. Above 2^53 JSON.parse has already rounded them, and a
- * rounded id names another order: `.int()` (safe integers only) refuses it instead.
+ * Numeric ids from the marketplace: a safe integer, or the exact digits `parseMercadoLivreJson`
+ * keeps for one past 2^53. A number that still arrives rounded is refused by `.int()` (safe
+ * integers only), since a rounded id names another order.
  */
-const externalIdSchema = z.union([z.number().int(), z.string().min(1)]);
+export const externalIdSchema = z.union([z.number().int(), z.string().regex(/^\d{1,20}$/)]);
+
+/** The connected seller: its id becomes the store's `externalShopId`, so it must not be rounded. */
+export const userSchema = z.object({ id: externalIdSchema, nickname: z.string() });
 
 export const orderSchema = z.object({
   id: externalIdSchema,
@@ -88,12 +90,21 @@ export const ordersSearchSchema = z.object({
   paging: z.object({ total: z.number(), offset: z.number(), limit: z.number() }).optional(),
 });
 
+/**
+ * A notification as documented. It is unsigned and anyone who knows our (public) application id
+ * can post one, so each field has a ceiling well above the real values (a 36-character `_id`,
+ * "/orders/2000003508419013") and only these fields are stored: a forged post can no longer
+ * pad a 64 KB row into the events table, nor an `_id` past what its unique index can hold.
+ */
 export const notificationSchema = z.object({
-  _id: z.string().min(1),
-  resource: z.string().min(1),
+  _id: z.string().min(1).max(128),
+  resource: z.string().min(1).max(256),
   user_id: externalIdSchema,
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(64),
   application_id: externalIdSchema,
+  attempts: z.number().int().min(0).max(1000).optional(),
+  sent: z.string().max(64).optional(),
+  received: z.string().max(64).optional(),
 });
 
 /** Fields of a stored notification that identify the order and the seller it belongs to. */
@@ -125,7 +136,7 @@ export const itemSearchSchema = z.object({
   paging: z.object({ total: z.number().int().nonnegative() }),
 });
 export const reconciledItemSchema = createdItemSchema.extend({
-  seller_id: z.union([z.number(), z.string()]),
+  seller_id: externalIdSchema,
   seller_custom_field: z.string().nullable(),
   status: z.string(),
 });

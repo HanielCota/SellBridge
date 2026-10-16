@@ -5,7 +5,7 @@ import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
@@ -36,7 +36,7 @@ function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; sol
           <>
             {" · "}
             <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
-              margem {Math.round(margin)}%
+              margem {wholeMarginPercent(margin)}%
             </span>
           </>
         )}

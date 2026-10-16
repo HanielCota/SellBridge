@@ -1,5 +1,6 @@
 import { billingConfigured } from "@/features/billing/stripe.server";
 import {
+  assertBillingCapacity,
   assertStoresSellSupplier,
   createListingWithTargets,
   type CreatedListing,
@@ -86,6 +87,11 @@ export async function publishListings(
   drafts: readonly NewListingInput[],
   storeIds: readonly string[],
 ): Promise<string[]> {
+  // Each listing is its own transaction; checking the whole batch first keeps a batch that does
+  // not fit the plan from publishing its first few and failing on the rest.
+  if (billingConfigured()) {
+    await assertBillingCapacity(database, tenantId, "listings", drafts.length);
+  }
   const targetIds: string[] = [];
   try {
     for (const draft of drafts) {

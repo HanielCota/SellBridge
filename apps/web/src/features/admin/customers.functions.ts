@@ -53,7 +53,7 @@ import { PROTECTED_ACCOUNT_MESSAGE } from "@/lib/server/account-protection";
 import { auth, isAdminEmail } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { renderActionEmail } from "@/lib/server/email-layout";
+import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { sendEmail } from "@/lib/server/mailer";
 import { adminMiddleware } from "@/lib/server/middleware";
 import { requestStockSync } from "@/lib/server/stock-sync";
@@ -126,14 +126,19 @@ async function recordAdminAction(
   await recordAdminEvent(database, { adminId, userId, action, ...(details ? { details } : {}) });
 }
 
+/**
+ * The ranked customers and whether the list was cut: past the cap the ranking only sees the
+ * newest accounts, and the screen must say so instead of reading as the whole base.
+ */
 async function loadRankedCustomers(search: string | undefined, supplierId?: string) {
   const now = new Date();
   const rows = await listCustomerSignals(database, { search, supplierId }, now);
-  if (rows.length >= MAX_CUSTOMERS_RANKED) {
-    // Past the cap the ranking only sees the newest accounts: time to move it into SQL.
+  const truncated = rows.length > MAX_CUSTOMERS_RANKED;
+  if (truncated) {
+    // Time to move the ranking into SQL.
     logger.warn("admin.customer_ranking_capped", { limit: MAX_CUSTOMERS_RANKED });
   }
-  return rankCustomers(rows, now);
+  return { customers: rankCustomers(rows.slice(0, MAX_CUSTOMERS_RANKED), now), truncated };
 }
 
 /**
@@ -148,7 +153,7 @@ export const adminListCustomers = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(customersSearchSchema)
   .handler(async ({ data }) => {
-    const [customers, suppliers] = await Promise.all([
+    const [{ customers, truncated }, suppliers] = await Promise.all([
       loadRankedCustomers(data.query, data.supplier),
       listActiveSuppliers(database, {}),
     ]);
@@ -158,6 +163,8 @@ export const adminListCustomers = createServerFn({ method: "GET" })
       issueCounts: countIssues(customers),
       needingAttention: customers.filter((customer) => customer.health.issues.length > 0).length,
       customerCount: customers.length,
+      /** The cap the list stopped at, or null when it holds every matching account. */
+      rankingLimit: truncated ? MAX_CUSTOMERS_RANKED : null,
       supplierOptions: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
     };
   });
@@ -167,7 +174,7 @@ export const adminListCustomerIssues = createServerFn({ method: "GET" })
   .validator(customerIssuesSearchSchema)
   .handler(async ({ context, data }) => {
     const now = new Date();
-    const [customers, triage] = await Promise.all([
+    const [{ customers }, triage] = await Promise.all([
       loadRankedCustomers(data.query),
       listIssueTriage(database),
     ]);
@@ -184,7 +191,7 @@ export const adminListCustomerIssues = createServerFn({ method: "GET" })
 export const adminCustomerJourney = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(customerIssuesSearchSchema.pick({ query: true }))
-  .handler(async ({ data }) => buildJourney(await loadRankedCustomers(data.query)));
+  .handler(async ({ data }) => buildJourney((await loadRankedCustomers(data.query)).customers));
 
 /** What the viewing admin may do on this account, for the screen to lock what the server refuses. */
 function accountAccess(actor: AccountIdentity, customer: CustomerSummary) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escapeHtml, renderActionEmail } from "./email-layout.ts";
+import { escapeHtml, renderActionEmail } from "./layout.ts";
 
 const content = {
   subject: "Confirme seu e-mail no SellBridge",

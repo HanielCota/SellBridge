@@ -14,6 +14,8 @@ export const apiKeyNameSchema = freeText()
 const apiKeyScopesSchema = z
   .array(apiScopeSchema)
   .min(1, "Escolha pelo menos uma permissão")
+  // More entries than there are scopes can only be repeats.
+  .max(apiScopeSchema.options.length)
   .transform((scopes) => [...new Set(scopes)]);
 
 /** What the server function accepts; whether `expiresAt` is in the future is checked there. */

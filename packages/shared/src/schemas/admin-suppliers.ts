@@ -1,12 +1,26 @@
 import { z } from "zod";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { stateSchema } from "../domain/cep.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 
 export const MAX_PRODUCT_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_PRODUCT_CSV_ROWS = 1000;
-const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
+/**
+ * A shelf count an admin can type. Far below int4, so a return adding units back (orders carry at
+ * most 100,000 units, see the Mercado Livre schemas) can never push `stock` out of range.
+ */
+export const MAX_PRODUCT_STOCK = 10_000_000;
+const productStockSchema = z
+  .number()
+  .int()
+  .min(0, "O estoque não pode ser negativo")
+  .max(MAX_PRODUCT_STOCK, "O estoque pode ser de até 10.000.000 unidades");
+/**
+ * The shelf count the edit form was opened with. It goes below zero when shipped units outran
+ * the last count (see `consume` in stock-reservations), and such a product must stay editable.
+ */
+const openedShelfCountSchema = z.number().int().min(-2_147_483_648).max(2_147_483_647);
 /** Cost and suggested price stay within what a listing may charge, so every rule can sell it. */
 const productPriceCentsSchema = z
   .number()
@@ -20,7 +34,7 @@ const imageUrlSchema = z
 const MAX_MERCADO_LIVRE_ATTRIBUTES = 100;
 
 export const adminSupplierSearchSchema = z.object({
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(5).max(50).default(20), 20),
 });
@@ -46,11 +60,10 @@ const supplierContactEmailSchema = z
   .pipe(z.email("Informe um e-mail válido").max(254))
   .nullable();
 
-export const supplierCoverageSchema = z.object({
-  state: stateSchema,
-  city: freeText().trim().min(1).max(120).nullable(),
-});
-
+/**
+ * A supplier as the admin registers it. State and city say where it ships from; any reseller in
+ * Brazil sells any supplier, so there is no delivery area to fill in.
+ */
 export const adminSupplierValuesSchema = z
   .object({
     name: freeText().trim().min(1, "Informe o nome").max(150),
@@ -59,7 +72,6 @@ export const adminSupplierValuesSchema = z
     state: stateSchema,
     city: freeText().trim().min(1, "Informe a cidade").max(120),
     logoUrl: imageUrlSchema.nullable(),
-    coverage: z.array(supplierCoverageSchema).min(1, "Informe ao menos uma região").max(200),
     contactEmail: supplierContactEmailSchema,
     acceptWithinHours: supplierDeadlineSchema,
     dispatchWithinHours: supplierDeadlineSchema,
@@ -71,20 +83,6 @@ export const adminSupplierValuesSchema = z
         path: ["acceptWithinHours"],
         message: "O prazo para aceitar não pode passar o prazo para despachar",
       });
-    }
-  })
-  .superRefine(({ coverage }, context) => {
-    const seen = new Set<string>();
-    for (const [index, region] of coverage.entries()) {
-      const key = `${region.state}:${region.city?.toLowerCase() ?? ""}`;
-      if (seen.has(key)) {
-        context.addIssue({
-          code: "custom",
-          path: ["coverage", index],
-          message: "Cobertura duplicada",
-        });
-      }
-      seen.add(key);
     }
   });
 export type AdminSupplierValues = z.infer<typeof adminSupplierValuesSchema>;
@@ -99,7 +97,7 @@ export const adminProductValuesSchema = z.object({
   description: freeText().trim().max(20_000),
   costCents: productPriceCentsSchema,
   suggestedPriceCents: productPriceCentsSchema,
-  stock: postgresIntegerSchema,
+  stock: productStockSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
   mercadoLivreAttributes: z
@@ -118,7 +116,7 @@ export const adminSaveProductSchema = adminProductValuesSchema.extend({
   supplierId: z.uuid(),
   productId: z.uuid().optional(),
   /** The shelf count the edit form was opened with; sales may have moved it since. */
-  expectedStock: postgresIntegerSchema.optional(),
+  expectedStock: openedShelfCountSchema.optional(),
 });
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),

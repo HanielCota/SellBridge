@@ -361,6 +361,30 @@ describe("notifications", () => {
     expect(malformed).toMatchObject({ valid: false, payload: null });
   });
 
+  // Regression: the unsigned notification was stored whole, so a forged post padded with 60 KB
+  // of extra fields grew the events table by 60 KB a request.
+  it("keeps only the documented fields of the notification", async () => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, pad: "x".repeat(60_000) }),
+    });
+    expect(result.valid && result.event.payload).toEqual(notification);
+  });
+
+  it.each([
+    ["an _id", { _id: "x".repeat(129) }],
+    ["a topic", { topic: "x".repeat(65) }],
+    ["a resource", { resource: `/orders/${"9".repeat(250)}` }],
+  ])("refuses %s longer than any real notification", async (_field, override) => {
+    const { ml } = connector({});
+    const result = await ml.verifyWebhook({
+      headers: new Headers(),
+      rawBody: JSON.stringify({ ...notification, ...override }),
+    });
+    expect(result.valid).toBe(false);
+  });
+
   it("reads the seller and order from stored order notifications", () => {
     const { ml } = connector({});
     expect(ml.parseStoredOrderEvent("orders_v2", notification)).toEqual({

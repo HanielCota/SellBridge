@@ -4,6 +4,9 @@ import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
 import { requestJson, type MercadoLivreConfig, type MercadoLivreContext } from "./client.ts";
+import { externalIdSchema } from "./schemas.ts";
+
+const MAX_LABEL_BYTES = 10 * 1024 * 1024;
 
 const remoteAddressSchema = z.object({
   receiver_name: z.string().nullable().optional(),
@@ -16,7 +19,8 @@ const remoteAddressSchema = z.object({
   state: z.object({ id: z.string(), name: z.string().optional() }),
 });
 const shippingSchema = z.object({
-  id: z.union([z.number(), z.string()]),
+  // A rounded shipment id names another shipment (and another label): safe integers only.
+  id: externalIdSchema,
   status: z.string(),
   type: z.string().optional(),
   substatus: z.string().nullable().optional(),
@@ -35,12 +39,10 @@ const shippingSchema = z.object({
     .optional(),
 });
 const shippingOrderSchema = z.object({
-  seller: z.object({ id: z.union([z.string(), z.number()]) }),
+  seller: z.object({ id: externalIdSchema }),
 });
 /** Hosted View of `GET /orders/{id}/shipments`: ids and types only; 204 (no body) until created. */
-const shipmentRefsSchema = z
-  .array(z.object({ id: z.union([z.number(), z.string()]), type: z.string() }))
-  .nullable();
+const shipmentRefsSchema = z.array(z.object({ id: externalIdSchema, type: z.string() })).nullable();
 
 /**
  * A dated node of `lead_time`, as the "Mercado Envios" pages show it. The estimate's `type` says
@@ -213,11 +215,10 @@ export async function getMercadoLivreLabel(
   const response = await fetchWithRetry(
     config.fetchImplementation ?? fetch,
     `https://api.mercadolibre.com/shipment_labels?shipment_ids=${encodeURIComponent(shipping.shipmentId)}&response_type=pdf`,
-    {
-      headers: { authorization: `Bearer ${store.accessToken}` },
-      signal: AbortSignal.timeout(30000),
-    },
-    config.retry,
+    { headers: { authorization: `Bearer ${store.accessToken}` } },
+    // A label is a PDF of up to 10 MB. The 30s deadline is per attempt: a caller signal shared by
+    // every attempt fired in the middle of the second one and read as "cancelled".
+    { ...config.retry, timeoutMilliseconds: 30_000, maxBodyBytes: MAX_LABEL_BYTES },
   );
   if (!response.ok)
     throw marketplaceError(`Não foi possível emitir a etiqueta (HTTP ${response.status})`, {
@@ -225,7 +226,7 @@ export async function getMercadoLivreLabel(
       retryable: response.status >= 500,
     });
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.length > 10 * 1024 * 1024 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
+  if (bytes.length > MAX_LABEL_BYTES || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
     throw marketplaceError("O marketplace não retornou uma etiqueta PDF válida", {
       retryable: false,
     });

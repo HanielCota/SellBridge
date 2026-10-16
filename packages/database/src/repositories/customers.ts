@@ -159,7 +159,10 @@ function customersQuery(database: Database, now: Date) {
     .leftJoin(tenantProfile, eq(tenantProfile.tenantId, member.organizationId));
 }
 
-/** Every customer matching the search, newest first, for the in-memory health ranking. */
+/**
+ * Every customer matching the search, newest first, for the in-memory health ranking. Reads one
+ * past `MAX_CUSTOMERS_RANKED`, so the caller can tell a cut list from one of exactly that size.
+ */
 export async function listCustomerSignals(
   database: Database,
   filters: { search?: string | undefined; supplierId?: string | undefined },
@@ -168,7 +171,7 @@ export async function listCustomerSignals(
   return customersQuery(database, now)
     .where(and(customerSearch(filters.search), customerSupplier(filters.supplierId)))
     .orderBy(desc(user.createdAt))
-    .limit(MAX_CUSTOMERS_RANKED);
+    .limit(MAX_CUSTOMERS_RANKED + 1);
 }
 
 /** Counted orders per week, oldest first, ending with the week that closes at `now`. */

@@ -1,5 +1,6 @@
 import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
 import { serverErrorLogging } from "@/lib/server/error-logging";
+import { bodyLimitFor, declaresMoreThan, payloadTooLarge } from "@/lib/server/request-body-limit";
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
@@ -46,9 +47,22 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
   return response;
 });
 
+/**
+ * Refuses a server function or auth call whose declared body is over its cap before anything
+ * parses it. A chunked body declares no length; server.ts counts those bytes as they arrive.
+ */
+const bodyLimitMiddleware = createMiddleware().server(async ({ next, request }) => {
+  const limit = bodyLimitFor(new URL(request.url).pathname);
+  if (limit !== null && declaresMoreThan(request, limit)) {
+    return payloadTooLarge();
+  }
+  return next();
+});
+
 export const startInstance = createStart(() => ({
   functionMiddleware: [serverErrorLogging],
   requestMiddleware: [
+    bodyLimitMiddleware,
     createCsrfMiddleware({ filter: (context) => context.handlerType === "serverFn" }),
     securityHeadersMiddleware,
   ],

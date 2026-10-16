@@ -1,9 +1,9 @@
 import type { AppError } from "@sellbridge/shared/errors";
-import { readJsonBody } from "@sellbridge/shared/http-body";
 import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, isIdempotentMethod, type FetchLike, type RetryOptions } from "../http.ts";
 import { blockingCauses, explainMercadoLivreError } from "./error-messages.ts";
+import { readMercadoLivreJson } from "./json.ts";
 import { errorBodySchema } from "./schemas.ts";
 
 export interface MercadoLivreConfig {
@@ -46,7 +46,7 @@ export function credentials(config: MercadoLivreConfig): {
  * whether it took effect, so it is reported as permanent instead of letting a job repeat it.
  */
 async function readError(response: Response, isIdempotent: boolean): Promise<AppError> {
-  const raw = await readJsonBody(response);
+  const raw = await readMercadoLivreJson(response);
   const body = errorBodySchema.safeParse(raw);
   if (response.status === 401 || (body.success && body.data.error === "invalid_grant")) {
     return marketplaceAuthError();
@@ -80,7 +80,7 @@ export async function requestJson<TResponse>(
   if (!response.ok) {
     throw await readError(response, isIdempotentMethod(requestInit.method));
   }
-  const parsed = request.schema.safeParse(await readJsonBody(response));
+  const parsed = request.schema.safeParse(await readMercadoLivreJson(response));
   if (!parsed.success) {
     throw marketplaceError("Resposta inesperada do Mercado Livre", { retryable: false });
   }

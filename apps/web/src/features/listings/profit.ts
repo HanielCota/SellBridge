@@ -23,6 +23,14 @@ export function isThinMargin(marginPercent: number): boolean {
   return marginPercent < THIN_MARGIN_PERCENT;
 }
 
+/**
+ * The margin as a whole percent on screen. Rounded down, never to the nearest: 14.9% rounded
+ * read "15%" painted as a thin margin, and a margin is better shown short than inflated.
+ */
+export function wholeMarginPercent(marginPercent: number): number {
+  return Math.floor(marginPercent);
+}
+
 export function isLowStock(stock: number): boolean {
   return stock > 0 && stock <= LOW_STOCK_UNITS;
 }

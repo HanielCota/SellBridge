@@ -43,7 +43,6 @@ async function newSupplier() {
     state: "SP",
     city: "São Paulo",
     logoUrl: null,
-    coverage: [{ state: "SP", city: null }],
     contactEmail: null,
     acceptWithinHours: 24,
     dispatchWithinHours: 48,

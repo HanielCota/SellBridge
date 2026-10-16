@@ -2,7 +2,10 @@ import { createDatabase } from "@sellbridge/database/client";
 import { createConnectorRegistry, getMercadoLivreShipping } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
+import { createMailer } from "@sellbridge/shared/mailer";
 import {
+  AUTO_FORWARD_JOB_OPTIONS,
+  autoForwardJobId,
   enqueueWebhookEventJob,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
@@ -18,6 +21,7 @@ import { createRateLimiter } from "./lib/rate-limiter.ts";
 import { environment } from "./environment.ts";
 import { createPublishListingProcessor } from "./processors/publish-listing.ts";
 import { createPublishRecoveryProcessor, type RecoveryJob } from "./processors/publish-recovery.ts";
+import { createAutoForwardProcessor } from "./processors/order-auto-forward.ts";
 import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts";
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
@@ -53,6 +57,42 @@ const processPublish = createPublishListingProcessor({
 });
 const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
 const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
+const autoForwardQueue = new Queue(QUEUE_NAMES.orderAutoForward, { connection });
+const mercadoLivreConfig = {
+  clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
+  clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
+};
+/** Off (the default), no job is queued at all: paid orders wait for the reseller as before. */
+async function requestAutoForward(orderId: string): Promise<void> {
+  if (!environment.AUTO_FORWARD_ENABLED) {
+    return;
+  }
+  await withDeadline(
+    autoForwardQueue.add(
+      "forward-paid-order",
+      { orderId },
+      {
+        ...AUTO_FORWARD_JOB_OPTIONS,
+        jobId: autoForwardJobId(orderId),
+      },
+    ),
+    3000,
+    "Encaminhamento automático",
+  );
+}
+const processAutoForward = createAutoForwardProcessor({
+  database,
+  cipher,
+  readAddress: async (store, externalOrderId) =>
+    (await getMercadoLivreShipping(mercadoLivreConfig, store, externalOrderId)).address,
+  sendEmail: createMailer({
+    apiKey: environment.RESEND_API_KEY,
+    from: environment.EMAIL_FROM,
+    production: environment.NODE_ENV === "production",
+  }),
+  appUrl: environment.APP_URL,
+  enabled: environment.AUTO_FORWARD_ENABLED,
+});
 const processWebhookEvent = createWebhookEventProcessor({
   database,
   connectors,
@@ -67,6 +107,7 @@ const processWebhookEvent = createWebhookEventProcessor({
       "Sincronização do estoque",
     );
   },
+  requestAutoForward,
 });
 const processStockPriceSync = createStockPriceSyncProcessor({
   database,
@@ -95,6 +136,12 @@ const tokenRefreshWorker = new Worker(QUEUE_NAMES.tokenRefresh, async () => proc
 const webhookWorker = new Worker(
   QUEUE_NAMES.webhookEvents,
   async (job) => processWebhookEvent(toJobContext(job)),
+  { connection, concurrency: environment.WORKER_CONCURRENCY },
+);
+
+const autoForwardWorker = new Worker(
+  QUEUE_NAMES.orderAutoForward,
+  async (job) => processAutoForward(toJobContext(job)),
   { connection, concurrency: environment.WORKER_CONCURRENCY },
 );
 
@@ -152,14 +199,7 @@ const processShipmentTracking = createShipmentTrackingProcessor({
   database,
   cipher,
   readShipping: async (store, externalOrderId) =>
-    getMercadoLivreShipping(
-      {
-        clientId: environment.MERCADO_LIVRE_CLIENT_ID ?? "",
-        clientSecret: environment.MERCADO_LIVRE_CLIENT_SECRET ?? "",
-      },
-      store,
-      externalOrderId,
-    ),
+    getMercadoLivreShipping(mercadoLivreConfig, store, externalOrderId),
   requestStockSync: async () => {
     await withDeadline(
       stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS),
@@ -206,7 +246,7 @@ await scheduleRecurring(stockPriceSyncQueue, STOCK_SYNC_JOB_NAME, 15 * 60 * 1000
 await scheduleRecurring(webhookDeliveryQueue, "deliver-outbound-webhooks", 10 * 1000);
 await scheduleRecurring(publishRecoveryQueue, "recover-publications", 5 * 60 * 1000);
 await scheduleRecurring(webhookEventSweepQueue, "sweep-unprocessed-webhook-events", 5 * 60 * 1000);
-await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 24 * 60 * 60 * 1000);
+await scheduleRecurring(webhookEventSweepQueue, WEBHOOK_EVENT_PRUNE_JOB, 60 * 60 * 1000);
 await scheduleRecurring(ticketAutoCloseQueue, "close-idle-tickets", 60 * 60 * 1000);
 await scheduleRecurring(tokenRefreshQueue, "refresh-expiring-tokens", 10 * 60 * 1000);
 await scheduleRecurring(shipmentTrackingQueue, "track-shipments", 30 * 60 * 1000);
@@ -221,6 +261,7 @@ const workers = [
   webhookEventSweepWorker,
   ticketAutoCloseWorker,
   shipmentTrackingWorker,
+  autoForwardWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {
@@ -256,6 +297,7 @@ async function shutdown(signal: string): Promise<void> {
     webhookEventSweepQueue.close(),
     ticketAutoCloseQueue.close(),
     shipmentTrackingQueue.close(),
+    autoForwardQueue.close(),
   ]);
   await database.$client.end();
   process.exit(0);

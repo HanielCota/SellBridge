@@ -7,7 +7,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "1. O serviço",
     paragraphs: [
-      "O SellBridge é uma plataforma que permite a revendedores encontrar fornecedores da sua região, publicar os produtos deles em marketplaces (como Mercado Livre, Shopee e TikTok Shop) e acompanhar vendas, lucro e financeiro.",
+      "O SellBridge é uma plataforma que permite a revendedores vender sem estoque: escolher fornecedores de todo o Brasil, publicar os produtos deles em marketplaces (como Mercado Livre, Shopee e TikTok Shop) e acompanhar vendas, lucro e financeiro. Cada loja conectada vende os produtos de um único fornecedor, que entrega direto ao comprador.",
     ],
   },
   {

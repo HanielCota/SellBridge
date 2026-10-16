@@ -166,7 +166,7 @@ function ListingsGrid() {
         description={
           isFiltered
             ? "Ajuste a busca ou escolha outro status."
-            : "Escolha produtos no catálogo da sua região e publique nas suas lojas."
+            : "Escolha produtos no catálogo e publique nas suas lojas."
         }
         action={
           isFiltered ? null : (

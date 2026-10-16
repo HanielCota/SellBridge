@@ -17,7 +17,12 @@ import { createWebhookEventProcessor } from "./webhook-event.ts";
 const environment = createWorkerTestEnvironment();
 const { database } = environment;
 const requestStockSync = vi.fn<() => Promise<void>>();
-const processWebhook = createWebhookEventProcessor({ ...environment, requestStockSync });
+const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
+const processWebhook = createWebhookEventProcessor({
+  ...environment,
+  requestStockSync,
+  requestAutoForward,
+});
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
@@ -70,12 +75,18 @@ function job(webhookEventId: string) {
 beforeEach(() => {
   requestStockSync.mockReset();
   requestStockSync.mockResolvedValue(undefined);
+  requestAutoForward.mockReset();
+  requestAutoForward.mockResolvedValue(undefined);
 });
 
-const orderResource = (externalListingId = "MOCK-ITEM-WH") =>
+const orderResource = (
+  externalListingId = "MOCK-ITEM-WH",
+  status: "paid" | "pending" = "paid",
+  externalOrderId = `SIM-${randomUUID()}`,
+) =>
   encodeMockOrderResource({
-    externalOrderId: `SIM-${randomUUID()}`,
-    status: "paid",
+    externalOrderId,
+    status,
     totalCents: 4990,
     marketplaceFeeCents: 700,
     buyerName: "Comprador",
@@ -108,6 +119,34 @@ describe("webhook-event processor", () => {
       .from(schema.orderItems)
       .where(eq(schema.orderItems.tenantId, tenantId));
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
+  });
+
+  it("asks to forward a paid order on its own, not one still waiting for payment", async () => {
+    const externalOrderId = `SIM-${randomUUID()}`;
+    const paid = await recordEvent({
+      shopId,
+      resource: orderResource("MOCK-ITEM-WH", "paid", externalOrderId),
+    });
+    expect(await processWebhook(job(paid))).toBe("order_created");
+    const [paidOrder] = await database
+      .select({ id: schema.orders.id })
+      .from(schema.orders)
+      .where(eq(schema.orders.externalOrderId, externalOrderId));
+    expect(requestAutoForward).toHaveBeenCalledWith(paidOrder?.id);
+
+    requestAutoForward.mockClear();
+    const pending = await recordEvent({
+      shopId,
+      resource: orderResource("MOCK-ITEM-WH", "pending"),
+    });
+    expect(await processWebhook(job(pending))).toBe("order_created");
+    expect(requestAutoForward).not.toHaveBeenCalled();
+  });
+
+  it("keeps the order when asking to forward it fails", async () => {
+    requestAutoForward.mockRejectedValue(new Error("Redis fora do ar"));
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+    expect(await processWebhook(job(eventId))).toBe("order_created");
   });
 
   it("asks for a stock sync right away when the order moved supplier stock", async () => {

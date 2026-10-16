@@ -1,5 +1,4 @@
 import {
-  forwardOrder,
   getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
@@ -19,6 +18,7 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { publicMiddleware, tenantMiddleware } from "@/lib/server/middleware";
+import { forwardAndNotify } from "./forward.server";
 import { writeShipmentUpdate } from "./shipments.server";
 
 const idSchema = z.object({ orderId: z.uuid() });
@@ -42,7 +42,7 @@ export const getFulfillmentFn = createServerFn({ method: "GET" })
 export const forwardOrderFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(forwardOrderSchema)
-  .handler(({ context, data }) => forwardOrder(database, context.tenantId, data));
+  .handler(({ context, data }) => forwardAndNotify(context.tenantId, data));
 export const updateShipmentFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(shipmentUpdateSchema)

@@ -89,6 +89,14 @@ function billingEventReference(type: string, value: unknown) {
     : null;
 }
 
+/**
+ * Stripe is read while the account row is locked, so the newest event always applies the newest
+ * state; the price is that the lock (and a pooled connection) waits on Stripe. With the client's
+ * defaults (15 s, 2 retries) that was up to ~90 s; here it is ~10 s, and a timeout fails the
+ * webhook, which Stripe sends again.
+ */
+const STRIPE_UNDER_LOCK = { timeout: 5_000, maxNetworkRetries: 1 } as const;
+
 async function synchronizeBillingEvent(input: {
   eventId: string;
   eventCreated: number;
@@ -98,16 +106,15 @@ async function synchronizeBillingEvent(input: {
   await database.transaction(async (transaction) => {
     const account = await lockBillingCustomer(transaction, input.object.customer);
     if (!account) return;
-    const subscriptions = await stripe.subscriptions.list({
-      customer: input.object.customer,
-      status: "all",
-      limit: 100,
-    });
+    const subscriptions = await stripe.subscriptions.list(
+      { customer: input.object.customer, status: "all", limit: 100 },
+      STRIPE_UNDER_LOCK,
+    );
     const current = subscriptions.data.find(
       (candidate) => !["canceled", "incomplete_expired"].includes(candidate.status),
     );
     const subscription = subscriptionSchema.parse(
-      current ?? (await stripe.subscriptions.retrieve(input.object.id)),
+      current ?? (await stripe.subscriptions.retrieve(input.object.id, {}, STRIPE_UNDER_LOCK)),
     );
     const item = subscription.items.data[0];
     const plan =

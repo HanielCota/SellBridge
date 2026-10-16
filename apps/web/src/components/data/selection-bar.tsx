@@ -26,7 +26,7 @@ export function SelectionBar({
     <section
       aria-label={label}
       className={cn(
-        "sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-1 rounded-full bg-card p-1.5 shadow-lg ring-1 shadow-black/20 ring-border",
+        "sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 mx-auto flex w-fit items-center gap-1 rounded-full bg-card p-1.5 shadow-lg ring-1 shadow-black/20 ring-border",
         className,
       )}
     >

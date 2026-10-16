@@ -6,7 +6,7 @@ import {
   CaretDownIcon,
   CreditCardIcon,
   type Icon,
-  MapPinIcon,
+  IdentificationCardIcon,
   MoonIcon,
   PlugsConnectedIcon,
   QuestionIcon,
@@ -172,8 +172,8 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
       </DropdownMenuItem>
       <DropdownMenuItem asChild className={MENU_ROW}>
         <Link to="/onboarding">
-          <MapPinIcon aria-hidden="true" />
-          Minha região
+          <IdentificationCardIcon aria-hidden="true" />
+          Meus dados
         </Link>
       </DropdownMenuItem>
       <DropdownMenuItem asChild className={MENU_ROW}>

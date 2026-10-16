@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ORDER_FIXTURES } from "./fixtures/orders.ts";
 import { mapMercadoLivreOrder } from "./orders.ts";
-import { orderSchema } from "./schemas.ts";
+import { orderSchema, userSchema } from "./schemas.ts";
 
 const base = ORDER_FIXTURES.paid;
 const [line] = base.order_items;
@@ -44,7 +44,19 @@ describe("Mercado Livre order bounds", () => {
   it("refuses a fee total that no longer fits, even with each line in range", () => {
     const lines = [{ ...line, quantity: 100_000, sale_fee: 300 }];
     const raw = orderSchema.parse({ ...base, order_items: lines });
-    expect(() => mapMercadoLivreOrder(raw)).toThrow("too large");
+    // Regression: a plain Error was retried for 24 hours; a final answer stops the webhook job.
+    expect(() => mapMercadoLivreOrder(raw)).toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining("acima do armazenável"),
+        details: expect.objectContaining({ retryable: false }),
+      }),
+    );
+  });
+
+  it("refuses a seller id that lost digits past 2^53", () => {
+    expect(userSchema.safeParse({ id: 2 ** 53 + 2, nickname: "loja" }).success).toBe(false);
+    expect(userSchema.safeParse({ id: 2 ** 53 - 1, nickname: "loja" }).success).toBe(true);
+    expect(userSchema.safeParse({ id: 12.5, nickname: "loja" }).success).toBe(false);
   });
 
   it("reports no refund when the payload has no payments, so the last one stays", () => {

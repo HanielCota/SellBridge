@@ -141,7 +141,7 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
           <img
             src={attachmentUrl(attachment, true)}
             alt={attachment.fileName}
-            className="max-h-[75vh] w-full rounded-xl object-contain"
+            className="max-h-[75dvh] w-full rounded-xl object-contain"
           />
           <a
             href={attachmentUrl(attachment)}

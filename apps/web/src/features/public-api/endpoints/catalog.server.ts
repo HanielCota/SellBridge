@@ -15,8 +15,8 @@ import { catalogProductSchema, presentCatalogProduct } from "./catalog.presenter
 import { queryBooleanSchema } from "./query-params";
 
 const catalogQuerySchema = pageQuerySchema.extend({
-  search: z
-    .string()
+  // Same cleanup as every typed text: no control characters, and "É" in one form only.
+  search: freeText()
     .trim()
     .min(1)
     .max(100)

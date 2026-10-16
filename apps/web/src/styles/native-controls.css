@@ -1,0 +1,254 @@
+/*
+ * Native controls and content elements that would otherwise keep the browser's look: the
+ * checkbox blue, the grey file button, number spinners, the yellow <mark>, a black caret.
+ * Everything here sits in `:where()` or the base layer, so any component's classes win.
+ */
+@layer base {
+  html {
+    text-size-adjust: 100%;
+    /* Native checkboxes, radios, ranges and progress bars take the brand green. */
+    accent-color: var(--brand-strong);
+    /* Tab focus and anchor jumps stop clear of the sticky header and the floating bulk bar. */
+    scroll-padding-block: 6rem 5rem;
+  }
+  body {
+    /* Landscape iPhones: content stays out of the notch; the page color still fills it. */
+    padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+    overflow-wrap: break-word;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    caret-color: var(--brand-strong);
+  }
+  :where(h1, h2, h3, h4, h5, h6) {
+    text-wrap: balance;
+    text-rendering: optimizeLegibility;
+  }
+  :where(p, li, dd, figcaption) {
+    text-wrap: pretty;
+  }
+  :where(td, th, output, time, data) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Tailwind v4 leaves buttons with the arrow cursor. Everything that acts on a click shows the
+   * hand; menu and select rows keep the arrow on purpose (`cursor-default`), like native menus.
+   */
+  :where(
+    button,
+    summary,
+    label[for],
+    select,
+    [role="button"],
+    [role="tab"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="radio"],
+    input:is([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"])
+  ) {
+    cursor: pointer;
+  }
+  :where(
+    button,
+    input,
+    select,
+    textarea,
+    [role="button"],
+    [role="tab"],
+    [role="switch"],
+    [role="checkbox"]
+  ):is(:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+  }
+  /* No double-tap zoom delay on controls; repeated taps don't select their label. */
+  :where(a, button, summary, label, select, input, textarea, [role="button"], [role="tab"]) {
+    touch-action: manipulation;
+  }
+  :where(button, summary, [role="button"], [role="tab"], [role="switch"]) {
+    user-select: none;
+  }
+
+  /* The app never uses the native spinners: amounts are typed, not stepped by the wheel. */
+  input[type="number"] {
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  /* Search fields and the password field draw their own clear and reveal buttons. */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+  ::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    border-radius: 0.375rem;
+    opacity: 0.7;
+  }
+  ::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+  ::-webkit-datetime-edit {
+    color: var(--foreground);
+  }
+  /* Open native lists follow the theme instead of a white sheet on the dark page. */
+  option,
+  optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+  ::file-selector-button {
+    margin-inline-end: 0.75rem;
+    border: 1px solid var(--field-border);
+    border-radius: 9999px;
+    background-color: var(--card);
+    padding: 0.375rem 0.875rem;
+    color: var(--foreground);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms ease-out;
+  }
+  @media (hover: hover) {
+    ::file-selector-button:hover {
+      background-color: var(--muted);
+    }
+  }
+  input[type="color"] {
+    padding: 0.125rem;
+    border-radius: var(--radius-md);
+  }
+  ::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  ::-webkit-color-swatch {
+    border: none;
+    border-radius: calc(var(--radius-md) - 2px);
+  }
+  ::-moz-color-swatch {
+    border: none;
+    border-radius: calc(var(--radius-md) - 2px);
+  }
+  :where(textarea) {
+    resize: vertical;
+  }
+
+  mark {
+    border-radius: 0.2em;
+    background-color: color-mix(in oklch, var(--brand) 28%, transparent);
+    padding-inline: 0.1em;
+    color: inherit;
+  }
+  :where(kbd, samp) {
+    border-radius: 0.3em;
+    background-color: var(--muted);
+    padding: 0.05em 0.35em;
+    font-size: 0.875em;
+  }
+  :where(pre) {
+    overflow-x: auto;
+  }
+  :where(sub, sup) {
+    line-height: 0;
+  }
+  :where(address) {
+    font-style: normal;
+  }
+  :where(ul, ol) ::marker {
+    color: var(--muted-foreground);
+  }
+  :where(iframe) {
+    border: 0;
+  }
+  :where(a, img) {
+    -webkit-user-drag: none;
+  }
+  :where(details) > summary::-webkit-details-marker {
+    display: none;
+  }
+  /* The skip link moves focus to <main>; the page itself needs no ring around it. */
+  #main-content:focus {
+    outline: none;
+  }
+  /* Scrolling a dialog, sheet or menu to its end never starts scrolling the page behind it. */
+  :where(
+    [role="dialog"],
+    [role="alertdialog"],
+    [role="menu"],
+    [role="listbox"],
+    [data-slot$="-content"]
+  ) {
+    overscroll-behavior: contain;
+  }
+
+  /* Inner panes (dialogs, tables, popovers) get the same thin themed scrollbar as the page. */
+  * {
+    scrollbar-width: thin;
+  }
+  /* Safari has no `scrollbar-color`, so it keeps the prefixed pseudo-elements. */
+  @supports not (scrollbar-color: auto) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      border: 3px solid transparent;
+      border-radius: 9999px;
+      background: color-mix(in oklch, var(--foreground) 22%, transparent) padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: color-mix(in oklch, var(--foreground) 36%, transparent);
+    }
+  }
+}
+
+/*
+ * "Increase contrast" (macOS/iOS/Windows): hairlines become real borders and secondary text
+ * darkens, so nothing depends on a 7% edge to be seen.
+ */
+@media (prefers-contrast: more) {
+  /* `html:root` and `html.dark` outrank the theme blocks in styles.css, which load after. */
+  html:root {
+    --border: oklch(0 0 0 / 30%);
+    --input: oklch(0 0 0 / 40%);
+    --field-border: oklch(0 0 0 / 40%);
+    --muted-foreground: oklch(0.36 0.008 260);
+  }
+  html.dark {
+    --border: oklch(1 0 0 / 30%);
+    --input: oklch(1 0 0 / 40%);
+    --field-border: oklch(1 0 0 / 40%);
+    --muted-foreground: oklch(0.84 0.005 260);
+  }
+}
+
+/*
+ * Windows contrast themes drop box-shadows, which is how every focus ring here is drawn
+ * (`outline-none` + `ring-*`). The system outline color brings focus back for those users.
+ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid CanvasText !important;
+    outline-offset: 2px;
+  }
+  .surface-card::after,
+  .surface-interactive::after {
+    border: 1px solid CanvasText;
+  }
+}

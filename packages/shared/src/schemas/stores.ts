@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { freeText, pageNumberSchema } from "./common.ts";
+import { freeText, pageNumberSchema, sliceWholeCharacters, searchQuery } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
 export const MARKETPLACES = ["mock", "mercado_livre", "shopee", "tiktok_shop"] as const;
@@ -33,13 +33,6 @@ export const LISTING_TITLE_MIN_LENGTH = 10;
 export const LISTING_TITLE_MAX_LENGTH = 60;
 export const LISTING_DESCRIPTION_MIN_LENGTH = 20;
 export const LISTING_DESCRIPTION_MAX_LENGTH = 5000;
-
-/** Cuts at `end`, one code unit earlier when that would split an emoji's surrogate pair. */
-function sliceWholeCharacters(text: string, end: number): string {
-  const lastCode = text.charCodeAt(end - 1);
-  const splitsPair = lastCode >= 0xd800 && lastCode <= 0xdbff;
-  return text.slice(0, splitsPair ? end - 1 : end);
-}
 
 /**
  * Fits a supplier title into the marketplace limit: cut at the last word that fits, or
@@ -130,7 +123,7 @@ export type ListingFilterStatus = (typeof LISTING_FILTER_STATUSES)[number];
 /** Listings show as a three-column grid, so a page holds a multiple of three. */
 export const listingsSearchSchema = z.object({
   status: optionalParameter(z.enum(LISTING_FILTER_STATUSES)),
-  query: optionalParameter(freeText().trim().max(100)),
+  query: optionalParameter(searchQuery()),
   sort: optionalParameter(listingSortSchema),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(12), 12),

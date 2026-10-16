@@ -5,6 +5,7 @@ import {
   listAdminCategories,
   listAdminSupplierProducts,
   listAdminSuppliers,
+  listSupplierSellers,
   previewSupplierProductImport,
   reserveShortItems,
   saveAdminSupplier,
@@ -32,12 +33,14 @@ export async function loadAdminSuppliers(search: AdminSupplierSearch) {
   return await listAdminSuppliers(database, search.query, search);
 }
 
+/** The supplier, the categories for its products and the shops that sell it. */
 export async function loadAdminSupplier(supplierId: string) {
-  const [detail, categories] = await Promise.all([
+  const [detail, categories, sellers] = await Promise.all([
     getAdminSupplier(database, supplierId),
     listAdminCategories(database),
+    listSupplierSellers(database, supplierId),
   ]);
-  return { ...detail, categories };
+  return { ...detail, categories, sellers };
 }
 
 export async function loadAdminProducts(input: AdminSupplierSearch & { supplierId: string }) {
@@ -75,7 +78,7 @@ async function requestSynchronization(): Promise<boolean> {
   return await requestStockSync("admin.catalog_sync_deferred");
 }
 
-/** Coverage may have changed: listings outside it must drop to zero stock now. */
+/** Like every catalog write, a saved supplier asks the worker to sync right away. */
 export async function writeAdminSupplier(input: z.infer<typeof adminSaveSupplierSchema>) {
   const supplier = await catalogWrite(async () => await saveAdminSupplier(database, input));
   return { ...supplier, synchronizationQueued: await requestSynchronization() };
