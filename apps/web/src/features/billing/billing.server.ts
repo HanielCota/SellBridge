@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { BILLING_PLANS, effectiveBillingPlan } from "@sellbridge/shared/billing";
-import { validationError } from "@sellbridge/shared/errors";
+import { conflictError, validationError } from "@sellbridge/shared/errors";
 import {
   billingUsage,
   getBillingAccount,
-  lockBillingTenant,
   requireBillingOwner,
   saveBillingCustomer,
+  tryLockBillingCheckout,
 } from "@sellbridge/database/repositories";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
@@ -54,6 +54,59 @@ export async function openBillingPortal(tenantId: string, userId: string) {
   return { url: session.url };
 }
 
+/** Stripe's answer bounds every checkout call (item 16.a): the client default waits up to ~45 s. */
+const STRIPE_CHECKOUT_LIMITS = { timeout: 5_000, maxNetworkRetries: 1 } as const;
+
+type StripeClient = ReturnType<typeof stripeClient>;
+
+/** The tenant's Stripe customer; the idempotency key keeps concurrent first calls on one. */
+async function ensureBillingCustomer(stripe: StripeClient, tenantId: string) {
+  const account = await getBillingAccount(database, tenantId);
+  if (account?.customerId) return account.customerId;
+  const customer = await stripe.customers.create(
+    { metadata: { tenantId } },
+    { idempotencyKey: `billing-customer-${tenantId}`, ...STRIPE_CHECKOUT_LIMITS },
+  );
+  await saveBillingCustomer(database, tenantId, customer.id);
+  return customer.id;
+}
+
+async function hasLiveSubscription(stripe: StripeClient, customerId: string) {
+  const subscriptions = await stripe.subscriptions.list(
+    { customer: customerId, status: "all", limit: 100 },
+    STRIPE_CHECKOUT_LIMITS,
+  );
+  return subscriptions.data.some(
+    (subscription) => !["canceled", "incomplete_expired"].includes(subscription.status),
+  );
+}
+
+async function openCheckout(
+  stripe: StripeClient,
+  input: { tenantId: string; customerId: string; plan: "pro" | "business" },
+) {
+  const sessions = await stripe.checkout.sessions.list(
+    { customer: input.customerId, status: "open", limit: 100 },
+    STRIPE_CHECKOUT_LIMITS,
+  );
+  for (const session of sessions.data) await stripe.checkout.sessions.expire(session.id);
+  const checkout = await stripe.checkout.sessions.create(
+    {
+      integration_identifier: `sellbridge_${Array.from(randomBytes(8), (value) => String.fromCharCode(97 + (value % 26))).join("")}`,
+      mode: "subscription",
+      customer: input.customerId,
+      client_reference_id: input.tenantId,
+      line_items: [{ price: priceId(input.plan), quantity: 1 }],
+      subscription_data: { metadata: { tenantId: input.tenantId } },
+      success_url: new URL("/assinatura?retorno=sucesso", environment.APP_URL).toString(),
+      cancel_url: new URL("/assinatura?retorno=cancelado", environment.APP_URL).toString(),
+    },
+    STRIPE_CHECKOUT_LIMITS,
+  );
+  if (!checkout.url) throw validationError("Não foi possível iniciar o pagamento");
+  return { url: checkout.url };
+}
+
 export async function startSubscription(input: {
   tenantId: string;
   userId: string;
@@ -62,50 +115,17 @@ export async function startSubscription(input: {
   await requireBillingOwner(database, input.tenantId, input.userId);
   await availablePlans();
   const stripe = stripeClient();
+  const customerId = await ensureBillingCustomer(stripe, input.tenantId);
+  // The advisory lock keeps two clicks from opening two checkouts (and two subscriptions); it
+  // holds no row, so the tenant's publications and store connections never wait on Stripe.
   return database.transaction(async (transaction) => {
-    await lockBillingTenant(transaction, input.tenantId);
-    const account = await getBillingAccount(transaction, input.tenantId);
-    const customerId =
-      account?.customerId ??
-      (
-        await stripe.customers.create(
-          {
-            metadata: { tenantId: input.tenantId },
-          },
-          { idempotencyKey: `billing-customer-${input.tenantId}` },
-        )
-      ).id;
-    await saveBillingCustomer(transaction, input.tenantId, customerId);
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "all",
-      limit: 100,
-    });
-    if (
-      subscriptions.data.some(
-        (subscription) => !["canceled", "incomplete_expired"].includes(subscription.status),
-      )
-    ) {
+    if (!(await tryLockBillingCheckout(transaction, input.tenantId))) {
+      throw conflictError("Já estamos abrindo o pagamento. Aguarde alguns segundos.");
+    }
+    if (await hasLiveSubscription(stripe, customerId)) {
       const session = await portal(customerId);
       return { url: session.url };
     }
-    const sessions = await stripe.checkout.sessions.list({
-      customer: customerId,
-      status: "open",
-      limit: 100,
-    });
-    for (const session of sessions.data) await stripe.checkout.sessions.expire(session.id);
-    const checkout = await stripe.checkout.sessions.create({
-      integration_identifier: `sellbridge_${Array.from(randomBytes(8), (value) => String.fromCharCode(97 + (value % 26))).join("")}`,
-      mode: "subscription",
-      customer: customerId,
-      client_reference_id: input.tenantId,
-      line_items: [{ price: priceId(input.plan), quantity: 1 }],
-      subscription_data: { metadata: { tenantId: input.tenantId } },
-      success_url: new URL("/assinatura?retorno=sucesso", environment.APP_URL).toString(),
-      cancel_url: new URL("/assinatura?retorno=cancelado", environment.APP_URL).toString(),
-    });
-    if (!checkout.url) throw validationError("Não foi possível iniciar o pagamento");
-    return { url: checkout.url };
+    return openCheckout(stripe, { tenantId: input.tenantId, customerId, plan: input.plan });
   });
 }

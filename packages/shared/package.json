@@ -41,7 +41,8 @@
     "./billing": "./src/domain/billing.ts",
     "./mailer": "./src/email/mailer.ts",
     "./email-layout": "./src/email/layout.ts",
-    "./supplier-order-email": "./src/email/supplier-order-email.ts"
+    "./supplier-order-email": "./src/email/supplier-order-email.ts",
+    "./notification-content": "./src/domain/notification-content.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

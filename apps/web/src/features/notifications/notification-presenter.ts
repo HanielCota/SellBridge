@@ -60,6 +60,10 @@ const LATE_COPY: Record<
   Extract<NotificationEvent, { kind: "shipment_late" }>["delay"],
   { title: string; detail: (supplierName: string) => string }
 > = {
+  accept_overdue: {
+    title: "Aceite atrasado no pedido",
+    detail: (supplierName) => `${supplierName} ainda não aceitou o pedido. Fale com o fornecedor.`,
+  },
   dispatch_overdue: {
     title: "Despacho atrasado no pedido",
     detail: (supplierName) =>
