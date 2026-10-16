@@ -8,6 +8,7 @@ import {
   AUTO_FORWARD_JOB_OPTIONS,
   autoForwardJobId,
   enqueueWebhookEventJob,
+  pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
   releaseFinishedJob,
@@ -243,6 +244,19 @@ const notificationDeliveryWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+// Up before the schedulers below: with Redis down they wait forever, and the probe must say so.
+const healthServer = environment.WORKER_HEALTH_PORT
+  ? startHealthServer(environment.WORKER_HEALTH_PORT, [
+      { name: "worker", critical: true, run: async () => publishWorker.isRunning() },
+      // Without Redis no job runs: a restart reconnects a worker stuck on a dead connection.
+      {
+        name: "redis",
+        critical: true,
+        run: async () => pingQueueConnection(publishQueue),
+      },
+    ])
+  : null;
+
 /** Each run is a new job: keep only a few finished ones in Redis. */
 async function scheduleRecurring(queue: Queue, id: string, every: number): Promise<void> {
   await queue.upsertJobScheduler(
@@ -295,10 +309,6 @@ for (const worker of workers) {
     logger.error("worker.error", { queue: worker.name, error });
   });
 }
-
-const healthServer = environment.WORKER_HEALTH_PORT
-  ? startHealthServer(environment.WORKER_HEALTH_PORT, () => publishWorker.isRunning())
-  : null;
 
 logger.info("worker.started", { queues: workers.map((worker) => worker.name) });
 

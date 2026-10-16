@@ -65,6 +65,13 @@ describe("explainMercadoLivreError", () => {
     expect(explained).toContain("…. Revise o anúncio e tente de novo.");
   });
 
+  it("asks for a plain-text description", () => {
+    expect(explainMercadoLivreError(ERROR_FIXTURES.descriptionNotPlainText, 400)).toBe(
+      "A descrição tem caracteres que o Mercado Livre não aceita (emojis, HTML ou símbolos especiais). " +
+        "Fale com o suporte para deixar só texto simples na descrição.",
+    );
+  });
+
   it("keeps today's message when the body has no cause", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.withoutCause, 400)).toBe(
       "Mercado Livre recusou a operação: attribute BRAND is required",

@@ -72,6 +72,14 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
 
+### 2026-10-16 · Junção: chats D, E e F (lotes 1 e 2) e migration 0034
+
+- Lote 1: E 25.a (`516a5ca`, canais de aviso com nova tentativa), F F1 (`a788b05`, limpeza da loja viva duplicada na 0023, alterada no lugar com nota em `docs/deploy-infra.md`) e D 16.a (`00e4199`, Stripe fora da trava da organização). Antes do lote, o índice do git estava com sobras das tentativas de commit barradas e foi limpo com `git reset` (sem mudança nos arquivos). E2E 104/105: a falha era real, porque 33 esqueletos de carregamento tinham `aria-label` sem papel.
+- Lote 2: F 0034 (`9659540`, junção `f1924d5`, cuja mensagem ficou "chore: merge 9659540"). Ela apaga `supplier_coverage`, `cep_cache` e as 7 colunas de endereço do `tenant_profile`, com aprovação do usuário em 2026-10-16. Entraram também E 25.b (`5a21606`, junção `3a2a29a`: o conflito no `shipment-timing.ts` ficou com a versão da 21.c e `lateSince` exportado, e a varredura de atraso passou a usar `shipmentTimingColumns`) e F 32.a (`d145480`, alertas de erro por webhook). O hook file-size foi pulado (`LEFTHOOK_EXCLUDE=file-size`) só na junção do E, porque o `listings.ts` foi de 502 para 506 linhas; o E vai extrair um módulo.
+- Correção `b4c331e`: esqueletos de carregamento com rótulo viram `<output>`, e o `Skeleton` com rótulo ganha `role="status"`. O teste de regressão `loading-placeholders.test.ts` falha sem a correção e passa com ela.
+- A sessão "Implementações na aba execução" commitou `f8fdc2b` direto nesta branch, com a regra de nunca commitar, juntar ou fazer push na `main`.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1593 e depois 1610 ✅; build ✅; e2e completo 105/105.
+
 ### 2026-10-16 · Item 21.c · Aceite atrasado e prazos do fornecedor — ✅ concluído (commit local)
 
 - "Aceite atrasado" quando o fornecedor não aceita no prazo do cadastro, e "Despacho atrasado" pelo prazo de despacho do cadastro quando o marketplace não manda data. Os prazos contam do encaminhamento mais recente. "Aceite até" e "Despachar até" com hora no painel do envio e na página do fornecedor.

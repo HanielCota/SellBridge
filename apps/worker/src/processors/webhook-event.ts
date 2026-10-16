@@ -5,6 +5,7 @@ import {
   getWebhookEvent,
   markWebhookFailed,
   markWebhookProcessed,
+  recordStoreWebhook,
   upsertMarketplaceOrder,
 } from "@sellbridge/database/repositories";
 import { userMessageOr } from "@sellbridge/shared/errors";
@@ -84,21 +85,40 @@ async function skipEvent(
 }
 
 /**
+ * Store health on /lojas: when the marketplace last sent an order event about the shop. Only a
+ * display, so a failed write is logged and never holds the order back.
+ */
+async function stampStoreWebhook(
+  dependencies: WebhookDependencies,
+  storeConnectionId: string,
+  receivedAt: Date,
+): Promise<void> {
+  try {
+    await recordStoreWebhook(dependencies.database, { storeConnectionId, receivedAt });
+  } catch (error) {
+    logger.warn("store.webhook_stamp_failed", { storeConnectionId, error });
+  }
+}
+
+/**
  * No usable store for the event. A store that lost its access (expired, refused token) can be
  * reconnected: the sale stays pending, with the reason, and the sweeper retries it for a day,
  * so it comes in once the reseller reconnects. A shop we never knew is skipped for good.
  */
 async function holdOrSkip(
   dependencies: WebhookDependencies,
-  eventId: string,
-  shop: { marketplace: MarketplaceId; shopId: string },
+  event: WebhookEvent,
+  shopId: string,
 ): Promise<SyncPreparation> {
+  const eventId = event.id;
   const awaiting = await findStoreAwaitingReconnection(
     dependencies.database,
-    shop.marketplace,
-    shop.shopId,
+    event.marketplace,
+    shopId,
   );
   if (awaiting) {
+    // The marketplace still talks about the shop while it waits on a reconnection.
+    await stampStoreWebhook(dependencies, awaiting.id, event.receivedAt);
     await markWebhookFailed(
       dependencies.database,
       eventId,
@@ -136,8 +156,9 @@ async function prepareOrderSync(
     reference.externalShopId,
   );
   if (!store) {
-    return holdOrSkip(dependencies, eventId, { marketplace, shopId: reference.externalShopId });
+    return holdOrSkip(dependencies, event, reference.externalShopId);
   }
+  await stampStoreWebhook(dependencies, store.id, event.receivedAt);
   if (!store.accessTokenEnc) {
     const note = "Loja sem token de acesso: reconecte a loja";
     return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });

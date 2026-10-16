@@ -40,3 +40,19 @@ having count(*) > 1;
   repetições houve no intervalo.
 - O corpo tem `text` (Slack, Google Chat) e `content` (Discord). Timeout de 3 s, sem nova
   tentativa; falha no envio vira um log `warn` `alerts.delivery_failed`, nunca outro alerta.
+
+## Health checks (item 32.d)
+
+| Processo | Rota                                       | 503 quando                                     | Corpo                                                                    |
+| -------- | ------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| Web      | `GET /api/health`                          | o Postgres não responde                        | `{ status: ok \| degraded \| unavailable, checks: { database, redis } }` |
+| Worker   | `GET /health` (porta `WORKER_HEALTH_PORT`) | o worker parou ou o Redis não responde ao PING | `{ status, checks: { worker, redis } }`                                  |
+
+- No web, o Redis fora deixa o status `degraded` com 200: reiniciar o container não traz o
+  Redis de volta, e as telas continuam funcionando (publicações e sincronizações esperam).
+- No worker, o Redis fora é 503: sem ele nenhum job roda, e reiniciar refaz a conexão.
+- Cada checagem tem prazo de 2 s (abaixo do timeout de 5 s do healthcheck). Uma checagem
+  crítica que falha registra `error` `health.check_failed` (vira alerta, item 32.a); uma não
+  crítica, `warn`.
+- Configure o healthcheck do container do worker com `WORKER_HEALTH_PORT` (por exemplo 3001)
+  e `wget -q -O /dev/null http://127.0.0.1:3001/health`.
