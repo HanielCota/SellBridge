@@ -35,6 +35,7 @@
   --color-brand-strong: var(--brand-strong);
   --color-brand-ink: var(--brand-ink);
   --color-brand-text: var(--brand-text);
+  --color-brand-mark: var(--brand-mark);
   --color-surface-grouped: var(--surface-grouped);
   --color-field: var(--field);
   --color-field-border: var(--field-border);
@@ -42,6 +43,7 @@
   --color-finance-cost: var(--finance-cost);
   --color-finance-fee: var(--finance-fee);
   --color-finance-refund: var(--finance-refund);
+  --color-finance-gain: var(--finance-gain);
   --color-brand-wordmark: var(--brand-wordmark);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
@@ -86,12 +88,16 @@
   --finance-cost: oklch(0.6 0.07 255);
   --finance-fee: oklch(0.6 0.075 300);
   --finance-refund: oklch(0.62 0.07 350);
+  /* Income on top of sales (commissions): a green apart from profit, above 3:1 on white. */
+  --finance-gain: oklch(0.62 0.15 152);
   /* Brand: main green, deep green and ink. */
   --brand: oklch(0.78 0.18 155);
   --brand-strong: oklch(0.62 0.16 152);
   --brand-ink: oklch(0.2 0.015 250);
   /* Brand green for text: dark enough to read on white. */
   --brand-text: oklch(0.5 0.13 152);
+  /* Brand green for small graphics (dots, checkmarks, bar segments): the main green is 1.9:1 on white. */
+  --brand-mark: oklch(0.62 0.16 152);
   --brand-wordmark: #008a58;
   --background: oklch(0.97 0.002 260);
   --foreground: oklch(0.145 0 0);
@@ -111,7 +117,8 @@
   --destructive: oklch(0.53 0.22 27);
   --border: oklch(0 0 0 / 8%);
   --input: oklch(0 0 0 / 12%);
-  --ring: oklch(0.74 0.19 153);
+  /* Deeper than the primary green: the focus outline draws it at 70% and must stay above 3:1. */
+  --ring: oklch(0.5 0.13 152);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -125,6 +132,7 @@
   --brand: oklch(0.87 0.16 152);
   --brand-strong: oklch(0.8 0.17 152);
   --brand-text: oklch(0.87 0.16 152);
+  --brand-mark: oklch(0.87 0.16 152);
   --surface-grouped: oklch(0.165 0.003 260);
   --field: oklch(0.245 0.004 260);
   --field-border: oklch(1 0 0 / 8%);
@@ -132,6 +140,7 @@
   --finance-cost: oklch(0.74 0.065 255);
   --finance-fee: oklch(0.74 0.07 300);
   --finance-refund: oklch(0.76 0.065 350);
+  --finance-gain: oklch(0.87 0.16 152);
   --brand-wordmark: oklch(0.87 0.16 152);
   --background: oklch(0.165 0.003 260);
   --foreground: oklch(0.97 0 0);

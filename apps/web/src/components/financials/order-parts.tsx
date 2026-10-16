@@ -12,7 +12,7 @@ const SPLIT_COLORS: Record<OrderSplitKind, string> = {
   cost: "bg-finance-cost",
   fee: "bg-finance-fee",
   refund: "bg-finance-refund",
-  profit: "bg-brand",
+  profit: "bg-brand-mark",
 };
 
 const SPLIT_LABELS: Record<OrderSplitKind, string> = {

@@ -288,7 +288,7 @@ function AccountChip({
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
           <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
-            <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
+            <span className="size-1.5 rounded-full bg-brand-mark" aria-hidden="true" />
             {teamModeActiveTag(user.role)}
           </span>
         ) : (
