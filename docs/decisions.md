@@ -524,6 +524,12 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
 - **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
 
+## 2026-10-16 · Aceite atrasado e prazos do fornecedor (item 21.c)
+
+- **O prazo conta do encaminhamento mais recente** (`latestForwardedAt`, o maior "Encaminhado" do histórico do envio): reencaminhar um envio cancelado recomeça a contar. Sem migration.
+- **Regra** em `shared/domain/shipment-delay.ts`: entra o "Aceite atrasado" (`accept_overdue`), para o envio ainda "Encaminhado" depois do prazo de aceite do fornecedor. Quando o marketplace não manda data de despacho, o "Despacho atrasado" passa a usar o prazo de despacho do cadastro. Os prazos do cadastro valem até a hora exata, e as datas do marketplace continuam valendo o dia inteiro. Se o despacho também passou, ele aparece no lugar do aceite.
+- **Telas:** o selo "Aceite atrasado" aparece na lista, na página do pedido e no sino ("{fornecedor} ainda não aceitou o pedido. Fale com o fornecedor."). O painel do envio mostra "Aceite até" e "Despachar até" com hora ("amanhã às 09:00", `formatDeadline`) para o revendedor e na página do fornecedor. A data de despacho do ML continua só com o dia.
+
 ## 2026-10-16: Riscos da assinatura (item 16, chat D)
 
 - **Stripe sem trava de linha (16.a, N5):** o checkout cria o customer fora de transação (a chave de idempotência garante um só) e serializa os checkouts da organização com `pg_try_advisory_xact_lock`, que não segura linha; o segundo pedido simultâneo recebe 409 "Já estamos abrindo o pagamento". O webhook lê o Stripe antes de abrir a transação; para dois webhooks que correm juntos vale a **leitura mais recente**, gravada em ms em `last_event_created` (os valores antigos, em segundos, são sempre menores). Renomear a coluna fica para uma migration de limpeza.

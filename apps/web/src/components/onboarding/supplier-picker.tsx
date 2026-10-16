@@ -1,5 +1,5 @@
 import { CheckCircleIcon, MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
-import { stateSchema } from "@sellbridge/shared/cep";
+import { stateSchema } from "@sellbridge/shared/brazilian-states";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { SearchInput } from "@/components/data/search-input";

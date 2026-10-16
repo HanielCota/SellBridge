@@ -62,6 +62,11 @@ describe("presentNotification", () => {
 
   it.each([
     [
+      "accept_overdue",
+      "Aceite atrasado no pedido #ML-9",
+      "Brás Atacado Masculino ainda não aceitou o pedido. Fale com o fornecedor.",
+    ],
+    [
       "dispatch_overdue",
       "Despacho atrasado no pedido #ML-9",
       "Brás Atacado Masculino passou do prazo para despachar. Fale com o fornecedor.",

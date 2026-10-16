@@ -95,6 +95,29 @@ async function runMigrator(url: string): Promise<void> {
   await withClient(url, (sql) => migrate(drizzle(sql), { migrationsFolder }));
 }
 
+/**
+ * Runs the migrations up to `lastIndex` statement by statement and records them the way the
+ * migrator does: the database an old deployment left behind.
+ */
+async function applyMigrationsUpTo(url: string, lastIndex: number): Promise<void> {
+  const old = journal.entries.filter((entry) => entry.idx <= lastIndex);
+  await withClient(url, async (sql) => {
+    for (const entry of old) {
+      const file = readFileSync(`${migrationsFolder}/${entry.tag}.sql`, "utf8");
+      for (const statement of file.split("--> statement-breakpoint")) {
+        if (statement.trim()) await sql.unsafe(statement);
+      }
+    }
+    await sql`create schema drizzle`;
+    await sql`create table drizzle.__drizzle_migrations (id serial primary key, hash text not null, created_at bigint)`;
+    for (const entry of old) {
+      const file = readFileSync(`${migrationsFolder}/${entry.tag}.sql`, "utf8");
+      const hash = createHash("sha256").update(file).digest("hex");
+      await sql`insert into drizzle.__drizzle_migrations (hash, created_at) values (${hash}, ${entry.when})`;
+    }
+  });
+}
+
 async function publicApiObjects(url: string) {
   return withClient(url, async (sql) => ({
     tables: (
@@ -154,22 +177,7 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
 
   it("M2: a database that recorded 0007 before 0008 existed still gets the public API", async () => {
     const url = await throwawayDatabase();
-    const old = journal.entries.filter((entry) => entry.idx <= 7);
-    await withClient(url, async (sql) => {
-      for (const entry of old) {
-        const file = readFileSync(`${migrationsFolder}/${entry.tag}.sql`, "utf8");
-        for (const statement of file.split("--> statement-breakpoint")) {
-          if (statement.trim()) await sql.unsafe(statement);
-        }
-      }
-      await sql`create schema drizzle`;
-      await sql`create table drizzle.__drizzle_migrations (id serial primary key, hash text not null, created_at bigint)`;
-      for (const entry of old) {
-        const file = readFileSync(`${migrationsFolder}/${entry.tag}.sql`, "utf8");
-        const hash = createHash("sha256").update(file).digest("hex");
-        await sql`insert into drizzle.__drizzle_migrations (hash, created_at) values (${hash}, ${entry.when})`;
-      }
-    });
+    await applyMigrationsUpTo(url, 7);
     // The state the bug leaves behind: 0007 is the newest record, so 0008 looks already applied.
     expect((await publicApiObjects(url)).tables).toEqual([]);
 
@@ -187,5 +195,68 @@ describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
         where table_name = 'order_adjustments' and column_name = 'marketplace_key'`,
     );
     expect(column).toHaveLength(1);
+  });
+
+  it("M2: 0023 keeps one live connection per shop when two tenants had the same one", async () => {
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, 22);
+    await withClient(url, async (sql) => {
+      await sql`
+        insert into organization (id, name, slug, created_at) values
+          ('org-old', 'Antiga', 'antiga', now()), ('org-new', 'Nova', 'nova', now())`;
+      await sql`
+        insert into store_connections (id, tenant_id, marketplace, external_shop_id, shop_name, status, connected_at, access_token_enc) values
+          ('00000000-0000-4000-8000-000000000001', 'org-old', 'mercado_livre', 'shop-1', 'Loja', 'connected', '2026-01-01T00:00:00Z', 'cipher'),
+          ('00000000-0000-4000-8000-000000000002', 'org-new', 'mercado_livre', 'shop-1', 'Loja', 'expired', '2026-02-01T00:00:00Z', null),
+          ('00000000-0000-4000-8000-000000000003', 'org-old', 'mercado_livre', 'shop-2', 'Outra', 'connected', '2026-01-01T00:00:00Z', 'cipher')`;
+    });
+
+    await runMigrator(url);
+
+    const rows = await withClient(
+      url,
+      (sql) =>
+        sql<
+          {
+            id: string;
+            status: string;
+            last_error: string | null;
+            access_token_enc: string | null;
+          }[]
+        >`select id, status, last_error, access_token_enc from store_connections order by id`,
+    );
+    expect(rows.map((row) => [row.id.slice(-1), row.status])).toEqual([
+      ["1", "disconnected"],
+      ["2", "expired"],
+      ["3", "connected"],
+    ]);
+    expect(rows[0]?.last_error).toContain("outra conta");
+    expect(rows[0]?.access_token_enc).toBeNull();
+    expect(rows[1]?.last_error).toBeNull();
+    expect(rows[2]?.access_token_enc).toBe("cipher");
+  });
+  it("M1: the region leftovers of the CPF change are gone and the holder stays", async () => {
+    const url = await throwawayDatabase();
+    await runMigrator(url);
+    const leftovers = await withClient(
+      url,
+      (sql) => sql<{ name: string }[]>`
+        select table_name as name from information_schema.tables
+        where table_schema = 'public' and table_name in ('supplier_coverage', 'cep_cache')
+        union all
+        select column_name from information_schema.columns
+        where table_schema = 'public' and table_name = 'tenant_profile'
+          and column_name in ('cep', 'state', 'city', 'neighborhood', 'street', 'number', 'complement')`,
+    );
+    expect(leftovers.map((row) => row.name)).toEqual([]);
+    const holder = await withClient(
+      url,
+      (sql) => sql<{ name: string }[]>`
+        select column_name as name from information_schema.columns
+        where table_schema = 'public' and table_name = 'tenant_profile'
+          and column_name in ('full_name', 'cpf', 'starter_supplier_id')
+        order by column_name`,
+    );
+    expect(holder.map((row) => row.name)).toEqual(["cpf", "full_name", "starter_supplier_id"]);
   });
 });

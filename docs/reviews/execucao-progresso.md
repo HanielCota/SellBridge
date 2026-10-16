@@ -4,9 +4,9 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: — (21.b concluído; próximo é o 21.c, prazos com alerta de atraso)
-- Última etapa concluída: 21.b fechado (⏸2 aprovado em 2026-10-16, implementado em outra sessão a pedido do usuário)
-- Próximo passo: 21.c (aceite atrasado e prazo de despacho quando o marketplace não manda data)
+- Item/parte: — (item 21 concluído: 21.a, 21.b e 21.c)
+- Última etapa concluída: 21.c commitado localmente, sem push, por decisão do usuário em 2026-10-16
+- Próximo passo: fila deste chat ("trocar de fornecedor num envio cancelado", o bug "pedidos para avaliar" em `attention-panel.tsx:86` e `notification-presenter.ts:117`); o modo MVP com 6 chats (`79c5769`) ainda não foi confirmado pelo usuário aqui
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
 - Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
@@ -71,6 +71,12 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 21.c · Aceite atrasado e prazos do fornecedor — ✅ concluído (commit local)
+
+- "Aceite atrasado" quando o fornecedor não aceita no prazo do cadastro, e "Despacho atrasado" pelo prazo de despacho do cadastro quando o marketplace não manda data. Os prazos contam do encaminhamento mais recente. "Aceite até" e "Despachar até" com hora no painel do envio e na página do fornecedor.
+- Junto: as migrations 0032 do chat C (`8a486c5` → `823a1a4`) e 0033 do chat E (`4c6b081` → `6fd2617`), aplicadas no `sellbridge_desk`, com `generate` sem diferença e trava apagada.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1569/1569; e2e 27/27 (envio, página do pedido, sino); D2 sem rolagem nas 8 larguras (pedido e página do fornecedor); 6 capturas (desktop claro e celular escuro: lista, pedido e fornecedor).
 
 ### 2026-10-16 · Junção: `main` (#35, #37) e item 13.a do chat C
 

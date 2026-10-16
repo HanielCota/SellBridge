@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stateSchema } from "../domain/cep.ts";
+import { stateSchema } from "../domain/brazilian-states.ts";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema } from "./stores.ts";
