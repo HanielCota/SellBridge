@@ -3,6 +3,7 @@ import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/s
 import { z } from "zod";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
+import { environment } from "@/lib/server/environment";
 import { staffMiddleware } from "@/lib/server/middleware";
 
 /**
@@ -78,7 +79,7 @@ export const setAdminMode = createServerFn({ method: "POST" })
       path: "/",
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: environment.NODE_ENV === "production",
       maxAge: ONE_YEAR_SECONDS,
     });
     return { adminMode: data.enabled };

@@ -1,4 +1,5 @@
 import { logger } from "@sellbridge/shared/logger";
+import { z } from "zod";
 import { errorReportSchema, redactDiagnostic } from "../error-diagnostics";
 
 const MAX_BODY_BYTES = 8192;
@@ -13,12 +14,33 @@ let received = 0;
 let byClient = new Map<string, number>();
 
 /**
+ * The variables this receiver reads, validated on their own and leniently: it must keep working
+ * when the app's environment fails to load (that failure is one of the errors it reports), so a
+ * missing or malformed value falls back instead of throwing.
+ */
+const headerNameSchema = z.string().trim().toLowerCase().min(1);
+const urlSchema = z.url();
+
+function validUrl(value: string | undefined): string | undefined {
+  const parsed = urlSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function reportEnvironment() {
+  const header = headerNameSchema.safeParse(process.env.CLIENT_IP_HEADER);
+  return {
+    CLIENT_IP_HEADER: header.success ? header.data : "x-forwarded-for",
+    APP_URL: validUrl(process.env.APP_URL),
+    BETTER_AUTH_URL: validUrl(process.env.BETTER_AUTH_URL),
+  };
+}
+
+/**
  * The client a report comes from: the address the proxy forwards (the header Better Auth also
- * reads, `CLIENT_IP_HEADER`), its first hop. Reports with none share one bucket. Read raw, like
- * `APP_URL` below: the receiver must keep working when the validated environment fails to load.
+ * reads, `CLIENT_IP_HEADER`), its first hop. Reports with none share one bucket.
  */
 function clientKey(request: Request): string {
-  const header = (process.env.CLIENT_IP_HEADER ?? "x-forwarded-for").trim().toLowerCase();
+  const header = reportEnvironment().CLIENT_IP_HEADER;
   const first = request.headers.get(header)?.split(",")[0]?.trim();
   return first === undefined || first === "" ? "unknown" : first;
 }
@@ -49,8 +71,8 @@ function response(status: number): Response {
 
 /** Available even when auth/database fail; same-origin JSON only, with bounded ingestion. */
 export async function handleErrorReport(request: Request): Promise<Response> {
-  const expectedOrigin = new URL(process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? request.url)
-    .origin;
+  const { APP_URL, BETTER_AUTH_URL } = reportEnvironment();
+  const expectedOrigin = new URL(APP_URL ?? BETTER_AUTH_URL ?? request.url).origin;
   if (request.headers.get("origin") !== expectedOrigin) return response(403);
   if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json")
     return response(415);
