@@ -34,20 +34,20 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado ·
 | 12   | Admin muda a região e apaga o endereço | ➖       | —       | Não se aplica: o CPF tirou o endereço do admin; wip em `wip/b-item-12-address` (ec5bfc8) |
 | 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                          |
 | 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                          |
-| 24   | Saúde das lojas                        | ✅       | 03b4410 |                                                                                          |
+| 24   | Saúde das lojas                        | ✅       | 1172873 |                                                                                          |
 | 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                              |
 
-Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios; o e-mail de loja expirada passa para a fila do item 25 quando ela existir.
+Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios.
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
 
-### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873, 24.c 03b4410)
+### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873; 24.c revertida)
 
 - 24.a: saúde da loja no menu de /lojas e na ficha do admin (migration 0030 bae7945).
 - 24.b: desconectar pausa os anúncios no marketplace, marcado por padrão.
-- 24.c: e-mail ao dono quando a loja expira, uma vez por conexão perdida.
+- 24.c: e-mail ao dono quando a loja expira (03b4410) foi revertido: o 25.b do chat E (3a2a29a) já avisa toda expiração pela central de notificações, com as preferências de cada pessoa; manter os dois mandaria dois e-mails. F9 fica com o 25.b.
 
 ### 2026-10-15 · Item 19 · Pequenos de segurança e status — ✅ concluído (bcac77a, commit local; junção 7c84cc2)
 

@@ -56,18 +56,7 @@ const processPublish = createPublishListingProcessor({
   acquireRateLimit,
   safetyUnits: environment.STOCK_SAFETY_UNITS,
 });
-const sendEmail = createMailer({
-  apiKey: environment.RESEND_API_KEY,
-  from: environment.EMAIL_FROM,
-  production: environment.NODE_ENV === "production",
-});
-const processTokenRefresh = createTokenRefreshProcessor({
-  database,
-  connectors,
-  cipher,
-  sendEmail,
-  appUrl: environment.APP_URL,
-});
+const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
 const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
 const autoForwardQueue = new Queue(QUEUE_NAMES.orderAutoForward, { connection });
 const mercadoLivreConfig = {
@@ -92,6 +81,11 @@ async function requestAutoForward(orderId: string): Promise<void> {
     "Encaminhamento automático",
   );
 }
+const sendEmail = createMailer({
+  apiKey: environment.RESEND_API_KEY,
+  from: environment.EMAIL_FROM,
+  production: environment.NODE_ENV === "production",
+});
 const processAutoForward = createAutoForwardProcessor({
   database,
   cipher,
