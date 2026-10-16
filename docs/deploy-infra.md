@@ -29,3 +29,14 @@ where status <> 'disconnected'
 group by marketplace, external_shop_id
 having count(*) > 1;
 ```
+
+## Alertas de erro (item 32.a)
+
+- Variável `ALERT_WEBHOOK_URL` (só HTTPS), no web e no worker. Vazia, os alertas ficam
+  desligados.
+- Cada log de nível `error` vira uma mensagem `[SellBridge web|worker] erro: <evento>` com a
+  linha do log, já sem dados pessoais (mesma redação do `logger`), cortada em 1900 caracteres.
+- O mesmo evento manda no máximo um alerta a cada 5 minutos por processo; o seguinte diz quantas
+  repetições houve no intervalo.
+- O corpo tem `text` (Slack, Google Chat) e `content` (Discord). Timeout de 3 s, sem nova
+  tentativa; falha no envio vira um log `warn` `alerts.delivery_failed`, nunca outro alerta.

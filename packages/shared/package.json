@@ -12,6 +12,7 @@
     "./environment": "./src/runtime/environment.ts",
     "./environment-file": "./src/runtime/environment-file.ts",
     "./logger": "./src/runtime/logger.ts",
+    "./error-alerts": "./src/runtime/error-alerts.ts",
     "./queues": "./src/runtime/queues.ts",
     "./fee-model": "./src/domain/fee-model.ts",
     "./finance": "./src/domain/finance.ts",
