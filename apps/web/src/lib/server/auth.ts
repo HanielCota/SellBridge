@@ -24,6 +24,12 @@ import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
 import { logger } from "@sellbridge/shared/logger";
+import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
+import {
+  afterAccountDeletion,
+  assertDeletionRequest,
+  beforeAccountDeletion,
+} from "./account-deletion.server";
 
 function slugify(value: string): string {
   const base = value
@@ -110,6 +116,9 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
   if (context.path === "/sign-up/email") {
     assertSignUpName(context.body);
     return;
+  }
+  if (context.path === "/delete-user") {
+    assertDeletionRequest(context.body);
   }
   const isAccountSecurity = ACCOUNT_SECURITY_PATHS.has(context.path);
   const isUpdateUser = context.path === "/update-user";
@@ -321,7 +330,11 @@ export const auth = betterAuth({
   database: drizzleAdapter(database, { provider: "pg", schema }),
   // One web instance, so the in-memory store is enough; the default per-path rules
   // (sign-in, sign-up, password reset) stay in place.
-  rateLimit: { enabled: environment.NODE_ENV === "production" },
+  rateLimit: {
+    enabled: environment.NODE_ENV === "production",
+    // A stolen session must not be able to guess the password through account deletion.
+    customRules: { "/delete-user": { window: 60, max: 5 } },
+  },
   advanced: { ipAddress: { ipAddressHeaders: [environment.CLIENT_IP_HEADER] } },
   emailAndPassword: {
     enabled: true,
@@ -336,6 +349,14 @@ export const auth = betterAuth({
     sendOnSignUp: true,
   },
   socialProviders: googleProvider(),
+  // Self-service deletion (LGPD), always with the password: see account-deletion.server.ts.
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => beforeAccountDeletion(user),
+      afterDelete: async (user) => afterAccountDeletion(user),
+    },
+  },
   hooks: { before: guardAccountRoutes, after: recordVisitEvents },
   databaseHooks: {
     user: {
@@ -395,6 +416,9 @@ export const auth = betterAuth({
       adminRoles: ["admin", "supervisor", "agent"],
       // Explicit, and shown in the banner: a visit to a customer's account ends on its own.
       impersonationSessionDuration: IMPERSONATION_SECONDS,
+    }),
+    leakedPasswordCheck({
+      enabled: isLeakedPasswordCheckOn(environment.LEAKED_PASSWORD_CHECK, environment.NODE_ENV),
     }),
     tanstackStartCookies(),
   ],

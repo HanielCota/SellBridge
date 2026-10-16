@@ -10,12 +10,11 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
-  getListingOverview,
-  listListingOverview,
   resetListingErrorsForRetry,
   setListingsPaused,
   updateListingPrice,
-} from "./listing-overview.ts";
+} from "./listing-actions.ts";
+import { getListingOverview, listListingOverview } from "./listing-overview.ts";
 import { findTargetsNeedingSync } from "./listing-sync.ts";
 import { createListingWithTargets, markTargetFailed } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";

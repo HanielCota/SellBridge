@@ -1,7 +1,7 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
 import { ORDER_STATUS_LABELS } from "@sellbridge/shared/schemas";
-import { ArrowLeftIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, ArrowSquareOutIcon, ChatCircleDotsIcon } from "@phosphor-icons/react";
 import { Link, useCanGoBack, useRouter, useSearch } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
@@ -15,6 +15,7 @@ import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status
 import { Button } from "@/components/ui/button";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
+import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { displayStoreName } from "@/features/stores/store-name";
 
 type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
@@ -63,14 +64,29 @@ function OrderHeader({ page }: { page: OrderPageData }) {
           <SmartDate date={order.orderedAt} />
         </p>
       </div>
-      {page.marketplaceUrl ? (
+      <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline">
-          <a href={page.marketplaceUrl} target="_blank" rel="noopener noreferrer">
-            Ver no Mercado Livre
-            <ArrowSquareOutIcon aria-hidden="true" />
-          </a>
+          <Link
+            to="/suporte/novo"
+            search={supportTicketSearch({
+              kind: "order",
+              id: order.id,
+              name: order.externalOrderId,
+            })}
+          >
+            <ChatCircleDotsIcon aria-hidden="true" />
+            Falar com o suporte
+          </Link>
         </Button>
-      ) : null}
+        {page.marketplaceUrl ? (
+          <Button asChild variant="outline">
+            <a href={page.marketplaceUrl} target="_blank" rel="noopener noreferrer">
+              Ver no Mercado Livre
+              <ArrowSquareOutIcon aria-hidden="true" />
+            </a>
+          </Button>
+        ) : null}
+      </div>
     </header>
   );
 }

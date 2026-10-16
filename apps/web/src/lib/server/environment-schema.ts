@@ -80,6 +80,11 @@ const serverEnvironmentShape = z.object({
    * "cf-connecting-ip": x-forwarded-for would then carry Cloudflare's address for every user.
    */
   CLIENT_IP_HEADER: z.string().trim().toLowerCase().default("x-forwarded-for"),
+  /**
+   * Refuses new passwords found in known breaches (Have I Been Pwned, item 30.c). "auto" turns it
+   * on in production only, so tests and local sign-ups never depend on the outside service.
+   */
+  LEAKED_PASSWORD_CHECK: z.enum(["auto", "on", "off"]).default("auto"),
 });
 
 const STRIPE_REQUIRED_KEYS = [

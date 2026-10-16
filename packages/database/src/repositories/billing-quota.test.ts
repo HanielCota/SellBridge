@@ -8,7 +8,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { billingUsage } from "./billing.ts";
-import { resetListingErrorsForRetry } from "./listing-overview.ts";
+import { resetListingErrorsForRetry } from "./listing-actions.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 

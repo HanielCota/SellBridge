@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { type ReactNode, useId, useRef } from "react";
 import {
   ArrowsLeftRightIcon,
+  ChatCircleDotsIcon,
   DotsThreeIcon,
   PackageIcon,
   SignOutIcon,
@@ -20,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { cn } from "@/lib/utils";
 import type { StoreWithActivity } from "./store-list";
 
@@ -84,6 +86,23 @@ function StoreMenuHeader({
   );
 }
 
+/** Opens "Novo chamado" already about this store (item 27.a). */
+function TalkToSupportItem({ storeId, storeName }: { storeId: string; storeName: string }) {
+  return (
+    <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
+      <Link
+        to="/suporte/novo"
+        search={supportTicketSearch({ kind: "store", id: storeId, name: storeName })}
+      >
+        <MenuTile tone="view">
+          <ChatCircleDotsIcon weight="bold" />
+        </MenuTile>
+        Falar com o suporte
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
 function StoreMenuEntries({
   store,
   storeName,
@@ -122,6 +141,7 @@ function StoreMenuEntries({
         </MenuTile>
         {store.supplierId === null ? "Escolher fornecedor" : "Trocar fornecedor"}
       </DropdownMenuItem>
+      <TalkToSupportItem storeId={store.id} storeName={storeName} />
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
