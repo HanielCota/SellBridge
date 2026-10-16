@@ -139,7 +139,7 @@ export function BulkActionsBar({
     <section
       aria-label="Ações em lote"
       data-bulk-actions=""
-      className="sticky bottom-4 z-20 mx-auto mt-4 flex w-fit max-w-full animate-in flex-wrap items-center justify-center gap-1 rounded-full border border-border bg-popover/90 p-1.5 pl-4 text-popover-foreground shadow-lg shadow-black/20 backdrop-blur-md duration-200 fade-in slide-in-from-bottom-3 motion-reduce:slide-in-from-bottom-0"
+      className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 mx-auto mt-4 flex w-fit max-w-full animate-in flex-wrap items-center justify-center gap-1 rounded-full border border-border bg-popover/90 p-1.5 pl-4 text-popover-foreground shadow-lg shadow-black/20 backdrop-blur-md duration-200 fade-in slide-in-from-bottom-3 motion-reduce:slide-in-from-bottom-0"
     >
       <p className="text-sm font-medium whitespace-nowrap" aria-live="polite">
         {plural(rows.length, "produto", "produtos")}

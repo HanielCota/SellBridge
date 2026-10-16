@@ -28,10 +28,14 @@ function AuthBrandLogo() {
 function AuthLayout() {
   return (
     <div className="flex min-h-svh flex-col bg-surface-grouped">
-      <header className="flex justify-end px-4 py-4 sm:px-6">
+      <header className="flex justify-end px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:px-6">
         <ThemeToggle />
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center px-5 pb-20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex flex-1 flex-col items-center justify-center px-5 pb-20"
+      >
         <div className="flex w-full max-w-[380px] animate-in flex-col items-center duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
           <AuthBrandLogo />
           <div className="w-full">
@@ -39,7 +43,7 @@ function AuthLayout() {
           </div>
         </div>
       </main>
-      <footer className="px-4 py-5 text-center text-xs text-muted-foreground">
+      <footer className="px-4 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground">
         © {COPYRIGHT_YEAR} SellBridge
       </footer>
     </div>
