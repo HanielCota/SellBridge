@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { ArrowFatUpIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { type ComponentProps, type KeyboardEvent, type ReactNode, useState } from "react";
+import { keyboardDefaultsForType } from "@/lib/input-keyboard";
 import { firstErrorMessage } from "./form-field";
 
 type NativeInputProps = Omit<ComponentProps<"input">, "id" | "onChange" | "value" | "placeholder">;
@@ -75,6 +76,7 @@ function FloatingInput({
     <div className="grid gap-1.5">
       <div className="relative">
         <input
+          {...keyboardDefaultsForType(inputProps.type)}
           id={id}
           value={value}
           placeholder=" "
@@ -99,7 +101,7 @@ function FloatingInput({
         <label
           htmlFor={id}
           className={cn(
-            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-all duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
+            "pointer-events-none absolute top-1/2 origin-left -translate-y-1/2 text-body text-muted-foreground transition-[top,font-size,color] duration-150 ease-out peer-focus:top-[1.15rem] peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-[1.15rem] peer-[:not(:placeholder-shown)]:text-xs motion-reduce:transition-none",
             leading ? "left-11" : "left-4",
           )}
         >

@@ -5,12 +5,20 @@ export type Theme = "light" | "dark";
 const STORAGE_KEY = "sellbridge-theme";
 const THEME_EVENT = "sellbridge-theme-change";
 
+/**
+ * Page background of each theme (`--background` in styles.css, as hex), painted by the mobile
+ * browser around the page: status bar, overscroll and the address bar on Android.
+ */
+export const THEME_COLORS: Readonly<Record<Theme, string>> = { light: "#f4f5f6", dark: "#0e0e10" };
+
 /** Runs before hydration to apply the saved theme and avoid a flash of the wrong colors. */
 export const themeInitScript = [
   "(function(){try{",
   `var t=localStorage.getItem("${STORAGE_KEY}");`,
   'var d=t?t==="dark":true;',
   'document.documentElement.classList.toggle("dark",d);',
+  "var m=document.querySelector('meta[name=\"theme-color\"]');",
+  `if(m){m.setAttribute("content",d?"${THEME_COLORS.dark}":"${THEME_COLORS.light}");}`,
   "}catch(e){}})();",
 ].join("");
 
@@ -30,6 +38,10 @@ function getServerSnapshot(): Theme {
 
 function applyTheme(theme: Theme): void {
   document.documentElement.classList.toggle("dark", theme === "dark");
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta !== null) {
+    themeColorMeta.setAttribute("content", THEME_COLORS[theme]);
+  }
   try {
     localStorage.setItem(STORAGE_KEY, theme);
   } catch {

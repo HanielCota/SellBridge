@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/manrope";
+@import "./styles/native-controls.css";
+@import "./styles/print.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -799,11 +801,4 @@ a:focus-visible .glyph,
 :root[data-theme-reveal]::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
-}
-
-/* Printing a page (a support ticket saved as PDF) keeps the content, not the app chrome. */
-@media print {
-  header.sticky {
-    display: none;
-  }
 }

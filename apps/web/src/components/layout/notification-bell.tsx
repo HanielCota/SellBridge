@@ -36,6 +36,7 @@ import {
   type NotificationTab,
 } from "@/features/notifications/notification-tabs";
 import { useNotificationChime } from "@/features/notifications/use-notification-chime";
+import { Hint } from "@/components/ui/hint";
 
 /** Problems that wait for the reseller, in the warning tone of `ToneStatus`. */
 const WARNING_TINT = "bg-amber-500/15 text-amber-700 dark:text-amber-400";
@@ -174,16 +175,17 @@ function SoundToggle() {
   const { soundOn, setSoundOn } = useNotificationSound();
   const SpeakerIcon = soundOn ? SpeakerHighIcon : SpeakerSlashIcon;
   return (
-    <button
-      type="button"
-      aria-pressed={soundOn}
-      aria-label="Som dos avisos"
-      title={soundOn ? "Som ligado" : "Som desligado"}
-      onClick={() => setSoundOn(!soundOn)}
-      className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
-    >
-      <SpeakerIcon className="size-4" aria-hidden="true" />
-    </button>
+    <Hint label={soundOn ? "Som ligado" : "Som desligado"}>
+      <button
+        type="button"
+        aria-pressed={soundOn}
+        aria-label="Som dos avisos"
+        onClick={() => setSoundOn(!soundOn)}
+        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
+      >
+        <SpeakerIcon className="size-4" aria-hidden="true" />
+      </button>
+    </Hint>
   );
 }
 

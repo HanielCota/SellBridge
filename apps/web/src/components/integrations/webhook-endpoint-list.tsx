@@ -12,6 +12,7 @@ import {
   useIntegrationsLocked,
 } from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -97,16 +98,17 @@ function EndpointRow({
         </div>
         <div className="flex shrink-0 items-center gap-3 self-start">
           <EnabledSwitch endpoint={endpoint} />
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={locked}
-            title={locked ? INTEGRATIONS_LOCKED_REASON : undefined}
-            aria-label={`Excluir o webhook ${endpoint.url}`}
-            onClick={() => onDelete(endpoint)}
-          >
-            Excluir
-          </Button>
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={locked}
+              aria-label={`Excluir o webhook ${endpoint.url}`}
+              onClick={() => onDelete(endpoint)}
+            >
+              Excluir
+            </Button>
+          </DisabledHint>
         </div>
       </div>
       <WebhookDeliveries deliveries={endpoint.recentDeliveries} />

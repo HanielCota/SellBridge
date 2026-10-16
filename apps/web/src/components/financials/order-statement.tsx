@@ -27,6 +27,7 @@ import {
   signedCents,
 } from "./order-parts";
 import { PendingCostStatus } from "@/components/reports/pending-cost";
+import { Hint } from "@/components/ui/hint";
 
 export interface DayTotal {
   date: string;
@@ -462,21 +463,20 @@ function DayHeading({
         ) : null}
       </h3>
       {total && total.orders > 0 ? (
-        <p
-          className="text-xs text-muted-foreground tabular-nums"
-          title={hasVoidRows ? VOID_ROWS_HINT : undefined}
-        >
-          {salesLabel(total.orders, hasVoidRows)}
-          {" · "}
-          <span
-            className={cn(
-              "font-medium",
-              total.profitCents >= 0 ? "text-foreground" : "text-destructive",
-            )}
-          >
-            {signedCents(total.profitCents, { plus: true })}
-          </span>
-        </p>
+        <Hint label={hasVoidRows ? VOID_ROWS_HINT : undefined}>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {salesLabel(total.orders, hasVoidRows)}
+            {" · "}
+            <span
+              className={cn(
+                "font-medium",
+                total.profitCents >= 0 ? "text-foreground" : "text-destructive",
+              )}
+            >
+              {signedCents(total.profitCents, { plus: true })}
+            </span>
+          </p>
+        </Hint>
       ) : null}
     </div>
   );

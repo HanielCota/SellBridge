@@ -39,7 +39,9 @@ function SupplierPageFrame({ children }: { children: ReactNode }) {
         <BrandLogo className="text-xl" iconClassName="size-8" />
         <span className="text-subhead text-muted-foreground">Portal do fornecedor</span>
       </header>
-      <main className="mx-auto max-w-3xl space-y-5 px-4 pb-16">{children}</main>
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-3xl space-y-5 px-4 pb-16">
+        {children}
+      </main>
     </div>
   );
 }
