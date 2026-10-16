@@ -542,3 +542,10 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Mesmas regras nos dois fluxos:** `shared/domain/bulk-publish-plan.ts` decide, produto a produto, o que sai num lote: título e descrição pelos mesmos schemas da publicação individual, estoque e "já publicado". Antes a massa publicava título cortado e descrição crua sem validar (B16).
 - **Sem estoque não publica (E8):** o servidor recusa, nos dois fluxos, produto sem unidades vendáveis, descontando o estoque de segurança que a sincronização já guarda (`STOCK_SAFETY_UNITS`, agora lido também pela web; aprovado no ⏸1). Antes só a tela escondia o botão.
 - **Resultado honesto (E12):** a massa publica os válidos e devolve os pulados com o motivo (`already_published`, `out_of_stock`, `invalid_title`, `invalid_description`, `unavailable`); o aviso diz "fora: 2 já publicado, 1 sem estoque". Se nenhum produto pode sair, o lote é recusado com os primeiros nomes e motivos. O piso de preço e o teto de R$ 1.000.000,00 continuam recusando o lote inteiro (dependem da regra que o revendedor escolheu). A tela completa do resultado e o progresso são as partes 14.b e 14.c.
+
+## 2026-10-16: Progresso da publicação em massa (item 14.b)
+
+- **Estimativa pelo ritmo, não pela duração:** o tempo restante é o intervalo médio entre jobs concluídos vezes o que falta. O worker publica vários ao mesmo tempo, então somar a duração de cada job prometeria bem mais tempo do que resta. Sem nenhum concluído, a tela diz "calculando o tempo restante…".
+- **100% só no fim:** a porcentagem é arredondada para baixo (199 de 200 = 99%).
+- **Falha conta como terminada só quando é definitiva:** a falha que o worker ainda vai tentar de novo fica como pendente, e a barra não para antes da hora.
+- **Sem migration:** o andamento sai de `listing_targets` (`status`, `createdAt`, `publishedAt`, `updatedAt`), pelos ids que a publicação em massa devolve.

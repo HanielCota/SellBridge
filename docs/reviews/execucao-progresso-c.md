@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 14.a · Validações do servidor iguais às do fluxo individual e bloqueio sem estoque
-- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-16); ⏸1 aprovado em 2026-10-16 (com o estoque de segurança)
-- Próximo passo: depois do OK, commit local; depois a 14.b (`ProgressWithEta`)
-- Arquivos tocados: shared/domain/bulk-publish-plan(.test).ts (novo), shared/package.json; web/lib/server/environment-schema.ts (STOCK_SAFETY_UNITS); web/features/listings/listing-commands.server.ts; web/features/catalog/catalog.functions.ts e bulk-skip-reasons.ts (novo); web/components/catalog/bulk-publish-dialog.tsx (toast); e2e/publishing.spec.ts; docs
+- Item/parte: 14.b · Componente `ProgressWithEta` (14.a commitada em 98ee522; CI do PR #39 corrigido em 1ed6282)
+- Última etapa concluída: 7 · Portões (⏸3 aguardando OK, 2026-10-16); ⏸1 e ⏸2 aprovados em 2026-10-16
+- Próximo passo: depois do OK, commit; depois a 14.c (o componente no diálogo, resultado honesto, capturas)
+- Arquivos tocados: shared/domain/publish-progress(.test).ts (novo), shared/schemas/catalog.ts (bulkPublishProgressSchema), shared/package.json; database/repositories/listing-batch-progress(.test).ts (novo), repositories/index.ts; web/features/catalog/catalog.functions.ts (targetIds e getBulkPublishProgress), catalog.queries.ts, publish-progress-text(.test).ts (novo); web/components/ui/progress-with-eta.tsx (novo); docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -39,6 +39,11 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 14.b · Componente `ProgressWithEta` — ⏸3 aguardando OK
+
+- `estimatePublishProgress` (shared): x de y, % arredondado para baixo (100% só no fim) e tempo restante pelo intervalo médio entre jobs concluídos (o worker roda vários em paralelo); sem concluídos, sem estimativa. `getPublishBatchStatus` (database) conta publicados, falhas definitivas e pendentes só da conta. `publishProductsInBulk` devolve os `targetIds`; `getBulkPublishProgress` + `bulkPublishProgressQueryOptions` (consulta a cada 2 s até nada pendente). `ProgressWithEta` em `components/ui`, com `<progress>` e o tempo restante num `<output>` (anuncia sem repetir a contagem). O diálogo e as capturas são a 14.c.
+- C5 1638/1638 (shared 471, marketplaces 194, database 305, web 586, worker 82); C6 ok; C7 `publishing.spec` 11/11. Instabilidade sem relação: `notification-delivery.test` (chat E, 25.a) falha quando o relógio do Postgres no Docker está à frente do Windows (59 ms medidos): `nextAttemptAt` usa `now()` do banco e o processador consulta com o relógio do Node. Passou na rodada seguinte.
 
 ### 2026-10-16 · Item 14.a · Massa com as regras do individual e sem estoque bloqueado — ⏸3 aguardando OK
 
