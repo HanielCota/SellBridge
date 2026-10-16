@@ -17,7 +17,8 @@ import {
   setAdminSupplierActive,
   setAdminSupplierProductActive,
 } from "./admin-suppliers.ts";
-import { getListingOverview, setListingsPaused } from "./listing-overview.ts";
+import { setListingsPaused } from "./listing-actions.ts";
+import { getListingOverview } from "./listing-overview.ts";
 import { listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
