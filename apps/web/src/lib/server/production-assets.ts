@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { copyFile, link, mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { serveStatic } from "srvx/static";
+import { staticMiddleware } from "srvx/static";
 import type { ServerMiddleware } from "srvx";
 
 async function copyDirectory(source: string, destination: string): Promise<void> {
@@ -41,8 +41,8 @@ export function productionStaticFiles(
   clientDirectory: string,
   archiveDirectory: string,
 ): ServerMiddleware {
-  const current = serveStatic({ dir: clientDirectory });
-  const archived = serveStatic({ dir: archiveDirectory });
+  const current = staticMiddleware({ dir: clientDirectory });
+  const archived = staticMiddleware({ dir: archiveDirectory });
   return async (request, next) => {
     const pathname = new URL(request.url).pathname;
     if (!pathname.startsWith("/assets/")) return current(request, next);

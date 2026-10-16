@@ -39,7 +39,7 @@ describe("production assets across rolling deploys", () => {
         next,
       );
       expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("text/javascript");
+      expect(response.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
       expect(response.headers.get("cache-control")).toContain("immutable");
       expect(await response.text()).toMatch(/import|export/);
     }
