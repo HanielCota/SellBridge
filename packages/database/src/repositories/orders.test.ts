@@ -15,12 +15,8 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  findTargetsNeedingSync,
-  markTargetPublished,
-  markTargetSynced,
-} from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { upsertMarketplaceOrder } from "./orders.ts";
 import { upsertStoreConnection } from "./stores.ts";
 

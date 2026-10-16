@@ -4,6 +4,7 @@ import {
   getSalesSummary,
   getSalesTimeseries,
   getTopProducts,
+  isUserEmailVerified,
   listListingTargets,
   listOrderFinancials,
   listStoreConnections,
@@ -26,16 +27,19 @@ const PICKED_DAY_PAGE_SIZE = 100;
 /** Above this many days, the composition chart groups the sales by month. */
 const MONTHLY_FROM_DAYS = 120;
 
-async function loadOnboardingState(tenantId: string) {
-  const [profile, stores, listings] = await Promise.all([
+async function loadOnboardingState(tenantId: string, userId: string) {
+  const [profile, stores, listings, emailVerified] = await Promise.all([
     findOnboardingProfile(database, tenantId),
     listStoreConnections(database, tenantId),
     listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
+    isUserEmailVerified(database, userId),
   ]);
   return {
     hasHolder: profile.holder !== null,
     hasSupplier:
       profile.starterSupplier !== null || stores.some((store) => store.supplierId !== null),
+    // An account that already has a store is past this step; /lojas explains it for a new one.
+    hasVerifiedEmail: emailVerified || stores.length > 0,
     hasStore: stores.length > 0,
     hasPublishedListing: listings.total > 0,
   };
@@ -44,7 +48,7 @@ async function loadOnboardingState(tenantId: string) {
 /** Where a new account stands in the setup: holder, supplier, a store, a first publication. */
 export const getSetupProgress = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
-  .handler(async ({ context }) => loadOnboardingState(context.tenantId));
+  .handler(async ({ context }) => loadOnboardingState(context.tenantId, context.userId));
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -81,7 +85,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       getSalesByStore(database, scope),
       getTopProducts(database, scope),
       listStoreConnections(database, context.tenantId),
-      loadOnboardingState(context.tenantId),
+      loadOnboardingState(context.tenantId, context.userId),
     ]);
     return {
       period: {

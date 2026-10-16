@@ -16,7 +16,8 @@ import {
   setListingsPaused,
   updateListingPrice,
 } from "./listing-overview.ts";
-import { createListingWithTargets, findTargetsNeedingSync, markTargetFailed } from "./listings.ts";
+import { findTargetsNeedingSync } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetFailed } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
