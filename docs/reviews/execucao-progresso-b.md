@@ -4,9 +4,9 @@ Registro do chat B na divisão de 2026-10-15 ([coordenacao.md](../prompts/coorde
 
 ## Em andamento
 
-- Item/parte: — (24 concluído no modo MVP; ⏸B do 24 e ⏸A do 30 apresentados em 2026-10-16)
+- Item/parte: — (fila do MVP concluída: 30.a feito; 30.b cortado do MVP em 2026-10-16, 16h40)
 - Última etapa concluída: —
-- Próximo passo: item 30 depois do OK do ⏸A
+- Próximo passo: nenhum item no MVP; fase 2: terminar a 2FA a partir de `wip/b-item-30b-2fa` (96fc854)
 - Arquivos tocados: —
 - Decisões tomadas nos pontos de parada: modo MVP aprovado pelo usuário em 2026-10-16 (⏸A e ⏸B)
 - Pendências: item 12 fechado como "não se aplica" (coordenação de 2026-10-16: o CPF tirou o endereço do admin); o commit wip fica guardado em `wip/b-item-12-address` (ec5bfc8). O commit guarda a regra `shared/domain/address-change.ts` (mantém número e complemento na mesma rua, usada também pelo seed) e textos da ficha. Conta de preview `admin.comum.preview@sellbridge.test` (admin comum) no `sellbridge_desk_b`
@@ -26,22 +26,28 @@ C5 no banco B no item 11 (base feat/client-phase-1 14ab0ae): shared 340, marketp
 
 Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado · ➖ não se aplica
 
-| Item | Título                                 | Situação | Commit  | Notas                                                                                    |
-| ---- | -------------------------------------- | -------- | ------- | ---------------------------------------------------------------------------------------- |
-| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                                           |
-| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas)                    |
-| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                          |
-| 12   | Admin muda a região e apaga o endereço | ➖       | —       | Não se aplica: o CPF tirou o endereço do admin; wip em `wip/b-item-12-address` (ec5bfc8) |
-| 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                          |
-| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                          |
-| 24   | Saúde das lojas                        | ✅       | 1172873 |                                                                                          |
-| 30   | LGPD e proteção da conta               | ⬜       | —       | Partes a, b                                                                              |
+| Item | Título                                 | Situação | Commit  | Notas                                                                                           |
+| ---- | -------------------------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------- |
+| 03   | Mesma conta do ML em dois revendedores | ✅       | 558cd66 | Junção e21574c                                                                                  |
+| 10   | Segurança de contas e da equipe        | ✅       | 3742f08 | 10.a ✅ 6c32358 · 10.b ✅ c29dbc8 · 10.c ✅ 7bd26d1 + 3742f08 (lojas)                           |
+| 11   | Uploads seguros                        | ✅       | 3859be6 |                                                                                                 |
+| 12   | Admin muda a região e apaga o endereço | ➖       | —       | Não se aplica: o CPF tirou o endereço do admin; wip em `wip/b-item-12-address` (ec5bfc8)        |
+| 17   | Link do fornecedor e diagnóstico       | ✅       | 93b97c3 |                                                                                                 |
+| 19   | Pequenos de segurança e status         | ✅       | bcac77a |                                                                                                 |
+| 24   | Saúde das lojas                        | ✅       | 1172873 |                                                                                                 |
+| 30   | LGPD e proteção da conta               | 🟡       | 916253d | 30.a ✅ 916253d · senha vazada ✅ fb3b3d9 · 2FA na fase 2 (migration 0036 892d950; wip 96fc854) |
 
-Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios.
+Refinar depois (modo MVP): a desconexão feita pelo admin na ficha do cliente ainda não pausa os anúncios; conta que entra só com Google pede a exclusão pelo Suporte; guardar um hash do CPF de contas excluídas contra o recadastro no plano grátis (decisão do cliente); 2FA (fase 2).
 
 Correções de design da auditoria que ficam com o B (coordenacao, seção 1): X-7 (anel de foco) e X-8 (contraste), junto com o item que mexer na tela.
 
 ## Histórico
+
+### 2026-10-16 · Item 30 · LGPD e proteção da conta — 🟡 30.a concluída; 2FA cortada do MVP
+
+- 30.a (916253d): baixar os próprios dados e excluir a conta em Perfil › Seus dados, com senha. Revisão independente: 1 alto (falha no meio travava a exclusão para sempre), 4 médios e 6 baixos corrigidos. O CPF liberado para recadastro ficou como decisão do cliente.
+- Senha vazada (fb3b3d9): commitada antes do corte, com os portões verdes.
+- 2FA: migration 0036 (892d950) commitada e enviada ao principal antes do corte; telas e login guardados em `wip/b-item-30b-2fa` (96fc854) para a fase 2.
 
 ### 2026-10-16 · Item 24 · Saúde das lojas — ✅ concluído no modo MVP (24.a 829eec3, 24.b 1172873; 24.c revertida)
 
