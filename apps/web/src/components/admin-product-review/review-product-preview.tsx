@@ -28,11 +28,17 @@ function ImageStrip({ product }: { product: ProductAwaitingReview }) {
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4" aria-label="Imagens do produto">
       {product.imageUrls.map((url, index) => (
         <li key={url} className={index === 0 ? "col-span-3 sm:col-span-4" : undefined}>
-          <a href={url} target="_blank" rel="noreferrer noopener" className="block">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="block [-webkit-touch-callout:none]"
+          >
             <img
               src={url}
               alt={index === 0 ? `Imagem principal de ${product.title}` : `Imagem ${index + 1}`}
               loading="lazy"
+              draggable={false}
               className="aspect-square w-full rounded-2xl bg-muted object-contain"
             />
           </a>
@@ -45,7 +51,7 @@ function ImageStrip({ product }: { product: ProductAwaitingReview }) {
 function Attributes({ attributes }: { attributes: Record<string, string> }) {
   const entries = Object.entries(attributes);
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhum atributo informado.</p>;
+    return <p className="text-sm text-muted-foreground">Nenhum atributo.</p>;
   }
   return (
     <dl className="grid gap-3 sm:grid-cols-2">
@@ -62,7 +68,7 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
 export function ReviewProductPreview({ product }: { product: ProductAwaitingReview }) {
   return (
     <div className="space-y-6">
-      <SectionCard title="Como o revendedor vai ver">
+      <SectionCard title="Prévia no catálogo">
         <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ImageStrip product={product} />
           <div className="min-w-0 space-y-4">
@@ -89,7 +95,7 @@ export function ReviewProductPreview({ product }: { product: ProductAwaitingRevi
           </div>
         </div>
       </SectionCard>
-      <SectionCard title="Ficha técnica" description="Atributos que vão para o Mercado Livre.">
+      <SectionCard title="Ficha técnica">
         <Attributes attributes={product.mercadoLivreAttributes} />
       </SectionCard>
     </div>

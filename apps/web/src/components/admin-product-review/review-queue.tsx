@@ -33,7 +33,7 @@ function ProductCell({ product }: { product: ProductAwaitingReview }) {
     <Link
       to="/admin/fornecedores/analise/$productId"
       params={{ productId: product.id }}
-      className="flex min-w-0 items-center gap-3"
+      className="flex min-w-0 items-center gap-3 select-none [-webkit-touch-callout:none]"
     >
       <ProductVisual
         imageUrl={product.imageUrls[0] ?? null}
@@ -107,10 +107,12 @@ function MobileRow({ product }: { product: ProductAwaitingReview }) {
   return (
     <div className="space-y-2">
       <ProductCell product={product} />
-      <p className="text-sm text-muted-foreground">
-        {product.supplierName} · {REVIEW_KIND_LABELS[product.kind]} ·{" "}
-        <SubmittedAt product={product} />
-      </p>
+      <div className="text-sm text-muted-foreground">
+        <p>{product.supplierName}</p>
+        <p>
+          {REVIEW_KIND_LABELS[product.kind]} · <SubmittedAt product={product} />
+        </p>
+      </div>
       <CompletenessBadge
         score={product.completeness.score}
         blocking={product.completeness.blocking.length}
@@ -136,8 +138,8 @@ function QueueTable({
     return (
       <EmptyState
         icon={CheckCircleIcon}
-        title="Nenhum produto esperando análise"
-        description="Quando um fornecedor enviar um produto pelo painel, ele aparece aqui."
+        title="Nenhum produto em análise"
+        description="Os produtos enviados pelos fornecedores aparecem aqui."
       />
     );
   }
@@ -145,7 +147,7 @@ function QueueTable({
     <DataTable
       columns={queueColumns}
       data={query.data.items}
-      caption="Produtos enviados pelos fornecedores, do mais antigo ao mais novo"
+      caption="Produtos em análise, do mais antigo ao mais novo"
       getRowId={(row) => row.id}
       renderMobileRow={(row) => <MobileRow product={row} />}
       footer={
@@ -176,7 +178,6 @@ export function ReviewQueue({ search, onSearch, onPageChange }: ReviewQueueProps
       <PageHeader
         back={<BackLink to="/admin/fornecedores" label="Fornecedores" />}
         title="Produtos em análise"
-        description="Aprove para liberar o produto aos revendedores ou reprove dizendo o que corrigir."
       />
       <SearchInput
         label="Buscar produtos em análise"

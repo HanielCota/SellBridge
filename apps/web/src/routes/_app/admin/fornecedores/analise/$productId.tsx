@@ -63,7 +63,7 @@ function ReviewProductPage() {
       <PageHeader
         back={BACK}
         title="Analisar produto"
-        description={`${product.supplierName} · ${product.supplierCity} - ${product.supplierState} · SKU ${product.sku}`}
+        description={`${product.supplierName} · SKU ${product.sku}`}
       />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <ReviewProductPreview product={product} />

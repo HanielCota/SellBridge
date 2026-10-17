@@ -71,7 +71,7 @@ function ReasonRow({
       </div>
       <TextareaField
         id={`reason-message-${reason.key}`}
-        label="O que o fornecedor deve corrigir"
+        label="O que corrigir"
         value={reason.message}
         errors={error === undefined ? [] : [error]}
         onValueChange={(message) => onChange({ message })}

@@ -1,5 +1,4 @@
 import type { ProductAwaitingReview } from "@sellbridge/database/repositories";
-import { PRODUCT_REVIEW_STATUS_LABELS } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { reviewFieldLabel } from "@sellbridge/shared/supplier-product-review";
 import { CheckIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,12 +34,12 @@ function useReviewActions(onDecided: () => void) {
   }
   const approve = useCatalogAction(
     adminApprovePanelProduct,
-    "Produto aprovado e liberado aos revendedores",
+    "Produto aprovado",
     () => void afterDecision(),
   );
   const reject = useCatalogAction(
     adminRejectPanelProduct,
-    "Produto reprovado; o fornecedor verá os motivos no formulário",
+    "Produto reprovado",
     () => void afterDecision(),
   );
   return { approve, reject };
@@ -53,11 +52,10 @@ function AlreadyDecided({ product }: { product: ProductAwaitingReview }) {
       <div className="space-y-3 text-sm">
         <ReviewStatus status={product.reviewStatus} />
         <p className="text-muted-foreground">
-          Este produto não está mais em análise (situação atual:{" "}
-          {PRODUCT_REVIEW_STATUS_LABELS[product.reviewStatus]}).
-          {product.reviewedAt === null ? null : (
+          {product.reviewedAt === null ? (
+            "Não está mais em análise."
+          ) : (
             <>
-              {" "}
               Decidido <SmartDate date={product.reviewedAt} />.
             </>
           )}
@@ -99,17 +97,15 @@ function ApproveCard({
             className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-footnote text-amber-700 dark:text-amber-400"
           >
             <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {blocking} {blocking === 1 ? "pendência impede" : "pendências impedem"} publicar no
-            Mercado Livre. Aprovado assim, o revendedor vê o produto mas a publicação falha.
+            Com {blocking} {blocking === 1 ? "pendência" : "pendências"}, a publicação no Mercado
+            Livre vai falhar.
           </p>
         ) : null}
         <Button className="w-full" disabled={busy} onClick={onApprove}>
           <CheckIcon aria-hidden="true" />
-          {blocking > 0 ? "Aprovar mesmo assim" : "Aprovar e liberar"}
+          {blocking > 0 ? "Aprovar mesmo assim" : "Aprovar"}
         </Button>
-        <p className="text-footnote text-muted-foreground">
-          O produto entra no catálogo dos revendedores na hora.
-        </p>
+        <p className="text-footnote text-muted-foreground">Fica visível para os revendedores.</p>
       </div>
     </SectionCard>
   );
@@ -127,7 +123,7 @@ function CompletenessCard({
     <section className="surface-card space-y-3 rounded-3xl bg-card p-5 sm:p-6">
       <CompletenessMeter report={product.completeness} onFix={onPick} />
       <p className="text-footnote text-muted-foreground">
-        Toque num item para usá-lo como motivo da reprovação.
+        Cada item pode virar um motivo de reprovação.
       </p>
     </section>
   );
@@ -177,10 +173,7 @@ export function ReviewDecision({ product, onDecided }: ReviewDecisionProps) {
         blocking={product.completeness.blocking.length}
         onApprove={() => approve.mutate({ data: ref })}
       />
-      <SectionCard
-        title="Reprovar"
-        description="Diga o que corrigir. O fornecedor vê cada motivo embaixo do campo."
-      >
+      <SectionCard title="Reprovar" description="O fornecedor vê cada motivo no campo indicado.">
         <div className="space-y-4">
           <RejectionReasonsEditor
             reasons={reasons}
