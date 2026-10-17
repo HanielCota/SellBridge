@@ -13,6 +13,7 @@ import {
 } from "@/features/supplier-panel/catalog/draft-form";
 import { useProductForm } from "@/features/supplier-panel/catalog/use-product-form";
 import { errorMessage } from "@/lib/errors";
+import { prefersReducedMotion } from "@/lib/rewind";
 import { AutosaveIndicator } from "./autosave-indicator";
 import { CompletenessMeter } from "./completeness-meter";
 import { groupReasons } from "./field-reason";
@@ -51,7 +52,10 @@ function useFieldFocus(initialField: string | undefined, setStep: (step: FormSte
       return;
     }
     pending.current = undefined;
-    element.scrollIntoView({ block: "center", behavior: "smooth" });
+    element.scrollIntoView({
+      block: "center",
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
     element.focus({ preventScroll: true });
   });
   return (field: string) => {

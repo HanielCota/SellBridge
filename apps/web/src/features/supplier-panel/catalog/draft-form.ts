@@ -130,7 +130,7 @@ export function parseDraft(values: PanelFormValues): DraftParse {
     const [root, key] = issue.path.map(String);
     const field = root === "mercadoLivreAttributes" ? `attributes.${key ?? ""}` : (root ?? "form");
     errors[field] ??= /^(Invalid|Too|Expected)\b/.test(issue.message)
-      ? "Valor inválido. Revise este campo."
+      ? "Valor inválido, revise o campo."
       : issue.message;
   }
   return { ok: false, errors };

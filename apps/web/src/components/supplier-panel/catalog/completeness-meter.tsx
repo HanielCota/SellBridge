@@ -42,7 +42,7 @@ function IssueList({
             <button
               type="button"
               onClick={() => onFix(issue.field)}
-              className="w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted active:bg-muted"
+              className="w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors select-none hover:bg-muted active:bg-muted outline-none focus-visible:ring-4 focus-visible:ring-ring/30"
             >
               {issue.message}
             </button>
@@ -95,7 +95,7 @@ export function CompletenessMeter({
       {report.blocking.length === 0 && report.improvements.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
           <CheckCircleIcon weight="fill" className="size-4" aria-hidden="true" />
-          Tudo pronto para a análise.
+          Nada pendente.
         </p>
       ) : null}
     </section>

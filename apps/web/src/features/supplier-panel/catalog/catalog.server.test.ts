@@ -80,7 +80,7 @@ describe("writePanelDraft", () => {
   it("hides a database failure behind a clear message and logs it", async () => {
     mocks.save.mockRejectedValue(new Error("connection reset"));
     await expect(writePanelDraft(input)).rejects.toMatchObject({
-      message: "Não foi possível salvar o produto. Tente novamente.",
+      message: "Não foi possível salvar o produto, tente de novo.",
     });
     expect(mocks.log).toHaveBeenCalledWith("supplier_panel.draft_save_failed", {
       error: expect.any(Error),

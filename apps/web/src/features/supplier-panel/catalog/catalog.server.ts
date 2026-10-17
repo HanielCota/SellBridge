@@ -49,7 +49,7 @@ async function panelWrite<TResult>(event: string, write: () => Promise<TResult>)
       throw error;
     }
     logger.error(event, { error });
-    throw new AppError("CONFLICT", "Não foi possível salvar o produto. Tente novamente.", {
+    throw new AppError("CONFLICT", "Não foi possível salvar o produto, tente de novo.", {
       cause: error,
     });
   }

@@ -37,7 +37,7 @@ export function SortableHeader({
       onClick={() => onSort({ sort: column, direction: nextDirection })}
       aria-label={`${label}${active ? `, ordenado ${current.direction === "asc" ? "crescente" : "decrescente"}` : ""}. Ordenar ${nextDirection === "asc" ? "crescente" : "decrescente"}`}
       className={cn(
-        "-mx-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-muted hover:text-foreground",
+        "-mx-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium transition-colors select-none hover:bg-muted hover:text-foreground outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
         active ? "text-foreground" : "text-muted-foreground",
         align === "end" && "flex-row-reverse",
       )}

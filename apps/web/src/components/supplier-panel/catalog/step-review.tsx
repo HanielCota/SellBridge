@@ -10,14 +10,10 @@ import type { PanelFormValues } from "@/features/supplier-panel/catalog/draft-fo
 import { ReviewStatus } from "./review-status";
 
 const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
-  draft:
-    "Quando estiver pronto, envie para a análise. Você recebe a resposta aqui, com o motivo em cada campo se algo precisar mudar.",
-  in_review:
-    "Em análise pela equipe. Você pode continuar editando: as mudanças entram na mesma análise.",
-  approved:
-    "Aprovado e visível para os revendedores. Mudar título, imagens ou categoria envia o produto para uma nova análise; estoque e custo, não.",
-  rejected:
-    "Reprovado. Corrija os campos marcados: ao editar, o produto volta a rascunho e pode ser reenviado.",
+  draft: "Envie para análise quando estiver pronto.",
+  in_review: "As edições feitas agora entram nesta análise.",
+  approved: "Mudar título, imagens ou categoria pede nova análise.",
+  rejected: "Corrija os campos marcados e envie de novo.",
 };
 
 function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
@@ -92,11 +88,13 @@ export function StepReview({
   return (
     <div className="grid gap-6">
       <dl className="divide-y divide-border">
-        <SummaryRow label="Categoria">{categoryName ?? "—"}</SummaryRow>
-        <SummaryRow label="Título">{values.title || "—"}</SummaryRow>
-        <SummaryRow label="SKU">{values.sku || "—"}</SummaryRow>
-        <SummaryRow label="Custo">{cost === null ? "—" : <Money cents={cost} />}</SummaryRow>
-        <SummaryRow label="Estoque">{values.stock || "—"}</SummaryRow>
+        <SummaryRow label="Categoria">{categoryName ?? "Não informado"}</SummaryRow>
+        <SummaryRow label="Título">{values.title || "Não informado"}</SummaryRow>
+        <SummaryRow label="SKU">{values.sku || "Não informado"}</SummaryRow>
+        <SummaryRow label="Custo">
+          {cost === null ? "Não informado" : <Money cents={cost} />}
+        </SummaryRow>
+        <SummaryRow label="Estoque">{values.stock || "Não informado"}</SummaryRow>
         <SummaryRow label="Imagens">{values.imageUrls.length}</SummaryRow>
       </dl>
       <div className="space-y-2 rounded-2xl bg-muted/60 p-4">

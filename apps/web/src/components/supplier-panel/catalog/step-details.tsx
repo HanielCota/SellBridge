@@ -9,7 +9,21 @@ import {
 import { FieldReason, type ReasonsByField } from "./field-reason";
 
 /** Codes are typed as they are: no capital first letter, autocorrect or spell check. */
-const CODE_INPUT = { autoCapitalize: "off", autoCorrect: "off", spellCheck: false } as const;
+const CODE_INPUT = {
+  autoCapitalize: "off",
+  autoCorrect: "off",
+  autoComplete: "off",
+  spellCheck: false,
+} as const;
+
+/** Barcodes and package measures are typed as digits; the rest of the sheet is free text. */
+const ATTRIBUTE_INPUTS: Readonly<Record<string, { inputMode: "numeric" }>> = {
+  GTIN: { inputMode: "numeric" },
+  SELLER_PACKAGE_WEIGHT: { inputMode: "numeric" },
+  SELLER_PACKAGE_HEIGHT: { inputMode: "numeric" },
+  SELLER_PACKAGE_WIDTH: { inputMode: "numeric" },
+  SELLER_PACKAGE_LENGTH: { inputMode: "numeric" },
+};
 
 export interface StepProps {
   values: PanelFormValues;
@@ -20,7 +34,7 @@ export interface StepProps {
 
 const MAIN_FIELDS = [
   { field: "sku", key: "sku", label: "SKU", inputMode: "text", code: true },
-  { field: "title", key: "title", label: "Título do anúncio", inputMode: "text", code: false },
+  { field: "title", key: "title", label: "Título", inputMode: "text", code: false },
   { field: "costCents", key: "cost", label: "Custo (R$)", inputMode: "decimal", code: false },
   {
     field: "suggestedPriceCents",
@@ -29,7 +43,7 @@ const MAIN_FIELDS = [
     inputMode: "decimal",
     code: false,
   },
-  { field: "stock", key: "stock", label: "Estoque (unidades)", inputMode: "numeric", code: false },
+  { field: "stock", key: "stock", label: "Estoque (un.)", inputMode: "numeric", code: false },
 ] as const;
 
 function errorsOf(errors: Readonly<Record<string, string>>, field: string): string[] {
@@ -78,6 +92,9 @@ function AttributeFields({
               onValueChange={(next) =>
                 onChange({ attributes: { ...values.attributes, [attribute.id]: next } })
               }
+              {...(ATTRIBUTE_INPUTS[attribute.id] === undefined
+                ? {}
+                : { ...CODE_INPUT, ...ATTRIBUTE_INPUTS[attribute.id] })}
             />
             <FieldReason field={field} reasons={reasons} />
           </div>
@@ -121,7 +138,7 @@ export function StepDetails(props: StepProps & { required: readonly RequiredAttr
             onValueChange={(description) => onChange({ description })}
           />
           <p className="text-footnote text-muted-foreground tabular-nums">
-            {values.description.trim().length} caracteres · recomendado a partir de 200
+            {values.description.trim().length} de 200 caracteres recomendados
           </p>
           <FieldReason field="description" reasons={reasons} />
         </div>

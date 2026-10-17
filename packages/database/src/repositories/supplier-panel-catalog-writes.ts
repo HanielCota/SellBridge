@@ -25,7 +25,7 @@ import {
 } from "./supplier-panel-catalog.ts";
 
 const STOCK_MOVED_MESSAGE =
-  "O estoque deste produto mudou depois que você abriu o formulário (venda ou importação). Recarregue e confira antes de salvar.";
+  "O estoque mudou depois que você abriu o produto, recarregue para conferir.";
 
 /** Serializes the supplier's catalog writes (same lock the admin form and CSV import take). */
 async function lockSupplier(transaction: DatabaseExecutor, supplierId: string): Promise<void> {
@@ -138,7 +138,7 @@ function assertFreshVersion(
     return;
   }
   throw conflictError(
-    `Este produto foi alterado em outra janela (versão do formulário: ${input.expectedUpdatedAt ?? "nenhuma"}, versão salva: ${stored.updatedAt.toISOString()}). Recarregue antes de continuar.`,
+    `Este produto mudou em outra janela (versão do formulário: ${input.expectedUpdatedAt ?? "nenhuma"}, versão salva: ${stored.updatedAt.toISOString()}), recarregue para continuar.`,
   );
 }
 

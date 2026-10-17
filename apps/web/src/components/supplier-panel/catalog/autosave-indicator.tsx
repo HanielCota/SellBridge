@@ -7,15 +7,15 @@ const TIME_FORMAT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: 
 function StatusLine({ state }: { state: AutosaveState }) {
   switch (state.kind) {
     case "idle": {
-      return <span className="text-muted-foreground">Salva sozinho enquanto você preenche</span>;
+      return <span className="text-muted-foreground">Salvamento automático</span>;
     }
     case "needs-sku": {
-      return <span className="text-muted-foreground">Informe o SKU para começar a salvar</span>;
+      return <span className="text-muted-foreground">Informe o SKU para salvar</span>;
     }
     case "invalid": {
       return (
         <span className="text-amber-700 dark:text-amber-400">
-          Aguardando correção para salvar: {Object.values(state.errors)[0]}
+          Não salvo: {Object.values(state.errors)[0]}
         </span>
       );
     }

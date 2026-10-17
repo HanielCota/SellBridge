@@ -51,7 +51,7 @@ describe("DraftAutosaver", () => {
     expect(saveDraft).not.toHaveBeenCalled();
     expect(states.at(-1)).toEqual({
       kind: "invalid",
-      errors: { costCents: "Valor inválido. Revise este campo." },
+      errors: { costCents: "Valor inválido, revise o campo." },
     });
   });
 

@@ -59,7 +59,11 @@ function RejectionLine({ product }: { product: SupplierPanelProduct }) {
       <WarningCircleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
       <span>
         {reason.message}
-        {more > 0 ? ` (+${more} ${more === 1 ? "motivo" : "motivos"})` : null}
+        {more > 0 ? (
+          <span className="ml-1 font-medium">
+            +{more} {more === 1 ? "motivo" : "motivos"}
+          </span>
+        ) : null}
       </span>
     </p>
   );
@@ -146,8 +150,8 @@ function MobileProductRow({
       <div className="space-y-1">
         <p className="font-medium">{product.title || "Sem título"}</p>
         <p className="text-footnote text-muted-foreground">
-          <span className="font-mono">{product.sku}</span> · {formatCents(product.costCents)} ·
-          Estoque {product.stock}
+          <span className="font-mono">{product.sku}</span>, {formatCents(product.costCents)},{" "}
+          {product.stock} un.
         </p>
         <RejectionLine product={product} />
       </div>
@@ -180,7 +184,7 @@ export function CatalogProductTable({
     <DataTable
       columns={catalogColumns(sort, onSort, onOpen)}
       data={data.items}
-      caption="Seus produtos"
+      caption="Produtos"
       getRowId={(row) => row.id}
       renderMobileRow={(row) => <MobileProductRow product={row} onOpen={onOpen} />}
       footer={

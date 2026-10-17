@@ -1,4 +1,3 @@
-import { RECOMMENDED_IMAGE_COUNT } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { ArrowUpIcon, ImageIcon, TrashIcon } from "@phosphor-icons/react";
 import { useState, type FormEvent } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
@@ -32,6 +31,7 @@ function ImageRow({
         src={url}
         alt={`Imagem ${index + 1}`}
         loading="lazy"
+        draggable={false}
         className="size-16 shrink-0 rounded-xl bg-muted object-cover"
       />
       <div className="min-w-0 flex-1">
@@ -108,6 +108,7 @@ function AddImageForm({
           inputMode="url"
           autoCapitalize="off"
           autoCorrect="off"
+          autoComplete="off"
           spellCheck={false}
           disabled={full}
           aria-invalid={linkError !== null || serverError !== undefined ? true : undefined}
@@ -132,7 +133,7 @@ function ImageList({
     return (
       <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-field-border px-6 py-10 text-center text-sm text-muted-foreground">
         <ImageIcon className="size-7" weight="light" aria-hidden="true" />
-        Nenhuma imagem ainda. Sem imagem o produto não pode ser enviado para análise.
+        As imagens adicionadas aparecem aqui.
       </div>
     );
   }
@@ -156,10 +157,7 @@ export function StepImages({ values, errors, reasons, onChange }: StepProps) {
   const images = values.imageUrls;
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">
-        A primeira imagem é a capa do anúncio. Recomendamos pelo menos {RECOMMENDED_IMAGE_COUNT},
-        com fundo claro e o produto inteiro.
-      </p>
+      <p className="text-sm text-muted-foreground">A primeira imagem é a capa do anúncio.</p>
       <FieldReason field="imageUrls" reasons={reasons} />
       <AddImageForm
         images={images}

@@ -53,7 +53,7 @@ export function FormStepper({
                 onClick={() => onSelect(step.id)}
                 aria-current={active ? "step" : undefined}
                 className={cn(
-                  "flex w-full flex-col gap-1.5 rounded-xl px-1 pt-1 pb-2 text-left transition-colors hover:bg-muted sm:px-2",
+                  "flex w-full flex-col gap-1.5 rounded-xl px-1 pt-1 pb-2 text-left transition-colors select-none hover:bg-muted sm:px-2 outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >

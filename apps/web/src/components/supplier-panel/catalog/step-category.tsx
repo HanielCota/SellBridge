@@ -10,7 +10,7 @@ import type { StepProps } from "./step-details";
 function requirementsHint(slug: string): string {
   const required = requiredAttributesFor(slug);
   if (required.length === 0) {
-    return "Sem atributos obrigatórios extras";
+    return "Sem dados extras";
   }
   return `Pede ${required.map((attribute) => attribute.label.toLowerCase()).join(" e ")}`;
 }
@@ -24,9 +24,6 @@ export function StepCategory({
   return (
     <fieldset className="grid gap-4">
       <legend className="sr-only">Categoria do produto</legend>
-      <p className="text-sm text-muted-foreground">
-        A categoria define onde o produto aparece e quais dados o Mercado Livre exige.
-      </p>
       <FieldReason field="categoryId" reasons={reasons} />
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((category, index) => {
@@ -35,7 +32,7 @@ export function StepCategory({
             <label
               key={category.id}
               className={cn(
-                "flex min-h-16 cursor-pointer items-start justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors active:scale-[0.99] has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50",
+                "flex min-h-16 cursor-pointer items-start select-none justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors active:scale-[0.99] has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-ring/30",
                 checked
                   ? "border-primary bg-primary/5"
                   : "border-field-border bg-card hover:bg-muted",

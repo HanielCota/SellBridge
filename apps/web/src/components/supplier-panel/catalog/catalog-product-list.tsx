@@ -36,11 +36,11 @@ const STATUS_TABS: readonly { value: CatalogStatusFilter; label: string }[] = [
 const SORT_OPTIONS: readonly (Pick<CatalogListSearch, "sort" | "direction"> & { label: string })[] =
   [
     { sort: "updatedAt", direction: "desc", label: "Atualizados recentemente" },
-    { sort: "title", direction: "asc", label: "Título (A–Z)" },
+    { sort: "title", direction: "asc", label: "Título de A a Z" },
     { sort: "stock", direction: "asc", label: "Menor estoque" },
     { sort: "stock", direction: "desc", label: "Maior estoque" },
     { sort: "costCents", direction: "desc", label: "Maior custo" },
-    { sort: "sku", direction: "asc", label: "SKU (A–Z)" },
+    { sort: "sku", direction: "asc", label: "SKU de A a Z" },
   ];
 
 function sortKey(option: Pick<CatalogListSearch, "sort" | "direction">): string {
@@ -101,13 +101,13 @@ function CatalogListBody({
     return (
       <EmptyState
         icon={PackageIcon}
-        title="Nenhum produto aqui"
+        title={filtered ? "Nenhum resultado" : "Nenhum produto"}
         description={
           filtered
-            ? "Nenhum produto com este status ou busca. Ajuste os filtros."
-            : "Cadastre seu primeiro produto: o formulário salva sozinho enquanto você preenche."
+            ? "Nenhum produto com este status ou busca, ajuste os filtros."
+            : "Os produtos que você cadastrar aparecem aqui."
         }
-        action={<Button onClick={onCreateProduct}>Novo produto</Button>}
+        action={<Button onClick={onCreateProduct}>Cadastrar produto</Button>}
       />
     );
   }
@@ -147,11 +147,11 @@ export function CatalogProductList({
     <div className="space-y-6">
       <PageHeader
         title="Produtos"
-        description="Cadastre, corrija e acompanhe a análise dos seus produtos. Só os aprovados aparecem para os revendedores."
+        description="Só os aprovados aparecem para os revendedores."
         actions={
           <Button onClick={onCreateProduct}>
             <PlusIcon aria-hidden="true" />
-            Novo produto
+            Cadastrar produto
           </Button>
         }
       />
