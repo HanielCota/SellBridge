@@ -4,7 +4,7 @@ import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
 import { requestJson, type MercadoLivreConfig, type MercadoLivreContext } from "./client.ts";
-import { externalIdSchema } from "./schemas.ts";
+import { externalIdSchema, presentTextSchema } from "./schemas.ts";
 
 const MAX_LABEL_BYTES = 10 * 1024 * 1024;
 
@@ -26,8 +26,8 @@ const shippingSchema = z.object({
   substatus: z.string().nullable().optional(),
   mode: z.string(),
   logistic_type: z.string(),
-  tracking_number: z.string().nullable().optional(),
-  tracking_method: z.string().nullable().optional(),
+  tracking_number: presentTextSchema,
+  tracking_method: presentTextSchema,
   receiver_address: remoteAddressSchema.nullable().optional(),
   // Read on its own (`deliveryTimes`): a malformed estimate must not block the whole shipment.
   lead_time: z.unknown().optional(),

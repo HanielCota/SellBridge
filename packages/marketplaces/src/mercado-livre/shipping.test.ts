@@ -43,6 +43,16 @@ describe("Mercado Livre shipping", () => {
     expect(headers.get("authorization")).toBe("Bearer test-token");
     expect(headers.get("x-format-new")).toBe("true");
   });
+  it("reads a blank tracking number and carrier as absent", async () => {
+    const { config } = setup({ tracking_number: "", tracking_method: " " }, [
+      { id: 123, type: "forward" },
+    ]);
+    expect(await getMercadoLivreShipping(config, store, "55")).toMatchObject({
+      trackingCode: null,
+      carrier: null,
+    });
+  });
+
   it("reads the delivery estimate and the dispatch deadline from lead_time", async () => {
     const { config } = setup({ lead_time: SHIPMENT_LEAD_TIME }, [{ id: 123, type: "forward" }]);
     const shipping = await getMercadoLivreShipping(config, store, "55");

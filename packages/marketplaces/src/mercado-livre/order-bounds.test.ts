@@ -64,4 +64,9 @@ describe("Mercado Livre order bounds", () => {
     expect(mapMercadoLivreOrder(orderSchema.parse(withoutPayments)).refundedCents).toBeUndefined();
     expect(mapMercadoLivreOrder(orderSchema.parse(base)).refundedCents).toBe(0);
   });
+
+  it("reads a blank buyer nickname as no buyer name", () => {
+    const blank = orderSchema.parse({ ...base, buyer: { id: 1, nickname: " " } });
+    expect(mapMercadoLivreOrder(blank).buyerName).toBeNull();
+  });
 });
