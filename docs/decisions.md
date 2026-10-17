@@ -516,3 +516,15 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **E-mail que falha não desfaz o encaminhamento:** o envio ganha no histórico "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele." e o revendedor compartilha o link à mão. Os logs levam só ids (nada de e-mail, endereço ou link).
 - **Envio de e-mail compartilhado** em `@sellbridge/shared/mailer` (Resend, web e worker), e o layout em `@sellbridge/shared/email-layout` (saiu de `apps/web/src/lib/server`). O item 25 (central de notificações) troca o envio direto pela fila de canais.
 - **Pendências aceitas:** um job perdido (Redis fora no instante do webhook) não é refeito pelo sweeper, e o pedido fica com o revendedor; o worker sem `RESEND_API_KEY` em produção recusa o e-mail e anota a falha no histórico.
+
+## 2026-10-16: Perfil por aba na URL (perfis, fase 1, etapas 0 e 3)
+
+O tenant vinha só de `session.activeOrganizationId`, a mesma em todas as abas: trocar de perfil numa aba mudava as outras. Agora cada aba tem o próprio perfil em `?perfil=<slug>`, mantido em todos os links por `retainSearchParams` no layout `_app`.
+
+Spike no TanStack Start 1.169: o middleware de função com `.client()` roda em toda chamada, inclusive durante o SSR (no servidor, sem `window`); e no SSR a função de servidor recebe a própria requisição da página em `getRequest()`. Por isso a ordem de resolução é: cabeçalho `x-sellbridge-profile` (chamadas do navegador) → `?perfil=` da URL da requisição (SSR, downloads, OAuth, anexos) → perfil ativo da sessão → primeiro perfil. Perfil pedido que não é da conta é recusado (403), nunca trocado por outro.
+
+- O layout grava o perfil da aba antes de qualquer chamada da navegação, porque durante uma navegação `window.location` ainda mostra a página anterior; prefetch (passar o mouse num link) não muda o perfil da aba.
+- Página sem `?perfil=` recebe o da sessão por redirecionamento, para F5 e link copiado abrirem o mesmo perfil.
+- Link de perfil fora da conta vai para `/outro-perfil`, com o caminho de volta.
+- O perfil ativo da sessão só muda numa troca explícita; ler outro perfil numa aba não o altera.
+- Links abertos pelo próprio navegador (etiqueta, exportação, anexos, OAuth) levam `?perfil=` lido da URL da página, igual no SSR e no navegador; uploads `fetch` levam o cabeçalho.
