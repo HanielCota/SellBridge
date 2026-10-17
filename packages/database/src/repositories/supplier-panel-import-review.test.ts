@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
-import { categories, supplierProducts } from "../schema/index.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { importSupplierProducts, saveAdminSupplier } from "./admin-suppliers.ts";
 
@@ -49,6 +49,12 @@ beforeAll(async () => {
   });
   supplierId = supplier.id;
   await database.insert(categories).values({ name: "Importação revisão", slug: categorySlug });
+});
+
+// Products go with their supplier; leftovers would sit in the shared review queue of later runs.
+afterAll(async () => {
+  await database.delete(suppliers).where(eq(suppliers.id, supplierId));
+  await database.delete(categories).where(eq(categories.slug, categorySlug));
 });
 
 describe("supplier spreadsheet import review", () => {

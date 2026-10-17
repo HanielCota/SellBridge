@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { CatalogDraftValues } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
-import { categories, supplierProducts } from "../schema/index.ts";
+import { eq, inArray } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { saveAdminSupplier } from "./admin-suppliers.ts";
 import {
@@ -75,6 +75,12 @@ beforeAll(async () => {
     .values({ name: "Fila teste", slug: `fila-${randomUUID()}` })
     .returning();
   categoryId = category?.id ?? "";
+});
+
+// Products go with their supplier; leftovers would sit in the shared review queue of later runs.
+afterAll(async () => {
+  await database.delete(suppliers).where(inArray(suppliers.id, [supplierId, otherSupplierId]));
+  await database.delete(categories).where(eq(categories.id, categoryId));
 });
 
 describe("listProductsAwaitingReview", () => {
