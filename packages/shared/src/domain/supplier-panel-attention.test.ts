@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUPPLIER_EMAIL_FAILED_NOTE } from "./forward-notes.ts";
 import {
   buildSupplierAttention,
   deliveryFailureOf,
@@ -17,7 +18,7 @@ import {
 
 const HOUR = 3_600_000;
 const NOW = new Date("2026-10-16T15:00:00Z");
-const EMAIL_FAILED = "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele.";
+const EMAIL_FAILED = SUPPLIER_EMAIL_FAILED_NOTE;
 
 function parcel(
   hoursSinceForward: number,

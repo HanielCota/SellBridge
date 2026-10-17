@@ -52,7 +52,8 @@
     "./notification-events": "./src/domain/notification-events.ts",
     "./team-invite": "./src/domain/team-invite.ts",
     "./supplier-panel-health": "./src/domain/supplier-panel-health.ts",
-    "./supplier-panel-attention": "./src/domain/supplier-panel-attention.ts"
+    "./supplier-panel-attention": "./src/domain/supplier-panel-attention.ts",
+    "./forward-notes": "./src/domain/forward-notes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

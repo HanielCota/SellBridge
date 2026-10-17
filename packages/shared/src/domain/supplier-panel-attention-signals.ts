@@ -1,4 +1,5 @@
 import { SHIPMENT_ACTORS } from "../schemas/fulfillment.ts";
+import { isForwardEmailFailureNote } from "./forward-notes.ts";
 import { shipmentDeadlines, shipmentDelay, type ShipmentTiming } from "./shipment-delay.ts";
 
 /**
@@ -62,17 +63,17 @@ export function parcelState(signal: OpenShipmentSignal, now: Date): ParcelState 
 export type DeliveryFailure = "email" | "label";
 
 /**
- * Reads a SellBridge note as a failure the supplier should know about. The notes are the
- * reseller-facing sentences the forward writes (`noteSupplierEmailFailed`), so they are matched
- * by their wording; any other note is not a failure.
+ * Reads a SellBridge note as a failure the supplier should know about. The failed e-mail is the
+ * exact note the forward writes (`forward-notes.ts`). No code writes a label failure yet, so
+ * that one is still read by its wording; any other note is not a failure.
  */
 export function deliveryFailureOf(note: string): DeliveryFailure | null {
+  if (isForwardEmailFailureNote(note)) {
+    return "email";
+  }
   const text = note.toLowerCase();
   if (text.includes("etiqueta") && (text.includes("falh") || text.includes("não foi"))) {
     return "label";
-  }
-  if (text.includes("e-mail") && text.includes("não foi enviado")) {
-    return "email";
   }
   return null;
 }
