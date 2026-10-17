@@ -6,12 +6,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
 import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireTenantRequest } from "@/lib/server/tenant-session";
 
 /** Resolves the session, treating an expected auth failure (AppError) as "not signed in". */
-async function findTenantSession(headers: Headers) {
+async function findTenantSession(request: Request) {
   try {
-    return await requireTenantSession(headers);
+    return await requireTenantRequest(request);
   } catch (error) {
     if (isAppError(error)) {
       return null;
@@ -42,7 +42,7 @@ async function exportRows(
 }
 
 async function handleExport(request: Request): Promise<Response> {
-  const session = await findTenantSession(request.headers);
+  const session = await findTenantSession(request);
   if (!session) {
     return new Response("Faça login para exportar o financeiro.", { status: 401 });
   }

@@ -23,7 +23,7 @@ import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
-import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
+import { requireStaffSession, requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
 import {
   storeAttachments,
@@ -53,7 +53,7 @@ function firstIssue(error: z.ZodError): string {
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
-    const session = await requireTenantSession(request.headers);
+    const session = await requireTenantRequest(request);
     const formData = await readUploadForm(request, session.userId);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),
@@ -145,7 +145,7 @@ async function readAdminMessage(request: Request, userId: string) {
 export function handleTenantReply(request: Request, ticketIdParam: string | undefined) {
   return handleApi("support.tenant_reply", async () => {
     assertSameOrigin(request, environment.APP_URL);
-    const session = await requireTenantSession(request.headers);
+    const session = await requireTenantRequest(request);
     const ticketId = parseId(ticketIdParam, "Chamado");
     await requireTicketForMessage(ticketId, session.tenantId);
     const reply = await readReply(request, session.userId);
@@ -267,7 +267,7 @@ export function handleDownloadAttachment(request: Request, attachmentIdParam: st
     }
     const scope = hasStaffPermission(session.user.role, "support.answer")
       ? null
-      : (await requireTenantSession(request.headers)).tenantId;
+      : (await requireTenantRequest(request)).tenantId;
     const attachment = await getAttachment(database, attachmentId, scope);
     const bytes = await fileStorage.get(attachment.storageKey);
     if (!bytes) {
