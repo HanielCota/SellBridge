@@ -1,6 +1,10 @@
 import { isAppError } from "@sellbridge/shared/errors";
 import { describe, expect, it } from "vitest";
-import { assertSupplierPanelAccess, assertSellerProfile } from "./supplier-panel-access.ts";
+import {
+  assertSellerProfile,
+  assertSupplierPanelAccess,
+  assertSupplierProfile,
+} from "./supplier-panel-access.ts";
 
 const OWN_SUPPLIER = "8f1c2a3e-1111-4c2d-9e10-000000000001";
 const OTHER_SUPPLIER = "8f1c2a3e-2222-4c2d-9e10-000000000002";
@@ -57,5 +61,15 @@ describe("assertSellerProfile", () => {
       code: "FORBIDDEN",
       message: "Esta área é do perfil de vendedor. Use o painel do fornecedor.",
     });
+  });
+});
+
+describe("assertSupplierProfile", () => {
+  it("lets a supplier profile load its panel", () => {
+    expect(refusalOf(() => assertSupplierProfile("supplier"))).toBeNull();
+  });
+
+  it("refuses the supplier panel to a seller profile with 403", () => {
+    expect(refusalOf(() => assertSupplierProfile("seller"))).toMatchObject({ code: "FORBIDDEN" });
   });
 });

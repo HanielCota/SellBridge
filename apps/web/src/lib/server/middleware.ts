@@ -68,12 +68,19 @@ async function runAsCustomer<Result>(
   return result;
 }
 
-/** Requires an authenticated user with a profile and injects `tenantId` and `profileKind`. */
-function profileMiddleware(requireSession: (headers: Headers) => Promise<TenantSession>) {
+/**
+ * Requires an authenticated user with a profile and injects `tenantId` and `profileKind`. Server
+ * imports are only used inside `.server()`: anything referenced outside it (a session function
+ * passed as an argument, say) stays in the browser bundle and pulls the database driver in.
+ */
+function profileMiddleware(access: { sellerOnly: boolean }) {
   return createMiddleware({ type: "function" })
     .middleware([userFacingErrors])
     .server(async ({ next, method, serverFnMeta }) => {
-      const context = await requireSession(getRequestHeaders());
+      const headers = getRequestHeaders();
+      const context = access.sellerOnly
+        ? await requireSellerSession(headers)
+        : await requireTenantSession(headers);
       return runAsCustomer(context, { functionName: serverFnMeta.name, method }, async () =>
         next({ context }),
       );
@@ -81,10 +88,10 @@ function profileMiddleware(requireSession: (headers: Headers) => Promise<TenantS
 }
 
 /** Any profile of the account, seller or supplier: terms, support and notifications. */
-export const accountMiddleware = profileMiddleware(requireTenantSession);
+export const accountMiddleware = profileMiddleware({ sellerOnly: false });
 
 /** A seller profile (stores, listings, orders, reports); a supplier profile gets 403. */
-export const tenantMiddleware = profileMiddleware(requireSellerSession);
+export const tenantMiddleware = profileMiddleware({ sellerOnly: true });
 
 const panelSupplierSchema = z.object({ supplierId: z.uuid("Fornecedor inválido") });
 

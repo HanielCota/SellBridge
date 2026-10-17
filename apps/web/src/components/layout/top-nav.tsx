@@ -1,4 +1,5 @@
 import { ListIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -9,6 +10,7 @@ import { useActiveIndicator } from "@/components/data/use-active-indicator";
 import { TrackPill } from "@/components/data/track-pill";
 import { useOptimisticChoice } from "@/hooks/use-optimistic-choice";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
 import {
   attentionCountsQueryOptions,
@@ -20,6 +22,7 @@ import {
   BADGE_DESCRIPTIONS,
   isActivePath,
   NAV_ITEMS,
+  SUPPLIER_NAV_ITEMS,
   SUPPORT_NAV_ITEM,
   type NavBadge,
   type NavItem,
@@ -29,7 +32,8 @@ import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { SupportButton } from "./support-button";
 import { teamModeActiveTag } from "@/features/auth/team-mode";
-import { roleLabel, UserMenu } from "./user-menu";
+import { accountLabel } from "@/features/auth/account-label";
+import { UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
 
@@ -79,6 +83,9 @@ function useNavCounts(isAdmin: boolean, canReview: boolean) {
 }
 
 function isItemActive(item: NavItem, pathname: string): boolean {
+  if (item.exact === true) {
+    return pathname === item.to;
+  }
   return [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
 }
 
@@ -261,11 +268,13 @@ function AccountChip({
   user,
   supportReplies,
   adminMode,
+  profileKind,
   layout,
 }: {
   user: SessionUser;
   supportReplies: number;
   adminMode: boolean;
+  profileKind: ProfileKind;
   layout: Layout;
 }) {
   return (
@@ -297,22 +306,32 @@ function AccountChip({
             {teamModeActiveTag(user.role)}
           </span>
         ) : (
-          <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
+          <span className="block text-xs text-muted-foreground">
+            {accountLabel(user.role, profileKind)}
+          </span>
         )}
       </span>
     </UserMenu>
   );
 }
 
+interface TopNavProps {
+  readonly user: SessionUser;
+  readonly adminMode: boolean;
+  readonly profileKind: ProfileKind;
+}
+
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
-export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: boolean }) {
+export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
   const supportReplies = counts.supportReplies;
   const teamItems = ADMIN_NAV_ITEMS.filter(
     (item) => !item.permission || hasStaffPermission(user.role, item.permission),
   );
-  const items = adminMode ? [...NAV_ITEMS, ...teamItems] : NAV_ITEMS;
+  const isSupplier = profileKind === "supplier";
+  const profileItems = isSupplier ? SUPPLIER_NAV_ITEMS : NAV_ITEMS;
+  const items = adminMode ? [...profileItems, ...teamItems] : profileItems;
   const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
@@ -326,8 +345,8 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
         <div className="flex items-center gap-3">
           <MobileNav items={items} pathname={pathname} counts={counts} layout={layout} />
           <Link
-            to="/dashboard"
-            aria-label="SellBridge, visão geral"
+            to={isSupplier ? SUPPLIER_PANEL_PATH : SELLER_HOME_PATH}
+            aria-label={isSupplier ? "SellBridge, painel do fornecedor" : "SellBridge, visão geral"}
             className="shrink-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
           >
             <BrandIcon className="size-10" />
@@ -335,7 +354,8 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
         </div>
         <DesktopNav items={items} pathname={pathname} counts={counts} layout={layout} />
         <div className="flex items-center gap-2 justify-self-end">
-          <CommandPalette />
+          {/* The search looks through the seller's orders, listings and stores. */}
+          {isSupplier ? null : <CommandPalette />}
           {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
           {adminMode ? null : (
             <div className="hidden sm:block">
@@ -347,6 +367,7 @@ export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: bool
             user={user}
             supportReplies={supportReplies}
             adminMode={adminMode}
+            profileKind={profileKind}
             layout={layout}
           />
         </div>

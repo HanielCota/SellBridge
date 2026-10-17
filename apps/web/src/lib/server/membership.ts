@@ -30,3 +30,15 @@ export async function findFirstOrganizationId(userId: string): Promise<string | 
   }
   return membership.organizationId;
 }
+
+/** The kind of the session's profile; the first profile when none is active yet (sign-up). */
+export async function findSessionProfileKind(
+  userId: string,
+  activeId: string | null,
+): Promise<ProfileKind> {
+  const organizationId = activeId ?? (await findFirstOrganizationId(userId));
+  if (organizationId === null) {
+    return "seller";
+  }
+  return (await findMemberProfileKind(userId, organizationId)) ?? "seller";
+}

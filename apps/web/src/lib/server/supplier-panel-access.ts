@@ -1,6 +1,8 @@
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 
+const SUPPLIER_ONLY_MESSAGE = "O painel do fornecedor é só para perfis de fornecedor.";
+
 /** Who is calling a supplier panel function, as the access rule reads it. */
 export type SupplierPanelViewer =
   | { readonly kind: "team" }
@@ -19,13 +21,20 @@ export function assertSupplierPanelAccess(
     return;
   }
   if (viewer.kind === "seller") {
-    throw forbiddenError("O painel do fornecedor é só para perfis de fornecedor.");
+    throw forbiddenError(SUPPLIER_ONLY_MESSAGE);
   }
   if (viewer.supplierId === null) {
     throw forbiddenError("Cadastre sua marca para usar o painel do fornecedor.");
   }
   if (viewer.supplierId !== requestedSupplierId) {
     throw forbiddenError("Este catálogo é de outro fornecedor.");
+  }
+}
+
+/** The panel's own pages load for a supplier profile only. */
+export function assertSupplierProfile(kind: ProfileKind): void {
+  if (kind === "seller") {
+    throw forbiddenError(SUPPLIER_ONLY_MESSAGE);
   }
 }
 

@@ -8,11 +8,17 @@ import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.s
 import { database } from "@/lib/server/database";
 import { requireSellerSession } from "@/lib/server/tenant-session";
 
-/** Resolves the session, treating an expected auth failure (AppError) as "not signed in". */
+/**
+ * Resolves the seller session: a supplier profile gets 403 with the reason, any other expected
+ * auth failure (AppError) reads as "not signed in".
+ */
 async function findTenantSession(headers: Headers) {
   try {
     return await requireSellerSession(headers);
   } catch (error) {
+    if (isAppError(error) && error.code === "FORBIDDEN") {
+      return new Response(error.userMessage, { status: 403 });
+    }
     if (isAppError(error)) {
       return null;
     }
@@ -43,6 +49,9 @@ async function exportRows(
 
 async function handleExport(request: Request): Promise<Response> {
   const session = await findTenantSession(request.headers);
+  if (session instanceof Response) {
+    return session;
+  }
   if (!session) {
     return new Response("Faça login para exportar o financeiro.", { status: 401 });
   }
