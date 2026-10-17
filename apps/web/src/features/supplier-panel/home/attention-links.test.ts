@@ -32,6 +32,17 @@ describe("supplierAttentionHref", () => {
     );
   });
 
+  it("opens a rejected product on the field of its first reason", () => {
+    expect(
+      supplierAttentionHref({
+        area: "catalog",
+        filter: "rejected",
+        productId: "p1",
+        field: "attributes.BRAND",
+      }),
+    ).toBe("/fornecedor/painel/produtos?status=rejected&product=p1&field=attributes.BRAND");
+  });
+
   it("opens the performance page on the metric, under any base path", () => {
     expect(
       supplierAttentionHref({ area: "performance", metric: "dispatch_on_time" }, "/painel"),

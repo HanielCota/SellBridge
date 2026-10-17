@@ -8,7 +8,12 @@ function targetOf(fix: SupplierHomeCatalogFix): SupplierAttentionTarget {
   if (fix.kind === "out_of_stock") {
     return { area: "stock", filter: "out_of_stock_listed", productId: fix.productId };
   }
-  return { area: "catalog", filter: "rejected", productId: fix.productId };
+  return {
+    area: "catalog",
+    filter: "rejected",
+    productId: fix.productId,
+    ...(fix.field === null ? {} : { field: fix.field }),
+  };
 }
 
 /** Out of stock reads amber: the listings keep taking orders the supplier cannot fill. */

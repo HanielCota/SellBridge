@@ -6,7 +6,7 @@ import {
   listSupplierOutOfStockListed,
   listSupplierProductPhotos,
   listSupplierRejectedProducts,
-  listSupplierShipments,
+  listSupplierHomeShipments,
   loadSupplierHealthInput,
   type SupplierShipmentRow,
 } from "@sellbridge/database/repositories";
@@ -76,13 +76,13 @@ export interface SupplierHome {
 
 /** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
 async function loadHomeOrders(supplierId: string, now: Date) {
-  const [page, counts] = await Promise.all([
-    listSupplierShipments(database, { supplierId, tab: "todo", query: "", page: 1 }, now),
+  const [shipments, counts] = await Promise.all([
+    listSupplierHomeShipments(database, supplierId, HOME_GROUP_LIMIT, now),
     countSupplierShipmentsByTab(database, { supplierId, query: "" }, now),
   ]);
-  const skus = page.items.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
+  const skus = shipments.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
   const photos = await listSupplierProductPhotos(database, { supplierId, skus });
-  const rows = page.items.map((row) => {
+  const rows = shipments.map((row) => {
     const sku = photoSkuOf(row.items);
     return { ...row, imageUrl: sku === null ? null : (photos.get(sku) ?? null) };
   });

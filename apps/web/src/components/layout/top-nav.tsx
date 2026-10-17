@@ -282,6 +282,7 @@ function AccountChip({
       user={user}
       supportReplies={supportReplies}
       adminMode={adminMode}
+      profileKind={profileKind}
       className="rounded-full bg-card p-1.5"
     >
       <span className="relative shrink-0">

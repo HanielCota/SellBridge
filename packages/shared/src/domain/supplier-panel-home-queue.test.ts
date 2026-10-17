@@ -51,6 +51,7 @@ describe("catalogFixes", () => {
     ]);
     expect(fixes[0]?.reason).toBe("Ainda à venda em 3 anúncios ativos");
     expect(fixes[1]?.reason).not.toBe("");
+    expect(fixes[1]?.field).toBe("imageUrls");
   });
 
   it("leaves out products that still have stock or no live listing", () => {

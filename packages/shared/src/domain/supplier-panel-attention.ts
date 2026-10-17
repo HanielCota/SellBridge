@@ -12,5 +12,5 @@ export type SupplierOrderFilter =
 export type SupplierAttentionTarget =
   | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }
   | { area: "stock"; filter: "out_of_stock_listed"; productId?: string }
-  | { area: "catalog"; filter: "rejected"; productId?: string }
+  | { area: "catalog"; filter: "rejected"; productId?: string; field?: string }
   | { area: "performance"; metric: HealthMetricKey };

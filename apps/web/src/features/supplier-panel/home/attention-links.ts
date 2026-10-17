@@ -38,7 +38,8 @@ export function supplierAttentionHref(
   }
   if (target.area === "catalog") {
     const product = target.productId === undefined ? {} : { product: target.productId };
-    return withSearch(`${basePath}/produtos`, { status: target.filter, ...product });
+    const field = target.field === undefined ? {} : { field: target.field };
+    return withSearch(`${basePath}/produtos`, { status: target.filter, ...product, ...field });
   }
   // The Pedidos list opens a parcel in a panel over the list, so a single parcel lands on its tab.
   return withSearch(`${basePath}/pedidos`, { tab: ORDER_TABS[target.filter] });

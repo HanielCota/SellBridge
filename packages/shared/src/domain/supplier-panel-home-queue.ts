@@ -50,6 +50,8 @@ export interface CatalogFix {
   kind: CatalogFixKind;
   /** Why it needs the supplier, in one short phrase. */
   reason: string;
+  /** First review field to focus when opening the rejected product. */
+  field: string | null;
 }
 
 /** A product of the supplier, with what is left to sell and how many live listings show it. */
@@ -114,6 +116,7 @@ export function catalogFixes(
       title: product.title,
       imageUrl: product.imageUrl,
       kind: "out_of_stock" as const,
+      field: null,
       reason: `Ainda à venda em ${listingsPhrase(product.activeListings)}`,
     }));
   const refused = rejected.map((product) => ({
@@ -121,6 +124,7 @@ export function catalogFixes(
     title: product.title,
     imageUrl: product.imageUrl,
     kind: "rejected" as const,
+    field: product.rejectionReasons[0]?.field ?? null,
     reason: rejectionPhrase(product.rejectionReasons),
   }));
   return [...outOfStock, ...refused];
