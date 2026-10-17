@@ -544,6 +544,21 @@ function renderPickedLine(pick: DayPick | null) {
 }
 
 /**
+ * Which x labels survive when they do not all fit: categories keep every one; an hourly day keeps
+ * its first and last hour (thinning from the start dropped "0h" late in the day); dates keep the
+ * latest one.
+ */
+function xTickInterval(
+  everyTick: boolean,
+  keepStart: boolean,
+): 0 | "preserveStartEnd" | "preserveEnd" {
+  if (everyTick) {
+    return 0;
+  }
+  return keepStart ? "preserveStartEnd" : "preserveEnd";
+}
+
+/**
  * Grid and axes every chart shares, so switching kinds never moves the frame. The grid is a
  * solid hairline (dashes are kept for reference lines); zero gets a firmer line when the chart
  * dips below it.
@@ -554,6 +569,7 @@ function renderFrame({
   xKey = "date",
   formatX = (value) => value,
   everyTick = false,
+  keepStart = false,
 }: {
   scale: { domain: [number, number]; ticks: number[] };
   formatY: (value: number) => string;
@@ -561,6 +577,8 @@ function renderFrame({
   formatX?: (value: string) => string;
   /** Categories (not dates): every one is labeled, none may be skipped. */
   everyTick?: boolean;
+  /** Hours of one day: the first label always shows where the day starts. */
+  keepStart?: boolean;
 }) {
   return [
     <CartesianGrid key="grid" vertical={false} stroke="var(--border)" strokeOpacity={0.6} />,
@@ -571,7 +589,7 @@ function renderFrame({
       axisLine={false}
       tickMargin={12}
       minTickGap={40}
-      interval={everyTick ? 0 : "preserveEnd"}
+      interval={xTickInterval(everyTick, keepStart)}
       tickFormatter={formatX}
     />,
     <YAxis
@@ -790,6 +808,7 @@ function CashAreas({
           scale,
           formatY: formatMoneyTick,
           formatX: (value) => formatAxisDate(value, grain),
+          keepStart: grain === "hour",
         })}
         {renderPickedLine(pick)}
         {renderDayTracker(pick)}
@@ -909,6 +928,7 @@ function CompositionBars({
           scale,
           formatY: formatMoneyTick,
           formatX: (value) => formatAxisDate(value, grain),
+          keepStart: grain === "hour",
         })}
         {renderPickedLine(pick)}
         {renderDayTracker(pick)}
@@ -1089,6 +1109,7 @@ function MarginLine({
           scale,
           formatY: formatPercentTick,
           formatX: (value) => formatAxisDate(value, grain),
+          keepStart: grain === "hour",
         })}
         <ChartTooltip cursor={LINE_CURSOR} content={<MarginTooltip grain={grain} />} />
         {average === null ? null : (
