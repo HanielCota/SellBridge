@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
-import { member, organization, tickets, user } from "@sellbridge/database/schema";
+import { tickets } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 
@@ -21,52 +21,6 @@ interface TwoProfiles {
 let profiles: TwoProfiles;
 let tabA: Page;
 let tabB: Page;
-
-function profileOf(page: Page): string {
-  const slug = new URL(page.url()).searchParams.get("perfil");
-  if (slug === null) {
-    throw new Error(`a página ${page.url()} não tem ?perfil=`);
-  }
-  return slug;
-}
-
-async function accountId(email: string): Promise<string> {
-  const [account] = await database.select({ id: user.id }).from(user).where(eq(user.email, email));
-  if (account === undefined) {
-    throw new Error(`conta ${email} não encontrada`);
-  }
-  return account.id;
-}
-
-/** The profile created at sign-up. */
-async function firstProfile(userId: string): Promise<string> {
-  const [profile] = await database
-    .select({ slug: organization.slug })
-    .from(member)
-    .innerJoin(organization, eq(organization.id, member.organizationId))
-    .where(eq(member.userId, userId));
-  if (profile === undefined) {
-    throw new Error(`a conta ${userId} não tem perfil`);
-  }
-  return profile.slug;
-}
-
-/** Users cannot create organizations themselves yet, so the second profile comes from the test. */
-async function addSecondProfile(userId: string): Promise<{ slug: string; id: string }> {
-  const id = randomUUID();
-  const slug = `segundo-perfil-${id.slice(0, 8)}`;
-  await database
-    .insert(organization)
-    .values({ id, name: "Segundo perfil", slug, createdAt: new Date() });
-  await database.insert(member).values({
-    id: randomUUID(),
-    organizationId: id,
-    userId,
-    role: "owner",
-    createdAt: new Date(),
-  });
-  return { slug, id };
-}
 
 async function openTicketInTab(page: Page, subject: string) {
   // From a page of the tab, so the tab's profile travels with the link (no full page load).
@@ -89,9 +43,9 @@ async function ticketTenant(subject: string): Promise<string | undefined> {
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   tabA = await context.newPage();
-  const userId = await accountId(await signUp(tabA, "Perfis Por Aba"));
-  const first = await firstProfile(userId);
-  const second = await addSecondProfile(userId);
+  const userId = await accountId(database, await signUp(tabA, "Perfis Por Aba"));
+  const first = await firstProfile(database, userId);
+  const second = await addExtraProfile(database, userId);
   profiles = { first, second: second.slug, secondId: second.id };
   await gotoHydrated(tabA, `/suporte?perfil=${first}`);
   tabB = await context.newPage();
