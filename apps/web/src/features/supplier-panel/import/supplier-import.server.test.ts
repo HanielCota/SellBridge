@@ -91,6 +91,26 @@ describe("previewSupplierImport", () => {
     expect(mocks.preview).not.toHaveBeenCalled();
   });
 
+  it("refuses photos without https in the supplier's spreadsheet", async () => {
+    const file = [
+      "sku;titulo;custo;estoque;imagens",
+      "A-1;Pão;1;1;https://exemplo.com/pao.jpg",
+      "A-2;Feijão;1;1;https://exemplo.com/a.jpg|http://exemplo.com/feijao.jpg",
+    ].join("\n");
+    const preview = await previewSupplierImport({
+      supplierId,
+      fileName: "produtos.csv",
+      fileBase64: fileBase64(file),
+    });
+    expect(preview).toMatchObject({ validRows: 1, failedRows: 1 });
+    expect(preview.issues[0]).toMatchObject({ line: 3, sku: "A-2" });
+    expect(preview.issues[0]?.issues[0]?.message).toBe(
+      'Valor inválido na coluna E, imagens (recebido: "https://exemplo.com/a.jpg|http://exemplo.com/feijao.jpg"); ' +
+        "esperado: até 20 links https, separados por |.",
+    );
+    expect(preview.confirmation?.content).not.toContain("http://");
+  });
+
   it("asks for a new file when the valid rows stop passing together", async () => {
     mocks.preview.mockImplementationOnce(fakePreview).mockResolvedValueOnce({
       created: 0,
@@ -119,5 +139,19 @@ describe("confirmSupplierImport", () => {
     };
     await expect(confirmSupplierImport(input)).resolves.toEqual(result);
     expect(mocks.confirm).toHaveBeenCalledWith(input, { reviewAt: expect.any(Date) });
+  });
+
+  it("refuses to confirm rows with photos without https", async () => {
+    const input = {
+      supplierId,
+      content: "sku;titulo;custo;estoque;imagens\nA;B;1;1;http://exemplo.com/a.jpg\n",
+      previewToken: token,
+    };
+    await expect(confirmSupplierImport(input)).rejects.toMatchObject({
+      code: "VALIDATION",
+      message:
+        'Link de imagem inválido (recebido: "http://exemplo.com/a.jpg"); esperado: um link que comece com https://',
+    });
+    expect(mocks.confirm).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@ import {
   PRODUCT_REVIEW_STATUSES,
   rejectionReasonsSchema,
 } from "./supplier-panel-catalog-status.ts";
+import { supplierImageUrlsSchema } from "./supplier-panel-image-urls.ts";
 
 /** Every input carries the supplier explicitly; the access layer fills it from the session. */
 const supplierScopeSchema = z.object({ supplierId: z.uuid() });
@@ -29,10 +30,12 @@ export const catalogListInputSchema = supplierScopeSchema.extend(catalogListSear
 
 /**
  * A draft may be incomplete: only the SKU is needed to store it (it is the product's key for
- * the supplier). Everything else reuses the admin form's validation, so both forms agree.
+ * the supplier). Everything else reuses the admin form's validation, so both forms agree, except
+ * photos, which must be https for the supplier (staff may still save http links).
  */
 export const catalogDraftValuesSchema = adminProductValuesSchema.extend({
   title: freeText().trim().max(300),
+  imageUrls: supplierImageUrlsSchema,
 });
 export type CatalogDraftValues = z.infer<typeof catalogDraftValuesSchema>;
 
