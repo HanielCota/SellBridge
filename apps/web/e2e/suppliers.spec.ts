@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { DEMO_USER, gotoHydrated, pickSupplier, signIn, signUp, testCpf } from "./helpers";
 
+const PHONE = "(11) 98765-4321";
+
 test.describe("cadastro do revendedor", () => {
-  test("novo usuário informa nome e CPF e escolhe o fornecedor", async ({ page }) => {
+  test("novo usuário informa nome, CPF e telefone e escolhe o fornecedor", async ({ page }) => {
     const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
@@ -18,6 +20,9 @@ test.describe("cadastro do revendedor", () => {
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page.getByText("Informe os 11 dígitos do CPF")).toBeVisible();
+    // Item 26.a: the phone is asked too.
+    await expect(page.getByText("Informe o telefone com DDD", { exact: false })).toBeVisible();
+    await page.getByLabel("Telefone com DDD").fill(PHONE);
     await page.getByLabel("CPF").fill("52998224726");
     await expect(page.getByLabel("CPF")).toHaveValue("529.982.247-26");
     await expect(page.getByText("Confira o CPF: os dígitos não batem")).toBeVisible();
@@ -32,6 +37,7 @@ test.describe("cadastro do revendedor", () => {
     // Going back keeps the saved data.
     await page.getByRole("button", { name: "Voltar" }).click();
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
+    await expect(page.getByLabel("Telefone com DDD")).toHaveValue(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await pickSupplier(page, "Rio Pet Atacado");
@@ -43,6 +49,7 @@ test.describe("cadastro do revendedor", () => {
     await expect(page.getByRole("heading", { name: "Alterar seus dados" })).toBeVisible();
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
+    await expect(page.getByLabel("Telefone com DDD")).toHaveValue(PHONE);
     await expect(page.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
   });
 
@@ -50,12 +57,14 @@ test.describe("cadastro do revendedor", () => {
     const cpf = testCpf();
     await signUp(page, "Primeira Conta");
     await page.getByLabel("CPF").fill(cpf);
+    await page.getByLabel("Telefone com DDD").fill(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
 
     await page.context().clearCookies();
     await signUp(page, "Segunda Conta");
     await page.getByLabel("CPF").fill(cpf);
+    await page.getByLabel("Telefone com DDD").fill(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(
       page.getByText("Este CPF já está cadastrado em outra conta do SellBridge.", { exact: false }),
