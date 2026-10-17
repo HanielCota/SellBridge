@@ -2,6 +2,7 @@ import { z } from "zod";
 import { pageNumberSchema, searchQuery } from "../schemas/common.ts";
 import { optionalParameter, withFallback } from "../schemas/fallback.ts";
 import type { RejectionReason } from "./supplier-panel-catalog-status.ts";
+import { attributeLabel, PRODUCT_ATTRIBUTES } from "./supplier-product-attributes.ts";
 
 /**
  * The admin's queue of supplier products waiting for review (the platform's side of the
@@ -17,15 +18,25 @@ export type ReviewQueueSearch = z.infer<typeof reviewQueueSearchSchema>;
 
 export const reviewProductInputSchema = z.object({ productId: z.uuid() });
 
-/** First review of a new product, or a new look at one already sold that changed its listing. */
-export type ReviewKind = "new" | "change";
+/**
+ * First review of a new product, a product sent again after a rejection (its reasons stay
+ * until approval), or a new look at one already sold that changed its listing.
+ */
+export type ReviewKind = "new" | "resubmission" | "change";
 
-export function reviewKindOf(product: { reviewedAt: Date | null }): ReviewKind {
+export function reviewKindOf(product: {
+  reviewedAt: Date | null;
+  rejectionReasons: readonly RejectionReason[];
+}): ReviewKind {
+  if (product.rejectionReasons.length > 0) {
+    return "resubmission";
+  }
   return product.reviewedAt === null ? "new" : "change";
 }
 
 export const REVIEW_KIND_LABELS: Readonly<Record<ReviewKind, string>> = {
   new: "Produto novo",
+  resubmission: "Reenvio",
   change: "Alteração",
 };
 
@@ -122,11 +133,63 @@ export function reasonFromPreset(rule: ReviewReasonRule): RejectionReason {
   return { field: preset.field, rule: preset.rule, message: preset.message };
 }
 
+const ATTRIBUTE_PREFIX = "attributes.";
+
 /** Plain-language label for a reason's field, including a Mercado Livre attribute. */
 export function reviewFieldLabel(field: string): string {
-  if (field.startsWith("attributes.")) {
-    return `Ficha técnica (${field.slice("attributes.".length)})`;
+  if (field.startsWith(ATTRIBUTE_PREFIX)) {
+    return attributeLabel(field.slice(ATTRIBUTE_PREFIX.length));
   }
   const known = REVIEW_FIELDS.find((candidate) => candidate === field);
   return known === undefined ? field : REVIEW_FIELD_LABELS[known];
+}
+
+/**
+ * Titles of the completeness items (`supplier-panel-catalog-completeness.ts`) a reviewer can
+ * click into a reason, so the reason reads as words and never as its rule code.
+ */
+const COMPLETENESS_RULE_TITLES: Readonly<Record<string, string>> = {
+  sku_required: "SKU ausente",
+  title_min_length: "Título curto",
+  cost_required: "Custo ausente",
+  stock_required: "Estoque zerado",
+  category_required: "Sem categoria",
+  image_required: "Sem imagem",
+  attribute_required: "Ficha técnica incompleta",
+  description_min_length: "Descrição curta",
+  images_recommended: "Poucas imagens",
+  gtin_recommended: "Código de barras ausente",
+  package_recommended: "Embalagem sem peso ou medidas",
+  brand_recommended: "Marca ausente",
+  model_recommended: "Modelo ausente",
+};
+
+const OTHER_REASON_TITLE = "Outro motivo";
+
+export function reviewReasonTitle(rule: string): string {
+  const preset = REVIEW_REASON_PRESETS.find((candidate) => candidate.rule === rule);
+  return preset?.label ?? COMPLETENESS_RULE_TITLES[rule] ?? OTHER_REASON_TITLE;
+}
+
+export interface ReviewFieldOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * Fields a reason can point at: the product's own fields, then its datasheet in the form's
+ * order, plus any field a reason already names (a completeness item on an empty attribute).
+ */
+export function reviewFieldOptions(
+  attributeIds: readonly string[],
+  reasonFields: readonly string[],
+): ReviewFieldOption[] {
+  const attributeFields = [
+    ...PRODUCT_ATTRIBUTES.map((attribute) => attribute.id).filter((id) =>
+      attributeIds.includes(id),
+    ),
+    ...attributeIds.filter((id) => !PRODUCT_ATTRIBUTES.some((attribute) => attribute.id === id)),
+  ].map((id) => `${ATTRIBUTE_PREFIX}${id}`);
+  const values = [...new Set<string>([...REVIEW_FIELDS, ...attributeFields, ...reasonFields])];
+  return values.map((value) => ({ value, label: reviewFieldLabel(value) }));
 }

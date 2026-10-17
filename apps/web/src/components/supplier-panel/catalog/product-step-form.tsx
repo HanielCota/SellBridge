@@ -93,7 +93,7 @@ function StepContent({
   const stepProps = {
     values: form.values,
     errors: form.autosave.state.kind === "invalid" ? form.autosave.state.errors : {},
-    reasons: groupReasons(form.reasons),
+    reasons: groupReasons(form.reasons, form.edited),
     onChange: form.change,
   };
   switch (step) {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   completenessInput,
+  descriptionLengthHint,
+  editedFields,
   inputIdOf,
   panelFormValues,
   parseDraft,
@@ -89,5 +91,37 @@ describe("field navigation", () => {
     expect(stepOfField("imageUrls")).toBe("images");
     expect(stepOfField("attributes.BRAND")).toBe("details");
     expect(inputIdOf("attributes.BRAND")).toBe("panel-product-attributes-BRAND");
+  });
+});
+
+describe("descriptionLengthHint", () => {
+  it("counts toward the recommended length while the text is short", () => {
+    expect(descriptionLengthHint(120)).toBe("120 de 200 caracteres recomendados");
+  });
+
+  it("stops counting toward a goal the text already passed", () => {
+    expect(descriptionLengthHint(200)).toBe("200 caracteres: tamanho recomendado atingido");
+    expect(descriptionLengthHint(254)).toBe("254 caracteres: tamanho recomendado atingido");
+  });
+});
+
+describe("editedFields", () => {
+  it("names each field changed since the form opened, by its product field key", () => {
+    const edited = editedFields(FILLED, {
+      ...FILLED,
+      cost: "26,90",
+      imageUrls: [...FILLED.imageUrls, "https://imagens.test/2.jpg"],
+      attributes: { ...FILLED.attributes, GTIN: "7891234567895" },
+    });
+    expect([...edited].toSorted()).toEqual(["attributes.GTIN", "costCents", "imageUrls"]);
+  });
+
+  it("ignores spaces around a value and a field typed back to what it was", () => {
+    const edited = editedFields(FILLED, {
+      ...FILLED,
+      title: "Camiseta básica",
+      attributes: { BRAND: "Marca", MODEL: "" },
+    });
+    expect(edited.size).toBe(0);
   });
 });

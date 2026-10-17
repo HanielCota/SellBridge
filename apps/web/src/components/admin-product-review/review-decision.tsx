@@ -1,5 +1,5 @@
 import type { ProductAwaitingReview } from "@sellbridge/database/repositories";
-import { reviewFieldLabel } from "@sellbridge/shared/supplier-product-review";
+import { reviewFieldLabel, reviewFieldOptions } from "@sellbridge/shared/supplier-product-review";
 import { CheckIcon, WarningIcon, XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -177,6 +177,10 @@ export function ReviewDecision({ product, onDecided }: ReviewDecisionProps) {
         <div className="space-y-4">
           <RejectionReasonsEditor
             reasons={reasons}
+            fieldOptions={reviewFieldOptions(
+              Object.keys(product.mercadoLivreAttributes),
+              reasons.map((reason) => reason.field),
+            )}
             errorsByKey={showErrors && !check.valid ? check.byKey : NO_ERRORS}
             formError={showErrors && !check.valid ? check.formError : null}
             onAdd={(rule) =>

@@ -1,8 +1,10 @@
 import type { RequiredAttribute } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
 import { TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import {
   COMMON_ATTRIBUTES,
+  descriptionLengthHint,
   inputIdOf,
   type PanelFormValues,
 } from "@/features/supplier-panel/catalog/draft-form";
@@ -56,7 +58,7 @@ function attributeList(values: PanelFormValues, required: readonly RequiredAttri
   const known = [...required, ...COMMON_ATTRIBUTES];
   const extra = Object.keys(values.attributes)
     .filter((id) => !known.some((attribute) => attribute.id === id))
-    .map((id) => ({ id, label: id }));
+    .map((id) => ({ id, label: attributeFieldLabel(id) }));
   const seen = new Set<string>();
   return [...known, ...extra].filter((attribute) => {
     if (seen.has(attribute.id)) {
@@ -138,7 +140,7 @@ export function StepDetails(props: StepProps & { required: readonly RequiredAttr
             onValueChange={(description) => onChange({ description })}
           />
           <p className="text-footnote text-muted-foreground tabular-nums">
-            {values.description.trim().length} de 200 caracteres recomendados
+            {descriptionLengthHint(values.description.trim().length)}
           </p>
           <FieldReason field="description" reasons={reasons} />
         </div>

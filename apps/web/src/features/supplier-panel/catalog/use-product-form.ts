@@ -8,7 +8,12 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supplierPanelSubmitProduct } from "./catalog.functions";
 import { supplierPanelCatalogKey } from "./catalog.queries";
-import { completenessInput, panelFormValues, type PanelFormValues } from "./draft-form";
+import {
+  completenessInput,
+  editedFields,
+  panelFormValues,
+  type PanelFormValues,
+} from "./draft-form";
 import { useDraftAutosave, type SavedProduct } from "./use-draft-autosave";
 
 export interface CategoryOption {
@@ -31,6 +36,8 @@ interface ProductFormOptions {
 export function useProductForm({ supplierId, productId, product, categories }: ProductFormOptions) {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<PanelFormValues>(() => panelFormValues(product));
+  const [openedWith] = useState<PanelFormValues>(() => panelFormValues(product));
+  const edited = useMemo(() => editedFields(openedWith, values), [openedWith, values]);
   const [saved, setSaved] = useState<SavedProduct | null>(product);
   const category = categories.find((option) => option.id === values.categoryId);
   const required = useMemo(() => requiredAttributesFor(category?.slug), [category?.slug]);
@@ -76,6 +83,7 @@ export function useProductForm({ supplierId, productId, product, categories }: P
     required,
     report,
     reasons: showsReasons ? (saved?.rejectionReasons ?? []) : [],
+    edited,
     autosave,
     submit,
   };

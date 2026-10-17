@@ -1,6 +1,7 @@
 import type { ProductAwaitingReview } from "@sellbridge/database/repositories";
 import {
   REVIEW_KIND_LABELS,
+  type ReviewKind,
   type ReviewQueueSearch,
 } from "@sellbridge/shared/supplier-product-review";
 import { CheckCircleIcon } from "@phosphor-icons/react";
@@ -11,7 +12,7 @@ import { createServerColumnHelper, DataTable } from "@/components/data/data-tabl
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SmartDate } from "@/components/data/smart-date";
-import { ToneStatus } from "@/components/data/tone-status";
+import { ToneStatus, type StatusTone } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { BackLink, PageHeader } from "@/components/layout/page-header";
@@ -33,7 +34,7 @@ function ProductCell({ product }: { product: ProductAwaitingReview }) {
     <Link
       to="/admin/fornecedores/analise/$productId"
       params={{ productId: product.id }}
-      className="flex min-w-0 items-center gap-3 select-none [-webkit-touch-callout:none]"
+      className="flex max-w-[18rem] min-w-0 items-center gap-3 whitespace-normal select-none [-webkit-touch-callout:none]"
     >
       <ProductVisual
         imageUrl={product.imageUrls[0] ?? null}
@@ -43,7 +44,8 @@ function ProductCell({ product }: { product: ProductAwaitingReview }) {
         className="size-11 shrink-0 rounded-xl"
       />
       <span className="min-w-0">
-        <span className="block truncate font-medium underline-offset-4 hover:underline">
+        {/* Names wrap instead of widening the table past the window (narrow laptops). */}
+        <span className="line-clamp-2 font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline">
           {product.title.length > 0 ? product.title : "Sem título"}
         </span>
         <span className="block text-footnote text-muted-foreground">SKU {product.sku}</span>
@@ -59,6 +61,13 @@ function SubmittedAt({ product }: { product: ProductAwaitingReview }) {
   return <SmartDate date={product.submittedAt} />;
 }
 
+/** A resubmission stands out: the reviewer checks it against the last rejection first. */
+const KIND_TONES: Readonly<Record<ReviewKind, StatusTone>> = {
+  new: "info",
+  resubmission: "warning",
+  change: "muted",
+};
+
 const columnHelper = createServerColumnHelper<ProductAwaitingReview>();
 const queueColumns = columnHelper.columns([
   columnHelper.display({
@@ -69,8 +78,8 @@ const queueColumns = columnHelper.columns([
   columnHelper.accessor("supplierName", {
     header: "Fornecedor",
     cell: (information) => (
-      <span>
-        <span className="block">{information.getValue()}</span>
+      <span className="block max-w-[14rem] whitespace-normal [overflow-wrap:anywhere]">
+        <span className="line-clamp-2">{information.getValue()}</span>
         <span className="block text-footnote text-muted-foreground">
           {information.row.original.supplierCity} - {information.row.original.supplierState}
         </span>
@@ -81,7 +90,7 @@ const queueColumns = columnHelper.columns([
     header: "Tipo",
     cell: (information) => (
       <ToneStatus
-        tone={information.getValue() === "new" ? "info" : "muted"}
+        tone={KIND_TONES[information.getValue()]}
         label={REVIEW_KIND_LABELS[information.getValue()]}
       />
     ),

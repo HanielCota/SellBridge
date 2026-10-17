@@ -1,8 +1,14 @@
 import type { ProductAwaitingReview } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
+import {
+  attributeLabel,
+  formatAttributeValue,
+  PRODUCT_ATTRIBUTES,
+} from "@sellbridge/shared/supplier-product-attributes";
 import type { ReactNode } from "react";
 import { ProductVisual } from "@/components/catalog/product-visual";
 import { SectionCard } from "@/components/layout/section-card";
+import { ResubmissionCard } from "./resubmission-card";
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -48,16 +54,29 @@ function ImageStrip({ product }: { product: ProductAwaitingReview }) {
   );
 }
 
-function Attributes({ attributes }: { attributes: Record<string, string> }) {
-  const entries = Object.entries(attributes);
+function attributeOrder(id: string): number {
+  const index = PRODUCT_ATTRIBUTES.findIndex((attribute) => attribute.id === id);
+  return index === -1 ? PRODUCT_ATTRIBUTES.length : index;
+}
+
+/** Known attributes in the form's order, then any other the product carries. */
+function orderedAttributes(attributes: Readonly<Record<string, string>>): [string, string][] {
+  return Object.entries(attributes).toSorted(
+    ([first], [second]) =>
+      attributeOrder(first) - attributeOrder(second) || first.localeCompare(second),
+  );
+}
+
+function Attributes({ attributes }: { attributes: Readonly<Record<string, string>> }) {
+  const entries = orderedAttributes(attributes);
   if (entries.length === 0) {
     return <p className="text-sm text-muted-foreground">Nenhum atributo.</p>;
   }
   return (
     <dl className="grid gap-3 sm:grid-cols-2">
       {entries.map(([key, value]) => (
-        <Detail key={key} label={key}>
-          {value}
+        <Detail key={key} label={attributeLabel(key)}>
+          {formatAttributeValue(key, value)}
         </Detail>
       ))}
     </dl>
@@ -68,6 +87,7 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
 export function ReviewProductPreview({ product }: { product: ProductAwaitingReview }) {
   return (
     <div className="space-y-6">
+      <ResubmissionCard product={product} />
       <SectionCard title="Prévia no catálogo">
         <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ImageStrip product={product} />

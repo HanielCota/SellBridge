@@ -1,7 +1,7 @@
 import {
-  REVIEW_FIELD_LABELS,
-  REVIEW_FIELDS,
   REVIEW_REASON_PRESETS,
+  reviewReasonTitle,
+  type ReviewFieldOption,
   type ReviewReasonRule,
 } from "@sellbridge/shared/supplier-product-review";
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
@@ -18,21 +18,19 @@ import {
 import type { DraftReason } from "@/features/admin-product-review/rejection-draft";
 import type { RejectionReason } from "@sellbridge/shared/supplier-panel-catalog-status";
 
-const PRESET_LABELS = new Map<string, string>(
-  REVIEW_REASON_PRESETS.map((preset) => [preset.rule, preset.label]),
-);
-
 function isPresetRule(value: string): value is ReviewReasonRule {
   return REVIEW_REASON_PRESETS.some((preset) => preset.rule === value);
 }
 
 function ReasonRow({
   reason,
+  fieldOptions,
   error,
   onChange,
   onRemove,
 }: {
   reason: DraftReason;
+  fieldOptions: readonly ReviewFieldOption[];
   error: string | undefined;
   onChange: (patch: Partial<RejectionReason>) => void;
   onRemove: () => void;
@@ -41,9 +39,7 @@ function ReasonRow({
   return (
     <li className="space-y-3 rounded-2xl bg-muted/50 p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-footnote font-semibold">
-          {PRESET_LABELS.get(reason.rule) ?? reason.rule}
-        </p>
+        <p className="text-footnote font-semibold">{reviewReasonTitle(reason.rule)}</p>
         <Button
           type="button"
           variant="ghost"
@@ -61,9 +57,9 @@ function ReasonRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {REVIEW_FIELDS.map((field) => (
-              <SelectItem key={field} value={field}>
-                {REVIEW_FIELD_LABELS[field]}
+            {fieldOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -109,6 +105,8 @@ function AddReason({ onAdd }: { onAdd: (rule: ReviewReasonRule) => void }) {
 
 interface RejectionReasonsEditorProps {
   reasons: readonly DraftReason[];
+  /** Fields a reason may point at, the product's datasheet included. */
+  fieldOptions: readonly ReviewFieldOption[];
   errorsByKey: ReadonlyMap<string, string>;
   formError: string | null;
   onAdd: (rule: ReviewReasonRule) => void;
@@ -119,6 +117,7 @@ interface RejectionReasonsEditorProps {
 /** Each reason names a field and what to fix: the supplier reads it right under that field. */
 export function RejectionReasonsEditor({
   reasons,
+  fieldOptions,
   errorsByKey,
   formError,
   onAdd,
@@ -133,6 +132,7 @@ export function RejectionReasonsEditor({
             <ReasonRow
               key={reason.key}
               reason={reason}
+              fieldOptions={fieldOptions}
               error={errorsByKey.get(reason.key)}
               onChange={(patch) => onChange(reason.key, patch)}
               onRemove={() => onRemove(reason.key)}

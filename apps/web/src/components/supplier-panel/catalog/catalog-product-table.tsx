@@ -69,10 +69,17 @@ function RejectionLine({ product }: { product: SupplierPanelProduct }) {
   );
 }
 
-function ProductCell({ product }: { product: SupplierPanelProduct }) {
+/** The name opens the product too, on the field to fix: the obvious place to click. */
+function ProductCell({ product, onOpen }: { product: SupplierPanelProduct; onOpen: OpenProduct }) {
   return (
     <div className="max-w-[20rem] min-w-[12rem] space-y-0.5 whitespace-normal">
-      <p className="line-clamp-2 font-medium">{product.title || "Sem título"}</p>
+      <button
+        type="button"
+        onClick={() => onOpen(product.id, fieldToFix(product))}
+        className="line-clamp-2 cursor-pointer rounded-sm text-left font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {product.title || "Sem título"}
+      </button>
       <p className="text-footnote text-muted-foreground">
         {product.categoryName ?? "Sem categoria"}
       </p>
@@ -96,7 +103,7 @@ function catalogColumns(
   return columnHelper.columns([
     columnHelper.accessor("title", {
       header: header("title", "Produto"),
-      cell: (information) => <ProductCell product={information.row.original} />,
+      cell: (information) => <ProductCell product={information.row.original} onOpen={onOpen} />,
     }),
     columnHelper.accessor("sku", {
       header: header("sku", "SKU"),
@@ -186,6 +193,7 @@ export function CatalogProductTable({
       data={data.items}
       caption="Produtos"
       getRowId={(row) => row.id}
+      pinLastColumn
       renderMobileRow={(row) => <MobileProductRow product={row} onOpen={onOpen} />}
       footer={
         <PaginationBar

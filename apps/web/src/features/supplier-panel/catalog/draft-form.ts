@@ -4,8 +4,12 @@ import {
   catalogDraftValuesSchema,
   type CatalogDraftValues,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import type { CompletenessProduct } from "@sellbridge/shared/supplier-panel-catalog-completeness";
+import {
+  MIN_DESCRIPTION_LENGTH,
+  type CompletenessProduct,
+} from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import type { EditableProductFields } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { attributeFieldLabel } from "@sellbridge/shared/supplier-product-attributes";
 
 /** The form's steps, in order; a field key decides which step shows it. */
 export const FORM_STEPS = [
@@ -18,14 +22,14 @@ export type FormStepId = (typeof FORM_STEPS)[number]["id"];
 
 /** The attributes the "Dados obrigatórios" step always offers, besides the category's own. */
 export const COMMON_ATTRIBUTES = [
-  { id: "BRAND", label: "Marca" },
-  { id: "MODEL", label: "Modelo" },
-  { id: "GTIN", label: "Código de barras (GTIN)" },
-  { id: "SELLER_PACKAGE_WEIGHT", label: "Peso da embalagem (g)" },
-  { id: "SELLER_PACKAGE_HEIGHT", label: "Altura (cm)" },
-  { id: "SELLER_PACKAGE_WIDTH", label: "Largura (cm)" },
-  { id: "SELLER_PACKAGE_LENGTH", label: "Comprimento (cm)" },
-] as const;
+  "BRAND",
+  "MODEL",
+  "GTIN",
+  "SELLER_PACKAGE_WEIGHT",
+  "SELLER_PACKAGE_HEIGHT",
+  "SELLER_PACKAGE_WIDTH",
+  "SELLER_PACKAGE_LENGTH",
+].map((id) => ({ id, label: attributeFieldLabel(id) }));
 
 export interface PanelFormValues {
   sku: string;
@@ -134,4 +138,46 @@ export function parseDraft(values: PanelFormValues): DraftParse {
       : issue.message;
   }
   return { ok: false, errors };
+}
+
+/** Under the description: progress toward the recommended length, then only that it is met. */
+export function descriptionLengthHint(length: number): string {
+  if (length >= MIN_DESCRIPTION_LENGTH) {
+    return `${length} caracteres: tamanho recomendado atingido`;
+  }
+  return `${length} de ${MIN_DESCRIPTION_LENGTH} caracteres recomendados`;
+}
+
+/** The product field each text input feeds, as reasons and completeness name it. */
+const TEXT_FIELDS = [
+  ["sku", "sku"],
+  ["title", "title"],
+  ["description", "description"],
+  ["cost", "costCents"],
+  ["suggestedPrice", "suggestedPriceCents"],
+  ["stock", "stock"],
+  ["categoryId", "categoryId"],
+] as const;
+
+function changedAttributes(initial: PanelFormValues, current: PanelFormValues): string[] {
+  const ids = new Set([...Object.keys(initial.attributes), ...Object.keys(current.attributes)]);
+  return [...ids]
+    .filter((id) => (initial.attributes[id] ?? "").trim() !== (current.attributes[id] ?? "").trim())
+    .map((id) => `attributes.${id}`);
+}
+
+/**
+ * Fields the supplier changed since the form opened, by product field key: a rejection reason
+ * on one of them reads as being fixed instead of staying an open alarm.
+ */
+export function editedFields(
+  initial: PanelFormValues,
+  current: PanelFormValues,
+): ReadonlySet<string> {
+  const texts = TEXT_FIELDS.filter(([key]) => initial[key].trim() !== current[key].trim()).map(
+    ([, field]) => field,
+  );
+  const images =
+    JSON.stringify(initial.imageUrls) === JSON.stringify(current.imageUrls) ? [] : ["imageUrls"];
+  return new Set([...texts, ...images, ...changedAttributes(initial, current)]);
 }

@@ -15,9 +15,10 @@ const titles = {
   live: `Comedouro aprovado ${stamp}`,
   toApprove: `Bebedouro para aprovar ${stamp}`,
   toReject: `Arranhador para reprovar ${stamp}`,
+  resubmitted: `Vaso reenviado ${stamp}`,
 };
 let supplierId = "";
-const productIds = { toApprove: "", toReject: "" };
+const productIds = { toApprove: "", toReject: "", resubmitted: "" };
 
 async function insertProduct(sku: string, title: string, inReview: boolean): Promise<string> {
   const [product] = await database
@@ -50,7 +51,13 @@ async function resellerSees(page: Page): Promise<(title: string) => ReturnType<P
 test.beforeAll(async () => {
   const [supplier] = await database
     .insert(suppliers)
-    .values({ name: `Fornecedor análise E2E ${stamp}`, niche: "Pet", state: "RJ", city: "Teste" })
+    .values({
+      // Long like the names that pushed the queue's last column out of view.
+      name: `Fornecedor análise E2E ${stamp} 0b8683e6-26dd-4e65-bc66-157bfaf630ba`,
+      niche: "Pet",
+      state: "RJ",
+      city: "Teste",
+    })
     .returning({ id: suppliers.id });
   if (supplier === undefined) {
     throw new Error("fornecedor não criado");
@@ -59,7 +66,40 @@ test.beforeAll(async () => {
   await insertProduct(`LIVE-${stamp}`, titles.live, false);
   productIds.toApprove = await insertProduct(`APR-${stamp}`, titles.toApprove, true);
   productIds.toReject = await insertProduct(`REJ-${stamp}`, titles.toReject, true);
+  productIds.resubmitted = await insertResubmittedProduct();
 });
+
+/** A product rejected for its barcode, fixed and sent again, without a brand. */
+async function insertResubmittedProduct(): Promise<string> {
+  const [product] = await database
+    .insert(supplierProducts)
+    .values({
+      supplierId,
+      sku: `RES-${stamp}`,
+      title: titles.resubmitted,
+      description: "Vaso de cerâmica para o teste de reenvio",
+      costCents: 3500,
+      suggestedPriceCents: 7990,
+      stock: 40,
+      imageUrls: [],
+      mercadoLivreAttributes: { GTIN: "7891234567895", SELLER_PACKAGE_WEIGHT: "900" },
+      reviewStatus: "in_review",
+      rejectionReasons: [
+        {
+          field: "attributes.GTIN",
+          rule: "gtin_recommended",
+          message: "Informe o código de barras (GTIN)",
+        },
+      ],
+      submittedAt: new Date(),
+      reviewedAt: new Date(Date.now() - 3_600_000),
+    })
+    .returning({ id: supplierProducts.id });
+  if (product === undefined) {
+    throw new Error("produto reenviado não criado");
+  }
+  return product.id;
+}
 
 test.afterAll(async () => {
   await database.delete(suppliers).where(eq(suppliers.id, supplierId));
@@ -115,4 +155,42 @@ test("só os produtos aprovados pelo admin chegam ao catálogo do revendedor", a
   await expect(after(titles.toApprove)).toBeVisible();
   await expect(after(titles.toReject)).toHaveCount(0);
   await reseller.close();
+});
+
+test("o reenvio mostra o que foi pedido, e a análise fala português", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  // The width where long supplier names pushed the queue's last column out of view.
+  await page.setViewportSize({ width: 914, height: 862 });
+
+  await test.step("a fila marca o reenvio e cabe na tela", async () => {
+    await gotoHydrated(page, `/admin/fornecedores/analise?query=RES-${stamp}`);
+    await expect(page.getByRole("link", { name: titles.resubmitted }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Reenvio" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Enviado" })).toBeInViewport({
+      ratio: 1,
+    });
+  });
+
+  await gotoHydrated(page, `/admin/fornecedores/analise/${productIds.resubmitted}`);
+  await expect(page.getByRole("heading", { name: titles.resubmitted })).toBeVisible();
+
+  await test.step("cada motivo anterior vem com o campo como está agora", async () => {
+    const previous = page.getByRole("list", { name: "Motivos da última reprovação" });
+    await expect(previous).toContainText("Código de barras ausente");
+    await expect(previous).toContainText("Código de barras (GTIN) agora: 7891234567895");
+  });
+
+  await test.step("a ficha técnica usa nomes e unidades", async () => {
+    await expect(page.getByText("Peso da embalagem", { exact: true })).toBeVisible();
+    await expect(page.getByText("900 g", { exact: true })).toBeVisible();
+    await expect(page.getByText("SELLER_PACKAGE_WEIGHT")).toHaveCount(0);
+  });
+
+  await test.step("um item de completude vira motivo com título e campo", async () => {
+    await page.getByRole("button", { name: "Informe a marca" }).click();
+    await expect(page.getByText("Marca ausente", { exact: true })).toBeVisible();
+    await expect(page.getByText("brand_recommended")).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Campo" })).toHaveText("Marca");
+  });
 });
