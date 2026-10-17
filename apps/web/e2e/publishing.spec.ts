@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
-import { supplierProducts, suppliers } from "@sellbridge/database/schema";
-import { and, eq, like } from "drizzle-orm";
+import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
+import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
+import { and, eq, inArray, like } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
@@ -97,6 +98,10 @@ test("avisa a descrição que não chegou ao marketplace e reenvia", async ({ pa
   await expect(cardStatus(page, "No ar na Loja Descrição")).toBeVisible({
     timeout: STATUS_TIMEOUT,
   });
+  // Any stock sync (another spec's simulated sale starts one) resends the description, and the
+  // mock takes it, so the warning could leave before this page polls. Out of automatic resends,
+  // it stays until the reseller resends.
+  await holdDescriptionFailure("Produto lindo [sem descricao]");
   const card = page.getByRole("article", { name: "Produto lindo [sem descricao]" });
   await expect(card.getByText("Descrição não enviada")).toBeVisible({ timeout: STATUS_TIMEOUT });
 
@@ -225,6 +230,27 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
       .filter({ visible: true }),
   ).toBeVisible();
 });
+
+/** The listing's description failed and no automatic resend is left: only "Reenviar" sends it. */
+async function holdDescriptionFailure(title: string): Promise<void> {
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  try {
+    const titled = database
+      .select({ id: listings.id })
+      .from(listings)
+      .where(eq(listings.title, title));
+    await database
+      .update(listingTargets)
+      .set({
+        descriptionError: "A descrição não chegou à loja simulada. Reenvie a descrição.",
+        descriptionAttempts: DESCRIPTION_AUTOMATIC_ATTEMPTS,
+        descriptionFailedAt: new Date(),
+      })
+      .where(inArray(listingTargets.listingId, titled));
+  } finally {
+    await database.$client.end();
+  }
+}
 
 /** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
 async function outOfStockProductId(): Promise<string> {

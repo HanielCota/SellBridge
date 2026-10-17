@@ -36,12 +36,33 @@ function getServerSnapshot(): Theme {
   return "dark";
 }
 
+/**
+ * Turns off every CSS transition while the theme class flips, so colors swap in one frame instead
+ * of each component fading on its own and the page flickering. Returns the function that restores
+ * them after the new colors are computed.
+ */
+function suspendTransitions(): () => void {
+  const style = document.createElement("style");
+  style.textContent = "*,*::before,*::after{transition:none!important}";
+  document.head.appendChild(style);
+  return () => {
+    // Reading a computed style forces the new colors to apply while transitions are still off.
+    void window.getComputedStyle(document.body).backgroundColor;
+    style.remove();
+  };
+}
+
 function applyTheme(theme: Theme): void {
+  if (theme === getSnapshot()) {
+    return;
+  }
+  const restoreTransitions = suspendTransitions();
   document.documentElement.classList.toggle("dark", theme === "dark");
   const themeColorMeta = document.querySelector('meta[name="theme-color"]');
   if (themeColorMeta !== null) {
     themeColorMeta.setAttribute("content", THEME_COLORS[theme]);
   }
+  restoreTransitions();
   try {
     localStorage.setItem(STORAGE_KEY, theme);
   } catch {
@@ -50,70 +71,14 @@ function applyTheme(theme: Theme): void {
   window.dispatchEvent(new Event(THEME_EVENT));
 }
 
-/**
- * Switches the theme with the new colors spreading as a circle from `origin` (the control that
- * was pressed), so the change reads as one cause and effect instead of a flash. Reduced motion
- * gets the browser's plain cross-fade; browsers without view transitions switch at once.
- */
-async function revealTheme(theme: Theme, origin: HTMLElement): Promise<void> {
-  if (theme === getSnapshot()) {
-    return;
-  }
-  if (typeof document.startViewTransition !== "function") {
-    applyTheme(theme);
-    return;
-  }
-  const transition = document.startViewTransition(() => applyTheme(theme));
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return;
-  }
-  const root = document.documentElement;
-  root.dataset.themeReveal = "";
-  const box = origin.getBoundingClientRect();
-  const centerX = box.left + box.width / 2;
-  const centerY = box.top + box.height / 2;
-  const radius = Math.hypot(
-    Math.max(centerX, window.innerWidth - centerX),
-    Math.max(centerY, window.innerHeight - centerY),
-  );
-  try {
-    await transition.ready;
-    const reveal = root.animate(
-      {
-        clipPath: [
-          `circle(0px at ${centerX}px ${centerY}px)`,
-          `circle(${radius}px at ${centerX}px ${centerY}px)`,
-        ],
-      },
-      {
-        duration: 550,
-        easing: "cubic-bezier(0.32, 0.72, 0, 1)",
-        pseudoElement: "::view-transition-new(root)",
-      },
-    );
-    await reveal.finished;
-  } catch (error) {
-    // A skipped transition still applied the theme; only the reveal is lost.
-    if (!(error instanceof DOMException)) {
-      throw error;
-    }
-  } finally {
-    delete root.dataset.themeReveal;
-  }
-}
-
 export function useTheme(): {
   theme: Theme;
-  setTheme: (theme: Theme, origin?: HTMLElement) => void;
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 } {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const setTheme = useCallback((next: Theme, origin?: HTMLElement) => {
-    if (!origin) {
-      applyTheme(next);
-      return;
-    }
-    void revealTheme(next, origin);
+  const setTheme = useCallback((next: Theme) => {
+    applyTheme(next);
   }, []);
   const toggleTheme = useCallback(() => {
     applyTheme(getSnapshot() === "dark" ? "light" : "dark");
