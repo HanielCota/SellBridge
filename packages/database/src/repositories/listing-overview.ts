@@ -24,6 +24,7 @@ import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { productListableColumn } from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -158,7 +159,7 @@ async function pageOfListingIds(
 /** What `unavailableReason` needs; the query joins supplier_products and suppliers. */
 /** Shared with listing-actions.ts, which checks availability before a resume. */
 export const availabilityColumns = {
-  productActive: supplierProducts.active,
+  productActive: productListableColumn(),
   supplierActive: suppliers.active,
 };
 

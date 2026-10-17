@@ -17,7 +17,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { sellableOnMarketplace } from "./sql/sellable.ts";
+import { productListableColumn, sellableOnMarketplace } from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
 import { listUnreadSupportReplies } from "./support.ts";
@@ -304,7 +304,7 @@ async function listingUnavailableEvents(
       entityId: listings.id,
       listingTitle: listings.title,
       at: lastChange,
-      productActive: supplierProducts.active,
+      productActive: productListableColumn(),
       supplierActive: suppliers.active,
     })
     .from(listings)

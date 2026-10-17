@@ -529,20 +529,33 @@ function linkFieldsFor(status: FulfillmentStatus) {
     : {};
 }
 
+/**
+ * Who may write a shipment: the reseller (its tenant), the supplier by its link token, or the
+ * supplier signed in to its panel (its id). Only the tenant writes as the reseller.
+ */
+export type ShipmentAccess = { tenantId: string } | { token: string } | { supplierId: string };
+
+function shipmentAccessFilter(access: ShipmentAccess) {
+  if ("tenantId" in access) {
+    return eq(orderShipments.tenantId, access.tenantId);
+  }
+  if ("supplierId" in access) {
+    return eq(orderShipments.supplierId, access.supplierId);
+  }
+  return and(
+    eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
+    gt(orderShipments.supplierTokenExpiresAt, new Date()),
+  );
+}
+
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
 export async function updateShipment(
   database: Database,
   input: z.infer<typeof shipmentUpdateSchema>,
-  access: { tenantId: string } | { token: string },
+  access: ShipmentAccess,
 ) {
   return database.transaction(async (transaction) => {
-    const accessFilter =
-      "tenantId" in access
-        ? eq(orderShipments.tenantId, access.tenantId)
-        : and(
-            eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
-            gt(orderShipments.supplierTokenExpiresAt, new Date()),
-          );
+    const accessFilter = shipmentAccessFilter(access);
     const [candidate] = await transaction
       .select()
       .from(orderShipments)

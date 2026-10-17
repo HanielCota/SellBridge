@@ -1,3 +1,4 @@
+import { SUPPLIER_EMAIL_FAILED_NOTE } from "@sellbridge/shared/forward-notes";
 import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import type { SupplierRecipient } from "@sellbridge/shared/supplier-order-email";
 import { and, eq, inArray } from "drizzle-orm";
@@ -129,10 +130,6 @@ export async function forwardRecipients(
     items: row.items.map(({ title, sku, quantity }) => ({ title, sku, quantity })),
   }));
 }
-
-/** What the reseller reads in the parcel's history when its supplier e-mail did not go out. */
-const SUPPLIER_EMAIL_FAILED_NOTE =
-  "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele.";
 
 /**
  * Notes in the parcel's history that its supplier was not told: the forward stands, and the

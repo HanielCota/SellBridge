@@ -238,7 +238,11 @@ export async function getTargetForPublishing(
   const { supplierActive, ...target } = row;
   return {
     ...target,
-    availability: { productActive: row.product.active, supplierActive },
+    // A product back in review or rejected in the supplier panel is not published (0039).
+    availability: {
+      productActive: row.product.active && row.product.reviewStatus === "approved",
+      supplierActive,
+    },
   };
 }
 

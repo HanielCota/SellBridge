@@ -181,6 +181,30 @@ const fieldLabels: Record<string, string> = {
   mercadoLivreAttributes: "Atributos do Mercado Livre",
 };
 
+function rowCandidate(
+  values: Readonly<Record<string, string>>,
+  sku: string,
+  mercadoLivreAttributes: Record<string, string>,
+) {
+  const stock = values.estoque ?? "";
+  const suggestedPrice = values.preco_sugerido ?? "";
+  return {
+    sku,
+    title: values.titulo,
+    description: values.descricao ?? "",
+    costCents: parseCsvMoney(values.custo ?? ""),
+    stock: /^\d+$/.test(stock) ? Number(stock) : null,
+    categorySlug: values.categoria || null,
+    imageUrls: (values.imagens ?? "")
+      .split("|")
+      .map((url) => url.trim())
+      .filter(Boolean),
+    active: parseActive(values.ativo ?? ""),
+    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
+    mercadoLivreAttributes,
+  };
+}
+
 function validateRecord(
   record: CsvRecord,
   headers: string[],
@@ -202,31 +226,21 @@ function validateRecord(
   }
   seen.add(sku);
   const attributes = parseCsvAttributes(values);
-  if ("reason" in attributes) {
-    return { line: record.line, reason: attributes.reason };
-  }
-  const stock = values.estoque ?? "";
-  const suggestedPrice = values.preco_sugerido ?? "";
-  const parsed = csvRowSchema.safeParse({
-    sku,
-    title: values.titulo,
-    description: values.descricao ?? "",
-    costCents: parseCsvMoney(values.custo ?? ""),
-    stock: /^\d+$/.test(stock) ? Number(stock) : null,
-    categorySlug: values.categoria || null,
-    imageUrls: (values.imagens ?? "")
-      .split("|")
-      .map((url) => url.trim())
-      .filter(Boolean),
-    active: parseActive(values.ativo ?? ""),
-    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
-    mercadoLivreAttributes: attributes.attributes,
-  });
-  if (!parsed.success) {
-    const reason = parsed.error.issues
-      .map((issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`)
-      .join("; ");
-    return { line: record.line, reason };
+  const parsed = csvRowSchema.safeParse(
+    rowCandidate(values, sku, "attributes" in attributes ? attributes.attributes : {}),
+  );
+  // Every bad cell at once (schema fields, then Mercado Livre attributes), so one round of
+  // fixes clears the line instead of a new error showing up after each one.
+  const reasons = [
+    ...(parsed.success
+      ? []
+      : parsed.error.issues.map(
+          (issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`,
+        )),
+    ...("reason" in attributes ? [attributes.reason] : []),
+  ];
+  if (!parsed.success || reasons.length > 0) {
+    return { line: record.line, reason: reasons.join("; ") };
   }
   return { line: record.line, product: parsed.data };
 }
