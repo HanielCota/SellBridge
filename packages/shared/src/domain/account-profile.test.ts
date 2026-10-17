@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   describeAccount,
-  PROFILE_KINDS,
   PROFILE_STATUSES,
   primaryActionFor,
-  profileKindTone,
   profileStatusTone,
   type AccountState,
   type ProfileMembership,
@@ -41,7 +39,7 @@ describe("describeAccount", () => {
         kindLabel: "Vendedor",
         memberRoleLabel: "Titular",
         statusLabel: "Ativo",
-        isTitular: true,
+        isOwner: true,
       },
     ]);
   });
@@ -81,10 +79,7 @@ describe("primaryActionFor", () => {
 });
 
 describe("profile tones", () => {
-  it("gives profile kinds a neutral tone and only statuses a color", () => {
-    for (const kind of PROFILE_KINDS) {
-      expect(profileKindTone(kind)).toBe("neutral");
-    }
+  it("gives each status its own tone", () => {
     const statusTones = PROFILE_STATUSES.map((status) => profileStatusTone(status));
     expect(statusTones).toEqual(["success", "warning", "neutral", "danger"]);
   });

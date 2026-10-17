@@ -11,7 +11,7 @@ export type ProfileKind = (typeof PROFILE_KINDS)[number];
 export const PROFILE_STATUSES = ["active", "in_review", "paused", "suspended"] as const;
 export type ProfileStatus = (typeof PROFILE_STATUSES)[number];
 
-/** How the screen paints a kind or a status; only statuses carry a color. */
+/** How the screen paints a status. A kind is who the profile is, not a state, so it has no tone. */
 export type ProfileTone = "neutral" | "success" | "warning" | "danger";
 
 export const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
@@ -26,11 +26,6 @@ export const PROFILE_STATUS_LABELS: Record<ProfileStatus, string> = {
   suspended: "Suspenso",
 };
 
-const PROFILE_KIND_TONES: Record<ProfileKind, ProfileTone> = {
-  seller: "neutral",
-  supplier: "neutral",
-};
-
 const PROFILE_STATUS_TONES: Record<ProfileStatus, ProfileTone> = {
   active: "success",
   in_review: "warning",
@@ -39,13 +34,15 @@ const PROFILE_STATUS_TONES: Record<ProfileStatus, ProfileTone> = {
 };
 
 /** Better Auth organization member roles; anything else reads as an ordinary member. */
+const MEMBER_LABEL = "Membro";
+
 const MEMBER_ROLE_LABELS: Record<string, string> = {
   owner: "Titular",
   admin: "Administrador",
-  member: "Membro",
+  member: MEMBER_LABEL,
 };
 
-const TITULAR_ROLE = "owner";
+const OWNER_ROLE = "owner";
 
 /** What the rules read from the account (Better Auth's `user` row). */
 export interface AccountState {
@@ -69,7 +66,8 @@ export interface ProfileDescription extends ProfileMembership {
   kindLabel: string;
   memberRoleLabel: string;
   statusLabel: string;
-  isTitular: boolean;
+  /** The titular: who answers for the profile. */
+  isOwner: boolean;
 }
 
 export interface AccountDescription {
@@ -93,7 +91,7 @@ function staffRoleIn(role: string | null | undefined): StaffRole | null {
 }
 
 function memberRoleLabelOf(memberRole: string): string {
-  return MEMBER_ROLE_LABELS[memberRole] ?? "Membro";
+  return MEMBER_ROLE_LABELS[memberRole] ?? MEMBER_LABEL;
 }
 
 function describeProfile(membership: ProfileMembership): ProfileDescription {
@@ -102,7 +100,7 @@ function describeProfile(membership: ProfileMembership): ProfileDescription {
     kindLabel: PROFILE_KIND_LABELS[membership.kind],
     memberRoleLabel: memberRoleLabelOf(membership.memberRole),
     statusLabel: PROFILE_STATUS_LABELS[membership.status],
-    isTitular: membership.memberRole === TITULAR_ROLE,
+    isOwner: membership.memberRole === OWNER_ROLE,
   };
 }
 
@@ -130,11 +128,6 @@ export function primaryActionFor(account: AccountState): AccountPrimaryAction | 
     return "resend_verification";
   }
   return null;
-}
-
-/** The kind is who the profile is, not a state, so it never takes a color. */
-export function profileKindTone(kind: ProfileKind): ProfileTone {
-  return PROFILE_KIND_TONES[kind];
 }
 
 export function profileStatusTone(status: ProfileStatus): ProfileTone {
