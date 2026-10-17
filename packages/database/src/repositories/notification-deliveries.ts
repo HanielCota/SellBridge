@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import {
   notificationContentSchema,
   type NotificationContent,
@@ -125,8 +126,35 @@ export async function claimDueNotificationDeliveries(
           due.map((delivery) => delivery.id),
         ),
       );
-    return due.flatMap((delivery) => toDueDelivery(delivery));
+    const deliverable = due.flatMap((delivery) => toDueDelivery(delivery));
+    await skipUndeliverable(transaction, due, deliverable);
+    return deliverable;
   });
+}
+
+const UNDELIVERABLE_REASON = "Conteúdo do aviso fora do formato esperado";
+
+/**
+ * Rows whose stored content no longer parses would be leased and dropped on every claim,
+ * pending forever and taking a slot of each batch; they leave the queue as skipped instead.
+ */
+async function skipUndeliverable(
+  transaction: Pick<Database, "update">,
+  claimed: readonly ClaimedRow[],
+  deliverable: readonly DueNotificationDelivery[],
+): Promise<void> {
+  const deliverableIds = new Set(deliverable.map((delivery) => delivery.id));
+  const undeliverableIds = claimed
+    .map((row) => row.id)
+    .filter((deliveryId) => !deliverableIds.has(deliveryId));
+  if (undeliverableIds.length === 0) {
+    return;
+  }
+  logger.warn("notification.delivery_undeliverable", { deliveryIds: undeliverableIds });
+  await transaction
+    .update(notificationDeliveries)
+    .set({ status: "skipped", lastError: UNDELIVERABLE_REASON })
+    .where(inArray(notificationDeliveries.id, undeliverableIds));
 }
 
 interface ClaimedRow extends Omit<DueNotificationDelivery, "channel" | "content"> {
