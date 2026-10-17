@@ -3,10 +3,7 @@ import type {
   SupplierOrderFilter,
 } from "@sellbridge/shared/supplier-panel-attention";
 
-/**
- * Where each "Precisa de você" item is fixed, as a plain path. The panel's routes are created
- * by the supplier access work; if it mounts the panel elsewhere, only this base changes.
- */
+/** Where each "Precisa de você" item is fixed, as a plain path under the panel's routes. */
 export const SUPPLIER_PANEL_BASE_PATH = "/fornecedor/painel";
 
 /**
@@ -32,16 +29,17 @@ export function supplierAttentionHref(
   if (target.area === "performance") {
     return withSearch(`${basePath}/desempenho`, { metric: target.metric });
   }
+  // Stock is a field of the product form: one product opens on it, several stay on the list.
   if (target.area === "stock") {
-    const product = target.productId === undefined ? {} : { product: target.productId };
-    return withSearch(`${basePath}/estoque`, { filter: target.filter, ...product });
+    if (target.productId === undefined) {
+      return `${basePath}/produtos`;
+    }
+    return withSearch(`${basePath}/produtos`, { product: target.productId, field: "stock" });
   }
   if (target.area === "catalog") {
     const product = target.productId === undefined ? {} : { product: target.productId };
     return withSearch(`${basePath}/produtos`, { status: target.filter, ...product });
   }
-  if (target.shipmentId !== undefined) {
-    return `${basePath}/pedidos/${target.shipmentId}`;
-  }
+  // The Pedidos list opens a parcel in a panel over the list, so a single parcel lands on its tab.
   return withSearch(`${basePath}/pedidos`, { tab: ORDER_TABS[target.filter] });
 }

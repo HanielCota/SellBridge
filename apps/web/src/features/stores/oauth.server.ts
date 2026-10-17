@@ -17,7 +17,7 @@ import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { connectors, oauthCallbackUrl, tokenCipher } from "@/lib/server/marketplaces";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireSellerSession } from "@/lib/server/tenant-session";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
@@ -55,7 +55,7 @@ function parseMarketplace(value: string | undefined): MarketplaceId | null {
 
 async function tenantOrLogin(request: Request) {
   try {
-    return await requireTenantSession(request.headers);
+    return await requireSellerSession(request.headers);
   } catch (error) {
     if (isAppError(error) && error.code === "UNAUTHORIZED") {
       return null;

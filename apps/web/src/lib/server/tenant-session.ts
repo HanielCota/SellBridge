@@ -1,6 +1,7 @@
 import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import {
   hasStaffPermission,
   staffRoleOf,
@@ -9,12 +10,15 @@ import {
 } from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
 import { assertVisitNotOver } from "./impersonation-window.ts";
-import { findFirstOrganizationId, isMemberOf } from "./membership.ts";
+import { findFirstOrganizationId, findMemberProfileKind } from "./membership.ts";
+import { assertSellerProfile } from "./supplier-panel-access.ts";
 
 export interface TenantSession {
   tenantId: string;
   userId: string;
   role: string;
+  /** Seller or supplier: what the active profile is (`organization.kind`). */
+  profileKind: ProfileKind;
   /** The admin inside the account through "Entrar como cliente", or null for the customer. */
   impersonatedBy: string | null;
 }
@@ -39,19 +43,28 @@ export async function requireTenantSession(headers: Headers): Promise<TenantSess
   };
   const activeId = session.session.activeOrganizationId;
   // The session only remembers the organization; membership is checked every time.
-  if (activeId && (await isMemberOf(session.user.id, activeId))) {
-    return { ...base, tenantId: activeId };
+  const activeKind = activeId ? await findMemberProfileKind(session.user.id, activeId) : null;
+  if (activeId && activeKind !== null) {
+    return { ...base, tenantId: activeId, profileKind: activeKind };
   }
   const organizationId = await findFirstOrganizationId(session.user.id);
   if (!organizationId) {
     throw forbiddenError("Sua conta não possui uma organização ativa");
   }
+  const profileKind = (await findMemberProfileKind(session.user.id, organizationId)) ?? "seller";
   await auth.api
     .setActiveOrganization({ headers, body: { organizationId } })
     .catch((error: unknown) => {
       logger.warn("session.set_active_organization_failed", { userId: session.user.id, error });
     });
-  return { ...base, tenantId: organizationId };
+  return { ...base, tenantId: organizationId, profileKind };
+}
+
+/** A seller profile's session: stores, listings, orders and reports refuse a supplier profile. */
+export async function requireSellerSession(headers: Headers): Promise<TenantSession> {
+  const session = await requireTenantSession(headers);
+  assertSellerProfile(session.profileKind);
+  return session;
 }
 
 export interface AdminSession {
