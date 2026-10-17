@@ -53,7 +53,7 @@ function useSignOut() {
 
 /** Rows read as plain choices: full-strength labels, quieter icons. */
 const MENU_ROW =
-  "gap-2.5 px-2.5 py-2 text-foreground [&_svg]:text-muted-foreground data-highlighted:[&_svg]:text-foreground";
+  "gap-3 px-2.5 py-2.5 text-base text-foreground [&_svg:not([class*='size-'])]:size-5 [&_svg]:text-muted-foreground data-highlighted:[&_svg]:text-foreground";
 
 const THEME_OPTIONS = [
   { value: "light", label: "Claro", icon: SunIcon },
@@ -70,7 +70,7 @@ function ThemeChoice() {
   const { theme, setTheme } = useTheme();
   return (
     <div className="flex items-center justify-between gap-3 py-1 pr-1 pl-2.5">
-      <span id="theme-choice-label" className="text-sm text-muted-foreground">
+      <span id="theme-choice-label" className="text-base text-muted-foreground">
         Tema
       </span>
       <DropdownMenuRadioGroup
@@ -93,9 +93,9 @@ function ThemeChoice() {
               event.preventDefault();
               setTheme(option.value);
             }}
-            className="relative flex cursor-default items-center justify-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground outline-none select-none data-[state=checked]:text-foreground data-[state=unchecked]:data-highlighted:text-foreground"
+            className="relative flex cursor-default items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground outline-none select-none data-[state=checked]:text-foreground data-[state=unchecked]:data-highlighted:text-foreground"
           >
-            <option.icon className="size-3.5" aria-hidden="true" />
+            <option.icon className="size-4" aria-hidden="true" />
             {option.label}
           </DropdownMenuPrimitive.RadioItem>
         ))}
@@ -186,7 +186,7 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
           <QuestionIcon aria-hidden="true" />
           Ajuda e suporte
           {supportReplies > 0 ? (
-            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-xs font-medium text-brand-text tabular-nums">
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-sm font-medium text-brand-text tabular-nums">
               {supportReplies}
               <span className="sr-only">, {unreadRepliesText(supportReplies)}</span>
             </span>
@@ -206,11 +206,8 @@ interface UserMenuProps {
   className?: string;
 }
 
-/**
- * The caret at the end of the chip; it flips while the menu is open. On phones, where the
- * support button is not in the header, it also dots unread support replies.
- */
-function MenuCaret({ hasSupportReplies }: { hasSupportReplies: boolean }) {
+/** The caret at the end of the chip; it flips while the menu is open. */
+function MenuCaret() {
   return (
     <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-foreground group-data-[state=open]:text-foreground">
       <CaretDownIcon
@@ -218,12 +215,6 @@ function MenuCaret({ hasSupportReplies }: { hasSupportReplies: boolean }) {
         weight="bold"
         aria-hidden="true"
       />
-      {hasSupportReplies ? (
-        <span
-          className="absolute top-2 right-2 size-2 rounded-full bg-brand-mark sm:hidden"
-          aria-hidden="true"
-        />
-      ) : null}
     </span>
   );
 }
@@ -250,7 +241,7 @@ export function UserMenu({ user, supportReplies, adminMode, children, className 
         )}
       >
         {children}
-        <MenuCaret hasSupportReplies={supportReplies > 0} />
+        <MenuCaret />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -260,11 +251,11 @@ export function UserMenu({ user, supportReplies, adminMode, children, className 
             event.preventDefault();
           }
         }}
-        className="w-72 rounded-2xl border-0 p-2 shadow-black/15 ring-1 ring-border"
+        className="w-80 rounded-2xl border-0 p-2 shadow-black/15 ring-1 ring-border"
       >
         <DropdownMenuLabel className="px-2.5 pt-1.5 pb-2 font-normal">
-          <span className="block text-xs text-muted-foreground">Conectado como</span>
-          <span className="block truncate text-sm font-medium text-foreground">{user.email}</span>
+          <span className="block text-sm text-muted-foreground">Conectado como</span>
+          <span className="block truncate text-base font-medium text-foreground">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="-mx-2" />
         <AccountLinks supportReplies={supportReplies} />
