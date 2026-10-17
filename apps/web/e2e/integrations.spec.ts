@@ -9,7 +9,7 @@ test("cria uma chave de leitura, chama a API com ela e revoga", async ({ page, r
   await waitForHydration(page);
   await page.getByRole("button", { name: "Menu do usuário" }).click();
   await page.getByRole("menuitem", { name: "Integrações" }).click();
-  await expect(page).toHaveURL(/\/integracoes$/);
+  await expect(page).toHaveURL(/\/integracoes\?perfil=[a-z0-9-]+$/);
   await expect(page).toHaveTitle("Integrações | SellBridge");
   await expect(page.getByRole("link", { name: /Documentação da API/ })).toHaveAttribute(
     "href",

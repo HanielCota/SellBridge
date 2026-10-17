@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as OutroPerfilRouteImport } from './routes/outro-perfil'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
@@ -89,6 +90,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OutroPerfilRoute = OutroPerfilRouteImport.update({
+  id: '/outro-perfil',
+  path: '/outro-perfil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacidadeRoute = PrivacidadeRouteImport.update({
@@ -436,6 +442,7 @@ const ApiV1WebhookEndpointsEndpointIdDeliveriesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -504,6 +511,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
@@ -573,6 +581,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/outro-perfil': typeof OutroPerfilRoute
   '/privacidade': typeof PrivacidadeRoute
   '/termos': typeof TermosRoute
   '/_app/admin': typeof AppAdminRouteRouteWithChildren
@@ -643,6 +652,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/outro-perfil'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -711,6 +721,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/outro-perfil'
     | '/privacidade'
     | '/termos'
     | '/admin'
@@ -779,6 +790,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/_auth'
+    | '/outro-perfil'
     | '/privacidade'
     | '/termos'
     | '/_app/admin'
@@ -850,6 +862,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  OutroPerfilRoute: typeof OutroPerfilRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -906,6 +919,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/outro-perfil': {
+      id: '/outro-perfil'
+      path: '/outro-perfil'
+      fullPath: '/outro-perfil'
+      preLoaderRoute: typeof OutroPerfilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacidade': {
@@ -1494,6 +1514,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  OutroPerfilRoute: OutroPerfilRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,

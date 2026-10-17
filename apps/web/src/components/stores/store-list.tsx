@@ -5,7 +5,6 @@ import {
   ArrowsLeftRightIcon,
   DotsThreeIcon,
   PackageIcon,
-  PlugIcon,
   SignOutIcon,
   StorefrontIcon,
   WarningCircleIcon,
@@ -28,6 +27,7 @@ import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
+import { ReconnectAction } from "./store-reconnect-action";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
 
@@ -224,28 +224,6 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
         <span className="max-md:sr-only">Publicar</span>
       </Link>
     </Button>
-  );
-}
-
-/** Figures a disconnected store can't vouch for give way to the one action that fixes it. */
-function ReconnectAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  const locked = useStoresLocked();
-  return (
-    <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
-      {locked ? (
-        <Button variant="outline" size="sm" disabled title={STORES_LOCKED_REASON}>
-          <PlugIcon weight="bold" aria-hidden="true" />
-          Reconectar
-        </Button>
-      ) : (
-        <Button asChild variant="outline" size="sm">
-          <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
-            <PlugIcon weight="bold" aria-hidden="true" />
-            Reconectar
-          </a>
-        </Button>
-      )}
-    </div>
   );
 }
 
@@ -456,7 +434,7 @@ function StoreRow({
         {store.status === "connected" ? (
           <StoreFigures store={store} />
         ) : (
-          <ReconnectAction store={store} storeName={name} />
+          <ReconnectAction marketplace={store.marketplace} storeName={name} />
         )}
         <StoreMenu
           store={store}

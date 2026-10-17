@@ -37,9 +37,10 @@ test.describe("dashboard", () => {
     await expect(reading.getByText(/A receita (subiu|caiu|ficou igual)/)).toBeVisible();
     // Tiles beside the chart open the financial report.
     for (const label of ["receita", "pedidos", "ticket médio"]) {
+      // Every app link carries the tab's profile (see lib/profile-param.ts).
       await expect(page.getByRole("link", { name: `Ver ${label} no financeiro` })).toHaveAttribute(
         "href",
-        "/financeiro",
+        /^\/financeiro\?perfil=[a-z0-9-]+$/,
       );
     }
     await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
