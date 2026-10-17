@@ -52,6 +52,11 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       return null;
     }
     const role = session.user.role ?? "user";
+    // Runs before every navigation and hover preload, so the two lookups go out together.
+    const [profileKind, termsAccepted] = await Promise.all([
+      findSessionProfileKind(session.user.id, session.session.activeOrganizationId ?? null),
+      hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+    ]);
     return {
       user: {
         id: session.user.id,
@@ -63,15 +68,12 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       },
       adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
-      profileKind: await findSessionProfileKind(
-        session.user.id,
-        session.session.activeOrganizationId ?? null,
-      ),
+      profileKind,
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
         : null,
-      termsAccepted: await hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+      termsAccepted,
     };
   },
 );
