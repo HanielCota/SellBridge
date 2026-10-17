@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { catalogDraftValuesSchema } from "../domain/supplier-panel-catalog-schemas.ts";
 import {
   adminSaveProductSchema,
   adminSupplierValuesSchema,
@@ -102,5 +103,29 @@ describe("product stock bounds", () => {
     expect(
       adminSaveProductSchema.safeParse({ ...product, expectedStock: -2_147_483_649 }).success,
     ).toBe(false);
+  });
+});
+
+function draftMessageOf(change: Record<string, unknown>): string | undefined {
+  return catalogDraftValuesSchema.safeParse({ ...product, ...change }).error?.issues[0]?.message;
+}
+
+describe("product money messages", () => {
+  it("says in Portuguese that the cost cannot be negative, with the value received", () => {
+    expect(draftMessageOf({ costCents: -500 })).toMatch(
+      /^O custo não pode ser negativo: recebido -R\$\s5,00, informe R\$ 0,00 ou mais$/,
+    );
+  });
+
+  it("names the suggested price and the amount when it is above the listing limit", () => {
+    expect(draftMessageOf({ suggestedPriceCents: 100_000_001 })).toMatch(
+      /^O preço sugerido pode ser de até R\$ 1\.000\.000,00 \(recebido: R\$\s1\.000\.000,01\)$/,
+    );
+  });
+
+  it("explains a cost that is not a number", () => {
+    expect(draftMessageOf({ costCents: Number.NaN })).toBe(
+      "O custo precisa ser um valor em reais, como 25,90 (recebido: um valor que não é número)",
+    );
   });
 });

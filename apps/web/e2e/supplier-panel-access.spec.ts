@@ -47,7 +47,7 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
   await giveBrand(email, "Ateliê Com Marca");
 
   await gotoHydrated(page, "/fornecedor/painel");
-  await expect(page.getByText("Nenhuma pendência")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nada esperando por você" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Produtos" }).first()).toBeVisible();
   await expect(page.getByText("Fornecedor", { exact: true }).first()).toBeVisible();
 

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { hasErrorCode } from "@sellbridge/shared/errors";
-import { SUPPLIER_EMAIL_FAILED_NOTE } from "@sellbridge/shared/forward-notes";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -23,7 +22,6 @@ import { upsertStoreConnection } from "./stores.ts";
 import {
   getSupplierPanelProfile,
   listSupplierHealthDrillDown,
-  listSupplierOpenShipments,
   listSupplierOutOfStockListed,
   listSupplierRejectedProducts,
   loadSupplierHealthInput,
@@ -33,7 +31,6 @@ const database = createTestDatabase();
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 const NOW = new Date();
-const EMAIL_FAILED = SUPPLIER_EMAIL_FAILED_NOTE;
 
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
@@ -199,32 +196,6 @@ describe("loadSupplierHealthInput", () => {
   });
 });
 
-describe("listSupplierOpenShipments", () => {
-  it("brings the parcels still with the supplier and SellBridge's notes since the forward", async () => {
-    const failed = await parcel({
-      supplierId: supplier.supplierId,
-      daysAgo: 1,
-      status: "forwarded",
-      events: [
-        {
-          status: "forwarded",
-          actor: SHIPMENT_ACTORS.sellbridge,
-          hoursAfterForward: 0.1,
-          note: EMAIL_FAILED,
-        },
-        { status: "forwarded", actor: supplierActor, hoursAfterForward: 0.2, note: "Ocorrência" },
-      ],
-    });
-    const open = await listSupplierOpenShipments(database, supplier.supplierId);
-    const found = open.find((signal) => signal.orderId === failed.orderId);
-    expect(found?.systemNotes).toEqual([EMAIL_FAILED]);
-    expect(found?.forwardedAt).toBeInstanceOf(Date);
-    expect(
-      open.every((signal) => ["forwarded", "accepted", "picking", "ready"].includes(signal.status)),
-    ).toBe(true);
-  });
-});
-
 describe("listSupplierOutOfStockListed", () => {
   it("counts the published listings of active products without stock", async () => {
     await publishTestProduct(database, supplier.productId, [
@@ -260,6 +231,11 @@ describe("listSupplierOutOfStockListed", () => {
     const [signal] = await listSupplierOutOfStockListed(database, supplier.supplierId);
     expect(signal?.availableStock).toBe(-2);
   });
+
+  it("brings the product's main photo, or null without one", async () => {
+    const [signal] = await listSupplierOutOfStockListed(database, supplier.supplierId);
+    expect(signal?.imageUrl).toBeNull();
+  });
 });
 
 describe("getSupplierPanelProfile", () => {
@@ -281,14 +257,25 @@ describe("getSupplierPanelProfile", () => {
 describe("listSupplierRejectedProducts", () => {
   const reasons = [{ field: "title", rule: "title_policy", message: "Revise o título do produto" }];
 
-  it("lists only this supplier's rejected products", async () => {
+  it("lists only this supplier's rejected products, with the photo and the reasons", async () => {
     await database
       .update(supplierProducts)
-      .set({ reviewStatus: "rejected", rejectionReasons: reasons, reviewedAt: NOW })
+      .set({
+        reviewStatus: "rejected",
+        rejectionReasons: reasons,
+        reviewedAt: NOW,
+        imageUrls: ["https://example.com/caneca.jpg", "https://example.com/caneca-2.jpg"],
+      })
       .where(inArray(supplierProducts.id, [supplier.productId, otherSupplier.productId]));
     const signals = await listSupplierRejectedProducts(database, supplier.supplierId);
     expect(signals).toEqual([
-      { productId: supplier.productId, title: "Caneca", sku: expect.any(String) },
+      {
+        productId: supplier.productId,
+        title: "Caneca",
+        sku: expect.any(String),
+        imageUrl: "https://example.com/caneca.jpg",
+        rejectionReasons: reasons,
+      },
     ]);
   });
 

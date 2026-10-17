@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { stateSchema } from "../domain/brazilian-states.ts";
+import { formatCents } from "../domain/money.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { LISTING_MAX_PRICE_CENTS } from "./stores.ts";
 
@@ -21,12 +22,42 @@ const productStockSchema = z
  * the last count (see `consume` in stock-reservations), and such a product must stay editable.
  */
 const openedShelfCountSchema = z.number().int().min(-2_147_483_648).max(2_147_483_647);
-/** Cost and suggested price stay within what a listing may charge, so every rule can sell it. */
-const productPriceCentsSchema = z
-  .number()
-  .int()
-  .min(0)
-  .max(LISTING_MAX_PRICE_CENTS, "O valor pode ser de até R$ 1.000.000,00");
+/** An amount as the message shows it: in reais when it is whole cents, as typed otherwise. */
+function receivedAmount(input: unknown): string {
+  if (typeof input === "number" && Number.isSafeInteger(input)) {
+    return formatCents(input);
+  }
+  if (typeof input === "number" && Number.isFinite(input)) {
+    return String(input);
+  }
+  return "um valor que não é número";
+}
+
+/**
+ * Cost and suggested price stay within what a listing may charge, so every rule can sell it.
+ * Each message names the field, the value received and what is expected, in pt-BR (a negative
+ * cost used to come back as Zod's "Too small: expected number to be >=0").
+ */
+function productPriceCentsSchema(label: string) {
+  return z
+    .number({
+      error: (issue) =>
+        `${label} precisa ser um valor em reais, como 25,90 (recebido: ${receivedAmount(issue.input)})`,
+    })
+    .int({
+      error: (issue) =>
+        `${label} precisa ter até 2 casas decimais (recebido: ${receivedAmount(issue.input)} centavos)`,
+    })
+    .min(0, {
+      error: (issue) =>
+        `${label} não pode ser negativo: recebido ${receivedAmount(issue.input)}, informe R$ 0,00 ou mais`,
+    })
+    .max(LISTING_MAX_PRICE_CENTS, {
+      error: (issue) =>
+        `${label} pode ser de até R$ 1.000.000,00 (recebido: ${receivedAmount(issue.input)})`,
+    });
+}
+
 const imageUrlSchema = z
   .url({ protocol: /^https?$/ })
   .max(2000, "Use um link de imagem mais curto");
@@ -95,8 +126,8 @@ export const adminProductValuesSchema = z.object({
   sku: freeText().trim().min(1, "Informe o SKU").max(100),
   title: freeText().trim().min(1, "Informe o título").max(300),
   description: freeText().trim().max(20_000),
-  costCents: productPriceCentsSchema,
-  suggestedPriceCents: productPriceCentsSchema,
+  costCents: productPriceCentsSchema("O custo"),
+  suggestedPriceCents: productPriceCentsSchema("O preço sugerido"),
   stock: productStockSchema,
   categoryId: z.uuid().nullable(),
   imageUrls: z.array(imageUrlSchema).max(20),
