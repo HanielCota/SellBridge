@@ -281,6 +281,13 @@
       "when": 1792193239356,
       "tag": "0039_supplier_product_review",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792239888516,
+      "tag": "0040_organization_kind",
+      "breakpoints": true
     }
   ]
 }
