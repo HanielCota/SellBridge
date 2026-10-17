@@ -2,6 +2,7 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isActivePath } from "@/features/navigation/nav-items";
 
 export const SUPPLIER_PANEL_PATH = "/fornecedor/painel";
+export const SUPPLIER_BRAND_PATH = "/fornecedor/painel/marca";
 export const SELLER_HOME_PATH = "/dashboard";
 
 /** Pages about the account, not a profile: every profile reaches them. */

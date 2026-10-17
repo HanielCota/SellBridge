@@ -801,13 +801,3 @@ a:focus-visible .glyph,
     stroke-dasharray: none;
   }
 }
-
-/*
- * Theme reveal: the new theme grows as a circle over a still snapshot of the old one (the clip is
- * animated from theme-provider), instead of the default cross-fade.
- */
-:root[data-theme-reveal]::view-transition-old(root),
-:root[data-theme-reveal]::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}

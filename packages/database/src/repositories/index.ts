@@ -1,5 +1,6 @@
 export * from "./region.ts";
 export * from "./account-profiles.ts";
+export * from "./supplier-brand.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
 export * from "./store-names.ts";
@@ -31,6 +32,7 @@ export * from "./webhook-endpoints.ts";
 export * from "./webhook-deliveries.ts";
 export * from "./customer-care.ts";
 export * from "./admin-suppliers.ts";
+export * from "./admin-supplier-options.ts";
 export * from "./billing.ts";
 export * from "./fulfillment.ts";
 export * from "./auto-forward.ts";

@@ -80,6 +80,23 @@ test.describe("dashboard", () => {
     await expect(chart.locator(".recharts-area-curve").first()).toHaveAttribute("d", /L|C/);
   });
 
+  // Regression: with many hours on a narrow axis the labels were thinned from the start, so late
+  // in the day (CI run 38993957541, 23h) "0h" disappeared. The phone width makes it happen at any
+  // hour: the hourly axis keeps where the day starts.
+  test("Hoje mostra onde o dia começa mesmo no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard?period=today");
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.locator(".recharts-area-curve").first()).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+
+    await expect(chart.getByText("0h", { exact: true })).toBeVisible();
+  });
+
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");
