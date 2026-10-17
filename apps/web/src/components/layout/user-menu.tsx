@@ -70,8 +70,8 @@ const THEME_OPTIONS = [
 /**
  * Theme as a two-way switch that shows the current choice, like the period control, instead of
  * an action whose label names the theme you are not using. A raised pill (white in light, a lifted
- * gray in dark, never a black block) fills the chosen half and glides across; the menu stays open
- * so the change is seen.
+ * gray in dark, never a black block) fills the chosen half; the menu stays open so the change is
+ * seen.
  */
 function ThemeChoice() {
   const { theme, setTheme } = useTheme();
@@ -88,7 +88,7 @@ function ThemeChoice() {
         <span
           aria-hidden="true"
           className={cn(
-            "absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-card shadow-sm shadow-black/10 transition-transform dark:bg-white/15 dark:shadow-none duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]",
+            "absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-card shadow-sm shadow-black/10 dark:bg-white/15 dark:shadow-none",
             theme === "dark" && "translate-x-full",
           )}
         />
@@ -98,10 +98,9 @@ function ThemeChoice() {
             value={option.value}
             onSelect={(event) => {
               event.preventDefault();
-              const item = event.currentTarget;
-              setTheme(option.value, item instanceof HTMLElement ? item : undefined);
+              setTheme(option.value);
             }}
-            className="relative flex cursor-default items-center justify-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground transition-colors duration-300 outline-none select-none data-[state=checked]:text-foreground data-[state=unchecked]:data-highlighted:text-foreground"
+            className="relative flex cursor-default items-center justify-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-muted-foreground outline-none select-none data-[state=checked]:text-foreground data-[state=unchecked]:data-highlighted:text-foreground"
           >
             <option.icon className="size-3.5" aria-hidden="true" />
             {option.label}
