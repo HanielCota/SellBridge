@@ -48,3 +48,5 @@ export * from "./admin-audit.ts";
 export * from "./supplier-panel-catalog.ts";
 export * from "./supplier-panel-catalog-writes.ts";
 export * from "./supplier-product-review-queue.ts";
+export * from "./supplier-panel-orders.ts";
+export * from "./supplier-panel-orders-detail.ts";
