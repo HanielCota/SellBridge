@@ -16,6 +16,7 @@ import {
   PRODUCT_REVIEW_STATUSES,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
   "suppliers",
@@ -34,10 +35,16 @@ export const suppliers = pgTable(
     /** Hours the supplier has to dispatch it, counted from the forward. */
     dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
+    /**
+     * The supplier profile (organization of kind `supplier`) that runs this catalog from the
+     * supplier panel. Null for suppliers the team still manages on their behalf.
+     */
+    organizationId: text().references(() => organization.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("suppliers_state_idx").on(table.state),
+    uniqueIndex("suppliers_organization_id_unique").on(table.organizationId),
     check(
       "suppliers_deadlines_check",
       sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,

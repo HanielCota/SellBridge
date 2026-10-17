@@ -6,14 +6,14 @@ import {
 } from "@sellbridge/database/repositories";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
-import { tenantMiddleware } from "@/lib/server/middleware";
+import { accountMiddleware } from "@/lib/server/middleware";
 import { reviewableSince } from "@/features/orders/review-window";
 import { buildNotificationFeed } from "./notification-feed";
 import { hiddenNotificationKinds } from "./notification-preferences";
 import { presentNotificationFeed } from "./notification-presenter";
 
 export const getNotifications = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) => {
     const [{ events, seenAt }, preferences] = await Promise.all([
       listNotificationEvents(database, {
@@ -30,14 +30,14 @@ export const getNotifications = createServerFn({ method: "GET" })
   });
 
 export const markNotificationsSeenFn = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) => {
     await markNotificationsSeen(database, { userId: context.userId, tenantId: context.tenantId });
     return { ok: true };
   });
 
 export const clearNotificationsFn = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) => {
     await clearNotifications(database, { userId: context.userId, tenantId: context.tenantId });
     return { ok: true };

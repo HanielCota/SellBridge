@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { supplierAttentionHref } from "./attention-links";
 
 describe("supplierAttentionHref", () => {
-  it("opens one parcel straight away and several on the matching tab", () => {
+  it("opens the matching Pedidos tab, for one parcel or several", () => {
     expect(
       supplierAttentionHref({ area: "orders", filter: "accept_overdue", shipmentId: "s1" }),
-    ).toBe("/fornecedor/painel/pedidos/s1");
+    ).toBe("/fornecedor/painel/pedidos?tab=forwarded");
     expect(supplierAttentionHref({ area: "orders", filter: "accept_soon" })).toBe(
       "/fornecedor/painel/pedidos?tab=forwarded",
     );
@@ -14,13 +14,13 @@ describe("supplierAttentionHref", () => {
     );
   });
 
-  it("filters the stock page, down to one product when there is only one", () => {
+  it("opens the product out of stock on its stock field, or the product list for several", () => {
     expect(supplierAttentionHref({ area: "stock", filter: "out_of_stock_listed" })).toBe(
-      "/fornecedor/painel/estoque?filter=out_of_stock_listed",
+      "/fornecedor/painel/produtos",
     );
     expect(
       supplierAttentionHref({ area: "stock", filter: "out_of_stock_listed", productId: "p1" }),
-    ).toBe("/fornecedor/painel/estoque?filter=out_of_stock_listed&product=p1");
+    ).toBe("/fornecedor/painel/produtos?product=p1&field=stock");
   });
 
   it("opens a rejected product to fix it, or the rejected tab when there are several", () => {

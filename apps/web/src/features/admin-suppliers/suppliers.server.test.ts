@@ -77,6 +77,7 @@ const savedSupplier = {
   acceptWithinHours: 24,
   dispatchWithinHours: 48,
   active: true,
+  organizationId: null,
   createdAt: new Date("2026-10-01T00:00:00Z"),
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {
