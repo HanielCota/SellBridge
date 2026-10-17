@@ -57,6 +57,14 @@ const product = {
   mercadoLivreAttributes: {},
   active: true,
 };
+/** Review columns of a stored product (supplier panel, migration 0039). */
+const reviewColumns = {
+  reviewStatus: "approved" as const,
+  rejectionReasons: [],
+  submittedAt: null,
+  reviewedAt: null,
+  reviewedBy: null,
+};
 const savedSupplier = {
   id: supplierId,
   name: "Fornecedor",
@@ -158,6 +166,7 @@ describe("admin CSV orchestration", () => {
   it("enqueues synchronization for a manual product update", async () => {
     mocks.saveProduct.mockResolvedValue({
       ...product,
+      ...reviewColumns,
       id: "e937a566-b7bc-4305-b3c0-448e7133fcfe",
       reservedStock: 0,
       createdAt: new Date(),
@@ -220,6 +229,7 @@ describe("admin CSV orchestration", () => {
     mocks.setProductActive.mockResolvedValue({
       product: {
         ...product,
+        ...reviewColumns,
         id: "6f1b2c4e-0d7a-4c8e-9a51-2f3b4c5d6e7f",
         reservedStock: 0,
         active: false,
