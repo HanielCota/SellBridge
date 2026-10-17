@@ -24,7 +24,7 @@ import type { Database } from "../client.ts";
 import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
 import { availableStock } from "./sql/available-stock.ts";
-import { productListable } from "./sql/sellable.ts";
+import { productListable, supplierFindable } from "./sql/sellable.ts";
 
 export interface SupplierSummary {
   id: string;
@@ -37,28 +37,33 @@ export interface SupplierSummary {
   productCount: number;
 }
 
+/** How many products of the supplier a reseller can sell. */
+const listableProductCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
+  eq(supplierProducts.supplierId, suppliers.id),
+  productListable(),
+)})`.mapWith(Number);
+
 export interface ListSuppliersFilters {
   search?: string | undefined;
   niche?: string | undefined;
 }
 
-/** Every active supplier, for pickers and filters: any reseller sells any supplier. */
+/**
+ * Every supplier a reseller can sell, for pickers and filters: active and with at least one
+ * approved, active product. Staff screens list every active supplier with
+ * `listAdminSupplierOptions` instead.
+ */
 export async function listActiveSuppliers(
   database: Database,
   filters: ListSuppliersFilters,
 ): Promise<SupplierSummary[]> {
-  const conditions: SQL[] = [eq(suppliers.active, true)];
+  const conditions: SQL[] = [supplierFindable()];
   if (filters.niche) {
     conditions.push(eq(suppliers.niche, filters.niche));
   }
   if (filters.search) {
     conditions.push(ilike(suppliers.name, containsPattern(filters.search)));
   }
-  const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
-    eq(supplierProducts.supplierId, suppliers.id),
-    productListable(),
-  )})`.mapWith(Number);
-
   return database
     .select({
       id: suppliers.id,
@@ -68,7 +73,7 @@ export async function listActiveSuppliers(
       state: suppliers.state,
       city: suppliers.city,
       logoUrl: suppliers.logoUrl,
-      productCount,
+      productCount: listableProductCount,
     })
     .from(suppliers)
     .where(and(...conditions))
@@ -105,7 +110,7 @@ function nicheOrProductMatch(search: string): SQL | undefined {
 }
 
 function directoryConditions(filters: SupplierDirectoryFilters): SQL[] {
-  const conditions: SQL[] = [eq(suppliers.active, true)];
+  const conditions: SQL[] = [supplierFindable()];
   if (filters.niche) {
     conditions.push(eq(suppliers.niche, filters.niche));
   }
@@ -122,7 +127,7 @@ function directoryConditions(filters: SupplierDirectoryFilters): SQL[] {
   return conditions;
 }
 
-/** A state with active suppliers, and the cities they are in, for the directory filters. */
+/** A state with findable suppliers, and the cities they are in, for the directory filters. */
 export interface SupplierLocation {
   state: string;
   cities: string[];
@@ -132,7 +137,7 @@ export async function listSupplierLocations(database: Database): Promise<Supplie
   const rows = await database
     .selectDistinct({ state: suppliers.state, city: suppliers.city })
     .from(suppliers)
-    .where(eq(suppliers.active, true))
+    .where(supplierFindable())
     .orderBy(asc(suppliers.state), asc(suppliers.city));
   const byState = new Map<string, string[]>();
   for (const row of rows) {
@@ -141,16 +146,11 @@ export async function listSupplierLocations(database: Database): Promise<Supplie
   return [...byState].map(([state, cities]) => ({ state, cities }));
 }
 
-/** Every active supplier, from anywhere in Brazil: any reseller sells any of them. */
+/** Every findable supplier, from anywhere in Brazil: any reseller sells any of them. */
 export async function listSupplierDirectory(
   database: Database,
   filters: SupplierDirectoryFilters,
 ): Promise<SupplierSummary[]> {
-  const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
-    eq(supplierProducts.supplierId, suppliers.id),
-    productListable(),
-  )})`.mapWith(Number);
-
   return database
     .select({
       id: suppliers.id,
@@ -160,19 +160,19 @@ export async function listSupplierDirectory(
       state: suppliers.state,
       city: suppliers.city,
       logoUrl: suppliers.logoUrl,
-      productCount,
+      productCount: listableProductCount,
     })
     .from(suppliers)
     .where(and(...directoryConditions(filters)))
     .orderBy(asc(suppliers.name));
 }
 
-/** Niches of every active supplier, for the shortcuts above the directory. */
+/** Niches of every findable supplier, for the shortcuts above the directory. */
 export async function listActiveNiches(database: Database): Promise<string[]> {
   const rows = await database
     .selectDistinct({ niche: suppliers.niche })
     .from(suppliers)
-    .where(eq(suppliers.active, true))
+    .where(supplierFindable())
     .orderBy(asc(suppliers.niche));
   return rows.map((row) => row.niche);
 }

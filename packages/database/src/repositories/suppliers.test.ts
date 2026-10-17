@@ -14,12 +14,7 @@ import {
 
 const database = createTestDatabase();
 const TEST_STATE = "ZZ";
-const ids: { stateWide: string; cityOnly: string; otherState: string; inactive: string } = {
-  stateWide: "",
-  cityOnly: "",
-  otherState: "",
-  inactive: "",
-};
+const ids = { stateWide: "", cityOnly: "", otherState: "", inactive: "", withoutProducts: "" };
 let visibleProductId = "";
 let hiddenProductId = "";
 
@@ -39,6 +34,7 @@ beforeAll(async () => {
   ids.cityOnly = await insertSupplier("Teste Só Capital", TEST_STATE);
   ids.otherState = await insertSupplier("Teste Outro Estado", "YY");
   ids.inactive = await insertSupplier("Teste Inativo", TEST_STATE, false);
+  ids.withoutProducts = await insertSupplier("Teste Sem Produto", TEST_STATE);
 
   const products = await database
     .insert(supplierProducts)
@@ -66,6 +62,15 @@ beforeAll(async () => {
         costCents: 900,
         suggestedPriceCents: 2990,
         stock: 5,
+      },
+      {
+        // Resellers only find suppliers with an approved product.
+        supplierId: ids.cityOnly,
+        sku: "T-5",
+        title: "Caneca branca",
+        costCents: 1500,
+        suggestedPriceCents: 3490,
+        stock: 4,
       },
       {
         supplierId: ids.otherState,
@@ -257,7 +262,12 @@ describe("catalog filters", () => {
   });
 
   it("returns an empty page for a supplier without products", async () => {
-    const result = await listCatalogProducts(database, ids.cityOnly, { sort: "title" }, pagination);
+    const result = await listCatalogProducts(
+      database,
+      ids.withoutProducts,
+      { sort: "title" },
+      pagination,
+    );
     expect(result).toMatchObject({ items: [], total: 0, totalPages: 1 });
   });
 });
