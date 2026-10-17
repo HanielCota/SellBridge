@@ -9,6 +9,7 @@ import {
   ChartLineDownIcon,
   ClockCountdownIcon,
   EnvelopeSimpleIcon,
+  NotePencilIcon,
   PackageIcon,
   WarningOctagonIcon,
 } from "@phosphor-icons/react";
@@ -27,6 +28,9 @@ function ItemIcon({ item }: { item: SupplierAttentionItem }) {
   const props = { className: "size-4", "aria-hidden": true } as const;
   if (item.target.area === "stock") {
     return <PackageIcon {...props} />;
+  }
+  if (item.target.area === "catalog") {
+    return <NotePencilIcon {...props} />;
   }
   if (item.target.area === "performance") {
     return <ChartLineDownIcon {...props} />;
@@ -48,7 +52,7 @@ function AllClear() {
       </span>
       <p className="max-w-64 text-sm text-muted-foreground">
         <span className="block text-subhead font-medium text-foreground">Nenhuma pendência</span>
-        Pedidos atrasados, produtos sem estoque e métricas em risco aparecem aqui.
+        Pedidos atrasados, produtos sem estoque ou reprovados e métricas em risco aparecem aqui.
       </p>
     </div>
   );

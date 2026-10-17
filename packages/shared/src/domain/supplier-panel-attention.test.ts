@@ -7,6 +7,7 @@ import {
   outOfStockListed,
   parcelState,
   type OpenShipmentSignal,
+  type RejectedProductSignal,
   type StockSignal,
 } from "./supplier-panel-attention.ts";
 import {
@@ -70,11 +71,13 @@ function healthWith(metric: Partial<HealthMetric> & Pick<HealthMetric, "key">): 
 function queue(input: {
   openShipments?: OpenShipmentSignal[];
   stock?: StockSignal[];
+  rejectedProducts?: RejectedProductSignal[];
   health?: SupplierHealth;
 }) {
   return buildSupplierAttention({
     openShipments: input.openShipments ?? [],
     stock: input.stock ?? [],
+    rejectedProducts: input.rejectedProducts ?? [],
     health: input.health ?? quietHealth,
     now: NOW,
   });
@@ -293,5 +296,36 @@ describe("buildSupplierAttention", () => {
       "metric-accept_on_time",
       "metric-dispatch_on_time",
     ]);
+  });
+});
+
+function rejected(index: number): RejectedProductSignal {
+  return { productId: `product-${index}`, title: `Vaso ${index}`, sku: `VASO-${index}` };
+}
+
+describe("rejected products", () => {
+  it("asks the supplier to fix a rejected product and links straight to it", () => {
+    const [item] = queue({ rejectedProducts: [rejected(1)] });
+    expect(item).toEqual({
+      key: "rejected",
+      severity: "warning",
+      title: "1 produto reprovado",
+      description: "Corrija os motivos da análise e envie de novo.",
+      target: { area: "catalog", filter: "rejected", productId: "product-1" },
+      count: 1,
+    });
+  });
+
+  it("groups several rejected products in one line that opens the rejected tab", () => {
+    const [item] = queue({ rejectedProducts: [rejected(1), rejected(2)] });
+    expect(item?.title).toBe("2 produtos reprovados");
+    expect(item?.target).toEqual({ area: "catalog", filter: "rejected" });
+  });
+
+  it("keeps orders about to be late above a rejected product", () => {
+    const keys = queue({ openShipments: [parcel(21)], rejectedProducts: [rejected(1)] }).map(
+      (item) => item.key,
+    );
+    expect(keys).toEqual(["accept_soon", "rejected"]);
   });
 });

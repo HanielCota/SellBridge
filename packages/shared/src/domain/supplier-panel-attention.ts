@@ -7,6 +7,7 @@ import {
   type DeliveryFailure,
   type OpenShipmentSignal,
   type ParcelState,
+  type RejectedProductSignal,
   type StockSignal,
 } from "./supplier-panel-attention-signals.ts";
 import { healthForecastText } from "./supplier-panel-health-forecast.ts";
@@ -40,6 +41,7 @@ export type SupplierOrderFilter = ParcelState | "delivery_failed";
 export type SupplierAttentionTarget =
   | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }
   | { area: "stock"; filter: "out_of_stock_listed"; productId?: string }
+  | { area: "catalog"; filter: "rejected"; productId?: string }
   | { area: "performance"; metric: HealthMetricKey };
 
 export interface SupplierAttentionItem {
@@ -63,6 +65,7 @@ const KIND_ORDER = [
   "delivery_failed-email",
   "accept_soon",
   "dispatch_soon",
+  "rejected",
 ] as const;
 type ItemKind = (typeof KIND_ORDER)[number];
 
@@ -200,6 +203,30 @@ function stockItems(signals: readonly StockSignal[]): Grouped[] {
   return [{ kind: "out_of_stock", item }];
 }
 
+/**
+ * A rejected product sells nothing until the supplier fixes it, so it is a warning; it waits
+ * below orders about to be late, which cost a sale sooner.
+ */
+function rejectedItems(signals: readonly RejectedProductSignal[]): Grouped[] {
+  const [only] = signals;
+  if (only === undefined) {
+    return [];
+  }
+  const target =
+    signals.length === 1
+      ? { area: "catalog" as const, filter: "rejected" as const, productId: only.productId }
+      : { area: "catalog" as const, filter: "rejected" as const };
+  const item = {
+    key: "rejected",
+    severity: "warning" as const,
+    title: plural(signals.length, "produto reprovado", "produtos reprovados"),
+    description: "Corrija os motivos da análise e envie de novo.",
+    target,
+    count: signals.length,
+  };
+  return [{ kind: "rejected", item }];
+}
+
 function metricSeverity(metric: HealthMetric): AttentionSeverity | null {
   if (metric.level === "red") {
     return "critical";
@@ -256,6 +283,7 @@ function compareGrouped(first: Grouped, second: Grouped): number {
 export interface SupplierAttentionInput {
   openShipments: readonly OpenShipmentSignal[];
   stock: readonly StockSignal[];
+  rejectedProducts: readonly RejectedProductSignal[];
   health: SupplierHealth;
   now: Date;
 }
@@ -266,6 +294,7 @@ export function buildSupplierAttention(input: SupplierAttentionInput): SupplierA
     ...parcelItems(input.openShipments, input.now),
     ...failureItems(input.openShipments),
     ...stockItems(input.stock),
+    ...rejectedItems(input.rejectedProducts),
     ...metricItems(input.health),
   ]
     .toSorted(compareGrouped)

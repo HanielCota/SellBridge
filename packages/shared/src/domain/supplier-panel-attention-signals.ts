@@ -28,6 +28,13 @@ export interface StockSignal {
   activeListings: number;
 }
 
+/** A product the platform's review refused: it stays out of the catalog until fixed and sent again. */
+export interface RejectedProductSignal {
+  productId: string;
+  title: string;
+  sku: string;
+}
+
 /** Hours before the accept time when the queue starts warning. */
 export const ACCEPT_DUE_SOON_HOURS = 4;
 /** Hours before the dispatch deadline when the queue starts warning. */

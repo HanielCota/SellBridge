@@ -23,6 +23,15 @@ describe("supplierAttentionHref", () => {
     ).toBe("/fornecedor/painel/estoque?filter=out_of_stock_listed&product=p1");
   });
 
+  it("opens a rejected product to fix it, or the rejected tab when there are several", () => {
+    expect(supplierAttentionHref({ area: "catalog", filter: "rejected" })).toBe(
+      "/fornecedor/painel/produtos?status=rejected",
+    );
+    expect(supplierAttentionHref({ area: "catalog", filter: "rejected", productId: "p1" })).toBe(
+      "/fornecedor/painel/produtos?status=rejected&product=p1",
+    );
+  });
+
   it("opens the performance page on the metric, under any base path", () => {
     expect(
       supplierAttentionHref({ area: "performance", metric: "dispatch_on_time" }, "/painel"),

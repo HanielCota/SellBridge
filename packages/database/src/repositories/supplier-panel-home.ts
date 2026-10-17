@@ -2,6 +2,7 @@ import { notFoundError } from "@sellbridge/shared/errors";
 import {
   SYSTEM_NOTE_ACTOR,
   type OpenShipmentSignal,
+  type RejectedProductSignal,
   type StockSignal,
 } from "@sellbridge/shared/supplier-panel-attention";
 import {
@@ -227,4 +228,25 @@ export async function listSupplierOutOfStockListed(
     .groupBy(supplierProducts.id)
     .having(sql`${publishedListings} > 0`)
     .orderBy(desc(publishedListings));
+}
+
+/** The supplier's products the review refused, the most recently refused first. */
+export async function listSupplierRejectedProducts(
+  database: Database,
+  supplierId: string,
+): Promise<RejectedProductSignal[]> {
+  return database
+    .select({
+      productId: supplierProducts.id,
+      title: supplierProducts.title,
+      sku: supplierProducts.sku,
+    })
+    .from(supplierProducts)
+    .where(
+      and(
+        eq(supplierProducts.supplierId, supplierId),
+        eq(supplierProducts.reviewStatus, "rejected"),
+      ),
+    )
+    .orderBy(desc(supplierProducts.reviewedAt), supplierProducts.id);
 }

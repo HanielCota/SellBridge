@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { hasErrorCode } from "@sellbridge/shared/errors";
 import { SUPPLIER_EMAIL_FAILED_NOTE } from "@sellbridge/shared/forward-notes";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   orderShipments,
@@ -25,6 +25,7 @@ import {
   listSupplierHealthDrillDown,
   listSupplierOpenShipments,
   listSupplierOutOfStockListed,
+  listSupplierRejectedProducts,
   loadSupplierHealthInput,
 } from "./supplier-panel-home.ts";
 
@@ -274,5 +275,28 @@ describe("getSupplierPanelProfile", () => {
       (caught: unknown) => caught,
     );
     expect(hasErrorCode(error, "NOT_FOUND")).toBe(true);
+  });
+});
+
+describe("listSupplierRejectedProducts", () => {
+  const reasons = [{ field: "title", rule: "title_policy", message: "Revise o título do produto" }];
+
+  it("lists only this supplier's rejected products", async () => {
+    await database
+      .update(supplierProducts)
+      .set({ reviewStatus: "rejected", rejectionReasons: reasons, reviewedAt: NOW })
+      .where(inArray(supplierProducts.id, [supplier.productId, otherSupplier.productId]));
+    const signals = await listSupplierRejectedProducts(database, supplier.supplierId);
+    expect(signals).toEqual([
+      { productId: supplier.productId, title: "Caneca", sku: expect.any(String) },
+    ]);
+  });
+
+  it("forgets a product once it is approved", async () => {
+    await database
+      .update(supplierProducts)
+      .set({ reviewStatus: "approved", rejectionReasons: [] })
+      .where(eq(supplierProducts.id, supplier.productId));
+    expect(await listSupplierRejectedProducts(database, supplier.supplierId)).toEqual([]);
   });
 });

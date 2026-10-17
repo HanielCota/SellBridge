@@ -4,6 +4,7 @@ import {
   listSupplierHealthDrillDown,
   listSupplierOpenShipments,
   listSupplierOutOfStockListed,
+  listSupplierRejectedProducts,
   loadSupplierHealthInput,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
@@ -62,14 +63,15 @@ export interface SupplierHome {
 /** The "Início" page: the queue of what needs the supplier, and the four health tiles. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, openShipments, stock] = await Promise.all([
+  const [profile, healthInput, openShipments, stock, rejectedProducts] = await Promise.all([
     getSupplierPanelProfile(database, supplierId),
     loadSupplierHealthInput(database, { supplierId, now }),
     listSupplierOpenShipments(database, supplierId),
     listSupplierOutOfStockListed(database, supplierId),
+    listSupplierRejectedProducts(database, supplierId),
   ]);
   const health = computeSupplierHealth(healthInput);
-  const attention = buildSupplierAttention({ openShipments, stock, health, now });
+  const attention = buildSupplierAttention({ openShipments, stock, rejectedProducts, health, now });
   // Ids and counts only: what the queue showed, for support to compare with a complaint.
   logger.info("supplier_panel.home_loaded", {
     supplierId,

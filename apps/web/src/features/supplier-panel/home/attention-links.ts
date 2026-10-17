@@ -36,6 +36,10 @@ export function supplierAttentionHref(
     const product = target.productId === undefined ? {} : { product: target.productId };
     return withSearch(`${basePath}/estoque`, { filter: target.filter, ...product });
   }
+  if (target.area === "catalog") {
+    const product = target.productId === undefined ? {} : { product: target.productId };
+    return withSearch(`${basePath}/produtos`, { status: target.filter, ...product });
+  }
   if (target.shipmentId !== undefined) {
     return `${basePath}/pedidos/${target.shipmentId}`;
   }
