@@ -133,9 +133,12 @@ export function parseDraft(values: PanelFormValues): DraftParse {
   for (const issue of parsed.error.issues) {
     const [root, key] = issue.path.map(String);
     const field = root === "mercadoLivreAttributes" ? `attributes.${key ?? ""}` : (root ?? "form");
-    errors[field] ??= /^(Invalid|Too|Expected)\b/.test(issue.message)
-      ? "Valor inválido, revise o campo."
-      : issue.message;
+    // A half-typed amount ("12,") reaches the schema as NaN: the hint fits better than a message
+    // about the value received, which the supplier is still typing.
+    errors[field] ??=
+      issue.code === "invalid_type" || /^(Invalid|Too|Expected)\b/.test(issue.message)
+        ? "Valor inválido, revise o campo."
+        : issue.message;
   }
   return { ok: false, errors };
 }
