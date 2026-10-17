@@ -37,7 +37,7 @@ export async function getSupplierPanelShipment(
       and(eq(orderShipments.id, input.shipmentId), eq(orderShipments.supplierId, input.supplierId)),
     );
   if (row === undefined) {
-    throw notFoundError(`Envio ${input.shipmentId} não encontrado entre os pedidos do fornecedor`);
+    throw notFoundError(`Pedido ${input.shipmentId} não encontrado. Atualize a lista.`);
   }
   const {
     supplierTokenHash: _hash,

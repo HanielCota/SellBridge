@@ -67,14 +67,14 @@ export type SupplierOrderProblem = (typeof SUPPLIER_ORDER_PROBLEMS)[number];
 export const SUPPLIER_ORDER_PROBLEM_LABELS: Record<SupplierOrderProblem, string> = {
   overdue: "Prazo vencido",
   email_failed: "E-mail do pedido não chegou",
-  order_blocked: "Venda sem liberação para envio",
+  order_blocked: "Venda não liberada",
 };
 
 /** What to do about each problem, said next to it instead of a bare red badge. */
 export const SUPPLIER_ORDER_PROBLEM_HINTS: Record<SupplierOrderProblem, string> = {
-  overdue: "Avance a etapa agora ou registre uma ocorrência explicando o atraso.",
-  email_failed: "O pedido está aqui no painel: siga as etapas normalmente.",
-  order_blocked: "Não separe nem envie: fale com o revendedor antes.",
+  overdue: "Avance a etapa ou registre uma ocorrência.",
+  email_failed: "Siga as etapas pelo painel.",
+  order_blocked: "Não separe nem despache. Fale com o revendedor.",
 };
 
 export interface ProblemSignals {

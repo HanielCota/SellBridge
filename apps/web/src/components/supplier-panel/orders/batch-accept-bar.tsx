@@ -63,7 +63,7 @@ export function BatchAcceptResult({
             </ul>
           )}
           <Button size="sm" variant="outline" onClick={onDismiss}>
-            Entendi
+            Fechar
           </Button>
         </AlertDescription>
       </Alert>
@@ -107,14 +107,14 @@ export function BatchAcceptBar({
         onClear={onClear}
       >
         <Button size="sm" className="rounded-full" onClick={() => setConfirming(true)}>
-          Aceitar {count === 1 ? "pedido" : "pedidos"}
+          Aceitar
         </Button>
       </SelectionBar>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title={count === 1 ? "Aceitar 1 pedido?" : `Aceitar ${count} pedidos?`}
-        description="O aceite fica no histórico de cada pedido e o revendedor passa a contar com o despacho no seu prazo. Ele não pode ser desfeito por aqui."
+        description="O aceite fica no histórico e não pode ser desfeito."
         confirmLabel={count === 1 ? "Aceitar pedido" : `Aceitar ${count} pedidos`}
         pendingLabel="Aceitando…"
         isPending={batch.isPending}

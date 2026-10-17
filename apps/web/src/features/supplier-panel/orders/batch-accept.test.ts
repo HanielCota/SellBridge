@@ -12,9 +12,7 @@ describe("acceptRefusal", () => {
   });
 
   it("explains a parcel already past the accept, or not the supplier's", () => {
-    expect(acceptRefusal("b", owned)).toBe('Já estava em "Em separação"; nada mudou.');
-    expect(acceptRefusal("z", owned)).toBe(
-      "Este pedido não está mais entre os seus. Atualize a lista.",
-    );
+    expect(acceptRefusal("b", owned)).toBe('Já estava em "Em separação".');
+    expect(acceptRefusal("z", owned)).toBe("Pedido fora da sua lista. Atualize a página.");
   });
 });

@@ -30,7 +30,7 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
       <EmptyState
         icon={MagnifyingGlassIcon}
         title="Nenhum pedido encontrado"
-        description="Nenhum pedido desta aba tem esse número ou SKU. Confira o texto ou procure em outra aba."
+        description="Confira o número ou SKU, ou procure em outra aba."
       />
     );
   }
@@ -38,16 +38,20 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
     return (
       <EmptyState
         icon={CheckCircleIcon}
-        title={tab === "todo" ? "Tudo em dia" : "Nenhum pedido com problema"}
-        description="Quando um revendedor encaminhar um pedido, ele aparece aqui com o prazo para aceitar e despachar."
+        title={tab === "todo" ? "Fila vazia" : "Sem problemas"}
+        description={
+          tab === "todo"
+            ? "Pedidos encaminhados aparecem aqui com o prazo de aceite."
+            : "Pedidos atrasados ou bloqueados aparecem aqui."
+        }
       />
     );
   }
   return (
     <EmptyState
       icon={PackageIcon}
-      title="Nenhum pedido nesta etapa"
-      description="Os pedidos aparecem aqui assim que chegam a esta etapa."
+      title="Etapa vazia"
+      description="Pedidos aparecem aqui ao chegar nesta etapa."
     />
   );
 }
@@ -148,7 +152,7 @@ export function SupplierOrdersInbox({
     onSearchChange(patch);
   };
   return (
-    <section className="space-y-4" aria-label="Pedidos do fornecedor">
+    <section className="space-y-4" aria-label="Pedidos">
       <OrderFilters supplierId={supplierId} search={search} onChange={changeSearch} />
       {outcome === null ? null : (
         <BatchAcceptResult

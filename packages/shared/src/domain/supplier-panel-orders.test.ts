@@ -30,14 +30,14 @@ describe("nextSupplierAction", () => {
   it("offers one step per queue status, following FULFILLMENT_NEXT", () => {
     expect(nextSupplierAction("forwarded")).toEqual({
       status: "accepted",
-      label: "Aceitar pedido",
+      label: "Aceitar",
       needsTracking: false,
     });
     expect(nextSupplierAction("accepted")?.status).toBe("picking");
     expect(nextSupplierAction("picking")?.status).toBe("ready");
     expect(nextSupplierAction("ready")).toEqual({
       status: "shipped",
-      label: "Enviar com rastreio",
+      label: "Despachar",
       needsTracking: true,
     });
   });

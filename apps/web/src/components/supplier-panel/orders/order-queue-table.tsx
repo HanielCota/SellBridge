@@ -50,7 +50,7 @@ function selectionColumn(rows: readonly SupplierOrderRow[], context: QueueRowCon
         checked={allChecked}
         disabled={selectableRows.length === 0}
         onCheckedChange={(checked) => context.onToggleAll(selectableRows, checked === true)}
-        aria-label="Selecionar todos os pedidos para aceitar desta página"
+        aria-label="Selecionar todos desta página"
       />
     ),
     cell: (info) => (
@@ -155,7 +155,7 @@ export function OrderQueueTable({
       columns={queueColumns(rows, context)}
       data={rows}
       getRowId={(row) => row.id}
-      caption="Pedidos do fornecedor"
+      caption="Pedidos"
       footer={footer}
       renderMobileRow={(row) => <MobileQueueRow row={row} context={context} />}
     />

@@ -43,7 +43,7 @@ export function OrderSummary({
       </button>
       <p className="truncate text-footnote text-muted-foreground">{itemsSummary(row.items)}</p>
       <p className="text-caption text-muted-foreground">
-        {row.destinationCity} · {row.destinationState}
+        {row.destinationCity}, {row.destinationState}
       </p>
     </div>
   );

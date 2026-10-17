@@ -11,7 +11,7 @@ export interface BatchAcceptReport {
   failedCount: number;
 }
 
-const UNEXPECTED_FAILURE = "Não foi possível aceitar este pedido agora. Tente de novo.";
+const UNEXPECTED_FAILURE = "Não foi possível aceitar. Tente de novo.";
 
 /**
  * Accepts each parcel on its own write, one after the other: each write locks its order, and a
@@ -61,10 +61,10 @@ export interface OwnedShipment {
 export function acceptRefusal(shipmentId: string, owned: readonly OwnedShipment[]) {
   const shipment = owned.find((candidate) => candidate.id === shipmentId);
   if (shipment === undefined) {
-    return "Este pedido não está mais entre os seus. Atualize a lista.";
+    return "Pedido fora da sua lista. Atualize a página.";
   }
   if (shipment.status !== "forwarded") {
-    return `Já estava em "${FULFILLMENT_LABELS[shipment.status]}"; nada mudou.`;
+    return `Já estava em "${FULFILLMENT_LABELS[shipment.status]}".`;
   }
   return null;
 }

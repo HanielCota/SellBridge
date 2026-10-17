@@ -28,13 +28,13 @@ export const supplierShipmentCountsSchema = z.object({
 
 export const supplierShipmentDetailSchema = z.object({
   supplierId: supplierIdSchema,
-  shipmentId: z.uuid({ error: "Envio inválido" }),
+  shipmentId: z.uuid({ error: "Pedido inválido" }),
 });
 
 export const batchAcceptSchema = z.object({
   supplierId: supplierIdSchema,
   shipmentIds: z
-    .array(z.uuid({ error: "Envio inválido" }))
+    .array(z.uuid({ error: "Pedido inválido" }))
     .min(1, "Selecione ao menos um pedido")
     .max(MAX_BATCH_SHIPMENTS, `Selecione até ${MAX_BATCH_SHIPMENTS} pedidos por vez`)
     .refine((ids) => new Set(ids).size === ids.length, "Há pedidos repetidos na seleção"),

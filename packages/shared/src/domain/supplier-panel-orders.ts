@@ -28,10 +28,10 @@ export interface SupplierNextAction {
 }
 
 const NEXT_ACTION_LABELS: Record<SupplierQueueStatus, string> = {
-  forwarded: "Aceitar pedido",
-  accepted: "Iniciar separação",
-  picking: "Marcar como pronto",
-  ready: "Enviar com rastreio",
+  forwarded: "Aceitar",
+  accepted: "Separar",
+  picking: "Marcar pronto",
+  ready: "Despachar",
 };
 
 /**

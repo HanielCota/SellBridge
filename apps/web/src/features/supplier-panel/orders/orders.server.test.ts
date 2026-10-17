@@ -57,13 +57,13 @@ describe("acceptSupplierShipments", () => {
       {
         shipmentId: ids.crashed,
         accepted: false,
-        reason: "Não foi possível aceitar este pedido agora. Tente de novo.",
+        reason: "Não foi possível aceitar. Tente de novo.",
       },
-      { shipmentId: ids.accepted, accepted: false, reason: 'Já estava em "Aceito"; nada mudou.' },
+      { shipmentId: ids.accepted, accepted: false, reason: 'Já estava em "Aceito".' },
       {
         shipmentId: ids.foreign,
         accepted: false,
-        reason: "Este pedido não está mais entre os seus. Atualize a lista.",
+        reason: "Pedido fora da sua lista. Atualize a página.",
       },
     ]);
     expect(mocks.error).toHaveBeenCalledTimes(1);

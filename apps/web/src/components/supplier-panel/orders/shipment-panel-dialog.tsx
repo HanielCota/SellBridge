@@ -35,11 +35,8 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
     <div className="space-y-4">
       {blocked ? (
         <Alert variant="destructive">
-          <AlertTitle>Pedido sem liberação para envio</AlertTitle>
-          <AlertDescription>
-            O marketplace ainda não liberou este pedido. Fale com o revendedor antes de separar ou
-            enviar.
-          </AlertDescription>
+          <AlertTitle>Venda não liberada</AlertTitle>
+          <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
         </Alert>
       ) : null}
       <ShipmentPanel
@@ -74,9 +71,8 @@ export function ShipmentPanelDialog({
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Pedido {opened?.externalOrderId}</DialogTitle>
-          <DialogDescription>
-            Avance as etapas, registre ocorrências e informe o rastreio no despacho.
-          </DialogDescription>
+          {/* Read by screen readers only: the panel below says the rest. */}
+          <DialogDescription className="sr-only">Etapas, ocorrências e rastreio.</DialogDescription>
         </DialogHeader>
         {opened === null ? null : (
           <PanelBody key={opened.id} supplierId={supplierId} shipmentId={opened.id} />

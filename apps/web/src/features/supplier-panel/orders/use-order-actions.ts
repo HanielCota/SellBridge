@@ -47,7 +47,7 @@ export function useAdvanceShipment(supplierId: string) {
       return input;
     },
     onSuccess: async (input) => {
-      toast.success(`Pedido movido para "${FULFILLMENT_LABELS[input.status]}"`);
+      toast.success(`Pedido em "${FULFILLMENT_LABELS[input.status]}"`);
       await refresh();
     },
     onError: async (error) => {

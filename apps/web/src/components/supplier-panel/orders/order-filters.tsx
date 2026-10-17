@@ -14,9 +14,9 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 /** Said above the list, so the order of the rows is never a guess. */
 export function sortDescription(tab: SupplierOrderTab): string {
   if (isQueueTab(tab)) {
-    return "Do prazo mais próximo ao mais distante; atrasados primeiro.";
+    return "Atrasados primeiro, depois o prazo mais próximo.";
   }
-  return "Da atualização mais recente à mais antiga.";
+  return "Mais recentes primeiro.";
 }
 
 /** The tabs with how many orders each holds (search applied), then the search box. */
