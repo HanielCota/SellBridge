@@ -11,6 +11,12 @@ import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useTheme } from "@/components/theme/theme-provider";
 
 const ICON = "size-3.5";
+const MOBILE_OFFSET = {
+  top: 16,
+  right: 16,
+  left: 16,
+  bottom: "calc(16px + env(safe-area-inset-bottom))",
+};
 
 /**
  * Notifications rise from the bottom center, near where actions happen, as a solid
@@ -24,7 +30,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme}
       position="bottom-center"
       offset={24}
-      mobileOffset={16}
+      // Above the iPhone home indicator: the app draws edge to edge (viewport-fit=cover).
+      mobileOffset={MOBILE_OFFSET}
       gap={10}
       icons={{
         success: <CheckIcon weight="bold" className={ICON} />,
@@ -40,7 +47,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             "group flex w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-border bg-popover py-3 pr-4 pl-3 text-popover-foreground shadow-[0_12px_40px_-8px_rgb(0_0_0/0.45)] sm:w-[400px]",
           icon: "m-0 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground",
           success: "[&_[data-icon]]:bg-brand [&_[data-icon]]:text-primary-foreground",
-          error: "[&_[data-icon]]:bg-red-500 [&_[data-icon]]:text-white",
+          error: "[&_[data-icon]]:bg-destructive [&_[data-icon]]:text-white",
           warning: "[&_[data-icon]]:bg-amber-400 [&_[data-icon]]:text-black",
           content: "min-w-0 flex-1",
           title: "text-sm leading-snug font-medium",
