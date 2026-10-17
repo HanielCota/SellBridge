@@ -40,27 +40,6 @@ export const suppliers = pgTable(
   ],
 );
 
-export const supplierCoverage = pgTable(
-  "supplier_coverage",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    supplierId: uuid()
-      .notNull()
-      .references(() => suppliers.id, { onDelete: "cascade" }),
-    state: text().notNull(),
-    /** Null means the supplier covers the whole state. */
-    city: text(),
-  },
-  (table) => [
-    index("supplier_coverage_state_idx").on(table.state),
-    uniqueIndex("supplier_coverage_unique_idx").on(
-      table.supplierId,
-      table.state,
-      sql`coalesce(${table.city}, '')`,
-    ),
-  ],
-);
-
 export const categories = pgTable("categories", {
   id: uuid().primaryKey().defaultRandom(),
   name: text().notNull(),

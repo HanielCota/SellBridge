@@ -68,3 +68,19 @@ test("o avatar do topo abre o menu da conta", async ({ page }) => {
   await menu.getByRole("menuitem", { name: "Meu perfil" }).click();
   await expect(page).toHaveURL(/\/perfil/);
 });
+
+test("guarda a escolha de notificação por e-mail entre visitas", async ({ page }) => {
+  await signUp(page, "Revendedor Avisos");
+  await expect(page).toHaveURL(/\/onboarding/);
+  await gotoHydrated(page, "/perfil");
+  const saleEmail = page.getByRole("switch", { name: "E-mail: Venda paga" });
+  await expect(saleEmail).toBeChecked();
+  // Deliveries never show in the bell, so the app column has no switch for them.
+  await expect(page.getByRole("switch", { name: "No app: Pedido entregue" })).toHaveCount(0);
+
+  await saleEmail.click();
+  await expect(saleEmail).not.toBeChecked();
+  await page.waitForLoadState("networkidle");
+  await gotoHydrated(page, "/perfil");
+  await expect(page.getByRole("switch", { name: "E-mail: Venda paga" })).not.toBeChecked();
+});

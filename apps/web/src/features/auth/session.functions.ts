@@ -1,8 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { hasAcceptedTerms } from "@sellbridge/database/repositories";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
+import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { staffMiddleware } from "@/lib/server/middleware";
 
@@ -34,6 +37,8 @@ export interface AppSession {
   impersonationEndsAt: string | null;
   /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
   adminMode: boolean;
+  /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
+  termsAccepted: boolean;
 }
 
 export const getAppSession = createServerFn({ method: "GET" }).handler(
@@ -58,6 +63,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
         : null,
+      termsAccepted: await hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
     };
   },
 );

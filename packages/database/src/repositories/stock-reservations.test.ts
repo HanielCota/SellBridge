@@ -9,11 +9,8 @@ import {
   createTestUsers,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  findTargetsNeedingSync,
-  markTargetPublished,
-} from "./listings.ts";
+import { findTargetsNeedingSync } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { type IncomingOrder, upsertMarketplaceOrder } from "./orders.ts";
 import { listOperationalOrders } from "./fulfillment.ts";
 import { reserveShortItems } from "./stock-reservations.ts";

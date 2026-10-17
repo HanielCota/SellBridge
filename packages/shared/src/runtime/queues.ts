@@ -18,6 +18,8 @@ export const QUEUE_NAMES = {
   shipmentTracking: "shipment-tracking",
   /** Forwards a paid order to its suppliers on its own and e-mails them (item 21.b, flagged). */
   orderAutoForward: "order-auto-forward",
+  /** Sends queued e-mail and push notifications to people (item 25). */
+  notificationDelivery: "notification-delivery",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -138,4 +140,16 @@ export async function enqueueWebhookEventJob(
     return;
   }
   await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
+}
+
+/** The part of a BullMQ queue a health probe needs: its Redis connection. */
+export interface RedisBackedQueue {
+  getBackend(): { client: Promise<{ runCommand(name: string, args: string[]): Promise<unknown> }> };
+}
+
+/** Health probe (item 32.d): PING through the connection the queue already holds. */
+export async function pingQueueConnection(queue: RedisBackedQueue): Promise<boolean> {
+  const client = await queue.getBackend().client;
+  // BullMQ runs `client[name](...args)`: the ioredis method name, lowercase ("PING" is not one).
+  return (await client.runCommand("ping", [])) === "PONG";
 }

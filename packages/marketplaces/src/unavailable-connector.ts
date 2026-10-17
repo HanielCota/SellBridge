@@ -23,6 +23,7 @@ export function createUnavailableConnector(
     refreshTokens: async () => notImplemented("Renovação de acesso"),
     publishProduct: async () => notImplemented("Publicação"),
     updateStockPrice: async () => notImplemented("Atualização de estoque e preço"),
+    updateDescription: async () => notImplemented("Atualização de descrição"),
     listOrders: async () => notImplemented("Listagem de pedidos"),
     fetchOrder: async () => notImplemented("Consulta de pedido"),
     verifyWebhook: async (): Promise<WebhookVerification> => ({

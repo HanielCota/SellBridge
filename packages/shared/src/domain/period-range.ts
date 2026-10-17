@@ -2,13 +2,15 @@ import type { PeriodPreset, PeriodSearch } from "../schemas/period.ts";
 import { DAY_MILLISECONDS } from "./time.ts";
 
 const PRESET_DAYS: Record<Exclude<PeriodPreset, "custom">, number> = {
+  today: 1,
   "7d": 7,
   "30d": 30,
   "90d": 90,
   "180d": 180,
 };
 
-export type TimeBucket = "day" | "week";
+/** One day reads hour by hour: a single daily bucket would draw a lone dot. */
+export type TimeBucket = "hour" | "day" | "week";
 
 export interface ResolvedPeriod {
   /** Inclusive start (00:00 of the first day). */
@@ -78,6 +80,54 @@ export function comparablePreviousRange(
   return { from: period.previousFrom, to: new Date(period.previousFrom.getTime() + lived) };
 }
 
+const HOUR_MILLISECONDS = 60 * 60 * 1000;
+/** Fewest hourly buckets the chart draws: one would be a single dot with no line. */
+const MIN_CHART_HOURS = 2;
+
+interface TimeRange {
+  from: Date;
+  to: Date;
+}
+
+/**
+ * The ranges the chart draws. An hourly chart of today stops at the end of the current hour (the
+ * hours still to come would read as a drop to zero) and the day before stops at the same hour, so
+ * both lines cover the same stretch. Right after midnight it keeps two hours, so the chart still
+ * has a line to draw instead of a lone dot. Every other period draws whole.
+ */
+export function chartRanges(
+  period: Pick<ResolvedPeriod, "from" | "to" | "previousFrom" | "previousTo" | "bucket">,
+  now: Date,
+): { current: TimeRange; previous: TimeRange } {
+  const whole = {
+    current: { from: period.from, to: period.to },
+    previous: { from: period.previousFrom, to: period.previousTo },
+  };
+  if (period.bucket !== "hour") {
+    return whole;
+  }
+  // Brazil's offset is whole hours, so a UTC hour boundary is a Brazil one too.
+  const endOfHour = (Math.floor(now.getTime() / HOUR_MILLISECONDS) + 1) * HOUR_MILLISECONDS;
+  const lived = Math.max(
+    MIN_CHART_HOURS * HOUR_MILLISECONDS,
+    Math.min(endOfHour, period.to.getTime()) - period.from.getTime(),
+  );
+  if (lived >= period.to.getTime() - period.from.getTime()) {
+    return whole;
+  }
+  return {
+    current: { from: period.from, to: new Date(period.from.getTime() + lived) },
+    previous: { from: period.previousFrom, to: new Date(period.previousFrom.getTime() + lived) },
+  };
+}
+
+function bucketFor(days: number): TimeBucket {
+  if (days === 1) {
+    return "hour";
+  }
+  return days > 45 ? "week" : "day";
+}
+
 function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
   const to = new Date(firstDay.getTime() + days * DAY_MILLISECONDS);
   const previousFrom = new Date(firstDay.getTime() - days * DAY_MILLISECONDS);
@@ -87,7 +137,7 @@ function buildPeriod(firstDay: Date, days: number): ResolvedPeriod {
     previousFrom,
     previousTo: firstDay,
     days,
-    bucket: days > 45 ? "week" : "day",
+    bucket: bucketFor(days),
     fromDate: toIsoDate(firstDay),
     toDate: toIsoDate(new Date(to.getTime() - DAY_MILLISECONDS)),
     previousFromDate: toIsoDate(previousFrom),

@@ -29,6 +29,7 @@ import {
   refreshMarketplaceTrackingFn,
 } from "@/features/fulfillment/marketplace.functions";
 import { errorMessage } from "@/lib/errors";
+import { AddressImportBar } from "./label-import";
 import { Field, ShipmentPanel } from "./shipment-panel";
 
 type Detail = Awaited<
@@ -319,16 +320,10 @@ function ForwardForm({
           through its first submit button; this disabled one comes first, so only a click sends. */}
       <button type="submit" disabled hidden aria-hidden="true" />
       <ForwardItems detail={detail} />
-      {detail.order.marketplace === "mercado_livre" ? (
-        <Button
-          variant="outline"
-          type="button"
-          disabled={loadAddress.isPending}
-          onClick={() => loadAddress.mutate()}
-        >
-          Importar endereço do marketplace
-        </Button>
-      ) : null}
+      <AddressImportBar
+        onAddress={(found) => setAddress((previous) => ({ ...previous, ...found }))}
+        marketplaceImport={detail.order.marketplace === "mercado_livre" ? loadAddress : null}
+      />
       <AddressFields
         address={address}
         onChange={(key, value) => setAddress((previous) => ({ ...previous, [key]: value }))}

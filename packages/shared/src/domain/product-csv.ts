@@ -7,9 +7,10 @@ import {
 } from "../schemas/admin-suppliers.ts";
 import { freeText } from "../schemas/common.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
+import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
-  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90\r\n";
+  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20\r\n";
 const requiredColumns = ["sku", "titulo", "custo", "estoque"];
 const allowedColumns = [
   ...requiredColumns,
@@ -18,6 +19,7 @@ const allowedColumns = [
   "imagens",
   "ativo",
   "preco_sugerido",
+  ...PRODUCT_CSV_ATTRIBUTE_COLUMNS,
 ];
 export interface ProductCsvError {
   line: number;
@@ -176,6 +178,7 @@ const fieldLabels: Record<string, string> = {
   imageUrls: "Imagens",
   active: "Ativo",
   categorySlug: "Categoria",
+  mercadoLivreAttributes: "Atributos do Mercado Livre",
 };
 
 function validateRecord(
@@ -198,6 +201,10 @@ function validateRecord(
     return { line: record.line, reason: `SKU duplicado no arquivo: ${sku}` };
   }
   seen.add(sku);
+  const attributes = parseCsvAttributes(values);
+  if ("reason" in attributes) {
+    return { line: record.line, reason: attributes.reason };
+  }
   const stock = values.estoque ?? "";
   const suggestedPrice = values.preco_sugerido ?? "";
   const parsed = csvRowSchema.safeParse({
@@ -213,6 +220,7 @@ function validateRecord(
       .filter(Boolean),
     active: parseActive(values.ativo ?? ""),
     suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
+    mercadoLivreAttributes: attributes.attributes,
   });
   if (!parsed.success) {
     const reason = parsed.error.issues

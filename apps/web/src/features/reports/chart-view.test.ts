@@ -159,6 +159,13 @@ describe("buildChartPoints", () => {
     expect(chart[2]?.previousAverageRevenue).toBe(1_500);
   });
 
+  it("lines yesterday's hours up under the same hours of today", () => {
+    const current = [week("2026-10-16T00:00", 100), week("2026-10-16T01:00", 100)];
+    const before = [week("2026-10-15T00:00", 1_000), week("2026-10-15T01:00", 2_000)];
+    const chart = buildChartPoints(current, { previous: { points: before, offsetDays: 1 } });
+    expect(chart.map((point) => point.previousRevenue)).toEqual([1_000, 2_000]);
+  });
+
   it("adds up the previous period's running total over the matched buckets", () => {
     const current = [week("2026-09-07", 100), week("2026-09-14", 100), week("2026-09-21", 100)];
     const before = [week("2026-08-24", 1_000), week("2026-08-31", 2_000)];

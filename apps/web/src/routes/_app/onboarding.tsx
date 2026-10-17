@@ -1,24 +1,22 @@
 import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repositories";
-import { cpfSchema, formatCpf } from "@sellbridge/shared/cpf";
-import { fullNameSchema, internalPathSchema } from "@sellbridge/shared/schemas";
+import { internalPathSchema } from "@sellbridge/shared/schemas";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
-import { useForm, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { FloatingTextField } from "@/components/form/floating-field";
 import { PageHeader } from "@/components/layout/page-header";
+import { HolderForm } from "@/components/onboarding/holder-form";
 import { type PickableSupplier, SupplierPicker } from "@/components/onboarding/supplier-picker";
-import { BillingNotice, StepProgress } from "@/components/region/billing-holder";
+import { StepProgress } from "@/components/region/billing-holder";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   getOnboardingProfile,
-  saveOnboardingHolder,
   saveOnboardingSupplier,
 } from "@/features/onboarding/onboarding.functions";
+import { SETUP_STEPS } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 
@@ -34,6 +32,11 @@ export const Route = createFileRoute("/_app/onboarding")({
 });
 
 const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Seu fornecedor" }] as const;
+
+/** Minutes of the two steps of this page, from the setup estimates (item 26.c). */
+const SIGNUP_MINUTES = SETUP_STEPS.filter(
+  (step) => step.key === "hasHolder" || step.key === "hasSupplier",
+).reduce((total, step) => total + step.estimatedMinutes, 0);
 
 function OnboardingPage() {
   const profile = Route.useLoaderData();
@@ -68,7 +71,7 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="Seu cadastro"
-        description="Seus dados e o fornecedor da sua primeira loja. Venda sem estoque, de qualquer lugar do Brasil."
+        description={`Seus dados e o fornecedor da sua primeira loja, em cerca de ${SIGNUP_MINUTES} min. Venda sem estoque, de qualquer lugar do Brasil.`}
       />
       <section
         aria-label="Cadastro"
@@ -91,120 +94,6 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
           />
         )}
       </section>
-    </div>
-  );
-}
-
-function holderDefaults(holder: BillingHolder | null, accountName: string) {
-  return {
-    fullName: holder?.fullName ?? accountName,
-    cpf: holder === null ? "" : formatCpf(holder.cpf),
-  };
-}
-
-function useHolderForm(holder: BillingHolder | null, onSaved: (saved: BillingHolder) => void) {
-  const { session } = Route.useRouteContext();
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const form = useForm({
-    defaultValues: holderDefaults(holder, session.user.name),
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      try {
-        onSaved(await saveOnboardingHolder({ data: value }));
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-      }
-    },
-  });
-  return { form, submitError };
-}
-
-type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
-
-/** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
-function visibleErrors(errors: readonly unknown[], hasSubmitted: boolean): readonly unknown[] {
-  return hasSubmitted ? errors : [];
-}
-
-/**
- * On a first attempt, TanStack Form stops at the first field with an error; validating both
- * first flags name and CPF at once.
- */
-async function submitHolder(form: HolderFormApi) {
-  await form.validateAllFields("submit");
-  await form.handleSubmit();
-}
-
-function HolderForm({
-  holder,
-  submitLabel,
-  onSaved,
-}: {
-  holder: BillingHolder | null;
-  submitLabel: string;
-  onSaved: (saved: BillingHolder) => void;
-}) {
-  const { form, submitError } = useHolderForm(holder, onSaved);
-  const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
-  return (
-    <form
-      noValidate
-      className="grid grid-cols-1 gap-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submitHolder(form);
-      }}
-    >
-      <HolderFields form={form} showErrors={hasSubmitted} />
-      {submitError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      ) : null}
-      <BillingNotice />
-      <form.Subscribe selector={(state) => state.isSubmitting}>
-        {(isSubmitting) => (
-          <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-fit">
-            {isSubmitting ? "Salvando…" : submitLabel}
-          </Button>
-        )}
-      </form.Subscribe>
-    </form>
-  );
-}
-
-function HolderFields({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <form.Field name="fullName" validators={{ onChange: fullNameSchema }}>
-        {(field) => (
-          <div className="sm:col-span-2">
-            <FloatingTextField
-              id="holder-full-name"
-              label="Nome completo"
-              autoComplete="name"
-              value={field.state.value}
-              errors={visibleErrors(field.state.meta.errors, showErrors)}
-              onBlur={field.handleBlur}
-              onValueChange={field.handleChange}
-            />
-          </div>
-        )}
-      </form.Field>
-      <form.Field name="cpf" validators={{ onChange: cpfSchema }}>
-        {(field) => (
-          <FloatingTextField
-            id="holder-cpf"
-            label="CPF"
-            inputMode="numeric"
-            autoComplete="off"
-            value={field.state.value}
-            errors={visibleErrors(field.state.meta.errors, showErrors)}
-            onBlur={field.handleBlur}
-            onValueChange={(next) => field.handleChange(formatCpf(next))}
-          />
-        )}
-      </form.Field>
     </div>
   );
 }

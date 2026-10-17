@@ -43,6 +43,8 @@ export const ACCOUNT_SECURITY_PATHS: ReadonlySet<string> = new Set([
   "/get-access-token",
   "/refresh-token",
   "/account-info",
+  "/delete-user",
+  "/delete-user/callback",
 ]);
 
 /**

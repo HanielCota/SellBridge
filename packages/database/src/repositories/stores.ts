@@ -1,9 +1,11 @@
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, asc, eq, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { oauthStates, storeConnections } from "../schema/index.ts";
+import { notifyStoreExpired } from "./notification-producers.ts";
 
 type StoreConnectionRow = typeof storeConnections.$inferSelect;
 export type Marketplace = StoreConnectionRow["marketplace"];
@@ -19,6 +21,8 @@ export interface StoreConnectionSummary {
   status: StoreStatus;
   lastError: string | null;
   expiresAt: Date | null;
+  /** When the marketplace last sent an event about this shop; null until the first one. */
+  lastWebhookAt: Date | null;
   connectedAt: Date;
 }
 
@@ -31,6 +35,7 @@ const summaryColumns = {
   status: storeConnections.status,
   lastError: storeConnections.lastError,
   expiresAt: storeConnections.expiresAt,
+  lastWebhookAt: storeConnections.lastWebhookAt,
   connectedAt: storeConnections.connectedAt,
 };
 
@@ -251,12 +256,49 @@ export async function markStoreStatus(
   if (change.accessTokenEnc !== undefined) {
     conditions.push(eq(storeConnections.accessTokenEnc, change.accessTokenEnc));
   }
-  const updated = await database
+  return database.transaction(async (transaction) => {
+    const updated = await transaction
+      .update(storeConnections)
+      .set({ status: change.status, lastError: change.lastError })
+      .where(and(...conditions))
+      .returning({ id: storeConnections.id });
+    if (updated.length === 0) {
+      return false;
+    }
+    if (change.status === "expired") {
+      await notifyStoreExpired(transaction, change.storeConnectionId, new Date());
+    }
+    return true;
+  });
+}
+
+/** A burst of events writes the store row once a minute, not once per event. */
+const WEBHOOK_STAMP_STEP = sql`interval '1 minute'`;
+
+/**
+ * Stamps when the marketplace last sent an event about this shop. Only moves forward, so a late
+ * retry of an old event never makes the store look quieter than it is. `updatedAt` is kept: the
+ * bell dates a store's problem by it, and an event is not a change to the store.
+ */
+export async function recordStoreWebhook(
+  database: Database,
+  webhook: { storeConnectionId: string; receivedAt: Date },
+): Promise<void> {
+  await database
     .update(storeConnections)
-    .set({ status: change.status, lastError: change.lastError })
-    .where(and(...conditions))
-    .returning({ id: storeConnections.id });
-  return updated.length > 0;
+    .set({ lastWebhookAt: webhook.receivedAt, updatedAt: sql`${storeConnections.updatedAt}` })
+    .where(
+      and(
+        eq(storeConnections.id, webhook.storeConnectionId),
+        or(
+          isNull(storeConnections.lastWebhookAt),
+          lt(
+            storeConnections.lastWebhookAt,
+            sql`${timestampOf(webhook.receivedAt)} - ${WEBHOOK_STAMP_STEP}`,
+          ),
+        ),
+      ),
+    );
 }
 
 /** Keeps a connected store usable but shows why the last background call failed. */

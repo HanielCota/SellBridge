@@ -1,5 +1,6 @@
 import type { ReportScope } from "@sellbridge/database/repositories";
 import {
+  chartRanges,
   dayRangeWithin,
   resolvePeriod,
   type ResolvedPeriod,
@@ -17,6 +18,19 @@ export function buildReportScope(tenantId: string, search: PeriodSearch, now = n
     platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
   };
   return { period, scope };
+}
+
+/** The scopes of the chart's two series: today's hourly chart stops at the current hour. */
+export function chartScopes(
+  scope: ReportScope,
+  period: ResolvedPeriod,
+  now: Date,
+): { current: ReportScope; previous: ReportScope } {
+  const ranges = chartRanges(period, now);
+  return {
+    current: { ...scope, range: ranges.current },
+    previous: { ...scope, range: ranges.previous },
+  };
 }
 
 /**

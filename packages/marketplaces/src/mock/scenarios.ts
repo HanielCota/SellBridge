@@ -5,6 +5,10 @@ import type { PublishProductInput, StockPriceUpdate, StoreCredentials } from "..
  * Deterministic rules of the simulated marketplace, so tests can trigger each path:
  * - title containing "[falha]"    → permanent rejection (not retried)
  * - title containing "[instavel]" → temporary failure (retried until attempts run out)
+ * - title containing "[sem descricao]" → published, but the description is refused
+ * - title containing "[exige atributos]" → refused without BRAND, MODEL and GTIN, like a
+ *   Mercado Livre category that requires them (item 18)
+ * - resent description containing "[descricao recusada]" → the resend is refused
  * - price below R$ 5,00           → permanent rejection
  * - refresh token "mock-refresh-revoked" → store must be reconnected
  */
@@ -23,7 +27,42 @@ export function assertRefreshable(refreshToken: string): void {
   }
 }
 
+export const MOCK_DESCRIPTION_REFUSED =
+  "A descrição não chegou à loja simulada. Reenvie a descrição.";
+
+/** The description error of a publication, as the real marketplaces report it; null if none. */
+export function descriptionErrorFor(input: PublishProductInput): string | null {
+  return input.title.toLowerCase().includes("[sem descricao]") ? MOCK_DESCRIPTION_REFUSED : null;
+}
+
+export function assertDescriptionAccepted(plainText: string): void {
+  if (plainText.toLowerCase().includes("[descricao recusada]")) {
+    throw marketplaceError("A descrição foi recusada pela loja simulada", {
+      retryable: false,
+      status: 422,
+    });
+  }
+}
+
+const DEMANDED_ATTRIBUTES = ["BRAND", "MODEL", "GTIN"] as const;
+
+function assertDemandedAttributes(input: PublishProductInput): void {
+  if (!input.title.toLowerCase().includes("[exige atributos]")) {
+    return;
+  }
+  const missing = DEMANDED_ATTRIBUTES.filter(
+    (id) => (input.mercadoLivreAttributes?.[id] ?? "").trim() === "",
+  );
+  if (missing.length > 0) {
+    throw marketplaceError(`Faltam atributos obrigatórios: ${missing.join(", ")}`, {
+      retryable: false,
+      status: 400,
+    });
+  }
+}
+
 export function assertPublishable(input: PublishProductInput): void {
+  assertDemandedAttributes(input);
   const title = input.title.toLowerCase();
   if (title.includes("[falha]")) {
     throw marketplaceError("Anúncio recusado: o título contém termos não permitidos", {

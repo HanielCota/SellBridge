@@ -1,6 +1,54 @@
-# Coordenação entre os chats (versão de 2026-10-15, 3 chats)
+# Coordenação entre os chats (versão de 2026-10-16, 6 chats, modo MVP)
 
-## 0. Divisão atual (2026-10-15, 3 chats) — vale por cima das seções 1 e 4
+## 0. Divisão atual (2026-10-16, 6 chats, modo MVP) — vale por cima de tudo abaixo
+
+Meta: fechar o que falta em 2 dias, site em MVP. Regras de paradas e portões no **Modo MVP** do topo de `execucao-tela-a-tela.md`. As regras de convivência da seção 2 e as migrations com "senha da vez" (3.1) continuam valendo.
+
+### 0.0 Corte para entregar no sábado (aprovado pelo usuário em 2026-10-16, 16h40) — vale por cima da tabela abaixo
+
+Meta nova: MVP fechado no **sábado, 17/10, à noite** (antes era domingo). Três mudanças:
+
+1. **Saem do MVP (vão para a fase 2):** 23 inteiro, 31.a, 28.c, 28.d, 30.b e o design final (D-1, D-2, U-2, U-8, X-2). Quem estava no meio de uma parte cortada termina o commit em curso, se os portões já fecharem, e para.
+2. **Paradas:** o usuário aprovou de uma vez o plano de todos os itens que sobraram (vale como ⏸A de todos). Não há ⏸B por item: cada parte é commitada quando C1–C6 e o C7 da área passam, e o chat manda a branch e o hash à "Execução tela a tela" sem esperar o OK. Só pare e pergunte se um portão não fecha, se a decisão é do cliente (❓Dn) ou se o plano não serve. A revisão do usuário é no PR, no fim; push e merge continuam como na regra de Git abaixo.
+3. **Filas novas:**
+
+| Chat                               | Itens, nesta ordem                                                                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Principal ("Execução tela a tela") | bug "pedidos para avaliar" (`attention-panel.tsx:86`, `notification-presenter.ts:117`) com teste de regressão; junções a cada aviso (sem esperar 13h e 18h); e2e completo na última junção |
+| B                                  | 30.a (exportar e excluir os próprios dados)                                                                                                                                                |
+| C                                  | 14.b, 14.c                                                                                                                                                                                 |
+| D                                  | 26.a                                                                                                                                                                                       |
+| E                                  | 27.c, 28.a                                                                                                                                                                                 |
+| F                                  | 18 ✅ (b92a4de); depois 28.b (auditoria global; passa do E para o F em 16/10, dono de `routes/_app/admin/auditoria*` só para este item)                                                    |
+
+| Chat                                   | Onde                                                         | Área (dono dos arquivos)                                                                                                                                                                                                                                                                   | Itens, nesta ordem                                                                                                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Principal** ("Execução tela a tela") | pasta `SellBridge`, `feat/client-phase-1`, `sellbridge_desk` | Pedidos, envio, link do fornecedor; **junta** todas as branches às 13h e às 18h e roda o e2e completo                                                                                                                                                                                      | 21.c, "trocar de fornecedor num envio cancelado", bug "pedidos para avaliar" sem abrir a aba de avaliações, design final (D-1, D-2, U-2, U-8, X-2) na tarde do dia 2                                                    |
+| **B** · contas e lojas                 | worktree atual                                               | como na divisão de 2026-10-15                                                                                                                                                                                                                                                              | 24, 30, fechar o 12 como "não se aplica" (o CPF tirou o endereço do admin)                                                                                                                                              |
+| **C** · catálogo e dinheiro            | worktree atual                                               | como na divisão de 2026-10-15                                                                                                                                                                                                                                                              | 13.b, 14, 18, 23                                                                                                                                                                                                        |
+| **D** · conta, planos e painel         | worktree nova, `sellbridge_desk_d`                           | `components/billing/*`, `features/billing/*`, `routes/_app/assinatura*`, `repositories/billing*`, webhook do Stripe, `components/onboarding/*`, `routes/_app/onboarding*`, `routes/_auth/*` (telas), `routes/_app/dashboard*`, `reports/dashboard-hero*`, `kpi-tiles*`, `attention-panel*` | 16, 26, 31.a (atrás de flag), 29 (se a D8 sair; senão, fase 2)                                                                                                                                                          |
+| **E** · admin, suporte e avisos        | worktree nova, `sellbridge_desk_e`                           | `routes/_app/admin/*` (menos fornecedores), `components/admin/*`, `components/support/*`, `features/support/*`, `routes/_app/suporte/*`, `notification-bell*`, `features/notifications/*`, `repositories/notifications*`, `support*`, `customer*`                                          | 25 (sem WhatsApp), 27.a–c, 28                                                                                                                                                                                           |
+| **F** · infra, só servidor             | worktree nova, `sellbridge_desk_f` (criar)                   | `apps/worker/src/index.ts`, health, storage, logs e alertas, `packages/database/migrations` (só limpezas), `scripts/seed*`, `shared/domain/cep*`                                                                                                                                           | 32.a, 32.d, 32.e; migration de limpeza da 0023 (loja viva duplicada); remover `supplier_coverage`, colunas de endereço do `tenant_profile`, `cep_cache`, `lookupCep` e `shared/domain/cep*` sem uso; seed mais completo |
+
+**Recursos dos chats novos** (o `.env` da worktree é cópia do principal com estes valores; o banco é recriado do zero com o migrate e o seed do `packages/database`, porque `_d` e `_e` estão em migrations antigas):
+
+| Chat | Banco               | Redis do app | Preview | E2E (porta, health, Redis) |
+| ---- | ------------------- | ------------ | ------- | -------------------------- |
+| D    | `sellbridge_desk_d` | db 6         | 3700    | 3170 · 3171 · db 7         |
+| E    | `sellbridge_desk_e` | db 8         | 3800    | 3180 · 3181 · db 9         |
+| F    | `sellbridge_desk_f` | db 10        | 3900    | 3190 · 3191 · db 11        |
+
+**Fluxo de junção no MVP:** cada chat, ao commitar uma parte, faz `git merge feat/client-phase-1` na própria branch, roda C1–C6 e manda ao principal (`SendMessage`) a branch e o hash. O principal junta em lote às 13h e às 18h (ou antes, se houver migration) e avisa os chats para juntarem de volta.
+
+**Git: nunca direto na `main` (regra do usuário, 2026-10-16):**
+
+- Ninguém faz commit, merge ou push na `main`. Ela só recebe mudanças por **pull request**, e quem faz o merge do PR é o revisor do usuário no GitHub. Nenhum chat aprova nem faz merge de PR, nem liga o auto-merge.
+- Os chats B a F commitam só na própria branch e mandam o hash ao principal. **Só o principal faz push**, e só da `feat/client-phase-1`, depois dos portões e da revisão. O push atualiza o PR aberto dessa branch (hoje o #38), sem abrir outro.
+- Trava local: `.git/hooks/pre-push` recusa qualquer push para `main` ou `master`, em todas as worktrees. Nunca contorne com `--no-verify`.
+
+**Fase 2 (fora do MVP):** WhatsApp do 25 (D9), 31.b (D10), 29 sem a D8, 27.d, 27.e, 32.b e 32.c (nota de deploy), refinamentos anotados em "Refinar depois" de cada chat. Bloqueados: 33–37.
+
+## 0.1 Divisão de 2026-10-15 (3 chats, histórico)
 
 Depois de um dia em chat único, o usuário voltou a dividir, agora em **3 chats**, todos neste projeto. As regras das seções 2 e 3 continuam valendo. Nas seções 1 e 4, D e E não existem mais e B e C mudaram de pasta.
 
@@ -56,7 +104,7 @@ Lista completa em [2026-10-13-auditoria-ia-design-ux.md](../reviews/2026-10-13-a
 3. **Arquivos compartilhados só recebem acréscimo:** `docs/decisions.md`, o relatório de lacunas, `styles.css`, `package.json`, `schema/index.ts`. Acrescente no fim ou mude só a linha do seu ID; não reescreva seções nem realinhe tabelas inteiras.
 4. **Andamento próprio:** cada chat registra no seu arquivo (`execucao-progresso.md`, `-b.md`, `-c.md`, `-d.md`, `-e.md`) e não edita o dos outros.
 5. **Recursos isolados** (seção 4). Nunca rode testes contra o banco de outro chat, e nunca contra `sellbridge`.
-6. **Commits só locais**; o push é um só, no fim, quando o usuário pedir.
+6. **Commits na própria branch**; push só do principal, da `feat/client-phase-1` para o PR aberto. Nunca na `main` (seção 0).
 
 ## 3. Os três ajustes (aprovados pelo usuário em 2026-10-14)
 

@@ -24,20 +24,29 @@ export const customerIssueTriage = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.issueKind] })],
 );
 
-/** Everything an admin did to a customer's account, newest first in the customer's timeline. */
+/**
+ * Everything the team did on the platform: to a customer's account (newest first in the
+ * customer's timeline) or to something else, like the supplier catalog (item 28.b). The trail
+ * outlives the account it is about: deleting the customer only clears `userId`.
+ */
 export const adminAuditEvents = pgTable(
   "admin_audit_events",
   {
     id: uuid().primaryKey().defaultRandom(),
     adminId: text().references(() => user.id, { onDelete: "set null" }),
-    userId: text()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    /** The customer acted on; null for platform changes (catalog) or a deleted account. */
+    userId: text().references(() => user.id, { onDelete: "set null" }),
+    /** What else was changed, when it is not a customer account ("supplier", "product"). */
+    entityType: text(),
+    entityId: text(),
     action: text().notNull(),
     details: jsonb().$type<Record<string, string | number | boolean | null>>(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("admin_audit_events_user_idx").on(table.userId, table.createdAt)],
+  (table) => [
+    index("admin_audit_events_user_idx").on(table.userId, table.createdAt),
+    index("admin_audit_events_created_idx").on(table.createdAt),
+  ],
 );
 
 /**

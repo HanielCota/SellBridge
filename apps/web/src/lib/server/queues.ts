@@ -1,5 +1,6 @@
 import {
   enqueueWebhookEventJob,
+  pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
   QUEUE_NAMES,
   STOCK_SYNC_JOB_NAME,
@@ -28,6 +29,11 @@ export async function enqueuePublishJobs(jobs: readonly PublishListingJob[]): Pr
     return;
   }
   await getPublishQueue().addBulk(jobs.map((data) => ({ name: "publish", data })));
+}
+
+/** Health probe (item 32.d): Redis answers through the queue connection the app already has. */
+export async function pingRedis(): Promise<boolean> {
+  return pingQueueConnection(getPublishQueue());
 }
 
 let webhookQueue: Queue | null = null;

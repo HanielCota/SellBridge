@@ -3,6 +3,11 @@ import { freeText } from "./common.ts";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+/** Error code and message when a new password appears in known breaches (item 30.c). */
+export const PASSWORD_COMPROMISED_CODE = "PASSWORD_COMPROMISED";
+export const PASSWORD_COMPROMISED_MESSAGE =
+  "Essa senha já apareceu em vazamentos de dados na internet. Escolha outra.";
+
 export const MAX_NAME_LENGTH = 100;
 
 /**
@@ -35,6 +40,11 @@ export const signUpSchema = z.object({
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
+
+/** The sign-up form: the account plus the box accepting the terms (item 26.a, L4). */
+export const signUpFormSchema = signUpSchema.extend({
+  acceptedTerms: z.literal(true, "Marque que você aceita os termos para criar a conta."),
+});
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 

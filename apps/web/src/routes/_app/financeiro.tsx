@@ -46,9 +46,14 @@ export const Route = createFileRoute("/_app/financeiro")({
 
 function useFinancialNavigation() {
   const navigate = useNavigate({ from: Route.fullPath });
+  // A filter changes the statement, not the page: keep the scroll where the reseller is reading.
   return useCallback(
     (patch: Partial<FinancialSearch>) =>
-      void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true }),
+      void navigate({
+        search: (previous) => ({ ...previous, page: 1, ...patch }),
+        replace: true,
+        resetScroll: false,
+      }),
     [navigate],
   );
 }
@@ -71,14 +76,14 @@ function FinancialHeader() {
 
 function FinancialSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Carregando financeiro">
+    <output className="block space-y-4" aria-busy="true" aria-label="Carregando financeiro">
       <Skeleton className="h-[26rem] rounded-3xl" />
       <div className="space-y-px overflow-hidden rounded-3xl">
         {SKELETON_ROWS.map((key) => (
           <Skeleton key={key} className="h-[68px] rounded-none" />
         ))}
       </div>
-    </div>
+    </output>
   );
 }
 

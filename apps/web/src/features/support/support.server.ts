@@ -1,10 +1,12 @@
 import {
   addTicketMessage,
   createTicket,
-  findTicketEmailRecipients,
   findTicketForMessage,
-  findTicketRequester,
   getAttachment,
+  linkTicketAbout,
+  queueNewTicketNotices,
+  queueSupportReplyNotices,
+  requireTicketAbout,
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
@@ -14,13 +16,14 @@ import {
   adminTicketMessageSchema,
   createTicketSchema,
   replyTicketSchema,
+  ticketAboutSchema,
+  type TicketAboutInput,
 } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
-import { sendEmail } from "@/lib/server/mailer";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
 import { requireStaffSession, requireTenantSession } from "@/lib/server/tenant-session";
@@ -33,7 +36,6 @@ import {
   textField,
   validateAttachments,
 } from "./attachments.server";
-import { supportReplyEmail } from "./support-reply-email";
 
 const idSchema = z.uuid();
 
@@ -50,6 +52,23 @@ function firstIssue(error: z.ZodError): string {
 }
 
 /** POST /api/suporte/chamados: opens a ticket (multipart: category, subject, body, files). */
+/**
+ * The order, store and listing the ticket was opened from, checked against the account before
+ * anything is saved, so a stale or foreign link never leaves a half-made ticket.
+ */
+async function readTicketAbout(formData: FormData, tenantId: string): Promise<TicketAboutInput> {
+  const about = ticketAboutSchema.safeParse({
+    orderId: textField(formData, "orderId"),
+    storeConnectionId: textField(formData, "storeConnectionId"),
+    listingId: textField(formData, "listingId"),
+  });
+  if (!about.success) {
+    throw validationError(firstIssue(about.error));
+  }
+  await requireTicketAbout(database, tenantId, about.data);
+  return about.data;
+}
+
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
@@ -63,6 +82,7 @@ export function handleCreateTicket(request: Request) {
     if (!input.success) {
       throw validationError(firstIssue(input.error));
     }
+    const about = await readTicketAbout(formData, session.tenantId);
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
     const { ticketId } = await saveWithAttachments(fileStorage, attachments, () =>
@@ -75,7 +95,15 @@ export function handleCreateTicket(request: Request) {
         attachments,
       }),
     );
+    await linkTicketAbout(database, {
+      ticketId,
+      tenantId: session.tenantId,
+      actorId: session.userId,
+      about,
+    });
     logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
+    // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
+    void notifyTeamOfNewTicket(ticketId);
     await recordImpersonatedCall({
       impersonatedBy: session.impersonatedBy,
       customerId: session.userId,
@@ -170,43 +198,25 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
   });
 }
 
+/** Queues the e-mail to the support team; a failure is logged, the ticket stays opened. */
+async function notifyTeamOfNewTicket(ticketId: string): Promise<void> {
+  try {
+    await queueNewTicketNotices(database, ticketId);
+  } catch (error) {
+    logger.warn("support.new_ticket_notice_failed", { ticketId, error });
+  }
+}
+
 /**
- * Tells the store by e-mail that support answered: the requester and the colleagues following
- * the ticket, minus whoever turned the e-mails off. A failed e-mail never fails the reply: the
- * answer is saved and also shows up in the app.
+ * Queues the e-mail telling the store that support answered (requester and followers, per their
+ * choices); the notification worker sends it in the branded layout and retries it. A failure to
+ * queue never fails the reply: the answer is saved and also shows up in the app's bell.
  */
 async function notifyFollowers(ticketId: string): Promise<void> {
   try {
-    const requester = await findTicketRequester(database, ticketId);
-    if (!requester) {
-      return;
-    }
-    const recipients = await findTicketEmailRecipients(database, ticketId);
-    const results = await Promise.allSettled(
-      recipients.map((recipient) =>
-        sendEmail(
-          supportReplyEmail(
-            { ...recipient, subject: requester.subject },
-            ticketId,
-            environment.APP_URL,
-          ),
-        ),
-      ),
-    );
-    // One bad address must not hide who did get the answer.
-    const failures = results.filter(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    );
-    if (failures.length > 0) {
-      logger.warn("support.reply_email_failed", {
-        ticketId,
-        failed: failures.length,
-        sent: results.length - failures.length,
-        error: failures[0]?.reason,
-      });
-    }
+    await queueSupportReplyNotices(database, { ticketId, at: new Date() });
   } catch (error) {
-    logger.warn("support.reply_email_failed", { ticketId, error });
+    logger.warn("support.reply_notice_failed", { ticketId, error });
   }
 }
 

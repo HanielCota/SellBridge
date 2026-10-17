@@ -35,7 +35,7 @@ type BadgeCounts = Record<NavBadge, number>;
 /**
  * Admin mode adds up to three team tabs, and nine tabs no longer fit a capsule centred
  * between equal side columns (the row is capped at 1440px). The dense layout sizes the side
- * columns to their content, trims the tab padding, hides the account name until 2xl and
+ * columns to their content, trims the tab padding, hides the account name behind a badge and
  * moves the tabs into the menu sheet below xl. Full class strings, so Tailwind sees them.
  */
 const LAYOUTS = {
@@ -53,9 +53,10 @@ const LAYOUTS = {
     desktopNav: "justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
     tab: "px-3",
-    // Below 2xl the name and the mode stay readable to screen readers; a badge shows the mode.
-    accountName: "sr-only 2xl:not-sr-only 2xl:block",
-    modeBadge: "flex 2xl:hidden",
+    // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
+    // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
+    accountName: "sr-only",
+    modeBadge: "flex",
   },
 } as const;
 
@@ -288,7 +289,7 @@ function AccountChip({
         <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
         {adminMode ? (
           <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
-            <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
+            <span className="size-1.5 rounded-full bg-brand-mark" aria-hidden="true" />
             {teamModeActiveTag(user.role)}
           </span>
         ) : (

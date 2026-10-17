@@ -1,6 +1,12 @@
 import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import { LISTING_STATUS_LABELS } from "@sellbridge/shared/schemas";
-import { ArrowUpRightIcon, DotsThreeIcon, ProhibitIcon } from "@phosphor-icons/react";
+import {
+  ArrowUpRightIcon,
+  ChatCircleDotsIcon,
+  DotsThreeIcon,
+  ProhibitIcon,
+} from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Button } from "@/components/ui/button";
@@ -15,6 +21,7 @@ import {
 import { listingRunState, type ListingRunState } from "@/features/listings/listing-health";
 import { useBulkListingActions, useSimulateSale } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
+import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { cn } from "@/lib/utils";
 import {
   useFlaskMotion,
@@ -219,6 +226,23 @@ function SimulateSaleItem({ row }: { row: ListingOverviewRow }) {
   );
 }
 
+function TalkToSupportItem({ row }: { row: ListingOverviewRow }) {
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem asChild className={ACTION_ITEM}>
+        <Link
+          to="/suporte/novo"
+          search={supportTicketSearch({ kind: "listing", id: row.listingId, name: row.title })}
+        >
+          <ChatCircleDotsIcon weight="duotone" aria-hidden="true" />
+          Falar com o suporte
+        </Link>
+      </DropdownMenuItem>
+    </>
+  );
+}
+
 /** Every action of a listing in one place; the button's dot shows its state without opening it. */
 export function ListingMenu({
   row,
@@ -253,6 +277,7 @@ export function ListingMenu({
         <RunStateItem row={row} />
         <StoresSection row={row} />
         <SimulateSaleItem row={row} />
+        <TalkToSupportItem row={row} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -14,7 +14,7 @@ import { type ComponentProps, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
-import { SmartDate } from "@/components/data/smart-date";
+import { ShipmentDates } from "./shipment-dates";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { FormErrorAlert } from "@/components/form/form-feedback";
 import { TextareaField } from "@/components/form/textarea-field";
@@ -40,6 +40,9 @@ export interface ShipmentView {
   /** The marketplace's dates and what is late; absent on the supplier link. */
   estimatedDeliveryAt?: Date | null;
   dispatchDeadlineAt?: Date | null;
+  /** By when the supplier must accept and dispatch, while the parcel is still with it. */
+  acceptBy?: Date | null;
+  dispatchBy?: Date | null;
   delay?: ShipmentDelay | null;
   events: { id: string; status: FulfillmentStatus; actor: string; note: string; createdAt: Date }[];
 }
@@ -382,25 +385,6 @@ function useShipmentUpdate(
 }
 
 /** The marketplace's date that matters now: when to dispatch, then when it should arrive. */
-function ShipmentDates({ shipment }: { shipment: ShipmentView }) {
-  if (shipment.status === "shipped" && shipment.estimatedDeliveryAt) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Entrega prevista: <SmartDate date={shipment.estimatedDeliveryAt} />
-      </p>
-    );
-  }
-  const atSupplier = ["forwarded", "accepted", "picking", "ready"].includes(shipment.status);
-  if (atSupplier && shipment.dispatchDeadlineAt) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Despachar até: <SmartDate date={shipment.dispatchDeadlineAt} />
-      </p>
-    );
-  }
-  return null;
-}
-
 function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   return (
     <>
