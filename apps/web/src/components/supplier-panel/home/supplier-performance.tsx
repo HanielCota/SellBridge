@@ -11,7 +11,7 @@ import { HealthThermometer } from "./health-thermometer";
 
 interface SupplierPerformanceProps {
   supplierId: string;
-  /** The metric to open, e.g. from a "Precisa de você" item; dispatch otherwise. */
+  /** The metric to open, e.g. from a link of the home; dispatch otherwise. */
   initialMetric?: HealthMetricKey | undefined;
 }
 
