@@ -104,10 +104,21 @@ function CatalogListBody({
         title={filtered ? "Nenhum resultado" : "Nenhum produto"}
         description={
           filtered
-            ? "Nenhum produto com este status ou busca, ajuste os filtros."
+            ? "Nenhum produto com este status ou busca. Ajuste os filtros."
             : "Os produtos que você cadastrar aparecem aqui."
         }
-        action={<Button onClick={onCreateProduct}>Cadastrar produto</Button>}
+        action={
+          filtered ? (
+            <Button
+              variant="outline"
+              onClick={() => onSearchChange({ query: undefined, status: "all", page: 1 })}
+            >
+              Limpar filtros
+            </Button>
+          ) : (
+            <Button onClick={onCreateProduct}>Cadastrar produto</Button>
+          )
+        }
       />
     );
   }
