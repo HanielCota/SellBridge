@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { stateSchema } from "../domain/cep.ts";
+import { stateSchema } from "../domain/brazilian-states.ts";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
-import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema } from "./stores.ts";
+import { LISTING_MAX_PRICE_CENTS, listingStoreIdsSchema, MAX_LISTING_STORES } from "./stores.ts";
 
 export const PRODUCT_SORTS = [
   "title",
@@ -105,6 +105,14 @@ export const bulkPublishSchema = z.object({
 });
 
 export type BulkPublishInput = z.infer<typeof bulkPublishSchema>;
+
+/** The marketplace jobs of one bulk publication: every product on every chosen store. */
+export const bulkPublishProgressSchema = z.object({
+  targetIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(MAX_BULK_PUBLISH * MAX_LISTING_STORES),
+});
 
 /**
  * Price for a product under a rule. Markup prices end in ,90 (R$ 47,90), the usual retail

@@ -1,0 +1,110 @@
+# Andamento do Chat F (infra, só servidor, Modo MVP)
+
+Branch `claude/client-f-326676` · banco `sellbridge_desk_f` · Redis db 10 · preview 3900 · e2e 3190 · 3191 · db 11.
+
+## Em andamento
+
+- ⏸A aprovado em 2026-10-16 (alertas por webhook). Fila inicial fechada em 2026-10-16. Depois: contraste do modo claro (df50a06), rolagem do Financeiro (41a0ad0) e item 18 (CSV com atributos do ML).
+
+## Ambiente
+
+- 2026-10-16: banco `sellbridge_desk_f` criado, migrate (até 0032) e seed ok.
+- O `.env` da worktree não foi criado: as regras de permissão do projeto negam ler ou gravar `.env`. Os comandos rodam com as variáveis exportadas por um script fora do repositório (scratchpad da sessão), com segredos de desenvolvimento gerados na hora.
+
+## Fila
+
+| Item | Título                                       | Situação | Commit            | Notas                                        |
+| ---- | -------------------------------------------- | -------- | ----------------- | -------------------------------------------- |
+| F1   | Limpeza da loja viva duplicada antes da 0023 | ✅       | e2061f0           | nota em `docs/deploy-infra.md`               |
+| F2   | Remover o que o CPF deixou sem uso           | ✅       | 99bb36f · d75be32 | migration 0034, senha da vez com o principal |
+| 32.a | Alertas de erro                              | ✅       | d145480           | `ALERT_WEBHOOK_URL`                          |
+| 32.d | Health do Redis                              | ✅       | 895984b           |                                              |
+| 32.e | Sync em paralelo por loja                    | ✅       | 06f90a7           | até 5 lojas ao mesmo tempo                   |
+| 32.b | Backup e restore                             | 📝       | (docs)            | fase 2: nota em `docs/deploy-infra.md`       |
+| 32.c | Adapter S3/R2                                | 📝       | (docs)            | fase 2: nota em `docs/deploy-infra.md`       |
+| F3   | Seed mais completo                           | ✅       | 39ce5bb           | admin com loja, 3 clientes, 7 chamados       |
+
+## Refinar depois
+
+- Auditoria (28.b): a consulta junta as duas tabelas inteiras antes de filtrar e conta com `count(*) over ()`; `ticket_events` não tem índice por `created_at`. Bom hoje; com volume, pede índice (migration) e paginação por cursor.
+- Auditoria: a ação de suporte entra pelo cargo **atual** de quem agiu (quem deixou a equipe some do rastro; quem virou equipe traz as próprias ações antigas de revendedor). Gravar "agiu como equipe" no evento resolve.
+- Auditoria: produto do catálogo sem link (só fornecedor tem página); indicadores no topo como os de Clientes; a gravação do catálogo fica fora da transação da escrita (se falhar, a mudança fica sem registro, com log `error`).
+
+- Anéis de foco `ring-ring/30`, `/40` e `/50` (57 lugares) seguem abaixo de 3:1 no claro mesmo com o `--ring` novo (a 50% dá 2,2:1); só o contorno global (70%) passa. Pede trocar a opacidade nesses lugares, em várias áreas.
+- Outras bolinhas em `bg-brand` no claro: `ticket-badges.tsx:46`, `store-bridge.tsx:54`, a barra de `admin/chamados/metricas.tsx:161` e o `setup-guide` (1,9:1). Trocar por `bg-brand-mark`.
+- A bolinha amarela (`amber-600`) dá 2,93:1 sobre o fundo da página (3,19:1 nos cartões, onde quase sempre fica).
+
+- `seed.test.ts` leva ~70 s (seed completo duas vezes num banco descartável) e deixa a máquina carregada durante o `pnpm test`: numa rodada, `stock-reservations.test.ts` ("lists one entry per short order…") estourou o timeout de 5 s; sozinho e na rodada seguinte passou. Dá para encolher o seed do teste (menos pedidos por conta) ou movê-lo para um job próprio.
+- `.local/scripts/audit.ts` só audita a pasta principal: rodado da worktree, quebrou num arquivo que só existe lá. Pede um parâmetro de raiz.
+- O teste paralelo do sync (`stock-price-sync-parallel.test.ts`) sincroniza a fila inteira do banco, como o teste antigo; anúncios de outros testes no mesmo banco geram logs de falha de token. Filtrar por tenant exigiria mudar o `findTargetsNeedingSync`.
+
+## Histórico
+
+### 2026-10-16 · F1 · limpeza da loja viva duplicada antes da 0023 (e2061f0)
+
+- A 0023 ganhou um `UPDATE` antes de `store_connections_live_shop_idx`: fica viva a conexão mais recente (`connected_at`, `id`); as outras viram `disconnected`, sem tokens, com `last_error`. O Drizzle só compara o `when` (`pg-core/dialect.js:56-69`), então quem já aplicou a 0023 não roda de novo.
+- Teste novo `M2: 0023 keeps one live connection per shop…` (`migrations.test.ts`); antes falhava com `23505 could not create unique index "store_connections_live_shop_idx"`.
+- Portões: C1–C4 ✅; C5 1558/1558 (shared 438, marketplaces 186, database 277, web 573, worker 77, raiz 7); C6 ✅; M1 ✅ (teste M1), M2 ✅ (teste novo, conferido o efeito nas 3 linhas), M3 n/a (sem entrada nova no journal).
+- Revisão independente: sem bug real. Acatados: limpar tokens como o `disconnectStore`; a nota diz que o `last_error` só aparece no banco (a loja some da tela) e que a mais nova vence qualquer status.
+
+### 2026-10-16 · F2 · sobras do CPF (99bb36f · d75be32)
+
+- Saíram `lookupCep` (`cep-providers.ts`), `cep.ts`, `findCachedCep`/`saveCachedCep`, `supplierCoverage`, `cepCache` e as 7 colunas de endereço do `tenant_profile`; `stateSchema`/`BRAZILIAN_STATES` foram para `@sellbridge/shared/brazilian-states` (1 import trocado em `state-field.tsx`, `supplier-picker.tsx` e `fornecedores/index.tsx`). O `resolveCep` já não existia.
+- Migration 0034 (`DROP` das 2 tabelas e das 7 colunas; o endereço antigo é apagado de vez). Teste novo `M1: the region leftovers…`; antes falhava com as 9 sobras.
+- M1 ✅; M2 ✅ (banco na 0033 com cobertura, cache e perfil com endereço + CPF; depois da 0034 o titular e o fornecedor inicial ficam); M3 ✅. Revisão independente sem achado. C5 1546 (a contagem caiu 12 com os testes do código apagado; 1581 depois da junção).
+
+### 2026-10-16 · 32.a · alertas de erro (d145480)
+
+- `setErrorLogListener` no `logger` (só nível error, linha já redigida) e `installErrorAlerts` em `shared/runtime/error-alerts.ts`, ligados no web (`lib/server/environment.ts`) e no worker. `ALERT_WEBHOOK_URL` só HTTPS, desligado sem valor. 1 alerta por evento a cada 5 min, 1900 caracteres, timeout 3 s, sem retry, falha vira `warn`.
+- 8 testes novos; antes 5 falhavam por asserção (`expected "vi.fn()" to be called 1 times, but got 0 times`).
+
+### 2026-10-16 · 32.d · health do Redis (895984b)
+
+- `runHealthChecks` em `shared/runtime/health.ts` (prazo de 2 s por checagem; crítica falhando = 503 e log `error`; não crítica = 200 `degraded` e `warn`). Worker: worker e Redis críticos; o servidor de health sobe antes dos schedulers (com Redis fora eles travavam e o probe não respondia). Web: Postgres crítico, Redis não.
+- Achado no teste real: `runCommand("PING")` da BullMQ 6 falha (`client[name] is not a function`); o certo é `"ping"`. O teste do `pingQueueConnection` imita o despacho e falha com `"PING"`.
+- Verificado com o worker de verdade: Redis no ar → 200 `{worker: ok, redis: ok}`; porta morta → 503 `{redis: unavailable}`. A rota do web não foi aberta no navegador (sem `.env` para o preview); usa a mesma função testada.
+
+### 2026-10-16 · 32.e · sync em paralelo por loja (06f90a7)
+
+- Lote agrupado por loja; até 5 lojas ao mesmo tempo, cada loja em série (rate limit); prazo conferido por anúncio; loja sem token ou recusada pelo marketplace para no lote.
+- Teste novo com 3 lojas; antes falhava com `expected …619 to be less than …367` (B só começava depois de A).
+
+### 2026-10-16 · 32.b e 32.c · fase 2
+
+- Só nota de deploy em `docs/deploy-infra.md`: backup agendado + `pg_dump`/`pg_restore` em banco novo, volume de uploads, e o desenho do adapter S3/R2.
+
+### 2026-10-16 · F3 · seed mais completo (39ce5bb)
+
+- `runSeed` (`seed/run.ts`, testável) chamado pelo `index.ts`; `customers.ts` (workspace do admin: "Vitrine SellBridge" com Curitiba Tech, ~420 pedidos; Bruno vendendo, Carla com loja `expired` para reconectar, Daniel parado no cadastro sem CPF); `support.ts` (7 chamados: open, answered e closed, as 4 prioridades e as categorias, com `awaitingSince`, `firstResponseAt`, responsável, `closedAt` e nota). `seedDemoSales` ganhou o parâmetro `stores`. A conta demo é semeada antes das outras para tirar os mesmos números aleatórios de antes (pedidos iguais). `--reset` apaga também os clientes.
+- Teste novo `seed.test.ts` (banco descartável, roda o seed duas vezes); antes falhava com `expected 0 to be greater than or equal to 1` (admin sem loja), `conta bruno@sellbridge.local não criada` e `expected Set{} to deeply equal Set{ 'open', 'answered', 'closed' }`.
+- C7 da área (specs que entram como admin, 10 arquivos): 20/24 na primeira rodada; as 4 falhas eram do ambiente sem `.env` (`MOCK_WEBHOOK_SECRET` e `ADMIN_EMAILS` ausentes: sem "Conectar Loja simulada" nem "Dono da plataforma"); com as variáveis, 9/9 nos 4 specs. C1–C6 ✅, C5 1622/1622 (uma rodada anterior teve o timeout descrito em "Refinar depois").
+- Seed aplicado no `sellbridge_desk_f`: admin 419 pedidos, 3 clientes, 7 chamados.
+
+### 2026-10-16 · Contraste do modo claro (df50a06)
+
+- Da pasta antiga `light-mode-verification`, refeito sobre a feat atual e medido (WCAG 1.4.11, 3:1). Cartão branco / fundo: `--brand` em pontos e marcas 1,86/1,71 → `--brand-mark` 3,39/3,11; ganho da cascata (antes `--brand`) → `--finance-gain` 0.62 3,41/3,12 (a proposta antiga, 0.72, dava 2,32); `--ring` 0.50: cheio 5,64, contorno global a 70% 3,17 (antes 1,76); bolinhas 600: verde 3,67, amarela 3,19, azul 4,02; neutra `/70` 3,36; switch desligado `foreground/45` 3,16 (antes 1,32; a proposta antiga, `/20`, dava 1,57). O escuro não muda.
+- Teste `styles-contrast.test.ts` lê o `styles.css`; com o arquivo antigo falhava (`expected 1.76 to be greater than or equal to 3` e tokens ausentes).
+- Capturas no claro (desktop 1440 e celular 390): painel, Financeiro, Lojas, sino. A11y 2/2. C1–C6 ✅.
+
+### 2026-10-16 · Rolagem do Financeiro (41a0ad0)
+
+- `useFinancialNavigation` com `resetScroll: false` (`routes/_app/financeiro.tsx`). `pedidos.tsx` tinha a mesma correção na pasta antiga, mas é área do principal e ficou de fora.
+- E2E `financeiro-scroll.spec.ts`; sem a correção falhava com `Expected: > 299, Received: 0` (`scrollY`). C7 14/14 (com `pending-cost` e `reports`). C avisado.
+
+### 2026-10-16 · Item 18 · CSV com atributos do Mercado Livre
+
+- Sem migration: os atributos vão para `supplier_products.mercado_livre_attributes` (jsonb), que o publicar do ML já envia e confere contra os obrigatórios da categoria (`listings.ts` `validateAttributes`).
+- Colunas novas do CSV (`shared/domain/product-csv-attributes.ts`): `marca` → BRAND, `modelo` → MODEL, `gtin` → GTIN (8, 12, 13 ou 14 dígitos com dígito verificador GS1), `peso_g` → SELLER_PACKAGE_WEIGHT ("850 g", 1 a 100.000), `altura_cm`/`largura_cm`/`comprimento_cm` → SELLER_PACKAGE_* ("32.5 cm", até 300). Erro por linha com a coluna, o valor recebido e o formato esperado; célula vazia mantém o valor do produto (o upsert mescla com `||`). O modelo para baixar ganhou as colunas, e a tela explica cada uma. A prévia com contagem e erros linha a linha já existia.
+- Mock: título com "[exige atributos]" recusa o anúncio sem BRAND, MODEL e GTIN, como uma categoria do ML.
+- Testes novos: parser (5), repositório (criar e mesclar), conector do ML (produto do CSV passa numa categoria que exige BRAND/MODEL/GTIN; sem as colunas é recusado antes de criar), mock (1) e e2e `csv-attributes.spec.ts` (admin importa, revendedora nova publica e o anúncio fica "No ar"). Antes: o parser recusava o cabeçalho (`Cabeçalho inválido`), o upsert não gravava o MODEL novo e o e2e parava na prévia.
+- C1–C6 ✅; C7 `admin-suppliers`, `publishing`, `suppliers` e `csv-attributes`: 23 + 3 ✅ (a primeira rodada do `csv-attributes` falhou porque a frase de conclusão ganhava " · N anúncios pausados" depois de outros specs; a asserção passou a aceitar o complemento).
+
+### 2026-10-16 · Item 28.b · Auditoria global
+
+- `/admin/auditoria` (tela nova, irmã do admin de Clientes: `PageHeader`, `FilterTabs` Tudo/Contas/Catálogo/Suporte, `SearchInput`, linha de resumo, `DataTable` com linha de celular, `PaginationBar`, `ToneStatus` por área, `SmartDate`; carregando com a forma da tabela, vazio com ação e erro). Entrada no menu da conta (o cabeçalho já tem 9 abas em modo admin).
+- Permissão nova `audit.view`, só do admin (`staff-access.ts`); server function com `staffMiddleware("audit.view")` e `beforeLoad` que manda o resto da equipe para Chamados.
+- Repositório `admin-audit.ts`: junta `admin_audit_events` (contas e, com `entity_type`, catálogo) e `ticket_events` feitos pela equipe (fora os do revendedor e os automáticos); filtros por área, pessoa e texto; paginação; nomes, nunca e-mails.
+- O catálogo passa a ser auditado (pendência do 08.b): salvar, ativar e desativar fornecedor ou produto, e importar CSV, gravam `recordCatalogEvent` depois da escrita.
+- Testes: repositório (5), permissão por cargo (staff-access), textos (2), e2e `admin-audit.spec.ts` (admin desativa produto e vê na auditoria; atendente e revendedor barrados), rota no `accessibility.spec.ts` (2 temas). O teste de permissão falhava por asserção antes; o do repositório falhou de início só porque o banco não tinha a 0038.
+- Revisão independente: sem furo de permissão nem vazamento. Corrigidos: página além do fim (agora oferece voltar à primeira) e detalhe aninhado que derrubaria a página. O resto foi para "Refinar depois".
+- D1 escuro desktop e celular; D2 375/768/1440 sem rolagem lateral; D4 com Clientes: placeholder cortado e falta da linha de resumo, os dois corrigidos. C1–C6 ✅ (C5 1784/1784); C7 8/8.

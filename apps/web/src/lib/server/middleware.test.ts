@@ -4,6 +4,7 @@ type Next = (input?: { context: Record<string, unknown> }) => Promise<unknown>;
 /** What the framework hands every middleware besides `next`. */
 interface CallInfo {
   method?: string;
+  data?: unknown;
   serverFnMeta?: { name: string };
 }
 type MiddlewareHandler = (input: { next: Next } & CallInfo) => Promise<unknown>;
@@ -18,16 +19,21 @@ const mocks = vi.hoisted(() => ({
   setResponseStatus: vi.fn<(status: number) => void>(),
   recordAdminEvent: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   requestUrl: { current: "http://localhost/_serverFn/abc" },
+  /** The supplier run by the supplier profile org-3. */
+  supplierId: "4f1c7a52-8f0e-4d3b-9a51-2f6b8c0d1e23",
 }));
 vi.mock("./database.ts", () => ({ database: {} }));
 vi.mock("@sellbridge/database/repositories", () => ({
   recordAdminEvent: mocks.recordAdminEvent,
+  findSupplierOfProfile: async (_database: unknown, organizationId: string) =>
+    organizationId === "org-3" ? { id: mocks.supplierId } : null,
 }));
 vi.mock("./auth.ts", () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock("./membership.ts", () => ({
   listMemberships: async () => [
-    { organizationId: "org-1", slug: "loja-1" },
-    { organizationId: "org-2", slug: "loja-2" },
+    { organizationId: "org-1", slug: "loja-1", kind: "seller" },
+    { organizationId: "org-2", slug: "loja-2", kind: "seller" },
+    { organizationId: "org-3", slug: "fornecedor-3", kind: "supplier" },
   ],
 }));
 vi.mock("@tanstack/react-start/server", () => ({
@@ -50,7 +56,13 @@ vi.mock("@tanstack/react-start", () => ({
   },
 }));
 
-const { adminMiddleware, staffMiddleware, tenantMiddleware } = await import("./middleware");
+const {
+  accountMiddleware,
+  adminMiddleware,
+  staffMiddleware,
+  supplierPanelMiddleware,
+  tenantMiddleware,
+} = await import("./middleware");
 
 function isRegistered(value: unknown): value is RegisteredMiddleware {
   return typeof value === "object" && value !== null && "handler" in value && "parents" in value;
@@ -126,6 +138,7 @@ describe("staff middleware", () => {
 });
 
 const post = (name: string): CallInfo => ({ method: "POST", serverFnMeta: { name } });
+const read = (name: string): CallInfo => ({ method: "GET", serverFnMeta: { name } });
 
 describe("tenant middleware inside a customer's account", () => {
   const impersonated = {
@@ -202,5 +215,64 @@ describe("tenant middleware profile", () => {
       run(tenantMiddleware, next, { method: "GET", serverFnMeta: { name: "listOrdersFn" } }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe("profile kind of the tab's profile", () => {
+  const onSeller = {
+    user: { id: "customer-1", role: "user" },
+    session: { activeOrganizationId: "org-1", impersonatedBy: null, createdAt: new Date() },
+  };
+  const onSupplier = {
+    ...onSeller,
+    session: { ...onSeller.session, activeOrganizationId: "org-3" },
+  };
+
+  it("refuses a seller function from a tab on a supplier profile, whatever the session's", async () => {
+    mocks.getSession.mockResolvedValue(onSeller);
+    mocks.requestUrl.current = "http://localhost/pedidos?perfil=fornecedor-3";
+    const next = vi.fn<Next>();
+    await expect(run(tenantMiddleware, next, read("listOrdersFn"))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(mocks.setResponseStatus).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("serves a seller function from a tab on a seller profile while the session is a supplier", async () => {
+    mocks.getSession.mockResolvedValue(onSupplier);
+    mocks.requestUrl.current = "http://localhost/pedidos?perfil=loja-2";
+    const next = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await run(tenantMiddleware, next, read("listOrdersFn"));
+    expect(next).toHaveBeenCalledWith({
+      context: expect.objectContaining({ tenantId: "org-2", profileKind: "seller" }),
+    });
+  });
+
+  it("opens account functions to the tab's supplier profile", async () => {
+    mocks.getSession.mockResolvedValue(onSeller);
+    mocks.requestUrl.current = "http://localhost/suporte?perfil=fornecedor-3";
+    const next = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await run(accountMiddleware, next, read("listTicketsFn"));
+    expect(next).toHaveBeenCalledWith({
+      context: expect.objectContaining({ tenantId: "org-3", profileKind: "supplier" }),
+    });
+  });
+
+  it("checks the supplier panel against the tab's profile, not the session's", async () => {
+    const panelCall = { ...read("getPanelHomeFn"), data: { supplierId: mocks.supplierId } };
+    mocks.getSession.mockResolvedValue(onSeller);
+    mocks.requestUrl.current = "http://localhost/fornecedor/painel?perfil=fornecedor-3";
+    const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await run(supplierPanelMiddleware, allowed, panelCall);
+    expect(allowed).toHaveBeenCalledOnce();
+
+    mocks.getSession.mockResolvedValue(onSupplier);
+    mocks.requestUrl.current = "http://localhost/fornecedor/painel?perfil=loja-1";
+    const refused = vi.fn<Next>();
+    await expect(run(supplierPanelMiddleware, refused, panelCall)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(refused).not.toHaveBeenCalled();
   });
 });

@@ -4,12 +4,12 @@ Registro vivo do prompt [execucao-tela-a-tela.md](../prompts/execucao-tela-a-tel
 
 ## Em andamento
 
-- Item/parte: — (21.b concluído; próximo é o 21.c, prazos com alerta de atraso)
-- Última etapa concluída: 21.b fechado (⏸2 aprovado em 2026-10-16, implementado em outra sessão a pedido do usuário)
-- Próximo passo: 21.c (aceite atrasado e prazo de despacho quando o marketplace não manda data)
+- Item/parte: — (item 21 concluído: 21.a, 21.b e 21.c)
+- Última etapa concluída: 21.c commitado localmente, sem push, por decisão do usuário em 2026-10-16
+- Próximo passo: fila deste chat: o bug "pedidos para avaliar" (`attention-panel.tsx:86` e `notification-presenter.ts:117` levam a `/pedidos` sem abrir a aba de avaliações) e o design final (D-1, D-2, U-2, U-8, X-2). Junção dos chats B a F em lotes, com e2e completo e a ponta avisada a eles. "Trocar de fornecedor num envio cancelado" ficou sem sentido com a regra R3 (ver `decisions.md`)
 - Arquivos tocados: —
-- Decisões tomadas nos pontos de parada: **3 chats desde 2026-10-15** (`docs/prompts/coordenacao.md` seção 0): este (envio e junção), B (contas e lojas), C (catálogo e dinheiro), mais o chat CPF (branch `feat/cpf-supplier-per-store`, banco `sellbridge_desk_d`, etapa 2 do fim da trava por região). C adia 13, 14, 18 e 23 até a etapa 2 entrar.
-- Pendências: a 0023 cria `store_connections_live_shop_idx` sem tirar duplicados antes, então um banco antigo com a mesma loja viva em dois tenants não migra (achado do chat B no item 03; precisa de migration de limpeza ou nota de deploy); "trocar de fornecedor num envio cancelado"; lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; sync em paralelo por loja do audit não trazido (fica para o 32.e); nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) contraste do modo claro (`--brand-mark`, `--finance-gain`, `--ring` mais escuro, bolinhas de status, switch desligado visível), de `light-mode-verification`; (3) manter a rolagem ao trocar filtro (`resetScroll: false`), de `financeiro-page-reset-bug`; (4) seed mais completo (workspace do admin, clientes e chamados de exemplo), de `http-500-error-localhost`, precisa ser refeito para o schema atual; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
+- Decisões tomadas nos pontos de parada: **modo MVP com 6 chats**, aprovado pelo usuário em 2026-10-16 (`docs/prompts/coordenacao.md` seção 0, `79c5769`; regra de Git em `f8fdc2b`): este chat cuida do envio e dos pedidos e faz a junção; B cuida de contas, segurança e lojas; C, de catálogo, publicação e dinheiro; D, de conta, planos e painel; E, de admin, suporte e avisos; F, de infra e limpezas. Cada chat trabalha na própria worktree. Nunca há commit, junção ou push direto na `main`. Push só da `feat/client-phase-1` e só quando o usuário pedir. O chat F assumiu o contraste do modo claro e a rolagem do Financeiro ao trocar filtro. A mudança do CPF (8 etapas) está concluída.
+- Pendências: lembrar o revendedor de confirmar entrega parada em "Enviado" (com o 22); mensagem de conflito do 02.a usa o nome bruto da loja; confirmar com conta de teste do ML se GET /shipments/{id} traz o endereço e o link da venda; tópicos shipments e post_purchase não assinados; ShipmentActions recebe ~13 props; nome do cadastro guardado sem `trim` (o audit corrigia, ficou de fora por mexer no hook do Better Auth; ver item 10); **a recuperar das pastas antigas `.claude/worktrees/` (11/10, nunca commitadas)**: (1) o painel de atenção e o aviso do sino mandam "pedidos para avaliar" para `/pedidos` sem abrir a aba de avaliações (`attention-panel.tsx:86`, `notification-presenter.ts:117`) — bug real, de `pedidos-pending-filter`; (2) e (3), o contraste do modo claro e a rolagem do Financeiro, passaram para o chat F; (4), o seed mais completo, entrou com o F3 do chat F; (5) opcionais: `useRevealActive`, `reviewHint`, foto que falha antes da hidratação, `ticket-diagnosis`. As outras 5 pastas antigas já estão no código ou foram descartadas por design
 
 ## Linha de base
 
@@ -71,6 +71,45 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Junção contínua do MVP (corte de sábado, `4273792`)
+
+- Pelo corte, cada branch entra assim que chega o hash.
+- **Migrations:** 0035 (E, chamados ligados a loja e anúncio), 0036 (B, tabela two_factor, ainda sem uso), 0037 (D, dados da conta e aceite dos termos) e 0038 (E, auditoria que sobrevive à exclusão da conta). Todas foram aplicadas no `sellbridge_desk`, com `generate` sem diferença e a trava liberada.
+- **Itens juntados:**
+  - B: 30.a (exportar e excluir os próprios dados), 30.c (senha vazada, só em produção) e a nota de auditoria anônima.
+  - C: 14.a, 14.b e 14.c (publicação em massa com validação, progresso e resultado) e o refactor de `listing-overview.ts` e `bulk-publish-dialog.tsx`, que voltaram para menos de 500 linhas.
+  - D: 26.a (termos e "Seus dados"), 26.b (loja nova só com e-mail confirmado) e 26.c. O 31.a foi revertido para a fase 2 (`wip/d-31a-plan-matrix`).
+  - E: 25, 27.a, 27.c e 28.a (convite da equipe com cargo, já com as correções da revisão).
+  - F: F3 (seed), 18 (atributos do ML no CSV), contraste do modo claro, rolagem do Financeiro e 28.b (`/admin/auditoria`).
+  - Sessões fora dos chats, commitadas direto nesta pasta: `b70a5d7` (nome da loja e fornecedor ao conectar) e `a00b03b` (selo da venda no sino).
+- **Conflitos resolvidos à mão:** o `bulk-publish-dialog.tsx` nas junções 14.b e 14.c (o `NoStores` com o fornecedor no link fica em `bulk-publish-stores.tsx`; `PublishStore` e `storesForProducts` ficam no `bulk-store-picker.tsx` do C), e os exports em `repositories/index.ts`.
+- **Correções deste chat:**
+  - `0d8e8db`: "pedidos para avaliar" agora abre a aba Avaliações já filtrada, com teste de regressão.
+  - `a25a33a`: os itens do painel de atenção foram para um módulo sem código de servidor, e o teste passa sem `.env`.
+- **Testes instáveis corrigidos pelos donos:** `account-export.test` (B, CPF do seed) e `support.test` (E, fila paginada com mais de 70 chamados no banco).
+- **Verificação:** a ponta `0c587b9` foi conferida numa worktree limpa (`.claude/worktrees/principal-verify`), porque a pasta principal tem trabalho de relatórios sem commit de outra sessão. Tipos, lint, formatação, sem else e build ✅; testes 1815/1815 ✅; cabeçalho do admin com 10 abas sem rolagem nas 8 larguras (a 1024 vira o menu).
+- **Falta:** o e2e completo final. Ele espera a sessão dos relatórios commitar, ou a autorização para copiar o `.env` para a worktree limpa.
+
+### 2026-10-16 · Junção: chats D, E e F (lotes 1 e 2) e migration 0034
+
+- Lote 1: E 25.a (`516a5ca`, canais de aviso com nova tentativa), F F1 (`a788b05`, limpeza da loja viva duplicada na 0023, alterada no lugar com nota em `docs/deploy-infra.md`) e D 16.a (`00e4199`, Stripe fora da trava da organização). Antes do lote, o índice do git estava com sobras das tentativas de commit barradas e foi limpo com `git reset` (sem mudança nos arquivos). E2E 104/105: a falha era real, porque 33 esqueletos de carregamento tinham `aria-label` sem papel.
+- Lote 2: F 0034 (`9659540`, junção `f1924d5`, cuja mensagem ficou "chore: merge 9659540"). Ela apaga `supplier_coverage`, `cep_cache` e as 7 colunas de endereço do `tenant_profile`, com aprovação do usuário em 2026-10-16. Entraram também E 25.b (`5a21606`, junção `3a2a29a`: o conflito no `shipment-timing.ts` ficou com a versão da 21.c e `lateSince` exportado, e a varredura de atraso passou a usar `shipmentTimingColumns`) e F 32.a (`d145480`, alertas de erro por webhook). O hook file-size foi pulado (`LEFTHOOK_EXCLUDE=file-size`) só na junção do E, porque o `listings.ts` foi de 502 para 506 linhas; o E vai extrair um módulo.
+- Correção `b4c331e`: esqueletos de carregamento com rótulo viram `<output>`, e o `Skeleton` com rótulo ganha `role="status"`. O teste de regressão `loading-placeholders.test.ts` falha sem a correção e passa com ela.
+- A sessão "Implementações na aba execução" commitou `f8fdc2b` direto nesta branch, com a regra de nunca commitar, juntar ou fazer push na `main`.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1593 e depois 1610 ✅; build ✅; e2e completo 105/105.
+
+### 2026-10-16 · Item 21.c · Aceite atrasado e prazos do fornecedor — ✅ concluído (commit local)
+
+- "Aceite atrasado" quando o fornecedor não aceita no prazo do cadastro, e "Despacho atrasado" pelo prazo de despacho do cadastro quando o marketplace não manda data. Os prazos contam do encaminhamento mais recente. "Aceite até" e "Despachar até" com hora no painel do envio e na página do fornecedor.
+- Junto: as migrations 0032 do chat C (`8a486c5` → `823a1a4`) e 0033 do chat E (`4c6b081` → `6fd2617`), aplicadas no `sellbridge_desk`, com `generate` sem diferença e trava apagada.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1569/1569; e2e 27/27 (envio, página do pedido, sino); D2 sem rolagem nas 8 larguras (pedido e página do fornecedor); 6 capturas (desktop claro e celular escuro: lista, pedido e fornecedor).
+
+### 2026-10-16 · Junção: `main` (#35, #37) e item 13.a do chat C
+
+- `origin/main` em `e06a9d3`: o #33 tinha juntado a `feat/client-phase-1` na `main` em squash, e vieram depois o #35 (srvx) e o #37 (corpo das requisições em produção). Sem conflitos.
+- Item 13.a do C (`daf26cc`, junção `66ef33f`): as recusas do Mercado Livre com `cause[]` viram frases de "o que aconteceu" e "o que fazer", com os códigos da página oficial de Validações. Avisos são ignorados, e os códigos vão para o log em `details.causes`. Mexe só no conector.
+- Portões: lint, tipos, formatação, sem else ✅; testes 1557/1557; build ✅; e2e `publishing` 9/9.
 
 ### 2026-10-16 · Item 21.b · Encaminhar sozinho (atrás de flag) e e-mail ao fornecedor — ✅ concluído (commit local)
 

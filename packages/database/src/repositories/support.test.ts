@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { user } from "../schema/index.ts";
@@ -37,6 +38,11 @@ const PAGE = { page: 1, pageSize: 50 } as const;
 const HOUR = 3_600_000;
 /** Fixed clocks far in the past, so the time-based queries only ever see these tickets. */
 const T0 = new Date("2001-03-05T12:00:00Z");
+/**
+ * Marks this run's tickets: the team's queue spans every tenant, so on a busy database (seed,
+ * e2e leftovers) the queue is searched for them instead of read from its first page.
+ */
+const RUN = randomUUID().slice(0, 8);
 
 function at(hours: number): Date {
   return new Date(T0.getTime() + hours * HOUR);
@@ -71,7 +77,7 @@ async function openTicket(subject: string, now = new Date()) {
     tenantId: tenantA,
     userId: reseller,
     category: "order",
-    subject,
+    subject: `${subject} · ${RUN}`,
     body: "Descrição do problema com detalhes suficientes.",
     attachments: [],
     now,
@@ -93,7 +99,7 @@ async function reply(ticketId: string, now = new Date(), statusAfter?: "open" | 
 }
 
 async function staffQueue(queue: "unassigned" | "mine" | "overdue" | "all", now: Date) {
-  const page = await listStaffTickets(database, { queue, viewerId: agent, now }, PAGE);
+  const page = await listStaffTickets(database, { queue, viewerId: agent, now, search: RUN }, PAGE);
   return page.items.map((item) => item.id);
 }
 
@@ -179,7 +185,7 @@ describe("support tickets", () => {
 
     const search = await listStaffTickets(
       database,
-      { queue: "all", search: "repasse", viewerId: agent },
+      { queue: "all", search: `repasse · ${RUN}`, viewerId: agent },
       PAGE,
     );
     expect(search.items.map((item) => item.id)).toContain(ticketId);
@@ -328,13 +334,25 @@ describe("support queues and response deadlines", () => {
 
 describe("unread replies", () => {
   it("shows each side what the other wrote since their last visit", async () => {
-    const ticketId = await openTicket("Leitura de respostas");
+    // Searched for by its own subject: on a busy database a reply pushed this ticket off the
+    // first page of the team's queue (regression, 2026-10-16).
+    const subject = `Leitura de respostas ${randomUUID()}`;
+    const ticketId = await openTicket(subject);
     const unreadFor = async (side: "customer" | "staff") => {
       if (side === "customer") {
-        const page = await listTenantTickets(database, tenantA, { readerId: reseller }, PAGE);
+        const page = await listTenantTickets(
+          database,
+          tenantA,
+          { readerId: reseller, search: subject },
+          PAGE,
+        );
         return page.items.find((item) => item.id === ticketId)?.hasUnread;
       }
-      const page = await listStaffTickets(database, { queue: "all", viewerId: agent }, PAGE);
+      const page = await listStaffTickets(
+        database,
+        { queue: "all", viewerId: agent, search: subject },
+        PAGE,
+      );
       return page.items.find((item) => item.id === ticketId)?.hasUnread;
     };
 

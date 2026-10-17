@@ -4,6 +4,8 @@ import {
   setListingsPaused,
   updateListingPrice,
 } from "@sellbridge/database/repositories";
+import { isOutOfStock } from "@sellbridge/shared/bulk-publish-plan";
+import { conflictError } from "@sellbridge/shared/errors";
 import { assertPriceKeepsMargin } from "@sellbridge/shared/fee-model";
 import { logger } from "@sellbridge/shared/logger";
 import { feeScheduleFrom } from "@/features/reports/fee-schedule";
@@ -28,8 +30,8 @@ export interface CreateListingCommand extends DraftOverrides {
 }
 
 /**
- * Sells a catalog product on the tenant's connected stores: checks the price against the cost
- * and every fee (the floor of fee-model.ts),
+ * Sells a catalog product on the tenant's connected stores: checks the stock, the price against
+ * the cost and every fee (the floor of fee-model.ts),
  * creates the listing and queues one publication per store.
  */
 export async function createListingForTenant(
@@ -37,6 +39,12 @@ export async function createListingForTenant(
   command: CreateListingCommand,
 ): Promise<CreatedListing> {
   const product = await getSellableCatalogProduct(database, command.productId);
+  // The batch and this flow share the rule: nothing is published that the supplier cannot ship.
+  if (isOutOfStock(product.stock, environment.STOCK_SAFETY_UNITS)) {
+    throw conflictError(
+      "Este produto está sem estoque no fornecedor; publique quando houver estoque",
+    );
+  }
   const draft = resolveListingDraft(product, command);
   assertPriceKeepsMargin(
     draft.priceCents,

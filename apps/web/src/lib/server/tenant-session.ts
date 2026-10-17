@@ -1,6 +1,7 @@
 import { forbiddenError, unauthorizedError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import {
   hasStaffPermission,
   staffRoleOf,
@@ -10,12 +11,15 @@ import {
 import { auth } from "./auth.ts";
 import { assertVisitNotOver } from "./impersonation-window.ts";
 import { listMemberships, type Membership } from "./membership.ts";
+import { assertSellerProfile } from "./supplier-panel-access.ts";
 import { profileHeaderOf, requestedProfileOf } from "../profile-param.ts";
 
 export interface TenantSession {
   tenantId: string;
   userId: string;
   role: string;
+  /** Seller or supplier: what the active profile is (`organization.kind`). */
+  profileKind: ProfileKind;
   /** The admin inside the account through "Entrar como cliente", or null for the customer. */
   impersonatedBy: string | null;
 }
@@ -24,6 +28,8 @@ export type ProfileSource = "requested" | "session" | "first";
 
 export interface ResolvedProfile {
   organizationId: string;
+  /** Seller or supplier: what the resolved profile is (`organization.kind`). */
+  kind: ProfileKind;
   /** Where the profile came from: only "first" is saved back as the session's active one. */
   source: ProfileSource;
 }
@@ -48,17 +54,17 @@ export function resolveProfileId(input: ProfileResolutionInput): ResolvedProfile
     if (match === undefined) {
       throw forbiddenError(`O perfil "${requested}" não está na sua conta.`);
     }
-    return { organizationId: match.organizationId, source: "requested" };
+    return { organizationId: match.organizationId, kind: match.kind, source: "requested" };
   }
   const active = memberships.find((membership) => membership.organizationId === sessionActive);
   if (active !== undefined) {
-    return { organizationId: active.organizationId, source: "session" };
+    return { organizationId: active.organizationId, kind: active.kind, source: "session" };
   }
   const first = memberships.at(0);
   if (first === undefined) {
     throw forbiddenError("Sua conta não possui uma organização ativa");
   }
-  return { organizationId: first.organizationId, source: "first" };
+  return { organizationId: first.organizationId, kind: first.kind, source: "first" };
 }
 
 /**
@@ -90,6 +96,7 @@ export async function requireTenantSession(
     tenantId: profile.organizationId,
     userId: session.user.id,
     role: session.user.role ?? "user",
+    profileKind: profile.kind,
     impersonatedBy: session.session.impersonatedBy ?? null,
   };
 }
@@ -97,6 +104,24 @@ export async function requireTenantSession(
 /** For HTTP routes (downloads, uploads, OAuth): the profile comes from the header or the URL. */
 export async function requireTenantRequest(request: Request): Promise<TenantSession> {
   return requireTenantSession(request.headers, requestedProfileOf(request));
+}
+
+/**
+ * A seller profile's session: stores, listings, orders and reports refuse a supplier profile.
+ * The kind checked is the tab's profile, resolved as in `requireTenantSession`.
+ */
+export async function requireSellerSession(
+  headers: Headers,
+  requestedProfile: string | null = profileHeaderOf(headers),
+): Promise<TenantSession> {
+  const session = await requireTenantSession(headers, requestedProfile);
+  assertSellerProfile(session.profileKind);
+  return session;
+}
+
+/** `requireSellerSession` for HTTP routes: the profile comes from the header or the URL. */
+export async function requireSellerRequest(request: Request): Promise<TenantSession> {
+  return requireSellerSession(request.headers, requestedProfileOf(request));
 }
 
 async function saveActiveOrganization(headers: Headers, organizationId: string, userId: string) {

@@ -25,6 +25,7 @@ export const ADMIN_ACTIONS = [
   "issue_released",
   "issue_snoozed",
   "issue_unsnoozed",
+  "team_invited",
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -97,6 +98,13 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
   issue_snoozed: (details) =>
     `Adiou por ${details?.days ?? "alguns"} ${details?.days === 1 ? "dia" : "dias"}: ${issueLabel(details)}`,
   issue_unsnoozed: (details) => `Retomou: ${issueLabel(details)}`,
+  team_invited: (details) => {
+    const role = CUSTOMER_ROLES.find((known) => known === details?.role);
+    const as = role ? ` como ${CUSTOMER_ROLE_LABELS[role].toLowerCase()}` : "";
+    return details?.resent
+      ? `Reenviou o convite para a equipe${as}`
+      : `Convidou para a equipe${as}`;
+  },
 };
 
 /** One line of the customer's timeline, in the admin's words. */

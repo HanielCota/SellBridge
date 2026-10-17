@@ -11,7 +11,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { createListingWithTargets } from "./listings.ts";
-import { setListingsPaused } from "./listing-overview.ts";
+import { setListingsPaused } from "./listing-actions.ts";
 import { changeStoreSupplier, previewStoreSupplierChange } from "./store-suppliers.ts";
 import { consumeOAuthState, createOAuthState, upsertStoreConnection } from "./stores.ts";
 

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 /**
  * Every table in the app is server-driven: sorting, filtering and pagination live in
@@ -42,6 +43,18 @@ interface DataTableProps<TData extends RowData> {
    * view). Return null for rows that are closed.
    */
   renderRowDetail?: (row: TData) => ReactNode;
+  /**
+   * Keeps the last column (the row's action) stuck to the right edge while the rest scrolls
+   * sideways, so the action never hides past the edge of a narrow window.
+   */
+  pinLastColumn?: boolean;
+}
+
+/** The pinned column paints over what scrolls under it, with a hairline to separate them. */
+const PINNED_COLUMN_CLASSES = "sticky right-0 z-10 bg-card shadow-[inset_1px_0_0_var(--border)]";
+
+function pinnedClass(pinLastColumn: boolean, index: number, count: number): string | undefined {
+  return pinLastColumn && index === count - 1 ? PINNED_COLUMN_CLASSES : undefined;
 }
 
 /** The opened row's content, under it and across every column. */
@@ -77,6 +90,36 @@ function MobileRows<TData extends RowData>({
   );
 }
 
+type ServerTable<TData extends RowData> = ReturnType<typeof useTable<ServerTableFeatures, TData>>;
+
+function HeaderRows<TData extends RowData>({
+  table,
+  pinLastColumn,
+}: {
+  table: ServerTable<TData>;
+  pinLastColumn: boolean;
+}) {
+  return (
+    <TableHeader>
+      {table.getHeaderGroups().map((group) => (
+        <TableRow key={group.id}>
+          {group.headers.map((header, index) => (
+            <TableHead
+              key={header.id}
+              className={cn(
+                "whitespace-nowrap",
+                pinnedClass(pinLastColumn, index, group.headers.length),
+              )}
+            >
+              {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+            </TableHead>
+          ))}
+        </TableRow>
+      ))}
+    </TableHeader>
+  );
+}
+
 export function DataTable<TData extends RowData>({
   columns,
   data,
@@ -85,6 +128,7 @@ export function DataTable<TData extends RowData>({
   footer,
   renderMobileRow,
   renderRowDetail,
+  pinLastColumn = false,
 }: DataTableProps<TData>) {
   const table = useTable({ features: serverTableFeatures, columns, data, getRowId });
   return (
@@ -99,25 +143,18 @@ export function DataTable<TData extends RowData>({
       ) : null}
       <Table className={renderMobileRow ? "max-md:hidden" : undefined}>
         <caption className="sr-only">{caption}</caption>
-        <TableHeader>
-          {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
-              {group.headers.map((header) => (
-                <TableHead key={header.id} className="whitespace-nowrap">
-                  {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
+        <HeaderRows table={table} pinLastColumn={pinLastColumn} />
         <TableBody>
           {table.getRowModel().rows.map((row) => {
             const detail = renderRowDetail?.(row.original) ?? null;
             return (
               <Fragment key={row.id}>
                 <TableRow className={detail ? "border-b-0" : undefined}>
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                  {row.getAllCells().map((cell, index, cells) => (
+                    <TableCell
+                      key={cell.id}
+                      className={pinnedClass(pinLastColumn, index, cells.length)}
+                    >
                       <table.FlexRender cell={cell} />
                     </TableCell>
                   ))}

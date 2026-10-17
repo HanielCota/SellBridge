@@ -10,13 +10,13 @@ import {
 } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
 import {
-  getListingOverview,
-  listListingOverview,
   resetListingErrorsForRetry,
   setListingsPaused,
   updateListingPrice,
-} from "./listing-overview.ts";
-import { createListingWithTargets, findTargetsNeedingSync, markTargetFailed } from "./listings.ts";
+} from "./listing-actions.ts";
+import { getListingOverview, listListingOverview } from "./listing-overview.ts";
+import { findTargetsNeedingSync } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetFailed } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -213,12 +213,14 @@ describe("listing overview", () => {
   });
 
   it("retries only failed stores of the tenant's listings", async () => {
-    await expect(resetListingErrorsForRetry(database, tenantB, [listingId])).rejects.toMatchObject({
+    await expect(
+      resetListingErrorsForRetry(database, tenantB, [listingId], { billingEnabled: false }),
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
-    expect(await resetListingErrorsForRetry(database, tenantA, [listingId])).toEqual([
-      targetIds[1],
-    ]);
+    expect(
+      await resetListingErrorsForRetry(database, tenantA, [listingId], { billingEnabled: false }),
+    ).toEqual([targetIds[1]]);
   });
 });
 

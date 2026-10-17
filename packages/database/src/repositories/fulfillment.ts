@@ -1,5 +1,5 @@
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
-import { firstShippedAt, withShipmentDelay } from "./shipment-timing.ts";
+import * as timing from "./shipment-timing.ts";
 import {
   and,
   asc,
@@ -102,12 +102,9 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
         .select({
           id: orderShipments.id,
           orderId: orderShipments.orderId,
-          status: orderShipments.status,
           supplierName: suppliers.name,
           trackingCode: orderShipments.trackingCode,
-          dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
-          estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
-          shippedAt: firstShippedAt,
+          ...timing.shipmentTimingColumns,
         })
         .from(orderShipments)
         .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
@@ -168,7 +165,7 @@ export async function listOperationalOrders(
       ...row,
       shipments: shipments
         .filter((shipment) => shipment.orderId === row.id)
-        .map((shipment) => withShipmentDelay(shipment, now)),
+        .map((shipment) => timing.withShipmentDelay(shipment, now)),
     })),
     page,
     total,
@@ -209,17 +206,14 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       id: orderShipments.id,
       supplierId: orderShipments.supplierId,
       supplierName: suppliers.name,
-      status: orderShipments.status,
       address: orderShipments.address,
       items: orderShipments.items,
       notes: orderShipments.notes,
       carrier: orderShipments.carrier,
       trackingCode: orderShipments.trackingCode,
       trackingUrl: orderShipments.trackingUrl,
-      estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
-      dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
       trackedAt: orderShipments.trackedAt,
-      shippedAt: firstShippedAt,
+      ...timing.shipmentTimingColumns,
       updatedAt: orderShipments.updatedAt,
       supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
     })
@@ -264,7 +258,7 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
     },
     items,
     shipments: shipments.map((shipment) => ({
-      ...withShipmentDelay(shipment, new Date()),
+      ...timing.withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
     })),
   };
@@ -407,6 +401,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       orderStatus: orders.status,
       marketplace: storeConnections.marketplace,
       supplierName: suppliers.name,
+      ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -442,6 +437,7 @@ export async function getSupplierShipment(database: Database, token: string) {
     orderStatus: row.orderStatus,
     marketplace: row.marketplace,
     supplierName: row.supplierName,
+    ...timing.supplierDeadlines(shipment, row),
     events,
   };
 }
@@ -533,20 +529,33 @@ function linkFieldsFor(status: FulfillmentStatus) {
     : {};
 }
 
+/**
+ * Who may write a shipment: the reseller (its tenant), the supplier by its link token, or the
+ * supplier signed in to its panel (its id). Only the tenant writes as the reseller.
+ */
+export type ShipmentAccess = { tenantId: string } | { token: string } | { supplierId: string };
+
+function shipmentAccessFilter(access: ShipmentAccess) {
+  if ("tenantId" in access) {
+    return eq(orderShipments.tenantId, access.tenantId);
+  }
+  if ("supplierId" in access) {
+    return eq(orderShipments.supplierId, access.supplierId);
+  }
+  return and(
+    eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
+    gt(orderShipments.supplierTokenExpiresAt, new Date()),
+  );
+}
+
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
 export async function updateShipment(
   database: Database,
   input: z.infer<typeof shipmentUpdateSchema>,
-  access: { tenantId: string } | { token: string },
+  access: ShipmentAccess,
 ) {
   return database.transaction(async (transaction) => {
-    const accessFilter =
-      "tenantId" in access
-        ? eq(orderShipments.tenantId, access.tenantId)
-        : and(
-            eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
-            gt(orderShipments.supplierTokenExpiresAt, new Date()),
-          );
+    const accessFilter = shipmentAccessFilter(access);
     const [candidate] = await transaction
       .select()
       .from(orderShipments)

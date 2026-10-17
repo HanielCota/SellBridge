@@ -6,10 +6,20 @@ import { AppError, hasErrorCode } from "@sellbridge/shared/errors";
  */
 export function marketplaceError(
   message: string,
-  options: { retryable: boolean; status?: number | null; cause?: unknown },
+  options: {
+    retryable: boolean;
+    status?: number | null;
+    cause?: unknown;
+    /** Codes the marketplace gave for the refusal (Mercado Livre's `cause[].code`). */
+    causes?: readonly string[];
+  },
 ): AppError {
   return new AppError("EXTERNAL_PROVIDER", message, {
-    details: { retryable: options.retryable, status: options.status ?? null },
+    details: {
+      retryable: options.retryable,
+      status: options.status ?? null,
+      ...(options.causes === undefined ? {} : { causes: [...options.causes] }),
+    },
     cause: options.cause,
   });
 }

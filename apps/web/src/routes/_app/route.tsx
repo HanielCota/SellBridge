@@ -10,6 +10,7 @@ import { TopNav } from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
+import { profileRedirectFor } from "@/features/auth/profile-routes";
 import { getAppSession } from "@/features/auth/session.functions";
 import { profileSlugSchema } from "@/lib/profile-param";
 import {
@@ -20,6 +21,7 @@ import {
   tabProfile,
 } from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
+import { needsTermsAcceptance } from "@/features/onboarding/terms-gate";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 /** Every page of the app carries its profile, so each tab keeps its own (see profile-param.ts). */
@@ -64,8 +66,19 @@ export const Route = createFileRoute("/_app")({
     if (plan.kind === "add_profile") {
       throw redirect({ href: addProfileToHref(location.href, plan.slug), replace: true });
     }
+    // Before the redirects below: the next navigation no longer sees the profile move.
     if (plan.clearCache && !preload) {
       context.queryClient.removeQueries();
+    }
+    // Item 26.a (L4): the Google sign-up and a new version of the terms land here too.
+    if (needsTermsAcceptance(session)) {
+      throw redirect({ to: "/aceitar-termos", search: { redirect: location.href } });
+    }
+    // The kind is the tab's profile: a supplier tab and a seller tab of one account each stay
+    // on their own screens.
+    const profileHome = profileRedirectFor(session.profileKind, location.pathname);
+    if (profileHome !== null) {
+      throw redirect({ href: addProfileToHref(profileHome, session.profileSlug) });
     }
     return { session };
   },
@@ -102,13 +115,13 @@ function AppLayout() {
           endsAt={session.impersonationEndsAt}
         />
       ) : null}
-      <TopNav user={session.user} adminMode={session.adminMode} />
+      <TopNav user={session.user} adminMode={session.adminMode} profileKind={session.profileKind} />
       <main
         id="main-content"
         tabIndex={-1}
         className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-12 md:px-8 md:pt-8"
       >
-        <SetupReminder />
+        {session.profileKind === "seller" ? <SetupReminder /> : null}
         <Outlet />
       </main>
     </div>

@@ -3,12 +3,13 @@ import { expect, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
 import { DELIVERY_CONFIRMED_BY } from "@sellbridge/shared/schemas";
 import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   organization,
   orderItems,
   orderShipments,
   orders,
+  shipmentEvents,
   storeConnections,
   supplierProducts,
   suppliers,
@@ -507,6 +508,37 @@ test("forwarding e-mails the link to a supplier with an order e-mail", async ({ 
       .update(suppliers)
       .set({ contactEmail: supplier?.contactEmail ?? null })
       .where(eq(suppliers.id, product.supplierId));
+    await database.delete(orders).where(eq(orders.id, order.id));
+  }
+});
+
+test("a parcel the supplier did not accept in time shows as late, and the supplier sees its times", async ({
+  page,
+  browser,
+}) => {
+  const { order, link, externalOrderId } = await forwardedOrder("E2E-ACCEPT");
+  await database
+    .update(shipmentEvents)
+    .set({ createdAt: new Date(Date.now() - 25 * 3_600_000) })
+    .where(
+      and(eq(shipmentEvents.shipmentId, link.shipmentId), eq(shipmentEvents.status, "forwarded")),
+    );
+  try {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/pedidos");
+    await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
+    await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
+    await expect(page.getByText("Aceite atrasado").first()).toBeVisible();
+    await gotoHydrated(page, `/pedidos/${order.id}`);
+    await expect(page.getByText("Aceite atrasado").first()).toBeVisible();
+
+    const supplierContext = await browser.newContext();
+    const supplier = await supplierContext.newPage();
+    await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
+    await expect(supplier.getByText("Aceite até")).toBeVisible();
+    await expect(supplier.getByText("Despachar até")).toBeVisible();
+    await supplierContext.close();
+  } finally {
     await database.delete(orders).where(eq(orders.id, order.id));
   }
 });

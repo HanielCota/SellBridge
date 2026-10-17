@@ -83,6 +83,46 @@ describe("mock connector publishing", () => {
     });
   });
 
+  it("publishes but refuses the description of a title marked [sem descricao]", async () => {
+    const published = await connector.publishProduct(credentials, {
+      ...baseProduct,
+      title: "Produto [sem descricao]",
+    });
+    expect(published.descriptionError).toMatch(/descrição/);
+    expect((await connector.publishProduct(credentials, baseProduct)).descriptionError).toBeNull();
+  });
+
+  it("requires brand, model and GTIN for a title marked [exige atributos] (item 18)", async () => {
+    const demanding = { ...baseProduct, title: "Tênis [exige atributos]" };
+    await expect(
+      connector.publishProduct(credentials, {
+        ...demanding,
+        mercadoLivreAttributes: { BRAND: "Passo Leve" },
+      }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringContaining("MODEL, GTIN"),
+    });
+    await expect(
+      connector.publishProduct(credentials, {
+        ...demanding,
+        mercadoLivreAttributes: { BRAND: "Passo Leve", MODEL: "PL-200", GTIN: "7891234567895" },
+      }),
+    ).resolves.toMatchObject({ descriptionError: null });
+  });
+
+  it("takes a resent description unless it is marked as refused", async () => {
+    await expect(
+      connector.updateDescription(credentials, { externalId: "MOCK-1", plainText: "Texto" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      connector.updateDescription(credentials, {
+        externalId: "MOCK-1",
+        plainText: "Texto [descricao recusada]",
+      }),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+  });
+
   it("signals temporary failures as retryable", async () => {
     await expect(
       connector.publishProduct(credentials, { ...baseProduct, title: "Produto [instavel]" }),

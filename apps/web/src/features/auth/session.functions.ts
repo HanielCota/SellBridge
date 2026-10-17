@@ -2,11 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { isAppError } from "@sellbridge/shared/errors";
 import { getCookie, getRequest, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { hasAcceptedTerms } from "@sellbridge/database/repositories";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
+import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { staffMiddleware } from "@/lib/server/middleware";
 import { listMemberships } from "@/lib/server/membership";
+import { staffMiddleware } from "@/lib/server/middleware";
 import { resolveProfileId } from "@/lib/server/tenant-session";
 import { requestedProfileOf } from "@/lib/profile-param";
 
@@ -36,12 +40,19 @@ export interface AppSession {
   profileSlug: string | null;
   /** The slug the page asked for when it is not one of the account's profiles. */
   foreignProfile: string | null;
+  /**
+   * Seller or supplier: which screens and menu the app shows (`profileRedirectFor`), for this
+   * page's profile.
+   */
+  profileKind: ProfileKind;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
   /** When an admin's visit ends on its own (ISO), or null outside one. */
   impersonationEndsAt: string | null;
   /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
   adminMode: boolean;
+  /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
+  termsAccepted: boolean;
 }
 
 export const getAppSession = createServerFn({ method: "GET" }).handler(
@@ -67,6 +78,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
         : null,
+      termsAccepted: await hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
     };
   },
 );
@@ -75,6 +87,7 @@ interface PageProfile {
   tenantId: string | null;
   profileSlug: string | null;
   foreignProfile: string | null;
+  profileKind: ProfileKind;
 }
 
 /** The profile of the page being opened, by the same rules every server call follows. */
@@ -85,15 +98,16 @@ async function resolvePageProfile(
   const requested = requestedProfileOf({ headers: getRequestHeaders(), url: getRequest().url });
   const memberships = await listMemberships(userId);
   try {
-    const { organizationId } = resolveProfileId({ requested, sessionActive, memberships });
+    const { organizationId, kind } = resolveProfileId({ requested, sessionActive, memberships });
     const slug = memberships.find((item) => item.organizationId === organizationId)?.slug ?? null;
-    return { tenantId: organizationId, profileSlug: slug, foreignProfile: null };
+    return { tenantId: organizationId, profileSlug: slug, foreignProfile: null, profileKind: kind };
   } catch (error) {
     if (!isAppError(error) || error.code !== "FORBIDDEN") {
       throw error;
     }
     const foreignProfile = requested !== null && memberships.length > 0 ? requested : null;
-    return { tenantId: null, profileSlug: null, foreignProfile };
+    // No profile of the account is open: the seller screens show the refusal or the sign-up step.
+    return { tenantId: null, profileSlug: null, foreignProfile, profileKind: "seller" };
   }
 }
 

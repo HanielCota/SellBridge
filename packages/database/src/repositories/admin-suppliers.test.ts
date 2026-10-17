@@ -5,12 +5,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listings, storeConnections, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, testStoreInput } from "../testing/fixtures.ts";
-import {
-  createListingWithTargets,
-  findTargetsNeedingSync,
-  markTargetPublished,
-  markTargetSynced,
-} from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
+import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
   getSellableCatalogProduct,
@@ -315,6 +311,36 @@ describe("admin suppliers", () => {
     expect(
       adminProductValuesSchema.safeParse({ ...atLimit, suggestedPriceCents: 100_000_001 }).success,
     ).toBe(false);
+  });
+
+  it("creates CSV products with their Mercado Livre attributes and merges them on update", async () => {
+    const header = "sku;titulo;custo;estoque;marca;modelo;gtin;peso_g";
+    await importRows(`${header}
+ATTR-1;Com atributos;12,90;5;Passo Leve;PL-200;7891234567895;850`);
+    const created = await listAdminSupplierProducts(database, supplierId, "ATTR-1", {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(created.items[0]?.mercadoLivreAttributes).toEqual({
+      BRAND: "Passo Leve",
+      MODEL: "PL-200",
+      GTIN: "7891234567895",
+      SELLER_PACKAGE_WEIGHT: "850 g",
+    });
+
+    // Blank cells keep the value; a filled one replaces it.
+    await importRows(`${header}
+ATTR-1;Com atributos;12,90;5;;PL-300;;`);
+    const updated = await listAdminSupplierProducts(database, supplierId, "ATTR-1", {
+      page: 1,
+      pageSize: 20,
+    });
+    expect(updated.items[0]?.mercadoLivreAttributes).toEqual({
+      BRAND: "Passo Leve",
+      MODEL: "PL-300",
+      GTIN: "7891234567895",
+      SELLER_PACKAGE_WEIGHT: "850 g",
+    });
   });
 
   it("preserves an inactive product when the CSV omits its active flag", async () => {

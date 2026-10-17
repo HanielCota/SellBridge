@@ -63,6 +63,41 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza (loja simulada)")).toHaveCount(0);
   });
 
+  // Regression: one day drew a single daily bucket, two lone dots instead of a line.
+  test("Hoje mostra o dia hora a hora, comparado com o dia anterior", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard");
+    await page.locator("label", { hasText: "Hoje" }).click();
+    await expect(page.getByRole("radio", { name: "Hoje" })).toBeChecked();
+    await expect(page).toHaveURL(/period=today/);
+    await expect(page.getByText(/· comparado com o dia anterior/)).toBeVisible();
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.getByText("0h", { exact: true })).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+    // A line joins the hours: an area path with more than its starting point.
+    await expect(chart.locator(".recharts-area-curve").first()).toHaveAttribute("d", /L|C/);
+  });
+
+  // Regression: with many hours on a narrow axis the labels were thinned from the start, so late
+  // in the day (CI run 38993957541, 23h) "0h" disappeared. The phone width makes it happen at any
+  // hour: the hourly axis keeps where the day starts.
+  test("Hoje mostra onde o dia começa mesmo no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard?period=today");
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.locator(".recharts-area-curve").first()).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+
+    await expect(chart.getByText("0h", { exact: true })).toBeVisible();
+  });
+
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");
@@ -163,6 +198,40 @@ test.describe("avisos", () => {
     }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
+  });
+
+  test("keeps the sale badge clear of the product icon and its variant dot", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    const sale = page.getByRole("link", { name: /Nova venda de R\$/ }).first();
+    await expect(async () => {
+      await gotoHydrated(page, "/dashboard");
+      await page.getByRole("button", { name: /^Avisos/ }).click();
+      await expect(sale).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+
+    // The mark is the product tile plus the sale badge overlaid on its bottom-right corner.
+    const [tile, badge] = await sale.locator(":scope > span:first-child > span").all();
+    if (tile === undefined || badge === undefined) {
+      throw new Error("Expected the sale mark to hold a product tile and a badge");
+    }
+    test.skip((await tile.locator("img").count()) > 0, "The sold product has a photo");
+    // The tile's variant dot would sit right under the badge.
+    await expect(tile.locator("span.rounded-full")).toHaveCount(0);
+
+    const iconBox = await tile.locator("svg").boundingBox();
+    const badgeBox = await badge.boundingBox();
+    if (iconBox === null || badgeBox === null) {
+      throw new Error("Expected the product icon and the badge to be rendered");
+    }
+    // The badge is a circle with a 2px ring: its edge must stay off the icon's box corner.
+    const ring = 2;
+    const radius = badgeBox.width / 2 + ring;
+    const centerX = badgeBox.x + badgeBox.width / 2;
+    const centerY = badgeBox.y + badgeBox.height / 2;
+    const cornerX = iconBox.x + iconBox.width;
+    const cornerY = iconBox.y + iconBox.height;
+    expect(Math.hypot(centerX - cornerX, centerY - cornerY)).toBeGreaterThan(radius);
   });
 
   test("one Escape closes the bell panel, even with the sound toggle's hint", async ({ page }) => {

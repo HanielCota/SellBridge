@@ -444,6 +444,16 @@ describe("timeseries", () => {
       expectedSum("profitCents"),
     );
   });
+
+  it("returns one bucket per Brazil hour for a single day", async () => {
+    // March 3 in Brasília: 03:00 UTC on March 3 to 03:00 UTC on March 4.
+    const day = { from: new Date("2026-03-03T03:00:00Z"), to: new Date("2026-03-04T03:00:00Z") };
+    const points = await getSalesTimeseries(database, scope({ range: day }), "hour");
+    expect(points).toHaveLength(24);
+    expect(points[0]).toMatchObject({ date: "2026-03-03T00:00", orders: 0 });
+    // A-2 was ordered at 23:30 in Brasília.
+    expect(points[23]).toMatchObject({ date: "2026-03-03T23:00", orders: 1, revenueCents: 10_000 });
+  });
 });
 
 describe("breakdowns", () => {

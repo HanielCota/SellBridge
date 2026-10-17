@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Membership } from "./membership.ts";
 
 interface SessionShape {
   user: { id: string; role: string };
@@ -12,7 +13,7 @@ interface SessionShape {
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn<() => Promise<SessionShape | null>>(),
   setActiveOrganization: vi.fn<() => Promise<void>>(),
-  listMemberships: vi.fn<(userId: string) => Promise<{ organizationId: string; slug: string }[]>>(),
+  listMemberships: vi.fn<(userId: string) => Promise<Membership[]>>(),
 }));
 vi.mock("./auth.ts", () => ({
   auth: {
@@ -23,9 +24,13 @@ vi.mock("./membership.ts", () => ({
   listMemberships: mocks.listMemberships,
 }));
 
-const { requireTenantSession } = await import("./tenant-session");
+const { requireSellerSession, requireTenantSession } = await import("./tenant-session");
 
-const membership = (organizationId: string) => ({ organizationId, slug: `loja-${organizationId}` });
+const membership = (organizationId: string, kind: Membership["kind"] = "seller"): Membership => ({
+  organizationId,
+  slug: `loja-${organizationId}`,
+  kind,
+});
 
 const startedAt = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000);
 
@@ -43,7 +48,19 @@ describe("requireTenantSession", () => {
   it("serves the active organization while the user is still a member", async () => {
     mocks.getSession.mockResolvedValue(session("org-a"));
     mocks.listMemberships.mockResolvedValue([membership("org-a")]);
-    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({ tenantId: "org-a" });
+    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
+      tenantId: "org-a",
+      profileKind: "seller",
+    });
+  });
+
+  it("tells which kind of profile the session is on", async () => {
+    mocks.getSession.mockResolvedValue(session("org-supplier"));
+    mocks.listMemberships.mockResolvedValue([membership("org-supplier", "supplier")]);
+    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
+      tenantId: "org-supplier",
+      profileKind: "supplier",
+    });
   });
 
   it("drops an organization the user was removed from, even with a live session", async () => {
@@ -123,5 +140,35 @@ describe("requireTenantSession", () => {
     mocks.listMemberships.mockResolvedValue([membership("org-a"), membership("org-b")]);
     const headers = new Headers({ "x-sellbridge-profile": "loja-org-b" });
     await expect(requireTenantSession(headers)).resolves.toMatchObject({ tenantId: "org-b" });
+  });
+});
+
+describe("requireSellerSession", () => {
+  it("refuses seller functions to a supplier profile with 403", async () => {
+    mocks.getSession.mockResolvedValue(session("org-supplier"));
+    mocks.listMemberships.mockResolvedValue([membership("org-supplier", "supplier")]);
+    await expect(requireSellerSession(new Headers())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("serves a seller profile", async () => {
+    mocks.getSession.mockResolvedValue(session("org-a"));
+    mocks.listMemberships.mockResolvedValue([membership("org-a")]);
+    await expect(requireSellerSession(new Headers())).resolves.toMatchObject({ tenantId: "org-a" });
+  });
+
+  it("checks the kind of the tab's profile, not the session's active one", async () => {
+    mocks.getSession.mockResolvedValue(session("org-a"));
+    mocks.listMemberships.mockResolvedValue([
+      membership("org-a"),
+      membership("org-supplier", "supplier"),
+    ]);
+    const supplierTab = new Headers({ "x-sellbridge-profile": "loja-org-supplier" });
+    await expect(requireSellerSession(supplierTab)).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    mocks.getSession.mockResolvedValue(session("org-supplier"));
+    await expect(requireSellerSession(new Headers(), "loja-org-a")).resolves.toMatchObject({
+      tenantId: "org-a",
+      profileKind: "seller",
+    });
   });
 });

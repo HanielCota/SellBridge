@@ -1,5 +1,15 @@
 import { expect, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
+import { user } from "@sellbridge/database/schema";
+import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
+
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+
+/** Marks the account's e-mail as confirmed, as opening the link sent on sign-up would. */
+export async function confirmEmail(email: string): Promise<void> {
+  await database.update(user).set({ emailVerified: true }).where(eq(user.email, email));
+}
 
 /**
  * Waits until React has hydrated the current document. Needed after any full page load:
@@ -30,6 +40,25 @@ export async function signIn(page: Page, credentials: { email: string; password:
   await page.getByLabel("Senha", { exact: true }).fill(credentials.password);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).not.toHaveURL(/\/login/);
+  await acceptTermsIfAsked(page);
+}
+
+/**
+ * Accounts created outside /cadastro (seed, database fixtures) have not accepted the terms yet:
+ * the app asks once on the first page (item 26.a).
+ */
+export async function acceptTermsIfAsked(page: Page): Promise<void> {
+  // Settle on the terms page or a page of the app before deciding (client-side redirects).
+  const terms = page.getByRole("heading", { name: "Antes de continuar" });
+  const app = page.getByRole("button", { name: "Menu do usuário" });
+  await expect(terms.or(app).first()).toBeVisible();
+  if (!(await terms.isVisible())) {
+    return;
+  }
+  await waitForHydration(page);
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page).not.toHaveURL(/\/aceitar-termos/);
 }
 
 export function uniqueEmail(prefix = "e2e"): string {
@@ -39,12 +68,37 @@ export function uniqueEmail(prefix = "e2e"): string {
 /** The password every account made by `signUp` gets, for signing in again. */
 export const SIGN_UP_PASSWORD = "senha-segura-123";
 
-export async function signUp(page: Page, name: string): Promise<string> {
+/**
+ * Creates an account through /cadastro. The e-mail comes back confirmed, since a new store waits
+ * for it (item 26.b); `confirm: false` keeps it pending.
+ */
+export async function signUp(
+  page: Page,
+  name: string,
+  options: { confirm?: boolean } = {},
+): Promise<string> {
   const email = uniqueEmail();
   await gotoHydrated(page, "/cadastro");
   await page.getByLabel("Nome").fill(name);
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).not.toHaveURL(/\/cadastro/);
+  if (options.confirm !== false) {
+    await confirmEmail(email);
+  }
+  return email;
+}
+
+/** Creates an account through /cadastro/fornecedor, which opens on "Quero fornecer". */
+export async function signUpAsSupplier(page: Page, name: string): Promise<string> {
+  const email = uniqueEmail("fornecedor");
+  await gotoHydrated(page, "/cadastro/fornecedor");
+  await page.getByLabel("Nome").fill(name);
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
   return email;
@@ -70,10 +124,11 @@ export function testCpf(): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-/** First onboarding step: full name and a fresh CPF of the billing holder. */
+/** First onboarding step: full name, a fresh CPF and the phone of the billing holder. */
 export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
   await page.getByLabel("Nome completo").fill(fullName);
   await page.getByLabel("CPF").fill(testCpf());
+  await page.getByLabel("Telefone com DDD").fill("(11) 98765-4321");
   await page.getByRole("button", { name: "Continuar" }).click();
 }
 

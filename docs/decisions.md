@@ -517,6 +517,107 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Envio de e-mail compartilhado** em `@sellbridge/shared/mailer` (Resend, web e worker), e o layout em `@sellbridge/shared/email-layout` (saiu de `apps/web/src/lib/server`). O item 25 (central de notificações) troca o envio direto pela fila de canais.
 - **Pendências aceitas:** um job perdido (Redis fora no instante do webhook) não é refeito pelo sweeper, e o pedido fica com o revendedor; o worker sem `RESEND_API_KEY` em produção recusa o e-mail e anota a falha no histórico.
 
+## 2026-10-15: Erros do Mercado Livre em português, com o que fazer (item 13.a)
+
+- **De onde vêm as regras:** a página oficial "Validações" (developers.mercadolivre.com.br/pt_br/validacoes, lida em 2026-10-15) dá o formato do erro (`cause[]` com `cause_id`, `type`, `code`, `references`, `message`) e a tabela de códigos. Só os códigos dessa tabela ganharam frase própria; nenhum foi inventado.
+- **O que o revendedor lê:** "o que aconteceu. o que fazer.", no tom das mensagens de indisponível do item 08: atributos obrigatórios (com os nomes que o ML deu), preço mínimo da categoria em reais, fotos pequenas, título curto, marca não autorizada, GTIN recusado e outros. Só `type: "error"` bloqueia: avisos (`warning`) não aparecem. Até dois erros por mensagem. Código desconhecido: "O Mercado Livre recusou o anúncio: <palavras do ML>. Revise o anúncio e tente de novo.", com o trecho do ML cortado em 300 caracteres. Resposta sem `cause` mantém a mensagem de antes.
+- **Códigos só no log:** `details.causes` do erro leva os códigos do ML; a tela nunca mostra código.
+- **Caminho até a tela:** sem mudança no worker nem no card; o motivo gravado no alvo já é a mensagem do erro. A descrição que falha calada (B13) é a parte 13.b.
+
+## 2026-10-16 · Aceite atrasado e prazos do fornecedor (item 21.c)
+
+- **O prazo conta do encaminhamento mais recente** (`latestForwardedAt`, o maior "Encaminhado" do histórico do envio): reencaminhar um envio cancelado recomeça a contar. Sem migration.
+- **Regra** em `shared/domain/shipment-delay.ts`: entra o "Aceite atrasado" (`accept_overdue`), para o envio ainda "Encaminhado" depois do prazo de aceite do fornecedor. Quando o marketplace não manda data de despacho, o "Despacho atrasado" passa a usar o prazo de despacho do cadastro. Os prazos do cadastro valem até a hora exata, e as datas do marketplace continuam valendo o dia inteiro. Se o despacho também passou, ele aparece no lugar do aceite.
+- **Telas:** o selo "Aceite atrasado" aparece na lista, na página do pedido e no sino ("{fornecedor} ainda não aceitou o pedido. Fale com o fornecedor."). O painel do envio mostra "Aceite até" e "Despachar até" com hora ("amanhã às 09:00", `formatDeadline`) para o revendedor e na página do fornecedor. A data de despacho do ML continua só com o dia.
+
+## 2026-10-16: Saúde da loja (item 24.a, chat B)
+
+- **Menu da loja em /lojas** ganhou "Saúde da loja": última sincronização (o `synced_at` mais recente dos anúncios da loja), último aviso de pedido do marketplace (`store_connections.last_webhook_at`, migration 0030) e o acesso. A validade do token não aparece como data: no Mercado Livre ele dura 6 horas e renova sozinho, então a linha diz "Em dia, renova sozinho", "Renovação falhou, tentaremos de novo" ou pede para reconectar.
+- **Último aviso de pedido:** `webhook_events` não guarda a loja; o worker grava `last_webhook_at` quando resolve a loja de um evento de pedido (conectada ou aguardando reconexão), com o horário em que o evento chegou. Só anda para frente e no máximo uma vez por minuto, sem mexer no `updatedAt` (o sino data o problema da loja por ele), e uma falha ao gravar só vai para o log: nunca segura o pedido. Tópicos que não são de pedido não identificam a loja hoje, por isso o rótulo fala em pedido.
+- **Leitor de tela:** um menu só percorre os itens, então o botão "Opções de…" leva o resumo da saúde como descrição acessível.
+- **Ficha do cliente no admin:** cada loja mostra o mesmo chip ("Atenção" inclusive) e os mesmos fatos numa frase corrida embaixo da linha, para o suporte ler o que o revendedor lê.
+- Partes seguintes: 24.b (pausar os anúncios ao desconectar, marcado por padrão) e 24.c (e-mail de loja expirada, depois que a 21.b do principal levar o mailer para `@sellbridge/shared`).
+
+## 2026-10-16: Desconectar pausa os anúncios por padrão (item 24.b, chat B)
+
+- O diálogo de desconectar a loja traz "Pausar os anúncios desta loja no marketplace", marcado por padrão (decisão do ⏸1: o padrão mais seguro). Um anúncio que continua ativo depois da desconexão vende sem sincronizar estoque.
+- Antes de apagar os tokens, o servidor manda estoque zero para cada anúncio publicado da loja, um por vez, com teto de 20 s para a pessoa não ficar presa no diálogo, e marca como pausados os que o marketplace aceitou. Uma falha nunca impede a desconexão: o aviso diz quantos anúncios continuam ativos e pede para pausar direto no marketplace. Depois de reconectar, a pessoa reativa os anúncios em Publicações.
+- A desconexão feita pelo admin na ficha do cliente continua sem pausar (fica em "Refinar depois").
+
+## 2026-10-16: E-mail de loja expirada fica com a central de notificações (item 24.c, chat B)
+
+- A 24.c (03b4410, e-mail direto do job de renovação) foi revertida. O 25.b do chat E (3a2a29a) já gera o aviso `store_expired` em toda expiração (`markStoreStatus`), e o despachante manda o e-mail conforme as preferências de cada pessoa. Com os dois, o dono receberia dois e-mails.
+
+## 2026-10-16: Descrição que não chegou ao marketplace (item 13.b)
+
+- **O anúncio continua no ar:** a descrição é enviada depois de o item existir; se o marketplace recusa, a publicação não falha (o item existe de fato), mas o erro (traduzido pela 13.a) fica no alvo (`listing_targets.description_error`, migration 0032) e o card mostra "Descrição não enviada" com o motivo e "Reenviar descrição".
+- **Reenvio:** pelo job de sincronização que já roda (`stock-price-sync`), sem fila nova: até 3 tentativas automáticas (aprovado no ⏸1), depois só o botão, que zera as tentativas e pede a sincronização na hora. No Mercado Livre o reenvio é `PUT /items/{id}/description?api_version=2` (a página oficial "Descrição de produtos": POST só cria; um segundo POST é recusado).
+- **Tela atualizada sozinha:** a lista de Publicações continua consultando até 5 minutos depois de uma falha ou de um pedido de reenvio, e o aviso some sem recarregar.
+- **Mock:** título com "[sem descricao]" publica e recusa a descrição; reenvio com "[descricao recusada]" é recusado (para testes).
+
+## 2026-10-16: Riscos da assinatura (item 16, chat D)
+
+- **Stripe sem trava de linha (16.a, N5):** o checkout cria o customer fora de transação (a chave de idempotência garante um só) e serializa os checkouts da organização com `pg_try_advisory_xact_lock`, que não segura linha; o segundo pedido simultâneo recebe 409 "Já estamos abrindo o pagamento". O webhook lê o Stripe antes de abrir a transação; para dois webhooks que correm juntos vale a **leitura mais recente**, gravada em ms em `last_event_created` (os valores antigos, em segundos, são sempre menores). Renomear a coluna fica para uma migration de limpeza.
+- **Cota por loja de destino (16.b, N7):** `PENDENTE CLIENTE (D10)`. A cota de anúncios conta `listing_targets` vivos (status diferente de `error`), inclusive os de lojas desconectadas (voltam ao ar na reconexão, que só checa o limite de lojas): um anúncio publicado em duas lojas ocupa duas vagas. "Reprocessar" pede vaga para cada alvo com erro que volta à fila (achado da revisão independente). Na prática o Gratuito (25) fica menor para quem publica em várias lojas; os números de cada plano entram com a matriz do 31.
+- **Produção sem Stripe (16.b, N8):** com `NODE_ENV=production`, o web não inicia sem as quatro variáveis do Stripe, a menos que `BILLING_UNLIMITED=true` (modo explícito sem limites).
+- **Carência do `past_due` (16.b, N9):** `BILLING_PAST_DUE_GRACE_DAYS`, padrão 7 (aprovado no ⏸A). O webhook grava em `period_end` o menor entre o fim do período e o início do período mais a carência; `past_due` conta como pago até lá. Aviso "Pagamento da assinatura pendente" no painel (Precisa de você) e em `/assinatura`, com o último dia.
+- **Revisão independente:** corrigidos "Reprocessar" sem checar a cota, vagas liberadas ao desconectar a loja, `observedAt` carimbado depois da leitura (passa a ser antes) e portal/expiração de checkout sem limite de tempo; a trava consultiva usa duas chaves (`hashtext('billing-checkout')`, `hashtext(tenant)`).
+
+## 2026-10-16 · Central de notificações (item 25, chat E)
+
+- **Canais:** no app (o sino, que continua lendo os dados ao vivo), e-mail e push. E-mail e push passam pela tabela `notification_deliveries` (migration 0033), uma linha por pessoa, canal e fato, com `dedupe_key` única ("order:<id>:paid"): o mesmo fato avisa uma vez. O worker (`notification-delivery`, a cada 10 s) pega as entregas com `SKIP LOCKED`, como os webhooks de saída, e tenta de novo em 1 min, 5 min, 30 min e 2 h; depois fica "failed". Push ainda não tem provedor: a entrega fecha como "skipped" e a tela não oferece o canal.
+- **O texto é montado na hora do fato** (`shared/domain/notification-events.ts`) e guardado com a entrega; o link é sempre um caminho interno (o worker junta com `APP_URL`). E-mail no layout HTML de `@sellbridge/shared/email-layout`.
+- **Eventos:** venda paga (valor e "organize seu pagamento ao fornecedor"), envio atrasado, pedido entregue (e-mail desligado por padrão, sem entrada no sino), loja desconectada, erro de publicação (só a tentativa final) e resposta do suporte. O aviso entra na mesma transação da mudança, para todos os membros da loja.
+- **Não é notícia:** venda paga ou entregue com mais de 24 h (a importação de uma loja nova não manda 400 e-mails) e atraso que começou há mais de 3 dias. Um aviso com texto inválido é descartado com log e nunca desfaz o pedido, a loja ou o anúncio.
+- **Preferências** por pessoa (não por loja), evento e canal, em `notification_preferences`; sem linha vale o padrão do evento. Perfil › Notificações tem "No app" e "E-mail". Desligar "No app" esconde aquele tipo do sino e da contagem.
+- **Fase 2:** WhatsApp e telefone com consentimento (D9), provedor de push.
+
+## 2026-10-16: E-mail confirmado antes de uma loja nova (item 26.b, chat D)
+
+- O cadastro manda o link de confirmação (`sendOnSignUp: true`); quem entra pelo Google já chega confirmado.
+- **Loja nova** só é salva com o e-mail de quem conecta confirmado: sem isso, a volta do OAuth leva a `/lojas?erro=email_not_verified` ("Confirme seu e-mail antes de conectar uma loja nova…"). **Reconectar** uma loja que a conta já tem (não desconectada) nunca espera a confirmação, para não travar contas antigas.
+- O guia de configuração ganhou a etapa "Confirme seu e-mail" (antes de "Conecte uma loja"), com "Reenviar e-mail"; conta que já tem loja passa direto por ela.
+
+## 2026-10-16: Publicação em massa com as regras do fluxo individual (item 14.a)
+
+- **Mesmas regras nos dois fluxos:** `shared/domain/bulk-publish-plan.ts` decide, produto a produto, o que sai num lote: título e descrição pelos mesmos schemas da publicação individual, estoque e "já publicado". Antes a massa publicava título cortado e descrição crua sem validar (B16).
+- **Sem estoque não publica (E8):** o servidor recusa, nos dois fluxos, produto sem unidades vendáveis, descontando o estoque de segurança que a sincronização já guarda (`STOCK_SAFETY_UNITS`, agora lido também pela web; aprovado no ⏸1). Antes só a tela escondia o botão.
+- **Resultado honesto (E12):** a massa publica os válidos e devolve os pulados com o motivo (`already_published`, `out_of_stock`, `invalid_title`, `invalid_description`, `unavailable`); o aviso diz "fora: 2 já publicado, 1 sem estoque". Se nenhum produto pode sair, o lote é recusado com os primeiros nomes e motivos. O piso de preço e o teto de R$ 1.000.000,00 continuam recusando o lote inteiro (dependem da regra que o revendedor escolheu). A tela completa do resultado e o progresso são as partes 14.b e 14.c.
+
+## 2026-10-16: Exportar e excluir os próprios dados (item 30.a, chat B)
+
+- **Exportar** (`/api/conta/exportar`, Perfil › Seus dados): um JSON com cadastro, titular (com o CPF, que é da própria pessoa), lojas sem tokens, anúncios, pedidos e itens sem o nome do comprador (dado de terceiro), chamados sem as notas internas da equipe, chaves de API sem o hash, sessões sem o token e preferências de aviso. Recusado durante o "entrar como cliente"; até 3 por hora por conta, em memória.
+- **Excluir** (rota `/delete-user` do Better Auth, ligada com `beforeDelete`): sempre com a senha (o Better Auth aceitaria só uma sessão recente) e nunca por link; bloqueada durante o "entrar como cliente"; recusada para a equipe e o dono da plataforma. Antes de apagar o usuário: as organizações em que a pessoa é a única dona vão junto, nesta ordem: cliente da Stripe apagado (cancela a assinatura; se falhar, nada é apagado), lojas conectadas desconectadas com os anúncios pausados (como na 24.b), organização apagada (tudo cascateia) e arquivos de anexos e da foto removidos do disco. Organização com outro dono fica com ele.
+- **Falhas no meio:** o cliente da Stripe é esquecido logo depois de apagado (e um "cliente já apagado" conta como feito), então uma exclusão repetida depois de um passo que falhou segue em frente. As pausas das lojas têm um orçamento total de 30 s; depois dele, as lojas restantes são desconectadas sem pausar, para a pessoa não ficar presa no diálogo. `/delete-user` tem limite próprio de 5 tentativas por minuto (em produção), contra quem tenta adivinhar a senha com uma sessão roubada.
+- **Histórico de auditoria da equipe:** desde a migration 0038 (chat E), `admin_audit_events.user_id` vira `null` quando a conta é excluída, em vez de apagar o evento. O que fica é só o registro do que a equipe fez (ação, papel dado, bloqueio, ids internos de loja e fornecedor), sem e-mail, nome, CPF nem vínculo com a pessoa, ou seja, dado anonimizado. A tela de exclusão não promete apagar esse histórico; ela lista pedidos, anúncios, chamados e cadastro, que continuam sendo apagados.
+- **Pedidos:** apagados com a conta (decisão do ⏸A). Se o cliente decidir guardar pedidos anonimizados por prazo fiscal, entra como ajuste.
+- Contas que entram só com Google não têm senha: o card manda pedir a exclusão pelo Suporte (fica em "Refinar depois").
+
+## 2026-10-16: Senha vazada (item 30.c, chat B)
+
+- Cadastro, troca, redefinição e criação de senha recusam uma senha nova que aparece em vazamentos conhecidos (Have I Been Pwned), com a mensagem "Essa senha já apareceu em vazamentos de dados na internet. Escolha outra." Só os 5 primeiros caracteres do SHA-1 saem do servidor (k-anonimidade, com padding).
+- Se o serviço falha ou demora mais de 3 s, a senha passa e a falha vai para o log (decisão do ⏸A). Por isso não usamos o plugin `haveIBeenPwned` do Better Auth: ele bloqueia o cadastro quando o serviço cai e não tem tempo limite.
+- `LEAKED_PASSWORD_CHECK` (`auto`, `on`, `off`; padrão `auto` = só em produção), para os testes e o desenvolvimento local nunca dependerem do serviço externo.
+
+## 2026-10-16: Progresso da publicação em massa (item 14.b)
+
+- **Estimativa pelo ritmo, não pela duração:** o tempo restante é o intervalo médio entre jobs concluídos vezes o que falta. O worker publica vários ao mesmo tempo, então somar a duração de cada job prometeria bem mais tempo do que resta. Sem nenhum concluído, a tela diz "calculando o tempo restante…".
+- **100% só no fim:** a porcentagem é arredondada para baixo (199 de 200 = 99%).
+- **Falha conta como terminada só quando é definitiva:** a falha que o worker ainda vai tentar de novo fica como pendente, e a barra não para antes da hora.
+- **Sem migration:** o andamento sai de `listing_targets` (`status`, `createdAt`, `publishedAt`, `updatedAt`), pelos ids que a publicação em massa devolve.
+
+## 2026-10-16: Resultado da publicação em massa no diálogo (item 14.c)
+
+- **O diálogo acompanha o lote até o fim:** depois de "Publicar" ele não fecha nem leva à lista; mostra o andamento e, no fim, quantos anúncios foram ao ar, quantos falharam (o motivo fica em Publicações) e quais produtos ficaram fora, com o motivo. Fechar antes não para nada: a publicação continua no worker.
+- **A seleção é limpa ao fechar depois de um lote**, para a próxima abertura não repetir produtos já publicados.
+
+## 2026-10-16: Dados da conta e aceite de termos (item 26.a, chat D)
+
+- **Dados da conta (L2):** o passo "Seus dados" pede nome completo, CPF e **telefone com DDD** (obrigatório, só dígitos; celular com 9 ou fixo de 2 a 5). "Vendo como empresa (CNPJ)" abre CNPJ (dígitos verificadores da Receita) e razão social; desmarcado, a empresa é apagada. Colunas `phone`, `cnpj` e `company_name` em `tenant_profile` (migration 0037). Contas antigas ficam com telefone vazio até editarem os dados; o passo continua contando como feito com nome e CPF.
+- **Aceite de termos (L4):** tabela `terms_acceptances` (pessoa, versão, data), só de inserção. A versão em vigor é `TERMS_VERSION` (`shared/domain/terms.ts`, data da publicação). O cadastro tem a caixa obrigatória "Li e aceito…" e grava o aceite logo depois de criar a conta. Quem entra sem aceite da versão em vigor (Google, contas anteriores, termos novos) vai para `/aceitar-termos` antes de qualquer página do app (aprovado no ⏸A: vale para os usuários atuais). Uma visita de admin ("Entrar como cliente") nunca aceita pelo cliente (`acceptTermsFn` bloqueada e o portão não pede).
+- **Seed:** as contas demo e admin nascem com o aceite gravado.
+- **Exportação (LGPD):** a exportação da conta passa a levar telefone e empresa do titular.
+
 ## 2026-10-16: Perfil por aba na URL (perfis, fase 1, etapas 0 e 3)
 
 O tenant vinha só de `session.activeOrganizationId`, a mesma em todas as abas: trocar de perfil numa aba mudava as outras. Agora cada aba tem o próprio perfil em `?perfil=<slug>`, mantido em todos os links por `retainSearchParams` no layout `_app`.
@@ -528,3 +629,4 @@ Spike no TanStack Start 1.169: o middleware de função com `.client()` roda em 
 - Link de perfil fora da conta vai para `/outro-perfil`, com o caminho de volta.
 - O perfil ativo da sessão só muda numa troca explícita; ler outro perfil numa aba não o altera.
 - Links abertos pelo próprio navegador (etiqueta, exportação, anexos, OAuth) levam `?perfil=` lido da URL da página, igual no SSR e no navegador; uploads `fetch` levam o cabeçalho.
+- O tipo do perfil (vendedor ou fornecedor) é o do perfil da aba, não o da sessão: funções e rotas de vendedor (etiqueta, exportação, OAuth) recusam com 403 uma aba num perfil de fornecedor, e o painel do fornecedor confere o fornecedor do perfil da aba.

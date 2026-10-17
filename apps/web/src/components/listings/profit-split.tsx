@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export const PROFIT_SPLIT_COLORS = {
   cost: "bg-finance-cost",
   fee: "bg-finance-fee",
-  profit: "bg-brand",
+  profit: "bg-brand-mark",
   loss: "bg-destructive",
 } as const;
 

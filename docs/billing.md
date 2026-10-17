@@ -23,7 +23,9 @@ as faturas, atualizar o cartão, trocar de plano e cancelar pelo Stripe Customer
 5. Execute `pnpm database:migrate` e reinicie o serviço web com as variáveis.
 
 Sem a configuração completa, os planos aparecem como “Em breve”; não há checkout
-nem imposição de novos limites sobre a operação existente. Não há cartão de crédito
+nem imposição de novos limites sobre a operação existente. Em produção isso só é aceito
+de propósito: com `NODE_ENV=production`, o serviço web não inicia se faltar alguma das
+quatro variáveis, a menos que `BILLING_UNLIMITED=true` diga que a operação roda sem limites. Não há cartão de crédito
 armazenado pelo SellBridge. A coleta do cartão e a cobrança mensal ficam no Stripe.
 
 ## Fluxo e regras
@@ -40,14 +42,28 @@ estado atual no Stripe para lidar com retentativas e eventos fora de ordem. Falh
 respondem 500 para que o Stripe reenvie o evento. Eventos de clientes externos ao
 SellBridge não alteram dados locais.
 
-Apenas `active` ou `trialing`, com período vigente e preço conhecido, liberam os
-limites pagos. Inadimplência, pausa ou término retornam aos limites gratuitos.
+Apenas `active`, `trialing` ou `past_due`, com período vigente e preço conhecido, liberam
+os limites pagos. Na inadimplência (`past_due`), o período vigente termina
+`BILLING_PAST_DUE_GRACE_DAYS` dias (padrão 7) depois da renovação que falhou: o webhook grava
+essa data em `period_end`, e o cliente vê o aviso "Pagamento da assinatura pendente" no painel
+e em `/assinatura`, com o último dia. Depois disso, ou com `unpaid`, pausa ou término, valem os
+limites gratuitos ("Pagamento da assinatura não realizado").
 Cancelamento ao final do período preserva o plano até seu encerramento. Dados,
 conexões e anúncios existentes não são removidos. Os limites impedem novas
 conexões e novos anúncios; atualização de preço, reconexão de uma loja já ativa e
-consulta de dados continuam disponíveis. A criação via API e em lote usa a mesma
+consulta de dados continuam disponíveis. A cota de anúncios conta **publicações vivas por loja
+de destino**: um anúncio em duas lojas ocupa duas vagas; publicações com erro não contam (as de
+lojas desconectadas continuam contando, porque voltam ao ar na reconexão). "Reprocessar"
+pede vaga para cada publicação com erro que volta à fila. A criação via API e em lote usa a mesma
 regra dos anúncios individuais. O bloqueio por organização evita ultrapassar limites
 com requisições simultâneas.
+
+Nenhuma chamada ao Stripe acontece com uma linha travada. O checkout cria o customer fora de
+transação e serializa por organização com uma trava consultiva (`pg_try_advisory_xact_lock`),
+que não segura linha: a publicação e a conexão de loja nunca esperam o Stripe; um segundo
+clique enquanto o primeiro abre o pagamento recebe "Já estamos abrindo o pagamento". O webhook
+lê o estado no Stripe antes da transação, e vale a leitura mais recente (`last_event_created`
+guarda a hora da leitura em milissegundos). Toda chamada tem 5 s de limite e 1 retentativa.
 
 ## Validação antes de produção
 

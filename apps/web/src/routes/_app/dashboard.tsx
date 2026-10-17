@@ -15,8 +15,9 @@ import { AttentionPanel } from "@/components/reports/attention-panel";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdown";
 import { SetupGuide } from "@/components/onboarding/setup-guide";
+import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateRange } from "@/features/reports/dashboard-metrics";
+import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -87,11 +88,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
   const withProfile = useTabProfileLink();
   const { onboarding, summary, previous } = data;
-  const onboardingComplete =
-    onboarding.hasHolder &&
-    onboarding.hasSupplier &&
-    onboarding.hasStore &&
-    onboarding.hasPublishedListing;
+  const onboardingComplete = findNextStep(onboarding) === undefined;
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
     return (
       <>
@@ -103,7 +100,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
   return (
     <>
       <DashboardIntro
-        caption={`${formatDateRange(data.period.fromDate, data.period.toDate)} · comparado com os ${data.period.days} dias anteriores`}
+        caption={formatPeriodCaption(data.period)}
         summary={
           <PeriodSummary
             current={summary}
@@ -141,7 +138,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
 function DashboardSkeleton() {
   // Same sizes as the loaded layout, so nothing jumps when the data arrives.
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando visão geral">
+    <output className="block space-y-6" aria-busy="true" aria-label="Carregando visão geral">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
           <Skeleton className="h-6 w-48" />
@@ -161,6 +158,6 @@ function DashboardSkeleton() {
           <Skeleton className="h-80 rounded-3xl" />
         </div>
       </div>
-    </div>
+    </output>
   );
 }
