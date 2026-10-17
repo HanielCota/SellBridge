@@ -15,6 +15,7 @@ import {
   healthDelta,
   sampleNote,
 } from "./health-format";
+import { useInAppLinkClick } from "@/hooks/use-in-app-link";
 
 const VERSUS = "vs. anterior";
 
@@ -38,9 +39,11 @@ function TileFooter({ metric }: { metric: HealthMetric }) {
 function HealthTile({ metric, href }: { metric: HealthMetric; href: string }) {
   const label = HEALTH_METRIC_LABELS[metric.key];
   const measured = metric.level === "insufficient" ? null : metric.value;
+  const onClick = useInAppLinkClick();
   return (
     <a
       href={href}
+      onClick={onClick}
       aria-label={`Ver ${label.toLowerCase()} no desempenho`}
       className="group surface-interactive flex min-h-36 cursor-pointer select-none min-w-0 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >

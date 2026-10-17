@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { ChecklistDoneIcon } from "@/components/reports/attention-icons";
 import { cn } from "@/lib/utils";
+import { useInAppLinkClick } from "@/hooks/use-in-app-link";
 
 /** Same tints as the reseller's "Precisa de você", one per severity. */
 const SEVERITY_CLASSES: Record<AttentionSeverity, string> = {
@@ -59,9 +60,11 @@ function AllClear() {
 }
 
 function QueueRow({ item, href }: { item: SupplierAttentionItem; href: string }) {
+  const onClick = useInAppLinkClick();
   return (
     <a
       href={href}
+      onClick={onClick}
       className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 outline-none select-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span
