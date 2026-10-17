@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, organization } from "../schema/index.ts";
+import { member, organization, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
-import { listProfilesOf, setOrganizationKind } from "./account-profiles.ts";
+import { findSupplierOfProfile, listProfilesOf, setOrganizationKind } from "./account-profiles.ts";
 
 const database = createTestDatabase();
 let users: Awaited<ReturnType<typeof createTestUsers>>;
@@ -32,6 +32,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await database.delete(suppliers).where(inArray(suppliers.organizationId, tenants.ids));
   await database.delete(member).where(inArray(member.organizationId, tenants.ids));
   await tenants.cleanup();
   await users.cleanup();
@@ -79,6 +80,43 @@ describe("account profiles", () => {
 
   it("reports when the organization to mark does not exist", async () => {
     expect(await setOrganizationKind(database, randomUUID(), "supplier")).toBe(false);
+  });
+
+  it("finds the supplier a supplier profile runs", async () => {
+    const organizationId = idAt(tenants.ids, 2);
+    const [created] = await database
+      .insert(suppliers)
+      .values({
+        name: "Ateliê Perfil",
+        niche: "Casa",
+        state: "SP",
+        city: "Campinas",
+        organizationId,
+      })
+      .returning({ id: suppliers.id });
+
+    expect(await findSupplierOfProfile(database, organizationId)).toEqual({
+      id: created?.id,
+      name: "Ateliê Perfil",
+    });
+  });
+
+  it("finds no supplier for a profile that has not set up its brand", async () => {
+    expect(await findSupplierOfProfile(database, idAt(tenants.ids, 1))).toBeNull();
+  });
+
+  it("refuses a second supplier for the same profile", async () => {
+    const insertSecond = database.insert(suppliers).values({
+      name: "Outro catálogo",
+      niche: "Casa",
+      state: "SP",
+      city: "Campinas",
+      organizationId: idAt(tenants.ids, 2),
+    });
+
+    await expect(insertSecond).rejects.toMatchObject({
+      cause: { constraint_name: "suppliers_organization_id_unique" },
+    });
   });
 
   it("refuses an unknown profile kind", async () => {

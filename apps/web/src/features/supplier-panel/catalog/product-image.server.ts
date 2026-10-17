@@ -8,7 +8,9 @@ import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
-import { requireAdminSession } from "@/lib/server/tenant-session";
+import { assertSupplierPanelAccess } from "@/lib/server/supplier-panel-access";
+import { resolveSupplierPanelViewer } from "@/lib/server/supplier-panel-viewer";
+import { requireTenantSession } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, productImageUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
 import {
@@ -59,15 +61,16 @@ async function readProductImage(request: Request) {
 
 /**
  * POST /api/fornecedor/produtos/imagens: multipart "supplierId" and "file"; answers the
- * public link of the stored photo. Admin-only for now, like every supplier panel action
- * (`catalog.functions.ts`): the supplier access work checks the session's supplier here too.
+ * public link of the stored photo. Same access as the panel functions: the supplier profile
+ * for its own catalog, or the team for any supplier (`supplierPanelMiddleware`).
  */
 export function handleUploadProductImage(request: Request) {
   return handleApi("supplier_panel.upload_product_image", async () => {
     assertSameOrigin(request, environment.APP_URL);
-    const session = await requireAdminSession(request.headers);
+    const session = await requireTenantSession(request.headers);
     assertUploadAllowed(productImageUploads, session.userId);
     const { supplierId, bytes, type } = await readProductImage(request);
+    assertSupplierPanelAccess(await resolveSupplierPanelViewer(session), supplierId);
     await assertPanelSupplier(database, supplierId);
     const fileName = `${randomUUID()}.${PRODUCT_IMAGE_TYPES[type]}`;
     await fileStorage.put(productImageStorageKey({ supplierId, fileName }), bytes);

@@ -6,12 +6,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
 import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireSellerSession } from "@/lib/server/tenant-session";
 
 /** Resolves the session, treating an expected auth failure (AppError) as "not signed in". */
 async function findTenantSession(headers: Headers) {
   try {
-    return await requireTenantSession(headers);
+    return await requireSellerSession(headers);
   } catch (error) {
     if (isAppError(error)) {
       return null;
