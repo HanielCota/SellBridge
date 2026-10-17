@@ -62,6 +62,11 @@ describe("presentNotification", () => {
 
   it.each([
     [
+      "accept_overdue",
+      "Aceite atrasado no pedido #ML-9",
+      "Brás Atacado Masculino ainda não aceitou o pedido. Fale com o fornecedor.",
+    ],
+    [
       "dispatch_overdue",
       "Despacho atrasado no pedido #ML-9",
       "Brás Atacado Masculino passou do prazo para despachar. Fale com o fornecedor.",
@@ -178,6 +183,20 @@ describe("presentNotification", () => {
       detail: "Dúvida de frete",
       href: "/suporte/ticket-1",
     });
+  });
+});
+
+describe("orders waiting for a review", () => {
+  // Regression: the bell sent the reseller to /pedidos on the operations tab, so the orders it
+  // named were nowhere to be seen.
+  it("opens the orders page on the reviews tab, filtered to the pending ones", () => {
+    const notification = presentNotification({
+      kind: "review_pending",
+      entityId: "reviews",
+      pending: 3,
+      at,
+    });
+    expect(notification.href).toBe("/pedidos?view=reviews&review=pending");
   });
 });
 

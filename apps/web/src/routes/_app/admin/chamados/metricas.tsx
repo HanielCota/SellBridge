@@ -2,13 +2,13 @@ import type { SupportMetrics } from "@sellbridge/database/repositories";
 import { supportMetricsSearchSchema, TICKET_CATEGORY_LABELS } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+
 import { SegmentedControl } from "@/components/data/segmented-control";
 import { ErrorState } from "@/components/feedback/error-state";
-import { PageHeader } from "@/components/layout/page-header";
+import { BackLink, PageHeader } from "@/components/layout/page-header";
 import { RatingStars } from "@/components/support/ticket-rating";
-import { Button } from "@/components/ui/button";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDuration } from "@/features/support/response-time";
 import { supportMetricsQueryOptions } from "@/features/support/support.queries";
@@ -176,13 +176,8 @@ function SupportMetricsPage() {
 
   return (
     <div className="space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
-        <Link to="/admin/chamados">
-          <ArrowLeftIcon aria-hidden="true" />
-          Chamados
-        </Link>
-      </Button>
       <PageHeader
+        back={<BackLink to="/admin/chamados" label="Chamados" />}
         title="Métricas do suporte"
         description="Volume, tempo de resposta e satisfação, no geral e por pessoa."
         actions={

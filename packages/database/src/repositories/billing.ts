@@ -1,5 +1,5 @@
 import { effectiveBillingPlan } from "@sellbridge/shared/billing";
-import { and, eq, count, ne } from "drizzle-orm";
+import { and, eq, count, ne, sql } from "drizzle-orm";
 import { forbiddenError } from "@sellbridge/shared/errors";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -7,7 +7,7 @@ import {
   billingEvents,
   member,
   organization,
-  listings,
+  listingTargets,
   storeConnections,
 } from "../schema/index.ts";
 
@@ -36,6 +36,21 @@ export async function lockBillingTenant(database: DatabaseExecutor, tenantId: st
     .for("update");
 }
 
+/**
+ * Serializes opening a checkout per tenant with a transaction-scoped advisory lock. It holds no
+ * row, so publishing and connecting stores never wait on Stripe (item 16.a, N5). False when
+ * another checkout of the same tenant is still being opened.
+ */
+export async function tryLockBillingCheckout(
+  database: DatabaseExecutor,
+  tenantId: string,
+): Promise<boolean> {
+  const rows = await database.execute(
+    sql`select pg_try_advisory_xact_lock(hashtext('billing-checkout'), hashtext(${tenantId})) as locked`,
+  );
+  return rows[0]?.locked === true;
+}
+
 export async function saveBillingCustomer(
   database: DatabaseExecutor,
   tenantId: string,
@@ -47,9 +62,17 @@ export async function saveBillingCustomer(
     .onConflictDoUpdate({ target: billingAccounts.tenantId, set: { customerId } });
 }
 
+/**
+ * Stores not disconnected, and live publications: one per destination store, failed ones left
+ * out (item 16, N7). A disconnected store keeps its slots: its publications come back alive on
+ * reconnect, which only checks the store limit.
+ */
 export async function billingUsage(database: DatabaseExecutor, tenantId: string) {
   const [listingCounts, storeCounts] = await Promise.all([
-    database.select({ value: count() }).from(listings).where(eq(listings.tenantId, tenantId)),
+    database
+      .select({ value: count() })
+      .from(listingTargets)
+      .where(and(eq(listingTargets.tenantId, tenantId), ne(listingTargets.status, "error"))),
     database
       .select({ value: count() })
       .from(storeConnections)
@@ -64,7 +87,8 @@ export async function applyBillingEvent(
   database: DatabaseExecutor,
   input: {
     eventId: string;
-    eventCreated: number;
+    /** When the state was read from Stripe, in Unix milliseconds: the newest read wins. */
+    observedAt: number;
     customerId: string;
     subscriptionId: string;
     plan: string;
@@ -84,7 +108,7 @@ export async function applyBillingEvent(
     .values({ id: input.eventId })
     .onConflictDoNothing()
     .returning();
-  if (!event || account.lastEventCreated > input.eventCreated) return;
+  if (!event || account.lastEventCreated > input.observedAt) return;
   await database
     .update(billingAccounts)
     .set({
@@ -93,14 +117,15 @@ export async function applyBillingEvent(
       status: input.status,
       periodEnd: input.periodEnd,
       cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-      lastEventCreated: input.eventCreated,
+      lastEventCreated: input.observedAt,
     })
     .where(eq(billingAccounts.tenantId, account.tenantId));
 }
 
 /**
- * Refuses when `requested` more stores or listings would pass the plan. A batch asks for all of
- * its items at once, so it is refused whole instead of stopping halfway at the limit.
+ * Refuses when `requested` more stores or listing slots would pass the plan. A listing asks one
+ * slot per destination store; a batch asks for all of its slots at once, so it is refused whole
+ * instead of stopping halfway at the limit.
  */
 export async function assertBillingCapacity(
   database: DatabaseExecutor,
@@ -119,11 +144,11 @@ export async function assertBillingCapacity(
   }
 }
 
-export async function lockBillingCustomer(database: DatabaseExecutor, customerId: string) {
+/** The account bound to a Stripe customer, or null for customers outside this application. */
+export async function findBillingCustomer(database: DatabaseExecutor, customerId: string) {
   const [account] = await database
     .select()
     .from(billingAccounts)
-    .where(eq(billingAccounts.customerId, customerId))
-    .for("update");
+    .where(eq(billingAccounts.customerId, customerId));
   return account ?? null;
 }

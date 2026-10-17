@@ -2,16 +2,18 @@ import { conflictError, unauthorizedError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireTenantSession:
+  requireSellerSession:
     vi.fn<() => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>>(),
   createOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   upsertStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   exchangeCode: vi.fn<(input: unknown) => Promise<unknown>>(),
+  isUserEmailVerified: vi.fn<(database: unknown, userId: string) => Promise<boolean>>(),
+  hasLiveStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<boolean>>(),
 }));
 
 vi.mock("@/lib/server/tenant-session", () => ({
-  requireTenantSession: mocks.requireTenantSession,
+  requireSellerSession: mocks.requireSellerSession,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -35,6 +37,8 @@ vi.mock("@sellbridge/database/repositories", () => ({
   consumeOAuthState: mocks.consumeOAuthState,
   createOAuthState: mocks.createOAuthState,
   upsertStoreConnection: mocks.upsertStoreConnection,
+  isUserEmailVerified: mocks.isUserEmailVerified,
+  hasLiveStoreConnection: mocks.hasLiveStoreConnection,
 }));
 
 const { handleOAuthCallback, handleOAuthStart } = await import("./oauth.server");
@@ -53,12 +57,14 @@ async function redirectedTo(): Promise<URL> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireTenantSession.mockResolvedValue({
+  mocks.requireSellerSession.mockResolvedValue({
     tenantId: "tenant-b",
     userId: "user-b",
     impersonatedBy: null,
   });
   mocks.consumeOAuthState.mockResolvedValue({ codeVerifier: null, supplierId: "supplier-1" });
+  mocks.isUserEmailVerified.mockResolvedValue(true);
+  mocks.hasLiveStoreConnection.mockResolvedValue(false);
   mocks.exchangeCode.mockResolvedValue({
     tokens: { accessToken: "access", refreshToken: "refresh", expiresAt: null },
     shop: SHOP,
@@ -106,7 +112,7 @@ describe("OAuth callback", () => {
 
 describe("connecting a store while an admin uses the customer's account", () => {
   beforeEach(() => {
-    mocks.requireTenantSession.mockResolvedValue({
+    mocks.requireSellerSession.mockResolvedValue({
       tenantId: "tenant-b",
       userId: "user-b",
       impersonatedBy: "admin-1",
@@ -134,7 +140,7 @@ describe("connecting a store while an admin uses the customer's account", () => 
 
 describe("redirects on a trusted host other than APP_URL", () => {
   it("keeps the person on the host their session cookie belongs to", async () => {
-    mocks.requireTenantSession.mockResolvedValue({
+    mocks.requireSellerSession.mockResolvedValue({
       tenantId: "tenant-b",
       userId: "user-b",
       impersonatedBy: "admin-1",
@@ -149,11 +155,35 @@ describe("redirects on a trusted host other than APP_URL", () => {
   });
 
   it("never follows a host that is not trusted", async () => {
-    mocks.requireTenantSession.mockRejectedValue(unauthorizedError());
+    mocks.requireSellerSession.mockRejectedValue(unauthorizedError());
     const response = await handleOAuthStart(
       new Request("http://evil.example/api/oauth/mock/start"),
       "mock",
     );
     expect(new URL(response.headers.get("location") ?? "").origin).toBe("https://sellbridge.test");
+  });
+});
+
+// Item 26.b (L1): a store is only connected by someone whose e-mail is confirmed.
+describe("verified e-mail before a new store", () => {
+  it("refuses a new shop while the e-mail is not confirmed, without saving it", async () => {
+    mocks.isUserEmailVerified.mockResolvedValue(false);
+    const location = await redirectedTo();
+    expect(location.pathname).toBe("/lojas");
+    expect(location.searchParams.get("erro")).toBe("email_not_verified");
+    expect(mocks.isUserEmailVerified).toHaveBeenCalledWith({}, "user-b");
+    expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+
+  it("still reconnects a shop the account already has", async () => {
+    mocks.isUserEmailVerified.mockResolvedValue(false);
+    mocks.hasLiveStoreConnection.mockResolvedValue(true);
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const location = await redirectedTo();
+    expect(location.searchParams.get("conectada")).toBe("store-1");
+    expect(mocks.hasLiveStoreConnection).toHaveBeenCalledWith(
+      {},
+      { tenantId: "tenant-b", marketplace: "mock", externalShopId: SHOP.externalShopId },
+    );
   });
 });

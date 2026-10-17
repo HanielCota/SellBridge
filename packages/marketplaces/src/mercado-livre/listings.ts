@@ -3,6 +3,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { marketplaceError } from "../errors.ts";
 import type {
+  DescriptionUpdate,
   PublishedListing,
   PublishProductInput,
   PublishOptions,
@@ -70,15 +71,26 @@ function itemBody(
   };
 }
 
-/** The description is optional for the listing: a failure is logged and publishing goes on. */
+/** Why a description did not go through, in the reseller's words (13.a); generic otherwise. */
+function descriptionFailure(error: unknown): string {
+  if (isAppError(error)) {
+    return error.message;
+  }
+  return "O Mercado Livre não recebeu a descrição. Reenvie a descrição.";
+}
+
+/**
+ * The description is optional for the listing: a failure never fails the publication, but it
+ * is reported back so the reseller sees it and can resend (item 13.b). Null when it went through.
+ */
 async function postDescription(
   context: MercadoLivreContext,
   description: { store: StoreCredentials; itemId: string; plainText: string },
-): Promise<void> {
+): Promise<string | null> {
   try {
     await requestJson(context, {
       schema: z.unknown(),
-      path: `/items/${description.itemId}/description`,
+      path: `/items/${encodeURIComponent(description.itemId)}/description`,
       init: {
         method: "POST",
         accessToken: description.store.accessToken,
@@ -86,13 +98,55 @@ async function postDescription(
         body: JSON.stringify({ plain_text: description.plainText }),
       },
     });
+    return null;
   } catch (error) {
     logger.warn("mercado_livre.description_failed", {
       error,
       externalShopId: description.store.externalShopId,
       externalId: description.itemId,
     });
+    return descriptionFailure(error);
   }
+}
+
+/** `updateDescription` for publishing: a refusal is reported, never thrown. */
+async function replaceDescription(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  update: DescriptionUpdate,
+): Promise<string | null> {
+  try {
+    await updateDescription(context, store, update);
+    return null;
+  } catch (error) {
+    logger.warn("mercado_livre.description_failed", {
+      error,
+      externalShopId: store.externalShopId,
+      externalId: update.externalId,
+    });
+    return descriptionFailure(error);
+  }
+}
+
+/**
+ * Replaces the description of a live item. The official "Descrição de produtos" page: POST only
+ * creates one (a second POST is a bad request), PUT with api_version=2 replaces it.
+ */
+export async function updateDescription(
+  context: MercadoLivreContext,
+  store: StoreCredentials,
+  update: DescriptionUpdate,
+): Promise<void> {
+  await requestJson(context, {
+    schema: z.unknown(),
+    path: `/items/${encodeURIComponent(update.externalId)}/description?api_version=2`,
+    init: {
+      method: "PUT",
+      accessToken: store.accessToken,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ plain_text: update.plainText }),
+    },
+  });
 }
 
 /** Search failures and ambiguous matches must never be interpreted as "not found". */
@@ -247,12 +301,12 @@ export async function publishProduct(
       priceCents: input.priceCents,
       stock: input.stock,
     });
-    await postDescription(context, {
-      store,
-      itemId: existing.externalId,
+    // A recovered item may have its description already: replace it, a second POST is refused.
+    const descriptionError = await replaceDescription(context, store, {
+      externalId: existing.externalId,
       plainText: input.description,
     });
-    return existing;
+    return { ...existing, descriptionError };
   }
   await confirmEarlierCreationAbsent(context, options);
   const title = input.title.slice(0, MAX_TITLE_LENGTH);
@@ -285,8 +339,12 @@ export async function publishProduct(
     if (creationWasRefused(error)) await options?.creationRejected();
     throw error;
   }
-  await postDescription(context, { store, itemId: item.id, plainText: input.description });
-  return { externalId: item.id, externalUrl: item.permalink ?? null };
+  const descriptionError = await postDescription(context, {
+    store,
+    itemId: item.id,
+    plainText: input.description,
+  });
+  return { externalId: item.id, externalUrl: item.permalink ?? null, descriptionError };
 }
 
 function stockPriceBody(update: StockPriceUpdate): Record<string, number> {

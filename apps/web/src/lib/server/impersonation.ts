@@ -18,6 +18,7 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   checkoutBilling: "assinar um plano",
   manageBilling: "mudar a assinatura",
   saveOnboardingHolder: "mudar os dados do titular",
+  acceptTermsFn: "aceitar os termos de uso",
 };
 
 /** Writes too small to land in the customer's timeline (read markers). */

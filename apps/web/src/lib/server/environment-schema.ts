@@ -1,4 +1,5 @@
 import {
+  alertWebhookUrlEnvironmentSchema,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
   mockWebhookSecretEnvironmentSchema,
@@ -16,6 +17,13 @@ const serverEnvironmentShape = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_PRO_PRICE_ID: z.string().startsWith("price_").optional(),
   STRIPE_BUSINESS_PRICE_ID: z.string().startsWith("price_").optional(),
+  /**
+   * Production without Stripe refuses to start unless this says so: no Stripe means no plan
+   * limits at all (item 16, N8).
+   */
+  BILLING_UNLIMITED: booleanFlagEnvironmentSchema,
+  /** Days a failed renewal (past_due) keeps the paid limits before falling back to Gratuito. */
+  BILLING_PAST_DUE_GRACE_DAYS: z.coerce.number().int().min(0).max(60).default(7),
   NODE_ENV: nodeEnvironmentSchema,
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
@@ -44,6 +52,8 @@ const serverEnvironmentShape = z.object({
   ESTIMATED_SHIPPING_CENTS: z.coerce.number().int().min(0).max(100_000_000).default(0),
   /** Margin a price must keep after every fee; 0 only forbids selling at a loss. */
   MIN_MARGIN_PERCENT: z.coerce.number().int().min(0).max(90).default(0),
+  /** Units the sync keeps off the marketplaces (the worker's own); none of them may be published. */
+  STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
     .string()
@@ -56,6 +66,7 @@ const serverEnvironmentShape = z.object({
     ),
   MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
+  ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
   /** Transactional e-mail (password reset). Without it, development logs the message. */
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(3).default("SellBridge <no-reply@sellbridge.local>"),
@@ -74,12 +85,23 @@ const serverEnvironmentShape = z.object({
    * "cf-connecting-ip": x-forwarded-for would then carry Cloudflare's address for every user.
    */
   CLIENT_IP_HEADER: z.string().trim().toLowerCase().default("x-forwarded-for"),
+  /**
+   * Refuses new passwords found in known breaches (Have I Been Pwned, item 30.c). "auto" turns it
+   * on in production only, so tests and local sign-ups never depend on the outside service.
+   */
+  LEAKED_PASSWORD_CHECK: z.enum(["auto", "on", "off"]).default("auto"),
 });
 
-export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
-  if (value.NODE_ENV !== "production") {
-    return;
-  }
+const STRIPE_REQUIRED_KEYS = [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRO_PRICE_ID",
+  "STRIPE_BUSINESS_PRICE_ID",
+] as const;
+
+type ServerEnvironmentShape = z.infer<typeof serverEnvironmentShape>;
+
+function checkPlaceholderSecret(value: ServerEnvironmentShape, context: z.RefinementCtx) {
   if (!value.BETTER_AUTH_SECRET.startsWith(PLACEHOLDER_SECRET_PREFIX)) {
     return;
   }
@@ -88,6 +110,30 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
     path: ["BETTER_AUTH_SECRET"],
     message: "ainda é o valor do .env.example; gere outro com openssl rand -base64 32",
   });
+}
+
+function checkProductionBilling(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  if (value.BILLING_UNLIMITED) {
+    return;
+  }
+  for (const key of STRIPE_REQUIRED_KEYS) {
+    if (value[key] !== undefined) {
+      continue;
+    }
+    context.addIssue({
+      code: "custom",
+      path: [key],
+      message: "obrigatória em produção; sem o Stripe defina BILLING_UNLIMITED=true (sem limites)",
+    });
+  }
+}
+
+export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
+  if (value.NODE_ENV !== "production") {
+    return;
+  }
+  checkPlaceholderSecret(value, context);
+  checkProductionBilling(value, context);
 });
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;

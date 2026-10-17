@@ -13,7 +13,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth.ts";
+import { listings } from "./listings.ts";
 import { orders } from "./orders.ts";
+import { storeConnections } from "./stores.ts";
 import {
   ticketCategoryEnum,
   ticketEventTypeEnum,
@@ -42,6 +44,15 @@ export const tickets = pgTable(
      * owes nothing. The response deadline is this plus the priority's target hours.
      */
     awaitingSince: timestamp({ withTimezone: true }),
+    /**
+     * When support must answer by: `awaitingSince` plus the priority's target, counted in
+     * business hours (item 27.b). Null while support owes nothing.
+     */
+    responseDueAt: timestamp({ withTimezone: true }),
+    /** The store the ticket is about, when opened from Lojas (item 27.a). */
+    storeConnectionId: uuid().references(() => storeConnections.id, { onDelete: "set null" }),
+    /** The listing the ticket is about, when opened from Publicações (item 27.a). */
+    listingId: uuid().references(() => listings.id, { onDelete: "set null" }),
     /** First public support reply, for the first-response metrics. */
     firstResponseAt: timestamp({ withTimezone: true }),
     closedAt: timestamp({ withTimezone: true }),

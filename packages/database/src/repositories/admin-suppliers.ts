@@ -22,6 +22,7 @@ import {
 } from "../schema/index.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
+import { reviewedImportValues } from "./supplier-panel-import-review.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
 export type AdminSupplierProduct = typeof supplierProducts.$inferSelect;
@@ -401,6 +402,7 @@ function planImportRows(input: {
       imageUrls: product.imageUrls,
       active: product.active,
       suggestedPriceCents: product.suggestedPriceCents,
+      mercadoLivreAttributes: product.mercadoLivreAttributes,
     })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
     products: plan.products,
@@ -441,6 +443,8 @@ export async function importSupplierProducts(
     supplierId: string;
     rows: readonly ProductCsvRow[];
     validatePreview: (plan: SupplierProductImportPlan) => void;
+    /** Set for the supplier's own import: rows go through review instead of being approved. */
+    reviewAt?: Date;
   },
 ) {
   return await database.transaction(async (transaction) => {
@@ -459,9 +463,10 @@ export async function importSupplierProducts(
     if (plan.errors.length > 0 || plan.products.length === 0) {
       throw validationError("Corrija os erros do CSV antes de importar");
     }
+    const reviewed = await reviewedImportValues(transaction, input, plan.products);
     const written = await transaction
       .insert(supplierProducts)
-      .values(plan.products)
+      .values(reviewed?.values ?? plan.products)
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
         set: {
@@ -473,6 +478,9 @@ export async function importSupplierProducts(
           imageUrls: sql`excluded.image_urls`,
           active: sql`excluded.active`,
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
+          // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
+          mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
+          ...reviewed?.conflictSet,
           updatedAt: new Date(),
         },
       })

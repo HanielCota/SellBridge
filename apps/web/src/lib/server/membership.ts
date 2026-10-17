@@ -1,14 +1,22 @@
 import { schema } from "@sellbridge/database";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { and, asc, eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
 
-/** Whether the user still belongs to the organization (a member removed keeps an old session). */
-export async function isMemberOf(userId: string, organizationId: string): Promise<boolean> {
-  const membership = await database.query.member.findFirst({
-    where: and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId)),
-    columns: { id: true },
-  });
-  return membership !== undefined;
+/**
+ * The kind of the profile while the user still belongs to it, or null when they do not (a member
+ * removed keeps an old session, not the profile).
+ */
+export async function findMemberProfileKind(
+  userId: string,
+  organizationId: string,
+): Promise<ProfileKind | null> {
+  const [membership] = await database
+    .select({ kind: schema.organization.kind })
+    .from(schema.member)
+    .innerJoin(schema.organization, eq(schema.organization.id, schema.member.organizationId))
+    .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId)));
+  return membership?.kind ?? null;
 }
 
 /** Returns the oldest organization the user belongs to, or null when there is none. */
@@ -21,4 +29,16 @@ export async function findFirstOrganizationId(userId: string): Promise<string | 
     return null;
   }
   return membership.organizationId;
+}
+
+/** The kind of the session's profile; the first profile when none is active yet (sign-up). */
+export async function findSessionProfileKind(
+  userId: string,
+  activeId: string | null,
+): Promise<ProfileKind> {
+  const organizationId = activeId ?? (await findFirstOrganizationId(userId));
+  if (organizationId === null) {
+    return "seller";
+  }
+  return (await findMemberProfileKind(userId, organizationId)) ?? "seller";
 }

@@ -147,11 +147,11 @@ function ListingsGrid() {
 
   if (query.isPending) {
     return (
-      <div className={GRID} aria-label="Carregando publicações">
+      <output className={GRID} aria-label="Carregando publicações">
         {Array.from({ length: SKELETON_CARDS }, (_, index) => (
           <Skeleton key={index} className="h-80 rounded-3xl" />
         ))}
-      </div>
+      </output>
     );
   }
   if (query.isError) {

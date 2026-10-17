@@ -60,6 +60,10 @@ const LATE_COPY: Record<
   Extract<NotificationEvent, { kind: "shipment_late" }>["delay"],
   { title: string; detail: (supplierName: string) => string }
 > = {
+  accept_overdue: {
+    title: "Aceite atrasado no pedido",
+    detail: (supplierName) => `${supplierName} ainda não aceitou o pedido. Fale com o fornecedor.`,
+  },
   dispatch_overdue: {
     title: "Despacho atrasado no pedido",
     detail: (supplierName) =>
@@ -149,7 +153,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
             ? "1 pedido esperando sua avaliação"
             : `${event.pending} pedidos esperando sua avaliação`,
         detail: "Avalie os fornecedores para formar o score deles.",
-        href: "/pedidos",
+        href: "/pedidos?view=reviews&review=pending",
       };
   }
   return {

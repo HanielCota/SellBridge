@@ -51,3 +51,24 @@ describe("route error delivery", () => {
     expect(transport).toHaveBeenCalledTimes(10);
   });
 });
+
+describe("succeedsOrReports", () => {
+  it("says the step worked without reporting anything", async () => {
+    const { succeedsOrReports } = await import("./report-route-error");
+
+    expect(await succeedsOrReports(async () => "ok", "/_auth/cadastro")).toBe(true);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed step and says it failed instead of throwing", async () => {
+    transport.mockResolvedValue(new Response(null, { status: 204 }));
+    const { succeedsOrReports } = await import("./report-route-error");
+
+    const succeeded = await succeedsOrReports(async () => {
+      throw new Error("Falha ao gravar a escolha");
+    }, "/_auth/cadastro");
+
+    expect(succeeded).toBe(false);
+    expect(transport).toHaveBeenCalledOnce();
+  });
+});

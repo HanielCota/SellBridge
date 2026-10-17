@@ -7,6 +7,9 @@ import type { Database } from "../client.ts";
 import { isCountedOrder, isUncountedOrder } from "./sql/counted-orders.ts";
 import { sqlIntegerSchema, timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { BUCKET_SQL, type TimeseriesBucket } from "./sql/timeseries-buckets.ts";
+
+export type { TimeseriesBucket };
 
 /**
  * Financial reports. Per-order numbers are computed in SQL with the same formula as
@@ -204,21 +207,16 @@ const timeseriesRowSchema = z.object({
   pending_revenue: cents,
 });
 
-export type TimeseriesBucket = "day" | "week" | "month";
-
-const BUCKET_SQL: Record<TimeseriesBucket, { unit: SQL; step: SQL }> = {
-  day: { unit: sql.raw("'day'"), step: sql.raw("interval '1 day'") },
-  week: { unit: sql.raw("'week'"), step: sql.raw("interval '1 week'") },
-  month: { unit: sql.raw("'month'"), step: sql.raw("interval '1 month'") },
-};
-
-/** Revenue and profit per day, week or month (Brazil time), with empty buckets filled with zero. */
+/**
+ * Revenue and profit per hour, day, week or month (Brazil time), with empty buckets filled with
+ * zero.
+ */
 export async function getSalesTimeseries(
   database: Database,
   scope: ReportScope,
   bucket: TimeseriesBucket,
 ): Promise<TimeseriesPoint[]> {
-  const { unit, step } = BUCKET_SQL[bucket];
+  const { unit, step, label } = BUCKET_SQL[bucket];
   const rows = await database.execute(sql`
     with ${orderFinanceCte(scope)},
     buckets as (
@@ -239,7 +237,7 @@ export async function getSalesTimeseries(
       group by 1
     )
     select
-      to_char(b.bucket, 'YYYY-MM-DD') as bucket,
+      to_char(b.bucket, ${label}) as bucket,
       coalesce(g.orders, 0) as orders,
       coalesce(g.revenue, 0) as revenue,
       coalesce(g.profit, 0) as profit,

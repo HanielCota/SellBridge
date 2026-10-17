@@ -1,18 +1,7 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { suppliers } from "./suppliers.ts";
-
-export const cepCache = pgTable("cep_cache", {
-  cep: text().primaryKey(),
-  state: text().notNull(),
-  city: text().notNull(),
-  neighborhood: text(),
-  street: text(),
-  provider: text().notNull(),
-  payload: jsonb().notNull(),
-  fetchedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-});
 
 export const tenantProfile = pgTable(
   "tenant_profile",
@@ -20,19 +9,15 @@ export const tenantProfile = pgTable(
     tenantId: text()
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
-    // The tenant's address is no longer asked for (suppliers sell anywhere in Brazil); old rows keep it.
-    cep: text(),
-    state: text(),
-    city: text(),
-    neighborhood: text(),
-    // Street address typed or confirmed by the tenant; city and state above always come from the CEP.
-    street: text(),
-    number: text(),
-    complement: text(),
     // Who invoices and charges go to. Null for tenants saved before the field existed.
     fullName: text(),
     // Digits only.
     cpf: text(),
+    /** Digits only, with area code (item 26.a). Null for tenants saved before the field existed. */
+    phone: text(),
+    /** Digits only; set with `companyName` for who sells as a company, else both null. */
+    cnpj: text(),
+    companyName: text(),
     /**
      * The supplier picked during onboarding, before any shop exists: the first shop the tenant
      * connects sells it. Null until picked, or when that supplier was deleted.

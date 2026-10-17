@@ -100,12 +100,13 @@ function NotificationMark({ notification }: { notification: AppNotification }) {
           title={notification.product.title}
           categoryName={notification.product.categoryName}
           compact
+          reserveCorner
           className="size-full"
         />
       </span>
       <span
         className={cn(
-          "absolute -right-1 -bottom-1 flex size-[1.125rem] items-center justify-center rounded-full ring-2 ring-popover",
+          "absolute -right-1.5 -bottom-1.5 flex size-4 items-center justify-center rounded-full ring-2 ring-popover",
           style.className,
         )}
       >
@@ -139,7 +140,10 @@ function NotificationRow({
             </span>
             {isNew ? (
               <>
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                <span
+                  className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-mark"
+                  aria-hidden="true"
+                />
                 <span className="sr-only">Novo</span>
               </>
             ) : null}
@@ -244,7 +248,7 @@ function TabTrigger({
       {hasNew ? (
         <>
           <span
-            className="absolute top-1.5 left-[calc(50%+0.5rem)] size-2 rounded-full bg-brand ring-2 ring-popover"
+            className="absolute top-1.5 left-[calc(50%+0.5rem)] size-2 rounded-full bg-brand-mark ring-2 ring-popover"
             aria-hidden="true"
           />
           <span className="sr-only">, com novidades</span>

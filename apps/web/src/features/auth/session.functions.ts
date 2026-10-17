@@ -1,9 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { hasAcceptedTerms } from "@sellbridge/database/repositories";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
+import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
+import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
+import { findSessionProfileKind } from "@/lib/server/membership";
 import { staffMiddleware } from "@/lib/server/middleware";
 
 /**
@@ -28,12 +33,16 @@ export interface SessionUser {
 export interface AppSession {
   user: SessionUser;
   tenantId: string | null;
+  /** Seller or supplier: which screens and menu the app shows (`profileRedirectFor`). */
+  profileKind: ProfileKind;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
   /** When an admin's visit ends on its own (ISO), or null outside one. */
   impersonationEndsAt: string | null;
   /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
   adminMode: boolean;
+  /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
+  termsAccepted: boolean;
 }
 
 export const getAppSession = createServerFn({ method: "GET" }).handler(
@@ -54,10 +63,15 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       },
       adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
       tenantId: session.session.activeOrganizationId ?? null,
+      profileKind: await findSessionProfileKind(
+        session.user.id,
+        session.session.activeOrganizationId ?? null,
+      ),
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
         : null,
+      termsAccepted: await hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
     };
   },
 );

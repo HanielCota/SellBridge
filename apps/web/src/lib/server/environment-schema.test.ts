@@ -73,4 +73,46 @@ describe("serverEnvironmentSchema", () => {
       "http://cadastro.localhost:4850",
     ]);
   });
+
+  describe("billing in production (item 16, N8)", () => {
+    const stripe = {
+      STRIPE_SECRET_KEY: "sk_live_x",
+      STRIPE_WEBHOOK_SECRET: "whsec_x",
+      STRIPE_PRO_PRICE_ID: "price_pro",
+      STRIPE_BUSINESS_PRICE_ID: "price_business",
+    };
+    const production = { ...validEnvironment, NODE_ENV: "production" };
+
+    // Regression: without the Stripe variables production silently ran with no plan limits.
+    it("refuses to start without Stripe", () => {
+      const parsed = serverEnvironmentSchema.safeParse(production);
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_SECRET_KEY"]);
+    });
+
+    it("refuses a partial Stripe configuration", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...production,
+        ...stripe,
+        STRIPE_WEBHOOK_SECRET: undefined,
+      });
+      expect(parsed.error?.issues[0]?.path).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+    });
+
+    it("starts with Stripe complete or with the explicit unlimited mode", () => {
+      expect(serverEnvironmentSchema.safeParse({ ...production, ...stripe }).success).toBe(true);
+      const unlimited = serverEnvironmentSchema.safeParse({
+        ...production,
+        BILLING_UNLIMITED: "true",
+      });
+      expect(unlimited.success).toBe(true);
+    });
+
+    it("keeps development free of Stripe and defaults the grace to 7 days", () => {
+      expect(serverEnvironmentSchema.parse(validEnvironment)).toMatchObject({
+        BILLING_UNLIMITED: false,
+        BILLING_PAST_DUE_GRACE_DAYS: 7,
+      });
+    });
+  });
 });

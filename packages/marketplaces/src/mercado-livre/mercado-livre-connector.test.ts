@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
+import { ERROR_FIXTURES } from "./fixtures/errors.ts";
 
 interface Recorded {
   method: string;
@@ -177,6 +178,52 @@ const product = {
   imageUrls: ["https://img/1.jpg"],
 };
 
+describe("descriptions", () => {
+  it("publishes the item and reports a description the marketplace refused", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () =>
+        json(400, ERROR_FIXTURES.descriptionNotPlainText),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+    const result = await ml.publishProduct(store, product);
+    expect(result).toMatchObject({ externalId: "MLB1" });
+    expect(result.descriptionError).toMatch(/^A descrição tem caracteres que o Mercado Livre/);
+  });
+
+  it("reports no description error when it goes through", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+      [`POST ${API}/items`]: () => json(201, { id: "MLB1", permalink: null }),
+    });
+    expect((await ml.publishProduct(store, product)).descriptionError).toBeNull();
+  });
+
+  it("replaces a description with PUT, as the official page says", async () => {
+    const { ml, calls } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () => json(200, {}),
+    });
+    await ml.updateDescription(store, { externalId: "MLB9", plainText: "Texto novo" });
+    const call = calls.find((recorded) => recorded.method === "PUT");
+    expect(call?.url).toBe(`${API}/items/MLB9/description?api_version=2`);
+    expect(JSON.parse(call?.body ?? "{}")).toEqual({ plain_text: "Texto novo" });
+  });
+
+  it("refuses a resend with the reason in Portuguese", async () => {
+    const { ml } = connector({
+      [`PUT ${API}/items/MLB9/description`]: () =>
+        json(400, ERROR_FIXTURES.descriptionNotPlainText),
+    });
+    await expect(
+      ml.updateDescription(store, { externalId: "MLB9", plainText: "Texto < br > 😀" }),
+    ).rejects.toMatchObject({
+      details: { retryable: false },
+      message: expect.stringMatching(/^A descrição tem caracteres/),
+    });
+  });
+});
+
 describe("publishing", () => {
   it("predicts the category, creates the item and sends the description", async () => {
     const { ml, calls } = connector({
@@ -190,6 +237,7 @@ describe("publishing", () => {
     expect(result).toEqual({
       externalId: "MLB1",
       externalUrl: "https://produto.mercadolivre.com.br/MLB-1",
+      descriptionError: null,
     });
     const created = JSON.parse(calls.find((call) => call.url === `${API}/items`)?.body ?? "{}");
     expect(created).toMatchObject({
@@ -223,6 +271,23 @@ describe("publishing", () => {
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
       details: { retryable: false },
       message: "Mercado Livre recusou a operação: attribute BRAND is required",
+    });
+  });
+
+  it("translates the validation causes of a refused item, with what to do", async () => {
+    const { ml } = connector({
+      [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
+      [`POST ${API}/items`]: () => json(400, ERROR_FIXTURES.missingRequiredAttributes),
+    });
+    await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
+      details: {
+        retryable: false,
+        status: 400,
+        causes: ["item.attributes.missing_required"],
+      },
+      message: expect.stringMatching(
+        /^Faltam atributos obrigatórios .*: BRAND, MODEL\. Preencha esses campos/,
+      ),
     });
   });
 
@@ -512,16 +577,35 @@ const recoveryRoutes: Record<string, Responder> = {
     json(200, { results: ["MLB1"], paging: { total: 1 } }),
   [`GET ${API}/items/MLB1`]: () => json(200, remoteItem),
   [`PUT ${API}/items/MLB1`]: () => json(200, {}),
-  [`POST ${API}/items/MLB1/description`]: () => json(201, {}),
+  // The item was created before: it may have its description already, and a second POST is a
+  // bad request (official "Descrição de produtos" page), so recovery must replace it with PUT.
+  [`POST ${API}/items/MLB1/description`]: () =>
+    json(400, { message: "Item already has a description", error: "bad_request", status: 400 }),
+  [`PUT ${API}/items/MLB1/description`]: () => json(200, {}),
 };
 
 describe("publication recovery", () => {
+  it("replaces the description of a recovered item instead of creating it again", async () => {
+    const { ml, calls } = connector(recoveryRoutes);
+    const result = await ml.publishProduct(store, product, publicationGuard(30));
+    expect(result.descriptionError).toBeNull();
+    expect(
+      calls.some(
+        (call) => call.method === "PUT" && call.url.startsWith(`${API}/items/MLB1/description`),
+      ),
+    ).toBe(true);
+    expect(calls.some((call) => call.method === "POST" && call.url.includes("/description"))).toBe(
+      false,
+    );
+  });
+
   it("recovers the exact target and syncs price and stock without creating again", async () => {
     const guard = publicationGuard(30);
     const { ml, calls } = connector(recoveryRoutes);
     await expect(ml.publishProduct(store, product, guard)).resolves.toEqual({
       externalId: "MLB1",
       externalUrl: remoteItem.permalink,
+      descriptionError: null,
     });
     expect(
       calls.filter((call) => call.method === "GET" && call.url.includes("/items/search")),

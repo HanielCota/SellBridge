@@ -11,7 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
 import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
-import { useBulkListingActions } from "@/features/listings/use-listing-actions";
+import {
+  useBulkListingActions,
+  useResendDescription,
+} from "@/features/listings/use-listing-actions";
+import { ToneStatus } from "@/components/data/tone-status";
 import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 import { EditPriceDialog } from "./edit-price-dialog";
@@ -91,6 +95,58 @@ function RetryButton({ listingId }: { listingId: string }) {
   );
 }
 
+/** The first live store whose description did not go through, or null when all have one. */
+function missingDescription(row: ListingOverviewRow): string | null {
+  const store = row.stores.find(
+    (candidate) => candidate.descriptionError !== null && candidate.status !== "error",
+  );
+  return store?.descriptionError ?? null;
+}
+
+function ResendDescriptionButton({ listingId }: { listingId: string }) {
+  const resend = useResendDescription();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-label="Reenviar descrição"
+      className="max-sm:w-full"
+      disabled={resend.isPending}
+      onClick={() => resend.mutate(listingId)}
+    >
+      <ArrowClockwiseIcon
+        weight="bold"
+        className={cn(resend.isPending && "animate-spin motion-reduce:animate-none")}
+        aria-hidden="true"
+      />
+      {/* Two cards side by side on a phone leave no room for the long label. */}
+      <span className="sm:hidden">Reenviar</span>
+      <span className="max-sm:hidden">Reenviar descrição</span>
+    </Button>
+  );
+}
+
+/**
+ * The listing is live, but the marketplace did not take its description: an attention line (the
+ * listing still sells), the marketplace's reason and the resend (13.b).
+ */
+function MissingDescription({ row }: { row: ListingOverviewRow }) {
+  const reason = missingDescription(row);
+  if (reason === null) {
+    return null;
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <ToneStatus tone="warning" label="Descrição não enviada" />
+        <ResendDescriptionButton listingId={row.listingId} />
+      </div>
+      <p className="text-xs wrap-anywhere text-muted-foreground">{reason}</p>
+    </div>
+  );
+}
+
 /** The catalog's footer, with the publishing status where the catalog has "Publicar". */
 function StatusFooter({ row }: { row: ListingOverviewRow }) {
   const health = listingHealth(row);
@@ -116,6 +172,7 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
         {health.tone !== "error" && row.stock > 0 ? <ProductStockLine stock={row.stock} /> : null}
       </div>
       {health.reason ? <p className="text-xs text-destructive">{health.reason}</p> : null}
+      <MissingDescription row={row} />
     </div>
   );
 }

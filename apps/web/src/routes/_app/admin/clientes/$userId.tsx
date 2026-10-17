@@ -2,9 +2,9 @@ import { ISSUE_SEVERITY } from "@sellbridge/shared/customer-health";
 import { formatCents } from "@sellbridge/shared/money";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { BackLink } from "@/components/layout/page-header";
+import { createFileRoute } from "@tanstack/react-router";
 import {
-  ArrowLeftIcon,
   ChartLineUpIcon,
   CurrencyCircleDollarIcon,
   MegaphoneSimpleIcon,
@@ -29,7 +29,7 @@ import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
 import { ErrorState } from "@/components/feedback/error-state";
 import { SectionCard } from "@/components/layout/section-card";
-import { roleLabel } from "@/components/layout/user-menu";
+import { roleLabel } from "@/features/auth/account-label";
 import { TrendBadge } from "@/components/reports/figures";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,13 +93,7 @@ function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
   const disabledReason = impersonationBlocker(detail, isSelf);
   return (
     <header className="space-y-4">
-      <Link
-        to="/admin/clientes"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Clientes
-      </Link>
+      <BackLink to="/admin/clientes" label="Clientes" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <HealthRing score={health.score} size="lg" />

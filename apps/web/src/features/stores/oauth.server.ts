@@ -5,6 +5,8 @@ import {
   consumeOAuthState,
   createOAuthState,
   findOnboardingProfile,
+  hasLiveStoreConnection,
+  isUserEmailVerified,
   upsertStoreConnection,
 } from "@sellbridge/database/repositories";
 import { isMarketplaceError, type MarketplaceId } from "@sellbridge/marketplaces";
@@ -20,7 +22,7 @@ import {
   oauthCallbackUrl,
   tokenCipher,
 } from "@/lib/server/marketplaces";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireSellerSession } from "@/lib/server/tenant-session";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
@@ -59,7 +61,7 @@ function parseMarketplace(value: string | undefined): MarketplaceId | null {
 
 async function tenantOrLogin(request: Request) {
   try {
-    return await requireTenantSession(request.headers);
+    return await requireSellerSession(request.headers);
   } catch (error) {
     if (isAppError(error) && error.code === "UNAUTHORIZED") {
       return null;
@@ -145,6 +147,7 @@ const callbackQuerySchema = z.union([
 
 interface ConnectStoreInput {
   tenantId: string;
+  userId: string;
   marketplace: MarketplaceId;
   code: string;
   codeVerifier: string | null;
@@ -153,13 +156,31 @@ interface ConnectStoreInput {
   redirectUri: string;
 }
 
-/** Exchanges the authorization code and saves the store with its tokens encrypted at rest. */
+/**
+ * Reconnecting a shop the account has is always allowed; a new one needs a confirmed e-mail
+ * (item 26.b, L1).
+ */
+async function mayConnectShop(input: ConnectStoreInput, externalShopId: string) {
+  if (await isUserEmailVerified(database, input.userId)) {
+    return true;
+  }
+  const shop = { tenantId: input.tenantId, marketplace: input.marketplace, externalShopId };
+  return hasLiveStoreConnection(database, shop);
+}
+
+/**
+ * Exchanges the authorization code and saves the store with its tokens encrypted at rest; null
+ * when the shop is new and the e-mail is not confirmed yet.
+ */
 async function connectStore(input: ConnectStoreInput) {
   const { tokens, shop } = await connectors[input.marketplace].exchangeCode({
     code: input.code,
     redirectUri: input.redirectUri,
     codeVerifier: input.codeVerifier ?? undefined,
   });
+  if (!(await mayConnectShop(input, shop.externalShopId))) {
+    return null;
+  }
   return upsertStoreConnection(database, {
     billingEnabled: billingConfigured(),
     tenantId: input.tenantId,
@@ -208,12 +229,20 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
   try {
     const store = await connectStore({
       tenantId: session.tenantId,
+      userId: session.userId,
       marketplace,
       code: query.data.code,
       codeVerifier: stateRecord.codeVerifier,
       supplierId: stateRecord.supplierId,
       redirectUri: oauthCallbackUrl(marketplace, appOriginFor(request.url)),
     });
+    if (store === null) {
+      logger.info("store.connect_needs_verified_email", {
+        tenantId: session.tenantId,
+        marketplace,
+      });
+      return storesPageWithError(request, "email_not_verified");
+    }
     logger.info("store.connected", {
       tenantId: session.tenantId,
       marketplace,

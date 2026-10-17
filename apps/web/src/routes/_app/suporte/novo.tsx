@@ -6,10 +6,9 @@ import {
   type TicketCategory,
 } from "@sellbridge/shared/schemas";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
-  ArrowLeftIcon,
   ChatCircleDotsIcon,
   ClockIcon,
   CreditCardIcon,
@@ -26,11 +25,12 @@ import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
 import { TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
-import { PageHeader } from "@/components/layout/page-header";
+import { BackLink, PageHeader } from "@/components/layout/page-header";
+import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
 import { AttachmentInput } from "@/components/support/attachment-input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { responseTargetText } from "@/features/support/response-time";
+import { getTicketAboutPreview } from "@/features/support/support.functions";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -63,12 +63,22 @@ interface NewTicketValues {
   body: string;
 }
 
+/** The ids from the URL; the server checks them against the account before saving. */
+interface TicketAboutIds {
+  pedido?: string | undefined;
+  loja?: string | undefined;
+  anuncio?: string | undefined;
+}
+
 function buildTicketFormData(
   category: TicketCategory,
-  value: NewTicketValues,
+  value: NewTicketValues & { about: TicketAboutIds },
   files: readonly File[],
 ): FormData {
   const formData = new FormData();
+  formData.set("orderId", value.about.pedido ?? "");
+  formData.set("storeConnectionId", value.about.loja ?? "");
+  formData.set("listingId", value.about.anuncio ?? "");
   formData.set("category", category);
   formData.set("subject", value.subject);
   formData.set("body", value.body);
@@ -99,7 +109,7 @@ function useNewTicketForm(files: readonly File[]) {
       try {
         const response = await postMultipart(
           "/api/suporte/chamados",
-          buildTicketFormData(chosen.data, value, files),
+          buildTicketFormData(chosen.data, { ...value, about: search }, files),
         );
         const created = createdSchema.parse(response);
         toast.success("Chamado aberto. Avisamos quando a equipe responder.");
@@ -126,17 +136,6 @@ function useNewTicketForm(files: readonly File[]) {
   }
 
   return { form, submit, submitError, category, chooseCategory, categoryError };
-}
-
-function BackToSupportLink() {
-  return (
-    <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
-      <Link to="/suporte">
-        <ArrowLeftIcon aria-hidden="true" />
-        Suporte
-      </Link>
-    </Button>
-  );
 }
 
 /** One card per subject: picking it routes the ticket to the right person on the team. */
@@ -229,16 +228,38 @@ function NewTicketForm() {
 function NewTicketPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <BackToSupportLink />
       <PageHeader
+        back={<BackLink to="/suporte" label="Suporte" />}
         title="Novo chamado"
         description="Conte o que aconteceu e anexe prints ou comprovantes."
       />
       <Card>
-        <CardContent>
+        <CardContent className="space-y-5">
+          <TicketAboutPreview />
           <NewTicketForm />
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** What the ticket will be about, when the form was opened from an order, store or listing. */
+function TicketAboutPreview() {
+  const search = Route.useSearch();
+  const ids = { orderId: search.pedido, storeConnectionId: search.loja, listingId: search.anuncio };
+  const linked = Object.values(ids).some((id) => id !== undefined);
+  const preview = useQuery({
+    queryKey: ["tickets", "about-preview", ids],
+    queryFn: () => getTicketAboutPreview({ data: ids }),
+    enabled: linked,
+  });
+  if (!linked || preview.data === undefined || !hasTicketSubject(preview.data)) {
+    return null;
+  }
+  return (
+    <section className="space-y-2.5 rounded-2xl bg-muted/50 p-4" aria-label="Sobre">
+      <h2 className="text-xs text-muted-foreground">O chamado vai junto com</h2>
+      <TicketSubjectList subject={preview.data} />
+    </section>
   );
 }

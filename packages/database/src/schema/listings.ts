@@ -72,6 +72,13 @@ export const listingTargets = pgTable(
     syncAttemptedAt: timestamp({ withTimezone: true }),
     /** Error of the last failed sync attempt, cleared on success. */
     syncError: text(),
+    /**
+     * Why the marketplace did not take the description (the listing is live without it); cleared
+     * once it goes through. The sync job retries it a few times, then only the reseller's resend.
+     */
+    descriptionError: text(),
+    descriptionFailedAt: timestamp({ withTimezone: true }),
+    descriptionAttempts: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()

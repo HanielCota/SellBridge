@@ -1,6 +1,6 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
 
 const APP_PAGES = [
   "/dashboard",
@@ -14,6 +14,9 @@ const APP_PAGES = [
   "/perfil",
   "/onboarding",
 ];
+
+/** Team pages, opened as the admin in admin mode. */
+const TEAM_PAGES = ["/admin/auditoria"];
 
 async function violations(page: Page): Promise<string[]> {
   const results = await new AxeBuilder({ page }).analyze();
@@ -41,5 +44,19 @@ for (const theme of ["dark", "light"] as const) {
     await page.locator('a[href^="/pedidos/"]').first().click();
     await expect(page.getByRole("heading", { level: 1, name: /^Pedido / })).toBeVisible();
     expect(await violations(page), "/pedidos/$orderId").toEqual([]);
+  });
+}
+
+for (const theme of ["dark", "light"] as const) {
+  test(`páginas da equipe sem problemas de acessibilidade no tema ${theme === "dark" ? "escuro" : "claro"}`, async ({
+    page,
+  }) => {
+    await page.addInitScript((value) => localStorage.setItem("sellbridge-theme", value), theme);
+    await signIn(page, ADMIN_USER);
+    await enableAdminMode(page);
+    for (const path of TEAM_PAGES) {
+      await gotoHydrated(page, path);
+      expect(await violations(page), path).toEqual([]);
+    }
   });
 }

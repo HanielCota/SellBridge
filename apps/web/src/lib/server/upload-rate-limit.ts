@@ -19,6 +19,12 @@ export const AVATAR_UPLOAD_BUDGET: UploadBudget = {
   windowMilliseconds: TEN_MINUTES,
 };
 
+/** Product photos: a few products' worth of pictures in a sitting, not a scripted flood. */
+export const PRODUCT_IMAGE_UPLOAD_BUDGET: UploadBudget = {
+  maxRequests: 60,
+  windowMilliseconds: TEN_MINUTES,
+};
+
 export interface UploadLimiter {
   /** Counts one upload for `key`; false when the budget for the window is spent. */
   take(key: string, now?: Date): boolean;
@@ -53,6 +59,7 @@ export function createUploadLimiter(budget: UploadBudget): UploadLimiter {
 
 export const supportUploads = createUploadLimiter(SUPPORT_UPLOAD_BUDGET);
 export const avatarUploads = createUploadLimiter(AVATAR_UPLOAD_BUDGET);
+export const productImageUploads = createUploadLimiter(PRODUCT_IMAGE_UPLOAD_BUDGET);
 
 /**
  * Refuses with 429 when the account spent its budget: before the body is read for the photo,

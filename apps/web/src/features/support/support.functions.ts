@@ -5,6 +5,8 @@ import {
   countStaffQueues,
   countUnreadSupportReplies,
   getSupportMetrics,
+  describeTicketAbout,
+  getTicketSubject,
   getTicketThread,
   linkTicketOrder,
   listLinkableOrders,
@@ -42,7 +44,7 @@ import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
-import { staffMiddleware, tenantMiddleware } from "@/lib/server/middleware";
+import { staffMiddleware, accountMiddleware } from "@/lib/server/middleware";
 
 /** How many other tickets of the same store the team sees next to a thread. */
 const RELATED_TICKETS_LIMIT = 5;
@@ -63,7 +65,7 @@ async function isImpersonating(): Promise<boolean> {
 }
 
 export const listMyTickets = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketsSearchSchema)
   .handler(async ({ context, data }) =>
     listTenantTickets(
@@ -76,7 +78,7 @@ export const listMyTickets = createServerFn({ method: "GET" })
 
 /** What the support button shows: unread replies and the latest tickets. */
 export const getMySupportOverview = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) => {
     const [unread, recent] = await Promise.all([
       countUnreadSupportReplies(database, context.tenantId, context.userId),
@@ -92,26 +94,28 @@ export const getMySupportOverview = createServerFn({ method: "GET" })
 
 /** The thread plus what hangs off it: linked orders and who gets the e-mails. */
 export const getMyTicket = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     const thread = await getTicketThread(database, data.ticketId, context.tenantId);
-    const [orders, followers] = await Promise.all([
+    const [orders, followers, subject] = await Promise.all([
       listTicketOrders(database, thread.ticket.id),
       listTicketFollowers(database, thread.ticket.id),
+      getTicketSubject(database, thread.ticket.id),
     ]);
     const me = followers.find((follower) => follower.userId === context.userId);
     return {
       ...thread,
       orders,
       followers,
+      subject,
       viewerId: context.userId,
       notifyMe: me?.notify ?? false,
     };
   });
 
 export const listMyLinkableOrders = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(linkableOrdersSchema)
   .handler(async ({ context, data }) =>
     listLinkableOrders(database, {
@@ -123,7 +127,7 @@ export const listMyLinkableOrders = createServerFn({ method: "GET" })
   );
 
 export const linkMyTicketOrder = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketOrderLinkSchema)
   .handler(async ({ context, data }) => {
     await linkTicketOrder(database, {
@@ -135,7 +139,7 @@ export const linkMyTicketOrder = createServerFn({ method: "POST" })
   });
 
 export const unlinkMyTicketOrder = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketOrderLinkSchema)
   .handler(async ({ context, data }) => {
     await unlinkTicketOrder(database, {
@@ -147,7 +151,7 @@ export const unlinkMyTicketOrder = createServerFn({ method: "POST" })
   });
 
 export const setMyTicketNotifications = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketNotificationsSchema)
   .handler(async ({ context, data }) => {
     await setTicketNotifications(database, {
@@ -160,11 +164,11 @@ export const setMyTicketNotifications = createServerFn({ method: "POST" })
 
 /** People of the store who could also follow a ticket. */
 export const listMyColleagues = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) => listTenantColleagues(database, context.tenantId));
 
 export const addMyTicketFollower = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(addTicketFollowerSchema)
   .handler(async ({ context, data }) => {
     await addTicketFollower(database, {
@@ -177,7 +181,7 @@ export const addMyTicketFollower = createServerFn({ method: "POST" })
   });
 
 export const markMyTicketRead = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(readInput)
   .handler(async ({ context, data }) => {
     if (await isImpersonating()) {
@@ -193,7 +197,7 @@ export const markMyTicketRead = createServerFn({ method: "POST" })
   });
 
 export const closeMyTicket = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     await closeTicketForCustomer(database, {
@@ -206,7 +210,7 @@ export const closeMyTicket = createServerFn({ method: "POST" })
   });
 
 export const rateMyTicket = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(rateTicketSchema)
   .handler(async ({ context, data }) => {
     await rateTicket(database, {
@@ -256,9 +260,11 @@ export const staffGetTicket = createServerFn({ method: "GET" })
       ),
       listTicketOrders(database, thread.ticket.id),
     ]);
+    const subject = await getTicketSubject(database, thread.ticket.id);
     return {
       ...thread,
       orders,
+      subject,
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),
@@ -351,3 +357,15 @@ export const staffSupportMetrics = createServerFn({ method: "GET" })
     const since = new Date(now.getTime() - data.days * DAY_MILLISECONDS);
     return getSupportMetrics(database, { since, now });
   });
+
+const ticketAboutPreviewInput = z.object({
+  orderId: z.uuid().optional(),
+  storeConnectionId: z.uuid().optional(),
+  listingId: z.uuid().optional(),
+});
+
+/** Names of what a new ticket will be about, from the screen that opened the form. */
+export const getTicketAboutPreview = createServerFn({ method: "GET" })
+  .middleware([accountMiddleware])
+  .validator(ticketAboutPreviewInput)
+  .handler(async ({ context, data }) => describeTicketAbout(database, context.tenantId, data));

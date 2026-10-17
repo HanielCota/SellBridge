@@ -95,7 +95,7 @@ function DropdownMenuCheckboxItem({
         data-slot="dropdown-menu-checkbox-item-indicator"
       >
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="text-brand" weight="bold" />
+          <CheckIcon className="text-brand-mark" weight="bold" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -132,7 +132,7 @@ function DropdownMenuRadioItem({
         data-slot="dropdown-menu-radio-item-indicator"
       >
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="text-brand" weight="bold" />
+          <CheckIcon className="text-brand-mark" weight="bold" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}

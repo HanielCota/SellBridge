@@ -14,6 +14,10 @@ import {
   resolveStoreCredentials,
   storeRateKey,
 } from "../lib/store-access.ts";
+import {
+  DESCRIPTION_RUN_BUDGET_MILLISECONDS,
+  resendPendingDescriptions,
+} from "./description-resend.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -34,23 +38,26 @@ export interface StockPriceSyncSummary {
 const MISSING_CREDENTIALS_REASON = "Loja sem token de acesso";
 const SYNC_FAILURE_REASON = "Falha ao sincronizar estoque e preço";
 
+/** "store_lost": the store has no usable credentials, so its other listings would fail too. */
+type SyncOutcome = "synced" | "failed" | "store_lost";
+
 async function recordSyncFailure(
   dependencies: StockPriceSyncDependencies,
   target: TargetNeedingSync,
   reason: string,
-): Promise<false> {
+): Promise<void> {
   await markTargetSyncFailed(dependencies.database, target.targetId, reason);
-  return false;
 }
 
 async function syncOne(
   dependencies: StockPriceSyncDependencies,
   target: TargetNeedingSync,
-): Promise<boolean> {
+): Promise<SyncOutcome> {
   try {
     const credentials = resolveStoreCredentials(dependencies.cipher, target.store);
     if (!credentials) {
-      return await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
+      await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
+      return "store_lost";
     }
     await dependencies.acquireRateLimit(storeRateKey(target.store));
     await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
@@ -62,11 +69,12 @@ async function syncOne(
       stock: target.stock,
       priceCents: target.priceCents,
     });
-    return true;
+    return "synced";
   } catch (error) {
     logger.warn("listing.sync_failed", { listingTargetId: target.targetId, error });
-    await expireStoreOnAuthError(dependencies.database, target.store, error);
-    return await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));
+    const expired = await expireStoreOnAuthError(dependencies.database, target.store, error);
+    await recordSyncFailure(dependencies, target, userMessageOr(error, SYNC_FAILURE_REASON));
+    return expired ? "store_lost" : "failed";
   }
 }
 
@@ -79,28 +87,77 @@ const SYNC_BATCH_SIZE = 200;
  * the back of the queue and cannot hold it forever.
  */
 const SYNC_RUN_BUDGET_MILLISECONDS = 4 * 60 * 1000;
+/**
+ * Stores synced at the same time (item 32.e): one slow or failing marketplace account no longer
+ * holds every other seller's stock. Bounded by the database pool and the worker's memory.
+ */
+const STORES_IN_PARALLEL = 5;
+
+type BatchSummary = StockPriceSyncSummary & { size: number };
+
+/**
+ * One store's listings in order, so its rate limit paces them. The deadline is checked per
+ * listing, not per batch: in a marketplace outage one listing takes ~90 s of retries. The rest
+ * keep their old attempt time and come first next run.
+ */
+async function syncStoreTargets(
+  dependencies: StockPriceSyncDependencies,
+  targets: readonly TargetNeedingSync[],
+  deadline: number,
+): Promise<StockPriceSyncSummary> {
+  const summary = { synced: 0, failed: 0 };
+  for (const target of targets) {
+    if (Date.now() >= deadline) {
+      return summary;
+    }
+    const outcome = await syncOne(dependencies, target);
+    summary[outcome === "synced" ? "synced" : "failed"] += 1;
+    if (outcome === "store_lost") {
+      return summary;
+    }
+  }
+  return summary;
+}
+
+function groupByStore(targets: readonly TargetNeedingSync[]): TargetNeedingSync[][] {
+  const byStore = new Map<string, TargetNeedingSync[]>();
+  for (const target of targets) {
+    byStore.set(target.store.id, [...(byStore.get(target.store.id) ?? []), target]);
+  }
+  return [...byStore.values()];
+}
+
+/** Runs the stores through a fixed number of lanes, each taking the next waiting store. */
+async function syncStoresInParallel(
+  dependencies: StockPriceSyncDependencies,
+  stores: readonly TargetNeedingSync[][],
+  deadline: number,
+): Promise<StockPriceSyncSummary> {
+  const waiting = [...stores];
+  const summary = { synced: 0, failed: 0 };
+  const lane = async () => {
+    for (let next = waiting.shift(); next !== undefined; next = waiting.shift()) {
+      const store = await syncStoreTargets(dependencies, next, deadline);
+      summary.synced += store.synced;
+      summary.failed += store.failed;
+    }
+  };
+  const lanes = Math.min(STORES_IN_PARALLEL, stores.length);
+  await Promise.all(Array.from({ length: lanes }, lane));
+  return summary;
+}
 
 async function syncBatch(
   dependencies: StockPriceSyncDependencies,
   deadline: number,
-): Promise<StockPriceSyncSummary & { size: number }> {
+): Promise<BatchSummary> {
   const targets = await findTargetsNeedingSync(
     dependencies.database,
     SYNC_BATCH_SIZE,
     dependencies.safetyUnits,
   );
-  const batch = { synced: 0, failed: 0, size: targets.length };
-  for (const target of targets) {
-    // Checked per listing, not per batch: in a marketplace outage one listing takes ~90 s of
-    // retries, so a batch of 200 held the queue for hours. The rest keep their old attempt
-    // time and come first next run.
-    if (Date.now() >= deadline) {
-      break;
-    }
-    const ok = await syncOne(dependencies, target);
-    batch[ok ? "synced" : "failed"] += 1;
-  }
-  return batch;
+  const summary = await syncStoresInParallel(dependencies, groupByStore(targets), deadline);
+  return { ...summary, size: targets.length };
 }
 
 /** Pushes supplier stock and listing price changes to the marketplaces (all tenants). */
@@ -108,6 +165,11 @@ export function createStockPriceSyncProcessor(dependencies: StockPriceSyncDepend
   return async function processStockPriceSync(): Promise<StockPriceSyncSummary> {
     const deadline =
       Date.now() + (dependencies.runBudgetMilliseconds ?? SYNC_RUN_BUDGET_MILLISECONDS);
+    // The descriptions the marketplace refused (13.b) go first, in their own slice of the run.
+    await resendPendingDescriptions(
+      dependencies,
+      Math.min(deadline, Date.now() + DESCRIPTION_RUN_BUDGET_MILLISECONDS),
+    );
     const summary: StockPriceSyncSummary = { synced: 0, failed: 0 };
     let batch = await syncBatch(dependencies, deadline);
     summary.synced += batch.synced;

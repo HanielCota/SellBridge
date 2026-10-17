@@ -64,8 +64,8 @@ function OrderHeading({ externalOrderId }: { externalOrderId: string | null }) {
 /** Same shape as the shipment panel: summary, the print buttons, the fields and the history. */
 function ShipmentPanelSkeleton() {
   return (
-    <div
-      className="surface-card space-y-4 rounded-2xl bg-card p-5"
+    <output
+      className="block surface-card space-y-4 rounded-2xl bg-card p-5"
       aria-busy="true"
       aria-label="Carregando ordem"
     >
@@ -84,7 +84,7 @@ function ShipmentPanelSkeleton() {
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-4 w-56" />
       </div>
-    </div>
+    </output>
   );
 }
 

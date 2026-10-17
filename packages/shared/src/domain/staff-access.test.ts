@@ -22,17 +22,21 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("agent", "support.assign_others")).toBe(false);
     expect(hasStaffPermission("agent", "support.metrics")).toBe(false);
     expect(hasStaffPermission("agent", "customers.manage")).toBe(false);
+    expect(hasStaffPermission("agent", "audit.view")).toBe(false);
   });
 
   it("lets a supervisor run the queue without touching customer accounts", () => {
     expect(hasStaffPermission("supervisor", "support.assign_others")).toBe(true);
     expect(hasStaffPermission("supervisor", "support.metrics")).toBe(true);
     expect(hasStaffPermission("supervisor", "customers.manage")).toBe(false);
+    expect(hasStaffPermission("supervisor", "audit.view")).toBe(false);
   });
 
   it("gives admins everything and resellers nothing", () => {
     expect(hasStaffPermission("admin", "customers.manage")).toBe(true);
     expect(hasStaffPermission("admin", "support.metrics")).toBe(true);
+    expect(hasStaffPermission("admin", "audit.view")).toBe(true);
+    expect(hasStaffPermission("user", "audit.view")).toBe(false);
     expect(hasStaffPermission("user", "support.answer")).toBe(false);
     expect(hasStaffPermission(null, "support.answer")).toBe(false);
   });
