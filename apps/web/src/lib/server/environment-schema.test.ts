@@ -62,6 +62,18 @@ describe("serverEnvironmentSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
+  it("reads the trusted origins as a list of bare origins", () => {
+    expect(serverEnvironmentSchema.parse(validEnvironment).BETTER_AUTH_TRUSTED_ORIGINS).toEqual([]);
+    const parsed = serverEnvironmentSchema.parse({
+      ...validEnvironment,
+      BETTER_AUTH_TRUSTED_ORIGINS: " http://127.0.0.1:4850/ ,http://cadastro.localhost:4850",
+    });
+    expect(parsed.BETTER_AUTH_TRUSTED_ORIGINS).toEqual([
+      "http://127.0.0.1:4850",
+      "http://cadastro.localhost:4850",
+    ]);
+  });
+
   describe("billing in production (item 16, N8)", () => {
     const stripe = {
       STRIPE_SECRET_KEY: "sk_live_x",

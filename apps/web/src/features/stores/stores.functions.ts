@@ -11,7 +11,9 @@ import {
 } from "@sellbridge/marketplaces";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestUrl } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { appOriginFor } from "@/lib/server/app-origin";
 import { database } from "@/lib/server/database";
 import { connectors, oauthCallbackUrl } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
@@ -59,6 +61,11 @@ export const disconnectStoreFn = createServerFn({ method: "POST" })
     }),
   );
 
+/** The mock callback on the trusted host this request came in on (see `appOriginFor`). */
+function mockCallbackUrl(): string {
+  return oauthCallbackUrl("mock", appOriginFor(getRequestUrl().href));
+}
+
 /**
  * Where the consent screen of the simulated marketplace sends the user back, or null when
  * the simulated store is off (production without `MOCK_WEBHOOK_SECRET`).
@@ -69,7 +76,7 @@ export const getMockConsentCallback = createServerFn({ method: "GET" })
     if (!connectors.mock.isConfigured()) {
       return { callbackUrl: null };
     }
-    return { callbackUrl: oauthCallbackUrl("mock") };
+    return { callbackUrl: mockCallbackUrl() };
   });
 
 /**
@@ -89,7 +96,7 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
     if (!connectors.mock.isConfigured()) {
       throw validationError("A loja simulada não está disponível");
     }
-    if (data.redirectUri !== oauthCallbackUrl("mock")) {
+    if (data.redirectUri !== mockCallbackUrl()) {
       throw validationError("Endereço de retorno não autorizado");
     }
     const shop = { tenantId: context.tenantId, shopName: data.shopName };

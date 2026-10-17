@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
 import { parseProductCsv } from "./product-csv.ts";
 import { normalizeImportFile } from "./supplier-panel-import.ts";
 import { MAX_ZIP_ENTRY_BYTES } from "./supplier-panel-import-zip.ts";
@@ -10,6 +11,15 @@ import {
   utf8,
   utf8WithBom,
 } from "./supplier-panel-import.fixtures.ts";
+
+/** A sheet row of inline text cells, written as raw XML (entities pass through untouched). */
+function inlineRow(number: number, texts: readonly string[]): string {
+  const cells = texts.map(
+    (text, index) =>
+      `<c r="${String.fromCharCode(65 + index)}${number}" t="inlineStr"><is><t>${text}</t></is></c>`,
+  );
+  return `<row r="${number}">${cells.join("")}</row>`;
+}
 
 const accentedRow = "PDQ-01;Pão de queijo mineiro;Açúcar e fubá;12,90;5;;;sim";
 
@@ -120,6 +130,49 @@ describe("normalizeImportFile xlsx", () => {
     ]);
     expect(bomb.byteLength).toBeLessThan(2 * 1024 * 1024);
     expect(() => normalizeImportFile(bomb)).toThrow(/Não foi possível abrir a planilha/);
+  });
+
+  it("ignores cells far to the right instead of padding every row up to them", () => {
+    // Regression: one cell at column XFC per row made each row 16 thousand cells wide, so a
+    // 2 MB upload could stall the server before the row limit was checked.
+    const rows = Array.from(
+      { length: 20_000 },
+      (_row, index) =>
+        `<row r="${index + 2}"><c r="XFC${index + 2}" t="inlineStr"><is><t>a</t></is></c></row>`,
+    );
+    const header = inlineRow(1, TEMPLATE_HEADER.split(";"));
+    const sheet = buildZip([
+      {
+        name: "xl/worksheets/sheet1.xml",
+        content: `<worksheet><sheetData>${header}${rows.join("")}</sheetData></worksheet>`,
+      },
+    ]);
+    expect(sheet.byteLength).toBeLessThan(2 * 1024 * 1024);
+    expect(() => normalizeImportFile(sheet)).toThrow(/só o cabeçalho/);
+  });
+
+  it("stops reading once the sheet passes the product limit", () => {
+    const rows = Array.from({ length: MAX_PRODUCT_CSV_ROWS + 5 }, (_row, index) => [
+      `S-${index}`,
+      "Produto",
+      1,
+      1,
+    ]);
+    const bytes = buildXlsx([["sku", "titulo", "custo", "estoque"], ...rows]);
+    expect(() => normalizeImportFile(bytes)).toThrow(
+      `A planilha tem mais de ${MAX_PRODUCT_CSV_ROWS} produtos`,
+    );
+  });
+
+  it("reads a character reference outside Unicode as a replacement character", () => {
+    const sheet = buildZip([
+      {
+        name: "xl/worksheets/sheet1.xml",
+        content: `<worksheet><sheetData>${inlineRow(1, TEMPLATE_HEADER.split(";"))}${inlineRow(2, ["R-1", "Bolo&#x110000;"])}</sheetData></worksheet>`,
+      },
+    ]);
+    const records = normalizeImportFile(sheet).records;
+    expect(records.get(2)?.fields[1]).toBe("Bolo\uFFFD");
   });
 
   it("refuses a damaged spreadsheet with a message that says what to do", () => {
