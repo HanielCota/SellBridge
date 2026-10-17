@@ -35,6 +35,16 @@ function shipment(overrides: Partial<ShipmentHealthRecord> = {}): ShipmentHealth
   };
 }
 
+/** A parcel still with the supplier, forwarded `hours` ago. */
+function openParcel(status: "forwarded" | "accepted", hours: number): ShipmentHealthRecord {
+  return shipment({
+    forwardedAt: new Date(NOW.getTime() - hours * HOUR),
+    status,
+    acceptedAt: status === "accepted" ? new Date(NOW.getTime() - (hours - 1) * HOUR) : null,
+    shippedAt: null,
+  });
+}
+
 function lateDispatch(daysAgo = 10): ShipmentHealthRecord {
   const forwardedAt = new Date(NOW.getTime() - daysAgo * DAY);
   return shipment({ forwardedAt, shippedAt: new Date(forwardedAt.getTime() + 60 * HOUR) });
@@ -212,7 +222,18 @@ describe("computeSupplierHealth", () => {
     const result = health({ shipments: [fresh] });
     expect(metricOf(result, "accept_on_time").sample).toBe(0);
     expect(metricOf(result, "accept_on_time").value).toBeNull();
-    expect(metricOf(result, "supplier_cancellations").sample).toBe(1);
+    expect(metricOf(result, "supplier_cancellations").sample).toBe(0);
+  });
+
+  it("keeps cancellations at too little data while the parcels are still open", () => {
+    const parcels = [
+      ...times(9, () => openParcel("forwarded", 2)),
+      ...times(3, () => openParcel("accepted", 5)),
+    ];
+    const cancellations = metricOf(health({ shipments: parcels }), "supplier_cancellations");
+    expect(cancellations.level).toBe("insufficient");
+    expect(cancellations.sample).toBe(0);
+    expect(cancellations.forecast).toEqual({ kind: "collect", events: 10 });
   });
 
   it("is steady when no realistic number of orders changes the level", () => {

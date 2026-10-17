@@ -87,10 +87,26 @@ export function tallyDispatch(records: readonly ShipmentHealthRecord[], now: Dat
   return tallyOutcomes(records.map((record) => dispatchOutcome(record, now)));
 }
 
-/** Cancellations by the supplier among every parcel forwarded; `good` is what was not cancelled. */
+/** Statuses at which the supplier can no longer cancel the parcel: it already left. */
+const LEFT_THE_SUPPLIER: ReadonlySet<FulfillmentStatus> = new Set([
+  "shipped",
+  "delivered",
+  "returned",
+  "not_delivered",
+]);
+
+/**
+ * Cancellations by the supplier among the parcels whose fate is settled: the ones that left and
+ * the ones the supplier cancelled. A parcel still open may yet be cancelled, and one the reseller
+ * cancelled says nothing about the supplier, so neither counts; otherwise a batch of fresh
+ * parcels would pass the minimum sample and read as 0% (item: cancellations ignored the sample).
+ */
 export function tallyCancellations(records: readonly ShipmentHealthRecord[]): RateTally {
-  const cancelled = records.filter((record) => record.cancelledBySupplier).length;
-  return { good: records.length - cancelled, counted: records.length };
+  const settled = records.filter(
+    (record) => record.cancelledBySupplier || LEFT_THE_SUPPLIER.has(record.status),
+  );
+  const cancelled = settled.filter((record) => record.cancelledBySupplier).length;
+  return { good: settled.length - cancelled, counted: settled.length };
 }
 
 /** Star sum and count of the reviews. */
