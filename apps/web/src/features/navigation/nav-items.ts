@@ -12,6 +12,8 @@ export interface NavItem {
   also?: string[];
   /** Team tabs only show to roles allowed to use them. */
   permission?: StaffPermission;
+  /** Active only on this exact path (a home tab whose sections are tabs of their own). */
+  exact?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -21,6 +23,15 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Pedidos", to: "/pedidos" },
   { label: "Lojas", to: "/lojas" },
   { label: "Financeiro", to: "/financeiro" },
+];
+
+/** The supplier profile's tabs: its panel replaces every seller tab. */
+export const SUPPLIER_NAV_ITEMS: NavItem[] = [
+  { label: "Início", to: "/fornecedor/painel", exact: true },
+  { label: "Pedidos", to: "/fornecedor/painel/pedidos" },
+  { label: "Produtos", to: "/fornecedor/painel/produtos" },
+  { label: "Importar", to: "/fornecedor/painel/importar" },
+  { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [

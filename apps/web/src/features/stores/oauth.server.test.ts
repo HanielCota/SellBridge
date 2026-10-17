@@ -2,7 +2,7 @@ import { conflictError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireTenantSession:
+  requireSellerSession:
     vi.fn<() => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>>(),
   createOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/tenant-session", () => ({
-  requireTenantSession: mocks.requireTenantSession,
+  requireSellerSession: mocks.requireSellerSession,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -51,7 +51,7 @@ async function redirectedTo(): Promise<URL> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireTenantSession.mockResolvedValue({
+  mocks.requireSellerSession.mockResolvedValue({
     tenantId: "tenant-b",
     userId: "user-b",
     impersonatedBy: null,
@@ -106,7 +106,7 @@ describe("OAuth callback", () => {
 
 describe("connecting a store while an admin uses the customer's account", () => {
   beforeEach(() => {
-    mocks.requireTenantSession.mockResolvedValue({
+    mocks.requireSellerSession.mockResolvedValue({
       tenantId: "tenant-b",
       userId: "user-b",
       impersonatedBy: "admin-1",

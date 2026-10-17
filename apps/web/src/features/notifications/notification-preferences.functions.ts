@@ -6,7 +6,7 @@ import { NOTIFICATION_EVENTS } from "@sellbridge/shared/notification-events";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import { tenantMiddleware } from "@/lib/server/middleware";
+import { accountMiddleware } from "@/lib/server/middleware";
 import { buildPreferenceRows, PREFERENCE_CHANNELS } from "./notification-preferences";
 
 const savePreferenceSchema = z.object({
@@ -17,13 +17,13 @@ const savePreferenceSchema = z.object({
 
 /** The signed-in person's choices; preferences belong to the person, not the workspace. */
 export const getNotificationPreferences = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .handler(async ({ context }) =>
     buildPreferenceRows(await listNotificationPreferences(database, context.userId)),
   );
 
 export const saveNotificationPreferenceFn = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([accountMiddleware])
   .validator(savePreferenceSchema)
   .handler(async ({ context, data }) => {
     await saveNotificationPreference(database, { ...data, userId: context.userId });
