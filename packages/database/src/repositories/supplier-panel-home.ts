@@ -46,17 +46,8 @@ function toDate(value: string | null): Date | null {
   return value === null ? null : new Date(value);
 }
 
-/**
- * Start of the parcel's current round with the supplier: the latest forward written by the
- * reseller or by SellBridge. `latestForwardedAt` also moves when the supplier leaves a note
- * while the parcel waits (notes keep the current status), which would hide what came before.
- */
-const roundStartedAt = sql`coalesce((
-  select max(round.created_at) from shipment_events round
-  where round.shipment_id = ${orderShipments.id}
-    and round.status = 'forwarded'
-    and round.actor in (${SHIPMENT_ACTORS.reseller}, ${SHIPMENT_ACTORS.sellbridge})
-), ${orderShipments.createdAt})`;
+/** Start of the parcel's current round with the supplier: its latest real forward. */
+const roundStartedAt = sql`coalesce(${latestForwardedAt}, ${orderShipments.createdAt})`;
 
 /** First step past the accept in the current round: a supplier may jump straight ahead. */
 const firstAcceptedAt = sql<Date | null>`(
@@ -125,7 +116,7 @@ export async function listSupplierShipmentHealthRecords(
     .where(
       and(
         eq(orderShipments.supplierId, input.supplierId),
-        sql`coalesce(${latestForwardedAt}, ${orderShipments.createdAt}) >= ${timestampOf(input.since)}`,
+        sql`${roundStartedAt} >= ${timestampOf(input.since)}`,
       ),
     );
 }
