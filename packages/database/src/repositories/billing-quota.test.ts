@@ -165,4 +165,32 @@ describe("listing quota by destination store", () => {
       }),
     ).resolves.toHaveLength(1);
   });
+
+  it("allows a retry with nothing to retry for a tenant over the plan", async () => {
+    const [first] = storeIds;
+    if (first === undefined) throw new Error("missing fixture stores");
+    // A downgrade leaves live publications past the new plan; one more stands for it here.
+    const [extra] = await database
+      .insert(listings)
+      .values({
+        tenantId: tenants.tenantA,
+        supplierProductId: products[0]?.productId ?? "",
+        title: "Acima do plano",
+        description: "",
+        priceCents: 2500,
+      })
+      .returning({ id: listings.id });
+    if (extra === undefined) throw new Error("missing extra listing");
+    await database.insert(listingTargets).values({
+      tenantId: tenants.tenantA,
+      listingId: extra.id,
+      storeConnectionId: first,
+      status: "published",
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect((await billingUsage(database, tenants.tenantA)).listings).toBeGreaterThan(FREE_LISTINGS);
+    await expect(
+      resetListingErrorsForRetry(database, tenants.tenantA, [extra.id], { billingEnabled: true }),
+    ).resolves.toEqual([]);
+  });
 });
