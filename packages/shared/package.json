@@ -6,6 +6,13 @@
   "exports": {
     "./money": "./src/domain/money.ts",
     "./product-csv": "./src/domain/product-csv.ts",
+    "./supplier-panel-import": "./src/domain/supplier-panel-import.ts",
+    "./supplier-panel-import-columns": "./src/domain/supplier-panel-import-columns.ts",
+    "./supplier-panel-import-decode": "./src/domain/supplier-panel-import-decode.ts",
+    "./supplier-panel-import-files": "./src/domain/supplier-panel-import-files.ts",
+    "./supplier-panel-import-issues": "./src/domain/supplier-panel-import-issues.ts",
+    "./supplier-panel-import-schemas": "./src/domain/supplier-panel-import-schemas.ts",
+    "./supplier-panel-import-table": "./src/domain/supplier-panel-import-table.ts",
     "./brazilian-states": "./src/domain/brazilian-states.ts",
     "./cpf": "./src/domain/cpf.ts",
     "./account-documents": "./src/domain/account-documents.ts",
