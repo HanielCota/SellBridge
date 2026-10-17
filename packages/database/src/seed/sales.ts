@@ -15,7 +15,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
-import { DEMO_STORES } from "./data.ts";
+import { DEMO_STORES, type SeedStore } from "./data.ts";
 import type { Random } from "./random.ts";
 import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
 
@@ -111,35 +111,41 @@ interface DemoStore {
   supplierId: string | null;
 }
 
-async function demoSupplierIds(database: Database): Promise<Map<string, string>> {
+async function demoSupplierIds(
+  database: Database,
+  stores: readonly SeedStore[],
+): Promise<Map<string, string>> {
   const rows = await database
     .select({ id: suppliers.id, name: suppliers.name })
     .from(suppliers)
     .where(
       inArray(
         suppliers.name,
-        DEMO_STORES.map((store) => store.supplierName),
+        stores.map((store) => store.supplierName),
       ),
     );
   return new Map(rows.map((row) => [row.name, row.id]));
 }
 
+const EXPIRED_STORE_ERROR = "A loja precisa ser reconectada: o acesso foi revogado ou expirou";
+
 async function ensureDemoStores(
-  database: Database,
-  tenantId: string,
-  cipher: TokenCipher,
+  input: SeedDemoSalesInput,
+  stores: readonly SeedStore[],
 ): Promise<DemoStore[]> {
-  const supplierIds = await demoSupplierIds(database);
+  const { database, tenantId, cipher } = input;
+  const supplierIds = await demoSupplierIds(database, stores);
   await database
     .insert(storeConnections)
     .values(
-      DEMO_STORES.map((store) => ({
+      stores.map((store) => ({
         tenantId,
         marketplace: "mock" as const,
         externalShopId: store.externalShopId,
         shopName: store.shopName,
         supplierId: supplierIds.get(store.supplierName) ?? null,
-        status: "connected" as const,
+        status: store.status ?? "connected",
+        lastError: store.status === "expired" ? EXPIRED_STORE_ERROR : null,
         // Simulated marketplace tokens, encrypted like real ones, so webhooks and sync work.
         accessTokenEnc: cipher.encrypt(simulatedToken("mock-access")),
         refreshTokenEnc: cipher.encrypt(simulatedToken("mock-refresh")),
@@ -155,7 +161,7 @@ async function ensureDemoStores(
         eq(storeConnections.tenantId, tenantId),
         inArray(
           storeConnections.externalShopId,
-          DEMO_STORES.map((store) => store.externalShopId),
+          stores.map((store) => store.externalShopId),
         ),
       ),
     );
@@ -441,9 +447,11 @@ async function countOrders(database: Database, tenantId: string): Promise<number
 
 export interface SeedDemoSalesInput extends SeedSalesContext {
   readonly cipher: TokenCipher;
+  /** The tenant's shops; the demo account's by default. */
+  readonly stores?: readonly SeedStore[];
 }
 
-/** Creates demo stores, listings and ~6 months of orders for the demo tenant (idempotent). */
+/** Creates stores, listings and ~6 months of orders for a seeded tenant (idempotent). */
 export async function seedDemoSales(
   input: SeedDemoSalesInput,
 ): Promise<{ created: boolean; orders: number }> {
@@ -456,7 +464,7 @@ export async function seedDemoSales(
     random: input.random,
     tenantId: input.tenantId,
   };
-  const stores = await ensureDemoStores(input.database, input.tenantId, input.cipher);
+  const stores = await ensureDemoStores(input, input.stores ?? DEMO_STORES);
   const sales = await createDemoListings(context, stores);
   const orderCount = await seedOrderHistory(context, sales);
   return { created: true, orders: orderCount };

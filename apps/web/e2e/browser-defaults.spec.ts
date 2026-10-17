@@ -39,3 +39,34 @@ test("the admin supplier form uses the app's own select, never the native one", 
   await expect(page.getByLabel("UF de origem")).toBeVisible();
   await expect(page.locator("select:not([aria-hidden='true'])")).toHaveCount(0);
 });
+
+test("switching the theme swaps colors at once, with no reveal or fading", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("sellbridge-theme", "dark");
+    Reflect.set(window, "viewTransitionCount", 0);
+    if (typeof document.startViewTransition !== "function") {
+      return;
+    }
+    const original = document.startViewTransition.bind(document);
+    document.startViewTransition = (...args: Parameters<typeof original>) => {
+      Reflect.set(
+        window,
+        "viewTransitionCount",
+        Number(Reflect.get(window, "viewTransitionCount")) + 1,
+      );
+      return original(...args);
+    };
+  });
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/publicacoes");
+  await page.getByRole("button", { name: "Menu do usuário" }).click();
+  await page.getByRole("menuitemradio", { name: "Claro" }).click();
+  const afterSwitch = await page.evaluate(() => ({
+    isDark: document.documentElement.classList.contains("dark"),
+    viewTransitions: Number(Reflect.get(window, "viewTransitionCount")),
+    runningTransitions: document
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSTransition).length,
+  }));
+  expect(afterSwitch).toEqual({ isDark: false, viewTransitions: 0, runningTransitions: 0 });
+});

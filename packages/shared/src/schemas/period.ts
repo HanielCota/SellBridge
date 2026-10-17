@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
-export const PERIOD_PRESETS = ["7d", "30d", "90d", "180d", "custom"] as const;
+export const PERIOD_PRESETS = ["today", "7d", "30d", "90d", "180d", "custom"] as const;
 export const periodPresetSchema = z.enum(PERIOD_PRESETS);
 export type PeriodPreset = z.infer<typeof periodPresetSchema>;
 
 export const PERIOD_LABELS: Record<PeriodPreset, string> = {
+  today: "Hoje",
   "7d": "Últimos 7 dias",
   "30d": "Últimos 30 dias",
   "90d": "Últimos 90 dias",

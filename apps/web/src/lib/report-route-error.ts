@@ -5,6 +5,23 @@ const pending = new Map<string, Promise<string | null>>();
 let windowStarted = 0;
 let sent = 0;
 
+/**
+ * Runs a step from an event handler and reports its failure instead of throwing, so the caller
+ * only decides what the screen says: `true` when the step worked.
+ */
+export async function succeedsOrReports(
+  step: () => Promise<unknown>,
+  route: string,
+): Promise<boolean> {
+  try {
+    await step();
+    return true;
+  } catch (error) {
+    await reportRouteError(error, route);
+    return false;
+  }
+}
+
 /** Report only after hydration, coalescing repeated renders and never throwing into React. */
 export async function reportRouteError(error: unknown, route: string): Promise<string | null> {
   try {

@@ -83,3 +83,14 @@ export const customerIssueKindEnum = pgEnum("customer_issue_kind", [
   "onboarding",
   "cooling",
 ]);
+
+/** Kept in step with `NOTIFICATION_CHANNELS` in `@sellbridge/shared/notification-events`. */
+export const notificationChannelEnum = pgEnum("notification_channel", ["in_app", "email", "push"]);
+
+/** `skipped`: the channel cannot deliver (push not configured); never retried. */
+export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", [
+  "pending",
+  "sent",
+  "failed",
+  "skipped",
+]);

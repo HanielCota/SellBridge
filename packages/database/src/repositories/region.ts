@@ -1,52 +1,31 @@
-import type { ResolvedAddress } from "@sellbridge/shared/cep";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
-import { cepCache, suppliers, tenantProfile } from "../schema/index.ts";
+import { suppliers, tenantProfile } from "../schema/index.ts";
 import { assertActiveSupplier } from "./store-suppliers.ts";
 
-export interface CachedCep {
-  cep: string;
-  state: string;
-  city: string;
-  neighborhood: string | null;
-  street: string | null;
-  provider: string;
-  fetchedAt: Date;
+/** Who sells as a company: CNPJ (digits) and legal name. */
+export interface HolderCompany {
+  cnpj: string;
+  companyName: string;
 }
 
-export async function findCachedCep(database: Database, cep: string): Promise<CachedCep | null> {
-  const row = await database.query.cepCache.findFirst({ where: eq(cepCache.cep, cep) });
-  return row ?? null;
-}
-
-export async function saveCachedCep(
-  database: Database,
-  address: ResolvedAddress,
-  provider: string,
-  payload: unknown,
-): Promise<void> {
-  const values = {
-    cep: address.cep,
-    state: address.state,
-    city: address.city,
-    neighborhood: address.neighborhood,
-    street: address.street,
-    provider,
-    payload: payload ?? {},
-    fetchedAt: new Date(),
-  };
-  await database.insert(cepCache).values(values).onConflictDoUpdate({
-    target: cepCache.cep,
-    set: values,
-  });
-}
-
-/** Who invoices and charges go to. */
+/** Who invoices and charges go to, and how to reach them. */
 export interface BillingHolder {
   fullName: string;
   cpf: string;
+  /** Digits with area code; null for accounts saved before it was asked (item 26.a). */
+  phone: string | null;
+  company: HolderCompany | null;
+}
+
+/** What onboarding saves; phone and company left out keep what is stored. */
+export interface BillingHolderValues {
+  fullName: string;
+  cpf: string;
+  phone?: string;
+  company?: HolderCompany | null;
 }
 
 /** The partial unique index of `schema/region.ts`: one account per CPF. */
@@ -88,26 +67,33 @@ export async function findBillingHolder(
   tenantId: string,
 ): Promise<BillingHolder | null> {
   const row = await database.query.tenantProfile.findFirst({
-    columns: { fullName: true, cpf: true },
+    columns: { fullName: true, cpf: true, phone: true, cnpj: true, companyName: true },
     where: eq(tenantProfile.tenantId, tenantId),
   });
-  if (row === undefined || row.fullName === null || row.cpf === null) {
+  if (row === undefined) {
     return null;
   }
-  return { fullName: row.fullName, cpf: row.cpf };
+  return holderOf(row);
 }
 
-/**
- * Saves who invoices and charges go to, keeping any address an older profile has. A CPF
- * already used by another account is refused with a conflict.
- */
+function profileValuesOf(holder: BillingHolderValues) {
+  const { company, ...person } = holder;
+  if (company === undefined) {
+    return person;
+  }
+  return { ...person, cnpj: company?.cnpj ?? null, companyName: company?.companyName ?? null };
+}
+
+/** Saves who invoices and charges go to. A CPF already used by another account is refused. */
 export async function saveBillingHolder(
   database: Database,
   tenantId: string,
-  holder: BillingHolder,
+  holder: BillingHolderValues,
 ): Promise<BillingHolder> {
-  const saved = await upsertTenantProfile(database, { tenantId, ...holder });
-  return { fullName: saved.fullName ?? holder.fullName, cpf: saved.cpf ?? holder.cpf };
+  const saved = await upsertTenantProfile(database, { tenantId, ...profileValuesOf(holder) });
+  return (
+    holderOf(saved) ?? { fullName: holder.fullName, cpf: holder.cpf, phone: null, company: null }
+  );
 }
 
 /** The supplier picked during onboarding, as the onboarding and profile screens show it. */
@@ -134,6 +120,9 @@ export async function findOnboardingProfile(
     .select({
       fullName: tenantProfile.fullName,
       cpf: tenantProfile.cpf,
+      phone: tenantProfile.phone,
+      cnpj: tenantProfile.cnpj,
+      companyName: tenantProfile.companyName,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       supplierNiche: suppliers.niche,
@@ -151,11 +140,21 @@ export async function findOnboardingProfile(
   return { holder: holderOf(row), starterSupplier: starterSupplierOf(row) };
 }
 
-function holderOf(row: { fullName: string | null; cpf: string | null }): BillingHolder | null {
+function holderOf(row: {
+  fullName: string | null;
+  cpf: string | null;
+  phone: string | null;
+  cnpj: string | null;
+  companyName: string | null;
+}): BillingHolder | null {
   if (row.fullName === null || row.cpf === null) {
     return null;
   }
-  return { fullName: row.fullName, cpf: row.cpf };
+  const company =
+    row.cnpj === null || row.companyName === null
+      ? null
+      : { cnpj: row.cnpj, companyName: row.companyName };
+  return { fullName: row.fullName, cpf: row.cpf, phone: row.phone, company };
 }
 
 function starterSupplierOf(row: {

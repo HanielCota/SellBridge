@@ -25,7 +25,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
 vi.mock("./auth.ts", () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock("./membership.ts", () => ({
   findFirstOrganizationId: vi.fn<() => Promise<string | null>>(),
-  isMemberOf: async () => true,
+  findMemberProfileKind: async () => "seller",
 }));
 vi.mock("@tanstack/react-start/server", () => ({
   getRequestHeaders: () => new Headers(),

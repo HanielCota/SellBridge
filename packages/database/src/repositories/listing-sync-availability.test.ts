@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { supplierProducts, suppliers, tenantProfile } from "../schema/index.ts";
+import { supplierProducts, suppliers } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -10,22 +10,19 @@ import {
   type TestSeller,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { findTargetsNeedingSync, markTargetSynced } from "./listings.ts";
+import { findTargetsNeedingSync, markTargetSynced } from "./listing-sync.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 const cleanups: (() => Promise<void>)[] = [];
 
-let mineiro: TestSeller;
-let acreano: TestSeller;
-let semEndereco: TestSeller;
+let sellerOne: TestSeller;
+let sellerTwo: TestSeller;
+let sellerThree: TestSeller;
 
-/** A seller with one connected store; `region` is the address an older profile kept. */
-async function seller(tenantId: string, region: { state: string; city: string } | null) {
-  if (region !== null) {
-    await database.insert(tenantProfile).values({ tenantId, cep: "30140071", ...region });
-  }
+/** A seller with one connected store. */
+async function seller(tenantId: string) {
   const store = await upsertStoreConnection(database, testStoreInput(tenantId, `shop-${tenantId}`));
   return { tenantId, storeId: store.id };
 }
@@ -60,9 +57,9 @@ beforeAll(async () => {
   if (first === undefined || second === undefined || third === undefined) {
     throw new Error("tenants não criados");
   }
-  mineiro = await seller(first, { state: "MG", city: "Belo Horizonte" });
-  acreano = await seller(second, { state: "AC", city: "Rio Branco" });
-  semEndereco = await seller(third, null);
+  sellerOne = await seller(first);
+  sellerTwo = await seller(second);
+  sellerThree = await seller(third);
 });
 
 afterAll(async () => {
@@ -75,42 +72,42 @@ afterAll(async () => {
 });
 
 describe("sync of products the reseller can no longer sell", () => {
-  it("offers the stock to every reseller, wherever the reseller and the supplier are", async () => {
-    const product = await publishedBy([mineiro, acreano, semEndereco]);
+  it("offers the stock to every reseller, wherever the supplier is", async () => {
+    const product = await publishedBy([sellerOne, sellerTwo, sellerThree]);
 
     expect(await stockQueued(product)).toEqual({
-      [mineiro.tenantId]: 5,
-      [acreano.tenantId]: 5,
-      [semEndereco.tenantId]: 5,
+      [sellerOne.tenantId]: 5,
+      [sellerTwo.tenantId]: 5,
+      [sellerThree.tenantId]: 5,
     });
   });
 
   it("sends zero for an inactive product", async () => {
-    const product = await publishedBy([mineiro]);
+    const product = await publishedBy([sellerOne]);
     await database
       .update(supplierProducts)
       .set({ active: false })
       .where(eq(supplierProducts.id, product.productId));
 
-    expect(await stockQueued(product)).toEqual({ [mineiro.tenantId]: 0 });
+    expect(await stockQueued(product)).toEqual({ [sellerOne.tenantId]: 0 });
   });
 
   it("sends zero for every product of an inactive supplier", async () => {
-    const product = await publishedBy([mineiro, acreano]);
+    const product = await publishedBy([sellerOne, sellerTwo]);
     await database
       .update(suppliers)
       .set({ active: false })
       .where(eq(suppliers.id, product.supplierId));
 
     expect(await stockQueued(product)).toEqual({
-      [mineiro.tenantId]: 0,
-      [acreano.tenantId]: 0,
+      [sellerOne.tenantId]: 0,
+      [sellerTwo.tenantId]: 0,
     });
   });
 
   it("leaves the queue once the zero reached the marketplace", async () => {
-    const product = await publishedBy([acreano]);
-    const targetId = product.targets.get(acreano.tenantId);
+    const product = await publishedBy([sellerTwo]);
+    const targetId = product.targets.get(sellerTwo.tenantId);
     if (targetId === undefined) {
       throw new Error("destino não criado");
     }
@@ -120,6 +117,6 @@ describe("sync of products the reseller can no longer sell", () => {
       .where(eq(supplierProducts.id, product.productId));
     await markTargetSynced(database, targetId, { stock: 0, priceCents: 3990 });
 
-    expect(await stockQueued(product)).toEqual({ [acreano.tenantId]: undefined });
+    expect(await stockQueued(product)).toEqual({ [sellerTwo.tenantId]: undefined });
   });
 });

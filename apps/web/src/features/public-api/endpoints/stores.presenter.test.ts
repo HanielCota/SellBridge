@@ -11,6 +11,7 @@ const store: StoreConnectionSummary = {
   status: "connected",
   lastError: "falha antiga",
   expiresAt: new Date("2026-04-01T00:00:00Z"),
+  lastWebhookAt: null,
   connectedAt: new Date("2026-01-02T10:00:00Z"),
 };
 

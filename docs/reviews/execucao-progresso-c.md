@@ -4,10 +4,10 @@ Registro do chat C ([coordenacao.md](../prompts/coordenacao.md), seção 0: cat�
 
 ## Em andamento
 
-- Item/parte: 15.b · Prévia com o modelo único e piso de margem (telas)
-- Última etapa concluída: 8 · Documentar (⏸3 aguardando OK, 2026-10-15); ⏸1 e ⏸2 aprovados em 2026-10-15
-- Próximo passo: depois do OK, commit local, `git merge feat/client-phase-1` (traz a 0028: migrate no `sellbridge_desk_c`), portões e aviso ao principal; o item 15 fecha
-- Arquivos tocados: shared/domain/fee-model(.test).ts, listing-rules(.test).ts; database/repositories/listing-overview(.test).ts; web/features/listings/profit(.test).ts, listing-commands.server.ts; web/features/catalog/catalog.functions.ts; web/features/reports/fee-schedule.queries.ts (novo); web/components/catalog/price-receipt.tsx, catalog-product-card.tsx, bulk-publish-dialog.tsx; web/components/listings/listing-card.tsx, edit-price-dialog.tsx, profit-split.tsx; web/routes/_app/catalogo.tsx, publicacoes/index.tsx, publicacoes/nova.tsx; web/features/public-api/endpoints/listings-write.schemas.ts e listings-write.server.ts (só textos); e2e/publishing.spec.ts; docs
+- Item/parte: 14.c · Resultado honesto e telas do diálogo (14.b em 118b489; refactor em ac4ba79)
+- Última etapa concluída: 8 · Documentar; modo sem ⏸ desde 2026-10-16 (aprovado pelo usuário): commit, push ao PR #39 e hash ao principal
+- Próximo passo: item 14 concluído; pelo corte do MVP (4273792) o 23 vai para a fase 2 e o 18 para o chat F
+- Arquivos tocados: web/components/catalog/bulk-publish-result.tsx (novo), bulk-publish-dialog.tsx; web/features/catalog/bulk-publish-outcome(.test).ts (novo); web/routes/_app/catalogo.tsx (limpa a seleção); e2e/publishing.spec.ts; docs
 - Decisões tomadas nos pontos de parada: em 2026-10-15 o principal avisou (decisão do usuário) que os itens 13, 14, 18 e 23 ficam para depois: outro chat (CPF, `feat/cpf-supplier-per-store`) tira a trava por região e mexe em `supplier-coverage.ts`, `suppliers.ts`, `listings.ts`, `listing-overview.ts`, `catalog.functions.ts`, `listings.functions.ts`, `listing-commands.server.ts`, rotas de catálogo e fornecedores e notificações; este chat segue com o 09 e depois o 15 sem mexer nesses arquivos (avisar o principal antes se o 15 precisar). E2E novos com CPF usam `testCpf()`. 3 chats por área (coordenacao.md seção 0, 2026-10-15). ⏸1 do 09 (2026-10-15): modelo 1 (receita inteira, lucro sem o pendente), sem migration ("custo desconhecido" = item sem produto), item dividido em 09.b (servidor) e 09.c (telas); como a 09.b não tem tela, o ⏸2 dela foi junto com o ⏸3 (coordenacao 3.2)
 - Pendências: 15.b liberada pelo principal (2026-10-15) em `listing-commands.server.ts`, `listing-overview.ts`, `catalog-product-card.tsx`, `price-receipt.tsx`, `listing-card.tsx`, `edit-price-dialog.tsx`, `features/listings/profit.ts` e na server function nova em `features/reports`; `publicacoes/nova.tsx` fica para o fim, por cima da etapa 4 do CPF (o principal avisa quando juntar); não mexer em `publish-listing.server.ts`, `listings.functions.ts`, `catalog.functions.ts`, `bulk-publish-dialog.tsx` nem `listings-write.server.ts`; e2e `fulfillment.spec.ts:95` falha desde o 5f823ba do principal (título do link do fornecedor mudou; avisado); `stock.spec` instável com workers em paralelo (`firstPublishedTitle` pega a luminária desativada do `catalog-deactivation`; usar um anúncio da seed); o banco `sellbridge_desk_c` já tem aplicada a migration `0024_tenant_billing_holder` (da branch `wip/billing-holder`, ainda não juntada; `created_at` 1792022885802), embora o código desta branch pare na 0023; troca de região pelo admin (`customers.functions.ts`) deve chamar `requestStockSync` (chat B)
 
@@ -30,15 +30,42 @@ Legenda: ✅ concluído · 🟡 parcial · ⬜ não iniciado · ⛔ bloqueado (m
 | ---- | ---------------------------------------------- | -------- | --------------------------- | ------------------------------------------- |
 | 08   | Produto ou fornecedor inativo e fora da região | ✅       | b2a3331 · 2135a1b           | Juntado pelo principal (36ebac1)            |
 | 09   | Lucro correto                                  | ✅       | 118406a · 92d2e56 · 7772cb6 | 09.b servidor · 09.c telas · junção 93a3d30 |
-| 13   | Erros de publicação claros                     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 14   | Publicação em massa: validação e progresso     | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 13   | Erros de publicação claros                     | ✅       | 9b66320                     | 13.a daf26cc · 13.b 9b66320                 |
+| 14   | Publicação em massa: validação e progresso     | ✅       | 98ee522                     | 14.a 98ee522 · 14.b 118b489 · 14.c          |
 | 15   | Uma regra só de taxa e margem                  | ⬜       | —                           | Partir do `parseBrlToCents` do audit        |
-| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
-| 23   | Anúncios completos                             | ⬜       | —                           | Para depois (decisão do usuário, 15/10)     |
+| 18   | CSV com atributos do Mercado Livre             | ⬜       | —                           | Passou ao chat F (corte do MVP, 16/10)      |
+| 23   | Anúncios completos                             | ⬜       | —                           | Fase 2 (corte do MVP, 16/10)                |
 
 ## Histórico
 
 Uma entrada por item concluído ou interrompido, a mais recente em cima, no formato da seção 7 do prompt (resumo).
+
+### 2026-10-16 · Item 14.c · Resultado honesto e telas do diálogo — concluído
+
+- Depois de "Publicar", o diálogo não fecha: mostra o `ProgressWithEta` e o resultado (anúncios no ar, com falha, ainda publicando e produtos que ficaram fora, cada um com o motivo); "Ver publicações" leva à lista e "Fechar" (ou Esc) limpa a seleção do catálogo. Some o aviso "N produtos enviados".
+- Capturas do andamento e do fim, nos dois temas, no computador (1280) e no celular (375), sem estouro horizontal. "Ficaram fora" só aparece numa corrida entre telas ou com título ou descrição inválidos (o catálogo não deixa selecionar publicado nem sem estoque); coberto pelos testes de `bulk-publish-outcome`.
+- C5 1711/1711 (shared 485, marketplaces 194, database 329, web 615, worker 88); C6 ok; C7 `publishing.spec`.
+
+### 2026-10-16 · Item 14.b · Componente `ProgressWithEta` — ⏸3 aguardando OK
+
+- `estimatePublishProgress` (shared): x de y, % arredondado para baixo (100% só no fim) e tempo restante pelo intervalo médio entre jobs concluídos (o worker roda vários em paralelo); sem concluídos, sem estimativa. `getPublishBatchStatus` (database) conta publicados, falhas definitivas e pendentes só da conta. `publishProductsInBulk` devolve os `targetIds`; `getBulkPublishProgress` + `bulkPublishProgressQueryOptions` (consulta a cada 2 s até nada pendente). `ProgressWithEta` em `components/ui`, com `<progress>` e o tempo restante num `<output>` (anuncia sem repetir a contagem). O diálogo e as capturas são a 14.c.
+- C5 1638/1638 (shared 471, marketplaces 194, database 305, web 586, worker 82); C6 ok; C7 `publishing.spec` 11/11. Instabilidade sem relação: `notification-delivery.test` (chat E, 25.a) falha quando o relógio do Postgres no Docker está à frente do Windows (59 ms medidos): `nextAttemptAt` usa `now()` do banco e o processador consulta com o relógio do Node. Passou na rodada seguinte.
+
+### 2026-10-16 · Item 14.a · Massa com as regras do individual e sem estoque bloqueado — ⏸3 aguardando OK
+
+- `planBulkPublish` (shared) aplica título, descrição, estoque (com o estoque de segurança) e "já publicado"; a massa publica os válidos e devolve os pulados com motivo; nenhum válido recusa o lote com nomes e motivos. O fluxo individual (e a API pública, pelo mesmo comando) recusa produto sem estoque.
+- Sem revisão independente obrigatória (sem dinheiro, auth ou migration; 9 arquivos); autorrevisão sem achados. Um teste da web (`webhooks.server.test`, Redis travado) falhou uma vez com a máquina carregada e passou sozinho (9/9): instabilidade de tempo, sem relação; o mesmo com `store-supplier-change.test.ts` (do CPF), que estourou 5 s uma vez na suíte e passou sozinho duas vezes e na suíte de novo. Portões: lint, tipos, formatação, sem else ✅; 1631 testes; build ✅ sem mudança no `routeTree.gen.ts`; e2e `publishing.spec` 11/11 em série (inclui o novo "recusa no servidor publicar um produto sem estoque").
+
+### 2026-10-16 · Item 13.b · Descrição recusada vira aviso com reenvio — ✅ concluído (commit local; item 13 ✅)
+
+- Conector: `publishProduct` devolve `descriptionError` (em português) sem falhar a publicação; `updateDescription` com PUT `?api_version=2` (página oficial). Migration 0032 (`description_error`, `description_failed_at`, `description_attempts`). O job de sincronização reenvia até 3 vezes; "Reenviar descrição" no card zera as tentativas e pede a sincronização na hora; a lista consulta por até 5 min para o aviso sumir sozinho.
+- Revisão independente: 0 alto; 3 médios corrigidos com teste de regressão que falha sem a correção: (1) a reconciliação (item já criado) postava a descrição de novo com POST, que o ML recusa, e mostrava falso "Descrição não enviada": agora substitui com PUT; (2) recusa do próprio texto gastava as 3 tentativas: agora a recusa não repetível encerra as automáticas na hora, e a mensagem pede o suporte (não há edição de descrição antes do item 23); (3) as descrições rodam primeiro, em fatia própria de 30 s, para a sincronização longa de estoque não deixá-las de fora. Baixos corrigidos: reenvio só para anúncio no ar ou pausado em loja conectada (teste), busca com try/catch, `inArray`, checagem explícita de nulo, motivo longo quebra linha. Aceitos: sem índice parcial para a consulta de "ativos" (exige migration; fica para o 32), só o motivo da primeira loja no card, corrida rara entre reenvio e sincronização (o pior caso é uma tentativa a mais).
+- Achado no D1 e corrigido: no celular o botão passava da borda do card (dois cards por linha); agora "Reenviar", em largura total, com nome acessível completo.
+
+### 2026-10-15 · Item 13.a · Erros do ML com `cause[]` em português — ✅ concluído (commit local)
+
+- `error-messages.ts` traduz os códigos da página oficial "Validações" do ML ("o que aconteceu. o que fazer."), ignora avisos, mostra até dois erros, cita o ML (até 300 caracteres) quando o código é desconhecido e mantém a mensagem antiga sem `cause`. `readError` usa a tradução e leva os códigos em `details.causes` para o log. Fixtures no formato da documentação.
+- Sem revisão independente (item pequeno: sem dinheiro, auth ou migration; 7 arquivos); autorrevisão sem achados.
 
 ### 2026-10-15 · Item 15.b · Prévia com todas as taxas e piso de preço — ✅ concluído (commit local; item 15 ✅)
 

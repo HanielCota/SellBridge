@@ -1,3 +1,4 @@
+import { isForwardEmailFailureNote } from "@sellbridge/shared/forward-notes";
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { marketplaceError } from "@sellbridge/marketplaces";
@@ -188,9 +189,7 @@ describe("order auto-forward", () => {
       .select({ note: schema.shipmentEvents.note })
       .from(schema.shipmentEvents)
       .where(eq(schema.shipmentEvents.shipmentId, shipment.id));
-    expect(events.map((event) => event.note).join(" ")).toContain(
-      "O e-mail ao fornecedor não foi enviado",
-    );
+    expect(events.some((event) => isForwardEmailFailureNote(event.note))).toBe(true);
   });
 
   it("never writes the address, the e-mail or the link to the log", async () => {

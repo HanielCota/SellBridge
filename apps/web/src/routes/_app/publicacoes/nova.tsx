@@ -80,10 +80,10 @@ function NewListingPage() {
 
   if (query.isPending) {
     return (
-      <div className="space-y-4" aria-busy="true" aria-label="Carregando produto">
+      <output className="block space-y-4" aria-busy="true" aria-label="Carregando produto">
         <Skeleton className="h-8 w-72" />
         <Skeleton className="h-96 rounded-3xl" />
-      </div>
+      </output>
     );
   }
   if (query.isError) {
@@ -119,7 +119,7 @@ function NewListingPage() {
             }
             action={
               <Button asChild>
-                <Link to="/lojas" hash="adicionar-loja">
+                <Link to="/lojas" search={{ fornecedor: product.supplierId }} hash="adicionar-loja">
                   {hasOtherStores ? "Conectar uma loja para este fornecedor" : "Conectar loja"}
                 </Link>
               </Button>

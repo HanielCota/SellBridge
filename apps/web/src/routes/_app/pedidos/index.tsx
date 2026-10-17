@@ -216,9 +216,9 @@ function OrderList({ onReview }: { onReview: (target: ReviewTarget) => void }) {
 
   if (query.isPending) {
     return (
-      <div aria-busy="true" aria-label="Carregando pedidos">
+      <output aria-busy="true" aria-label="Carregando pedidos">
         <Skeleton className="h-96 rounded-3xl" />
-      </div>
+      </output>
     );
   }
   if (query.isError) {

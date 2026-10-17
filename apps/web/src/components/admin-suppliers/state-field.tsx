@@ -1,4 +1,4 @@
-import { BRAZILIAN_STATES } from "@sellbridge/shared/cep";
+import { BRAZILIAN_STATES } from "@sellbridge/shared/brazilian-states";
 import { Label } from "@/components/ui/label";
 import {
   Select,

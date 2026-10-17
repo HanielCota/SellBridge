@@ -1,5 +1,6 @@
 import type { FinancialSearch, PeriodSearch } from "@sellbridge/shared/schemas";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+import { setupProgressRefetchInterval } from "@/features/onboarding/setup-progress";
 import { getDashboard, getFinancials, getSetupProgress } from "./reports.functions";
 
 export const dashboardQueryOptions = (search: PeriodSearch) =>
@@ -33,4 +34,5 @@ export const setupProgressQueryOptions = () =>
   queryOptions({
     queryKey: ["setup-progress"],
     queryFn: () => getSetupProgress(),
+    refetchInterval: (query) => setupProgressRefetchInterval(query.state.data),
   });

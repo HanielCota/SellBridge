@@ -116,6 +116,16 @@ describe("publish-listing processor", () => {
     expect((await targetRow(targetId)).attempts).toBe(1);
   });
 
+  it("keeps the listing live and records a description the marketplace refused", async () => {
+    const { tenantId, targetId } = await createTarget("Camiseta lisa [sem descricao]");
+    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
+    expect(await processPublish(job)).toBe("published");
+    const row = await targetRow(targetId);
+    expect(row).toMatchObject({ status: "published", errorReason: null, descriptionAttempts: 0 });
+    expect(row.descriptionError).toMatch(/descrição/);
+    expect(row.descriptionFailedAt).not.toBeNull();
+  });
+
   it("marks permanent rejections as error without retrying", async () => {
     const { tenantId, targetId } = await createTarget("Produto proibido [falha]");
     const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
@@ -303,27 +313,6 @@ describe("publish-listing processor", () => {
     await expect(processPublish(job)).rejects.toBeInstanceOf(UnrecoverableError);
     expect(publishProduct).not.toHaveBeenCalled();
     expect((await targetRow(targetId)).errorReason).toBe(unavailableMessage("supplier_inactive"));
-  });
-
-  it("publishes for a reseller anywhere in Brazil, whatever address an older profile kept", async () => {
-    const [, tenantId] = tenantIds;
-    if (tenantId === undefined) {
-      throw new Error("tenant ausente");
-    }
-    await database
-      .insert(schema.tenantProfile)
-      .values({ tenantId, cep: "69900062", state: "AC", city: "Rio Branco" });
-    const store = await createTestStore(environment, tenantId, "connected");
-    const targetId = await createTestTarget(database, {
-      tenantId,
-      productId: catalog.productId,
-      storeId: store.id,
-      title: "Produto vendido do Acre",
-    });
-
-    const job = { data: { tenantId, listingTargetId: targetId }, attemptsMade: 0, maxAttempts: 5 };
-    expect(await processPublish(job)).toBe("published");
-    expect((await targetRow(targetId)).errorReason).toBeNull();
   });
 
   it("refuses a publication whose shop moved to another supplier after it was queued", async () => {

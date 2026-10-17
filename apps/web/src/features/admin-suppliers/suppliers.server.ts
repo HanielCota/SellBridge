@@ -122,7 +122,11 @@ export async function previewAdminProductCsv(input: z.infer<typeof adminProductC
   };
 }
 
-export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmProductCsvSchema>) {
+/** `reviewAt`: the supplier panel's import, whose rows go through review (PR #44). */
+export async function confirmAdminProductCsv(
+  input: z.infer<typeof adminConfirmProductCsvSchema>,
+  options: { reviewAt?: Date } = {},
+) {
   const parsed = parseProductCsv(input.content);
   if (parsed.errors.length > 0) {
     throw validationError("Corrija os erros do CSV antes de importar");
@@ -132,6 +136,7 @@ export async function confirmAdminProductCsv(input: z.infer<typeof adminConfirmP
       await importSupplierProducts(database, {
         supplierId: input.supplierId,
         rows: parsed.rows,
+        ...options,
         validatePreview: (plan) => {
           if (previewToken(input.content, plan) !== input.previewToken) {
             throw conflictError(

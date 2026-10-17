@@ -2,6 +2,7 @@ import type { AppError } from "@sellbridge/shared/errors";
 import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, isIdempotentMethod, type FetchLike, type RetryOptions } from "../http.ts";
+import { blockingCauses, explainMercadoLivreError } from "./error-messages.ts";
 import { readMercadoLivreJson } from "./json.ts";
 import { errorBodySchema } from "./schemas.ts";
 
@@ -45,16 +46,18 @@ export function credentials(config: MercadoLivreConfig): {
  * whether it took effect, so it is reported as permanent instead of letting a job repeat it.
  */
 async function readError(response: Response, isIdempotent: boolean): Promise<AppError> {
-  const body = errorBodySchema.safeParse(await readMercadoLivreJson(response));
-  const detail = body.success ? (body.data.message ?? body.data.error ?? "") : "";
+  const raw = await readMercadoLivreJson(response);
+  const body = errorBodySchema.safeParse(raw);
   if (response.status === 401 || (body.success && body.data.error === "invalid_grant")) {
     return marketplaceAuthError();
   }
   const retryable = response.status === 429 || (isIdempotent && response.status >= 500);
-  const message = detail
-    ? `Mercado Livre recusou a operação: ${detail}`
-    : `Mercado Livre respondeu com erro ${response.status}`;
-  return marketplaceError(message, { retryable, status: response.status });
+  return marketplaceError(explainMercadoLivreError(raw, response.status), {
+    retryable,
+    status: response.status,
+    // The validation codes, for the logs: the message already says them in Portuguese.
+    causes: blockingCauses(raw).flatMap((cause) => (cause.code === undefined ? [] : [cause.code])),
+  });
 }
 
 export async function requestJson<TResponse>(

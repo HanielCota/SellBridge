@@ -12,7 +12,8 @@ interface SessionShape {
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn<() => Promise<SessionShape | null>>(),
   setActiveOrganization: vi.fn<() => Promise<void>>(),
-  isMemberOf: vi.fn<(userId: string, organizationId: string) => Promise<boolean>>(),
+  findMemberProfileKind:
+    vi.fn<(userId: string, organizationId: string) => Promise<"seller" | "supplier" | null>>(),
   findFirstOrganizationId: vi.fn<(userId: string) => Promise<string | null>>(),
 }));
 vi.mock("./auth.ts", () => ({
@@ -21,11 +22,11 @@ vi.mock("./auth.ts", () => ({
   },
 }));
 vi.mock("./membership.ts", () => ({
-  isMemberOf: mocks.isMemberOf,
+  findMemberProfileKind: mocks.findMemberProfileKind,
   findFirstOrganizationId: mocks.findFirstOrganizationId,
 }));
 
-const { requireTenantSession } = await import("./tenant-session");
+const { requireSellerSession, requireTenantSession } = await import("./tenant-session");
 
 const startedAt = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000);
 
@@ -42,13 +43,27 @@ beforeEach(() => {
 describe("requireTenantSession", () => {
   it("serves the active organization while the user is still a member", async () => {
     mocks.getSession.mockResolvedValue(session("org-a"));
-    mocks.isMemberOf.mockResolvedValue(true);
-    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({ tenantId: "org-a" });
+    mocks.findMemberProfileKind.mockResolvedValue("seller");
+    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
+      tenantId: "org-a",
+      profileKind: "seller",
+    });
+  });
+
+  it("tells which kind of profile the session is on", async () => {
+    mocks.getSession.mockResolvedValue(session("org-supplier"));
+    mocks.findMemberProfileKind.mockResolvedValue("supplier");
+    await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
+      tenantId: "org-supplier",
+      profileKind: "supplier",
+    });
   });
 
   it("drops an organization the user was removed from, even with a live session", async () => {
     mocks.getSession.mockResolvedValue(session("org-removed"));
-    mocks.isMemberOf.mockResolvedValue(false);
+    mocks.findMemberProfileKind.mockImplementation(async (_userId, organizationId) =>
+      organizationId === "org-own" ? "seller" : null,
+    );
     mocks.findFirstOrganizationId.mockResolvedValue("org-own");
     await expect(requireTenantSession(new Headers())).resolves.toMatchObject({
       tenantId: "org-own",
@@ -57,13 +72,13 @@ describe("requireTenantSession", () => {
 
   it("refuses a removed member with no organization left", async () => {
     mocks.getSession.mockResolvedValue(session("org-removed"));
-    mocks.isMemberOf.mockResolvedValue(false);
+    mocks.findMemberProfileKind.mockResolvedValue(null);
     mocks.findFirstOrganizationId.mockResolvedValue(null);
     await expect(requireTenantSession(new Headers())).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("ends an admin's visit after an hour, whatever the session cookie says", async () => {
-    mocks.isMemberOf.mockResolvedValue(true);
+    mocks.findMemberProfileKind.mockResolvedValue("seller");
     mocks.getSession.mockResolvedValue({
       ...session("org-a"),
       session: {
@@ -86,5 +101,19 @@ describe("requireTenantSession", () => {
     await expect(requireTenantSession(new Headers())).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+  });
+});
+
+describe("requireSellerSession", () => {
+  it("refuses seller functions to a supplier profile with 403", async () => {
+    mocks.getSession.mockResolvedValue(session("org-supplier"));
+    mocks.findMemberProfileKind.mockResolvedValue("supplier");
+    await expect(requireSellerSession(new Headers())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("serves a seller profile", async () => {
+    mocks.getSession.mockResolvedValue(session("org-a"));
+    mocks.findMemberProfileKind.mockResolvedValue("seller");
+    await expect(requireSellerSession(new Headers())).resolves.toMatchObject({ tenantId: "org-a" });
   });
 });

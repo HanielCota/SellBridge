@@ -7,9 +7,10 @@ import {
 } from "../schemas/admin-suppliers.ts";
 import { freeText } from "../schemas/common.ts";
 import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
+import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
-  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90\r\n";
+  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20\r\n";
 const requiredColumns = ["sku", "titulo", "custo", "estoque"];
 const allowedColumns = [
   ...requiredColumns,
@@ -18,6 +19,7 @@ const allowedColumns = [
   "imagens",
   "ativo",
   "preco_sugerido",
+  ...PRODUCT_CSV_ATTRIBUTE_COLUMNS,
 ];
 export interface ProductCsvError {
   line: number;
@@ -176,7 +178,32 @@ const fieldLabels: Record<string, string> = {
   imageUrls: "Imagens",
   active: "Ativo",
   categorySlug: "Categoria",
+  mercadoLivreAttributes: "Atributos do Mercado Livre",
 };
+
+function rowCandidate(
+  values: Readonly<Record<string, string>>,
+  sku: string,
+  mercadoLivreAttributes: Record<string, string>,
+) {
+  const stock = values.estoque ?? "";
+  const suggestedPrice = values.preco_sugerido ?? "";
+  return {
+    sku,
+    title: values.titulo,
+    description: values.descricao ?? "",
+    costCents: parseCsvMoney(values.custo ?? ""),
+    stock: /^\d+$/.test(stock) ? Number(stock) : null,
+    categorySlug: values.categoria || null,
+    imageUrls: (values.imagens ?? "")
+      .split("|")
+      .map((url) => url.trim())
+      .filter(Boolean),
+    active: parseActive(values.ativo ?? ""),
+    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
+    mercadoLivreAttributes,
+  };
+}
 
 function validateRecord(
   record: CsvRecord,
@@ -198,27 +225,22 @@ function validateRecord(
     return { line: record.line, reason: `SKU duplicado no arquivo: ${sku}` };
   }
   seen.add(sku);
-  const stock = values.estoque ?? "";
-  const suggestedPrice = values.preco_sugerido ?? "";
-  const parsed = csvRowSchema.safeParse({
-    sku,
-    title: values.titulo,
-    description: values.descricao ?? "",
-    costCents: parseCsvMoney(values.custo ?? ""),
-    stock: /^\d+$/.test(stock) ? Number(stock) : null,
-    categorySlug: values.categoria || null,
-    imageUrls: (values.imagens ?? "")
-      .split("|")
-      .map((url) => url.trim())
-      .filter(Boolean),
-    active: parseActive(values.ativo ?? ""),
-    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
-  });
-  if (!parsed.success) {
-    const reason = parsed.error.issues
-      .map((issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`)
-      .join("; ");
-    return { line: record.line, reason };
+  const attributes = parseCsvAttributes(values);
+  const parsed = csvRowSchema.safeParse(
+    rowCandidate(values, sku, "attributes" in attributes ? attributes.attributes : {}),
+  );
+  // Every bad cell at once (schema fields, then Mercado Livre attributes), so one round of
+  // fixes clears the line instead of a new error showing up after each one.
+  const reasons = [
+    ...(parsed.success
+      ? []
+      : parsed.error.issues.map(
+          (issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`,
+        )),
+    ...("reason" in attributes ? [attributes.reason] : []),
+  ];
+  if (!parsed.success || reasons.length > 0) {
+    return { line: record.line, reason: reasons.join("; ") };
   }
   return { line: record.line, product: parsed.data };
 }

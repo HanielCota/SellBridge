@@ -2,7 +2,7 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
-export type NavBadge = "failedListings" | "openTickets" | "supportReplies";
+export type NavBadge = "failedListings" | "openTickets" | "productReviews" | "supportReplies";
 
 export interface NavItem {
   label: string;
@@ -12,6 +12,8 @@ export interface NavItem {
   also?: string[];
   /** Team tabs only show to roles allowed to use them. */
   permission?: StaffPermission;
+  /** Active only on this exact path (a home tab whose sections are tabs of their own). */
+  exact?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -23,15 +25,30 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Financeiro", to: "/financeiro" },
 ];
 
+/** The supplier profile's tabs: its panel replaces every seller tab. */
+export const SUPPLIER_NAV_ITEMS: NavItem[] = [
+  { label: "Início", to: "/fornecedor/painel", exact: true },
+  { label: "Pedidos", to: "/fornecedor/painel/pedidos" },
+  { label: "Produtos", to: "/fornecedor/painel/produtos" },
+  { label: "Importar", to: "/fornecedor/painel/importar" },
+  { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
+];
+
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
-  { label: "Fornecedores", to: "/admin/fornecedores", permission: "customers.manage" },
+  {
+    label: "Fornecedores",
+    to: "/admin/fornecedores",
+    badge: "productReviews",
+    permission: "customers.manage",
+  },
   {
     label: "Chamados",
     to: "/admin/chamados",
     badge: "openTickets",
     permission: "support.answer",
   },
+  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage" },
 ];
 
 /**
@@ -48,6 +65,8 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
   failedListings: (count) =>
     `${count} ${count === 1 ? "publicação com erro" : "publicações com erro"}`,
   openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,
+  productReviews: (count) =>
+    `${count} ${count === 1 ? "produto esperando análise" : "produtos esperando análise"}`,
   supportReplies: (count) =>
     `${count} ${count === 1 ? "chamado com resposta nova" : "chamados com resposta nova"}`,
 };

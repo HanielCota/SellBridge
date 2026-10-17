@@ -1,7 +1,8 @@
 import type { TicketStatus } from "@sellbridge/shared/schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { BackLink } from "@/components/layout/page-header";
+import { createFileRoute } from "@tanstack/react-router";
+
 import { useRef } from "react";
 import { toast } from "sonner";
 import { SmartDate } from "@/components/data/smart-date";
@@ -21,7 +22,7 @@ import {
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
 import { LinkedOrdersCard } from "@/components/support/ticket-context-panel";
 import { TicketThread } from "@/components/support/ticket-thread";
-import { Button } from "@/components/ui/button";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   type staffGetTicket,
@@ -94,12 +95,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
-        <Link to="/admin/chamados">
-          <ArrowLeftIcon aria-hidden="true" />
-          Chamados
-        </Link>
-      </Button>
+      <BackLink to="/admin/chamados" label="Chamados" />
       <AdminTicketHeader ticket={ticket} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
@@ -139,7 +135,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             isSelf={ticket.createdById === session.user.id}
             canManageCustomers={hasStaffPermission(session.user.role, "customers.manage")}
           />
-          <LinkedOrdersCard orders={detail.orders} />
+          <LinkedOrdersCard orders={detail.orders} subject={detail.subject} />
           <TicketHistory events={detail.events} />
         </div>
       </div>

@@ -22,7 +22,9 @@ export type StaffPermission =
   /** Sees the support metrics (volume, response times, satisfaction). */
   | "support.metrics"
   /** Customer accounts: profile, region, stores, ban, sessions, roles, impersonation. */
-  | "customers.manage";
+  | "customers.manage"
+  /** The platform-wide trail of what the team did (item 28.b): accounts, catalog, support. */
+  | "audit.view";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
   agent: ["support.answer", "support.triage"],
@@ -33,6 +35,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.assign_others",
     "support.metrics",
     "customers.manage",
+    "audit.view",
   ],
 };
 

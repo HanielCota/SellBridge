@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { enqueueWebhookEventJob, WEBHOOK_JOB_OPTIONS, type WebhookEventQueue } from "./queues.ts";
+import {
+  enqueueWebhookEventJob,
+  pingQueueConnection,
+  WEBHOOK_JOB_OPTIONS,
+  type WebhookEventQueue,
+} from "./queues.ts";
 
 /** In-memory stand-in for the BullMQ queue: one job per id, as BullMQ keeps them. */
 function createFakeQueue(existingState: string | null) {
@@ -49,5 +54,32 @@ describe("enqueueWebhookEventJob", () => {
       (_value, index) => backoff.delay * 2 ** index,
     ).reduce((sum, wait) => sum + wait, 0);
     expect(totalWait).toBeGreaterThanOrEqual(60 * 60 * 1000);
+  });
+});
+
+/** Dispatches like BullMQ's `runCommand`: by ioredis method name, failing on any other. */
+function queueAnswering(answer: () => Promise<unknown>) {
+  const methods: Record<string, () => Promise<unknown>> = { ping: answer };
+  const runCommand = async (name: string) => {
+    const method = methods[name];
+    if (method === undefined) {
+      throw new TypeError("client[name] is not a function");
+    }
+    return method();
+  };
+  return { getBackend: () => ({ client: Promise.resolve({ runCommand }) }) };
+}
+
+describe("pingQueueConnection", () => {
+  it("is healthy only when Redis answers PONG", async () => {
+    expect(await pingQueueConnection(queueAnswering(async () => "PONG"))).toBe(true);
+    expect(await pingQueueConnection(queueAnswering(async () => "LOADING"))).toBe(false);
+  });
+
+  it("lets a connection error reach the health check", async () => {
+    const refused = queueAnswering(async () => {
+      throw new Error("ECONNREFUSED");
+    });
+    await expect(pingQueueConnection(refused)).rejects.toThrow("ECONNREFUSED");
   });
 });

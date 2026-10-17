@@ -70,7 +70,25 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   await expect(page).toHaveURL(/inStock=true/);
   await page.getByRole("link", { name: "Publicar" }).first().click();
   await expect(page.getByText("Nenhuma loja vende BH Beauty Distribuidora")).toBeVisible();
+  await page.getByRole("link", { name: "Conectar uma loja para este fornecedor" }).click();
+
+  // The new shop comes with that supplier picked, so connecting it unblocks publishing.
+  await expect(page).toHaveURL(/\/lojas/);
+  await expect(page.getByText("BH Beauty Distribuidora", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+
+  // A name the account already uses is refused, ignoring case.
+  await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
+  await waitForHydration(page);
+  await page.getByLabel("Nome da loja").fill("loja pet");
+  await page.getByRole("button", { name: "Autorizar acesso" }).click();
+  await expect(page.getByText('O nome "loja pet" não está disponível')).toBeVisible({
+    timeout: SETTLE_TIMEOUT,
+  });
+  await expect(page).toHaveURL(/\/oauth\/mock\/autorizar/);
+
+  await authorizeMockStore(page, "Loja Beleza Nova");
   await expect(
-    page.getByRole("link", { name: "Conectar uma loja para este fornecedor" }),
+    storeRow(page, "Loja Beleza Nova").getByText("BH Beauty Distribuidora"),
   ).toBeVisible();
 });

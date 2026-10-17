@@ -128,10 +128,11 @@ function trailingAverageOf(values: readonly (number | null)[], index: number): n
 
 const DAY_MILLISECONDS = 86_400_000;
 
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00Z`);
+/** Shifts a bucket's date by whole days, keeping an hourly bucket's time ("T14:00"). */
+function addDays(bucketDate: string, days: number): string {
+  const date = new Date(`${bucketDate.slice(0, 10)}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+  return `${date.toISOString().slice(0, 10)}${bucketDate.slice(10)}`;
 }
 
 /** Index of the bucket holding `isoDate`: the last one starting on or before it, or the first. */
@@ -153,7 +154,7 @@ function bucketSpanDays(buckets: readonly MetricPoint[]): number {
   if (!first || !second) {
     return 1;
   }
-  const milliseconds = Date.parse(second.date) - Date.parse(first.date);
+  const milliseconds = Date.parse(second.date.slice(0, 10)) - Date.parse(first.date.slice(0, 10));
   return Math.max(1, Math.round(milliseconds / DAY_MILLISECONDS));
 }
 

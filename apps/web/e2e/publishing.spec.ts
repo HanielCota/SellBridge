@@ -1,4 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
+import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
+import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
+import { and, eq, inArray, like } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
@@ -79,6 +84,30 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
     "href",
     /\/oauth\/mock\/anuncio\//,
   );
+});
+
+test("avisa a descrição que não chegou ao marketplace e reenvia", async ({ page }) => {
+  await signUp(page, "Revendedora Descrição");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Descrição");
+
+  // The mock marketplace takes the listing but refuses the description of this title.
+  await openPublishFormForFirstProduct(page);
+  await page.getByLabel("Título").fill("Produto lindo [sem descricao]");
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(cardStatus(page, "No ar na Loja Descrição")).toBeVisible({
+    timeout: STATUS_TIMEOUT,
+  });
+  // Any stock sync (another spec's simulated sale starts one) resends the description, and the
+  // mock takes it, so the warning could leave before this page polls. Out of automatic resends,
+  // it stays until the reseller resends.
+  await holdDescriptionFailure("Produto lindo [sem descricao]");
+  const card = page.getByRole("article", { name: "Produto lindo [sem descricao]" });
+  await expect(card.getByText("Descrição não enviada")).toBeVisible({ timeout: STATUS_TIMEOUT });
+
+  await card.getByRole("button", { name: "Reenviar descrição" }).click();
+  await expect(page.getByText(/^Descrição reenviada/).filter({ visible: true })).toBeVisible();
+  await expect(card.getByText("Descrição não enviada")).toBeHidden({ timeout: STATUS_TIMEOUT });
 });
 
 test("não deixa publicar o mesmo produto duas vezes na mesma loja", async ({ page }) => {
@@ -202,6 +231,60 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
   ).toBeVisible();
 });
 
+/** The listing's description failed and no automatic resend is left: only "Reenviar" sends it. */
+async function holdDescriptionFailure(title: string): Promise<void> {
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  try {
+    const titled = database
+      .select({ id: listings.id })
+      .from(listings)
+      .where(eq(listings.title, title));
+    await database
+      .update(listingTargets)
+      .set({
+        descriptionError: "A descrição não chegou à loja simulada. Reenvie a descrição.",
+        descriptionAttempts: DESCRIPTION_AUTOMATIC_ATTEMPTS,
+        descriptionFailedAt: new Date(),
+      })
+      .where(inArray(listingTargets.listingId, titled));
+  } finally {
+    await database.$client.end();
+  }
+}
+
+/** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
+async function outOfStockProductId(): Promise<string> {
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  try {
+    const [row] = await database
+      .select({ id: supplierProducts.id })
+      .from(supplierProducts)
+      .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+      .where(
+        and(
+          like(suppliers.name, "BH Beauty%"),
+          eq(supplierProducts.active, true),
+          eq(supplierProducts.stock, 0),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new Error("Seed sem produto esgotado da BH Beauty");
+    return row.id;
+  } finally {
+    await database.$client.end();
+  }
+}
+
+test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
+  await signUp(page, "Revendedora Sem Estoque");
+  await onboardWithBhBeauty(page);
+  await connectMockStore(page, "Loja Sem Estoque");
+  await gotoHydrated(page, `/publicacoes/nova?productId=${await outOfStockProductId()}`);
+  await page.getByLabel("Título").fill("Produto esgotado no fornecedor");
+  await page.getByRole("button", { name: "Publicar" }).click();
+  await expect(page.getByText(/sem estoque no fornecedor/).filter({ visible: true })).toBeVisible();
+});
+
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
   await signUp(page, "Revendedor Sem Loja");
   await onboardWithBhBeauty(page);
@@ -257,10 +340,15 @@ test("publica vários produtos do catálogo de uma vez com regra de preço", asy
   await expect(dialog.getByText(/,90$/).filter({ visible: true }).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
+  // The dialog follows the batch to its end instead of leaving the reseller guessing.
+  await expect(dialog.getByRole("progressbar", { name: "Andamento da publicação" })).toBeVisible();
+  await expect(dialog.getByText("2 de 2 · 100%")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await expect(dialog.getByText("concluído")).toBeVisible();
+  await expect(dialog.getByText("Tudo no ar")).toBeVisible();
+  await expect(dialog.getByText("2 anúncios no ar")).toBeVisible();
+  await dialog.getByRole("button", { name: "Ver publicações" }).click();
+
   await expect(page).toHaveURL(/\/publicacoes/);
-  await expect(
-    page.getByText("2 produtos enviados para publicação").filter({ visible: true }),
-  ).toBeVisible();
   await expect(cardStatus(page, "No ar na Loja Lote")).toHaveCount(2, {
     timeout: STATUS_TIMEOUT,
   });
@@ -310,6 +398,8 @@ test("publica em lote com margem própria para um dos produtos", async ({ page }
   await dialog.getByLabel("Acréscimo deste produto").fill("150");
   await dialog.getByRole("button", { name: "Publicar em 1 loja" }).click();
 
+  await expect(dialog.getByText("2 anúncios no ar")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await dialog.getByRole("button", { name: "Ver publicações" }).click();
   await expect(page).toHaveURL(/\/publicacoes/);
   await expect(cardStatus(page, "No ar na Loja Margem")).toHaveCount(2, {
     timeout: STATUS_TIMEOUT,

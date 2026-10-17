@@ -37,6 +37,7 @@ const ALL_STORES = "__all__";
 /** Short labels for the segmented control (the long ones live in PERIOD_LABELS). */
 const SEGMENT_LABELS: Record<PeriodChoice, string> = {
   all: "Tudo",
+  today: "Hoje",
   "7d": "7 dias",
   "30d": "30 dias",
   "90d": "90 dias",
@@ -44,14 +45,18 @@ const SEGMENT_LABELS: Record<PeriodChoice, string> = {
   custom: "Personalizado",
 };
 
-/** Phone labels, so all five fit inside the chart card without a hidden scroll. */
+/**
+ * Phone labels, so every period fits inside the chart card without a hidden scroll. "Personalizado"
+ * is only its calendar icon there: with "Hoje" added, the word no longer fit on a 390px phone.
+ */
 const COMPACT_LABELS: Record<PeriodChoice, string> = {
   all: "Tudo",
+  today: "Hoje",
   "7d": "7d",
   "30d": "30d",
   "90d": "90d",
   "180d": "6m",
-  custom: "Personalizado",
+  custom: "",
 };
 
 interface PeriodFiltersProps<Period extends PeriodChoice> {
@@ -169,7 +174,7 @@ function PeriodSegments({
           )}
         >
           {preset === "custom" ? (
-            <CalendarBlankIcon className="size-3.5 max-sm:hidden" aria-hidden="true" />
+            <CalendarBlankIcon className="size-4 sm:size-3.5" aria-hidden="true" />
           ) : null}
           <input
             type="radio"

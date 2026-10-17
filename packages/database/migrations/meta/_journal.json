@@ -225,6 +225,76 @@
       "when": 1792114410642,
       "tag": "0031_boundary_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792168633054,
+      "tag": "0032_listing_description_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792169544986,
+      "tag": "0033_notification_channels",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792170869414,
+      "tag": "0034_drop_region_leftovers",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792176867126,
+      "tag": "0035_ticket_links_and_due",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792179373470,
+      "tag": "0036_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792181775034,
+      "tag": "0037_account_details_and_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792183571890,
+      "tag": "0038_global_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792193239356,
+      "tag": "0039_supplier_product_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792239888516,
+      "tag": "0040_organization_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792243312089,
+      "tag": "0041_supplier_organization",
+      "breakpoints": true
     }
   ]
 }
