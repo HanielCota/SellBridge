@@ -2,7 +2,7 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
-export type NavBadge = "failedListings" | "openTickets" | "supportReplies";
+export type NavBadge = "failedListings" | "openTickets" | "productReviews" | "supportReplies";
 
 export interface NavItem {
   label: string;
@@ -25,7 +25,12 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
-  { label: "Fornecedores", to: "/admin/fornecedores", permission: "customers.manage" },
+  {
+    label: "Fornecedores",
+    to: "/admin/fornecedores",
+    badge: "productReviews",
+    permission: "customers.manage",
+  },
   {
     label: "Chamados",
     to: "/admin/chamados",
@@ -49,6 +54,8 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
   failedListings: (count) =>
     `${count} ${count === 1 ? "publicação com erro" : "publicações com erro"}`,
   openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,
+  productReviews: (count) =>
+    `${count} ${count === 1 ? "produto esperando análise" : "produtos esperando análise"}`,
   supportReplies: (count) =>
     `${count} ${count === 1 ? "chamado com resposta nova" : "chamados com resposta nova"}`,
 };

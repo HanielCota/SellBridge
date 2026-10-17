@@ -47,3 +47,4 @@ export * from "./terms-acceptances.ts";
 export * from "./admin-audit.ts";
 export * from "./supplier-panel-catalog.ts";
 export * from "./supplier-panel-catalog-writes.ts";
+export * from "./supplier-product-review-queue.ts";
