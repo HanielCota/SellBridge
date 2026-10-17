@@ -1,7 +1,7 @@
 import { getAdminSupplier, listAdminCategories } from "@sellbridge/database/repositories";
-import { conflictError } from "@sellbridge/shared/errors";
+import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import type { ProductCsvError } from "@sellbridge/shared/product-csv";
+import { parseProductCsv, type ProductCsvError } from "@sellbridge/shared/product-csv";
 import {
   normalizeImportFile,
   type NormalizedImport,
@@ -12,6 +12,11 @@ import {
   buildImportTemplateCsv,
   buildValidRowsCsv,
 } from "@sellbridge/shared/supplier-panel-import-files";
+import {
+  firstInsecureImageUrl,
+  insecureImageErrors,
+  shortValue,
+} from "@sellbridge/shared/supplier-panel-image-urls";
 import { groupIssuesByRow } from "@sellbridge/shared/supplier-panel-import-issues";
 import type {
   SupplierImportConfirmInput,
@@ -46,13 +51,17 @@ function originalErrors(normalized: NormalizedImport, errors: readonly ProductCs
   return [...mapped, ...structural];
 }
 
-/** product-csv and import-plan errors; none to check when every row had broken quotes. */
+/**
+ * product-csv and import-plan errors, plus the supplier-only rule that photos are https; none to
+ * check when every row had broken quotes.
+ */
 async function productRuleErrors(supplierId: string, normalized: NormalizedImport) {
   if (normalized.originalLines.size === 0) {
     return [];
   }
   const preview = await previewAdminProductCsv({ supplierId, content: normalized.canonicalCsv });
-  return preview.errors;
+  const imageErrors = insecureImageErrors(parseProductCsv(normalized.canonicalCsv).rows);
+  return [...preview.errors, ...imageErrors];
 }
 
 /** Previews the valid rows alone, so confirming imports them and nothing else. */
@@ -118,6 +127,13 @@ export async function previewSupplierImport(
 export async function confirmSupplierImport(
   input: SupplierImportConfirmInput,
 ): Promise<SupplierImportResult> {
+  // The preview left http photos out; a confirmation must not bring them back.
+  const insecureUrl = firstInsecureImageUrl(parseProductCsv(input.content).rows);
+  if (insecureUrl !== null) {
+    throw validationError(
+      `Link de imagem inválido (recebido: "${shortValue(insecureUrl)}"); esperado: um link que comece com https://`,
+    );
+  }
   const imported = await confirmAdminProductCsv(input, { reviewAt: new Date() });
   logger.info("supplier_panel.import_confirmed", {
     supplierId: input.supplierId,

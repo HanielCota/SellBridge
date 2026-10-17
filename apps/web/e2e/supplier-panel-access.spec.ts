@@ -30,14 +30,16 @@ async function giveBrand(email: string, name: string): Promise<void> {
   });
 }
 
-test("fornecedor recém-cadastrado cai no painel e vê o aviso da marca", async ({ page }) => {
+test("fornecedor recém-cadastrado vai direto para o cadastro da marca", async ({ page }) => {
   await signUpAsSupplier(page, "Ateliê Sem Marca");
 
-  await expect(page).toHaveURL(/\/fornecedor\/painel\?perfil=[a-z0-9-]+$/);
-  await expect(page.getByText("Falta cadastrar sua marca")).toBeVisible();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
+  await expect(page.getByRole("heading", { name: "Cadastre sua marca" })).toBeVisible();
 
   await gotoHydrated(page, "/dashboard");
-  await expect(page).toHaveURL(/\/fornecedor\/painel\?perfil=[a-z0-9-]+$/);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
+  await gotoHydrated(page, "/fornecedor/painel/pedidos");
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
 });
 
 test("fornecedor com marca abre o próprio painel com os dados carregados", async ({ page }) => {

@@ -69,6 +69,7 @@ import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_ap
 import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
 import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
 import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/fornecedor/painel/importar'
+import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
 import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
 import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
@@ -401,6 +402,12 @@ const AppFornecedorPainelImportarRoute =
     path: '/importar',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelMarcaRoute =
+  AppFornecedorPainelMarcaRouteImport.update({
+    id: '/marca',
+    path: '/marca',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppFornecedorPainelPedidosRoute =
   AppFornecedorPainelPedidosRouteImport.update({
     id: '/pedidos',
@@ -595,6 +602,7 @@ export interface FileRoutesByFullPath {
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -676,6 +684,7 @@ export interface FileRoutesByTo {
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -763,6 +772,7 @@ export interface FileRoutesById {
   '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
   '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
@@ -849,6 +859,7 @@ export interface FileRouteTypes {
     | '/admin/fornecedores/$supplierId'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -930,6 +941,7 @@ export interface FileRouteTypes {
     | '/admin/fornecedores/$supplierId'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -1016,6 +1028,7 @@ export interface FileRouteTypes {
     | '/_app/admin/fornecedores/$supplierId'
     | '/_app/fornecedor/painel/desempenho'
     | '/_app/fornecedor/painel/importar'
+    | '/_app/fornecedor/painel/marca'
     | '/_app/fornecedor/painel/pedidos'
     | '/_app/fornecedor/painel/produtos'
     | '/api/fornecedor/produtos/imagens'
@@ -1512,6 +1525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelImportarRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
+    '/_app/fornecedor/painel/marca': {
+      id: '/_app/fornecedor/painel/marca'
+      path: '/marca'
+      fullPath: '/fornecedor/painel/marca'
+      preLoaderRoute: typeof AppFornecedorPainelMarcaRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
     '/_app/fornecedor/painel/pedidos': {
       id: '/_app/fornecedor/painel/pedidos'
       path: '/pedidos'
@@ -1745,6 +1765,7 @@ const AppFornecedoresRouteRouteWithChildren =
 interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute
   AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute
+  AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
   AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
   AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
   AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
@@ -1754,6 +1775,7 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
   {
     AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
     AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
+    AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
     AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
     AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
     AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
