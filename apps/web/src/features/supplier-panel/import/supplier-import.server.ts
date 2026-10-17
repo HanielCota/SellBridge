@@ -118,7 +118,7 @@ export async function previewSupplierImport(
 export async function confirmSupplierImport(
   input: SupplierImportConfirmInput,
 ): Promise<SupplierImportResult> {
-  const imported = await confirmAdminProductCsv(input);
+  const imported = await confirmAdminProductCsv(input, { reviewAt: new Date() });
   logger.info("supplier_panel.import_confirmed", {
     supplierId: input.supplierId,
     created: imported.created,

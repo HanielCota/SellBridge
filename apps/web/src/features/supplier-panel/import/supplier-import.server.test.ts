@@ -109,7 +109,7 @@ describe("previewSupplierImport", () => {
 });
 
 describe("confirmSupplierImport", () => {
-  it("imports through the admin confirmation with the preview token", async () => {
+  it("imports through the admin confirmation, sending the rows to review", async () => {
     const result = { created: 1, updated: 2, pausedTargets: 0, synchronizationQueued: true };
     mocks.confirm.mockResolvedValue(result);
     const input = {
@@ -118,6 +118,6 @@ describe("confirmSupplierImport", () => {
       previewToken: token,
     };
     await expect(confirmSupplierImport(input)).resolves.toEqual(result);
-    expect(mocks.confirm).toHaveBeenCalledWith(input);
+    expect(mocks.confirm).toHaveBeenCalledWith(input, { reviewAt: expect.any(Date) });
   });
 });

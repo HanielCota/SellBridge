@@ -61,6 +61,7 @@
     "./supplier-panel-catalog-status": "./src/domain/supplier-panel-catalog-status.ts",
     "./supplier-panel-catalog-completeness": "./src/domain/supplier-panel-catalog-completeness.ts",
     "./supplier-panel-catalog-schemas": "./src/domain/supplier-panel-catalog-schemas.ts",
+    "./supplier-panel-import-status": "./src/domain/supplier-panel-import-status.ts",
     "./supplier-product-review": "./src/domain/supplier-product-review.ts",
     "./supplier-panel-orders": "./src/domain/supplier-panel-orders.ts",
     "./supplier-panel-orders-tabs": "./src/domain/supplier-panel-orders-tabs.ts",
