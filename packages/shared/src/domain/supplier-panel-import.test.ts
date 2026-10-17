@@ -175,6 +175,17 @@ describe("normalizeImportFile xlsx", () => {
     expect(records.get(2)?.fields[1]).toBe("Bolo\uFFFD");
   });
 
+  it("refuses a sheet of unclosed rows without stalling", { timeout: 1_000 }, () => {
+    const sheet = buildZip([
+      {
+        name: "xl/worksheets/sheet1.xml",
+        content: `<worksheet><sheetData>${"<row>".repeat(80_000)}</sheetData></worksheet>`,
+      },
+    ]);
+    expect(sheet.byteLength).toBeLessThan(4 * 1024);
+    expect(() => normalizeImportFile(sheet)).toThrow(/sem fechamento/);
+  });
+
   it("refuses a damaged spreadsheet with a message that says what to do", () => {
     const damaged = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
     expect(() => normalizeImportFile(damaged)).toThrow(/salve de novo como .xlsx ou CSV/);

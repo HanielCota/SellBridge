@@ -50,20 +50,79 @@ function decodeXml(text: string): string {
     );
 }
 
+interface XmlElement {
+  attributes: string;
+  body: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * The `name` elements of `xml` in one forward pass. A lazy `[\s\S]*?</row>` regex rescans to the
+ * end from every unclosed `<row`, so 80 thousand of them in a 785-byte upload held the server
+ * for 10 s; here each opening tag looks for its closing tag once, and a missing one is refused.
+ */
+function* xmlElements(xml: string, name: string): Generator<XmlElement> {
+  const opener = new RegExp(`<(?:\\w+:)?${name}\\b([^<>]*)>`, "g");
+  const closer = new RegExp(`</(?:\\w+:)?${name}>`, "g");
+  for (let open = opener.exec(xml); open !== null; open = opener.exec(xml)) {
+    const attributes = open[1] ?? "";
+    if (attributes.endsWith("/")) {
+      yield {
+        attributes: attributes.slice(0, -1),
+        body: "",
+        start: open.index,
+        end: opener.lastIndex,
+      };
+      continue;
+    }
+    closer.lastIndex = opener.lastIndex;
+    const close = closer.exec(xml);
+    if (close === null) {
+      throw validationError(
+        `A planilha tem uma tag <${name}> sem fechamento; salve de novo como .xlsx ou CSV`,
+      );
+    }
+    yield {
+      attributes,
+      body: xml.slice(opener.lastIndex, close.index),
+      start: open.index,
+      end: closer.lastIndex,
+    };
+    opener.lastIndex = closer.lastIndex;
+  }
+}
+
+function firstElementBody(xml: string, name: string): string {
+  for (const element of xmlElements(xml, name)) {
+    return element.body;
+  }
+  return "";
+}
+
+function withoutElements(xml: string, name: string): string {
+  const kept: string[] = [];
+  let position = 0;
+  for (const element of xmlElements(xml, name)) {
+    kept.push(xml.slice(position, element.start));
+    position = element.end;
+  }
+  kept.push(xml.slice(position));
+  return kept.join("");
+}
+
 /** The text runs of a string item, without the phonetic guides Japanese files carry. */
 function stringItemText(xml: string): string {
-  const withoutPhonetic = xml.replace(/<(?:\w+:)?rPh\b[\s\S]*?<\/(?:\w+:)?rPh>/g, "");
-  const runs = [...withoutPhonetic.matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)];
-  return decodeXml(runs.map((run) => run[1] ?? "").join(""));
+  const withoutPhonetic = withoutElements(xml, "rPh");
+  const runs = [...xmlElements(withoutPhonetic, "t")];
+  return decodeXml(runs.map((run) => run.body).join(""));
 }
 
 function readSharedStrings(xml: string | null): readonly string[] {
   if (xml === null) {
     return [];
   }
-  return [...xml.matchAll(/<(?:\w+:)?si\b[^>]*>([\s\S]*?)<\/(?:\w+:)?si>/g)].map((item) =>
-    stringItemText(item[1] ?? ""),
-  );
+  return [...xmlElements(xml, "si")].map((item) => stringItemText(item.body));
 }
 
 function attribute(attributes: string, name: string): string | null {
@@ -94,7 +153,7 @@ function cellText(attributes: string, body: string, shared: readonly string[]): 
   if (type === "inlineStr") {
     return stringItemText(body);
   }
-  const value = decodeXml(/<(?:\w+:)?v\b[^>]*>([\s\S]*?)<\/(?:\w+:)?v>/.exec(body)?.[1] ?? "");
+  const value = decodeXml(firstElementBody(body, "v"));
   if (type === "s") {
     return shared[Number(value)] ?? "";
   }
@@ -106,15 +165,14 @@ function cellText(attributes: string, body: string, shared: readonly string[]): 
 
 function readRow(rowXml: string, shared: readonly string[]): string[] {
   const cells: string[] = [];
-  const pattern = /<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g;
-  for (const cell of rowXml.matchAll(pattern)) {
-    const attributes = cell[1] ?? "";
+  for (const cell of xmlElements(rowXml, "c")) {
+    const attributes = cell.attributes;
     const reference = /^([A-Z]+)\d*$/i.exec(attribute(attributes, "r") ?? "");
     const index = reference?.[1] === undefined ? cells.length : columnIndex(reference[1]);
     if (index >= MAX_SHEET_COLUMN) {
       continue;
     }
-    const text = cellText(attributes, cell[2] ?? "", shared);
+    const text = cellText(attributes, cell.body, shared);
     // An empty cell adds nothing: the row is padded to the header's width later.
     if (text === "" && index >= cells.length) {
       continue;
@@ -150,13 +208,12 @@ export function readFirstSheetRecords(bytes: Uint8Array): ImportRecord[] {
     throw validationError("A planilha não tem aba com dados; preencha a primeira aba");
   }
   const shared = readSharedStrings(readZipText(bytes, entries, "xl/sharedStrings.xml"));
-  const rows = sheet.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g);
   const records: ImportRecord[] = [];
   let position = 0;
-  for (const row of rows) {
+  for (const row of xmlElements(sheet, "row")) {
     position += 1;
-    const number = Number(attribute(row[1] ?? "", "r") ?? position);
-    const fields = readRow(row[2] ?? "", shared);
+    const number = Number(attribute(row.attributes, "r") ?? position);
+    const fields = readRow(row.body, shared);
     if (!fields.some((field) => field.trim().length > 0)) {
       continue;
     }
