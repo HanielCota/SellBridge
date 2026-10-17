@@ -39,7 +39,7 @@ test("abre um chamado já ligado ao pedido pela página do pedido", async ({ pag
   await page.getByLabel("Descrição").fill("O comprador disse que recebeu a cor errada.");
   await page.getByRole("button", { name: "Abrir chamado" }).click();
 
-  await expect(page).toHaveURL(/\/suporte\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/suporte\/[0-9a-f-]{36}\?perfil=[a-z0-9-]+$/);
   const linked = page.getByRole("region", { name: "Pedidos vinculados" });
   await expect(linked).toContainText(order.externalOrderId);
 });
