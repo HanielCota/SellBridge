@@ -1,4 +1,5 @@
 import { validationError } from "../runtime/errors.ts";
+import { MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
 import type { ImportRecord } from "./supplier-panel-import-table.ts";
 import { listZipEntries, readZipText, type ZipEntry } from "./supplier-panel-import-zip.ts";
 
@@ -16,16 +17,31 @@ const XML_ENTITIES: Readonly<Record<string, string>> = {
 };
 /** Excel keeps 15 significant digits; more is binary noise ("12.899999999999999"). */
 const EXCEL_SIGNIFICANT_DIGITS = 15;
-const MAX_SHEET_COLUMN = 16_384;
+/**
+ * The template has a handful of columns; cells past this are ignored, so one cell at column XFD
+ * can't make every row 16 thousand cells wide.
+ */
+const MAX_SHEET_COLUMN = 256;
+/** The header plus the product limit; reading stops one row past it. */
+const MAX_SHEET_RECORDS = MAX_PRODUCT_CSV_ROWS + 1;
+const REPLACEMENT_CHARACTER = "\uFFFD";
+const MAX_CODE_POINT = 0x10_ff_ff;
+
+/** A character reference outside Unicode (`&#x110000;`) reads as "�" instead of throwing. */
+function codePointText(code: number): string {
+  return Number.isInteger(code) && code >= 0 && code <= MAX_CODE_POINT
+    ? String.fromCodePoint(code)
+    : REPLACEMENT_CHARACTER;
+}
 
 function decodeXml(text: string): string {
   return text
     .replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (entity, name: string) => {
       if (name.startsWith("#x") || name.startsWith("#X")) {
-        return String.fromCodePoint(Number.parseInt(name.slice(2), 16));
+        return codePointText(Number.parseInt(name.slice(2), 16));
       }
       if (name.startsWith("#")) {
-        return String.fromCodePoint(Number.parseInt(name.slice(1), 10));
+        return codePointText(Number.parseInt(name.slice(1), 10));
       }
       return XML_ENTITIES[name] ?? entity;
     })
@@ -98,10 +114,15 @@ function readRow(rowXml: string, shared: readonly string[]): string[] {
     if (index >= MAX_SHEET_COLUMN) {
       continue;
     }
+    const text = cellText(attributes, cell[2] ?? "", shared);
+    // An empty cell adds nothing: the row is padded to the header's width later.
+    if (text === "" && index >= cells.length) {
+      continue;
+    }
     while (cells.length < index) {
       cells.push("");
     }
-    cells[index] = cellText(attributes, cell[2] ?? "", shared);
+    cells[index] = text;
   }
   return cells;
 }
@@ -129,14 +150,23 @@ export function readFirstSheetRecords(bytes: Uint8Array): ImportRecord[] {
     throw validationError("A planilha não tem aba com dados; preencha a primeira aba");
   }
   const shared = readSharedStrings(readZipText(bytes, entries, "xl/sharedStrings.xml"));
-  const rows = [...sheet.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g)];
+  const rows = sheet.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g);
   const records: ImportRecord[] = [];
-  for (const [position, row] of rows.entries()) {
-    const number = Number(attribute(row[1] ?? "", "r") ?? position + 1);
+  let position = 0;
+  for (const row of rows) {
+    position += 1;
+    const number = Number(attribute(row[1] ?? "", "r") ?? position);
     const fields = readRow(row[2] ?? "", shared);
-    if (fields.some((field) => field.trim().length > 0)) {
-      records.push({ line: number, fields, structuralError: null });
+    if (!fields.some((field) => field.trim().length > 0)) {
+      continue;
     }
+    // Stop here rather than read a huge sheet only to refuse it afterwards.
+    if (records.length === MAX_SHEET_RECORDS) {
+      throw validationError(
+        `A planilha tem mais de ${MAX_PRODUCT_CSV_ROWS} produtos e o limite é ${MAX_PRODUCT_CSV_ROWS}; divida em partes menores`,
+      );
+    }
+    records.push({ line: number, fields, structuralError: null });
   }
   return records;
 }
