@@ -1,4 +1,4 @@
-import { conflictError } from "@sellbridge/shared/errors";
+import { conflictError, unauthorizedError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -15,11 +15,17 @@ vi.mock("@/lib/server/tenant-session", () => ({
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
-  environment: { APP_URL: "https://sellbridge.test" },
+  environment: {
+    APP_URL: "https://sellbridge.test",
+    BETTER_AUTH_TRUSTED_ORIGINS: ["http://127.0.0.1:4850"],
+  },
 }));
 vi.mock("@/lib/server/marketplaces", () => ({
   connectors: { mock: { exchangeCode: mocks.exchangeCode } },
-  oauthCallbackUrl: (marketplace: string) => `https://sellbridge.test/api/oauth/${marketplace}`,
+  oauthCallbackUrl: (marketplace: string, origin: string) =>
+    `${origin}/api/oauth/${marketplace}/callback`,
+  oauthAuthorizationUrl: (_marketplace: string, request: { state: string }, origin: string) =>
+    `${origin}/oauth/mock/autorizar?state=${request.state}`,
   tokenCipher: { encrypt: (value: string) => `enc:${value}` },
 }));
 vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
@@ -123,5 +129,31 @@ describe("connecting a store while an admin uses the customer's account", () => 
     expect(location.searchParams.get("erro")).toBe("impersonating");
     expect(mocks.exchangeCode).not.toHaveBeenCalled();
     expect(mocks.upsertStoreConnection).not.toHaveBeenCalled();
+  });
+});
+
+describe("redirects on a trusted host other than APP_URL", () => {
+  it("keeps the person on the host their session cookie belongs to", async () => {
+    mocks.requireTenantSession.mockResolvedValue({
+      tenantId: "tenant-b",
+      userId: "user-b",
+      impersonatedBy: "admin-1",
+    });
+    const response = await handleOAuthStart(
+      new Request("http://127.0.0.1:4850/api/oauth/mock/start"),
+      "mock",
+    );
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.origin).toBe("http://127.0.0.1:4850");
+    expect(location.pathname).toBe("/lojas");
+  });
+
+  it("never follows a host that is not trusted", async () => {
+    mocks.requireTenantSession.mockRejectedValue(unauthorizedError());
+    const response = await handleOAuthStart(
+      new Request("http://evil.example/api/oauth/mock/start"),
+      "mock",
+    );
+    expect(new URL(response.headers.get("location") ?? "").origin).toBe("https://sellbridge.test");
   });
 });

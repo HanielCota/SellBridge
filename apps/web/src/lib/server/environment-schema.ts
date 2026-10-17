@@ -21,6 +21,20 @@ const serverEnvironmentShape = z.object({
   REDIS_URL: z.url(),
   APP_URL: z.url(),
   BETTER_AUTH_URL: z.url(),
+  /**
+   * Extra origins (comma separated) the app is also served on, read by Better Auth too. Our own
+   * redirects stay on these hosts instead of jumping to APP_URL, where the session cookie is not.
+   */
+  BETTER_AUTH_TRUSTED_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0),
+    )
+    .pipe(z.array(z.url().transform((origin) => new URL(origin).origin))),
   BETTER_AUTH_SECRET: z.string().min(32, "deve ter ao menos 32 caracteres"),
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
   PLATFORM_FEE_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),

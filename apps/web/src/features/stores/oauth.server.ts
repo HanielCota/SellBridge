@@ -13,15 +13,21 @@ import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
-import { environment } from "@/lib/server/environment";
-import { connectors, oauthCallbackUrl, tokenCipher } from "@/lib/server/marketplaces";
+import { appOriginFor } from "@/lib/server/app-origin";
+import {
+  connectors,
+  oauthAuthorizationUrl,
+  oauthCallbackUrl,
+  tokenCipher,
+} from "@/lib/server/marketplaces";
 import { requireTenantSession } from "@/lib/server/tenant-session";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
 
-function redirectTo(path: string, params: Record<string, string> = {}): Response {
-  const url = new URL(path, environment.APP_URL);
+/** Stays on the trusted host of `request`, where the session cookie lives. */
+function redirectTo(request: Request, path: string, params: Record<string, string> = {}): Response {
+  const url = new URL(path, appOriginFor(request.url));
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -32,8 +38,8 @@ function redirectTo(path: string, params: Record<string, string> = {}): Response
  * The stores page shows a fixed message for each code: free text in the URL would let any link
  * put its own words inside the app's own interface.
  */
-function storesPageWithError(code: StoreConnectErrorCode): Response {
-  return redirectTo("/lojas", { erro: code });
+function storesPageWithError(request: Request, code: StoreConnectErrorCode): Response {
+  return redirectTo(request, "/lojas", { erro: code });
 }
 
 function connectErrorCode(error: unknown): StoreConnectErrorCode {
@@ -94,23 +100,23 @@ async function supplierForNewShop(
 export async function handleOAuthStart(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
   if (!session) {
-    return redirectTo("/login", { redirect: "/lojas" });
+    return redirectTo(request, "/login", { redirect: "/lojas" });
   }
   // A shop connected during an admin's visit would stay tied to the customer after it.
   if (session.impersonatedBy !== null) {
-    return storesPageWithError("impersonating");
+    return storesPageWithError(request, "impersonating");
   }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {
-    return storesPageWithError("unknown_marketplace");
+    return storesPageWithError(request, "unknown_marketplace");
   }
   const connector = connectors[marketplace];
   if (!connector.isConfigured()) {
-    return storesPageWithError("unavailable");
+    return storesPageWithError(request, "unavailable");
   }
   const supplierId = await supplierForNewShop(request, session.tenantId);
   if (supplierId === undefined) {
-    return storesPageWithError("supplier_unavailable");
+    return storesPageWithError(request, "supplier_unavailable");
   }
   const state = randomBytes(24).toString("base64url");
   // PKCE verifier (RFC 7636): ignored by marketplaces that do not use it.
@@ -123,11 +129,12 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     ttlMilliseconds: STATE_TTL_MILLISECONDS,
     supplierId,
   });
-  const authorizationUrl = connector.getAuthorizationUrl({
-    state,
-    redirectUri: oauthCallbackUrl(marketplace),
-    codeVerifier,
-  });
+  const appOrigin = appOriginFor(request.url);
+  const authorizationUrl = oauthAuthorizationUrl(
+    marketplace,
+    { state, redirectUri: oauthCallbackUrl(marketplace, appOrigin), codeVerifier },
+    appOrigin,
+  );
   return Response.redirect(authorizationUrl, 302);
 }
 
@@ -142,13 +149,15 @@ interface ConnectStoreInput {
   code: string;
   codeVerifier: string | null;
   supplierId: string | null;
+  /** Must match the redirect URI the consent was issued for. */
+  redirectUri: string;
 }
 
 /** Exchanges the authorization code and saves the store with its tokens encrypted at rest. */
 async function connectStore(input: ConnectStoreInput) {
   const { tokens, shop } = await connectors[input.marketplace].exchangeCode({
     code: input.code,
-    redirectUri: oauthCallbackUrl(input.marketplace),
+    redirectUri: input.redirectUri,
     codeVerifier: input.codeVerifier ?? undefined,
   });
   return upsertStoreConnection(database, {
@@ -168,24 +177,24 @@ async function connectStore(input: ConnectStoreInput) {
 export async function handleOAuthCallback(request: Request, marketplaceParam: string | undefined) {
   const session = await tenantOrLogin(request);
   if (!session) {
-    return redirectTo("/login", { redirect: "/lojas" });
+    return redirectTo(request, "/login", { redirect: "/lojas" });
   }
   // A shop connected during an admin's visit would stay tied to the customer after it.
   if (session.impersonatedBy !== null) {
-    return storesPageWithError("impersonating");
+    return storesPageWithError(request, "impersonating");
   }
   const marketplace = parseMarketplace(marketplaceParam);
   if (!marketplace) {
-    return storesPageWithError("unknown_marketplace");
+    return storesPageWithError(request, "unknown_marketplace");
   }
   const query = callbackQuerySchema.safeParse(
     Object.fromEntries(new URL(request.url).searchParams),
   );
   if (!query.success) {
-    return storesPageWithError("invalid_response");
+    return storesPageWithError(request, "invalid_response");
   }
   if ("error" in query.data) {
-    return storesPageWithError("cancelled");
+    return storesPageWithError(request, "cancelled");
   }
   const stateRecord = await consumeOAuthState(database, {
     state: query.data.state,
@@ -193,7 +202,7 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
     marketplace,
   });
   if (!stateRecord) {
-    return storesPageWithError("expired");
+    return storesPageWithError(request, "expired");
   }
 
   try {
@@ -203,15 +212,16 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
       code: query.data.code,
       codeVerifier: stateRecord.codeVerifier,
       supplierId: stateRecord.supplierId,
+      redirectUri: oauthCallbackUrl(marketplace, appOriginFor(request.url)),
     });
     logger.info("store.connected", {
       tenantId: session.tenantId,
       marketplace,
       storeConnectionId: store.id,
     });
-    return redirectTo("/lojas", { conectada: store.id });
+    return redirectTo(request, "/lojas", { conectada: store.id });
   } catch (error) {
     logger.warn("store.connect_failed", { tenantId: session.tenantId, marketplace, error });
-    return storesPageWithError(connectErrorCode(error));
+    return storesPageWithError(request, connectErrorCode(error));
   }
 }
