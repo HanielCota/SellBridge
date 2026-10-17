@@ -137,6 +137,7 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   await gotoHydrated(reseller, "/dashboard");
   const supportButton = reseller.getByRole("button", {
     name: "Suporte: 1 chamado com resposta nova",
+    exact: true,
   });
   await expect(supportButton).toBeVisible();
   await supportButton.click();
