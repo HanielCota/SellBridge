@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assertPanelSupplier } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
-import { detectAttachmentType, hasAcceptableImageSize } from "@sellbridge/shared/file-signature";
 import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
@@ -19,15 +18,11 @@ import {
   productImagePathSchema,
   productImageStorageKey,
   productImageUrl,
-  type ProductImageType,
 } from "./product-image-key";
+import { checkProductImageBytes } from "./product-image-check";
 
 const TOO_LARGE = "A imagem deve ter no máximo 5 MB";
 const supplierIdSchema = z.uuid("Fornecedor inválido");
-
-function isProductImageType(type: string | null): type is ProductImageType {
-  return type !== null && type in PRODUCT_IMAGE_TYPES;
-}
 
 async function readProductImage(request: Request) {
   // Room for the multipart framing around a photo at the size limit.
@@ -49,13 +44,7 @@ async function readProductImage(request: Request) {
     throw validationError(TOO_LARGE);
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const type = detectAttachmentType(bytes);
-  if (!isProductImageType(type)) {
-    throw validationError("Envie uma imagem PNG, JPG ou WEBP");
-  }
-  if (!hasAcceptableImageSize(bytes, type)) {
-    throw validationError("A imagem é grande demais: envie uma de até 64 megapixels");
-  }
+  const type = checkProductImageBytes(bytes);
   return { supplierId: supplierId.data, bytes, type };
 }
 
