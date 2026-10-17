@@ -312,10 +312,26 @@ for (const worker of workers) {
 
 logger.info("worker.started", { queues: workers.map((worker) => worker.name) });
 
+/**
+ * A sync run can last minutes; past this the process leaves on its own instead of waiting for
+ * the platform's SIGKILL, and BullMQ hands the unfinished job to the next worker.
+ */
+const SHUTDOWN_GRACE_MILLISECONDS = 25_000;
+const DATABASE_CLOSE_TIMEOUT_SECONDS = 5;
+
 async function shutdown(signal: string): Promise<void> {
   logger.info("worker.stopping", { signal });
+  const forcedExit = setTimeout(() => {
+    logger.error("worker.shutdown_timed_out", {
+      signal,
+      graceMilliseconds: SHUTDOWN_GRACE_MILLISECONDS,
+    });
+    process.exit(1);
+  }, SHUTDOWN_GRACE_MILLISECONDS);
+  forcedExit.unref();
   healthServer?.close();
-  await Promise.all([
+  // One queue failing to close must not skip closing the others and the database.
+  const closings = await Promise.allSettled([
     ...workers.map(async (worker) => worker.close()),
     tokenRefreshQueue.close(),
     stockPriceSyncQueue.close(),
@@ -329,7 +345,12 @@ async function shutdown(signal: string): Promise<void> {
     autoForwardQueue.close(),
     notificationDeliveryQueue.close(),
   ]);
-  await database.$client.end();
+  for (const closing of closings) {
+    if (closing.status === "rejected") {
+      logger.error("worker.close_failed", { error: closing.reason });
+    }
+  }
+  await database.$client.end({ timeout: DATABASE_CLOSE_TIMEOUT_SECONDS });
   process.exit(0);
 }
 
