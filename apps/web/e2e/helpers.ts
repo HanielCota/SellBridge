@@ -88,6 +88,19 @@ export async function signUp(
   return email;
 }
 
+/** Creates an account through /cadastro/fornecedor, which opens on "Quero fornecer". */
+export async function signUpAsSupplier(page: Page, name: string): Promise<string> {
+  const email = uniqueEmail("fornecedor");
+  await gotoHydrated(page, "/cadastro/fornecedor");
+  await page.getByLabel("Nome").fill(name);
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).not.toHaveURL(/\/cadastro/);
+  return email;
+}
+
 function cpfCheckDigit(digits: readonly number[]): number {
   const weightedSum = digits.reduce(
     (sum, digit, index) => sum + digit * (digits.length + 1 - index),

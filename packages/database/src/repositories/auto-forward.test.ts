@@ -1,3 +1,4 @@
+import { isForwardEmailFailureNote } from "@sellbridge/shared/forward-notes";
 import { randomUUID } from "node:crypto";
 import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
@@ -167,9 +168,6 @@ describe("forwarding on the reseller's behalf", () => {
     await noteSupplierEmailFailed(database, tenants.tenantA, link.shipmentId);
     const detail = await getFulfillmentDetail(database, tenants.tenantA, order.id);
     const notes = detail.shipments[0]?.events.map((event) => event.note) ?? [];
-    expect(notes.join(" ")).toContain(
-      "O e-mail ao fornecedor não foi enviado. Gere um novo link e envie a ele.",
-    );
-    expect(notes.filter((note) => note.includes("não foi enviado"))).toHaveLength(1);
+    expect(notes.filter((note) => isForwardEmailFailureNote(note))).toHaveLength(1);
   });
 });

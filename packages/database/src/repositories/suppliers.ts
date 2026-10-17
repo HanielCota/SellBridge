@@ -24,6 +24,7 @@ import type { Database } from "../client.ts";
 import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
 import { availableStock } from "./sql/available-stock.ts";
+import { productListable } from "./sql/sellable.ts";
 
 export interface SupplierSummary {
   id: string;
@@ -55,7 +56,7 @@ export async function listActiveSuppliers(
   }
   const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
     eq(supplierProducts.supplierId, suppliers.id),
-    eq(supplierProducts.active, true),
+    productListable(),
   )})`.mapWith(Number);
 
   return database
@@ -96,7 +97,7 @@ function nicheOrProductMatch(search: string): SQL | undefined {
     exists(
       sql`(select 1 from ${supplierProducts} where ${and(
         eq(supplierProducts.supplierId, suppliers.id),
-        eq(supplierProducts.active, true),
+        productListable(),
         onProduct,
       )})`,
     ),
@@ -147,7 +148,7 @@ export async function listSupplierDirectory(
 ): Promise<SupplierSummary[]> {
   const productCount = sql<number>`(select count(*) from ${supplierProducts} where ${and(
     eq(supplierProducts.supplierId, suppliers.id),
-    eq(supplierProducts.active, true),
+    productListable(),
   )})`.mapWith(Number);
 
   return database
@@ -247,10 +248,7 @@ export interface CatalogProduct {
 }
 
 function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
-  const conditions: SQL[] = [
-    eq(supplierProducts.supplierId, supplierId),
-    eq(supplierProducts.active, true),
-  ];
+  const conditions: SQL[] = [eq(supplierProducts.supplierId, supplierId), productListable()];
   conditions.push(
     exists(
       sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true))})`,
@@ -335,7 +333,7 @@ export async function listSupplierCategories(
     .where(
       and(
         eq(supplierProducts.supplierId, supplierId),
-        eq(supplierProducts.active, true),
+        productListable(),
         eq(suppliers.active, true),
       ),
     )
@@ -366,13 +364,7 @@ export async function getSellableCatalogProduct(
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(
-      and(
-        eq(supplierProducts.id, productId),
-        eq(supplierProducts.active, true),
-        eq(suppliers.active, true),
-      ),
-    )
+    .where(and(eq(supplierProducts.id, productId), productListable(), eq(suppliers.active, true)))
     .limit(1);
   if (row === undefined) {
     throw notFoundError("Produto não encontrado no catálogo");
@@ -403,7 +395,7 @@ function isPublishedBy(tenantId: string): SQL {
 }
 
 function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFilters): SQL[] {
-  const conditions: SQL[] = [eq(supplierProducts.active, true), eq(suppliers.active, true)];
+  const conditions: SQL[] = [productListable(), eq(suppliers.active, true)];
   if (filters.search) {
     const searchCondition = matchesEveryWord(filters.search, [
       supplierProducts.title,
@@ -487,7 +479,7 @@ export async function listSellableCategories(
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(supplierProducts.active, true), eq(suppliers.active, true)))
+    .where(and(productListable(), eq(suppliers.active, true)))
     .orderBy(asc(categories.name));
 }
 

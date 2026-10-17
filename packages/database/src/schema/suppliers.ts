@@ -5,12 +5,18 @@ import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import {
+  PRODUCT_REVIEW_STATUSES,
+  type RejectionReason,
+} from "@sellbridge/shared/supplier-panel-catalog-status";
+import { organization } from "./auth.ts";
 
 export const suppliers = pgTable(
   "suppliers",
@@ -29,10 +35,16 @@ export const suppliers = pgTable(
     /** Hours the supplier has to dispatch it, counted from the forward. */
     dispatchWithinHours: integer().notNull().default(48),
     active: boolean().notNull().default(true),
+    /**
+     * The supplier profile (organization of kind `supplier`) that runs this catalog from the
+     * supplier panel. Null for suppliers the team still manages on their behalf.
+     */
+    organizationId: text().references(() => organization.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("suppliers_state_idx").on(table.state),
+    uniqueIndex("suppliers_organization_id_unique").on(table.organizationId),
     check(
       "suppliers_deadlines_check",
       sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,
@@ -45,6 +57,12 @@ export const categories = pgTable("categories", {
   name: text().notNull(),
   slug: text().notNull().unique(),
 });
+
+/** Supplier panel review lifecycle (see shared/domain/supplier-panel-catalog-status.ts). */
+export const supplierProductReviewStatusEnum = pgEnum(
+  "supplier_product_review_status",
+  PRODUCT_REVIEW_STATUSES,
+);
 
 export const supplierProducts = pgTable(
   "supplier_products",
@@ -69,6 +87,16 @@ export const supplierProducts = pgTable(
       .default(sql`'{}'::text[]`),
     mercadoLivreAttributes: jsonb().$type<Record<string, string>>().notNull().default({}),
     active: boolean().notNull().default(true),
+    /**
+     * Only approved products reach resellers. Admin form and CSV rows default to approved (the
+     * admin is the reviewer); the supplier panel creates drafts explicitly.
+     */
+    reviewStatus: supplierProductReviewStatusEnum().notNull().default("approved"),
+    rejectionReasons: jsonb().$type<RejectionReason[]>().notNull().default([]),
+    submittedAt: timestamp({ withTimezone: true }),
+    reviewedAt: timestamp({ withTimezone: true }),
+    /** User id of the admin who approved or rejected the product; no FK so audit outlives it. */
+    reviewedBy: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -76,6 +104,11 @@ export const supplierProducts = pgTable(
       .notNull(),
   },
   (table) => [
+    index("supplier_products_review_status_idx").on(table.supplierId, table.reviewStatus),
+    check(
+      "supplier_products_rejection_reasons_check",
+      sql`${table.reviewStatus} <> 'rejected' or jsonb_array_length(${table.rejectionReasons}) > 0`,
+    ),
     uniqueIndex("supplier_products_sku_idx").on(table.supplierId, table.sku),
     index("supplier_products_supplier_idx").on(table.supplierId),
     index("supplier_products_category_idx").on(table.categoryId),

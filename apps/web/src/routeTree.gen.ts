@@ -33,6 +33,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
+import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
 import { Route as AppPedidosIndexRouteImport } from './routes/_app/pedidos/index'
@@ -42,6 +43,7 @@ import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoe
 import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index'
 import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$ticketId'
 import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
+import { Route as AuthCadastroFornecedorRouteImport } from './routes/_auth/cadastro_.fornecedor'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiContaExportarRouteImport } from './routes/api/conta/exportar'
 import { Route as ApiDiagnosticsErrorsRouteImport } from './routes/api/diagnostics/errors'
@@ -63,6 +65,12 @@ import { Route as AppAdminClientesIndexRouteImport } from './routes/_app/admin/c
 import { Route as AppAdminClientesUserIdRouteImport } from './routes/_app/admin/clientes/$userId'
 import { Route as AppAdminFornecedoresIndexRouteImport } from './routes/_app/admin/fornecedores/index'
 import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_app/admin/fornecedores/$supplierId'
+import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
+import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
+import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/fornecedor/painel/importar'
+import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
+import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
+import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
@@ -74,8 +82,11 @@ import { Route as ApiV1ListingsListingIdRouteImport } from './routes/api/v1/list
 import { Route as ApiV1OrdersIndexRouteImport } from './routes/api/v1/orders/index'
 import { Route as ApiV1OrdersOrderIdRouteImport } from './routes/api/v1/orders/$orderId'
 import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/webhook-endpoints/index'
+import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_app/admin/fornecedores/analise/index'
+import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
+import { Route as ApiProdutosImagensSupplierIdFileNameRouteImport } from './routes/api/produtos/imagens/$supplierId/$fileName'
 import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
 import { Route as ApiV1CatalogProductsIndexRouteImport } from './routes/api/v1/catalog/products/index'
 import { Route as ApiV1CatalogProductsProductIdRouteImport } from './routes/api/v1/catalog/products/$productId'
@@ -200,6 +211,12 @@ const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
   path: '/equipe',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
+const AppFornecedorPainelRouteRoute =
+  AppFornecedorPainelRouteRouteImport.update({
+    id: '/fornecedor/painel',
+    path: '/fornecedor/painel',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
 const AppFornecedoresIndexRoute = AppFornecedoresIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -245,6 +262,11 @@ const AppSuporteNovoRoute = AppSuporteNovoRouteImport.update({
   id: '/suporte/novo',
   path: '/suporte/novo',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AuthCadastroFornecedorRoute = AuthCadastroFornecedorRouteImport.update({
+  id: '/cadastro_/fornecedor',
+  path: '/cadastro/fornecedor',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -355,6 +377,42 @@ const AppAdminFornecedoresSupplierIdRoute =
     path: '/fornecedores/$supplierId',
     getParentRoute: () => AppAdminRouteRoute,
   } as any)
+const AppFornecedorPainelIndexRoute =
+  AppFornecedorPainelIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
+const AppFornecedorPainelDesempenhoRoute =
+  AppFornecedorPainelDesempenhoRouteImport.update({
+    id: '/desempenho',
+    path: '/desempenho',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
+const AppFornecedorPainelImportarRoute =
+  AppFornecedorPainelImportarRouteImport.update({
+    id: '/importar',
+    path: '/importar',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
+const AppFornecedorPainelPedidosRoute =
+  AppFornecedorPainelPedidosRouteImport.update({
+    id: '/pedidos',
+    path: '/pedidos',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
+const AppFornecedorPainelProdutosRoute =
+  AppFornecedorPainelProdutosRouteImport.update({
+    id: '/produtos',
+    path: '/produtos',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
+const ApiFornecedorProdutosImagensRoute =
+  ApiFornecedorProdutosImagensRouteImport.update({
+    id: '/api/fornecedor/produtos/imagens',
+    path: '/api/fornecedor/produtos/imagens',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiOauthMarketplaceCallbackRoute =
   ApiOauthMarketplaceCallbackRouteImport.update({
     id: '/api/oauth/$marketplace/callback',
@@ -415,6 +473,18 @@ const ApiV1WebhookEndpointsIndexRoute =
     path: '/api/v1/webhook-endpoints/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppAdminFornecedoresAnaliseIndexRoute =
+  AppAdminFornecedoresAnaliseIndexRouteImport.update({
+    id: '/fornecedores/analise/',
+    path: '/fornecedores/analise/',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
+const AppAdminFornecedoresAnaliseProductIdRoute =
+  AppAdminFornecedoresAnaliseProductIdRouteImport.update({
+    id: '/fornecedores/analise/$productId',
+    path: '/fornecedores/analise/$productId',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
     id: '/api/admin/chamados/$ticketId/mensagens',
@@ -426,6 +496,12 @@ const ApiPerfilFotoUserIdFileNameRoute =
     id: '/$userId/$fileName',
     path: '/$userId/$fileName',
     getParentRoute: () => ApiPerfilFotoRoute,
+  } as any)
+const ApiProdutosImagensSupplierIdFileNameRoute =
+  ApiProdutosImagensSupplierIdFileNameRouteImport.update({
+    id: '/api/produtos/imagens/$supplierId/$fileName',
+    path: '/api/produtos/imagens/$supplierId/$fileName',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiSuporteChamadosTicketIdMensagensRoute =
   ApiSuporteChamadosTicketIdMensagensRouteImport.update({
@@ -479,6 +555,7 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
@@ -486,6 +563,7 @@ export interface FileRoutesByFullPath {
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -508,6 +586,11 @@ export interface FileRoutesByFullPath {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -518,15 +601,19 @@ export interface FileRoutesByFullPath {
   '/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -556,6 +643,7 @@ export interface FileRoutesByTo {
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -578,6 +666,11 @@ export interface FileRoutesByTo {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -588,15 +681,19 @@ export interface FileRoutesByTo {
   '/admin/chamados': typeof AppAdminChamadosIndexRoute
   '/admin/clientes': typeof AppAdminClientesIndexRoute
   '/admin/fornecedores': typeof AppAdminFornecedoresIndexRoute
+  '/fornecedor/painel': typeof AppFornecedorPainelIndexRoute
   '/api/suporte/chamados': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -624,6 +721,7 @@ export interface FileRoutesById {
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
+  '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
@@ -631,6 +729,7 @@ export interface FileRoutesById {
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
+  '/_auth/cadastro_/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -653,6 +752,11 @@ export interface FileRoutesById {
   '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
+  '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
+  '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
+  '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
+  '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -663,15 +767,19 @@ export interface FileRoutesById {
   '/_app/admin/chamados/': typeof AppAdminChamadosIndexRoute
   '/_app/admin/clientes/': typeof AppAdminClientesIndexRoute
   '/_app/admin/fornecedores/': typeof AppAdminFornecedoresIndexRoute
+  '/_app/fornecedor/painel/': typeof AppFornecedorPainelIndexRoute
   '/api/suporte/chamados/': typeof ApiSuporteChamadosIndexRoute
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/_app/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
+  '/api/produtos/imagens/$supplierId/$fileName': typeof ApiProdutosImagensSupplierIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -698,6 +806,7 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/admin/clientes'
+    | '/fornecedor/painel'
     | '/admin/auditoria'
     | '/admin/equipe'
     | '/fornecedores/$supplierId'
@@ -705,6 +814,7 @@ export interface FileRouteTypes {
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
+    | '/cadastro/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -727,6 +837,11 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/pedidos'
+    | '/fornecedor/painel/produtos'
+    | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -737,15 +852,19 @@ export interface FileRouteTypes {
     | '/admin/chamados/'
     | '/admin/clientes/'
     | '/admin/fornecedores/'
+    | '/fornecedor/painel/'
     | '/api/suporte/chamados/'
     | '/api/v1/listings/'
     | '/api/v1/orders/'
     | '/api/v1/webhook-endpoints/'
+    | '/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesByTo: FileRoutesByTo
@@ -775,6 +894,7 @@ export interface FileRouteTypes {
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
+    | '/cadastro/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -797,6 +917,11 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/fornecedor/painel/desempenho'
+    | '/fornecedor/painel/importar'
+    | '/fornecedor/painel/pedidos'
+    | '/fornecedor/painel/produtos'
+    | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -807,15 +932,19 @@ export interface FileRouteTypes {
     | '/admin/chamados'
     | '/admin/clientes'
     | '/admin/fornecedores'
+    | '/fornecedor/painel'
     | '/api/suporte/chamados'
     | '/api/v1/listings'
     | '/api/v1/orders'
     | '/api/v1/webhook-endpoints'
+    | '/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
   id:
@@ -842,6 +971,7 @@ export interface FileRouteTypes {
     | '/_auth/redefinir-senha'
     | '/api/health'
     | '/_app/admin/clientes'
+    | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
     | '/_app/admin/equipe'
     | '/_app/fornecedores/$supplierId'
@@ -849,6 +979,7 @@ export interface FileRouteTypes {
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
+    | '/_auth/cadastro_/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -871,6 +1002,11 @@ export interface FileRouteTypes {
     | '/_app/admin/chamados/metricas'
     | '/_app/admin/clientes/$userId'
     | '/_app/admin/fornecedores/$supplierId'
+    | '/_app/fornecedor/painel/desempenho'
+    | '/_app/fornecedor/painel/importar'
+    | '/_app/fornecedor/painel/pedidos'
+    | '/_app/fornecedor/painel/produtos'
+    | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -881,15 +1017,19 @@ export interface FileRouteTypes {
     | '/_app/admin/chamados/'
     | '/_app/admin/clientes/'
     | '/_app/admin/fornecedores/'
+    | '/_app/fornecedor/painel/'
     | '/api/suporte/chamados/'
     | '/api/v1/listings/'
     | '/api/v1/orders/'
     | '/api/v1/webhook-endpoints/'
+    | '/_app/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
+    | '/api/produtos/imagens/$supplierId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/_app/admin/fornecedores/analise/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesById: FileRoutesById
@@ -916,6 +1056,7 @@ export interface RootRouteChildren {
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
   OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
+  ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
@@ -928,6 +1069,7 @@ export interface RootRouteChildren {
   ApiV1OrdersIndexRoute: typeof ApiV1OrdersIndexRoute
   ApiV1WebhookEndpointsIndexRoute: typeof ApiV1WebhookEndpointsIndexRoute
   ApiAdminChamadosTicketIdMensagensRoute: typeof ApiAdminChamadosTicketIdMensagensRoute
+  ApiProdutosImagensSupplierIdFileNameRoute: typeof ApiProdutosImagensSupplierIdFileNameRoute
   ApiSuporteChamadosTicketIdMensagensRoute: typeof ApiSuporteChamadosTicketIdMensagensRoute
   ApiV1CatalogProductsProductIdRoute: typeof ApiV1CatalogProductsProductIdRoute
   ApiV1WebhookEndpointsEndpointIdDeliveriesRoute: typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
@@ -1105,6 +1247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminEquipeRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/fornecedor/painel': {
+      id: '/_app/fornecedor/painel'
+      path: '/fornecedor/painel'
+      fullPath: '/fornecedor/painel'
+      preLoaderRoute: typeof AppFornecedorPainelRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/fornecedores/': {
       id: '/_app/fornecedores/'
       path: '/'
@@ -1167,6 +1316,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/suporte/novo'
       preLoaderRoute: typeof AppSuporteNovoRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/_auth/cadastro_/fornecedor': {
+      id: '/_auth/cadastro_/fornecedor'
+      path: '/cadastro/fornecedor'
+      fullPath: '/cadastro/fornecedor'
+      preLoaderRoute: typeof AuthCadastroFornecedorRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -1315,6 +1471,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminFornecedoresSupplierIdRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
+    '/_app/fornecedor/painel/': {
+      id: '/_app/fornecedor/painel/'
+      path: '/'
+      fullPath: '/fornecedor/painel/'
+      preLoaderRoute: typeof AppFornecedorPainelIndexRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/desempenho': {
+      id: '/_app/fornecedor/painel/desempenho'
+      path: '/desempenho'
+      fullPath: '/fornecedor/painel/desempenho'
+      preLoaderRoute: typeof AppFornecedorPainelDesempenhoRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/importar': {
+      id: '/_app/fornecedor/painel/importar'
+      path: '/importar'
+      fullPath: '/fornecedor/painel/importar'
+      preLoaderRoute: typeof AppFornecedorPainelImportarRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/pedidos': {
+      id: '/_app/fornecedor/painel/pedidos'
+      path: '/pedidos'
+      fullPath: '/fornecedor/painel/pedidos'
+      preLoaderRoute: typeof AppFornecedorPainelPedidosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/_app/fornecedor/painel/produtos': {
+      id: '/_app/fornecedor/painel/produtos'
+      path: '/produtos'
+      fullPath: '/fornecedor/painel/produtos'
+      preLoaderRoute: typeof AppFornecedorPainelProdutosRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
+    '/api/fornecedor/produtos/imagens': {
+      id: '/api/fornecedor/produtos/imagens'
+      path: '/api/fornecedor/produtos/imagens'
+      fullPath: '/api/fornecedor/produtos/imagens'
+      preLoaderRoute: typeof ApiFornecedorProdutosImagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/oauth/$marketplace/callback': {
       id: '/api/oauth/$marketplace/callback'
       path: '/api/oauth/$marketplace/callback'
@@ -1392,6 +1590,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1WebhookEndpointsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/fornecedores/analise/': {
+      id: '/_app/admin/fornecedores/analise/'
+      path: '/fornecedores/analise'
+      fullPath: '/admin/fornecedores/analise/'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/analise/$productId': {
+      id: '/_app/admin/fornecedores/analise/$productId'
+      path: '/fornecedores/analise/$productId'
+      fullPath: '/admin/fornecedores/analise/$productId'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/api/admin/chamados/$ticketId/mensagens': {
       id: '/api/admin/chamados/$ticketId/mensagens'
       path: '/api/admin/chamados/$ticketId/mensagens'
@@ -1405,6 +1617,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/perfil/foto/$userId/$fileName'
       preLoaderRoute: typeof ApiPerfilFotoUserIdFileNameRouteImport
       parentRoute: typeof ApiPerfilFotoRoute
+    }
+    '/api/produtos/imagens/$supplierId/$fileName': {
+      id: '/api/produtos/imagens/$supplierId/$fileName'
+      path: '/api/produtos/imagens/$supplierId/$fileName'
+      fullPath: '/api/produtos/imagens/$supplierId/$fileName'
+      preLoaderRoute: typeof ApiProdutosImagensSupplierIdFileNameRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/suporte/chamados/$ticketId/mensagens': {
       id: '/api/suporte/chamados/$ticketId/mensagens'
@@ -1468,6 +1687,8 @@ interface AppAdminRouteRouteChildren {
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
   AppAdminChamadosIndexRoute: typeof AppAdminChamadosIndexRoute
   AppAdminFornecedoresIndexRoute: typeof AppAdminFornecedoresIndexRoute
+  AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute
+  AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
@@ -1479,6 +1700,9 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
   AppAdminChamadosIndexRoute: AppAdminChamadosIndexRoute,
   AppAdminFornecedoresIndexRoute: AppAdminFornecedoresIndexRoute,
+  AppAdminFornecedoresAnaliseProductIdRoute:
+    AppAdminFornecedoresAnaliseProductIdRoute,
+  AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
 }
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
@@ -1498,6 +1722,28 @@ const AppFornecedoresRouteRouteChildren: AppFornecedoresRouteRouteChildren = {
 const AppFornecedoresRouteRouteWithChildren =
   AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren)
 
+interface AppFornecedorPainelRouteRouteChildren {
+  AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute
+  AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute
+  AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
+  AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
+  AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
+}
+
+const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildren =
+  {
+    AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
+    AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
+    AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
+    AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
+    AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
+  }
+
+const AppFornecedorPainelRouteRouteWithChildren =
+  AppFornecedorPainelRouteRoute._addFileChildren(
+    AppFornecedorPainelRouteRouteChildren,
+  )
+
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
   AppFornecedoresRouteRoute: typeof AppFornecedoresRouteRouteWithChildren
@@ -1509,6 +1755,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
@@ -1529,6 +1776,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,
@@ -1547,6 +1795,7 @@ interface AuthRouteRouteChildren {
   AuthEsqueciSenhaRoute: typeof AuthEsqueciSenhaRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRedefinirSenhaRoute: typeof AuthRedefinirSenhaRoute
+  AuthCadastroFornecedorRoute: typeof AuthCadastroFornecedorRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
@@ -1554,6 +1803,7 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthEsqueciSenhaRoute: AuthEsqueciSenhaRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRedefinirSenhaRoute: AuthRedefinirSenhaRoute,
+  AuthCadastroFornecedorRoute: AuthCadastroFornecedorRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
@@ -1594,6 +1844,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
   OauthMockAutorizarRoute: OauthMockAutorizarRoute,
+  ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiPedidosOrderIdEtiquetaRoute: ApiPedidosOrderIdEtiquetaRoute,
@@ -1607,6 +1858,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1WebhookEndpointsIndexRoute: ApiV1WebhookEndpointsIndexRoute,
   ApiAdminChamadosTicketIdMensagensRoute:
     ApiAdminChamadosTicketIdMensagensRoute,
+  ApiProdutosImagensSupplierIdFileNameRoute:
+    ApiProdutosImagensSupplierIdFileNameRoute,
   ApiSuporteChamadosTicketIdMensagensRoute:
     ApiSuporteChamadosTicketIdMensagensRoute,
   ApiV1CatalogProductsProductIdRoute: ApiV1CatalogProductsProductIdRoute,

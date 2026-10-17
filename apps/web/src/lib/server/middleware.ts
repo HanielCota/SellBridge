@@ -1,13 +1,18 @@
-import { isAppError } from "@sellbridge/shared/errors";
+import { isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
+import { z } from "zod";
 import {
   requireAdminSession,
+  requireSellerSession,
   requireStaffSession,
   requireTenantSession,
+  type TenantSession,
 } from "./tenant-session.ts";
+import { assertSupplierPanelAccess } from "./supplier-panel-access.ts";
+import { resolveSupplierPanelViewer } from "./supplier-panel-viewer.ts";
 import { toUserFacingError } from "./user-facing-error.ts";
 import { assertAllowedWhileImpersonating, recordImpersonatedCall } from "./impersonation.ts";
 
@@ -47,23 +52,67 @@ export const publicMiddleware = createMiddleware({ type: "function" }).middlewar
   userFacingErrors,
 ]);
 
-/** Requires an authenticated user with an organization (tenant) and injects `tenantId`. */
-export const tenantMiddleware = createMiddleware({ type: "function" })
+/**
+ * Inside a customer's account through "Entrar como cliente": some actions are refused, the rest
+ * is recorded under the admin's name once it went through.
+ */
+async function runAsCustomer<Result>(
+  session: TenantSession,
+  call: { functionName: string; method: string },
+  run: () => Promise<Result>,
+): Promise<Result> {
+  const visit = { impersonatedBy: session.impersonatedBy, customerId: session.userId, ...call };
+  assertAllowedWhileImpersonating(visit);
+  const result = await run();
+  await recordImpersonatedCall(visit);
+  return result;
+}
+
+/**
+ * Requires an authenticated user with a profile and injects `tenantId` and `profileKind`. Server
+ * imports are only used inside `.server()`: anything referenced outside it (a session function
+ * passed as an argument, say) stays in the browser bundle and pulls the database driver in.
+ */
+function profileMiddleware(access: { sellerOnly: boolean }) {
+  return createMiddleware({ type: "function" })
+    .middleware([userFacingErrors])
+    .server(async ({ next, method, serverFnMeta }) => {
+      const headers = getRequestHeaders();
+      const context = access.sellerOnly
+        ? await requireSellerSession(headers)
+        : await requireTenantSession(headers);
+      return runAsCustomer(context, { functionName: serverFnMeta.name, method }, async () =>
+        next({ context }),
+      );
+    });
+}
+
+/** Any profile of the account, seller or supplier: terms, support and notifications. */
+export const accountMiddleware = profileMiddleware({ sellerOnly: false });
+
+/** A seller profile (stores, listings, orders, reports); a supplier profile gets 403. */
+export const tenantMiddleware = profileMiddleware({ sellerOnly: true });
+
+const panelSupplierSchema = z.object({ supplierId: z.uuid("Fornecedor inválido") });
+
+/**
+ * Supplier panel functions take `supplierId` in their input: a supplier profile may only pass its
+ * own, and the team (a platform admin) may act for any supplier. Reads the raw input, so each
+ * function keeps its own validator.
+ */
+export const supplierPanelMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])
-  .server(async ({ next, method, serverFnMeta }) => {
-    const context = await requireTenantSession(getRequestHeaders());
-    // Inside a customer's account through "Entrar como cliente": some actions are refused, the
-    // rest is recorded under the admin's name once it went through.
-    const call = {
-      impersonatedBy: context.impersonatedBy,
-      customerId: context.userId,
-      functionName: serverFnMeta.name,
-      method,
-    };
-    assertAllowedWhileImpersonating(call);
-    const result = await next({ context });
-    await recordImpersonatedCall(call);
-    return result;
+  .server(async ({ next, data, method, serverFnMeta }) => {
+    const requested = panelSupplierSchema.safeParse(data);
+    if (!requested.success) {
+      throw validationError("Fornecedor inválido: envie o id do fornecedor (uuid).");
+    }
+    const session = await requireTenantSession(getRequestHeaders());
+    const viewer = await resolveSupplierPanelViewer(session);
+    assertSupplierPanelAccess(viewer, requested.data.supplierId);
+    return runAsCustomer(session, { functionName: serverFnMeta.name, method }, async () =>
+      next({ context: { ...session, viewer } }),
+    );
   });
 
 export const adminMiddleware = createMiddleware({ type: "function" })

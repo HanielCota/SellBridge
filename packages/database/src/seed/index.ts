@@ -5,7 +5,12 @@ import { sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
 import { CUSTOMERS } from "./customers.ts";
 import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
-import { ADMIN_ORGANIZATION_SLUG, DEMO_ORGANIZATION_SLUG, runSeed } from "./run.ts";
+import {
+  ADMIN_ORGANIZATION_SLUG,
+  DEMO_ORGANIZATION_SLUG,
+  DEMO_SECOND_PROFILE,
+  runSeed,
+} from "./run.ts";
 import { z } from "zod";
 
 /** Seed passwords come from the environment so no credential lives in the code. */
@@ -49,6 +54,7 @@ async function resetDomain(database: Database): Promise<void> {
   const emails = [DEMO_ACCOUNT.email, ADMIN_ACCOUNT.email, ...CUSTOMERS.map((item) => item.email)];
   const slugs = [
     DEMO_ORGANIZATION_SLUG,
+    DEMO_SECOND_PROFILE.slug,
     ADMIN_ORGANIZATION_SLUG,
     ...CUSTOMERS.map((item) => item.slug),
   ];

@@ -17,10 +17,22 @@ export const firstShippedAt = sql<Date | null>`(
   where shipped.shipment_id = ${orderShipments.id} and shipped.status = 'shipped'
 )`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
 
-/** The latest forward to the supplier: a re-forward of a cancelled parcel starts it over. */
+/**
+ * The latest forward to the supplier: a re-forward of a cancelled parcel starts it over. A note
+ * written while the parcel waits keeps the status, so it is also a `forwarded` event; only one
+ * that opens a round counts (the first event, or one right after another status), else every
+ * note would restart the supplier's accept and dispatch times.
+ */
 export const latestForwardedAt = sql<Date | null>`(
   select max(forwarded.created_at) from shipment_events forwarded
   where forwarded.shipment_id = ${orderShipments.id} and forwarded.status = 'forwarded'
+    and coalesce((
+      select previous.status from shipment_events previous
+      where previous.shipment_id = forwarded.shipment_id
+        and previous.created_at < forwarded.created_at
+      order by previous.created_at desc
+      limit 1
+    ), '') <> 'forwarded'
 )`.mapWith((value: string | null) => (value === null ? null : new Date(value)));
 
 /** The supplier's side of the timing: the latest forward and its own hours. */

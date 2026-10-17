@@ -57,6 +57,18 @@ describe("product CSV", () => {
     ]);
   });
 
+  it("reports every invalid field in a row", () => {
+    const parsed = parseProductCsv(`${header};gtin;peso_g\nA;Produto;xyz;-1;123;0`);
+    expect(parsed.errors).toHaveLength(1);
+    const reasons = parsed.errors[0]?.reason.split("; ") ?? [];
+    expect(reasons).toEqual([
+      "Custo: valor inválido",
+      "Estoque: valor inválido",
+      expect.stringMatching(/^GTIN: "123" não é um código de barras válido/),
+      expect.stringMatching(/^Peso: "0" deve ser um número em gramas/),
+    ]);
+  });
+
   it("rejects duplicated trimmed SKUs in the file", () => {
     const parsed = parseProductCsv(`${header}\nA;Primeiro;1;1\n A ;Segundo;2;2`);
     expect(parsed.errors).toEqual([{ line: 3, reason: "SKU duplicado no arquivo: A" }]);

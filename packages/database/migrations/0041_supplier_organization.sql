@@ -1,0 +1,3 @@
+ALTER TABLE "suppliers" ADD COLUMN "organization_id" text;--> statement-breakpoint
+ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "suppliers_organization_id_unique" ON "suppliers" USING btree ("organization_id");

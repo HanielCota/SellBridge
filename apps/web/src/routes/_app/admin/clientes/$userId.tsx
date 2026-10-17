@@ -29,7 +29,7 @@ import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
 import { ErrorState } from "@/components/feedback/error-state";
 import { SectionCard } from "@/components/layout/section-card";
-import { roleLabel } from "@/components/layout/user-menu";
+import { roleLabel } from "@/features/auth/account-label";
 import { TrendBadge } from "@/components/reports/figures";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

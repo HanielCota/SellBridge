@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionCard } from "@/components/layout/section-card";
-import { roleLabel } from "@/components/layout/user-menu";
+import { accountLabel } from "@/features/auth/account-label";
 import { AccountDataSection } from "@/components/profile/account-data-section";
 import { AvatarEditor } from "@/components/profile/avatar-editor";
 import { NotificationPreferences } from "@/components/profile/notification-preferences";
@@ -24,16 +24,17 @@ const memberSince = new Intl.DateTimeFormat("pt-BR", {
 interface ProfileHeaderProps {
   name: string;
   email: string;
-  role: string;
+  /** "Revendedor", "Fornecedor" or the team role (`accountLabel`). */
+  label: string;
   createdAt: string;
 }
 
-function ProfileHeader({ name, email, role, createdAt }: ProfileHeaderProps) {
+function ProfileHeader({ name, email, label, createdAt }: ProfileHeaderProps) {
   return (
     <div className="min-w-0 space-y-1.5 text-center sm:text-left">
       <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
         <h1 className="truncate text-2xl leading-tight font-semibold tracking-tight">{name}</h1>
-        <Badge variant="secondary">{roleLabel(role)}</Badge>
+        <Badge variant="secondary">{label}</Badge>
       </div>
       <p className="truncate text-sm text-muted-foreground">{email}</p>
       <p className="text-footnote text-muted-foreground">
@@ -54,7 +55,7 @@ function ProfilePage() {
           <ProfileHeader
             name={user.name}
             email={user.email}
-            role={user.role}
+            label={accountLabel(user.role, session.profileKind)}
             createdAt={user.createdAt}
           />
         </AvatarEditor>
