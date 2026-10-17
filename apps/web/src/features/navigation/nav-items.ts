@@ -32,6 +32,7 @@ export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Produtos", to: "/fornecedor/painel/produtos" },
   { label: "Importar", to: "/fornecedor/painel/importar" },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
+  { label: "Marca", to: "/fornecedor/painel/marca" },
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
