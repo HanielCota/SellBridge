@@ -1,17 +1,71 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  retainSearchParams,
+  useRouterState,
+} from "@tanstack/react-router";
 import { TopNav } from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
+import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { getAppSession } from "@/features/auth/session.functions";
+import { profileSlugSchema } from "@/lib/profile-param";
+import {
+  addProfileToHref,
+  forgetTabProfile,
+  rememberTabProfile,
+  removeProfileFromHref,
+  tabProfile,
+} from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
+/** Every page of the app carries its profile, so each tab keeps its own (see profile-param.ts). */
+function validateAppSearch(search: Record<string, unknown>): { perfil?: string } {
+  const parsed = profileSlugSchema.safeParse(search.perfil);
+  // A malformed profile is never taken as the tab's; the server still refuses it by name.
+  return parsed.success ? { perfil: parsed.data } : {};
+}
+
+function isTeamPage(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async ({ location }) => {
+  validateSearch: validateAppSearch,
+  search: { middlewares: [retainSearchParams(["perfil"])] },
+  beforeLoad: async ({ location, search, preload, context }) => {
+    const previousProfile = tabProfile();
+    // Recorded before any call, so this navigation's calls already carry the new profile; a
+    // preload (hovering a link) must not move the profile of the page still on screen.
+    if (!preload && search.perfil !== undefined) {
+      rememberTabProfile(search.perfil);
+    }
     const session = await getAppSession();
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
+    const plan = planProfileNavigation({
+      searchProfile: search.perfil,
+      sessionProfile: session.profileSlug,
+      foreignProfile: session.foreignProfile,
+      rememberedProfile: previousProfile,
+      isTeamPage: isTeamPage(location.pathname),
+    });
+    if (plan.kind === "drop_profile") {
+      forgetTabProfile();
+      throw redirect({ href: removeProfileFromHref(location.href), replace: true });
+    }
+    if (plan.kind === "foreign_profile") {
+      throw redirect({ to: "/outro-perfil", replace: true });
+    }
+    if (plan.kind === "add_profile") {
+      throw redirect({ href: addProfileToHref(location.href, plan.slug), replace: true });
+    }
+    if (plan.clearCache && !preload) {
+      context.queryClient.removeQueries();
     }
     return { session };
   },

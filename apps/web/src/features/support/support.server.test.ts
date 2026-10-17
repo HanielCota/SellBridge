@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   findTicketForMessage: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   addTicketMessage: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   createTicket: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
-  requireTenantSession: vi.fn<() => Promise<unknown>>(),
+  requireTenantRequest: vi.fn<() => Promise<unknown>>(),
   requireStaffSession: vi.fn<() => Promise<unknown>>(),
 }));
 
@@ -24,7 +24,7 @@ vi.mock("@/lib/server/impersonation", () => ({
   recordImpersonatedCall: vi.fn<() => Promise<void>>(),
 }));
 vi.mock("@/lib/server/tenant-session", () => ({
-  requireTenantSession: mocks.requireTenantSession,
+  requireTenantRequest: mocks.requireTenantRequest,
   requireStaffSession: mocks.requireStaffSession,
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -74,7 +74,7 @@ const tenantReply = (form = messageForm({ body: "Segue a nota fiscal do pedido."
 beforeEach(() => {
   vi.clearAllMocks();
   nextUser += 1;
-  mocks.requireTenantSession.mockResolvedValue({
+  mocks.requireTenantRequest.mockResolvedValue({
     tenantId: "tenant-a",
     userId: `reseller-${nextUser}`,
     impersonatedBy: null,

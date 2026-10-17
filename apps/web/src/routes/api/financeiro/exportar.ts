@@ -6,17 +6,27 @@ import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
 import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireTenantRequest } from "@/lib/server/tenant-session";
 
-/** Resolves the session, treating an expected auth failure (AppError) as "not signed in". */
-async function findTenantSession(headers: Headers) {
+type ExportSession =
+  { kind: "ok"; tenantId: string } | { kind: "signed_out" } | { kind: "other_profile" };
+
+/**
+ * Resolves the session. A signed-in user asking for a profile outside the account is told so,
+ * not asked to log in again (a 401 there sent people to a login they already had).
+ */
+async function findExportSession(request: Request): Promise<ExportSession> {
   try {
-    return await requireTenantSession(headers);
+    const session = await requireTenantRequest(request);
+    return { kind: "ok", tenantId: session.tenantId };
   } catch (error) {
-    if (isAppError(error)) {
-      return null;
+    if (!isAppError(error)) {
+      throw error;
     }
-    throw error;
+    if (error.code === "FORBIDDEN") {
+      return { kind: "other_profile" };
+    }
+    return { kind: "signed_out" };
   }
 }
 
@@ -42,9 +52,14 @@ async function exportRows(
 }
 
 async function handleExport(request: Request): Promise<Response> {
-  const session = await findTenantSession(request.headers);
-  if (!session) {
+  const session = await findExportSession(request);
+  if (session.kind === "signed_out") {
     return new Response("Faça login para exportar o financeiro.", { status: 401 });
+  }
+  if (session.kind === "other_profile") {
+    return new Response("Este arquivo é de outro perfil, que não está na sua conta.", {
+      status: 403,
+    });
   }
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);

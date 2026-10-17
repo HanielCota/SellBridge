@@ -1,5 +1,6 @@
 import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
 import { serverErrorLogging } from "@/lib/server/error-logging";
+import { tabProfileHeaders } from "@/lib/tab-profile";
 import { bodyLimitFor, declaresMoreThan, payloadTooLarge } from "@/lib/server/request-body-limit";
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
@@ -59,8 +60,13 @@ const bodyLimitMiddleware = createMiddleware().server(async ({ next, request }) 
   return next();
 });
 
+/** Every server call from the browser names the tab's profile (see lib/profile-param.ts). */
+const tabProfileMiddleware = createMiddleware({ type: "function" }).client(async ({ next }) =>
+  next({ headers: tabProfileHeaders() }),
+);
+
 export const startInstance = createStart(() => ({
-  functionMiddleware: [serverErrorLogging],
+  functionMiddleware: [tabProfileMiddleware, serverErrorLogging],
   requestMiddleware: [
     bodyLimitMiddleware,
     createCsrfMiddleware({ filter: (context) => context.handlerType === "serverFn" }),

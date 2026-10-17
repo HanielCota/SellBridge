@@ -1,4 +1,3 @@
-import { useNavigate } from "@tanstack/react-router";
 import { EyeIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -22,7 +21,6 @@ export function ImpersonationBanner({
   customerName: string;
   endsAt: string | null;
 }) {
-  const navigate = useNavigate();
   const [isLeaving, setIsLeaving] = useState(false);
 
   async function stopImpersonating() {
@@ -33,7 +31,8 @@ export function ImpersonationBanner({
       toast.error("Não foi possível voltar ao admin. Tente novamente.");
       return;
     }
-    await navigate({ to: "/admin/clientes", reloadDocument: true });
+    // A plain page load: a router link would carry the customer's `?perfil=` back to the admin.
+    window.location.assign("/admin/clientes");
   }
 
   return (

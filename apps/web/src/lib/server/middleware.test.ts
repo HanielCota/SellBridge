@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn<() => Promise<unknown>>(),
   setResponseStatus: vi.fn<(status: number) => void>(),
   recordAdminEvent: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
+  requestUrl: { current: "http://localhost/_serverFn/abc" },
 }));
 vi.mock("./database.ts", () => ({ database: {} }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -24,11 +25,14 @@ vi.mock("@sellbridge/database/repositories", () => ({
 }));
 vi.mock("./auth.ts", () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock("./membership.ts", () => ({
-  findFirstOrganizationId: vi.fn<() => Promise<string | null>>(),
-  isMemberOf: async () => true,
+  listMemberships: async () => [
+    { organizationId: "org-1", slug: "loja-1" },
+    { organizationId: "org-2", slug: "loja-2" },
+  ],
 }));
 vi.mock("@tanstack/react-start/server", () => ({
   getRequestHeaders: () => new Headers(),
+  getRequest: () => new Request(mocks.requestUrl.current),
   setResponseStatus: mocks.setResponseStatus,
 }));
 // A tiny stand-in for the builder: `.middleware([...])` records the parents, `.server()` the handler.
@@ -73,6 +77,7 @@ async function run(middleware: unknown, next: Next, call: CallInfo = {}): Promis
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.requestUrl.current = "http://localhost/_serverFn/abc";
 });
 
 describe("admin middleware", () => {
@@ -172,5 +177,30 @@ describe("tenant middleware inside a customer's account", () => {
     mocks.getSession.mockResolvedValue(own);
     await run(tenantMiddleware, vi.fn<Next>().mockResolvedValue({}), post("disconnectStoreFn"));
     expect(mocks.recordAdminEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("tenant middleware profile", () => {
+  const reseller = {
+    user: { id: "customer-1", role: "user" },
+    session: { activeOrganizationId: "org-1", impersonatedBy: null, createdAt: new Date() },
+  };
+
+  it("uses the profile in the page URL when the call carries no header (server render)", async () => {
+    mocks.getSession.mockResolvedValue(reseller);
+    mocks.requestUrl.current = "http://localhost/pedidos?perfil=loja-2";
+    const next = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await run(tenantMiddleware, next, { method: "GET", serverFnMeta: { name: "listOrdersFn" } });
+    expect(next).toHaveBeenCalledWith({ context: expect.objectContaining({ tenantId: "org-2" }) });
+  });
+
+  it("refuses a page URL naming a profile outside the account", async () => {
+    mocks.getSession.mockResolvedValue(reseller);
+    mocks.requestUrl.current = "http://localhost/pedidos?perfil=loja-de-outra-pessoa";
+    const next = vi.fn<Next>();
+    await expect(
+      run(tenantMiddleware, next, { method: "GET", serverFnMeta: { name: "listOrdersFn" } }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(next).not.toHaveBeenCalled();
   });
 });

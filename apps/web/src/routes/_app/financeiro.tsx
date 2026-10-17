@@ -34,6 +34,7 @@ import { financialExportUrl, financialsQueryOptions } from "@/features/reports/r
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { useTabProfileLink } from "@/lib/tab-profile";
 
 export const Route = createFileRoute("/_app/financeiro")({
   validateSearch: financialSearchSchema,
@@ -84,6 +85,7 @@ function FinancialSkeleton() {
 
 function FinancialContent() {
   const search = Route.useSearch();
+  const withProfile = useTabProfileLink();
   const updateSearch = useFinancialNavigation();
   const query = useQuery(financialsQueryOptions(search));
 
@@ -114,7 +116,7 @@ function FinancialContent() {
           periodDays: period.days,
           summary: periodSummary,
           previous,
-          exportUrl: financialExportUrl(search),
+          exportUrl: withProfile(financialExportUrl(search)),
           filters: (
             <PeriodFilters
               search={search}

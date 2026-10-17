@@ -5,6 +5,7 @@ import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/store
 import type { MarketplaceOption } from "@/features/stores/stores.functions";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
+import { useTabProfileLink } from "@/lib/tab-profile";
 
 /** The supplier the shop about to be connected will sell. */
 export interface NewStoreSupplier {
@@ -34,6 +35,7 @@ function AvailableOption({
   supplier: NewStoreSupplier | null;
 }) {
   const locked = useStoresLocked();
+  const withProfile = useTabProfileLink();
   if (supplier === null) {
     return <WaitingOption option={option} />;
   }
@@ -43,7 +45,7 @@ function AvailableOption({
   return (
     <li>
       <a
-        href={startUrl(option.id, supplier)}
+        href={withProfile(startUrl(option.id, supplier))}
         aria-label={`Conectar ${option.label}`}
         className="group flex items-center gap-4 px-5 py-3.5 transition-colors outline-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.04] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset active:bg-foreground/[0.06]"
       >

@@ -2,7 +2,8 @@ import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
-import { getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
+import { getRequest, getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
+import { requestedProfileOf } from "../profile-param.ts";
 import {
   requireAdminSession,
   requireStaffSession,
@@ -47,11 +48,17 @@ export const publicMiddleware = createMiddleware({ type: "function" }).middlewar
   userFacingErrors,
 ]);
 
-/** Requires an authenticated user with an organization (tenant) and injects `tenantId`. */
+/**
+ * Requires an authenticated user with an organization (tenant) and injects `tenantId`. The
+ * profile is the tab's: its header on calls from the browser, the page URL's `?perfil=` while
+ * the server renders that page (the request is then the page request itself).
+ */
 export const tenantMiddleware = createMiddleware({ type: "function" })
   .middleware([userFacingErrors])
   .server(async ({ next, method, serverFnMeta }) => {
-    const context = await requireTenantSession(getRequestHeaders());
+    const headers = getRequestHeaders();
+    const requested = requestedProfileOf({ headers, url: getRequest().url });
+    const context = await requireTenantSession(headers, requested);
     // Inside a customer's account through "Entrar como cliente": some actions are refused, the
     // rest is recorded under the admin's name once it went through.
     const call = {

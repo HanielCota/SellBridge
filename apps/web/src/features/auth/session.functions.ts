@@ -1,10 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
+import { isAppError } from "@sellbridge/shared/errors";
+import { getCookie, getRequest, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
 import { environment } from "@/lib/server/environment";
 import { staffMiddleware } from "@/lib/server/middleware";
+import { listMemberships } from "@/lib/server/membership";
+import { resolveProfileId } from "@/lib/server/tenant-session";
+import { requestedProfileOf } from "@/lib/profile-param";
 
 /**
  * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
@@ -28,6 +32,10 @@ export interface SessionUser {
 export interface AppSession {
   user: SessionUser;
   tenantId: string | null;
+  /** The slug of the profile this page works on (`?perfil=`), or null for an account with none. */
+  profileSlug: string | null;
+  /** The slug the page asked for when it is not one of the account's profiles. */
+  foreignProfile: string | null;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
   /** When an admin's visit ends on its own (ISO), or null outside one. */
@@ -43,6 +51,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       return null;
     }
     const role = session.user.role ?? "user";
+    const profile = await resolvePageProfile(session.user.id, session.session.activeOrganizationId);
     return {
       user: {
         id: session.user.id,
@@ -53,7 +62,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         createdAt: new Date(session.user.createdAt).toISOString(),
       },
       adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
-      tenantId: session.session.activeOrganizationId ?? null,
+      ...profile,
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
@@ -61,6 +70,32 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+interface PageProfile {
+  tenantId: string | null;
+  profileSlug: string | null;
+  foreignProfile: string | null;
+}
+
+/** The profile of the page being opened, by the same rules every server call follows. */
+async function resolvePageProfile(
+  userId: string,
+  sessionActive: string | null | undefined,
+): Promise<PageProfile> {
+  const requested = requestedProfileOf({ headers: getRequestHeaders(), url: getRequest().url });
+  const memberships = await listMemberships(userId);
+  try {
+    const { organizationId } = resolveProfileId({ requested, sessionActive, memberships });
+    const slug = memberships.find((item) => item.organizationId === organizationId)?.slug ?? null;
+    return { tenantId: organizationId, profileSlug: slug, foreignProfile: null };
+  } catch (error) {
+    if (!isAppError(error) || error.code !== "FORBIDDEN") {
+      throw error;
+    }
+    const foreignProfile = requested !== null && memberships.length > 0 ? requested : null;
+    return { tenantId: null, profileSlug: null, foreignProfile };
+  }
+}
 
 export interface SignInOptions {
   google: boolean;
