@@ -1,4 +1,5 @@
 export * from "./region.ts";
+export * from "./account-profiles.ts";
 export * from "./suppliers.ts";
 export * from "./stores.ts";
 export * from "./store-suppliers.ts";

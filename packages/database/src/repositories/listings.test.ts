@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { apiEvents, listingTargets } from "../schema/index.ts";
 import {
   createTestDatabase,
@@ -218,6 +218,20 @@ async function syncQueuePositions(targetIds: readonly string[]) {
   return targetIds.map((targetId) => queue.indexOf(targetId));
 }
 
+const FIRST_ATTEMPT = new Date("2026-01-10T12:00:00.000Z");
+const SECOND_ATTEMPT = new Date("2026-01-10T12:00:01.000Z");
+
+/** Records a failed sync as if it happened at `attemptedAt` (only `Date` is faked). */
+async function markSyncFailedAt(targetId: string, attemptedAt: Date): Promise<void> {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(attemptedAt);
+  try {
+    await markTargetSyncFailed(database, targetId, "Tempo esgotado");
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 describe("stock and price sync queue", () => {
   it("moves a target that failed to sync behind the ones never attempted", async () => {
     const failing = await createPublishedTarget("Anúncio apagado no marketplace", "EXT-GONE");
@@ -232,8 +246,10 @@ describe("stock and price sync queue", () => {
   it("serves the oldest failed attempt first and clears the error on success", async () => {
     const older = await createPublishedTarget("Falhou primeiro", "EXT-OLD");
     const newer = await createPublishedTarget("Falhou depois", "EXT-NEWER");
-    await markTargetSyncFailed(database, older, "Tempo esgotado");
-    await markTargetSyncFailed(database, newer, "Tempo esgotado");
+    // Two calls in a row can land on the same millisecond in CI, and a tie falls back to the
+    // random id order (PR #42 run 38982000754): the attempts get distinct, fixed times instead.
+    await markSyncFailedAt(older, FIRST_ATTEMPT);
+    await markSyncFailedAt(newer, SECOND_ATTEMPT);
 
     const [olderPosition, newerPosition] = await syncQueuePositions([older, newer]);
     expect(olderPosition).toBeGreaterThanOrEqual(0);

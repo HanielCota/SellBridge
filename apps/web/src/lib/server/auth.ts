@@ -385,7 +385,18 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    organization({ allowUserToCreateOrganization: false, disableOrganizationDeletion: true }),
+    organization({
+      allowUserToCreateOrganization: false,
+      disableOrganizationDeletion: true,
+      schema: {
+        organization: {
+          additionalFields: {
+            // Seller or supplier profile (`organization.kind`); never set by the client.
+            kind: { type: "string", required: false, defaultValue: "seller", input: false },
+          },
+        },
+      },
+    }),
     // Every team role is protected from impersonation, not only admins: signing in as an
     // agent would let an admin answer customers under that agent's name.
     admin({
