@@ -926,10 +926,11 @@ async function findThreadMessages(database: Database, ticketId: string, withInte
     .orderBy(asc(ticketMessages.createdAt));
 }
 
-async function findMessageAttachments(database: Database, messageIds: readonly string[]) {
-  if (messageIds.length === 0) {
-    return [];
-  }
+/**
+ * Every attachment of the ticket, read by the indexed `ticket_id` alongside the messages.
+ * Callers pair them with the messages they show, so files of notes left out stay out.
+ */
+async function findTicketAttachments(database: Database, ticketId: string) {
   return database
     .select({
       id: ticketAttachments.id,
@@ -939,7 +940,7 @@ async function findMessageAttachments(database: Database, messageIds: readonly s
       sizeBytes: ticketAttachments.sizeBytes,
     })
     .from(ticketAttachments)
-    .where(inArray(ticketAttachments.messageId, [...messageIds]));
+    .where(eq(ticketAttachments.ticketId, ticketId));
 }
 
 /** Event types whose values are user ids, shown as names. */
@@ -1034,16 +1035,13 @@ export async function getTicketThread(
 ): Promise<TicketThread> {
   const ticket = await findThreadTicket(database, ticketId, tenantId);
   const isStaff = tenantId === null;
-  const [messages, allEvents, seenByOtherSideAt] = await Promise.all([
+  const [messages, allEvents, seenByOtherSideAt, attachments] = await Promise.all([
     findThreadMessages(database, ticket.id, isStaff),
     findThreadEvents(database, ticket.id),
     findSeenByOtherSideAt(database, ticket.id, isStaff ? "staff" : "customer"),
+    findTicketAttachments(database, ticket.id),
   ]);
   const events = isStaff ? allEvents : allEvents.filter(isCustomerVisible);
-  const attachments = await findMessageAttachments(
-    database,
-    messages.map((message) => message.id),
-  );
   return {
     ticket,
     messages: messages.map((message) => ({
