@@ -43,6 +43,7 @@ const PAGES: PageCommand[] = [
     keywords: "produtos fornecedores publicar",
   },
   { label: "Publicações", to: "/publicacoes", icon: MegaphoneIcon, keywords: "anúncios" },
+  { label: "Pedidos", to: "/pedidos", icon: ReceiptIcon, keywords: "vendas envio etiqueta" },
   { label: "Lojas", to: "/lojas", icon: StorefrontIcon, keywords: "marketplace conectar" },
   { label: "Financeiro", to: "/financeiro", icon: WalletIcon, keywords: "pedidos lucro csv" },
   {
