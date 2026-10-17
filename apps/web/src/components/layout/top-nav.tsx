@@ -57,7 +57,7 @@ const LAYOUTS = {
     row: "xl:grid-cols-[auto_1fr_auto]",
     desktopNav: "justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    tab: "px-3",
+    tab: "px-2",
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
     // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
     accountName: "sr-only",
