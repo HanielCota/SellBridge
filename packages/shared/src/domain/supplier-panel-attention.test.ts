@@ -154,7 +154,7 @@ describe("buildSupplierAttention", () => {
     expect(items[1]?.target).toEqual({
       area: "orders",
       filter: "dispatch_overdue",
-      orderId: "order-50-ready",
+      shipmentId: "shipment-50-ready",
     });
   });
 

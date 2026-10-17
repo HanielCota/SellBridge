@@ -36,7 +36,7 @@ export type SupplierOrderFilter = ParcelState | "delivery_failed";
 
 /** Where an item is fixed; the web layer turns it into a link of the supplier panel. */
 export type SupplierAttentionTarget =
-  | { area: "orders"; filter: SupplierOrderFilter; orderId?: string }
+  | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }
   | { area: "stock"; filter: "out_of_stock_listed"; productId?: string }
   | { area: "performance"; metric: HealthMetricKey };
 
@@ -103,11 +103,11 @@ const PARCEL_SEVERITY: Record<ParcelState, AttentionSeverity> = {
 
 type Grouped = { kind: ItemKind; item: SupplierAttentionItem };
 
-/** One order links straight to it; more link to the filtered list. */
-function orderTarget(filter: SupplierOrderFilter, orderIds: readonly string[]) {
-  const [only] = orderIds;
-  if (orderIds.length === 1 && only !== undefined) {
-    return { area: "orders" as const, filter, orderId: only };
+/** One parcel links straight to it; more link to the filtered list. */
+function orderTarget(filter: SupplierOrderFilter, shipmentIds: readonly string[]) {
+  const [only] = shipmentIds;
+  if (shipmentIds.length === 1 && only !== undefined) {
+    return { area: "orders" as const, filter, shipmentId: only };
   }
   return { area: "orders" as const, filter };
 }
@@ -115,20 +115,20 @@ function orderTarget(filter: SupplierOrderFilter, orderIds: readonly string[]) {
 function parcelItems(signals: readonly OpenShipmentSignal[], now: Date): Grouped[] {
   const states = signals.map((signal) => ({ signal, state: parcelState(signal, now) }));
   return PARCEL_STATES.flatMap((state) => {
-    const orderIds = states
+    const shipmentIds = states
       .filter((entry) => entry.state === state)
-      .map((entry) => entry.signal.orderId);
-    if (orderIds.length === 0) {
+      .map((entry) => entry.signal.shipmentId);
+    if (shipmentIds.length === 0) {
       return [];
     }
     const [one, many] = PARCEL_COPY[state].title;
     const item = {
       key: state,
       severity: PARCEL_SEVERITY[state],
-      title: plural(orderIds.length, one, many),
+      title: plural(shipmentIds.length, one, many),
       description: PARCEL_COPY[state].description,
-      target: orderTarget(state, orderIds),
-      count: orderIds.length,
+      target: orderTarget(state, shipmentIds),
+      count: shipmentIds.length,
     };
     return [{ kind: state, item }];
   });
@@ -147,20 +147,20 @@ const FAILURE_COPY: Record<DeliveryFailure, { title: [string, string]; descripti
 
 function failureItems(signals: readonly OpenShipmentSignal[]): Grouped[] {
   return (["label", "email"] as const).flatMap((failure) => {
-    const orderIds = signals
+    const shipmentIds = signals
       .filter((signal) => deliveryFailures(signal).includes(failure))
-      .map((signal) => signal.orderId);
-    if (orderIds.length === 0) {
+      .map((signal) => signal.shipmentId);
+    if (shipmentIds.length === 0) {
       return [];
     }
     const [one, many] = FAILURE_COPY[failure].title;
     const item = {
       key: `delivery_failed-${failure}`,
       severity: failure === "label" ? ("critical" as const) : ("warning" as const),
-      title: plural(orderIds.length, one, many),
+      title: plural(shipmentIds.length, one, many),
       description: FAILURE_COPY[failure].description,
-      target: orderTarget("delivery_failed", orderIds),
-      count: orderIds.length,
+      target: orderTarget("delivery_failed", shipmentIds),
+      count: shipmentIds.length,
     };
     return [{ kind: `delivery_failed-${failure}` as const, item }];
   });
