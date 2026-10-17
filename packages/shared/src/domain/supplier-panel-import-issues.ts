@@ -2,6 +2,7 @@ import type { ProductCsvError } from "./product-csv.ts";
 import {
   columnGuide,
   columnGuideByLabel,
+  IMPORT_COLUMNS,
   type ImportColumnGuide,
 } from "./supplier-panel-import-columns.ts";
 import type { ImportRecord } from "./supplier-panel-import-table.ts";
@@ -27,7 +28,19 @@ export interface ImportRowIssues {
 }
 
 const MAX_SHOWN_VALUE = 80;
-const MULTI_FIELD_REASON = /^[^:;]+: valor inválido(?:; [^:;]+: valor inválido)*$/;
+/**
+ * product-csv joins a row's problems with "; ". A value quoted inside a reason may hold "; " too,
+ * so the reason is cut only where the next part starts with a known column label.
+ */
+const REASON_LABELS = [
+  ...IMPORT_COLUMNS.map((entry) => entry.label),
+  "Linha",
+  "Atributos do Mercado Livre",
+];
+const REASON_SEPARATOR = new RegExp(
+  // Labels are plain words ("Preço sugerido"), with nothing a regular expression would read.
+  `; (?=(?:${REASON_LABELS.join("|")}):)`,
+);
 const DUPLICATE_SKU = "SKU duplicado no arquivo:";
 const UNKNOWN_CATEGORY = "Categoria desconhecida:";
 const COLUMN_COUNT = "Quantidade de colunas diferente do cabeçalho";
@@ -89,7 +102,7 @@ function columnCountIssue(context: RowContext): ImportIssue {
 }
 
 function reasonParts(reason: string): readonly string[] {
-  return MULTI_FIELD_REASON.test(reason) ? reason.split("; ") : [reason];
+  return reason.split(REASON_SEPARATOR);
 }
 
 function partIssue(part: string, context: RowContext): ImportIssue {

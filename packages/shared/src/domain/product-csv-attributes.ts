@@ -126,16 +126,17 @@ function attributeFor(column: string, value: string): AttributeResult {
 
 /**
  * The attributes of one CSV line, keyed by Mercado Livre id. Blank cells are left out, so an
- * update keeps the value the product already has. The first bad cell is the line's error.
+ * update keeps the value the product already has. Every bad cell is named, joined by "; ", so
+ * one round of fixes clears the line.
  */
 export function parseCsvAttributes(values: Readonly<Record<string, string>>): AttributeResult {
   const results = PRODUCT_CSV_ATTRIBUTE_COLUMNS.flatMap((column) => {
     const value = (values[column] ?? "").trim();
     return value === "" ? [] : [attributeFor(column, value)];
   });
-  const failure = results.find((result) => "reason" in result);
-  if (failure !== undefined) {
-    return failure;
+  const failures = results.flatMap((result) => ("reason" in result ? [result.reason] : []));
+  if (failures.length > 0) {
+    return { reason: failures.join("; ") };
   }
   return {
     attributes: Object.assign(

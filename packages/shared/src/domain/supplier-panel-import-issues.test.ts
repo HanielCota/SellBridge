@@ -118,3 +118,26 @@ describe("buildValidRowsCsv", () => {
     expect(parsed.rows.map((row) => row.product.sku)).toEqual(["OK-1", "OK-2"]);
   });
 });
+
+describe("several bad cells in one row", () => {
+  const file = 'sku;titulo;custo;estoque;gtin;peso_g\nMULTI-1;Produto;xyz;1;123;"1; 2"\n';
+  const normalized = normalizeImportFile(utf8(file));
+  const rows = review(normalized);
+
+  it("lists one issue per bad column, even when a value holds the separator", () => {
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.issues.map((issue) => [issue.column, issue.received])).toEqual([
+      ["custo", "xyz"],
+      ["gtin", "123"],
+      ["peso_g", "1; 2"],
+    ]);
+  });
+
+  it("explains every problem of the row in the exported erro column", () => {
+    const exported = buildFailedRowsCsv(normalized, normalized.records, rows);
+    const line = exported.split("\r\n")[1] ?? "";
+    expect(line).toContain("coluna C (custo)");
+    expect(line).toContain("coluna E (gtin)");
+    expect(line).toContain("coluna F (peso_g)");
+  });
+});
