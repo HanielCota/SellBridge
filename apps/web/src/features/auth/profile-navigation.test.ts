@@ -21,7 +21,7 @@ describe("planProfileNavigation", () => {
         foreignProfile: "loja-de-outra-pessoa",
         rememberedProfile: "loja-a",
       }),
-    ).toEqual({ kind: "foreign_profile", slug: "loja-de-outra-pessoa" });
+    ).toEqual({ kind: "foreign_profile" });
   });
 
   it("clears the previous profile's data when the tab moves to another profile", () => {

@@ -11,7 +11,7 @@ export interface ProfileNavigationInput {
 
 export type ProfileNavigation =
   | { kind: "add_profile"; slug: string }
-  | { kind: "foreign_profile"; slug: string }
+  | { kind: "foreign_profile" }
   | { kind: "stay"; clearCache: boolean };
 
 /**
@@ -22,7 +22,7 @@ export type ProfileNavigation =
  */
 export function planProfileNavigation(input: ProfileNavigationInput): ProfileNavigation {
   if (input.foreignProfile !== null) {
-    return { kind: "foreign_profile", slug: input.foreignProfile };
+    return { kind: "foreign_profile" };
   }
   if (input.sessionProfile === null) {
     return { kind: "stay", clearCache: false };

@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_app")({
       rememberedProfile: previousProfile,
     });
     if (plan.kind === "foreign_profile") {
-      throw redirect({ to: "/outro-perfil", search: { perfil: plan.slug }, replace: true });
+      throw redirect({ to: "/outro-perfil", replace: true });
     }
     if (plan.kind === "add_profile") {
       throw redirect({ href: addProfileToHref(location.href, plan.slug), replace: true });
