@@ -51,6 +51,12 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
   await expect(page.getByRole("link", { name: "Produtos" }).first()).toBeVisible();
   await expect(page.getByText("Fornecedor", { exact: true }).first()).toBeVisible();
 
+  const profile = new URL(page.url()).searchParams.get("perfil");
+  for (const name of ["Ver pedidos", "Ver desempenho"]) {
+    const href = await page.getByRole("link", { name, exact: true }).getAttribute("href");
+    expect(new URL(href ?? "", page.url()).searchParams.get("perfil")).toBe(profile);
+  }
+
   await page.getByRole("link", { name: "Produtos" }).first().click();
   await expect(page.getByRole("heading", { name: "Produtos" })).toBeVisible();
 });
