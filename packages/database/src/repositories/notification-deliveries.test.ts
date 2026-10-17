@@ -99,7 +99,26 @@ describe("claimDueNotificationDeliveries", () => {
     });
     expect(again).toEqual([]);
   });
+
+  it("claims a delivery queued just now even when the worker clock runs behind the database", async () => {
+    await enqueueNotificationDeliveries(database, {
+      tenantId: tenants.tenantB,
+      event: "sale_paid",
+      dedupeKey: "order:b:clock",
+      content,
+      recipients: [{ userId: resellerB, channels: ["email"] }],
+    });
+    const claimed = await claimDueNotificationDeliveries(database, {
+      ...lease,
+      now: new Date(Date.now() - WORKER_CLOCK_LAG_MILLISECONDS),
+      tenantId: tenants.tenantB,
+    });
+    expect(claimed).toHaveLength(1);
+  });
 });
+
+/** CI runs Postgres in its own container, whose clock can run ahead of the test runner's. */
+const WORKER_CLOCK_LAG_MILLISECONDS = 1000;
 
 async function queueOne(dedupeKey: string) {
   await enqueueNotificationDeliveries(database, {

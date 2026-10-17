@@ -99,7 +99,12 @@ export async function claimDueNotificationDeliveries(
       .where(
         and(
           eq(notificationDeliveries.status, "pending"),
-          lte(notificationDeliveries.nextAttemptAt, claim.now),
+          // Rows become due at Postgres now(); a worker clock behind the database must not
+          // leave a just-queued delivery waiting a whole cycle (CI flake on PR #38).
+          lte(
+            notificationDeliveries.nextAttemptAt,
+            sql`greatest(${claim.now.toISOString()}::timestamptz, now())`,
+          ),
           claim.tenantId === undefined
             ? undefined
             : eq(notificationDeliveries.tenantId, claim.tenantId),
