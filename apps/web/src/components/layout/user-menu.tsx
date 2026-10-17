@@ -1,5 +1,6 @@
 import { teamModeName } from "@/features/auth/team-mode";
 import { unreadRepliesText } from "@/features/support/response-time";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
@@ -35,6 +36,7 @@ import type { SessionUser } from "@/features/auth/session.functions";
 import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { accountPagesFor } from "./account-pages";
 
 function useSignOut() {
   const navigate = useNavigate();
@@ -155,7 +157,14 @@ function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
 }
 
 /** The pages about you; support shows how many answers are waiting. */
-function AccountLinks({ supportReplies }: { supportReplies: number }) {
+function AccountLinks({
+  supportReplies,
+  profileKind,
+}: {
+  supportReplies: number;
+  profileKind: ProfileKind;
+}) {
+  const pages = new Set(accountPagesFor(profileKind));
   return (
     <>
       <DropdownMenuItem asChild className={MENU_ROW}>
@@ -164,24 +173,30 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
           Meu perfil
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem asChild className={MENU_ROW}>
-        <Link to="/onboarding">
-          <IdentificationCardIcon aria-hidden="true" />
-          Meus dados
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuItem asChild className={MENU_ROW}>
-        <Link to="/assinatura" search={{ retorno: undefined }}>
-          <CreditCardIcon aria-hidden="true" />
-          Planos e assinatura
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuItem asChild className={MENU_ROW}>
-        <Link to="/integracoes">
-          <PlugsConnectedIcon aria-hidden="true" />
-          Integrações
-        </Link>
-      </DropdownMenuItem>
+      {pages.has("sellerData") ? (
+        <DropdownMenuItem asChild className={MENU_ROW}>
+          <Link to="/onboarding">
+            <IdentificationCardIcon aria-hidden="true" />
+            Meus dados
+          </Link>
+        </DropdownMenuItem>
+      ) : null}
+      {pages.has("billing") ? (
+        <DropdownMenuItem asChild className={MENU_ROW}>
+          <Link to="/assinatura" search={{ retorno: undefined }}>
+            <CreditCardIcon aria-hidden="true" />
+            Planos e assinatura
+          </Link>
+        </DropdownMenuItem>
+      ) : null}
+      {pages.has("integrations") ? (
+        <DropdownMenuItem asChild className={MENU_ROW}>
+          <Link to="/integracoes">
+            <PlugsConnectedIcon aria-hidden="true" />
+            Integrações
+          </Link>
+        </DropdownMenuItem>
+      ) : null}
       <DropdownMenuItem asChild className={MENU_ROW}>
         <Link to="/suporte">
           <QuestionIcon aria-hidden="true" />
@@ -198,10 +213,30 @@ function AccountLinks({ supportReplies }: { supportReplies: number }) {
   );
 }
 
+/** The team's switch and, in admin mode, the audit log; nothing for a customer. */
+function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
+  return (
+    <>
+      {isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null}
+      {adminMode && hasStaffPermission(role, "audit.view") ? (
+        // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
+        <DropdownMenuItem asChild className={MENU_ROW}>
+          <Link to="/admin/auditoria">
+            <ClockCounterClockwiseIcon aria-hidden="true" />
+            Auditoria
+          </Link>
+        </DropdownMenuItem>
+      ) : null}
+    </>
+  );
+}
+
 interface UserMenuProps {
   user: SessionUser;
   supportReplies: number;
   adminMode: boolean;
+  /** A supplier's menu leaves out the reseller's pages (`accountPagesFor`). */
+  profileKind: ProfileKind;
   /** What the chip shows before the caret (avatar, name); the whole chip opens the menu. */
   children: ReactNode;
   className?: string;
@@ -230,7 +265,14 @@ function MenuCaret({ hasSupportReplies }: { hasSupportReplies: boolean }) {
 }
 
 /** The account chip: a click anywhere on it opens the account pages, the theme and signing out. */
-export function UserMenu({ user, supportReplies, adminMode, children, className }: UserMenuProps) {
+export function UserMenu({
+  user,
+  supportReplies,
+  adminMode,
+  profileKind,
+  children,
+  className,
+}: UserMenuProps) {
   const signOut = useSignOut();
   // Opened with the mouse, closing should not hand focus back to the chip and light its ring;
   // from the keyboard it still does, so you know where you are.
@@ -268,17 +310,8 @@ export function UserMenu({ user, supportReplies, adminMode, children, className 
           <span className="block truncate text-sm font-medium text-foreground">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="-mx-2" />
-        <AccountLinks supportReplies={supportReplies} />
-        {isStaffRole(user.role) ? <AdminModeItem enabled={adminMode} role={user.role} /> : null}
-        {adminMode && hasStaffPermission(user.role, "audit.view") ? (
-          // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
-          <DropdownMenuItem asChild className={MENU_ROW}>
-            <Link to="/admin/auditoria">
-              <ClockCounterClockwiseIcon aria-hidden="true" />
-              Auditoria
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
+        <AccountLinks supportReplies={supportReplies} profileKind={profileKind} />
+        <TeamItems role={user.role} adminMode={adminMode} />
         <DropdownMenuSeparator className="-mx-2" />
         <ThemeChoice />
         <DropdownMenuSeparator className="-mx-2" />
