@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
+import { reportRouteError } from "@/lib/report-route-error";
 
 function GoogleMark() {
   return (
@@ -25,14 +26,41 @@ function GoogleMark() {
   );
 }
 
+const GOOGLE_ERROR_MESSAGE = "Não foi possível continuar com o Google. Tente novamente.";
+
+interface GoogleSignInProps {
+  readonly callbackURL: string;
+  /** Runs before leaving for Google (the sign-up page stores the seller/supplier choice). */
+  readonly onBeforeRedirect?: () => Promise<void>;
+}
+
+async function runBeforeRedirect(step: GoogleSignInProps["onBeforeRedirect"]): Promise<boolean> {
+  if (step === undefined) {
+    return true;
+  }
+  try {
+    await step();
+    return true;
+  } catch (error) {
+    await reportRouteError(error, "google-sign-in");
+    return false;
+  }
+}
+
 /** "Continuar com Google" plus the "ou" divider that separates it from the e-mail form. */
-export function GoogleSignIn({ callbackURL }: { callbackURL: string }) {
+export function GoogleSignIn({ callbackURL, onBeforeRedirect }: GoogleSignInProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function continueWithGoogle() {
     setError(null);
     setIsRedirecting(true);
+    const isReady = await runBeforeRedirect(onBeforeRedirect);
+    if (!isReady) {
+      setIsRedirecting(false);
+      setError(GOOGLE_ERROR_MESSAGE);
+      return;
+    }
     const result = await authClient.signIn.social({
       provider: "google",
       callbackURL,
@@ -41,7 +69,7 @@ export function GoogleSignIn({ callbackURL }: { callbackURL: string }) {
     });
     if (result.error) {
       setIsRedirecting(false);
-      setError("Não foi possível continuar com o Google. Tente novamente.");
+      setError(GOOGLE_ERROR_MESSAGE);
     }
   }
 

@@ -42,6 +42,7 @@ import { Route as AppPublicacoesNovaRouteImport } from './routes/_app/publicacoe
 import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index'
 import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$ticketId'
 import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
+import { Route as AuthCadastroFornecedorRouteImport } from './routes/_auth/cadastro_.fornecedor'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiContaExportarRouteImport } from './routes/api/conta/exportar'
 import { Route as ApiDiagnosticsErrorsRouteImport } from './routes/api/diagnostics/errors'
@@ -249,6 +250,11 @@ const AppSuporteNovoRoute = AppSuporteNovoRouteImport.update({
   id: '/suporte/novo',
   path: '/suporte/novo',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AuthCadastroFornecedorRoute = AuthCadastroFornecedorRouteImport.update({
+  id: '/cadastro_/fornecedor',
+  path: '/cadastro/fornecedor',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -514,6 +520,7 @@ export interface FileRoutesByFullPath {
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -588,6 +595,7 @@ export interface FileRoutesByTo {
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
+  '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -667,6 +675,7 @@ export interface FileRoutesById {
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
+  '/_auth/cadastro_/fornecedor': typeof AuthCadastroFornecedorRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
@@ -745,6 +754,7 @@ export interface FileRouteTypes {
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
+    | '/cadastro/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -819,6 +829,7 @@ export interface FileRouteTypes {
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
+    | '/cadastro/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -897,6 +908,7 @@ export interface FileRouteTypes {
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
+    | '/_auth/cadastro_/fornecedor'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
@@ -1221,6 +1233,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/suporte/novo'
       preLoaderRoute: typeof AppSuporteNovoRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/_auth/cadastro_/fornecedor': {
+      id: '/_auth/cadastro_/fornecedor'
+      path: '/cadastro/fornecedor'
+      fullPath: '/cadastro/fornecedor'
+      preLoaderRoute: typeof AuthCadastroFornecedorRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -1634,6 +1653,7 @@ interface AuthRouteRouteChildren {
   AuthEsqueciSenhaRoute: typeof AuthEsqueciSenhaRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRedefinirSenhaRoute: typeof AuthRedefinirSenhaRoute
+  AuthCadastroFornecedorRoute: typeof AuthCadastroFornecedorRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
@@ -1641,6 +1661,7 @@ const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthEsqueciSenhaRoute: AuthEsqueciSenhaRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRedefinirSenhaRoute: AuthRedefinirSenhaRoute,
+  AuthCadastroFornecedorRoute: AuthCadastroFornecedorRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

@@ -3,7 +3,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, organization } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
-import { listProfilesOf } from "./account-profiles.ts";
+import { listProfilesOf, setOrganizationKind } from "./account-profiles.ts";
 
 const database = createTestDatabase();
 let users: Awaited<ReturnType<typeof createTestUsers>>;
@@ -62,6 +62,23 @@ describe("account profiles", () => {
       .where(eq(organization.id, idAt(tenants.ids, 0)));
 
     expect(created?.kind).toBe("seller");
+  });
+
+  it("turns a new organization into a supplier profile", async () => {
+    const organizationId = idAt(tenants.ids, 2);
+
+    const changed = await setOrganizationKind(database, organizationId, "supplier");
+
+    const [stored] = await database
+      .select({ kind: organization.kind })
+      .from(organization)
+      .where(eq(organization.id, organizationId));
+    expect(changed).toBe(true);
+    expect(stored?.kind).toBe("supplier");
+  });
+
+  it("reports when the organization to mark does not exist", async () => {
+    expect(await setOrganizationKind(database, randomUUID(), "supplier")).toBe(false);
   });
 
   it("refuses an unknown profile kind", async () => {

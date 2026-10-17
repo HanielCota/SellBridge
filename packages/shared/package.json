@@ -17,6 +17,7 @@
     "./cpf": "./src/domain/cpf.ts",
     "./account-documents": "./src/domain/account-documents.ts",
     "./terms": "./src/domain/terms.ts",
+    "./sign-up-profile": "./src/domain/sign-up-profile.ts",
     "./errors": "./src/runtime/errors.ts",
     "./environment": "./src/runtime/environment.ts",
     "./environment-file": "./src/runtime/environment-file.ts",
