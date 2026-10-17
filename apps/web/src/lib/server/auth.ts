@@ -3,6 +3,7 @@ import {
   isPendingTeamInvite,
   promoteVerifiedOwner,
   recordAdminEvent,
+  setOrganizationKind,
   touchUserActivity,
 } from "@sellbridge/database/repositories";
 import type { AccountIdentity } from "@sellbridge/shared/platform-owner";
@@ -24,6 +25,7 @@ import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
+import { createProfileForNewUser, isSelfSignUpPath } from "./sign-up-profile.ts";
 import { logger } from "@sellbridge/shared/logger";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
 import { isLeakedPasswordCheckOn, leakedPasswordCheck } from "./leaked-password";
@@ -44,6 +46,15 @@ function slugify(value: string): string {
 }
 
 const RESET_PASSWORD_EXPIRES_IN_SECONDS = 60 * 60;
+
+async function createOrganizationForUser(input: { userId: string; name: string }) {
+  const suffix = input.userId.slice(0, 6).toLowerCase();
+  const created = await auth.api.createOrganization({
+    body: { name: input.name, slug: `${slugify(input.name)}-${suffix}`, userId: input.userId },
+  });
+  logger.info("organization.created_for_user", { userId: input.userId });
+  return { id: created.id };
+}
 
 /** Sign-up takes the same name rules as the profile, so a name is never megabytes or blank. */
 const signUpBodySchema = z.object({ name: nameSchema }).passthrough();
@@ -381,16 +392,16 @@ export const auth = betterAuth({
           const isAdmin = user.emailVerified && isAdminEmail(user.email);
           return { data: { ...user, role: isAdmin ? "admin" : "user" } };
         },
-        after: async (user) => {
-          const suffix = user.id.slice(0, 6).toLowerCase();
-          await auth.api.createOrganization({
-            body: {
-              name: user.name,
-              slug: `${slugify(user.name)}-${suffix}`,
-              userId: user.id,
-            },
+        after: async (user, context) => {
+          const request =
+            context === null || !isSelfSignUpPath(context.path)
+              ? null
+              : { getCookie: (name: string) => context.getCookie(name) ?? undefined };
+          await createProfileForNewUser(user, request, {
+            createOrganization: createOrganizationForUser,
+            setOrganizationKind: async (organizationId, kind) =>
+              setOrganizationKind(database, organizationId, kind),
           });
-          logger.info("organization.created_for_user", { userId: user.id });
         },
       },
       update: {
