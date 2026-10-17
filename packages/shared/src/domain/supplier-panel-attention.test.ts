@@ -237,6 +237,26 @@ describe("buildSupplierAttention", () => {
     );
   });
 
+  it("raises no cancellation item while the parcels are still open", () => {
+    const openParcels = Array.from({ length: 12 }, (_, index) => ({
+      shipmentId: `open-${index}`,
+      orderId: `order-open-${index}`,
+      externalOrderId: `ML-open-${index}`,
+      status: "accepted" as const,
+      dispatchDeadlineAt: null,
+      estimatedDeliveryAt: null,
+      forwardedAt: new Date(NOW.getTime() - 3 * HOUR),
+      acceptWithinHours: 24,
+      dispatchWithinHours: 48,
+      acceptedAt: new Date(NOW.getTime() - 2 * HOUR),
+      shippedAt: null,
+      cancelledBySupplier: false,
+    }));
+    const health = computeSupplierHealth({ shipments: openParcels, reviews: [], now: NOW });
+    const keys = queue({ health }).map((item) => item.key);
+    expect(keys).not.toContain("metric-supplier_cancellations");
+  });
+
   it("orders critical before warning before info, the same way every time", () => {
     const input = {
       openShipments: [parcel(21), parcel(25), parcel(30, { status: "accepted" })],

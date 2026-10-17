@@ -89,10 +89,23 @@ describe("dispatchOutcome", () => {
 });
 
 describe("tallies", () => {
-  it("counts every forwarded parcel for cancellations", () => {
+  it("counts only parcels whose fate is settled for cancellations", () => {
     expect(
-      tallyCancellations([record(), record({ cancelledBySupplier: true, status: "cancelled" })]),
-    ).toEqual({ good: 1, counted: 2 });
+      tallyCancellations([
+        record(),
+        record({ status: "accepted" }),
+        record({ status: "shipped" }),
+        record({ status: "delivered" }),
+        record({ status: "cancelled" }),
+        record({ cancelledBySupplier: true, status: "cancelled" }),
+      ]),
+    ).toEqual({ good: 2, counted: 3 });
+  });
+
+  it("keeps a supplier cancellation counted after a re-forward", () => {
+    expect(
+      tallyCancellations([record({ cancelledBySupplier: true, status: "forwarded" })]),
+    ).toEqual({ good: 0, counted: 1 });
   });
 
   it("sums the stars", () => {
