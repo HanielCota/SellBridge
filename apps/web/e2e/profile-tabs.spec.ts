@@ -3,7 +3,14 @@ import { createDatabase } from "@sellbridge/database/client";
 import { tickets, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
-import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
+import {
+  DEMO_USER,
+  signIn,
+  completeOnboarding,
+  gotoHydrated,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
@@ -111,4 +118,27 @@ test("keeps a second profile throughout store consent and the callback", async (
     .from(storeConnections)
     .where(eq(storeConnections.shopName, shopName));
   expect(store?.tenantId).toBe(profiles.secondId);
+});
+
+test("sends chat tickets using the profile of the current tab", async () => {
+  await gotoHydrated(tabB, `/lojas?perfil=${profiles.second}`);
+  await tabB.getByRole("button", { name: "Chat de suporte", exact: true }).click();
+  const subject = `Chat profile ${Date.now()}`;
+  await tabB
+    .getByLabel("Sua mensagem", { exact: true })
+    .fill(`${subject}\nPlease help with this store.`);
+  await tabB.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(tabB.getByRole("heading", { name: subject })).toBeVisible();
+  expect(await ticketTenant(subject)).toBe(profiles.secondId);
+  expect(profileOf(tabB)).toBe(profiles.second);
+});
+
+test("forgets the signed-out account's profile before another account signs in", async () => {
+  await gotoHydrated(tabA, `/suporte?perfil=${profiles.first}`);
+  await tabA.getByRole("button", { name: "Menu do usuário" }).click();
+  await tabA.getByRole("menuitem", { name: "Sair", exact: true }).click();
+  await expect(tabA).toHaveURL(/\/login/);
+  await signIn(tabA, DEMO_USER);
+  await expect(tabA).not.toHaveURL(/\/outro-perfil/);
+  expect(profileOf(tabA)).not.toBe(profiles.first);
 });
