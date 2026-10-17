@@ -39,8 +39,8 @@ describe("parseRequestedProfile", () => {
     expect(parseRequestedProfile("../admin")).toBe("../admin");
   });
 
-  it("cuts an oversized value to the slug length", () => {
-    expect(parseRequestedProfile("a".repeat(500))).toHaveLength(80);
+  it("keeps oversized values invalid instead of matching an existing maximum-length slug", () => {
+    expect(parseRequestedProfile("a".repeat(500))).toHaveLength(81);
   });
 });
 

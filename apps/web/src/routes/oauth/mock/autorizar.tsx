@@ -25,18 +25,24 @@ import {
   approveMockAuthorization,
   getMockConsentCallback,
 } from "@/features/stores/stores.functions";
+import { profileSlugSchema } from "@/lib/profile-param";
+import { rememberTabProfile } from "@/lib/tab-profile";
 import { errorMessage } from "@/lib/errors";
 import { rewind } from "@/lib/rewind";
 import { freeText } from "@sellbridge/shared/schemas";
 
 const consentSearchSchema = z.object({
+  perfil: profileSlugSchema.optional(),
   state: z.string().min(1),
   redirect_uri: z.url({ protocol: /^https?$/ }),
 });
 
 export const Route = createFileRoute("/oauth/mock/autorizar")({
   validateSearch: consentSearchSchema,
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, search, preload }) => {
+    if (!preload && search.perfil !== undefined) {
+      rememberTabProfile(search.perfil);
+    }
     const session = await getAppSession();
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });

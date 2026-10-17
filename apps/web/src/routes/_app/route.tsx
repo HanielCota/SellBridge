@@ -12,7 +12,7 @@ import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { profileRedirectFor } from "@/features/auth/profile-routes";
 import { getAppSession } from "@/features/auth/session.functions";
-import { profileSlugSchema } from "@/lib/profile-param";
+import { parseRequestedProfile } from "@/lib/profile-param";
 import {
   addProfileToHref,
   forgetTabProfile,
@@ -26,9 +26,8 @@ import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
 /** Every page of the app carries its profile, so each tab keeps its own (see profile-param.ts). */
 function validateAppSearch(search: Record<string, unknown>): { perfil?: string } {
-  const parsed = profileSlugSchema.safeParse(search.perfil);
-  // A malformed profile is never taken as the tab's; the server still refuses it by name.
-  return parsed.success ? { perfil: parsed.data } : {};
+  const profile = parseRequestedProfile(typeof search.perfil === "string" ? search.perfil : null);
+  return profile === null ? {} : { perfil: profile };
 }
 
 function isTeamPage(pathname: string): boolean {

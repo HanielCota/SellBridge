@@ -1,10 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { storeConnections } from "../schema/index.ts";
+import { member, organization, user, storeConnections } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, testStoreInput } from "../testing/fixtures.ts";
 import {
   consumeOAuthState,
   createOAuthState,
+  findOAuthStateProfile,
   disconnectStore,
   findConnectedStores,
   listStoreConnections,
@@ -357,5 +358,51 @@ describe("store webhook time", () => {
     await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: later });
     const listed = await listStoreConnections(database, tenantA);
     expect(listed.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(later);
+  });
+});
+
+describe("OAuth callback profile", () => {
+  it("recovers only an unexpired transaction belonging to a current membership", async () => {
+    const userId = `oauth-${tenantA}`;
+    const state = `profile-${tenantA}`;
+    await database.insert(user).values({
+      id: userId,
+      name: "OAuth test",
+      email: `${userId}@example.com`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    try {
+      await database.insert(member).values({
+        id: userId,
+        userId,
+        organizationId: tenantB,
+        role: "owner",
+        createdAt: new Date(),
+      });
+      await createOAuthState(database, {
+        state,
+        tenantId: tenantB,
+        marketplace: "mock",
+        codeVerifier: null,
+        ttlMilliseconds: 60_000,
+      });
+      const [profile] = await database
+        .select({ slug: organization.slug })
+        .from(organization)
+        .where(eq(organization.id, tenantB));
+      const lookup = { state, marketplace: "mock" as const, userId };
+      expect(await findOAuthStateProfile(database, lookup)).toBe(profile?.slug);
+      expect(
+        await findOAuthStateProfile(database, { ...lookup, userId: "unrelated-user" }),
+      ).toBeNull();
+      expect(
+        await findOAuthStateProfile(database, { ...lookup, marketplace: "shopee" }),
+      ).toBeNull();
+      await database.delete(member).where(eq(member.userId, userId));
+      expect(await findOAuthStateProfile(database, lookup)).toBeNull();
+    } finally {
+      await database.delete(user).where(eq(user.id, userId));
+    }
   });
 });

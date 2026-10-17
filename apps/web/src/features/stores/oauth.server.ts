@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import {
   assertActiveSupplier,
   consumeOAuthState,
+  findOAuthStateProfile,
   createOAuthState,
   findOnboardingProfile,
   hasLiveStoreConnection,
@@ -14,6 +15,8 @@ import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { z } from "zod";
+import { auth } from "@/lib/server/auth";
+import { PROFILE_HEADER, requestedProfileOf } from "@/lib/profile-param";
 import { database } from "@/lib/server/database";
 import { appOriginFor } from "@/lib/server/app-origin";
 import {
@@ -22,7 +25,7 @@ import {
   oauthCallbackUrl,
   tokenCipher,
 } from "@/lib/server/marketplaces";
-import { requireSellerRequest } from "@/lib/server/tenant-session";
+import { requireSellerRequest, type TenantSession } from "@/lib/server/tenant-session";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
 const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
@@ -30,6 +33,10 @@ const STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
 /** Stays on the trusted host of `request`, where the session cookie lives. */
 function redirectTo(request: Request, path: string, params: Record<string, string> = {}): Response {
   const url = new URL(path, appOriginFor(request.url));
+  const profile = requestedProfileOf(request);
+  if (profile !== null) {
+    url.searchParams.set("perfil", profile);
+  }
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -59,9 +66,39 @@ function parseMarketplace(value: string | undefined): MarketplaceId | null {
   return parsed.success ? parsed.data : null;
 }
 
-async function tenantOrLogin(request: Request) {
+function requestWithProfile(request: Request, profile: string): Request {
+  const url = new URL(request.url);
+  url.searchParams.set("perfil", profile);
+  const headers = new Headers(request.headers);
+  headers.set(PROFILE_HEADER, profile);
+  return new Request(url, { headers });
+}
+
+async function tenantOrLogin(request: Request, marketplace?: MarketplaceId) {
+  let scopedRequest = request;
   try {
-    return await requireSellerRequest(request);
+    if (marketplace !== undefined) {
+      const account = await auth.api.getSession({ headers: request.headers });
+      if (!account) {
+        return null;
+      }
+      const state = new URL(request.url).searchParams.get("state");
+      const profile =
+        state === null
+          ? null
+          : await findOAuthStateProfile(database, {
+              state,
+              marketplace,
+              userId: account.user.id,
+            });
+      if (profile !== null) {
+        scopedRequest = requestWithProfile(request, profile);
+      }
+    }
+    return {
+      ...(await requireSellerRequest(scopedRequest)),
+      profileSlug: requestedProfileOf(scopedRequest),
+    };
   } catch (error) {
     if (isAppError(error) && error.code === "UNAUTHORIZED") {
       return null;
@@ -137,7 +174,11 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     { state, redirectUri: oauthCallbackUrl(marketplace, appOrigin), codeVerifier },
     appOrigin,
   );
-  return Response.redirect(authorizationUrl, 302);
+  const url = new URL(authorizationUrl);
+  if (marketplace === "mock" && session.profileSlug !== null) {
+    url.searchParams.set("perfil", session.profileSlug);
+  }
+  return Response.redirect(url, 302);
 }
 
 const callbackQuerySchema = z.union([
@@ -195,8 +236,17 @@ async function connectStore(input: ConnectStoreInput) {
 }
 
 /** GET /api/oauth/:marketplace/callback: validates state, exchanges the code and stores encrypted tokens. */
-export async function handleOAuthCallback(request: Request, marketplaceParam: string | undefined) {
-  const session = await tenantOrLogin(request);
+export async function handleOAuthCallback(
+  originalRequest: Request,
+  marketplaceParam: string | undefined,
+) {
+  const session = await tenantOrLogin(
+    originalRequest,
+    parseMarketplace(marketplaceParam) ?? undefined,
+  );
+  const request = session?.profileSlug
+    ? requestWithProfile(originalRequest, session.profileSlug)
+    : originalRequest;
   if (!session) {
     return redirectTo(request, "/login", { redirect: "/lojas" });
   }
@@ -226,12 +276,24 @@ export async function handleOAuthCallback(request: Request, marketplaceParam: st
     return storesPageWithError(request, "expired");
   }
 
+  return completeOAuthConnection(request, marketplace, session, {
+    code: query.data.code,
+    ...stateRecord,
+  });
+}
+
+async function completeOAuthConnection(
+  request: Request,
+  marketplace: MarketplaceId,
+  session: TenantSession,
+  stateRecord: { code: string; codeVerifier: string | null; supplierId: string | null },
+) {
   try {
     const store = await connectStore({
       tenantId: session.tenantId,
       userId: session.userId,
       marketplace,
-      code: query.data.code,
+      code: stateRecord.code,
       codeVerifier: stateRecord.codeVerifier,
       supplierId: stateRecord.supplierId,
       redirectUri: oauthCallbackUrl(marketplace, appOriginFor(request.url)),

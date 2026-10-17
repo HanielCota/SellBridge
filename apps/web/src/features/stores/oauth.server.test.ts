@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireSellerRequest:
-    vi.fn<() => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>>(),
+    vi.fn<
+      (
+        request: Request,
+      ) => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>
+    >(),
+  findOAuthStateProfile: vi.fn<() => Promise<string | null>>(),
   createOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   upsertStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
@@ -14,6 +19,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/server/tenant-session", () => ({
   requireSellerRequest: mocks.requireSellerRequest,
+}));
+vi.mock("@/lib/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "user-b" } }) } },
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -35,6 +43,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   assertActiveSupplier: vi.fn<() => Promise<void>>(),
   findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
   consumeOAuthState: mocks.consumeOAuthState,
+  findOAuthStateProfile: mocks.findOAuthStateProfile,
   createOAuthState: mocks.createOAuthState,
   upsertStoreConnection: mocks.upsertStoreConnection,
   isUserEmailVerified: mocks.isUserEmailVerified,
@@ -57,6 +66,7 @@ async function redirectedTo(): Promise<URL> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findOAuthStateProfile.mockResolvedValue(null);
   mocks.requireSellerRequest.mockResolvedValue({
     tenantId: "tenant-b",
     userId: "user-b",
@@ -72,6 +82,26 @@ beforeEach(() => {
 });
 
 describe("OAuth callback", () => {
+  it("recovers the transaction profile and returns to it after a callback without a profile parameter", async () => {
+    mocks.findOAuthStateProfile.mockResolvedValue("second-profile");
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const location = await redirectedTo();
+    expect(location.searchParams.get("perfil")).toBe("second-profile");
+    const request = mocks.requireSellerRequest.mock.calls.at(-1)?.[0];
+    expect(request).toBeInstanceOf(Request);
+    expect(new URL(request?.url ?? "https://missing.example").searchParams.get("perfil")).toBe(
+      "second-profile",
+    );
+    expect(mocks.findOAuthStateProfile).toHaveBeenCalledWith(
+      {},
+      {
+        state: "state-1",
+        marketplace: "mock",
+        userId: "user-b",
+      },
+    );
+  });
+
   it("saves the shop under the organization of the session, never another", async () => {
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
     const location = await redirectedTo();

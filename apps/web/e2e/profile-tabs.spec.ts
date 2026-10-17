@@ -1,9 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
-import { tickets } from "@sellbridge/database/schema";
+import { tickets, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
-import { gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
@@ -92,4 +92,23 @@ test("clears the previous profile's data when switching", async () => {
 
   await gotoHydrated(tabA, `/suporte?perfil=${profiles.second}`);
   await expect(tabA.getByRole("link", { name: subject })).toHaveCount(0);
+});
+
+test("keeps a second profile throughout store consent and the callback", async () => {
+  await gotoHydrated(tabB, `/onboarding?perfil=${profiles.second}`);
+  await completeOnboarding(tabB, "BH Beauty Distribuidora");
+  const shopName = `Profile store ${Date.now()}`;
+  await tabB.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await expect(tabB.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
+  await waitForHydration(tabB);
+  expect(profileOf(tabB)).toBe(profiles.second);
+  await tabB.getByLabel("Nome da loja").fill(shopName);
+  await tabB.getByRole("button", { name: "Autorizar acesso" }).click();
+  await expect(tabB).toHaveURL(/\/lojas/);
+  expect(profileOf(tabB)).toBe(profiles.second);
+  const [store] = await database
+    .select({ tenantId: storeConnections.tenantId })
+    .from(storeConnections)
+    .where(eq(storeConnections.shopName, shopName));
+  expect(store?.tenantId).toBe(profiles.secondId);
 });

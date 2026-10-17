@@ -1,10 +1,10 @@
 import { assertBillingCapacity, lockBillingTenant } from "./billing.ts";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { and, asc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, gt, lt, ne, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { timestampOf } from "./sql/raw-values.ts";
-import { oauthStates, storeConnections } from "../schema/index.ts";
+import { member, organization, oauthStates, storeConnections } from "../schema/index.ts";
 import { notifyStoreExpired } from "./notification-producers.ts";
 
 type StoreConnectionRow = typeof storeConnections.$inferSelect;
@@ -365,6 +365,29 @@ export async function createOAuthState(
     supplierId: input.supplierId ?? null,
     expiresAt: new Date(Date.now() + input.ttlMilliseconds),
   });
+}
+
+/** Resolve a pending callback only through a current membership of its signed-in user. */
+export async function findOAuthStateProfile(
+  database: Database,
+  input: { state: string; marketplace: Marketplace; userId: string },
+): Promise<string | null> {
+  const [profile] = await database
+    .select({ slug: organization.slug })
+    .from(oauthStates)
+    .innerJoin(organization, eq(organization.id, oauthStates.tenantId))
+    .innerJoin(
+      member,
+      and(eq(member.organizationId, organization.id), eq(member.userId, input.userId)),
+    )
+    .where(
+      and(
+        eq(oauthStates.state, input.state),
+        eq(oauthStates.marketplace, input.marketplace),
+        gt(oauthStates.expiresAt, new Date()),
+      ),
+    );
+  return profile?.slug ?? null;
 }
 
 /**

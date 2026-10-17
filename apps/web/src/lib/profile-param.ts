@@ -20,7 +20,7 @@ export const profileSlugSchema = z
 
 /**
  * The slug a request asks for, or null when it asks for none. A malformed value is kept (cut to
- * the slug length) so the server refuses it by name instead of quietly serving the default.
+ * one past the slug length) so the server refuses it by name instead of quietly serving the default.
  */
 export function parseRequestedProfile(value: string | null | undefined): string | null {
   if (value === null || value === undefined || value.trim() === "") {
@@ -30,7 +30,7 @@ export function parseRequestedProfile(value: string | null | undefined): string 
   if (parsed.success) {
     return parsed.data;
   }
-  return value.trim().slice(0, MAX_SLUG_LENGTH);
+  return value.trim().slice(0, MAX_SLUG_LENGTH + 1);
 }
 
 /** The profile from the tab's header. */
