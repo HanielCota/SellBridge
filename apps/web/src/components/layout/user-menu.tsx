@@ -1,6 +1,5 @@
 import { teamModeName } from "@/features/auth/team-mode";
 import { unreadRepliesText } from "@/features/support/response-time";
-import { CUSTOMER_ROLE_LABELS } from "@sellbridge/shared/schemas";
 import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
@@ -36,12 +35,6 @@ import type { SessionUser } from "@/features/auth/session.functions";
 import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-
-const ROLE_LABELS: Record<string, string> = { ...CUSTOMER_ROLE_LABELS };
-
-export function roleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role;
-}
 
 function useSignOut() {
   const navigate = useNavigate();
