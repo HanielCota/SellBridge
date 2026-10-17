@@ -33,6 +33,8 @@ export interface RejectedProductSignal {
   productId: string;
   title: string;
   sku: string;
+  /** Field of the first rejection reason, where "Corrigir produto" opens the form. */
+  firstReasonField: string | null;
 }
 
 /** Hours before the accept time when the queue starts warning. */

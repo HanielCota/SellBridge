@@ -300,7 +300,12 @@ describe("buildSupplierAttention", () => {
 });
 
 function rejected(index: number): RejectedProductSignal {
-  return { productId: `product-${index}`, title: `Vaso ${index}`, sku: `VASO-${index}` };
+  return {
+    productId: `product-${index}`,
+    title: `Vaso ${index}`,
+    sku: `VASO-${index}`,
+    firstReasonField: null,
+  };
 }
 
 describe("rejected products", () => {
@@ -313,6 +318,16 @@ describe("rejected products", () => {
       description: "Corrija os motivos da análise e envie de novo.",
       target: { area: "catalog", filter: "rejected", productId: "product-1" },
       count: 1,
+    });
+  });
+
+  it("opens one rejected product on the field of its first reason", () => {
+    const [item] = queue({ rejectedProducts: [{ ...rejected(1), firstReasonField: "imageUrls" }] });
+    expect(item?.target).toEqual({
+      area: "catalog",
+      filter: "rejected",
+      productId: "product-1",
+      field: "imageUrls",
     });
   });
 
