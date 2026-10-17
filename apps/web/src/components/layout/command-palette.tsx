@@ -205,7 +205,7 @@ function SearchButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       aria-label="Buscar"
       aria-keyshortcuts="Control+K Meta+K"
-      className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 2xl:w-auto 2xl:px-4"
+      className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-base text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 2xl:w-auto 2xl:px-4"
     >
       <MagnifyingGlassIcon className="size-5 2xl:size-4" aria-hidden="true" />
       <span className="hidden 2xl:inline">Buscar</span>

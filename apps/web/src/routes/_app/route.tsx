@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { TopNav } from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
+import { SupportChat } from "@/components/support/support-chat";
+import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { profileRedirectFor } from "@/features/auth/profile-routes";
@@ -104,6 +106,15 @@ function SetupReminder() {
   return <SetupStrip progress={query.data} />;
 }
 
+/** In admin mode the team is answering tickets, so the reseller chat stays out of the way. */
+function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
+  const attention = useQuery({ ...attentionCountsQueryOptions(), enabled: !adminMode });
+  if (adminMode) {
+    return null;
+  }
+  return <SupportChat unread={attention.data?.unreadSupportReplies ?? 0} />;
+}
+
 function AppLayout() {
   const { session } = Route.useRouteContext();
   return (
@@ -123,6 +134,7 @@ function AppLayout() {
         {session.profileKind === "seller" ? <SetupReminder /> : null}
         <Outlet />
       </main>
+      <SupportChatLauncher adminMode={session.adminMode} />
     </div>
   );
 }
