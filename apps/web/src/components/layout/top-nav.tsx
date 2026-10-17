@@ -54,8 +54,8 @@ const LAYOUTS = {
     modeBadge: "hidden",
   },
   dense: {
-    row: "xl:grid-cols-[auto_1fr_auto]",
-    desktopNav: "justify-self-center xl:flex",
+    row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
+    desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
     tab: "px-2",
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
