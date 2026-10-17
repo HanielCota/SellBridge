@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
-import { reportRouteError } from "@/lib/report-route-error";
+import { succeedsOrReports } from "@/lib/report-route-error";
 
 function GoogleMark() {
   return (
@@ -34,19 +34,6 @@ interface GoogleSignInProps {
   readonly onBeforeRedirect?: () => Promise<void>;
 }
 
-async function runBeforeRedirect(step: GoogleSignInProps["onBeforeRedirect"]): Promise<boolean> {
-  if (step === undefined) {
-    return true;
-  }
-  try {
-    await step();
-    return true;
-  } catch (error) {
-    await reportRouteError(error, "google-sign-in");
-    return false;
-  }
-}
-
 /** "Continuar com Google" plus the "ou" divider that separates it from the e-mail form. */
 export function GoogleSignIn({ callbackURL, onBeforeRedirect }: GoogleSignInProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -55,7 +42,9 @@ export function GoogleSignIn({ callbackURL, onBeforeRedirect }: GoogleSignInProp
   async function continueWithGoogle() {
     setError(null);
     setIsRedirecting(true);
-    const isReady = await runBeforeRedirect(onBeforeRedirect);
+    const isReady =
+      onBeforeRedirect === undefined ||
+      (await succeedsOrReports(onBeforeRedirect, "google-sign-in"));
     if (!isReady) {
       setIsRedirecting(false);
       setError(GOOGLE_ERROR_MESSAGE);

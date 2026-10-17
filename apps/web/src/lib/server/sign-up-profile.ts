@@ -1,9 +1,9 @@
 import { AppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import {
   resolveSignUpProfileKind,
   SIGN_UP_PROFILE_COOKIE,
-  type SignUpProfileKind,
 } from "@sellbridge/shared/sign-up-profile";
 
 /** What the sign-up hook reads from the request that created the account. */
@@ -32,10 +32,7 @@ interface CreateProfileSteps {
   readonly createOrganization: (input: { userId: string; name: string }) => Promise<{
     id: string;
   }>;
-  readonly setOrganizationKind: (
-    organizationId: string,
-    kind: SignUpProfileKind,
-  ) => Promise<boolean>;
+  readonly setOrganizationKind: (organizationId: string, kind: ProfileKind) => Promise<boolean>;
 }
 
 /**
@@ -47,13 +44,13 @@ export async function createProfileForNewUser(
   user: NewUser,
   request: SignUpRequest | null,
   steps: CreateProfileSteps,
-): Promise<SignUpProfileKind> {
+): Promise<void> {
   const kind = resolveSignUpProfileKind(
     request === null ? undefined : request.getCookie(SIGN_UP_PROFILE_COOKIE),
   );
   const created = await steps.createOrganization({ userId: user.id, name: user.name });
   if (kind === "seller") {
-    return kind;
+    return;
   }
   const marked = await steps.setOrganizationKind(created.id, kind);
   if (!marked) {
@@ -63,5 +60,4 @@ export async function createProfileForNewUser(
     );
   }
   logger.info("organization.marked_as_supplier", { userId: user.id });
-  return kind;
 }

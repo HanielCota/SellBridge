@@ -7,7 +7,7 @@ import {
   PASSWORD_COMPROMISED_MESSAGE,
   signUpFormSchema,
 } from "@sellbridge/shared/schemas";
-import type { SignUpProfileKind } from "@sellbridge/shared/sign-up-profile";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { useForm, useStore } from "@tanstack/react-form";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
@@ -22,12 +22,12 @@ import { InlineFormError } from "@/components/form/inline-form-error";
 import { rememberSignUpProfileFn } from "@/features/auth/sign-up-profile.functions";
 import { acceptTermsFn } from "@/features/onboarding/terms.functions";
 import { authClient } from "@/lib/auth-client";
-import { reportRouteError } from "@/lib/report-route-error";
+import { succeedsOrReports } from "@/lib/report-route-error";
 
 const authLayoutRoute = getRouteApi("/_auth");
 
 /** What the page says to each profile; the form fields are the same for both. */
-const PAGE_COPY: Record<SignUpProfileKind, { description: string }> = {
+const PAGE_COPY: Record<ProfileKind, { description: string }> = {
   seller: {
     description:
       "Conecte suas lojas e venda produtos de fornecedores de todo o Brasil, sem estoque.",
@@ -55,32 +55,17 @@ function signUpErrorMessage(code: string | undefined): string {
 }
 
 /**
- * The hook that creates the first profile reads the choice from a short cookie, the same way a
- * Google sign-up carries it through the redirect (`createProfileForNewUser`).
- */
-async function rememberProfileKind(kind: SignUpProfileKind): Promise<boolean> {
-  try {
-    await rememberSignUpProfileFn({ data: { kind } });
-    return true;
-  } catch (error) {
-    await reportRouteError(error, "/_auth/cadastro");
-    return false;
-  }
-}
-
-/**
  * Stores the box ticked on sign-up with version and date (item 26.a). If it fails, the account
  * still exists and the app asks the terms again on the next page (`needsTermsAcceptance`).
  */
-async function recordAcceptance() {
-  try {
-    await acceptTermsFn({ data: { version: TERMS_VERSION } });
-  } catch (error) {
-    await reportRouteError(error, "/_auth/cadastro");
-  }
+async function recordAcceptance(): Promise<void> {
+  await succeedsOrReports(
+    async () => acceptTermsFn({ data: { version: TERMS_VERSION } }),
+    "/_auth/cadastro",
+  );
 }
 
-function useSignUpForm(profileKind: SignUpProfileKind) {
+function useSignUpForm(profileKind: ProfileKind) {
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -90,7 +75,12 @@ function useSignUpForm(profileKind: SignUpProfileKind) {
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       const { acceptedTerms: _acceptedTerms, ...account } = value;
-      const isRemembered = await rememberProfileKind(profileKind);
+      // The hook that creates the first profile reads the choice from this cookie, the same
+      // way a Google sign-up carries it through the redirect (`createProfileForNewUser`).
+      const isRemembered = await succeedsOrReports(
+        async () => rememberSignUpProfileFn({ data: { kind: profileKind } }),
+        "/_auth/cadastro",
+      );
       if (!isRemembered) {
         setSubmitError(GENERIC_SIGN_UP_ERROR);
         return;
@@ -170,7 +160,7 @@ function termsErrorMessage(errors: readonly unknown[]): string | null {
   return errors.length > 0 ? "Marque que você aceita os termos para criar a conta." : null;
 }
 
-function SignUpForm({ profileKind }: { profileKind: SignUpProfileKind }) {
+function SignUpForm({ profileKind }: { profileKind: ProfileKind }) {
   const { form, submitError } = useSignUpForm(profileKind);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
 
@@ -192,9 +182,9 @@ function SignUpForm({ profileKind }: { profileKind: SignUpProfileKind }) {
 }
 
 /** `/cadastro` and `/cadastro/fornecedor`: the same page, opened on one profile or the other. */
-export function SignUpPage({ initialKind }: { initialKind: SignUpProfileKind }) {
+export function SignUpPage({ initialKind }: { initialKind: ProfileKind }) {
   const signInOptions = authLayoutRoute.useLoaderData();
-  const [profileKind, setProfileKind] = useState<SignUpProfileKind>(initialKind);
+  const [profileKind, setProfileKind] = useState<ProfileKind>(initialKind);
   return (
     <div className="space-y-8">
       <AuthPageHeader title="Criar conta" description={PAGE_COPY[profileKind].description} />

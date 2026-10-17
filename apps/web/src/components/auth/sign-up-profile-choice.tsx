@@ -1,9 +1,9 @@
 import { PackageIcon, StorefrontIcon, type Icon } from "@phosphor-icons/react";
-import type { SignUpProfileKind } from "@sellbridge/shared/sign-up-profile";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { cn } from "@/lib/utils";
 
 interface ProfileOption {
-  readonly kind: SignUpProfileKind;
+  readonly kind: ProfileKind;
   readonly title: string;
   readonly summary: string;
   readonly icon: Icon;
@@ -25,8 +25,8 @@ const PROFILE_OPTIONS: readonly ProfileOption[] = [
 ];
 
 interface SignUpProfileChoiceProps {
-  readonly value: SignUpProfileKind;
-  readonly onChange: (kind: SignUpProfileKind) => void;
+  readonly value: ProfileKind;
+  readonly onChange: (kind: ProfileKind) => void;
 }
 
 /** Seller or supplier, picked before the form: the rest of the sign-up follows this choice. */
@@ -52,7 +52,7 @@ function ProfileOptionCard({
 }: {
   option: ProfileOption;
   checked: boolean;
-  onChange: (kind: SignUpProfileKind) => void;
+  onChange: (kind: ProfileKind) => void;
 }) {
   const OptionIcon = option.icon;
   return (

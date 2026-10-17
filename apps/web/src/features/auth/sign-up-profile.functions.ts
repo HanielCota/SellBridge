@@ -1,11 +1,11 @@
+import { createServerFn } from "@tanstack/react-start";
+import { deleteCookie, setCookie } from "@tanstack/react-start/server";
+import { z } from "zod";
 import {
   SIGN_UP_PROFILE_COOKIE,
   SIGN_UP_PROFILE_COOKIE_SECONDS,
   signUpProfileKindSchema,
 } from "@sellbridge/shared/sign-up-profile";
-import { createServerFn } from "@tanstack/react-start";
-import { deleteCookie, setCookie } from "@tanstack/react-start/server";
-import { z } from "zod";
 import { environment } from "@/lib/server/environment";
 import { publicMiddleware } from "@/lib/server/middleware";
 
@@ -20,7 +20,7 @@ export const rememberSignUpProfileFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (data.kind === "seller") {
       deleteCookie(SIGN_UP_PROFILE_COOKIE, { path: "/" });
-      return { kind: data.kind };
+      return;
     }
     setCookie(SIGN_UP_PROFILE_COOKIE, data.kind, {
       path: "/",
@@ -29,5 +29,4 @@ export const rememberSignUpProfileFn = createServerFn({ method: "POST" })
       secure: environment.NODE_ENV === "production",
       maxAge: SIGN_UP_PROFILE_COOKIE_SECONDS,
     });
-    return { kind: data.kind };
   });

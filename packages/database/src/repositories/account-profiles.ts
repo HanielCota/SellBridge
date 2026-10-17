@@ -21,7 +21,7 @@ export interface AccountProfileRow {
 export async function setOrganizationKind(
   database: Database,
   organizationId: string,
-  kind: OrganizationKind,
+  kind: ProfileKind,
 ): Promise<boolean> {
   const updated = await database
     .update(organization)

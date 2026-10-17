@@ -35,9 +35,8 @@ describe("createProfileForNewUser", () => {
   it("creates a seller profile without marking it when no kind is chosen", async () => {
     const { calls, steps } = fakeSteps();
 
-    const kind = await createProfileForNewUser(NEW_USER, requestWith(), steps);
+    await createProfileForNewUser(NEW_USER, requestWith(), steps);
 
-    expect(kind).toBe("seller");
     expect(calls.created).toEqual(["user-1"]);
     expect(calls.marked).toEqual([]);
   });
@@ -45,16 +44,17 @@ describe("createProfileForNewUser", () => {
   it("marks the new profile as a supplier when the sign-up page chose it", async () => {
     const { calls, steps } = fakeSteps();
 
-    const kind = await createProfileForNewUser(NEW_USER, requestWith("supplier"), steps);
+    await createProfileForNewUser(NEW_USER, requestWith("supplier"), steps);
 
-    expect(kind).toBe("supplier");
     expect(calls.marked).toEqual(["org-1:supplier"]);
   });
 
   it("creates a seller profile when the account comes from a server call", async () => {
     const { calls, steps } = fakeSteps();
 
-    expect(await createProfileForNewUser(NEW_USER, null, steps)).toBe("seller");
+    await createProfileForNewUser(NEW_USER, null, steps);
+
+    expect(calls.created).toEqual(["user-1"]);
     expect(calls.marked).toEqual([]);
   });
 
