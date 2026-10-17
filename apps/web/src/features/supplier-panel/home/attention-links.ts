@@ -3,7 +3,7 @@ import type {
   SupplierOrderFilter,
 } from "@sellbridge/shared/supplier-panel-attention";
 
-/** Where each "Precisa de você" item is fixed, as a plain path under the panel's routes. */
+/** Where each item of the home list is fixed, as a plain path under the panel's routes. */
 export const SUPPLIER_PANEL_BASE_PATH = "/fornecedor/painel";
 
 /**

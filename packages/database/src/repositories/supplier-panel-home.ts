@@ -1,10 +1,8 @@
 import { notFoundError } from "@sellbridge/shared/errors";
-import {
-  SYSTEM_NOTE_ACTOR,
-  type OpenShipmentSignal,
-  type RejectedProductSignal,
-  type StockSignal,
-} from "@sellbridge/shared/supplier-panel-attention";
+import type {
+  SupplierRejectedRow,
+  SupplierStockRow,
+} from "@sellbridge/shared/supplier-panel-home-queue";
 import {
   HEALTH_WINDOW_DAYS,
   healthDrillDown,
@@ -14,11 +12,9 @@ import {
   type ReviewHealthRecord,
   type ShipmentHealthRecord,
 } from "@sellbridge/shared/supplier-panel-health";
-import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
-import type { RejectionReason } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { z } from "zod";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import {
   listings,
@@ -36,13 +32,11 @@ import { timestampOf } from "./sql/raw-values.ts";
  * Reads behind the supplier panel's home ("Início") and performance ("Desempenho") pages. Every
  * read is scoped by `supplierId` alone: a supplier sees its own parcels across every reseller,
  * like a marketplace reputation, but never a buyer's name or address. The counting lives in
- * `shared/domain/supplier-panel-health.ts` and `supplier-panel-attention.ts`.
+ * `shared/domain/supplier-panel-health.ts` and `supplier-panel-home-queue.ts`.
  */
 
 /** Two health windows: the current one and the one it is compared with. */
 const HEALTH_LOOKBACK_DAYS = HEALTH_WINDOW_DAYS * 2;
-
-const AT_SUPPLIER: FulfillmentStatus[] = ["forwarded", "accepted", "picking", "ready"];
 
 function toDate(value: string | null): Date | null {
   return value === null ? null : new Date(value);
@@ -69,17 +63,6 @@ const cancelledBySupplier = sql<boolean>`exists (
     and cancelled.status = 'cancelled'
     and cancelled.actor = ${SHIPMENT_ACTORS.supplier}
 )`.mapWith(Boolean);
-
-const systemNotesSchema = z.array(z.string());
-
-/** Notes SellBridge wrote on the parcel in the current round, oldest first. */
-const systemNotes = sql<string[]>`coalesce((
-  select array_agg(note.note order by note.created_at) from shipment_events note
-  where note.shipment_id = ${orderShipments.id}
-    and note.actor = ${SYSTEM_NOTE_ACTOR}
-    and note.note <> ''
-    and note.created_at >= ${roundStartedAt}
-), '{}')`.mapWith((value: unknown) => systemNotesSchema.parse(value));
 
 /** Name and own deadlines of the supplier; a missing id is a typed not found. */
 export async function getSupplierPanelProfile(database: Database, supplierId: string) {
@@ -168,45 +151,8 @@ export async function listSupplierHealthDrillDown(
   return healthDrillDown(input.metric, healthInput);
 }
 
-/** Parcels still with the supplier, of orders still alive, oldest forward first. */
-export async function listSupplierOpenShipments(
-  database: Database,
-  supplierId: string,
-): Promise<OpenShipmentSignal[]> {
-  return database
-    .select({
-      shipmentId: orderShipments.id,
-      orderId: orders.id,
-      externalOrderId: orders.externalOrderId,
-      ...shipmentTimingColumns,
-      systemNotes,
-    })
-    .from(orderShipments)
-    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
-    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
-    .where(
-      and(
-        eq(orderShipments.supplierId, supplierId),
-        inArray(orderShipments.status, AT_SUPPLIER),
-        inArray(orders.status, ["paid", "shipped"]),
-      ),
-    )
-    .orderBy(orderShipments.createdAt);
-}
-
 /** The product's main photo (the first one), or null when it has none. */
 const mainPhoto = sql<string | null>`${supplierProducts.imageUrls}[1]`;
-
-/** A product out of stock, with the photo the home page shows beside it. */
-export interface SupplierStockRow extends StockSignal {
-  imageUrl: string | null;
-}
-
-/** A rejected product, with its photo and the reviewer's reasons. */
-export interface SupplierRejectedRow extends RejectedProductSignal {
-  imageUrl: string | null;
-  rejectionReasons: RejectionReason[];
-}
 
 const publishedListings = sql<number>`count(${listingTargets.id}) filter (
   where ${listingTargets.status} = 'published'

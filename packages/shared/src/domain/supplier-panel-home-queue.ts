@@ -1,5 +1,4 @@
 import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
-import type { StockSignal, RejectedProductSignal } from "./supplier-panel-attention-signals.ts";
 import type { RejectionReason } from "./supplier-panel-catalog-status.ts";
 import {
   OTHER_REASON_TITLE,
@@ -53,13 +52,25 @@ export interface CatalogFix {
   reason: string;
 }
 
-export interface HomeStockInput extends StockSignal {
+/** A product of the supplier, with what is left to sell and how many live listings show it. */
+export interface SupplierStockRow {
+  productId: string;
+  title: string;
+  sku: string;
   imageUrl: string | null;
+  /** Shelf stock minus what paid orders hold; zero or less means nothing left to sell. */
+  availableStock: number;
+  /** Published listings (every reseller, every store) still showing the product. */
+  activeListings: number;
 }
 
-export interface HomeRejectedInput extends RejectedProductSignal {
+/** A product the review refused: it stays out of the catalog until fixed and sent again. */
+export interface SupplierRejectedRow {
+  productId: string;
+  title: string;
+  sku: string;
   imageUrl: string | null;
-  rejectionReasons: readonly RejectionReason[];
+  rejectionReasons: RejectionReason[];
 }
 
 function listingsPhrase(count: number): string {
@@ -93,8 +104,8 @@ function rejectionPhrase(reasons: readonly RejectionReason[]): string {
  * rejected products, each list in the order the repository read it.
  */
 export function catalogFixes(
-  stock: readonly HomeStockInput[],
-  rejected: readonly HomeRejectedInput[],
+  stock: readonly SupplierStockRow[],
+  rejected: readonly SupplierRejectedRow[],
 ): CatalogFix[] {
   const outOfStock = stock
     .filter((product) => product.availableStock <= 0 && product.activeListings > 0)

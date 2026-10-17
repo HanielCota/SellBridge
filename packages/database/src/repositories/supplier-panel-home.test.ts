@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
 import { hasErrorCode } from "@sellbridge/shared/errors";
-import { SUPPLIER_EMAIL_FAILED_NOTE } from "@sellbridge/shared/forward-notes";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -23,7 +22,6 @@ import { upsertStoreConnection } from "./stores.ts";
 import {
   getSupplierPanelProfile,
   listSupplierHealthDrillDown,
-  listSupplierOpenShipments,
   listSupplierOutOfStockListed,
   listSupplierRejectedProducts,
   loadSupplierHealthInput,
@@ -33,7 +31,6 @@ const database = createTestDatabase();
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 const NOW = new Date();
-const EMAIL_FAILED = SUPPLIER_EMAIL_FAILED_NOTE;
 
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let supplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
@@ -196,32 +193,6 @@ describe("loadSupplierHealthInput", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.rating).toBe(2);
-  });
-});
-
-describe("listSupplierOpenShipments", () => {
-  it("brings the parcels still with the supplier and SellBridge's notes since the forward", async () => {
-    const failed = await parcel({
-      supplierId: supplier.supplierId,
-      daysAgo: 1,
-      status: "forwarded",
-      events: [
-        {
-          status: "forwarded",
-          actor: SHIPMENT_ACTORS.sellbridge,
-          hoursAfterForward: 0.1,
-          note: EMAIL_FAILED,
-        },
-        { status: "forwarded", actor: supplierActor, hoursAfterForward: 0.2, note: "Ocorrência" },
-      ],
-    });
-    const open = await listSupplierOpenShipments(database, supplier.supplierId);
-    const found = open.find((signal) => signal.orderId === failed.orderId);
-    expect(found?.systemNotes).toEqual([EMAIL_FAILED]);
-    expect(found?.forwardedAt).toBeInstanceOf(Date);
-    expect(
-      open.every((signal) => ["forwarded", "accepted", "picking", "ready"].includes(signal.status)),
-    ).toBe(true);
   });
 });
 
