@@ -85,10 +85,12 @@ function StepContent({
   step,
   form,
   categories,
+  supplierId,
 }: {
   step: FormStepId;
   form: ProductForm;
   categories: FormData["categories"];
+  supplierId: string;
 }) {
   const stepProps = {
     values: form.values,
@@ -104,7 +106,7 @@ function StepContent({
       return <StepDetails {...stepProps} required={form.required} />;
     }
     case "images": {
-      return <StepImages {...stepProps} />;
+      return <StepImages {...stepProps} supplierId={supplierId} />;
     }
     default: {
       return (
@@ -150,7 +152,12 @@ function LoadedForm({
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className="surface-card min-w-0 space-y-6 rounded-3xl bg-card p-5 sm:p-6">
           <FormStepper current={step} blocking={form.report.blocking} onSelect={setStep} />
-          <StepContent step={step} form={form} categories={data.categories} />
+          <StepContent
+            step={step}
+            form={form}
+            categories={data.categories}
+            supplierId={supplierId}
+          />
           <AutosaveIndicator
             state={form.autosave.state}
             onRetry={form.autosave.retry}

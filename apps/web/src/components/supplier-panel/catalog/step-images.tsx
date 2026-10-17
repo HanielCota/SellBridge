@@ -1,10 +1,12 @@
-import { ArrowUpIcon, ImageIcon, TrashIcon } from "@phosphor-icons/react";
-import { useState, type FormEvent } from "react";
+import { ArrowUpIcon, ImageIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { inputIdOf } from "@/features/supplier-panel/catalog/draft-form";
+import { PRODUCT_IMAGE_TYPES } from "@/features/supplier-panel/catalog/product-image-key";
+import { useProductImageUpload } from "@/features/supplier-panel/catalog/use-product-image-upload";
 import { FieldReason } from "./field-reason";
 import type { StepProps } from "./step-details";
 
@@ -26,7 +28,7 @@ function ImageRow({
   onPromote: () => void;
 }) {
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-field-border bg-card p-2">
+    <li className="flex min-w-0 items-center gap-3 rounded-2xl border border-field-border bg-card p-2">
       <img
         src={url}
         alt={`Imagem ${index + 1}`}
@@ -98,7 +100,7 @@ function AddImageForm({
   }
   return (
     <form className="grid gap-2" onSubmit={add} noValidate>
-      <Label htmlFor={inputIdOf("imageUrls")}>Link da imagem</Label>
+      <Label htmlFor={inputIdOf("imageUrls")}>Ou cole o link da imagem</Label>
       <div className="flex gap-2">
         <Input
           id={inputIdOf("imageUrls")}
@@ -122,6 +124,100 @@ function AddImageForm({
   );
 }
 
+const ACCEPTED_TYPES = Object.keys(PRODUCT_IMAGE_TYPES).join(",");
+
+function UploadHint() {
+  return (
+    <p className="text-footnote text-muted-foreground">
+      PNG, JPG ou WEBP de até 5 MB. Também dá para arrastar as fotos para cá.
+    </p>
+  );
+}
+
+/** Says how many photos are still on their way while they upload. */
+function PickPhotosButton({
+  disabled,
+  sending,
+  onPick,
+}: {
+  disabled: boolean;
+  sending: number;
+  onPick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      className="w-full sm:w-auto sm:justify-self-start"
+      disabled={disabled || sending > 0}
+      onClick={onPick}
+    >
+      <UploadSimpleIcon aria-hidden="true" />
+      {sending > 0
+        ? `Enviando ${sending === 1 ? "imagem" : `${sending} imagens`}…`
+        : "Enviar do celular ou computador"}
+    </Button>
+  );
+}
+
+/** Photos from the phone's gallery or camera, or the computer's folders: no link needed. */
+function DeviceUpload({
+  supplierId,
+  images,
+  onAdd,
+}: {
+  supplierId: string;
+  images: readonly string[];
+  onAdd: (urls: string[]) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const { upload, sending, error } = useProductImageUpload(supplierId);
+  const room = MAX_IMAGES - images.length;
+  async function send(files: readonly File[]) {
+    const urls = await upload(files.slice(0, room));
+    if (urls.length > 0) {
+      onAdd(urls);
+    }
+  }
+  async function picked(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])];
+    // Clears the picker so choosing the same photo again still fires a change.
+    if (input.current !== null) {
+      input.current.value = "";
+    }
+    await send(files);
+  }
+  async function dropped(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    await send([...event.dataTransfer.files].filter((file) => file.type in PRODUCT_IMAGE_TYPES));
+  }
+  return (
+    <div
+      className="grid gap-2"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => void dropped(event)}
+    >
+      <input
+        ref={input}
+        type="file"
+        accept={ACCEPTED_TYPES}
+        multiple
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(event) => void picked(event)}
+      />
+      <PickPhotosButton
+        disabled={room <= 0}
+        sending={sending}
+        onPick={() => input.current?.click()}
+      />
+      <UploadHint />
+      <InlineFormError message={error} />
+    </div>
+  );
+}
+
 function ImageList({
   images,
   onChange,
@@ -133,13 +229,14 @@ function ImageList({
     return (
       <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-field-border px-6 py-10 text-center text-sm text-muted-foreground">
         <ImageIcon className="size-7" weight="light" aria-hidden="true" />
-        As imagens adicionadas aparecem aqui.
+        As imagens enviadas ou adicionadas por link aparecem aqui.
       </div>
     );
   }
   const without = (index: number) => images.filter((_, position) => position !== index);
   return (
-    <ol className="grid gap-2" aria-label="Imagens do produto">
+    // min-w-0: a long link truncates instead of widening the whole step past its card.
+    <ol className="grid min-w-0 gap-2" aria-label="Imagens do produto">
       {images.map((url, index) => (
         <ImageRow
           key={url}
@@ -153,12 +250,23 @@ function ImageList({
   );
 }
 
-export function StepImages({ values, errors, reasons, onChange }: StepProps) {
+export function StepImages({
+  values,
+  errors,
+  reasons,
+  onChange,
+  supplierId,
+}: StepProps & { supplierId: string }) {
   const images = values.imageUrls;
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">A primeira imagem é a capa do anúncio.</p>
       <FieldReason field="imageUrls" reasons={reasons} />
+      <DeviceUpload
+        supplierId={supplierId}
+        images={images}
+        onAdd={(urls) => onChange({ imageUrls: [...images, ...urls] })}
+      />
       <AddImageForm
         images={images}
         serverError={errors.imageUrls}
