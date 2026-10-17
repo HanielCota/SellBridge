@@ -15,6 +15,7 @@ import {
   type ShipmentHealthRecord,
 } from "@sellbridge/shared/supplier-panel-health";
 import { SHIPMENT_ACTORS, type FulfillmentStatus } from "@sellbridge/shared/schemas";
+import type { RejectionReason } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -193,6 +194,20 @@ export async function listSupplierOpenShipments(
     .orderBy(orderShipments.createdAt);
 }
 
+/** The product's main photo (the first one), or null when it has none. */
+const mainPhoto = sql<string | null>`${supplierProducts.imageUrls}[1]`;
+
+/** A product out of stock, with the photo the home page shows beside it. */
+export interface SupplierStockRow extends StockSignal {
+  imageUrl: string | null;
+}
+
+/** A rejected product, with its photo and the reviewer's reasons. */
+export interface SupplierRejectedRow extends RejectedProductSignal {
+  imageUrl: string | null;
+  rejectionReasons: RejectionReason[];
+}
+
 const publishedListings = sql<number>`count(${listingTargets.id}) filter (
   where ${listingTargets.status} = 'published'
 )`.mapWith(Number);
@@ -205,12 +220,13 @@ const publishedListings = sql<number>`count(${listingTargets.id}) filter (
 export async function listSupplierOutOfStockListed(
   database: Database,
   supplierId: string,
-): Promise<StockSignal[]> {
+): Promise<SupplierStockRow[]> {
   return database
     .select({
       productId: supplierProducts.id,
       title: supplierProducts.title,
       sku: supplierProducts.sku,
+      imageUrl: mainPhoto,
       availableStock:
         sql<number>`${supplierProducts.stock} - ${supplierProducts.reservedStock}`.mapWith(Number),
       activeListings: publishedListings,
@@ -234,12 +250,14 @@ export async function listSupplierOutOfStockListed(
 export async function listSupplierRejectedProducts(
   database: Database,
   supplierId: string,
-): Promise<RejectedProductSignal[]> {
+): Promise<SupplierRejectedRow[]> {
   return database
     .select({
       productId: supplierProducts.id,
       title: supplierProducts.title,
       sku: supplierProducts.sku,
+      imageUrl: mainPhoto,
+      rejectionReasons: supplierProducts.rejectionReasons,
     })
     .from(supplierProducts)
     .where(

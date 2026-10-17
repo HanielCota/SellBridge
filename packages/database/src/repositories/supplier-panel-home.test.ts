@@ -260,6 +260,11 @@ describe("listSupplierOutOfStockListed", () => {
     const [signal] = await listSupplierOutOfStockListed(database, supplier.supplierId);
     expect(signal?.availableStock).toBe(-2);
   });
+
+  it("brings the product's main photo, or null without one", async () => {
+    const [signal] = await listSupplierOutOfStockListed(database, supplier.supplierId);
+    expect(signal?.imageUrl).toBeNull();
+  });
 });
 
 describe("getSupplierPanelProfile", () => {
@@ -281,14 +286,25 @@ describe("getSupplierPanelProfile", () => {
 describe("listSupplierRejectedProducts", () => {
   const reasons = [{ field: "title", rule: "title_policy", message: "Revise o título do produto" }];
 
-  it("lists only this supplier's rejected products", async () => {
+  it("lists only this supplier's rejected products, with the photo and the reasons", async () => {
     await database
       .update(supplierProducts)
-      .set({ reviewStatus: "rejected", rejectionReasons: reasons, reviewedAt: NOW })
+      .set({
+        reviewStatus: "rejected",
+        rejectionReasons: reasons,
+        reviewedAt: NOW,
+        imageUrls: ["https://example.com/caneca.jpg", "https://example.com/caneca-2.jpg"],
+      })
       .where(inArray(supplierProducts.id, [supplier.productId, otherSupplier.productId]));
     const signals = await listSupplierRejectedProducts(database, supplier.supplierId);
     expect(signals).toEqual([
-      { productId: supplier.productId, title: "Caneca", sku: expect.any(String) },
+      {
+        productId: supplier.productId,
+        title: "Caneca",
+        sku: expect.any(String),
+        imageUrl: "https://example.com/caneca.jpg",
+        rejectionReasons: reasons,
+      },
     ]);
   });
 

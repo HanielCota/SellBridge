@@ -1,17 +1,24 @@
 import {
+  countSupplierShipmentsByTab,
   getSupplierPanelProfile,
   getSupplierReputationStats,
   listSupplierHealthDrillDown,
-  listSupplierOpenShipments,
   listSupplierOutOfStockListed,
+  listSupplierProductPhotos,
   listSupplierRejectedProducts,
+  listSupplierShipments,
   loadSupplierHealthInput,
+  type SupplierShipmentRow,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
-  buildSupplierAttention,
-  type SupplierAttentionItem,
-} from "@sellbridge/shared/supplier-panel-attention";
+  catalogFixes,
+  HOME_GROUP_LIMIT,
+  photoSkuOf,
+  splitHomeOrders,
+  type CatalogFix,
+  type HomeOrderGroups,
+} from "@sellbridge/shared/supplier-panel-home-queue";
 import {
   computeSupplierHealth,
   type HealthDrillDownRow,
@@ -54,31 +61,65 @@ export async function loadSupplierPerformance(supplierId: string): Promise<Suppl
   return { supplierName: profile.name, health: computeSupplierHealth(healthInput), reputation };
 }
 
+/** A parcel of the home list, with the main photo of its first item. */
+export type SupplierHomeOrderRow = SupplierShipmentRow & { imageUrl: string | null };
+
 export interface SupplierHome {
   supplierName: string;
-  attention: SupplierAttentionItem[];
+  /** The first rows of each group, most urgent first. */
+  orders: HomeOrderGroups<SupplierHomeOrderRow>;
+  /** Every parcel of each group, for the "Ver todos" link. */
+  orderTotals: { accept: number; progress: number };
+  catalog: CatalogFix[];
   health: SupplierHealth;
 }
 
-/** The "Início" page: the queue of what needs the supplier, and the four health tiles. */
+/** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
+async function loadHomeOrders(supplierId: string, now: Date) {
+  const [page, counts] = await Promise.all([
+    listSupplierShipments(database, { supplierId, tab: "todo", query: "", page: 1 }, now),
+    countSupplierShipmentsByTab(database, { supplierId, query: "" }, now),
+  ]);
+  const skus = page.items.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
+  const photos = await listSupplierProductPhotos(database, { supplierId, skus });
+  const rows = page.items.map((row) => {
+    const sku = photoSkuOf(row.items);
+    return { ...row, imageUrl: sku === null ? null : (photos.get(sku) ?? null) };
+  });
+  const groups = splitHomeOrders(rows);
+  return {
+    orders: {
+      accept: groups.accept.slice(0, HOME_GROUP_LIMIT),
+      progress: groups.progress.slice(0, HOME_GROUP_LIMIT),
+    },
+    orderTotals: { accept: counts.forwarded, progress: counts.todo - counts.forwarded },
+  };
+}
+
+/** The "Início" page: one list of what needs the supplier, and the health in one line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, openShipments, stock, rejectedProducts] = await Promise.all([
+  const [profile, healthInput, orders, stock, rejectedProducts] = await Promise.all([
     getSupplierPanelProfile(database, supplierId),
     loadSupplierHealthInput(database, { supplierId, now }),
-    listSupplierOpenShipments(database, supplierId),
+    loadHomeOrders(supplierId, now),
     listSupplierOutOfStockListed(database, supplierId),
     listSupplierRejectedProducts(database, supplierId),
   ]);
-  const health = computeSupplierHealth(healthInput);
-  const attention = buildSupplierAttention({ openShipments, stock, rejectedProducts, health, now });
-  // Ids and counts only: what the queue showed, for support to compare with a complaint.
+  const catalog = catalogFixes(stock, rejectedProducts);
+  // Ids and counts only: what the list showed, for support to compare with a complaint.
   logger.info("supplier_panel.home_loaded", {
     supplierId,
-    attentionItems: attention.length,
-    critical: attention.filter((item) => item.severity === "critical").length,
+    acceptTotal: orders.orderTotals.accept,
+    progressTotal: orders.orderTotals.progress,
+    catalogFixes: catalog.length,
   });
-  return { supplierName: profile.name, attention, health };
+  return {
+    supplierName: profile.name,
+    ...orders,
+    catalog,
+    health: computeSupplierHealth(healthInput),
+  };
 }
 
 /** The orders of the last 60 days that count against one metric. */
