@@ -9,13 +9,12 @@ import {
   useSupplierImport,
 } from "@/features/supplier-panel/import/use-supplier-import";
 import { downloadCsv, failedRowsFileName } from "@/features/supplier-panel/import/import-file";
+import { importDoneSummary } from "@/features/supplier-panel/import/import-wording";
 import { errorMessage } from "@/lib/errors";
 import { ImportDropZone } from "./import-drop-zone";
 import { ImportIssueList } from "./import-issue-list";
 import { ImportPreviewSummary } from "./import-preview-summary";
 import { ImportTemplatePanel } from "./import-template-panel";
-
-const count = new Intl.NumberFormat("pt-BR");
 
 interface LeftOut {
   readonly rows: number;
@@ -29,10 +28,6 @@ function ImportDone(props: {
   onAgain: () => void;
 }) {
   const { result, leftOut } = props;
-  const paused =
-    result.pausedTargets > 0
-      ? ` ${count.format(result.pausedTargets)} anúncios pausados sem estoque.`
-      : "";
   return (
     <output className="surface-card flex flex-col items-center gap-3 rounded-3xl bg-card px-6 py-12 text-center">
       <CheckCircleIcon
@@ -43,14 +38,7 @@ function ImportDone(props: {
       <div className="max-w-md space-y-1">
         <h2 className="text-subhead font-medium">Importação concluída</h2>
         <p className="text-sm text-muted-foreground">
-          {count.format(result.created)} criados e {count.format(result.updated)} atualizados.
-          {result.synchronizationQueued
-            ? " Estoque enviado aos marketplaces."
-            : " O estoque vai aos marketplaces na próxima sincronização."}
-          {paused}
-          {leftOut === null
-            ? null
-            : ` ${count.format(leftOut.rows)} linhas com erro ficaram de fora; corrija e envie de novo.`}
+          {importDoneSummary(result, leftOut?.rows ?? 0)}
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">

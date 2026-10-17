@@ -34,3 +34,39 @@ export function confirmDescription(counts: {
       : "";
   return `${changes.join(" e ")}${leftOut}.`;
 }
+
+/**
+ * The sentence after a confirmed import. Counts agree with their nouns ("1 linha com erro ficou
+ * de fora", found testing PR #44), and new products are said to wait for review, as they do.
+ */
+export function importDoneSummary(
+  result: {
+    created: number;
+    updated: number;
+    pausedTargets: number;
+    synchronizationQueued: boolean;
+  },
+  leftOutRows: number,
+): string {
+  const changes = [
+    result.created > 0 ? plural(result.created, "produto novo", "produtos novos") : null,
+    result.updated > 0 ? plural(result.updated, "atualizado", "atualizados") : null,
+  ].filter((part) => part !== null);
+  return [
+    changes.length === 0 ? "Nenhum produto mudou." : `${changes.join(" e ")}.`,
+    result.created > 0
+      ? "Os novos passam pela análise antes de aparecer para os revendedores."
+      : null,
+    result.synchronizationQueued
+      ? "Estoque enviado aos marketplaces."
+      : "O estoque vai aos marketplaces na próxima sincronização.",
+    result.pausedTargets > 0
+      ? `${plural(result.pausedTargets, "anúncio pausado", "anúncios pausados")} sem estoque.`
+      : null,
+    leftOutRows > 0
+      ? `${plural(leftOutRows, "linha com erro ficou", "linhas com erro ficaram")} de fora; corrija e envie de novo.`
+      : null,
+  ]
+    .filter((sentence) => sentence !== null)
+    .join(" ");
+}

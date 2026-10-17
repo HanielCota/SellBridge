@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmDescription, onlyValidLabel } from "./import-wording";
+import { confirmDescription, importDoneSummary, onlyValidLabel } from "./import-wording";
 
 describe("onlyValidLabel", () => {
   it("uses the singular for one row on either side", () => {
@@ -19,6 +19,27 @@ describe("confirmDescription", () => {
   it("names new, updated and left-out rows", () => {
     expect(confirmDescription({ created: 1, updated: 3, failedRows: 1 })).toBe(
       "1 produto novo e 3 atualizados pelo SKU; 1 linha com erro fica de fora.",
+    );
+  });
+});
+
+describe("importDoneSummary", () => {
+  const base = { created: 0, updated: 0, pausedTargets: 0, synchronizationQueued: true };
+
+  it("agrees every count with its noun in the singular", () => {
+    expect(importDoneSummary({ ...base, created: 1, pausedTargets: 1 }, 1)).toBe(
+      "1 produto novo. Os novos passam pela análise antes de aparecer para os revendedores. Estoque enviado aos marketplaces. 1 anúncio pausado sem estoque. 1 linha com erro ficou de fora; corrija e envie de novo.",
+    );
+  });
+
+  it("uses the plural and leaves out what is zero", () => {
+    expect(importDoneSummary({ ...base, created: 2, updated: 3 }, 0)).toBe(
+      "2 produtos novos e 3 atualizados. Os novos passam pela análise antes de aparecer para os revendedores. Estoque enviado aos marketplaces.",
+    );
+    expect(
+      importDoneSummary({ ...base, updated: 1, synchronizationQueued: false, pausedTargets: 2 }, 4),
+    ).toBe(
+      "1 atualizado. O estoque vai aos marketplaces na próxima sincronização. 2 anúncios pausados sem estoque. 4 linhas com erro ficaram de fora; corrija e envie de novo.",
     );
   });
 });
