@@ -8,7 +8,13 @@ import {
 } from "./form-values";
 
 function parseAttributes(mercadoLivreAttributes: string) {
-  const values = { ...productFormValues(), sku: "SKU-1", title: "Produto", mercadoLivreAttributes };
+  const values = {
+    ...productFormValues(),
+    sku: "SKU-1",
+    title: "Produto",
+    cost: "10,00",
+    mercadoLivreAttributes,
+  };
   return adminSaveProductSchema.safeParse(
     productFormInput(values, "11111111-1111-4111-8111-111111111111", undefined),
   );
@@ -40,7 +46,13 @@ describe("Mercado Livre attributes in the product form", () => {
 describe("shelf count in the product form", () => {
   it("saves a title edit on a product whose shelf went below zero", () => {
     const shipped = { id: "22222222-2222-4222-8222-222222222222", stock: -3 };
-    const values = { ...productFormValues(), sku: "SKU-1", title: "Produto", stock: "-3" };
+    const values = {
+      ...productFormValues(),
+      sku: "SKU-1",
+      title: "Produto",
+      cost: "10,00",
+      stock: "-3",
+    };
     const parsed = adminSaveProductSchema.safeParse(
       productFormInput(values, "11111111-1111-4111-8111-111111111111", shipped),
     );
@@ -75,5 +87,19 @@ describe("supplier contact and deadlines in the supplier form", () => {
       supplierFormInput({ ...filled, dispatchWithinHours: "dois dias" }, undefined),
     );
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("cost in the product form", () => {
+  it("starts a new product with an empty cost field", () => {
+    expect(productFormValues().cost).toBe("");
+  });
+
+  it("refuses a product saved with zero cost", () => {
+    const values = { ...productFormValues(), sku: "SKU-1", title: "Produto", cost: "0,00" };
+    const parsed = adminSaveProductSchema.safeParse(
+      productFormInput(values, "11111111-1111-4111-8111-111111111111", undefined),
+    );
+    expect(parsed.error?.issues[0]?.message).toMatch(/Informe o custo do produto/);
   });
 });

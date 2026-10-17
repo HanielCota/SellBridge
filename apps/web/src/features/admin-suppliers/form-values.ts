@@ -61,7 +61,8 @@ export function productFormValues(product?: AdminSupplierProduct) {
     sku: product?.sku ?? "",
     title: product?.title ?? "",
     description: product?.description ?? "",
-    cost: formatCentsForInput(product?.costCents ?? 0),
+    // A new product starts with no cost: "0,00" was saved as a real cost of zero.
+    cost: product === undefined ? "" : formatCentsForInput(product.costCents),
     suggestedPrice: formatCentsForInput(product?.suggestedPriceCents ?? 0),
     stock: String(product?.stock ?? 0),
     categoryId: product?.categoryId ?? "",

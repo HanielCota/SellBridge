@@ -72,6 +72,16 @@ function productPriceCentsSchema(label: string) {
     });
 }
 
+/**
+ * The cost of a product being saved or imported. Zero is "not filled in", as the supplier
+ * panel already reads it: taken as a real cost, a reseller rule priced the listing at R$ 1,00
+ * and reports showed the whole sale as profit, never as cost pending.
+ */
+export const knownCostCentsSchema = productPriceCentsSchema("O custo").refine(
+  (cents) => cents > 0,
+  { error: "Informe o custo do produto (recebido: R$ 0,00; esperado: acima de zero)" },
+);
+
 const imageUrlSchema = z
   .url({ protocol: /^https?$/ })
   .max(2000, "Use um link de imagem mais curto");
@@ -159,6 +169,7 @@ export const adminProductValuesSchema = z.object({
 export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
 export const adminSaveProductSchema = adminProductValuesSchema
   .extend({
+    costCents: knownCostCentsSchema,
     stock: editedShelfCountSchema,
     supplierId: z.uuid(),
     productId: z.uuid().optional(),
