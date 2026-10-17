@@ -14,6 +14,7 @@ import {
   type SupplierOrdersPage,
   useAdvanceShipment,
 } from "@/features/supplier-panel/orders/use-order-actions";
+import { toggled, withAll } from "@/features/supplier-panel/orders/selection";
 import { useNow } from "@/hooks/use-now";
 import { errorMessage } from "@/lib/errors";
 import { BatchAcceptBar, BatchAcceptResult } from "./batch-accept-bar";
@@ -54,32 +55,6 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
       description="Pedidos aparecem aqui ao chegar nesta etapa."
     />
   );
-}
-
-/** The selection with one row toggled; a new map, the old one is left as it was. */
-function toggled(selected: ReadonlyMap<string, SupplierOrderRow>, row: SupplierOrderRow) {
-  const next = new Map(selected);
-  if (next.has(row.id)) {
-    next.delete(row.id);
-    return next;
-  }
-  return next.set(row.id, row);
-}
-
-function withAll(
-  selected: ReadonlyMap<string, SupplierOrderRow>,
-  rows: readonly SupplierOrderRow[],
-  checked: boolean,
-) {
-  const next = new Map(selected);
-  for (const row of rows) {
-    if (checked) {
-      next.set(row.id, row);
-      continue;
-    }
-    next.delete(row.id);
-  }
-  return next;
 }
 
 /** The orders picked for a batch accept; updates read the latest state, so quick clicks add up. */
