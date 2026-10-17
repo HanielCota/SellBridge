@@ -1,24 +1,30 @@
-import { StorefrontIcon } from "@phosphor-icons/react";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { EmptyState } from "@/components/feedback/empty-state";
+import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { SUPPLIER_BRAND_PATH } from "@/features/auth/profile-routes";
 import { getOwnSupplierFn } from "@/features/supplier-panel/panel.functions";
 
 export const Route = createFileRoute("/_app/fornecedor/painel")({
-  loader: async () => getOwnSupplierFn(),
+  // Before the brand exists, every panel page leads to "Cadastre sua marca".
+  loader: async ({ location }) => {
+    const own = await getOwnSupplierFn();
+    if (own.supplier === null && location.pathname !== SUPPLIER_BRAND_PATH) {
+      throw redirect({ to: SUPPLIER_BRAND_PATH });
+    }
+    return own;
+  },
   head: () => ({ meta: [{ title: "Painel do fornecedor | SellBridge" }] }),
   component: SupplierPanelLayout,
 });
 
+/**
+ * Panel pages read the brand from this layout (`usePanelSupplierId`): until it exists only the
+ * brand page renders, so no page ever draws for an instant without its supplier (the loader is
+ * already redirecting, or the data is refreshing right after the brand was saved).
+ */
 function SupplierPanelLayout() {
   const { supplier } = Route.useLoaderData();
-  if (supplier === null) {
-    return (
-      <EmptyState
-        icon={StorefrontIcon}
-        title="Falta cadastrar sua marca"
-        description="Com o nome, o nicho e a cidade da sua marca, você cadastra produtos e recebe pedidos dos revendedores por aqui."
-      />
-    );
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (supplier === null && pathname !== SUPPLIER_BRAND_PATH) {
+    return null;
   }
   return <Outlet />;
 }
