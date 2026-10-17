@@ -9,7 +9,7 @@ import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { assertSupplierPanelAccess } from "@/lib/server/supplier-panel-access";
 import { resolveSupplierPanelViewer } from "@/lib/server/supplier-panel-viewer";
-import { requireTenantSession } from "@/lib/server/tenant-session";
+import { requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, productImageUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
 import {
@@ -56,7 +56,7 @@ async function readProductImage(request: Request) {
 export function handleUploadProductImage(request: Request) {
   return handleApi("supplier_panel.upload_product_image", async () => {
     assertSameOrigin(request, environment.APP_URL);
-    const session = await requireTenantSession(request.headers);
+    const session = await requireTenantRequest(request);
     assertUploadAllowed(productImageUploads, session.userId);
     const { supplierId, bytes, type } = await readProductImage(request);
     assertSupplierPanelAccess(await resolveSupplierPanelViewer(session), supplierId);

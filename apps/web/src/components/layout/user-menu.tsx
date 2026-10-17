@@ -35,6 +35,7 @@ import {
 import type { SessionUser } from "@/features/auth/session.functions";
 import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
+import { forgetTabProfile } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
 import { accountPagesFor } from "./account-pages";
 
@@ -49,6 +50,7 @@ function useSignOut() {
     }
     // Cached sessions and profile data belong to the user who just left.
     queryClient.clear();
+    forgetTabProfile();
     await navigate({ to: "/login" });
   };
 }

@@ -66,7 +66,7 @@ export async function createSupplierBrand(
   try {
     const [created] = await database
       .insert(suppliers)
-      .values({ ...input.values, organizationId: input.organizationId })
+      .values({ ...editableValues(input.values), organizationId: input.organizationId })
       .returning(brandColumns);
     if (created === undefined) {
       throw new Error("Marca não criada");

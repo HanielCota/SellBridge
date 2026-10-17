@@ -10,6 +10,7 @@ import type {
   SupplierHomeOrderRow,
 } from "@/features/supplier-panel/home/home-types";
 import { useHomeActions } from "@/features/supplier-panel/home/use-home-actions";
+import { useTabProfileLink } from "@/lib/tab-profile";
 import { useNow } from "@/hooks/use-now";
 import { isBatchSelectable } from "../orders/order-row-parts";
 import { ShipmentPanelDialog } from "../orders/shipment-panel-dialog";
@@ -32,6 +33,7 @@ function SeeAll({ total, href }: { total: number; href: string }) {
 }
 
 function AllClear() {
+  const profileLink = useTabProfileLink();
   return (
     <EmptyState
       icon={CheckCircleIcon}
@@ -39,7 +41,7 @@ function AllClear() {
       description="Pedidos novos aparecem aqui com o prazo de aceite, e produtos para ajustar logo abaixo."
       action={
         <Button size="sm" variant="outline" asChild>
-          <a href={`${SUPPLIER_PANEL_BASE_PATH}/pedidos`}>Ver pedidos</a>
+          <a href={profileLink(`${SUPPLIER_PANEL_BASE_PATH}/pedidos`)}>Ver pedidos</a>
         </Button>
       }
     />
@@ -150,6 +152,7 @@ export function HomeQueue({
 }) {
   const { actions, expandedId, toggle, opened, setOpened, rowProps } =
     useHomeQueueState(supplierId);
+  const profileLink = useTabProfileLink();
   const { accept, progress } = data.orders;
   const { orderTotals } = data;
   const empty = orderTotals.accept + orderTotals.progress === 0 && data.catalog.length === 0;
@@ -182,7 +185,10 @@ export function HomeQueue({
           />
         </div>
       )}
-      <HealthStrip health={data.health} href={`${SUPPLIER_PANEL_BASE_PATH}/desempenho`} />
+      <HealthStrip
+        health={data.health}
+        href={profileLink(`${SUPPLIER_PANEL_BASE_PATH}/desempenho`)}
+      />
       <ShipmentPanelDialog
         supplierId={supplierId}
         opened={opened}

@@ -31,6 +31,7 @@ import {
 import { errorMessage } from "@/lib/errors";
 import { AddressImportBar } from "./label-import";
 import { Field, ShipmentPanel } from "./shipment-panel";
+import { useTabProfileLink } from "@/lib/tab-profile";
 
 type Detail = Awaited<
   ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").getFulfillmentFn>
@@ -171,13 +172,18 @@ function MarketplaceActions({
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+  const withProfile = useTabProfileLink();
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
         Atualizar rastreio do marketplace
       </Button>
       <Button variant="outline" asChild>
-        <a href={`/api/pedidos/${orderId}/etiqueta`} target="_blank" rel="noopener noreferrer">
+        <a
+          href={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Gerar etiqueta de postagem do marketplace
         </a>
       </Button>

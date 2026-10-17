@@ -29,7 +29,7 @@ const BRAND: AdminSupplierValues = {
 };
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 3);
+  tenants = await createTestTenants(database, 4);
 });
 
 afterAll(async () => {
@@ -65,12 +65,25 @@ describe("supplier brand", () => {
     expect(await getSupplierBrand(database, tenantAt(1))).toBeNull();
   });
 
+  it("does not accept a staff-managed logo during supplier self-registration", async () => {
+    const created = await createSupplierBrand(database, {
+      organizationId: tenantAt(3),
+      values: { ...BRAND, logoUrl: "https://example.com/unreviewed.png" },
+    });
+    const [stored] = await database.select().from(suppliers).where(eq(suppliers.id, created.id));
+    expect(stored?.logoUrl).toBeNull();
+  });
+
   it("updates the profile's own brand and keeps what the team set", async () => {
     const created = await createSupplierBrand(database, {
       organizationId: tenantAt(2),
-      values: { ...BRAND, logoUrl: "https://example.com/logo.png" },
+      values: BRAND,
     });
 
+    await database
+      .update(suppliers)
+      .set({ logoUrl: "https://example.com/logo.png" })
+      .where(eq(suppliers.id, created.id));
     const updated = await updateSupplierBrand(database, {
       organizationId: tenantAt(2),
       values: { ...BRAND, city: "Sorocaba", logoUrl: null, acceptWithinHours: 12 },

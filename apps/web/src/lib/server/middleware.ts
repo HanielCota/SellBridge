@@ -2,8 +2,9 @@ import { isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import { createMiddleware } from "@tanstack/react-start";
-import { getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
+import { getRequest, getRequestHeaders, setResponseStatus } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { requestedProfileOf } from "../profile-param.ts";
 import {
   requireAdminSession,
   requireSellerSession,
@@ -69,18 +70,29 @@ async function runAsCustomer<Result>(
 }
 
 /**
- * Requires an authenticated user with a profile and injects `tenantId` and `profileKind`. Server
- * imports are only used inside `.server()`: anything referenced outside it (a session function
- * passed as an argument, say) stays in the browser bundle and pulls the database driver in.
+ * The tab's profile: its header on calls from the browser, the page URL's `?perfil=` while the
+ * server renders that page (the request is then the page request itself). Only call it inside
+ * `.server()`.
+ */
+function tabProfileRequest(): { headers: Headers; requested: string | null } {
+  const headers = getRequestHeaders();
+  return { headers, requested: requestedProfileOf({ headers, url: getRequest().url }) };
+}
+
+/**
+ * Requires an authenticated user with a profile and injects `tenantId` and `profileKind`, both of
+ * the tab's profile (`tabProfileRequest`). Server imports are only used inside `.server()`:
+ * anything referenced outside it (a session function passed as an argument, say) stays in the
+ * browser bundle and pulls the database driver in.
  */
 function profileMiddleware(access: { sellerOnly: boolean }) {
   return createMiddleware({ type: "function" })
     .middleware([userFacingErrors])
     .server(async ({ next, method, serverFnMeta }) => {
-      const headers = getRequestHeaders();
+      const { headers, requested } = tabProfileRequest();
       const context = access.sellerOnly
-        ? await requireSellerSession(headers)
-        : await requireTenantSession(headers);
+        ? await requireSellerSession(headers, requested)
+        : await requireTenantSession(headers, requested);
       return runAsCustomer(context, { functionName: serverFnMeta.name, method }, async () =>
         next({ context }),
       );
@@ -107,7 +119,8 @@ export const supplierPanelMiddleware = createMiddleware({ type: "function" })
     if (!requested.success) {
       throw validationError("Fornecedor inválido: envie o id do fornecedor (uuid).");
     }
-    const session = await requireTenantSession(getRequestHeaders());
+    const { headers, requested: profile } = tabProfileRequest();
+    const session = await requireTenantSession(headers, profile);
     const viewer = await resolveSupplierPanelViewer(session);
     assertSupplierPanelAccess(viewer, requested.data.supplierId);
     return runAsCustomer(session, { functionName: serverFnMeta.name, method }, async () =>

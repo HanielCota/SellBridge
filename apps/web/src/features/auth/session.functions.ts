@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getCookie, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
+import { isAppError } from "@sellbridge/shared/errors";
+import { getCookie, getRequest, getRequestHeaders, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { hasAcceptedTerms } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
@@ -8,8 +9,10 @@ import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
-import { findSessionProfileKind } from "@/lib/server/membership";
+import { listMemberships } from "@/lib/server/membership";
 import { staffMiddleware } from "@/lib/server/middleware";
+import { resolveProfileId } from "@/lib/server/tenant-session";
+import { requestedProfileOf } from "@/lib/profile-param";
 
 /**
  * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
@@ -33,7 +36,14 @@ export interface SessionUser {
 export interface AppSession {
   user: SessionUser;
   tenantId: string | null;
-  /** Seller or supplier: which screens and menu the app shows (`profileRedirectFor`). */
+  /** The slug of the profile this page works on (`?perfil=`), or null for an account with none. */
+  profileSlug: string | null;
+  /** The slug the page asked for when it is not one of the account's profiles. */
+  foreignProfile: string | null;
+  /**
+   * Seller or supplier: which screens and menu the app shows (`profileRedirectFor`), for this
+   * page's profile.
+   */
   profileKind: ProfileKind;
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
@@ -52,6 +62,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       return null;
     }
     const role = session.user.role ?? "user";
+    const profile = await resolvePageProfile(session.user.id, session.session.activeOrganizationId);
     return {
       user: {
         id: session.user.id,
@@ -62,11 +73,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         createdAt: new Date(session.user.createdAt).toISOString(),
       },
       adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
-      tenantId: session.session.activeOrganizationId ?? null,
-      profileKind: await findSessionProfileKind(
-        session.user.id,
-        session.session.activeOrganizationId ?? null,
-      ),
+      ...profile,
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
@@ -75,6 +82,34 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+interface PageProfile {
+  tenantId: string | null;
+  profileSlug: string | null;
+  foreignProfile: string | null;
+  profileKind: ProfileKind;
+}
+
+/** The profile of the page being opened, by the same rules every server call follows. */
+async function resolvePageProfile(
+  userId: string,
+  sessionActive: string | null | undefined,
+): Promise<PageProfile> {
+  const requested = requestedProfileOf({ headers: getRequestHeaders(), url: getRequest().url });
+  const memberships = await listMemberships(userId);
+  try {
+    const { organizationId, kind } = resolveProfileId({ requested, sessionActive, memberships });
+    const slug = memberships.find((item) => item.organizationId === organizationId)?.slug ?? null;
+    return { tenantId: organizationId, profileSlug: slug, foreignProfile: null, profileKind: kind };
+  } catch (error) {
+    if (!isAppError(error) || error.code !== "FORBIDDEN") {
+      throw error;
+    }
+    const foreignProfile = requested !== null && memberships.length > 0 ? requested : null;
+    // No profile of the account is open: the seller screens show the refusal or the sign-up step.
+    return { tenantId: null, profileSlug: null, foreignProfile, profileKind: "seller" };
+  }
+}
 
 export interface SignInOptions {
   google: boolean;

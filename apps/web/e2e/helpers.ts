@@ -65,6 +65,9 @@ export function uniqueEmail(prefix = "e2e"): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10_000)}@sellbridge.test`;
 }
 
+/** The password every account made by `signUp` gets, for signing in again. */
+export const SIGN_UP_PASSWORD = "senha-segura-123";
+
 /**
  * Creates an account through /cadastro. The e-mail comes back confirmed, since a new store waits
  * for it (item 26.b); `confirm: false` keeps it pending.
@@ -78,7 +81,7 @@ export async function signUp(
   await gotoHydrated(page, "/cadastro");
   await page.getByLabel("Nome").fill(name);
   await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
   await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
@@ -94,7 +97,7 @@ export async function signUpAsSupplier(page: Page, name: string): Promise<string
   await gotoHydrated(page, "/cadastro/fornecedor");
   await page.getByLabel("Nome").fill(name);
   await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
   await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);

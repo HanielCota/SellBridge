@@ -1,22 +1,31 @@
 import { schema } from "@sellbridge/database";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
 
+export interface Membership {
+  organizationId: string;
+  /** The profile's name in URLs (`?perfil=`). */
+  slug: string;
+  /** Seller or supplier (`organization.kind`). */
+  kind: ProfileKind;
+}
+
 /**
- * The kind of the profile while the user still belongs to it, or null when they do not (a member
- * removed keeps an old session, not the profile).
+ * Every organization the user belongs to, oldest membership first. A member removed keeps an old
+ * session, not the profile: it simply is no longer in this list.
  */
-export async function findMemberProfileKind(
-  userId: string,
-  organizationId: string,
-): Promise<ProfileKind | null> {
-  const [membership] = await database
-    .select({ kind: schema.organization.kind })
+export async function listMemberships(userId: string): Promise<Membership[]> {
+  return database
+    .select({
+      organizationId: schema.member.organizationId,
+      slug: schema.organization.slug,
+      kind: schema.organization.kind,
+    })
     .from(schema.member)
     .innerJoin(schema.organization, eq(schema.organization.id, schema.member.organizationId))
-    .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, organizationId)));
-  return membership?.kind ?? null;
+    .where(eq(schema.member.userId, userId))
+    .orderBy(asc(schema.member.createdAt));
 }
 
 /** Returns the oldest organization the user belongs to, or null when there is none. */
@@ -29,16 +38,4 @@ export async function findFirstOrganizationId(userId: string): Promise<string | 
     return null;
   }
   return membership.organizationId;
-}
-
-/** The kind of the session's profile; the first profile when none is active yet (sign-up). */
-export async function findSessionProfileKind(
-  userId: string,
-  activeId: string | null,
-): Promise<ProfileKind> {
-  const organizationId = activeId ?? (await findFirstOrganizationId(userId));
-  if (organizationId === null) {
-    return "seller";
-  }
-  return (await findMemberProfileKind(userId, organizationId)) ?? "seller";
 }

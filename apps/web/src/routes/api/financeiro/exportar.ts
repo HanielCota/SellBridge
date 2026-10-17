@@ -1,29 +1,52 @@
 import { exportOrderFinancials } from "@sellbridge/database/repositories";
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { financialSearchSchema, ORDER_STAGE_STATUSES } from "@sellbridge/shared/schemas";
 import { createFileRoute } from "@tanstack/react-router";
 import { buildFinancialCsv } from "@/features/reports/csv";
 import { buildReportScope, narrowToDay } from "@/features/reports/report-scope.server";
 import { database } from "@/lib/server/database";
-import { requireSellerSession } from "@/lib/server/tenant-session";
+import { assertSellerProfile } from "@/lib/server/supplier-panel-access";
+import { requireTenantRequest } from "@/lib/server/tenant-session";
+
+type ExportSession =
+  | { kind: "ok"; tenantId: string }
+  | { kind: "signed_out" }
+  | { kind: "other_profile" }
+  | { kind: "supplier_profile"; message: string };
 
 /**
- * Resolves the seller session: a supplier profile gets 403 with the reason, any other expected
- * auth failure (AppError) reads as "not signed in".
+ * Resolves the session of the tab's profile. A signed-in user asking for a profile outside the
+ * account is told so, not asked to log in again (a 401 there sent people to a login they already
+ * had); a supplier profile gets 403 with the reason.
  */
-async function findTenantSession(headers: Headers) {
+async function findExportSession(request: Request): Promise<ExportSession> {
   try {
-    return await requireSellerSession(headers);
+    const session = await requireTenantRequest(request);
+    return sellerOnly(session.tenantId, session.profileKind);
   } catch (error) {
-    if (isAppError(error) && error.code === "FORBIDDEN") {
-      return new Response(error.userMessage, { status: 403 });
+    if (!isAppError(error)) {
+      throw error;
     }
+    if (error.code === "FORBIDDEN") {
+      return { kind: "other_profile" };
+    }
+    return { kind: "signed_out" };
+  }
+}
+
+/** The financial export is a seller screen: a supplier profile is refused with the reason. */
+function sellerOnly(tenantId: string, profileKind: ProfileKind): ExportSession {
+  try {
+    assertSellerProfile(profileKind);
+  } catch (error) {
     if (isAppError(error)) {
-      return null;
+      return { kind: "supplier_profile", message: error.userMessage };
     }
     throw error;
   }
+  return { kind: "ok", tenantId };
 }
 
 /** The period's rows, or a 422 saying why there is no file (too many orders for one export). */
@@ -48,12 +71,17 @@ async function exportRows(
 }
 
 async function handleExport(request: Request): Promise<Response> {
-  const session = await findTenantSession(request.headers);
-  if (session instanceof Response) {
-    return session;
-  }
-  if (!session) {
+  const session = await findExportSession(request);
+  if (session.kind === "signed_out") {
     return new Response("Faça login para exportar o financeiro.", { status: 401 });
+  }
+  if (session.kind === "other_profile") {
+    return new Response("Este arquivo é de outro perfil, que não está na sua conta.", {
+      status: 403,
+    });
+  }
+  if (session.kind === "supplier_profile") {
+    return new Response(session.message, { status: 403 });
   }
   const search = financialSearchSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
   const { period, scope } = buildReportScope(session.tenantId, search);
