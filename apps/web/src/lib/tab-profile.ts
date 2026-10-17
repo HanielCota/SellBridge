@@ -11,6 +11,11 @@ export function rememberTabProfile(slug: string): void {
   rememberedProfile = slug;
 }
 
+/** Forgets a profile the tab must not use, so the next calls fall back to the session's. */
+export function forgetTabProfile(): void {
+  rememberedProfile = null;
+}
+
 /** The tab's profile, or null on the server (a server render reads the page URL instead). */
 export function tabProfile(): string | null {
   if (typeof window === "undefined") {
@@ -39,6 +44,13 @@ export function addProfileToHref(href: string, slug: string | null): string {
   }
   const url = new URL(href, "http://localhost");
   url.searchParams.set(PROFILE_SEARCH_PARAM, slug);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+/** `href` without `?perfil=`. */
+export function removeProfileFromHref(href: string): string {
+  const url = new URL(href, "http://localhost");
+  url.searchParams.delete(PROFILE_SEARCH_PARAM);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 

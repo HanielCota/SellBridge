@@ -12,7 +12,13 @@ import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { getAppSession } from "@/features/auth/session.functions";
 import { profileSlugSchema } from "@/lib/profile-param";
-import { addProfileToHref, rememberTabProfile, tabProfile } from "@/lib/tab-profile";
+import {
+  addProfileToHref,
+  forgetTabProfile,
+  rememberTabProfile,
+  removeProfileFromHref,
+  tabProfile,
+} from "@/lib/tab-profile";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 
@@ -21,6 +27,10 @@ function validateAppSearch(search: Record<string, unknown>): { perfil?: string }
   const parsed = profileSlugSchema.safeParse(search.perfil);
   // A malformed profile is never taken as the tab's; the server still refuses it by name.
   return parsed.success ? { perfil: parsed.data } : {};
+}
+
+function isTeamPage(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 export const Route = createFileRoute("/_app")({
@@ -42,7 +52,12 @@ export const Route = createFileRoute("/_app")({
       sessionProfile: session.profileSlug,
       foreignProfile: session.foreignProfile,
       rememberedProfile: previousProfile,
+      isTeamPage: isTeamPage(location.pathname),
     });
+    if (plan.kind === "drop_profile") {
+      forgetTabProfile();
+      throw redirect({ href: removeProfileFromHref(location.href), replace: true });
+    }
     if (plan.kind === "foreign_profile") {
       throw redirect({ to: "/outro-perfil", replace: true });
     }

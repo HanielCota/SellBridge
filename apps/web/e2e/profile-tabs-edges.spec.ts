@@ -1,9 +1,16 @@
 import { expect, type Page, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
-import { member } from "@sellbridge/database/schema";
+import { member, user } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
-import { gotoHydrated, signUp, waitForHydration } from "./helpers";
+import {
+  enableAdminMode,
+  gotoHydrated,
+  SIGN_UP_PASSWORD,
+  signIn,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
@@ -72,4 +79,21 @@ test("never serves another profile when the header names one outside the account
     headers: { "x-sellbridge-profile": FOREIGN_PROFILE },
   });
   expect(foreign.status()).toBe(403);
+});
+
+test("opens a team link that carries a colleague's profile", async ({ browser }) => {
+  const context = await browser.newContext();
+  const agentPage = await context.newPage();
+  const email = await signUp(agentPage, "Atendente Link Colega");
+  await database.update(user).set({ role: "agent" }).where(eq(user.email, email));
+  await context.clearCookies();
+  await signIn(agentPage, { email, password: SIGN_UP_PASSWORD });
+  await enableAdminMode(agentPage);
+
+  // A colleague's link: the profile in it belongs to another account.
+  await gotoHydrated(agentPage, `/admin/chamados?perfil=${ownProfile}`);
+  await expect(agentPage.getByRole("heading", { name: "Chamados" })).toBeVisible();
+  expect(new URL(agentPage.url()).pathname).toBe("/admin/chamados");
+  expect(agentPage.url()).not.toContain(ownProfile);
+  await context.close();
 });

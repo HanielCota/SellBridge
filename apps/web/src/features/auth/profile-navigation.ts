@@ -7,11 +7,14 @@ export interface ProfileNavigationInput {
   foreignProfile: string | null;
   /** The profile this tab was on before this navigation. */
   rememberedProfile: string | null;
+  /** A SellBridge team page (/admin): it belongs to no profile. */
+  isTeamPage: boolean;
 }
 
 export type ProfileNavigation =
   | { kind: "add_profile"; slug: string }
   | { kind: "foreign_profile" }
+  | { kind: "drop_profile" }
   | { kind: "stay"; clearCache: boolean };
 
 /**
@@ -21,6 +24,10 @@ export type ProfileNavigation =
  * the previous one.
  */
 export function planProfileNavigation(input: ProfileNavigationInput): ProfileNavigation {
+  if (input.foreignProfile !== null && input.isTeamPage) {
+    // A colleague's link to a ticket carries their profile; the page itself needs none.
+    return { kind: "drop_profile" };
+  }
   if (input.foreignProfile !== null) {
     return { kind: "foreign_profile" };
   }

@@ -9,6 +9,7 @@ describe("planProfileNavigation", () => {
         sessionProfile: "loja-a",
         foreignProfile: null,
         rememberedProfile: null,
+        isTeamPage: false,
       }),
     ).toEqual({ kind: "add_profile", slug: "loja-a" });
   });
@@ -20,6 +21,7 @@ describe("planProfileNavigation", () => {
         sessionProfile: null,
         foreignProfile: "loja-de-outra-pessoa",
         rememberedProfile: "loja-a",
+        isTeamPage: false,
       }),
     ).toEqual({ kind: "foreign_profile" });
   });
@@ -31,6 +33,7 @@ describe("planProfileNavigation", () => {
         sessionProfile: "loja-b",
         foreignProfile: null,
         rememberedProfile: "loja-a",
+        isTeamPage: false,
       }),
     ).toEqual({ kind: "stay", clearCache: true });
   });
@@ -42,6 +45,7 @@ describe("planProfileNavigation", () => {
         sessionProfile: "loja-a",
         foreignProfile: null,
         rememberedProfile: "loja-a",
+        isTeamPage: false,
       }),
     ).toEqual({ kind: "stay", clearCache: false });
   });
@@ -53,7 +57,20 @@ describe("planProfileNavigation", () => {
         sessionProfile: null,
         foreignProfile: null,
         rememberedProfile: null,
+        isTeamPage: false,
       }),
     ).toEqual({ kind: "stay", clearCache: false });
+  });
+
+  it("drops a colleague's profile from a team link instead of refusing the page", () => {
+    expect(
+      planProfileNavigation({
+        searchProfile: "loja-da-colega",
+        sessionProfile: null,
+        foreignProfile: "loja-da-colega",
+        rememberedProfile: "loja-da-colega",
+        isTeamPage: true,
+      }),
+    ).toEqual({ kind: "drop_profile" });
   });
 });

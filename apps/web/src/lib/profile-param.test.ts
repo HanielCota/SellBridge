@@ -5,7 +5,12 @@ import {
   profileHeaderOf,
   requestedProfileOf,
 } from "./profile-param.ts";
-import { addProfileToHref, tabProfile, tabProfileHeaders } from "./tab-profile.ts";
+import {
+  addProfileToHref,
+  removeProfileFromHref,
+  tabProfile,
+  tabProfileHeaders,
+} from "./tab-profile.ts";
 
 const PAGE = "https://app.sellbridge.test/pedidos";
 
@@ -79,6 +84,14 @@ describe("addProfileToHref", () => {
 
   it("encodes a slug so it cannot add parameters of its own", () => {
     expect(addProfileToHref("/pedidos", "a&page=9")).toBe("/pedidos?perfil=a%26page%3D9");
+  });
+});
+
+describe("removeProfileFromHref", () => {
+  it("removes only the profile and keeps the rest of the link", () => {
+    expect(removeProfileFromHref("/admin/chamados?page=2&perfil=loja-da-ana#topo")).toBe(
+      "/admin/chamados?page=2#topo",
+    );
   });
 });
 
