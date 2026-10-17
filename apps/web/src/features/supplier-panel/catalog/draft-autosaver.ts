@@ -91,7 +91,7 @@ export class DraftAutosaver<TProduct extends StoredVersion> {
   /** One request; true when the values were stored. */
   async #send(values: PanelFormValues, serialized: string): Promise<boolean> {
     const options = this.#options;
-    const parsed = parseDraft(values);
+    const parsed = parseDraft(values, this.#expectedStock);
     if (!parsed.ok) {
       options.onState({ kind: "invalid", errors: parsed.errors });
       return false;

@@ -21,7 +21,21 @@ const productStockSchema = z
  * The shelf count the edit form was opened with. It goes below zero when shipped units outran
  * the last count (see `consume` in stock-reservations), and such a product must stay editable.
  */
-const openedShelfCountSchema = z.number().int().min(-2_147_483_648).max(2_147_483_647);
+export const openedShelfCountSchema = z.number().int().min(-2_147_483_648).max(2_147_483_647);
+/**
+ * The shelf count an edit form sends: the usual range, or a negative count left as it was
+ * opened. Saving only the title of a product shipped below zero used to be refused.
+ */
+export const editedShelfCountSchema = openedShelfCountSchema.max(
+  MAX_PRODUCT_STOCK,
+  "O estoque pode ser de até 10.000.000 unidades",
+);
+export const NEGATIVE_STOCK_MESSAGE = "O estoque não pode ser negativo";
+
+/** True unless a negative count is typed instead of kept as the form opened it. */
+export function keepsNegativeShelfOnly(stock: number, expectedStock: number | undefined): boolean {
+  return stock >= 0 || stock === expectedStock;
+}
 /** An amount as the message shows it: in reais when it is whole cents, as typed otherwise. */
 function receivedAmount(input: unknown): string {
   if (typeof input === "number" && Number.isSafeInteger(input)) {
@@ -143,12 +157,18 @@ export const adminProductValuesSchema = z.object({
     .optional(),
 });
 export type AdminProductValues = z.infer<typeof adminProductValuesSchema>;
-export const adminSaveProductSchema = adminProductValuesSchema.extend({
-  supplierId: z.uuid(),
-  productId: z.uuid().optional(),
-  /** The shelf count the edit form was opened with; sales may have moved it since. */
-  expectedStock: openedShelfCountSchema.optional(),
-});
+export const adminSaveProductSchema = adminProductValuesSchema
+  .extend({
+    stock: editedShelfCountSchema,
+    supplierId: z.uuid(),
+    productId: z.uuid().optional(),
+    /** The shelf count the edit form was opened with; sales may have moved it since. */
+    expectedStock: openedShelfCountSchema.optional(),
+  })
+  .refine((input) => keepsNegativeShelfOnly(input.stock, input.expectedStock), {
+    path: ["stock"],
+    error: NEGATIVE_STOCK_MESSAGE,
+  });
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),
   productId: z.uuid(),

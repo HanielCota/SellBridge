@@ -86,7 +86,8 @@ export function productFormInput(
     description: values.description,
     costCents: parseCsvMoney(values.cost),
     suggestedPriceCents: parseCsvMoney(values.suggestedPrice),
-    stock: /^\d+$/.test(values.stock) ? Number(values.stock) : null,
+    // Negative only when shipments outran the count; the schema refuses typing a new one.
+    stock: /^-?\d+$/.test(values.stock) ? Number(values.stock) : null,
     categoryId: values.categoryId || null,
     mercadoLivreAttributes: parseMercadoLivreAttributes(values.mercadoLivreAttributes),
     imageUrls: values.images

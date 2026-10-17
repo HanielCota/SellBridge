@@ -37,6 +37,17 @@ describe("Mercado Livre attributes in the product form", () => {
   });
 });
 
+describe("shelf count in the product form", () => {
+  it("saves a title edit on a product whose shelf went below zero", () => {
+    const shipped = { id: "22222222-2222-4222-8222-222222222222", stock: -3 };
+    const values = { ...productFormValues(), sku: "SKU-1", title: "Produto", stock: "-3" };
+    const parsed = adminSaveProductSchema.safeParse(
+      productFormInput(values, "11111111-1111-4111-8111-111111111111", shipped),
+    );
+    expect(parsed.data?.stock).toBe(-3);
+  });
+});
+
 describe("supplier contact and deadlines in the supplier form", () => {
   const filled = { ...supplierFormValues(), name: "Fornecedor", niche: "Moda", city: "Recife" };
 

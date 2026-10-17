@@ -68,6 +68,16 @@ describe("parseDraft", () => {
     ]);
   });
 
+  it("saves a product whose shelf went below zero when the count is left as it opened", () => {
+    const parsed = parseDraft({ ...FILLED, stock: "-3" }, -3);
+    expect(parsed.ok ? parsed.values.stock : parsed.errors).toBe(-3);
+  });
+
+  it("holds the save when a negative shelf count is typed", () => {
+    const parsed = parseDraft({ ...FILLED, stock: "-1" }, 5);
+    expect(parsed.ok ? {} : parsed.errors).toEqual({ stock: "O estoque não pode ser negativo" });
+  });
+
   it("points a bad image link at the image step", () => {
     const parsed = parseDraft({ ...FILLED, imageUrls: ["ftp://x"] });
     expect(parsed.ok ? [] : Object.keys(parsed.errors)).toEqual(["imageUrls"]);
