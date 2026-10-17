@@ -11,7 +11,7 @@ export const HEALTH_WINDOW_DAYS = 60;
 
 /**
  * Below this many counted orders a rate says more about luck than about the supplier (two
- * late parcels out of five read as 60%), so the metric shows "ainda sem dados suficientes"
+ * late parcels out of five read as 60%), so the metric shows "Poucos dados"
  * instead of a scary red.
  */
 export const MIN_HEALTH_ORDERS = 10;
@@ -53,7 +53,7 @@ export const HEALTH_LEVEL_LABELS: Record<HealthLevel, string> = {
   green: "Verde",
   yellow: "Amarelo",
   red: "Vermelho",
-  insufficient: "Sem dados suficientes",
+  insufficient: "Poucos dados",
 };
 
 /** Worst first, for the overall level and the attention queue. */

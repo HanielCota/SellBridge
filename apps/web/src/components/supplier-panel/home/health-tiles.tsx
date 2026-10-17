@@ -1,7 +1,6 @@
 import {
   HEALTH_LEVEL_LABELS,
   HEALTH_METRIC_LABELS,
-  HEALTH_WINDOW_DAYS,
   type HealthMetric,
   type HealthMetricKey,
 } from "@sellbridge/shared/supplier-panel-health";
@@ -17,7 +16,7 @@ import {
   sampleNote,
 } from "./health-format";
 
-const VERSUS = `vs. ${HEALTH_WINDOW_DAYS} dias antes`;
+const VERSUS = "vs. anterior";
 
 /** Under the value: the move against the previous window, or how much sample is missing. */
 function TileFooter({ metric }: { metric: HealthMetric }) {
@@ -26,7 +25,7 @@ function TileFooter({ metric }: { metric: HealthMetric }) {
   }
   const delta = healthDelta(metric);
   if (delta === null) {
-    return <span className="text-muted-foreground">Sem período anterior para comparar</span>;
+    return <span className="text-muted-foreground">Sem período anterior</span>;
   }
   return <DeltaBadge direction={delta.direction} label={delta.label} suffix={VERSUS} />;
 }
@@ -43,7 +42,7 @@ function HealthTile({ metric, href }: { metric: HealthMetric; href: string }) {
     <a
       href={href}
       aria-label={`Ver ${label.toLowerCase()} no desempenho`}
-      className="group surface-interactive flex min-h-36 min-w-0 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="group surface-interactive flex min-h-36 cursor-pointer select-none min-w-0 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="text-sm text-muted-foreground">{label}</span>

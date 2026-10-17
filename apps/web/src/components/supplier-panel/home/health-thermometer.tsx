@@ -20,10 +20,10 @@ import { HEALTH_SEGMENT_CLASSES } from "./health-format";
 const SEGMENTS = ["red", "yellow", "green"] as const;
 
 const LEVEL_SUMMARY: Record<HealthLevel, string> = {
-  green: "Tudo dentro das metas. Continue assim.",
-  yellow: "Uma ou mais métricas saíram da meta. Veja abaixo o que falta para voltar.",
-  red: "Revendedores já sentem: corrija as métricas em vermelho primeiro.",
-  insufficient: "Ainda sem pedidos suficientes para medir. Nada aqui conta contra você.",
+  green: "Todas as métricas dentro da meta.",
+  yellow: "Uma ou mais métricas fora da meta.",
+  red: "Corrija primeiro as métricas em vermelho.",
+  insufficient: "Com poucos pedidos, nada conta contra você.",
 };
 
 /** Three segments, only the current one lit, like the public score's thermometer. */
@@ -48,7 +48,7 @@ function PublicScore({ reputation }: { reputation: SupplierReputation }) {
   return (
     <div className="space-y-3">
       <p className="text-footnote text-muted-foreground">
-        Como os revendedores veem você · últimos {SCORE_WINDOW_DAYS} dias
+        Score público em {SCORE_WINDOW_DAYS} dias
       </p>
       {reputation.score === null || reputation.level === null ? (
         <p className="text-sm text-muted-foreground">
@@ -87,7 +87,7 @@ export function HealthThermometer({
     >
       <div className="space-y-3">
         <p className="text-footnote text-muted-foreground">
-          Saúde da conta · últimos {health.windowDays} dias
+          Saúde da conta em {health.windowDays} dias
         </p>
         <p className="text-3xl font-semibold tracking-tight">{HEALTH_LEVEL_LABELS[health.level]}</p>
         <LevelBar level={health.level} />

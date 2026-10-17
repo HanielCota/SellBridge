@@ -120,8 +120,8 @@ function collectText(key: HealthMetricKey, events: number): string {
     key === "average_rating"
       ? plural(events, "avaliação", "avaliações")
       : plural(events, "pedido", "pedidos");
-  const verb = events === 1 ? "falta" : "faltam";
-  return `Ainda sem dados suficientes: ${verb} ${missing} para medir.`;
+  const verb = events === 1 ? "Falta" : "Faltam";
+  return `${verb} ${missing} para medir.`;
 }
 
 /** The forecast as the supplier reads it, or null when the level is not at stake. */

@@ -47,8 +47,8 @@ function AllClear() {
         <ChecklistDoneIcon className="size-6 text-emerald-600 dark:text-emerald-400" />
       </span>
       <p className="max-w-64 text-sm text-muted-foreground">
-        <span className="block text-subhead font-medium text-foreground">Tudo em dia</span>
-        Nenhum pedido atrasado, produto zerado com anúncio ativo ou métrica em risco.
+        <span className="block text-subhead font-medium text-foreground">Nenhuma pendência</span>
+        Pedidos atrasados, produtos sem estoque e métricas em risco aparecem aqui.
       </p>
     </div>
   );
@@ -58,7 +58,7 @@ function QueueRow({ item, href }: { item: SupplierAttentionItem; href: string })
   return (
     <a
       href={href}
-      className="flex items-start gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 outline-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 outline-none select-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span
         className={cn(
@@ -76,7 +76,9 @@ function QueueRow({ item, href }: { item: SupplierAttentionItem; href: string })
             {ATTENTION_SEVERITY_LABELS[item.severity]}
           </span>
         </span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{item.description}</span>
+        {item.description === null ? null : (
+          <span className="mt-0.5 block text-xs text-muted-foreground">{item.description}</span>
+        )}
       </span>
       <CaretRightIcon className="mt-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </a>

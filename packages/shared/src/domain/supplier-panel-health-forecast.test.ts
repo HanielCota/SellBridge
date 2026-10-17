@@ -99,10 +99,10 @@ describe("healthForecastText", () => {
 
   it("says what is missing to measure", () => {
     expect(healthForecastText("accept_on_time", { kind: "collect", events: 4 })).toBe(
-      "Ainda sem dados suficientes: faltam 4 pedidos para medir.",
+      "Faltam 4 pedidos para medir.",
     );
     expect(healthForecastText("average_rating", { kind: "collect", events: 1 })).toBe(
-      "Ainda sem dados suficientes: falta 1 avaliação para medir.",
+      "Falta 1 avaliação para medir.",
     );
     expect(healthForecastText("accept_on_time", { kind: "steady" })).toBeNull();
   });

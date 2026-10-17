@@ -1,7 +1,6 @@
 import {
   HEALTH_LEVEL_LABELS,
   HEALTH_METRIC_LABELS,
-  HEALTH_WINDOW_DAYS,
   healthForecastText,
   type HealthMetric,
   type HealthMetricKey,
@@ -26,13 +25,7 @@ function MetricTrend({ metric }: { metric: HealthMetric }) {
   if (delta === null) {
     return <span className="text-xs text-muted-foreground">Sem período anterior</span>;
   }
-  return (
-    <DeltaBadge
-      direction={delta.direction}
-      label={delta.label}
-      suffix={`vs. ${HEALTH_WINDOW_DAYS} dias antes`}
-    />
-  );
+  return <DeltaBadge direction={delta.direction} label={delta.label} suffix="vs. anterior" />;
 }
 
 function MetricRow({
@@ -44,7 +37,9 @@ function MetricRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const forecast = healthForecastText(metric.key, metric.forecast);
+  // A short sample already shows "4 de 10 pedidos para medir" beside the value.
+  const forecast =
+    metric.forecast.kind === "collect" ? null : healthForecastText(metric.key, metric.forecast);
   const measured = metric.level === "insufficient" ? null : metric.value;
   return (
     <button
@@ -52,7 +47,7 @@ function MetricRow({
       aria-pressed={selected}
       onClick={onSelect}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-[background-color,box-shadow] duration-100 outline-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50",
+        "flex w-full cursor-pointer items-start gap-3 rounded-2xl px-3 py-3 text-left transition-[background-color,box-shadow] duration-100 outline-none select-none hover:row-lift focus-visible:ring-3 focus-visible:ring-ring/50",
         selected && "bg-muted/60",
       )}
     >

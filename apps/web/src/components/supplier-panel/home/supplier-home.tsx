@@ -20,7 +20,7 @@ function HomeGrid({ queue, tiles }: { queue: ReactNode; tiles: ReactNode }) {
       {queue}
       <section aria-label="Saúde da conta" className="min-w-0 space-y-3">
         <p className="text-footnote text-muted-foreground">
-          Saúde da conta · últimos {HEALTH_WINDOW_DAYS} dias
+          Saúde da conta em {HEALTH_WINDOW_DAYS} dias
         </p>
         {tiles}
       </section>
@@ -37,11 +37,7 @@ export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
   const header = (
     <PageHeader
       title="Início"
-      description={
-        query.data === undefined
-          ? "O que precisa de você hoje e como está a sua conta."
-          : `${query.data.supplierName} · o que precisa de você hoje e como está a sua conta.`
-      }
+      {...(query.data === undefined ? {} : { description: query.data.supplierName })}
     />
   );
   // A failed background refresh keeps the numbers already on screen.
@@ -50,7 +46,7 @@ export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
       <div className="space-y-6">
         {header}
         <ErrorState
-          message="Não foi possível carregar o início do painel."
+          message="Não foi possível carregar o Início, tente de novo."
           onRetry={() => void query.refetch()}
         />
       </div>

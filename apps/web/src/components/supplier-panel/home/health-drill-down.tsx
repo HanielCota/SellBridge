@@ -12,8 +12,8 @@ import { healthDrillDownQueryOptions } from "@/features/supplier-panel/home/home
 
 /** What each row means for each metric, said once above the list. */
 const DRILL_DOWN_CAPTIONS: Record<HealthMetricKey, string> = {
-  accept_on_time: "Pedidos aceitos depois do prazo de aceite.",
-  dispatch_on_time: "Pedidos despachados depois do prazo de despacho.",
+  accept_on_time: "Pedidos aceitos depois do prazo.",
+  dispatch_on_time: "Pedidos despachados depois do prazo.",
   supplier_cancellations: "Pedidos que você cancelou.",
   average_rating: "Avaliações de 3 estrelas ou menos.",
 };
@@ -24,7 +24,7 @@ function DrillDownRows({ supplierId, metric }: { supplierId: string; metric: Hea
   if (query.isError && query.data === undefined) {
     return (
       <ErrorState
-        message="Não foi possível carregar os pedidos desta métrica."
+        message="Não foi possível carregar os pedidos, tente de novo."
         onRetry={() => void query.refetch()}
       />
     );
@@ -35,7 +35,8 @@ function DrillDownRows({ supplierId, metric }: { supplierId: string; metric: Hea
   if (query.data.length === 0) {
     return (
       <p className="rounded-2xl bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground">
-        Nenhum pedido pesou contra esta métrica nos últimos {HEALTH_WINDOW_DAYS} dias.
+        Os pedidos que contarem contra esta métrica nos últimos {HEALTH_WINDOW_DAYS} dias aparecem
+        aqui.
       </p>
     );
   }
@@ -78,7 +79,7 @@ export function HealthDrillDown({
       className="surface-card rounded-3xl bg-card p-5 sm:p-6"
     >
       <h2 id="health-drill-down-title" className="text-subhead font-semibold">
-        O que pesou em {HEALTH_METRIC_LABELS[metric].toLowerCase()}
+        {HEALTH_METRIC_LABELS[metric]}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">{DRILL_DOWN_CAPTIONS[metric]}</p>
       <div className="mt-4">

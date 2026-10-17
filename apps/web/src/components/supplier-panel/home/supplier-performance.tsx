@@ -1,4 +1,4 @@
-import { HEALTH_WINDOW_DAYS, type HealthMetricKey } from "@sellbridge/shared/supplier-panel-health";
+import type { HealthMetricKey } from "@sellbridge/shared/supplier-panel-health";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -15,12 +15,7 @@ interface SupplierPerformanceProps {
   initialMetric?: HealthMetricKey | undefined;
 }
 
-const HEADER = (
-  <PageHeader
-    title="Desempenho"
-    description={`Suas métricas dos últimos ${HEALTH_WINDOW_DAYS} dias, a meta de cada uma e os pedidos por trás dos números.`}
-  />
-);
+const HEADER = <PageHeader title="Desempenho" />;
 
 function PerformanceSkeleton() {
   return (
@@ -47,7 +42,7 @@ export function SupplierPerformance({ supplierId, initialMetric }: SupplierPerfo
       <div className="space-y-6">
         {HEADER}
         <ErrorState
-          message="Não foi possível carregar o desempenho."
+          message="Não foi possível carregar o Desempenho, tente de novo."
           onRetry={() => void query.refetch()}
         />
       </div>

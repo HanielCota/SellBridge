@@ -25,10 +25,10 @@ describe("health formatting", () => {
     expect(formatHealthTarget(HEALTH_METRIC_DEFINITIONS.average_rating)).toBe("meta ≥ 4,0");
   });
 
-  it("formats shares and stars, and a dash without data", () => {
+  it("formats shares and stars, and says when there is no data", () => {
     expect(formatHealthValue(HEALTH_METRIC_DEFINITIONS.accept_on_time, 0.925)).toBe("92,5%");
     expect(formatHealthValue(HEALTH_METRIC_DEFINITIONS.average_rating, 4.25)).toBe("4,3");
-    expect(formatHealthValue(HEALTH_METRIC_DEFINITIONS.average_rating, null)).toBe("—");
+    expect(formatHealthValue(HEALTH_METRIC_DEFINITIONS.average_rating, null)).toBe("Sem dados");
   });
 
   it("points the arrow up for fewer cancellations", () => {
@@ -38,7 +38,7 @@ describe("health formatting", () => {
     expect(delta).toEqual({ direction: "up", label: "2,5 p.p." });
   });
 
-  it("reads a worse rating in stars and a flat trend as stable", () => {
+  it("reads a worse rating in stars and a flat trend with its small amount", () => {
     expect(
       healthDelta(metric({ key: "average_rating", value: 4, previousValue: 4.5, trend: "worse" })),
     ).toEqual({ direction: "down", label: "0,5 estrela" });
@@ -46,7 +46,7 @@ describe("health formatting", () => {
       healthDelta(
         metric({ key: "accept_on_time", value: 0.95, previousValue: 0.951, trend: "flat" }),
       ),
-    ).toEqual({ direction: "flat", label: "estável" });
+    ).toEqual({ direction: "flat", label: "0,1 p.p." });
     expect(healthDelta(metric({ key: "accept_on_time" }))).toBeNull();
   });
 

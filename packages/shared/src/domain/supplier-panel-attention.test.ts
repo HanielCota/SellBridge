@@ -159,6 +159,14 @@ describe("buildSupplierAttention", () => {
     });
   });
 
+  it("names a near deadline in hours, with no sentence repeating it", () => {
+    const items = queue({ openShipments: [parcel(21), parcel(30, { status: "accepted" })] });
+    expect(items.map((item) => [item.title, item.description])).toEqual([
+      ["1 pedido para aceitar em até 4 h", null],
+      ["1 pedido para despachar em até 24 h", null],
+    ]);
+  });
+
   it("counts the listings hit by products out of stock", () => {
     const [item] = queue({ stock: [product(0, 3), product(-2, 2), product(5, 9)] });
     expect(item).toMatchObject({
@@ -184,7 +192,7 @@ describe("buildSupplierAttention", () => {
       ["delivery_failed-label", "critical", 1],
       ["delivery_failed-email", "warning", 1],
     ]);
-    expect(items[1]?.title).toBe("1 aviso de pedido não chegou por e-mail");
+    expect(items[1]?.title).toBe("1 e-mail de pedido não enviado");
   });
 
   it("turns metric levels into severities with the forecast as the reason", () => {
@@ -197,7 +205,7 @@ describe("buildSupplierAttention", () => {
     });
     expect(red[0]).toMatchObject({
       severity: "critical",
-      title: "Despacho no prazo está no vermelho",
+      title: "Despacho no prazo em vermelho",
       description: "3 despachos no prazo em sequência e você volta para amarelo.",
       target: { area: "performance", metric: "dispatch_on_time" },
     });

@@ -18,7 +18,7 @@ export function formatHealthValue(
   value: number | null,
 ): string {
   if (value === null) {
-    return "—";
+    return "Sem dados";
   }
   return definition.unit === "stars" ? stars.format(value) : percent.format(value);
 }
@@ -63,8 +63,9 @@ export function healthDelta(metric: HealthMetric): HealthDelta | null {
     metric.definition.unit === "stars"
       ? `${stars.format(difference)} ${difference < 2 ? "estrela" : "estrelas"}`
       : `${points.format(difference * 100)} p.p.`;
+  // The badge already says "estável" to screen readers, so a flat move shows its small amount.
   if (metric.trend === "flat") {
-    return { direction: "flat", label: "estável" };
+    return { direction: "flat", label };
   }
   return { direction: metric.trend === "better" ? "up" : "down", label };
 }
