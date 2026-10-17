@@ -269,6 +269,7 @@ describe("queueDueAt", () => {
       .select({ dueAt: queueDueAt })
       .from(orderShipments)
       .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+      .innerJoin(orders, eq(orders.id, orderShipments.orderId))
       .where(eq(orderShipments.id, shipmentId));
     const listed = await listSupplierShipments(database, {
       supplierId: supplier.supplierId,
@@ -279,5 +280,26 @@ describe("queueDueAt", () => {
     const item = listed.items.find((candidate) => candidate.id === shipmentId);
     expect(item?.deadline?.at.toISOString()).toBe("2026-10-21T03:00:00.000Z");
     expect(new Date(String(row?.dueAt)).toISOString()).toBe(item?.deadline?.at.toISOString());
+  });
+});
+
+describe("a sale not released for shipping", () => {
+  it("lists a cancelled sale with no deadline and only the blocked reason", async () => {
+    const { shipmentId, order } = await forwardedShipment({ hoursAgo: 30 });
+    await database.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
+    const result = await listSupplierShipments(database, {
+      supplierId: supplier.supplierId,
+      tab: "problem",
+      query: order.externalOrderId,
+      page: 1,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: shipmentId,
+      action: null,
+      deadline: null,
+      urgency: "normal",
+      problems: ["order_blocked"],
+    });
   });
 });

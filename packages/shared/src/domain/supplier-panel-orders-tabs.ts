@@ -1,5 +1,7 @@
 import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
-import { SUPPLIER_QUEUE_STATUSES } from "./supplier-panel-orders.ts";
+import { isOrderBlocked, SUPPLIER_QUEUE_STATUSES } from "./supplier-panel-orders.ts";
+
+export { BLOCKED_ORDER_STATUSES } from "./supplier-panel-orders.ts";
 
 /**
  * The supplier's Pedidos tabs, in the order they show. "todo" is everything still in its hands;
@@ -75,9 +77,6 @@ export const SUPPLIER_ORDER_PROBLEM_HINTS: Record<SupplierOrderProblem, string> 
   order_blocked: "Não separe nem envie: fale com o revendedor antes.",
 };
 
-/** Order statuses that hold the parcel back, as `isShippingBlocked` reads them on the link. */
-export const BLOCKED_ORDER_STATUSES = ["pending", "cancelled", "returned"] as const;
-
 export interface ProblemSignals {
   overdue: boolean;
   emailFailed: boolean;
@@ -86,7 +85,7 @@ export interface ProblemSignals {
 
 /** Every problem a queue parcel has, the most serious first. */
 export function supplierOrderProblems(signals: ProblemSignals): SupplierOrderProblem[] {
-  const blocked = BLOCKED_ORDER_STATUSES.some((status) => status === signals.orderStatus);
+  const blocked = isOrderBlocked(signals.orderStatus);
   const found: Record<SupplierOrderProblem, boolean> = {
     order_blocked: blocked,
     overdue: signals.overdue,

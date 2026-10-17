@@ -114,7 +114,32 @@ export interface QueueEntry {
   urgency: QueueUrgency;
 }
 
-export function describeQueueEntry(timing: QueueTiming, now: Date): QueueEntry {
+/** Order statuses that hold the parcel back, as `isShippingBlocked` reads them on the link. */
+export const BLOCKED_ORDER_STATUSES = ["pending", "cancelled", "returned"] as const;
+
+export function isOrderBlocked(orderStatus: string): boolean {
+  return BLOCKED_ORDER_STATUSES.some((status) => status === orderStatus);
+}
+
+const NOTHING_DUE: QueueEntry = {
+  action: null,
+  deadline: null,
+  remainingMilliseconds: null,
+  urgency: "normal",
+};
+
+/**
+ * A sale not released for shipping (unpaid, cancelled or returned) has nothing to do and nothing
+ * due: no countdown pushing the supplier to ship a parcel it must hold back.
+ */
+export function describeQueueEntry(
+  timing: QueueTiming,
+  now: Date,
+  sale: { orderStatus: string } = { orderStatus: "paid" },
+): QueueEntry {
+  if (isOrderBlocked(sale.orderStatus)) {
+    return NOTHING_DUE;
+  }
   const deadline = queueDeadline(timing);
   const remainingMilliseconds = deadline === null ? null : deadline.at.getTime() - now.getTime();
   return {

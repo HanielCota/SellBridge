@@ -188,3 +188,29 @@ describe("countdownLabel", () => {
     expect(countdownLabel({ deadline: null, remainingMilliseconds: null })).toBe("Sem prazo");
   });
 });
+
+describe("describeQueueEntry for a sale not released for shipping", () => {
+  it("shows no deadline and no action for a cancelled sale", () => {
+    const entry = describeQueueEntry(timing("forwarded"), forwardedAt, {
+      orderStatus: "cancelled",
+    });
+    expect(entry).toEqual({
+      action: null,
+      deadline: null,
+      remainingMilliseconds: null,
+      urgency: "normal",
+    });
+  });
+
+  it("shows no deadline for an unpaid or returned sale either", () => {
+    for (const orderStatus of ["pending", "returned"]) {
+      expect(describeQueueEntry(timing("ready"), forwardedAt, { orderStatus }).deadline).toBeNull();
+    }
+  });
+
+  it("keeps the deadline of a paid sale", () => {
+    const entry = describeQueueEntry(timing("forwarded"), forwardedAt, { orderStatus: "paid" });
+    expect(entry.deadline?.kind).toBe("accept");
+    expect(entry.action?.status).toBe("accepted");
+  });
+});

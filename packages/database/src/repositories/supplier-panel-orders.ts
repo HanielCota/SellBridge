@@ -83,7 +83,7 @@ type ShipmentRow = Awaited<ReturnType<ReturnType<typeof shipmentsFrom>["where"]>
 
 /** The row with its deadline-first reading and its problems, both from the shared domain. */
 function presentRow(row: ShipmentRow, now: Date) {
-  const entry = describeQueueEntry(row, now);
+  const entry = describeQueueEntry(row, now, { orderStatus: row.orderStatus });
   const problems = supplierOrderProblems({
     overdue: entry.urgency === "overdue",
     emailFailed: row.emailFailed,

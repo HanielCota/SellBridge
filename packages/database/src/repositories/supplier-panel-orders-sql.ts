@@ -24,8 +24,14 @@ const dispatchAt = sql`coalesce(${endOfBrazilDay(orderShipments.dispatchDeadline
 
 const QUEUE_LIST = sql.raw(SUPPLIER_QUEUE_STATUSES.map((status) => `'${status}'`).join(","));
 
-/** When the parcel's next step turns late; null outside the queue. `least` skips nulls. */
+const BLOCKED_LIST = sql.raw(BLOCKED_ORDER_STATUSES.map((status) => `'${status}'`).join(","));
+
+/**
+ * When the parcel's next step turns late; null outside the queue and for a sale not released
+ * for shipping, as `describeQueueEntry` says. `least` skips nulls.
+ */
 export const queueDueAt = sql<Date | null>`(case
+  when ${orders.status} in (${BLOCKED_LIST}) then null
   when ${orderShipments.status} = 'forwarded' then least(${acceptAt}, ${dispatchAt})
   when ${orderShipments.status} in (${QUEUE_LIST}) then ${dispatchAt}
 end)`;

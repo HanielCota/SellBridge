@@ -1,6 +1,7 @@
 import { SmartDate } from "@/components/data/smart-date";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { CountdownBadge } from "./countdown-badge";
 import {
@@ -28,6 +29,10 @@ const columnHelper = createServerColumnHelper<SupplierOrderRow>();
 
 /** "Prazo" in the queue; "Atualizado" in the history tabs, where nothing is due. */
 function DeadlineCell({ row, now }: { row: SupplierOrderRow; now: Date }) {
+  // A sale not released for shipping has nothing due: its reason stands alone.
+  if (isShippingBlocked(row.orderStatus)) {
+    return null;
+  }
   if (row.deadline === null) {
     return <SmartDate date={row.updatedAt} className="text-footnote text-muted-foreground" />;
   }

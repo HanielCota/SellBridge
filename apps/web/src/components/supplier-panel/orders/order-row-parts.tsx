@@ -77,7 +77,8 @@ export function ProblemList({ row }: { row: SupplierOrderRow }) {
 
 /**
  * The row's one primary action. Accept, picking and ready are one click; shipping asks for the
- * tracking, so it opens the panel. A sale not released for shipping offers nothing but the panel.
+ * tracking, so it opens the panel. A sale not released for shipping offers none: its reason says
+ * to hold it, and the order number still opens the panel.
  */
 export function RowAction({
   row,
@@ -91,7 +92,10 @@ export function RowAction({
   onOpen: (row: SupplierOrderRow) => void;
 }) {
   const action = row.action;
-  if (action === null || isShippingBlocked(row.orderStatus)) {
+  if (isShippingBlocked(row.orderStatus)) {
+    return null;
+  }
+  if (action === null) {
     return (
       <Button size="sm" variant="outline" onClick={() => onOpen(row)}>
         Ver pedido
