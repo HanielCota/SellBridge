@@ -13,6 +13,17 @@ let tenantId = "";
 const recipientId = `worker-notice-${crypto.randomUUID()}`;
 const recipientEmail = `${recipientId}@sellbridge.test`;
 
+/**
+ * A queued delivery is due from the database's now(), but the processor compares with the
+ * worker's clock. In CI the Postgres container can run a few milliseconds ahead of the runner,
+ * so a delivery queued right before the run was not due yet and the run claimed nothing.
+ */
+const DATABASE_CLOCK_ALLOWANCE_MILLISECONDS = 60 * 1000;
+
+function afterDatabaseClock(): Date {
+  return new Date(Date.now() + DATABASE_CLOCK_ALLOWANCE_MILLISECONDS);
+}
+
 const content = {
   subject: "Venda paga: Fone",
   preview: "R$ 25,00",
@@ -66,6 +77,7 @@ describe("notification-delivery processor", () => {
         sent.push(email);
       },
       tenantId,
+      now: afterDatabaseClock,
     });
     expect(await process()).toMatchObject({ sent: 1, failed: 0 });
     expect(sent).toHaveLength(1);
@@ -77,7 +89,7 @@ describe("notification-delivery processor", () => {
 
   it("retries a failed e-mail later and gives up when attempts run out", async () => {
     await queue("processor:retry", "email");
-    let now = new Date();
+    let now = afterDatabaseClock();
     const process = createNotificationDeliveryProcessor({
       database,
       appUrl: "https://app.sellbridge.test",
@@ -108,6 +120,7 @@ describe("notification-delivery processor", () => {
       appUrl: "https://app.sellbridge.test",
       sendEmail: async () => undefined,
       tenantId,
+      now: afterDatabaseClock,
     });
     expect(await process()).toMatchObject({ skipped: 1 });
     expect((await rowOf("processor:push"))?.status).toBe("skipped");
