@@ -41,7 +41,7 @@ export type SupplierOrderFilter = ParcelState | "delivery_failed";
 export type SupplierAttentionTarget =
   | { area: "orders"; filter: SupplierOrderFilter; shipmentId?: string }
   | { area: "stock"; filter: "out_of_stock_listed"; productId?: string }
-  | { area: "catalog"; filter: "rejected"; productId?: string }
+  | { area: "catalog"; filter: "rejected"; productId?: string; field?: string }
   | { area: "performance"; metric: HealthMetricKey };
 
 export interface SupplierAttentionItem {
@@ -203,6 +203,14 @@ function stockItems(signals: readonly StockSignal[]): Grouped[] {
   return [{ kind: "out_of_stock", item }];
 }
 
+/** One rejected product opens on the field of its first reason, as the list's "Corrigir" does. */
+function rejectedProductFocus(signal: RejectedProductSignal) {
+  if (signal.firstReasonField === null) {
+    return { productId: signal.productId };
+  }
+  return { productId: signal.productId, field: signal.firstReasonField };
+}
+
 /**
  * A rejected product sells nothing until the supplier fixes it, so it is a warning; it waits
  * below orders about to be late, which cost a sale sooner.
@@ -214,7 +222,7 @@ function rejectedItems(signals: readonly RejectedProductSignal[]): Grouped[] {
   }
   const target =
     signals.length === 1
-      ? { area: "catalog" as const, filter: "rejected" as const, productId: only.productId }
+      ? { area: "catalog" as const, filter: "rejected" as const, ...rejectedProductFocus(only) }
       : { area: "catalog" as const, filter: "rejected" as const };
   const item = {
     key: "rejected",

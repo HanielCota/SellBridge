@@ -1,4 +1,5 @@
 import type { TicketSummary } from "@sellbridge/database/repositories";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
 import { responseTargetText } from "@/features/support/response-time";
+import { noTicketsDescription } from "@/features/support/support-copy";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
@@ -105,9 +107,11 @@ function SupportHeader() {
 
 function NoTickets({
   isFiltered,
+  profileKind,
   onClearFilter,
 }: {
   isFiltered: boolean;
+  profileKind: ProfileKind;
   onClearFilter: () => void;
 }) {
   if (isFiltered) {
@@ -128,7 +132,7 @@ function NoTickets({
     <EmptyState
       icon={LifebuoyIcon}
       title="Você ainda não abriu chamados"
-      description="Abra um chamado sobre pedidos, lojas ou repasses. A resposta aparece aqui."
+      description={noTicketsDescription(profileKind)}
       action={
         <Button asChild>
           <Link to="/suporte/novo">Abrir chamado</Link>
@@ -170,6 +174,7 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
 }
 
 function SupportPage() {
+  const { session } = Route.useRouteContext();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const query = useQuery(myTicketsQueryOptions(search));
@@ -223,6 +228,7 @@ function SupportPage() {
       {isEmpty ? (
         <NoTickets
           isFiltered={isFiltered}
+          profileKind={session.profileKind}
           onClearFilter={() => updateSearch({ status: undefined, query: undefined })}
         />
       ) : (

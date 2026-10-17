@@ -235,11 +235,12 @@ export async function listSupplierRejectedProducts(
   database: Database,
   supplierId: string,
 ): Promise<RejectedProductSignal[]> {
-  return database
+  const rows = await database
     .select({
       productId: supplierProducts.id,
       title: supplierProducts.title,
       sku: supplierProducts.sku,
+      rejectionReasons: supplierProducts.rejectionReasons,
     })
     .from(supplierProducts)
     .where(
@@ -249,4 +250,8 @@ export async function listSupplierRejectedProducts(
       ),
     )
     .orderBy(desc(supplierProducts.reviewedAt), supplierProducts.id);
+  return rows.map(({ rejectionReasons, ...product }) => ({
+    ...product,
+    firstReasonField: rejectionReasons[0]?.field ?? null,
+  }));
 }

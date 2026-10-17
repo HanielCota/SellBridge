@@ -279,7 +279,10 @@ describe("getSupplierPanelProfile", () => {
 });
 
 describe("listSupplierRejectedProducts", () => {
-  const reasons = [{ field: "title", rule: "title_policy", message: "Revise o título do produto" }];
+  const reasons = [
+    { field: "imageUrls", rule: "image_quality", message: "Troque a foto principal" },
+    { field: "title", rule: "title_policy", message: "Revise o título do produto" },
+  ];
 
   it("lists only this supplier's rejected products", async () => {
     await database
@@ -288,7 +291,12 @@ describe("listSupplierRejectedProducts", () => {
       .where(inArray(supplierProducts.id, [supplier.productId, otherSupplier.productId]));
     const signals = await listSupplierRejectedProducts(database, supplier.supplierId);
     expect(signals).toEqual([
-      { productId: supplier.productId, title: "Caneca", sku: expect.any(String) },
+      {
+        productId: supplier.productId,
+        title: "Caneca",
+        sku: expect.any(String),
+        firstReasonField: "imageUrls",
+      },
     ]);
   });
 
