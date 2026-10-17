@@ -3,8 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { FileArrowUpIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { LABEL_FILE_ACCEPT, readLabelText } from "@/features/fulfillment/label-file";
-import { type LabelAddress, parseShippingLabel } from "@/features/fulfillment/shipping-label";
+import { LABEL_FILE_ACCEPT, readLabelAddress } from "@/features/fulfillment/label-file";
+import type { LabelAddress } from "@/features/fulfillment/shipping-label";
 import { errorMessage } from "@/lib/errors";
 
 /** Fields the forward form needs before it can send: a label missing any of them is flagged. */
@@ -18,13 +18,13 @@ const REQUIRED_FIELDS = [
 ] as const;
 
 /**
- * Reads the buyer's address from the shipping label the marketplace issued (PDF, ZPL or TXT) and
+ * Reads the buyer's address from the shipping label the marketplace issued (PDF, photo, ZPL, TXT) and
  * fills the forward form with it. The file is read in the browser and never uploaded.
  */
 function LabelImportButton({ onAddress }: { onAddress: (address: LabelAddress) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const read = useMutation({
-    mutationFn: async (file: File) => parseShippingLabel(await readLabelText(file)),
+    mutationFn: readLabelAddress,
     onSuccess: (address) => {
       if (Object.keys(address).length === 0) {
         toast.error("Não encontramos o endereço nesta etiqueta. Preencha os campos abaixo.");

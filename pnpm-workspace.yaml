@@ -8,3 +8,5 @@ allowBuilds:
   msgpackr-extract: false
   # The CLI uses its platform package directly; no postinstall is required.
   "@stripe/cli": false
+  # Its postinstall only prints a donation message.
+  tesseract.js: false
