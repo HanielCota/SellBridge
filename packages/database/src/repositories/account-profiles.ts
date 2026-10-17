@@ -1,13 +1,14 @@
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { member, organization, type OrganizationKind } from "../schema/index.ts";
+import { member, organization } from "../schema/index.ts";
 
 /** One profile (organization) of an account, as the profile switcher and the admin page read it. */
 export interface AccountProfileRow {
   id: string;
   slug: string;
   name: string;
-  kind: OrganizationKind;
+  kind: ProfileKind;
   /** The member's role in this profile ("owner" is the titular). */
   memberRole: string;
 }
