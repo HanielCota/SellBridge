@@ -9,7 +9,7 @@ describe("assertImportableFile", () => {
   });
 
   it("explains how to save an old .xls as .xlsx", () => {
-    expect(() => assertImportableFile({ name: "a.xls", size: 10 })).toThrow(/Salvar como/);
+    expect(() => assertImportableFile({ name: "a.xls", size: 10 })).toThrow(/salve como .xlsx/);
   });
 
   it("refuses empty and oversized files", () => {

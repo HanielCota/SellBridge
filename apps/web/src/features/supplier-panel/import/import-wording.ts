@@ -9,11 +9,8 @@ export function plural(amount: number, one: string, many: string): string {
 /** The explicit choice shown when some rows failed: what goes in and what stays out. */
 export function onlyValidLabel(validRows: number, failedRows: number): string {
   const kept = validRows === 1 ? "a linha válida" : `as ${count.format(validRows)} linhas válidas`;
-  const left =
-    failedRows === 1
-      ? "A linha com erro fica de fora"
-      : `As ${count.format(failedRows)} linhas com erro ficam de fora`;
-  return `Importar só ${kept}. ${left} até você corrigir e enviar de novo.`;
+  const left = failedRows === 1 ? "a linha com erro" : `as ${count.format(failedRows)} com erro`;
+  return `Importar só ${kept}, sem ${left}`;
 }
 
 /** What confirming does, leaving out the parts that are zero. */
@@ -22,21 +19,18 @@ export function confirmDescription(counts: {
   updated: number;
   failedRows: number;
 }): string {
-  const changes = [
+  // "produto" once, on the first part: "1 produto novo e 3 atualizados".
+  const updatedNoun =
     counts.created > 0
-      ? plural(counts.created, "produto novo será criado", "produtos novos serão criados")
-      : null,
-    counts.updated > 0
-      ? plural(
-          counts.updated,
-          "produto existente será atualizado",
-          "produtos existentes serão atualizados",
-        )
-      : null,
+      ? ["atualizado pelo SKU", "atualizados pelo SKU"]
+      : ["produto atualizado pelo SKU", "produtos atualizados pelo SKU"];
+  const changes = [
+    counts.created > 0 ? plural(counts.created, "produto novo", "produtos novos") : null,
+    counts.updated > 0 ? plural(counts.updated, updatedNoun[0] ?? "", updatedNoun[1] ?? "") : null,
   ].filter((part) => part !== null);
   const leftOut =
     counts.failedRows > 0
-      ? ` ${plural(counts.failedRows, "linha com erro não será importada", "linhas com erro não serão importadas")}.`
+      ? `; ${plural(counts.failedRows, "linha com erro fica", "linhas com erro ficam")} de fora`
       : "";
-  return `${changes.join(" e ")}, pelo SKU, com estoque e custo da planilha.${leftOut}`;
+  return `${changes.join(" e ")}${leftOut}.`;
 }

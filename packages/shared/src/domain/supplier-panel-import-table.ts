@@ -87,7 +87,7 @@ function step(cursor: Cursor, record: ImportRecord | null = null, skip = 0): Ste
 function closeField(cursor: Cursor): Cursor {
   if (cursor.fields.length >= MAX_IMPORT_COLUMNS) {
     throw validationError(
-      `A linha ${cursor.startLine} tem mais de ${MAX_IMPORT_COLUMNS} colunas. Confira o separador das colunas`,
+      `A linha ${cursor.startLine} tem mais de ${MAX_IMPORT_COLUMNS} colunas; confira o separador`,
     );
   }
   return { ...cursor, fields: [...cursor.fields, cursor.field], field: "", closed: false };
@@ -146,7 +146,7 @@ export function readDelimitedRecords(text: string, delimiter: ImportDelimiter): 
     }
     if (records.length > MAX_PRODUCT_CSV_ROWS + 1) {
       throw validationError(
-        `O arquivo aceita no máximo ${MAX_PRODUCT_CSV_ROWS} linhas de produtos`,
+        `O arquivo passa de ${MAX_PRODUCT_CSV_ROWS} produtos; divida em partes menores`,
       );
     }
   }

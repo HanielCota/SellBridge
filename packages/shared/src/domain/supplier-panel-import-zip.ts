@@ -30,9 +30,7 @@ export interface ZipEntry {
 }
 
 function invalidSpreadsheet(): Error {
-  return validationError(
-    "Não foi possível abrir a planilha. Salve de novo no Excel como .xlsx ou exporte como CSV",
-  );
+  return validationError("Não foi possível abrir a planilha; salve de novo como .xlsx ou CSV");
 }
 
 function findEndOfDirectory(view: DataView): number {
@@ -128,7 +126,7 @@ export function readZipText(
     return null;
   }
   if ((entry.flags & ENCRYPTED_FLAG) !== 0) {
-    throw validationError("A planilha está protegida por senha. Remova a senha e envie de novo");
+    throw validationError("A planilha tem senha; remova a senha e envie de novo");
   }
   if (entry.uncompressedSize > MAX_ZIP_ENTRY_BYTES) {
     throw invalidSpreadsheet();

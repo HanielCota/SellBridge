@@ -59,7 +59,7 @@ function IssueDetail({ issue }: { issue: ImportIssue }) {
 function DesktopTable({ rows }: { rows: readonly ImportRowIssues[] }) {
   return (
     <Table className="max-md:hidden">
-      <caption className="sr-only">Linhas com erro, agrupadas por linha da planilha</caption>
+      <caption className="sr-only">Linhas com erro</caption>
       <TableHeader>
         <TableRow>
           <TableHead className="w-20">Linha</TableHead>
@@ -83,7 +83,7 @@ function DesktopTable({ rows }: { rows: readonly ImportRowIssues[] }) {
                       rowSpan={row.issues.length}
                       className="max-w-44 truncate font-mono text-footnote"
                     >
-                      {row.sku ?? "—"}
+                      {row.sku ?? "sem SKU"}
                     </TableCell>
                   </>
                 ) : null}

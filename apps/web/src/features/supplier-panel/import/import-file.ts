@@ -10,18 +10,16 @@ const BASE64_SLICE = 0x8000;
 export function assertImportableFile(file: { name: string; size: number }): void {
   const name = file.name.toLowerCase();
   if (name.endsWith(".xls")) {
-    throw validationError(
-      "Arquivos .xls (Excel 97-2003) não são aceitos. No Excel, use Salvar como › Pasta de Trabalho do Excel (.xlsx) ou CSV",
-    );
+    throw validationError("Arquivos .xls não são aceitos; no Excel, salve como .xlsx ou CSV");
   }
   if (!ACCEPTED_EXTENSIONS.some((extension) => name.endsWith(extension))) {
-    throw validationError("Envie uma planilha .xlsx ou um arquivo .csv");
+    throw validationError("Formato não aceito; envie .xlsx ou .csv");
   }
   if (file.size === 0) {
-    throw validationError("O arquivo está vazio. Escolha a planilha com os produtos");
+    throw validationError("O arquivo está vazio; escolha a planilha com os produtos");
   }
   if (file.size > MAX_PRODUCT_CSV_BYTES) {
-    throw validationError("O arquivo deve ter no máximo 2 MB. Divida a planilha em partes menores");
+    throw validationError("O arquivo passa de 2 MB; divida a planilha em partes menores");
   }
 }
 

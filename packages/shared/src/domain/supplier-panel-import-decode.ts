@@ -56,7 +56,7 @@ export function decodeImportText(bytes: Uint8Array): DecodedImportText {
 export const IMPORT_ENCODING_LABELS: Readonly<Record<ImportTextEncoding, string>> = {
   "utf-8": "UTF-8",
   "utf-8-bom": "UTF-8",
-  "utf-16le": "Unicode (UTF-16)",
-  "utf-16be": "Unicode (UTF-16)",
-  "windows-1252": "Windows (padrão do Excel)",
+  "utf-16le": "UTF-16",
+  "utf-16be": "UTF-16",
+  "windows-1252": "Windows-1252",
 };

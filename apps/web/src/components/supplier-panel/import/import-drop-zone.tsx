@@ -1,6 +1,6 @@
 import { FileArrowUpIcon, FileCsvIcon, FileXlsIcon } from "@phosphor-icons/react";
 import { SUPPLIER_IMPORT_ACCEPT } from "@sellbridge/shared/supplier-panel-import-schemas";
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChosenFile } from "@/features/supplier-panel/import/use-supplier-import";
@@ -39,16 +39,33 @@ function DropZoneText({ file, busy }: { file: ChosenFile | null; busy: boolean }
       </span>
       <div className="max-w-md space-y-1">
         <p className="text-subhead font-medium">
-          {file === null ? "Arraste a planilha de produtos para cá" : file.name}
+          {file === null ? "Arraste a planilha aqui" : file.name}
         </p>
         <p className="text-sm text-muted-foreground">
           {file === null
-            ? "Excel (.xlsx) ou CSV com ponto e vírgula, vírgula ou tabulação. Até 2 MB e 1.000 produtos."
-            : `${fileSizeLabel(file.size)} · ${busy ? "conferindo cada linha…" : "solte outro arquivo para trocar"}`}
+            ? "Excel ou CSV, até 2 MB e 1.000 produtos"
+            : `${fileSizeLabel(file.size)}${busy ? " · Conferindo…" : ""}`}
         </p>
       </div>
     </>
   );
+}
+
+/** A file dropped beside the zone would make the browser open it and leave the page. */
+function useDropOutsideGuard() {
+  useEffect(() => {
+    function holdFile(event: globalThis.DragEvent) {
+      if (event.dataTransfer?.types.includes("Files") === true) {
+        event.preventDefault();
+      }
+    }
+    window.addEventListener("dragover", holdFile);
+    window.addEventListener("drop", holdFile);
+    return () => {
+      window.removeEventListener("dragover", holdFile);
+      window.removeEventListener("drop", holdFile);
+    };
+  }, []);
 }
 
 /**
@@ -58,6 +75,7 @@ function DropZoneText({ file, busy }: { file: ChosenFile | null; busy: boolean }
 export function ImportDropZone({ file, busy, onChoose }: ImportDropZoneProps) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  useDropOutsideGuard();
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -78,7 +96,7 @@ export function ImportDropZone({ file, busy, onChoose }: ImportDropZoneProps) {
       onDrop={handleDrop}
       aria-busy={busy}
       className={cn(
-        "flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-field-border bg-surface-grouped px-6 py-10 text-center transition-colors motion-reduce:transition-none sm:py-14",
+        "flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-field-border bg-surface-grouped px-6 py-10 text-center transition-colors select-none motion-reduce:transition-none sm:py-14",
         dragging && "border-brand bg-brand/5",
       )}
     >
@@ -104,7 +122,7 @@ export function ImportDropZone({ file, busy, onChoose }: ImportDropZoneProps) {
         onClick={() => input.current?.click()}
       >
         <FileArrowUpIcon aria-hidden="true" />
-        {file === null ? "Escolher arquivo" : "Escolher outro arquivo"}
+        {file === null ? "Escolher arquivo" : "Trocar arquivo"}
       </Button>
     </div>
   );

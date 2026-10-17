@@ -124,20 +124,20 @@ describe("normalizeImportFile xlsx", () => {
 
   it("refuses a damaged spreadsheet with a message that says what to do", () => {
     const damaged = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
-    expect(() => normalizeImportFile(damaged)).toThrow(/Salve de novo no Excel como .xlsx/);
+    expect(() => normalizeImportFile(damaged)).toThrow(/salve de novo como .xlsx ou CSV/);
   });
 });
 
 describe("normalizeImportFile limits and header", () => {
   it("names the missing required columns", () => {
     expect(() => normalizeImportFile(utf8("sku;titulo\nA;B\n"))).toThrow(
-      "Faltam colunas obrigatórias: custo, estoque",
+      "Faltam as colunas custo, estoque",
     );
   });
 
   it("names an unknown column with its letter", () => {
     expect(() => normalizeImportFile(utf8("sku;titulo;custo;estoque;preco\nA;B;1;1;2\n"))).toThrow(
-      '"preco" (coluna E)',
+      '"preco" em E',
     );
   });
 

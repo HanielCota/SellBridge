@@ -64,7 +64,7 @@ async function prepareConfirmation(supplierId: string, content: string) {
       supplierId,
       errors: preview.errors.length,
     });
-    throw conflictError("O catálogo mudou durante a prévia. Envie o arquivo de novo");
+    throw conflictError("O catálogo mudou durante a prévia; envie o arquivo de novo");
   }
   return { preview, confirmation: { content, previewToken: preview.previewToken } };
 }

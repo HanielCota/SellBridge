@@ -126,7 +126,7 @@ export function readFirstSheetRecords(bytes: Uint8Array): ImportRecord[] {
   const entries = listZipEntries(bytes);
   const sheet = readZipText(bytes, entries, firstSheetPath(bytes, entries));
   if (sheet === null) {
-    throw validationError("A planilha não tem nenhuma aba com dados");
+    throw validationError("A planilha não tem aba com dados; preencha a primeira aba");
   }
   const shared = readSharedStrings(readZipText(bytes, entries, "xl/sharedStrings.xml"));
   const rows = [...sheet.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g)];

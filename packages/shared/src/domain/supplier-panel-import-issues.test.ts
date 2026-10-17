@@ -48,7 +48,7 @@ describe("groupIssuesByRow", () => {
         columnLetter: "D",
         received: "R$ 12,90",
         expected: expect.stringContaining("sem R$"),
-        message: expect.stringContaining('coluna D (custo): recebemos "R$ 12,90"'),
+        message: expect.stringContaining('coluna D, custo (recebido: "R$ 12,90")'),
       }),
     ]);
   });
@@ -92,7 +92,7 @@ describe("failed rows export", () => {
       .split("\r\n");
     expect(lines[0]).toBe(`erro;${TEMPLATE_HEADER}`);
     expect(lines).toHaveLength(1 + rows.length);
-    expect(lines[1]).toMatch(/^"?Valor inválido na coluna D \(custo\)/);
+    expect(lines[1]).toMatch(/^"?Valor inválido na coluna D, custo/);
   });
 
   it("imports again once fixed, ignoring the erro column", () => {
@@ -136,8 +136,8 @@ describe("several bad cells in one row", () => {
   it("explains every problem of the row in the exported erro column", () => {
     const exported = buildFailedRowsCsv(normalized, normalized.records, rows);
     const line = exported.split("\r\n")[1] ?? "";
-    expect(line).toContain("coluna C (custo)");
-    expect(line).toContain("coluna E (gtin)");
-    expect(line).toContain("coluna F (peso_g)");
+    expect(line).toContain("coluna C, custo");
+    expect(line).toContain("coluna E, gtin");
+    expect(line).toContain("coluna F, peso_g");
   });
 });

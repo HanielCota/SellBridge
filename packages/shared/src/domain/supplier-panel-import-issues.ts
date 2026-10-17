@@ -56,6 +56,15 @@ interface RowContext extends ImportTableShape {
 }
 
 /** The value as the supplier typed it, short enough for a table cell. */
+/** "Valor em reais…" reads mid-sentence as "valor em reais…"; "GTIN" stays as is. */
+function lowerFirst(text: string): string {
+  const second = text.charAt(1);
+  if (second !== second.toLowerCase()) {
+    return text;
+  }
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 export function shownValue(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -71,14 +80,14 @@ function cellIssue(guide: ImportColumnGuide, context: RowContext, problem: strin
   const index = context.header.indexOf(guide.column);
   const received = shownValue(context.record?.fields[index] ?? "");
   const letter = context.letters[index] ?? null;
-  const place = letter === null ? `coluna ${guide.column}` : `coluna ${letter} (${guide.column})`;
+  const place = letter === null ? `coluna ${guide.column}` : `coluna ${letter}, ${guide.column}`;
   return {
     column: guide.column,
     columnLetter: letter,
     received,
     expected: guide.format,
     problem,
-    message: `${problem} na ${place}: recebemos "${received}". Esperado: ${guide.format}.`,
+    message: `${problem} na ${place} (recebido: "${received}"); esperado: ${lowerFirst(guide.format)}.`,
   };
 }
 
@@ -96,8 +105,8 @@ function rowIssue(message: string): ImportIssue {
 function columnCountIssue(context: RowContext): ImportIssue {
   const received = context.record?.fields.length ?? 0;
   return rowIssue(
-    `A linha tem ${received} colunas, mas o cabeçalho tem ${context.header.length}. ` +
-      "Confira se algum valor tem o separador dentro sem estar entre aspas.",
+    `A linha tem ${received} colunas e o cabeçalho ${context.header.length}; ` +
+      "ponha entre aspas o valor que tiver o separador.",
   );
 }
 
@@ -140,12 +149,10 @@ export function describeReason(reason: string, context: RowContext): readonly Im
 
 export function describeStructuralError(error: ImportRecord["structuralError"]): ImportIssue {
   if (error === "unclosed-quote") {
-    return rowIssue(
-      "Um valor abre aspas e não fecha. Feche as aspas ou remova-as e salve o arquivo de novo.",
-    );
+    return rowIssue("Um valor abre aspas e não fecha; feche ou remova as aspas.");
   }
   return rowIssue(
-    'Há aspas no meio de um valor. Coloque o valor inteiro entre aspas e escreva "" para cada aspa dentro dele.',
+    'Há aspas no meio de um valor; ponha o valor entre aspas e troque cada aspa interna por "".',
   );
 }
 

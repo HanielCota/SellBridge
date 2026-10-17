@@ -94,25 +94,25 @@ function buildCanonicalCsv(header: readonly string[], records: readonly ImportRe
 
 export function normalizeImportFile(bytes: Uint8Array): NormalizedImport {
   if (bytes.byteLength === 0) {
-    throw validationError("O arquivo está vazio. Escolha a planilha com os produtos");
+    throw validationError("O arquivo está vazio; escolha a planilha com os produtos");
   }
   if (bytes.byteLength > MAX_PRODUCT_CSV_BYTES) {
-    throw validationError("O arquivo deve ter no máximo 2 MB. Divida a planilha em partes menores");
+    throw validationError("O arquivo passa de 2 MB; divida a planilha em partes menores");
   }
   const raw = readRawTable(bytes);
   const [headerRecord, ...rows] = raw.records;
   if (headerRecord === undefined) {
-    throw validationError("O arquivo está vazio. Escolha a planilha com os produtos");
+    throw validationError("O arquivo está vazio; escolha a planilha com os produtos");
   }
   const checked = checkImportHeader(headerRecord.fields);
   if (rows.length === 0) {
     throw validationError(
-      "A planilha tem só o cabeçalho. Preencha os produtos a partir da linha 2",
+      "A planilha tem só o cabeçalho; preencha os produtos a partir da linha 2",
     );
   }
   if (rows.length > MAX_PRODUCT_CSV_ROWS) {
     throw validationError(
-      `A planilha tem ${rows.length} produtos; o limite é ${MAX_PRODUCT_CSV_ROWS} por arquivo. Divida em partes menores`,
+      `A planilha tem ${rows.length} produtos e o limite é ${MAX_PRODUCT_CSV_ROWS}; divida em partes menores`,
     );
   }
   const table = { width: checked.header.length, skipped: checked.skippedIndex, format: raw.format };
@@ -120,7 +120,7 @@ export function normalizeImportFile(bytes: Uint8Array): NormalizedImport {
   const canonical = buildCanonicalCsv(checked.header, records);
   if (new TextEncoder().encode(canonical.canonicalCsv).byteLength > MAX_PRODUCT_CSV_BYTES) {
     throw validationError(
-      "A planilha passa de 2 MB depois de convertida. Divida em partes menores",
+      "A planilha passa de 2 MB depois de convertida; divida em partes menores",
     );
   }
   return {

@@ -34,9 +34,9 @@ function Figure({ label, value, tone }: { label: string; value: number; tone?: "
 
 function fileDescription(file: SupplierImportPreview["file"]): string {
   if (file.format === "xlsx") {
-    return "Planilha do Excel, primeira aba";
+    return "Excel, primeira aba";
   }
-  return `CSV · ${file.encodingLabel ?? "UTF-8"} · separado por ${file.delimiterLabel ?? "ponto e vírgula"}`;
+  return `CSV ${file.encodingLabel ?? "UTF-8"}, separado por ${file.delimiterLabel ?? "ponto e vírgula"}`;
 }
 
 function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
@@ -51,13 +51,13 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
           <p className="text-sm text-muted-foreground">{fileDescription(preview.file)}</p>
         </div>
         {preview.failedRows > 0 ? (
-          <ToneStatus tone="warning" label="Revise as linhas com erro" />
+          <ToneStatus tone="warning" label="Com erros" />
         ) : (
-          <ToneStatus tone="success" label="Todas as linhas estão certas" />
+          <ToneStatus tone="success" label="Sem erros" />
         )}
       </div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Figure label="Linhas lidas" value={preview.totalRows} />
+        <Figure label="Linhas" value={preview.totalRows} />
         <Figure label="Produtos novos" value={preview.created} />
         <Figure label="Atualizados" value={preview.updated} />
         <Figure label="Com erro" value={preview.failedRows} tone="danger" />
@@ -104,10 +104,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
   const partial = preview.failedRows > 0;
   const canImport = preview.confirmation !== null && (!partial || onlyValid);
   return (
-    <section
-      aria-label="Resumo da prévia"
-      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
-    >
+    <section aria-label="Prévia" className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6">
       <SummaryHeader preview={preview} />
       {partial && preview.confirmation !== null ? (
         <OnlyValidChoice preview={preview} checked={onlyValid} onChange={setOnlyValid} />
@@ -115,7 +112,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
       <div className="flex flex-wrap items-center gap-2">
         <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
           {preview.confirmation === null
-            ? "Nenhuma linha para importar"
+            ? "Importar"
             : `Importar ${plural(preview.validRows, "produto", "produtos")}`}
         </Button>
         {partial ? (
@@ -124,7 +121,7 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
             onClick={() => downloadCsv(failedRowsFileName(props.fileName), preview.failedRowsCsv)}
           >
             <DownloadSimpleIcon aria-hidden="true" />
-            Baixar linhas com erro
+            Baixar erros
           </Button>
         ) : null}
       </div>

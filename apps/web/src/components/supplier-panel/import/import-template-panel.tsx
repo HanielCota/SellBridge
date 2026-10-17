@@ -1,4 +1,4 @@
-import { DownloadSimpleIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
 import { IMPORT_COLUMNS } from "@sellbridge/shared/supplier-panel-import-columns";
 import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ export function ImportTemplatePanel({ files }: { files: SupplierImportState["fil
   const data = files.data;
   return (
     <SectionCard
-      title="Modelo da planilha"
-      description="Baixe o modelo, preencha uma linha por produto e envie. Reenviar a mesma planilha atualiza os produtos pelo SKU, sem duplicar."
+      title="Modelo"
+      description="Reenviar a planilha atualiza os produtos pelo SKU, sem duplicar."
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
@@ -33,7 +33,7 @@ export function ImportTemplatePanel({ files }: { files: SupplierImportState["fil
             disabled={data === undefined}
             onClick={() => data && downloadCsv("guia-colunas.csv", data.guideCsv)}
           >
-            Guia das colunas
+            Baixar guia
           </Button>
         </div>
         {files.isError ? (
@@ -67,8 +67,13 @@ function CategoryList({ files }: { files: SupplierImportState["files"] }) {
   const categories = files.data?.categories ?? [];
   return (
     <details className="group text-sm">
-      <summary className="w-fit cursor-pointer list-none font-medium outline-none focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
-        Categorias aceitas ({categories.length})
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md font-medium select-none outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+        Categorias aceitas
+        <span className="text-muted-foreground tabular-nums">{categories.length}</span>
+        <CaretDownIcon
+          className="size-3.5 motion-safe:transition-transform motion-safe:duration-200 group-open:rotate-180"
+          aria-hidden="true"
+        />
       </summary>
       <ul className="mt-2 space-y-1 text-muted-foreground">
         {categories.map((category) => (
@@ -77,7 +82,7 @@ function CategoryList({ files }: { files: SupplierImportState["files"] }) {
           </li>
         ))}
         {categories.length === 0 ? (
-          <li>Sem categorias cadastradas. Deixe a coluna vazia.</li>
+          <li>Nenhuma categoria cadastrada; deixe a coluna vazia.</li>
         ) : null}
       </ul>
     </details>

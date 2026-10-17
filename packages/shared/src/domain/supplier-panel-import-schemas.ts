@@ -22,8 +22,8 @@ export const supplierImportPreviewSchema = z.object({
   fileBase64: z
     .string()
     .min(1, "Escolha um arquivo")
-    .max(MAX_BASE64_LENGTH, "O arquivo deve ter no máximo 2 MB")
-    .regex(/^[A-Za-z0-9+/]*={0,2}$/, "Arquivo em formato inesperado"),
+    .max(MAX_BASE64_LENGTH, "O arquivo passa de 2 MB; divida a planilha em partes menores")
+    .regex(/^[A-Za-z0-9+/]*={0,2}$/, "Não foi possível ler o arquivo; escolha de novo"),
 });
 export type SupplierImportPreviewInput = z.infer<typeof supplierImportPreviewSchema>;
 

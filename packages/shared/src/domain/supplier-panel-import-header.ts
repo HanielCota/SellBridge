@@ -44,7 +44,7 @@ function assertNamed(cells: readonly HeaderCell[]): void {
   const unnamed = cells.filter((cell) => cell.name.length === 0).map((cell) => cell.letter);
   if (unnamed.length > 0) {
     throw validationError(
-      `A primeira linha precisa ter o nome de cada coluna. Sem nome: coluna ${unnamed.join(", ")}`,
+      `Coluna sem nome no cabeçalho: ${unnamed.join(", ")}; preencha o nome na primeira linha`,
     );
   }
 }
@@ -58,7 +58,7 @@ function assertUnique(cells: readonly HeaderCell[]): void {
   }
   const letters = cells.filter((cell) => cell.name === repeated.name).map((cell) => cell.letter);
   throw validationError(
-    `A coluna "${repeated.name}" aparece mais de uma vez (colunas ${letters.join(" e ")}). Deixe só uma`,
+    `A coluna "${repeated.name}" se repete em ${letters.join(" e ")}; deixe só uma`,
   );
 }
 
@@ -67,10 +67,8 @@ function assertKnown(cells: readonly HeaderCell[]): void {
   if (unknown.length === 0) {
     return;
   }
-  const listed = unknown.map((cell) => `"${cell.original}" (coluna ${cell.letter})`).join(", ");
-  throw validationError(
-    `Colunas não reconhecidas: ${listed}. Use os nomes do modelo: ${[...KNOWN_COLUMNS].join(", ")}`,
-  );
+  const listed = unknown.map((cell) => `"${cell.original}" em ${cell.letter}`).join(", ");
+  throw validationError(`Coluna não reconhecida: ${listed}; use os nomes do modelo`);
 }
 
 function assertRequired(cells: readonly HeaderCell[]): void {
@@ -79,7 +77,7 @@ function assertRequired(cells: readonly HeaderCell[]): void {
     return;
   }
   throw validationError(
-    `Faltam colunas obrigatórias: ${missing.join(", ")}. A primeira linha da planilha deve ser o cabeçalho do modelo`,
+    `Faltam as colunas ${missing.join(", ")}; a primeira linha deve ser o cabeçalho do modelo`,
   );
 }
 

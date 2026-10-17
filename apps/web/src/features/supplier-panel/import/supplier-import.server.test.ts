@@ -59,7 +59,7 @@ describe("previewSupplierImport", () => {
     });
     expect(preview.file).toEqual({
       format: "csv",
-      encodingLabel: "Windows (padrão do Excel)",
+      encodingLabel: "Windows-1252",
       delimiterLabel: "vírgula",
     });
     expect(preview).toMatchObject({ totalRows: 3, validRows: 2, failedRows: 1, created: 2 });

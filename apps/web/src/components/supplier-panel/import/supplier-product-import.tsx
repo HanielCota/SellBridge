@@ -31,7 +31,7 @@ function ImportDone(props: {
   const { result, leftOut } = props;
   const paused =
     result.pausedTargets > 0
-      ? ` ${count.format(result.pausedTargets)} anúncios foram pausados por falta de estoque.`
+      ? ` ${count.format(result.pausedTargets)} anúncios pausados sem estoque.`
       : "";
   return (
     <output className="surface-card flex flex-col items-center gap-3 rounded-3xl bg-card px-6 py-12 text-center">
@@ -45,23 +45,23 @@ function ImportDone(props: {
         <p className="text-sm text-muted-foreground">
           {count.format(result.created)} criados e {count.format(result.updated)} atualizados.
           {result.synchronizationQueued
-            ? " O estoque segue para os marketplaces em instantes."
-            : " O estoque segue para os marketplaces na próxima sincronização."}
+            ? " Estoque enviado aos marketplaces."
+            : " O estoque vai aos marketplaces na próxima sincronização."}
           {paused}
           {leftOut === null
             ? null
-            : ` ${count.format(leftOut.rows)} linhas com erro ficaram de fora: baixe, corrija e envie de novo.`}
+            : ` ${count.format(leftOut.rows)} linhas com erro ficaram de fora; corrija e envie de novo.`}
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         {leftOut === null ? null : (
           <Button onClick={() => downloadCsv(failedRowsFileName(leftOut.fileName), leftOut.csv)}>
             <DownloadSimpleIcon aria-hidden="true" />
-            Baixar linhas com erro
+            Baixar erros
           </Button>
         )}
         <Button variant="outline" onClick={props.onAgain}>
-          Importar outra planilha
+          Importar outra
         </Button>
       </div>
     </output>
@@ -88,8 +88,8 @@ function PreviewArea({ state }: { state: SupplierImportState }) {
     return (
       <EmptyState
         icon={TableIcon}
-        title="Nenhuma planilha enviada"
-        description="Ao escolher o arquivo, cada linha é conferida antes de importar. Nada muda no catálogo até você confirmar."
+        title="Prévia"
+        description="As linhas da planilha aparecem aqui antes de entrar no catálogo."
       />
     );
   }

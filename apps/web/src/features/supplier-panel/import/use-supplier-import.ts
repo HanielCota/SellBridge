@@ -46,7 +46,9 @@ export function useSupplierImport(supplierId: string) {
     } catch (error) {
       const failure = isAppError(error)
         ? error
-        : new AppError("VALIDATION", "Não foi possível ler o arquivo", { cause: error });
+        : new AppError("VALIDATION", "Não foi possível ler o arquivo; escolha de novo", {
+            cause: error,
+          });
       setFileError(errorMessage(failure));
     }
   }
