@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const LEVEL_STROKE: Record<HealthLevel, string> = {
-  healthy: "text-emerald-500",
-  attention: "text-amber-500",
+  // The 500 shades are under 3:1 on white (see tone-status); the dark theme keeps them.
+  healthy: "text-emerald-600 dark:text-emerald-500",
+  attention: "text-amber-600 dark:text-amber-500",
   critical: "text-destructive",
 };
 

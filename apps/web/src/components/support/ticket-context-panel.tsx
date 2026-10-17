@@ -153,7 +153,7 @@ function LinkedOrderItem({
               type="button"
               variant="ghost"
               size="icon-xs"
-              className="size-6 text-muted-foreground print:hidden"
+              className="text-muted-foreground print:hidden"
               aria-label={`Desvincular o pedido ${order.externalOrderId}`}
               onClick={onUnlink}
             >
