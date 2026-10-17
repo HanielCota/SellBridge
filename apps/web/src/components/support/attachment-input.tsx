@@ -7,19 +7,13 @@ import { PaperclipIcon, XIcon } from "@phosphor-icons/react";
 import { useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { formatFileSize } from "@/lib/file-size";
 
 interface AttachmentInputProps {
   files: File[];
   onChange: (files: File[]) => void;
   error: string | null;
   onError: (message: string | null) => void;
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
 }
 
 /** Client-side checks for quick feedback; the server validates again (including magic bytes). */
@@ -29,7 +23,7 @@ export function validateSelection(current: File[], added: File[]): string | null
   }
   const tooBig = added.find((file) => file.size > MAX_ATTACHMENT_BYTES);
   if (tooBig) {
-    return `"${tooBig.name}" excede o limite de ${formatBytes(MAX_ATTACHMENT_BYTES)}`;
+    return `"${tooBig.name}" excede o limite de ${formatFileSize(MAX_ATTACHMENT_BYTES)}`;
   }
   const allowed: readonly string[] = ALLOWED_ATTACHMENT_TYPES;
   const invalid = added.find((file) => !allowed.includes(file.type));
@@ -57,7 +51,7 @@ function AttachmentList({ files, onRemove }: AttachmentListProps) {
         >
           <span className="truncate">{file.name}</span>
           <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-            {formatBytes(file.size)}
+            {formatFileSize(file.size)}
             <Button
               type="button"
               variant="ghost"
@@ -118,7 +112,7 @@ export function AttachmentInput({ files, onChange, error, onError }: AttachmentI
         </Button>
         <p className="mt-1 text-xs text-muted-foreground">
           Até {MAX_ATTACHMENTS} arquivos PNG, JPG, WEBP ou PDF, com no máximo{" "}
-          {formatBytes(MAX_ATTACHMENT_BYTES)} cada.
+          {formatFileSize(MAX_ATTACHMENT_BYTES)} cada.
         </p>
       </div>
       <AttachmentList

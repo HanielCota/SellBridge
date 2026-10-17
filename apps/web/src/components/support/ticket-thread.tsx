@@ -13,7 +13,7 @@ import {
   UserIcon,
 } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
-import { formatBytes } from "@/components/support/attachment-input";
+import { formatFileSize } from "@/lib/file-size";
 import { describeCustomerEvent } from "@/components/support/ticket-event-text";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -147,7 +147,7 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
             href={attachmentUrl(attachment)}
             className="px-1 text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
-            Baixar ({formatBytes(attachment.sizeBytes)})
+            Baixar ({formatFileSize(attachment.sizeBytes)})
           </a>
         </DialogContent>
       </Dialog>
@@ -182,7 +182,9 @@ function MessageAttachments({ attachments }: { attachments: readonly Attachment[
               >
                 <FileTextIcon className="size-3.5" aria-hidden="true" />
                 {attachment.fileName}
-                <span className="text-muted-foreground">({formatBytes(attachment.sizeBytes)})</span>
+                <span className="text-muted-foreground">
+                  ({formatFileSize(attachment.sizeBytes)})
+                </span>
               </a>
             </li>
           ))}
