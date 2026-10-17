@@ -12,6 +12,7 @@ import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
+import { DisabledHint } from "@/components/ui/hint";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
 
@@ -222,10 +223,12 @@ function ReconnectAction({ store, storeName }: { store: StoreWithActivity; store
   return (
     <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
       {locked ? (
-        <Button variant="outline" size="sm" disabled title={STORES_LOCKED_REASON}>
-          <PlugIcon weight="bold" aria-hidden="true" />
-          Reconectar
-        </Button>
+        <DisabledHint reason={STORES_LOCKED_REASON}>
+          <Button variant="outline" size="sm" disabled>
+            <PlugIcon weight="bold" aria-hidden="true" />
+            Reconectar
+          </Button>
+        </DisabledHint>
       ) : (
         <Button asChild variant="outline" size="sm">
           <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>

@@ -20,6 +20,7 @@ import { useReplyDraft, type DraftState } from "@/features/support/reply-draft";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
 
 const MIN_BODY_LENGTH = 10;
 const MAX_BODY_LENGTH = 5000;
@@ -265,17 +266,18 @@ function ComposerToolbar({
         </span>
       ) : null}
       <ComposerStatus draft={reply.draft.state} length={reply.draft.body.length} />
-      <Button
-        type="submit"
-        size="sm"
-        disabled={reply.isSending}
-        aria-busy={reply.isSending}
-        title="Ctrl + Enter"
-        className="ml-2 shrink-0"
-      >
-        {reply.isSending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
-        {reply.isSending ? "Enviando…" : "Enviar resposta"}
-      </Button>
+      <Hint label="Ctrl + Enter">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={reply.isSending}
+          aria-busy={reply.isSending}
+          className="ml-2 shrink-0"
+        >
+          {reply.isSending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
+          {reply.isSending ? "Enviando…" : "Enviar resposta"}
+        </Button>
+      </Hint>
     </div>
   );
 }
