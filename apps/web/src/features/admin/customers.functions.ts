@@ -11,7 +11,7 @@ import {
   isEmailTakenByOther,
   listAdminEvents,
   listCustomerSignals,
-  listActiveSuppliers,
+  listAdminSupplierOptions,
   listIssueTriage,
   listStoreConnections,
   listTenantTickets,
@@ -154,7 +154,7 @@ export const adminListCustomers = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const [{ customers, truncated }, suppliers] = await Promise.all([
       loadRankedCustomers(data.query, data.supplier),
-      listActiveSuppliers(database, {}),
+      listAdminSupplierOptions(database),
     ]);
     const page = pageOfCustomers(customers, data);
     return {
@@ -164,7 +164,7 @@ export const adminListCustomers = createServerFn({ method: "GET" })
       customerCount: customers.length,
       /** The cap the list stopped at, or null when it holds every matching account. */
       rankingLimit: truncated ? MAX_CUSTOMERS_RANKED : null,
-      supplierOptions: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
+      supplierOptions: suppliers,
     };
   });
 

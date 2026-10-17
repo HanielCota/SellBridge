@@ -23,3 +23,12 @@ export function productListableColumn(): SQL<boolean> {
 export function sellableOnMarketplace(): SQL {
   return sql`(${productListable()} and ${suppliers.active})`;
 }
+
+/**
+ * A supplier resellers may find: active, with at least one listable product. Suppliers who sign
+ * up on their own start empty, and an empty catalog is noise in every reseller picker. Needs
+ * `suppliers` in the FROM clause.
+ */
+export function supplierFindable(): SQL {
+  return sql`(${suppliers.active} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
+}

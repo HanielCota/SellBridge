@@ -31,6 +31,7 @@ export * from "./webhook-endpoints.ts";
 export * from "./webhook-deliveries.ts";
 export * from "./customer-care.ts";
 export * from "./admin-suppliers.ts";
+export * from "./admin-supplier-options.ts";
 export * from "./billing.ts";
 export * from "./fulfillment.ts";
 export * from "./auto-forward.ts";

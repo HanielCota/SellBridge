@@ -1,4 +1,5 @@
 import { ArrowUpIcon, ImageIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { isSupplierImageUrl } from "@sellbridge/shared/supplier-panel-image-urls";
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,6 @@ import { FieldReason } from "./field-reason";
 import type { StepProps } from "./step-details";
 
 const MAX_IMAGES = 20;
-
-function isImageLink(text: string): boolean {
-  return /^https?:\/\/\S+$/i.test(text);
-}
 
 function ImageRow({
   url,
@@ -66,7 +63,7 @@ function ImageRow({
 
 /** Why a pasted link cannot be added, or null when it can. */
 function linkProblem(url: string, images: readonly string[]): string | null {
-  if (!isImageLink(url)) {
+  if (!isSupplierImageUrl(url)) {
     return "Cole um link que comece com https://";
   }
   if (images.includes(url)) {
