@@ -38,13 +38,13 @@ const SORT_COLUMNS: Readonly<Record<CatalogSortColumn, AnyColumn>> = {
   updatedAt: supplierProducts.updatedAt,
 };
 
-const productColumns = {
+export const panelProductColumns = {
   product: supplierProducts,
   categoryName: categories.name,
   categorySlug: categories.slug,
 };
 
-function withCompleteness(row: {
+export function withPanelCompleteness(row: {
   product: SupplierPanelProductRow;
   categoryName: string | null;
   categorySlug: string | null;
@@ -117,7 +117,7 @@ export async function listSupplierPanelProducts(
   const order = input.direction === "asc" ? asc : desc;
   const [total] = await database.select({ value: count() }).from(supplierProducts).where(condition);
   const rows = await database
-    .select(productColumns)
+    .select(panelProductColumns)
     .from(supplierProducts)
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
     .where(condition)
@@ -126,7 +126,7 @@ export async function listSupplierPanelProducts(
     .offset((input.page - 1) * input.pageSize);
   const pagination = { page: input.page, pageSize: input.pageSize };
   return {
-    ...toPaginated(rows.map(withCompleteness), total?.value ?? 0, pagination),
+    ...toPaginated(rows.map(withPanelCompleteness), total?.value ?? 0, pagination),
     counts: await countByStatus(database, input.supplierId, input.query),
   };
 }
@@ -137,7 +137,7 @@ export async function getSupplierPanelProduct(
   ref: CatalogProductRef,
 ): Promise<SupplierPanelProduct> {
   const [row] = await database
-    .select(productColumns)
+    .select(panelProductColumns)
     .from(supplierProducts)
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
     .where(
@@ -146,5 +146,5 @@ export async function getSupplierPanelProduct(
   if (row === undefined) {
     throw notFoundError(`Produto ${ref.productId} não encontrado neste fornecedor`);
   }
-  return withCompleteness(row);
+  return withPanelCompleteness(row);
 }

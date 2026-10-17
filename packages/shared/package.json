@@ -53,7 +53,8 @@
     "./team-invite": "./src/domain/team-invite.ts",
     "./supplier-panel-catalog-status": "./src/domain/supplier-panel-catalog-status.ts",
     "./supplier-panel-catalog-completeness": "./src/domain/supplier-panel-catalog-completeness.ts",
-    "./supplier-panel-catalog-schemas": "./src/domain/supplier-panel-catalog-schemas.ts"
+    "./supplier-panel-catalog-schemas": "./src/domain/supplier-panel-catalog-schemas.ts",
+    "./supplier-product-review": "./src/domain/supplier-product-review.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

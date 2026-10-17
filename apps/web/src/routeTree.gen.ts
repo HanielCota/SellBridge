@@ -74,6 +74,8 @@ import { Route as ApiV1ListingsListingIdRouteImport } from './routes/api/v1/list
 import { Route as ApiV1OrdersIndexRouteImport } from './routes/api/v1/orders/index'
 import { Route as ApiV1OrdersOrderIdRouteImport } from './routes/api/v1/orders/$orderId'
 import { Route as ApiV1WebhookEndpointsIndexRouteImport } from './routes/api/v1/webhook-endpoints/index'
+import { Route as AppAdminFornecedoresAnaliseIndexRouteImport } from './routes/_app/admin/fornecedores/analise/index'
+import { Route as AppAdminFornecedoresAnaliseProductIdRouteImport } from './routes/_app/admin/fornecedores/analise/$productId'
 import { Route as ApiAdminChamadosTicketIdMensagensRouteImport } from './routes/api/admin/chamados/$ticketId/mensagens'
 import { Route as ApiPerfilFotoUserIdFileNameRouteImport } from './routes/api/perfil/foto/$userId/$fileName'
 import { Route as ApiSuporteChamadosTicketIdMensagensRouteImport } from './routes/api/suporte/chamados/$ticketId/mensagens'
@@ -415,6 +417,18 @@ const ApiV1WebhookEndpointsIndexRoute =
     path: '/api/v1/webhook-endpoints/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppAdminFornecedoresAnaliseIndexRoute =
+  AppAdminFornecedoresAnaliseIndexRouteImport.update({
+    id: '/fornecedores/analise/',
+    path: '/fornecedores/analise/',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
+const AppAdminFornecedoresAnaliseProductIdRoute =
+  AppAdminFornecedoresAnaliseProductIdRouteImport.update({
+    id: '/fornecedores/analise/$productId',
+    path: '/fornecedores/analise/$productId',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const ApiAdminChamadosTicketIdMensagensRoute =
   ApiAdminChamadosTicketIdMensagensRouteImport.update({
     id: '/api/admin/chamados/$ticketId/mensagens',
@@ -522,11 +536,13 @@ export interface FileRoutesByFullPath {
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -592,11 +608,13 @@ export interface FileRoutesByTo {
   '/api/v1/listings': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints': typeof ApiV1WebhookEndpointsIndexRoute
+  '/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/admin/fornecedores/analise': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -667,11 +685,13 @@ export interface FileRoutesById {
   '/api/v1/listings/': typeof ApiV1ListingsIndexRoute
   '/api/v1/orders/': typeof ApiV1OrdersIndexRoute
   '/api/v1/webhook-endpoints/': typeof ApiV1WebhookEndpointsIndexRoute
+  '/_app/admin/fornecedores/analise/$productId': typeof AppAdminFornecedoresAnaliseProductIdRoute
   '/api/admin/chamados/$ticketId/mensagens': typeof ApiAdminChamadosTicketIdMensagensRoute
   '/api/perfil/foto/$userId/$fileName': typeof ApiPerfilFotoUserIdFileNameRoute
   '/api/suporte/chamados/$ticketId/mensagens': typeof ApiSuporteChamadosTicketIdMensagensRoute
   '/api/v1/catalog/products/$productId': typeof ApiV1CatalogProductsProductIdRoute
   '/api/v1/webhook-endpoints/$endpointId/deliveries': typeof ApiV1WebhookEndpointsEndpointIdDeliveriesRoute
+  '/_app/admin/fornecedores/analise/': typeof AppAdminFornecedoresAnaliseIndexRoute
   '/api/v1/catalog/products/': typeof ApiV1CatalogProductsIndexRoute
   '/api/v1/webhook-endpoints/$endpointId/': typeof ApiV1WebhookEndpointsEndpointIdIndexRoute
 }
@@ -741,11 +761,13 @@ export interface FileRouteTypes {
     | '/api/v1/listings/'
     | '/api/v1/orders/'
     | '/api/v1/webhook-endpoints/'
+    | '/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesByTo: FileRoutesByTo
@@ -811,11 +833,13 @@ export interface FileRouteTypes {
     | '/api/v1/listings'
     | '/api/v1/orders'
     | '/api/v1/webhook-endpoints'
+    | '/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/admin/fornecedores/analise'
     | '/api/v1/catalog/products'
     | '/api/v1/webhook-endpoints/$endpointId'
   id:
@@ -885,11 +909,13 @@ export interface FileRouteTypes {
     | '/api/v1/listings/'
     | '/api/v1/orders/'
     | '/api/v1/webhook-endpoints/'
+    | '/_app/admin/fornecedores/analise/$productId'
     | '/api/admin/chamados/$ticketId/mensagens'
     | '/api/perfil/foto/$userId/$fileName'
     | '/api/suporte/chamados/$ticketId/mensagens'
     | '/api/v1/catalog/products/$productId'
     | '/api/v1/webhook-endpoints/$endpointId/deliveries'
+    | '/_app/admin/fornecedores/analise/'
     | '/api/v1/catalog/products/'
     | '/api/v1/webhook-endpoints/$endpointId/'
   fileRoutesById: FileRoutesById
@@ -1392,6 +1418,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1WebhookEndpointsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/fornecedores/analise/': {
+      id: '/_app/admin/fornecedores/analise/'
+      path: '/fornecedores/analise'
+      fullPath: '/admin/fornecedores/analise/'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseIndexRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/fornecedores/analise/$productId': {
+      id: '/_app/admin/fornecedores/analise/$productId'
+      path: '/fornecedores/analise/$productId'
+      fullPath: '/admin/fornecedores/analise/$productId'
+      preLoaderRoute: typeof AppAdminFornecedoresAnaliseProductIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/api/admin/chamados/$ticketId/mensagens': {
       id: '/api/admin/chamados/$ticketId/mensagens'
       path: '/api/admin/chamados/$ticketId/mensagens'
@@ -1468,6 +1508,8 @@ interface AppAdminRouteRouteChildren {
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
   AppAdminChamadosIndexRoute: typeof AppAdminChamadosIndexRoute
   AppAdminFornecedoresIndexRoute: typeof AppAdminFornecedoresIndexRoute
+  AppAdminFornecedoresAnaliseProductIdRoute: typeof AppAdminFornecedoresAnaliseProductIdRoute
+  AppAdminFornecedoresAnaliseIndexRoute: typeof AppAdminFornecedoresAnaliseIndexRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
@@ -1479,6 +1521,9 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
   AppAdminChamadosIndexRoute: AppAdminChamadosIndexRoute,
   AppAdminFornecedoresIndexRoute: AppAdminFornecedoresIndexRoute,
+  AppAdminFornecedoresAnaliseProductIdRoute:
+    AppAdminFornecedoresAnaliseProductIdRoute,
+  AppAdminFornecedoresAnaliseIndexRoute: AppAdminFornecedoresAnaliseIndexRoute,
 }
 
 const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(

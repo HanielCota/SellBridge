@@ -14,6 +14,7 @@ import {
   attentionCountsQueryOptions,
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
+import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
 import {
   ADMIN_NAV_ITEMS,
   BADGE_DESCRIPTIONS,
@@ -62,13 +63,16 @@ const LAYOUTS = {
 
 type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
 
-function useNavCounts(isAdmin: boolean) {
+/** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
+function useNavCounts(isAdmin: boolean, canReview: boolean) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
+  const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
   return {
     counts: {
       failedListings: attention.data?.failedListings ?? 0,
       openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
+      productReviews: canReview ? (productReviews.data ?? 0) : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
     } satisfies BadgeCounts,
   };
@@ -303,7 +307,7 @@ function AccountChip({
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode }: { user: SessionUser; adminMode: boolean }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { counts } = useNavCounts(adminMode);
+  const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
   const supportReplies = counts.supportReplies;
   const teamItems = ADMIN_NAV_ITEMS.filter(
     (item) => !item.permission || hasStaffPermission(user.role, item.permission),
