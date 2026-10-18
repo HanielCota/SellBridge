@@ -6,9 +6,29 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * The app's tooltip in place of a native `title`: it shows after the provider's short delay, in the
  * theme, and is announced as the element's description. Without a label it renders the child alone.
  */
-export function Hint({ label, children }: { label: string | undefined; children: ReactElement }) {
+export function Hint({
+  label,
+  openOnTap = true,
+  children,
+}: {
+  label: string | undefined;
+  /**
+   * False on controls whose tap already does the job (a tab, a button that opens a panel): on touch
+   * the tap runs it and the legend stays shut instead of covering what just opened.
+   */
+  openOnTap?: boolean;
+  children: ReactElement;
+}) {
   if (label === undefined) {
     return children;
+  }
+  if (!openOnTap) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    );
   }
   return <TappableTooltip label={label}>{children}</TappableTooltip>;
 }

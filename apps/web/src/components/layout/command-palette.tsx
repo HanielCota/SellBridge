@@ -20,6 +20,8 @@ import { Command } from "cmdk";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
 import { useGlobalSearch } from "@/features/search/use-global-search";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { searchResultHref } from "@/features/search/search-targets";
 
 interface PageCommand {
@@ -199,18 +201,22 @@ function SearchResults({ term, go }: { term: string; go: (href: string) => void 
   );
 }
 
+const SearchIcon = ACTION_ICONS.search.icon;
+
 function SearchButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Buscar"
-      aria-keyshortcuts="Control+K Meta+K"
-      className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-base text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 2xl:w-auto 2xl:px-4"
-    >
-      <MagnifyingGlassIcon className="size-5 2xl:size-4" aria-hidden="true" />
-      <span className="hidden 2xl:inline">Buscar</span>
-    </button>
+    <Hint label={ACTION_ICONS.search.hint} openOnTap={false}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Buscar"
+        aria-keyshortcuts="Control+K Meta+K"
+        className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-base text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 2xl:w-auto 2xl:px-4"
+      >
+        <SearchIcon className="size-5 2xl:size-4" aria-hidden="true" />
+        <span className="hidden 2xl:inline">Buscar</span>
+      </button>
+    </Hint>
   );
 }
 

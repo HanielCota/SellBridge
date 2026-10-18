@@ -6,7 +6,6 @@ import {
   CaretDownIcon,
   ClockCounterClockwiseIcon,
   CreditCardIcon,
-  HeadsetIcon,
   type Icon,
   IdentificationCardIcon,
   MoonIcon,
@@ -38,6 +37,7 @@ import { authClient } from "@/lib/auth-client";
 import { forgetTabProfile } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
 import { accountPagesFor } from "./account-pages";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 
 function useSignOut() {
   const navigate = useNavigate();
@@ -56,6 +56,8 @@ function useSignOut() {
 }
 
 /** Rows read as plain choices: full-strength labels, quieter icons. */
+const SupportIcon = ACTION_ICONS.support.icon;
+
 const MENU_ROW =
   "gap-3 px-2.5 py-2.5 text-base text-foreground [&_svg:not([class*='size-'])]:size-5 [&_svg]:text-muted-foreground data-highlighted:[&_svg]:text-foreground";
 
@@ -200,7 +202,7 @@ function AccountLinks({
       ) : null}
       <DropdownMenuItem asChild className={MENU_ROW}>
         <Link to="/suporte">
-          <HeadsetIcon aria-hidden="true" />
+          <SupportIcon aria-hidden="true" />
           Ajuda e suporte
           {supportReplies > 0 ? (
             <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-sm font-medium text-brand-text tabular-nums">
