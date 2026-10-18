@@ -1,5 +1,10 @@
 import {
+  ArrowUpRightIcon,
   BellIcon,
+  CalendarBlankIcon,
+  ChartBarIcon,
+  ChatCircleDotsIcon,
+  FileArrowDownIcon,
   HeadsetIcon,
   ListIcon,
   MagnifyingGlassIcon,
@@ -43,9 +48,21 @@ export const ACTION_ICONS = {
   search: { icon: MagnifyingGlassIcon, hint: "Buscar pedidos, produtos e lojas" },
   notifications: { icon: BellIcon, hint: "Veja os avisos sobre seus pedidos, lojas e publicações" },
   menu: { icon: ListIcon, hint: "Abrir as seções do SellBridge" },
+  /** Opens the full view of a summary card; the destination goes in each call site's hint. */
+  seeAll: { icon: ArrowUpRightIcon },
+  chartKind: { icon: ChartBarIcon, hint: "Escolha outro jeito de ver o gráfico" },
+  /** "Exportar" builds a file from the data; "Baixar" (a ready file) gets another icon. */
+  exportReport: { icon: FileArrowDownIcon, hint: "Exportar os pedidos do período em uma planilha" },
+  customPeriod: { icon: CalendarBlankIcon, hint: "Escolher as datas do período" },
+  supportChat: { icon: ChatCircleDotsIcon, hint: "Converse com a equipe do SellBridge" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
+
+/** Legends for terms a reseller may not know, in the GLOSSARIO-UX.md voice. */
+export const TERM_HINTS = {
+  averageTicket: "Valor médio de cada pedido no período",
+} as const;
 
 /**
  * The function behind each top-nav tab, by its route. Tabs of areas not yet reviewed stay out and

@@ -5,8 +5,10 @@ import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridg
 type PeriodChoice = PeriodPreset | "all";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useCallback, useRef, useState, type ComponentProps } from "react";
-import { CalendarBlankIcon, CaretDownIcon } from "@phosphor-icons/react";
+import { useCallback, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { CaretDownIcon } from "@phosphor-icons/react";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { useActiveIndicator } from "@/components/data/use-active-indicator";
 import {
   TRACK_CLASSES,
@@ -132,6 +134,19 @@ function SegmentLabel({ preset }: { preset: PeriodChoice }) {
   );
 }
 
+const CustomPeriodIcon = ACTION_ICONS.customPeriod.icon;
+
+/** Keeps each option measurable by the sliding pill while it is mounted. */
+function registerOption(options: RefObject<Map<PeriodChoice, HTMLElement>>, preset: PeriodChoice) {
+  return (node: HTMLElement | null) => {
+    if (!node) {
+      options.current.delete(preset);
+      return;
+    }
+    options.current.set(preset, node);
+  };
+}
+
 /** One-click period choice: native radios styled as a segmented control. */
 function PeriodSegments({
   period,
@@ -154,43 +169,42 @@ function PeriodSegments({
       <legend className="sr-only">Período</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
       {presets.map((preset) => (
-        <label
+        <Hint
           key={preset}
-          ref={(node) => {
-            if (!node) {
-              optionRefs.current.delete(preset);
-              return;
-            }
-            optionRefs.current.set(preset, node);
-          }}
-          className={cn(
-            TRACK_OPTION_CLASSES,
-            "flex-1 px-2.5 sm:flex-none sm:px-3.5",
-            // Unchosen periods answer the pointer with a faint pill of their own.
-            "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
-            // Before the first measure (SSR, hydration) the chosen period paints its own pill.
-            !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
-            "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-          )}
+          label={preset === "custom" ? ACTION_ICONS.customPeriod.hint : undefined}
+          openOnTap={false}
         >
-          {preset === "custom" ? (
-            <CalendarBlankIcon className="size-4 sm:size-3.5" aria-hidden="true" />
-          ) : null}
-          <input
-            type="radio"
-            name="period"
-            value={preset}
-            checked={preset === chosen.value}
-            onChange={() => {
-              setCanAnimate(true);
-              chosen.choose(preset);
-              onPeriodChange(preset);
-            }}
-            aria-label={SEGMENT_LABELS[preset]}
-            className="sr-only"
-          />
-          <SegmentLabel preset={preset} />
-        </label>
+          <label
+            ref={registerOption(optionRefs, preset)}
+            className={cn(
+              TRACK_OPTION_CLASSES,
+              "flex-1 px-2.5 sm:flex-none sm:px-3.5",
+              // Unchosen periods answer the pointer with a faint pill of their own.
+              "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
+              // Before the first measure (SSR, hydration) the chosen period paints its own pill.
+              !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
+              "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+            )}
+          >
+            {preset === "custom" ? (
+              <CustomPeriodIcon className="size-4 sm:size-3.5" aria-hidden="true" />
+            ) : null}
+            <input
+              type="radio"
+              name="period"
+              value={preset}
+              checked={preset === chosen.value}
+              onChange={() => {
+                setCanAnimate(true);
+                chosen.choose(preset);
+                onPeriodChange(preset);
+              }}
+              aria-label={SEGMENT_LABELS[preset]}
+              className="sr-only"
+            />
+            <SegmentLabel preset={preset} />
+          </label>
+        </Hint>
       ))}
     </fieldset>
   );
@@ -375,7 +389,7 @@ function RangeTrigger({
       className="flex h-10 w-full items-center gap-2.5 rounded-xl border border-field-border bg-field pr-3 pl-3.5 text-sm tabular-nums transition-[border-color,box-shadow,background-color,transform] duration-100 outline-none select-none hover:bg-[color-mix(in_oklch,var(--field),var(--foreground)_3%)] focus-visible:border-brand-strong focus-visible:ring-4 focus-visible:ring-brand/20 active:scale-[0.98] aria-expanded:border-brand-strong motion-reduce:active:scale-100 sm:w-auto sm:self-start"
       {...props}
     >
-      <CalendarBlankIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <CustomPeriodIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="truncate">{formatRange(from, to)}</span>
       <CaretDownIcon className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>

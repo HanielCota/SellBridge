@@ -38,4 +38,34 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Pendência encontrada (anterior a este trabalho):** em 1024 px o começo das abas já encosta 12 px no logo, também sem os ícones.
 
-**Próxima seção:** Vendedor · 1. Visão geral (`/dashboard`).
+**Seção seguinte:** Vendedor · 1. Visão geral.
+
+## Vendedor · 1. Visão geral — 2026-10-18 · commit "feat(dashboard): action labels and tooltips on the overview"
+
+**Proposta escolhida: B (ações com texto)**, sobre o padrão A. Propostas: [página clicável](../propostas/vendedor/1-visao-geral/index.html) · [A](vendedor/1-visao-geral/2-proposta-a.png) · [B](vendedor/1-visao-geral/2-proposta-b.png) · [C](vendedor/1-visao-geral/2-proposta-c.png).
+
+| Mudança                                                                                                        | Arquivo                                                                                       | Tela                                    | Antes                                                 | Depois                                                          |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
+| Legenda em cada cartão (Receita, Pedidos, Ticket médio); "Ticket médio" com sublinhado pontilhado e explicação | `components/reports/kpi-tiles.tsx`                                                            | `/dashboard`                            | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [legenda](vendedor/1-visao-geral/3-depois-legenda-ticket.png)   |
+| Botão do gráfico: ícone de gráfico no lugar da engrenagem, texto "Gráfico" (a partir de 1440 px) e legenda     | `components/reports/chart-kind-menu.tsx`                                                      | `/dashboard`, `/financeiro`             | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [desktop](vendedor/1-visao-geral/3-depois-desktop.png)          |
+| Exportar: ícone próprio de "Exportar" (diferente de "Baixar"), texto (a partir de 1440 px) e legenda           | `components/reports/export-link.tsx` (saiu de `cash-flow-chart.tsx`, que passa de 500 linhas) | `/dashboard`, `/financeiro`             | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [desktop](vendedor/1-visao-geral/3-depois-desktop.png)          |
+| "Ver tudo" com seta nos cartões Vendas por loja e Produtos mais vendidos, com legenda do destino               | `components/reports/sales-breakdown.tsx`                                                      | `/dashboard`                            | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [legenda](vendedor/1-visao-geral/3-depois-legenda-ver-tudo.png) |
+| "Unid." virou "Unidades"                                                                                       | `components/reports/sales-breakdown.tsx`                                                      | `/dashboard`                            | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [desktop](vendedor/1-visao-geral/3-depois-desktop.png)          |
+| Legenda no "Personalizado" do período (no celular é só o calendário)                                           | `components/reports/period-filters.tsx`                                                       | `/dashboard`, `/financeiro`, `/pedidos` | [celular](vendedor/1-visao-geral/1-antes-mobile.png)  | [celular](vendedor/1-visao-geral/3-depois-mobile.png)           |
+| Legenda no botão de chat ("Fechar o chat" quando aberto)                                                       | `components/support/support-chat.tsx`                                                         | todas as telas                          | [desktop](vendedor/1-visao-geral/1-antes-desktop.png) | [claro](vendedor/1-visao-geral/3-depois-claro.png)              |
+
+**Ícones novos no dicionário:** seeAll (ArrowUpRight), chartKind (ChartBar), exportReport (FileArrowDown), customPeriod (CalendarBlank), supportChat (ChatCircleDots). **Reaproveitados:** nenhum ícone da seção 0 aparece aqui. **Glossário:** entraram "Ticket médio", "Unidades", "Ver tudo" e "Gráfico". **Legendas de termos:** `TERM_HINTS` no dicionário.
+
+**Componentes compartilhados (aprovado: "Aplicar nas três telas"):** o gráfico e o Exportar valem também no Financeiro; a legenda do período personalizado vale em Financeiro e Pedidos; a legenda do chat vale em todas as telas.
+
+**Ajustes por medida (sem mudar lógica):**
+
+- "Gráfico" e "Exportar" com texto só a partir de 1440 px. Em 1280 px o texto empurrava o filtro de lojas para uma segunda linha, em 768 px cortava o "Personalizado" e em 390 px apertava o valor do lucro em três linhas. Abaixo de 1440 px ficam os ícones novos com legenda.
+- Para não abrir duas legendas ao mesmo tempo, "Ticket médio" é explicado na legenda do próprio cartão (o cartão inteiro é o link).
+- O link "Ver tudo" passou a se chamar, para leitor de tela, "Ver tudo em vendas por loja" e "Ver tudo em produtos mais vendidos", porque o nome precisa conter o texto visível.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E relacionados 59/59 (reports, financeiro-scroll, profile-tabs, profile-tabs-edges, support, support-links, order-page, accessibility, pending-cost, fulfillment). Nenhum teste alterado.
+
+**Notado e não alterado (fora do escopo visual):** os botões Tudo, Receita e Lucro do gráfico são lidos pelo leitor de tela como "all", "revenue" e "profit"; e o leitor de tela ouve só "Ver receita no financeiro" no cartão, sem o valor.
+
+**Próxima seção:** Vendedor · 2. Catálogo (`/catalogo`, inclui Fornecedores).

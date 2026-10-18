@@ -1,6 +1,8 @@
-import { ArrowUpRightIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { ACTION_ICONS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
+import { cn } from "@/lib/utils";
 import type { MetricPoint } from "@/features/reports/dashboard-metrics";
 import { MoneyFigure, Sparkline, TrendBadge } from "./figures";
 
@@ -13,34 +15,49 @@ interface TileProps {
   change: ReactNode;
   /** The figure's shape over the period. */
   trend: readonly number[];
+  /** Tooltip on the whole tile: where it leads, and what the name means when it is jargon. */
+  hint: string;
+  /** Dotted underline on a name a reseller may not know; the hint explains it. */
+  isTerm?: boolean;
 }
+
+const SeeAllIcon = ACTION_ICONS.seeAll.icon;
 
 /**
  * One stat tile: name, the number, how it moved and a sparkline. Every tile has the same parts in
  * the same places, so the column reads in one pass. The period lives in the page header.
  */
-function KpiTile({ label, figure, change, trend }: TileProps) {
+function KpiTile({ label, figure, change, trend, hint, isTerm = false }: TileProps) {
   return (
-    <Link
-      to="/financeiro"
-      aria-label={`Ver ${label.toLowerCase()} no financeiro`}
-      className="group surface-interactive flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <ArrowUpRightIcon
-          className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-          aria-hidden="true"
-        />
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex h-9 items-end text-[30px] leading-none">{figure}</div>
-          <div className="flex min-h-4 flex-wrap items-center gap-x-1.5 text-xs">{change}</div>
+    <Hint label={hint} openOnTap={false}>
+      <Link
+        to="/financeiro"
+        aria-label={`Ver ${label.toLowerCase()} no financeiro`}
+        className="group surface-interactive flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <span
+            className={cn(
+              "text-sm text-muted-foreground",
+              isTerm && "underline decoration-dotted underline-offset-4",
+            )}
+          >
+            {label}
+          </span>
+          <SeeAllIcon
+            className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+            aria-hidden="true"
+          />
         </div>
-        <Sparkline values={trend} className="mb-1" />
-      </div>
-    </Link>
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex h-9 items-end text-[30px] leading-none">{figure}</div>
+            <div className="flex min-h-4 flex-wrap items-center gap-x-1.5 text-xs">{change}</div>
+          </div>
+          <Sparkline values={trend} className="mb-1" />
+        </div>
+      </Link>
+    </Hint>
   );
 }
 
@@ -65,6 +82,7 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
     <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
       <KpiTile
         label="Receita"
+        hint="Ver a receita em detalhes no Financeiro"
         figure={<MoneyFigure cents={summary.revenueCents} />}
         change={
           <TrendBadge
@@ -77,6 +95,7 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
       />
       <KpiTile
         label="Pedidos"
+        hint="Ver os pedidos do período no Financeiro"
         figure={<span className="font-semibold">{count.format(summary.orders)}</span>}
         change={
           <>
@@ -93,6 +112,8 @@ export function KpiTiles({ summary, previous, points }: KpiTilesProps) {
       />
       <KpiTile
         label="Ticket médio"
+        hint={`${TERM_HINTS.averageTicket}; veja mais no Financeiro`}
+        isTerm
         figure={
           summary.averageTicketCents === null ? (
             <span className="font-semibold">—</span>

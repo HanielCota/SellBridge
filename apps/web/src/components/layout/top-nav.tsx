@@ -6,7 +6,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
-import { ACTION_ICONS, NAV_TAB_ICONS } from "@/components/icons/action-icons";
+import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { useActiveIndicator } from "@/components/data/use-active-indicator";
 import { TrackPill } from "@/components/data/track-pill";
@@ -181,7 +181,7 @@ function TabBadge({
   );
 }
 
-function tabAction(item: NavItem) {
+function tabAction(item: NavItem): ActionIcon | undefined {
   const name = NAV_TAB_ICONS[item.to];
   if (name === undefined) {
     return undefined;
