@@ -3,7 +3,7 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LifebuoyIcon, PlusIcon } from "@phosphor-icons/react";
+import { HeadsetIcon, PlusIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -117,7 +117,7 @@ function NoTickets({
   if (isFiltered) {
     return (
       <EmptyState
-        icon={LifebuoyIcon}
+        icon={HeadsetIcon}
         title="Nenhum chamado encontrado"
         description="Ajuste a busca ou o status. Seus outros chamados continuam na lista completa."
         action={
@@ -130,7 +130,7 @@ function NoTickets({
   }
   return (
     <EmptyState
-      icon={LifebuoyIcon}
+      icon={HeadsetIcon}
       title="Você ainda não abriu chamados"
       description={noTicketsDescription(profileKind)}
       action={

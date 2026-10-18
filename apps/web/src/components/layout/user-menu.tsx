@@ -6,11 +6,11 @@ import {
   CaretDownIcon,
   ClockCounterClockwiseIcon,
   CreditCardIcon,
+  HeadsetIcon,
   type Icon,
   IdentificationCardIcon,
   MoonIcon,
   PlugsConnectedIcon,
-  QuestionIcon,
   ShieldCheckIcon,
   SignOutIcon,
   SunIcon,
@@ -200,7 +200,7 @@ function AccountLinks({
       ) : null}
       <DropdownMenuItem asChild className={MENU_ROW}>
         <Link to="/suporte">
-          <QuestionIcon aria-hidden="true" />
+          <HeadsetIcon aria-hidden="true" />
           Ajuda e suporte
           {supportReplies > 0 ? (
             <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 text-sm font-medium text-brand-text tabular-nums">
