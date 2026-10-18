@@ -25,6 +25,7 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 | Termo        | Significado                                                          | Não use                                               |
 | ------------ | -------------------------------------------------------------------- | ----------------------------------------------------- |
 | Produto      | Item do catálogo de um fornecedor                                    | item, SKU, mercadoria                                 |
+| Código       | Identificação do produto dada pelo fornecedor (na busca)             | SKU                                                   |
 | Publicação   | Produto publicado em uma loja do revendedor (aba "Publicações")      | listing                                               |
 | Anúncio      | A página do produto dentro do marketplace (o que o comprador vê)     | publicação, quando se fala do que está no marketplace |
 | Loja         | Conta do marketplace conectada ao SellBridge (ex.: Mercado Livre)    | integração, canal                                     |
@@ -55,18 +56,21 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 
 ## Ações (verbos padronizados)
 
-| Ação                                | Verbo na tela     | Observação                                                   |
-| ----------------------------------- | ----------------- | ------------------------------------------------------------ |
-| Procurar                            | Buscar            | "Buscar pedidos, produtos e lojas"                           |
-| Baixar um arquivo pronto            | Baixar            | "Baixar etiqueta", "Baixar modelo CSV"                       |
-| Gerar arquivo a partir de dados     | Exportar          | "Exportar relatório" (ícone diferente de "Baixar")           |
-| Enviar arquivo                      | Importar / Anexar | Importar = planilha de produtos; Anexar = arquivo em chamado |
-| Mudar dados                         | Editar            |                                                              |
-| Apagar de vez                       | Excluir           | Sempre com confirmação                                       |
-| Tirar de uma lista sem apagar       | Remover           |                                                              |
-| Copiar para a área de transferência | Copiar            | "Copiar link", "Copiar código" (mesmo ícone)                 |
-| Ver a lista completa de um resumo   | Ver tudo          | Seta ↗; a legenda diz para onde vai                          |
-| Mudar o jeito de mostrar um gráfico | Gráfico           | Ícone de gráfico, não de engrenagem                          |
-| Repetir algo que falhou             | Tentar de novo    |                                                              |
-| Voltar a um estado anterior         | Restaurar         | ícone diferente de "Tentar de novo"                          |
-| Sair da conta                       | Sair              | ícone exclusivo; "Desconectar loja" usa outro                |
+| Ação                                | Verbo na tela      | Observação                                                   |
+| ----------------------------------- | ------------------ | ------------------------------------------------------------ |
+| Procurar                            | Buscar             | "Buscar pedidos, produtos e lojas"                           |
+| Baixar um arquivo pronto            | Baixar             | "Baixar etiqueta", "Baixar modelo CSV"                       |
+| Gerar arquivo a partir de dados     | Exportar           | "Exportar relatório" (ícone diferente de "Baixar")           |
+| Enviar arquivo                      | Importar / Anexar  | Importar = planilha de produtos; Anexar = arquivo em chamado |
+| Mudar dados                         | Editar             |                                                              |
+| Apagar de vez                       | Excluir            | Sempre com confirmação                                       |
+| Tirar de uma lista sem apagar       | Remover            |                                                              |
+| Copiar para a área de transferência | Copiar             | "Copiar link", "Copiar código" (mesmo ícone)                 |
+| Ver a lista completa de um resumo   | Ver tudo           | Seta ↗; a legenda diz para onde vai                          |
+| Mudar o jeito de mostrar um gráfico | Gráfico            | Ícone de gráfico, não de engrenagem                          |
+| Pôr produtos à venda numa loja      | Publicar           | Um ícone só (avião de papel), para um produto ou vários      |
+| Desmarcar tudo o que foi marcado    | Limpar             | X; no celular só o X, com legenda                            |
+| Ver fornecedores                    | Ver por fornecedor | Ícone de fábrica                                             |
+| Repetir algo que falhou             | Tentar de novo     |                                                              |
+| Voltar a um estado anterior         | Restaurar          | ícone diferente de "Tentar de novo"                          |
+| Sair da conta                       | Sair               | ícone exclusivo; "Desconectar loja" usa outro                |

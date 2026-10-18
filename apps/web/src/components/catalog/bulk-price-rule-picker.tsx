@@ -1,7 +1,9 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { MAX_MARKUP_PERCENT, MIN_MARKUP_PERCENT, type PriceRule } from "@sellbridge/shared/schemas";
-import { MinusIcon, PlusIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import {
   MARKUP_RANGE_MESSAGE,
   parseMarkupPercent,
@@ -12,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { SettingsGroup } from "./bulk-publish-parts";
 import { PriceReceipt } from "./price-receipt";
 
+const DecreaseIcon = ACTION_ICONS.decrease.icon;
+const IncreaseIcon = ACTION_ICONS.increase.icon;
 const MARKUP_STEP = 5;
 
 const RULE_OPTIONS: { kind: PriceRule["kind"]; label: string }[] = [
@@ -77,16 +81,18 @@ function PercentStepper({
   const step = (delta: number) => onPercentChange(String(clampMarkup(current + delta)));
   return (
     <div className="flex shrink-0 items-center rounded-full bg-muted p-0.5">
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Diminuir ${stepNoun}`}
-        disabled={current <= MIN_MARKUP_PERCENT}
-        onClick={() => step(-MARKUP_STEP)}
-      >
-        <MinusIcon aria-hidden="true" />
-      </Button>
+      <Hint label={ACTION_ICONS.decrease.hint} openOnTap={false}>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Diminuir ${stepNoun}`}
+          disabled={current <= MIN_MARKUP_PERCENT}
+          onClick={() => step(-MARKUP_STEP)}
+        >
+          <DecreaseIcon aria-hidden="true" />
+        </Button>
+      </Hint>
       <span className="flex items-center rounded-md text-sm font-medium tabular-nums has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
         <input
           aria-label={label}
@@ -98,16 +104,18 @@ function PercentStepper({
         />
         %
       </span>
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Aumentar ${stepNoun}`}
-        disabled={current >= MAX_MARKUP_PERCENT}
-        onClick={() => step(MARKUP_STEP)}
-      >
-        <PlusIcon aria-hidden="true" />
-      </Button>
+      <Hint label={ACTION_ICONS.increase.hint} openOnTap={false}>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Aumentar ${stepNoun}`}
+          disabled={current >= MAX_MARKUP_PERCENT}
+          onClick={() => step(MARKUP_STEP)}
+        >
+          <IncreaseIcon aria-hidden="true" />
+        </Button>
+      </Hint>
     </div>
   );
 }

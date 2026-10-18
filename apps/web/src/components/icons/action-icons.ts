@@ -3,17 +3,24 @@ import {
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   ChatCircleDotsIcon,
+  FactoryIcon,
   FileArrowDownIcon,
   HeadsetIcon,
   ListIcon,
   MagnifyingGlassIcon,
   MegaphoneSimpleIcon,
+  MinusIcon,
   PackageIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
   StorefrontIcon,
   WalletIcon,
+  XIcon,
   type Icon,
 } from "@phosphor-icons/react";
 
@@ -55,6 +62,14 @@ export const ACTION_ICONS = {
   exportReport: { icon: FileArrowDownIcon, hint: "Exportar os pedidos do período em uma planilha" },
   customPeriod: { icon: CalendarBlankIcon, hint: "Escolher as datas do período" },
   supportChat: { icon: ChatCircleDotsIcon, hint: "Converse com a equipe do SellBridge" },
+  /** Putting products on sale in a store: one icon for one product or many. */
+  publish: { icon: PaperPlaneTiltIcon, hint: "Colocar à venda nas suas lojas" },
+  suppliers: { icon: FactoryIcon, hint: "Ver os fornecedores e os produtos de cada um" },
+  clearSelection: { icon: XIcon, hint: "Desmarcar todos" },
+  decrease: { icon: MinusIcon, hint: "Diminuir o valor" },
+  increase: { icon: PlusIcon, hint: "Aumentar o valor" },
+  previous: { icon: CaretLeftIcon, hint: "Ver o anterior" },
+  next: { icon: CaretRightIcon, hint: "Ver o próximo" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -62,6 +77,14 @@ export type ActionIconName = keyof typeof ACTION_ICONS;
 /** Legends for terms a reseller may not know, in the GLOSSARIO-UX.md voice. */
 export const TERM_HINTS = {
   averageTicket: "Valor médio de cada pedido no período",
+  published: "Este produto já está à venda em uma das suas lojas",
+} as const;
+
+/** Legends for controls whose name alone does not say what happens. */
+export const CONTROL_HINTS = {
+  selectForBulk: "Marque para publicar vários produtos de uma vez",
+  inStockOnly: "Mostra só produtos que o fornecedor tem em estoque",
+  hidePublished: "Esconde os produtos que você já publicou",
 } as const;
 
 /**

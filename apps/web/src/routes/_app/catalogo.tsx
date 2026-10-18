@@ -8,7 +8,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { MegaphoneIcon, PackageIcon } from "@phosphor-icons/react";
+import { PackageIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BulkPublishDialog } from "@/components/catalog/bulk-publish-dialog";
@@ -16,6 +16,8 @@ import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SelectionBar } from "@/components/data/selection-bar";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -52,6 +54,9 @@ export const Route = createFileRoute("/_app/catalogo")({
   component: CatalogPage,
 });
 
+const PublishIcon = ACTION_ICONS.publish.icon;
+const SuppliersIcon = ACTION_ICONS.suppliers.icon;
+
 function useCatalogQuery() {
   return useQuery(sellableCatalogQueryOptions(Route.useSearch()));
 }
@@ -74,7 +79,7 @@ function CatalogSearchInput() {
   return (
     <SearchInput
       label="Buscar produto"
-      placeholder="Buscar por produto, SKU ou fornecedor"
+      placeholder="Buscar por produto, código ou fornecedor"
       className="min-w-0 flex-1 sm:min-w-60"
       maxLength={100}
       value={term}
@@ -121,25 +126,30 @@ function FilterSelect({
 function FilterCheckbox({
   id,
   label,
+  hint,
   checked,
   onChange,
 }: {
   id: string;
   label: string;
+  /** What the filter leaves out, shown on hover. */
+  hint: string;
   checked: boolean;
   onChange: (checked: true | undefined) => void;
 }) {
   return (
-    <div className="flex h-10 items-center gap-2">
-      <Checkbox
-        id={id}
-        checked={checked}
-        onCheckedChange={(next) => onChange(next === true ? true : undefined)}
-      />
-      <Label htmlFor={id} className="font-normal">
-        {label}
-      </Label>
-    </div>
+    <Hint label={hint} openOnTap={false}>
+      <div className="flex h-10 items-center gap-2">
+        <Checkbox
+          id={id}
+          checked={checked}
+          onCheckedChange={(next) => onChange(next === true ? true : undefined)}
+        />
+        <Label htmlFor={id} className="font-normal">
+          {label}
+        </Label>
+      </div>
+    </Hint>
   );
 }
 
@@ -179,12 +189,14 @@ function CatalogFilters({ data }: { data: CatalogData }) {
       <FilterCheckbox
         id="in-stock"
         label="Só com estoque"
+        hint={CONTROL_HINTS.inStockOnly}
         checked={search.inStock === true}
         onChange={(inStock) => updateSearch({ inStock })}
       />
       <FilterCheckbox
         id="unpublished"
         label="Ocultar publicados"
+        hint={CONTROL_HINTS.hidePublished}
         checked={search.unpublished === true}
         onChange={(unpublished) => updateSearch({ unpublished })}
       />
@@ -307,10 +319,12 @@ function CatalogResults({ data }: { data: CatalogData }) {
         countLabel={{ one: "selecionado", other: "selecionados" }}
         onClear={selection.clear}
       >
-        <Button size="sm" onClick={() => setIsPublishing(true)}>
-          <MegaphoneIcon aria-hidden="true" />
-          Publicar selecionados
-        </Button>
+        <Hint label={ACTION_ICONS.publish.hint} openOnTap={false}>
+          <Button size="sm" onClick={() => setIsPublishing(true)}>
+            <PublishIcon aria-hidden="true" />
+            Publicar selecionados
+          </Button>
+        </Hint>
       </SelectionBar>
       <BulkPublishDialog
         open={isPublishing}
@@ -345,9 +359,14 @@ function CatalogPage() {
         title="Catálogo"
         description="Produtos de fornecedores de todo o Brasil. Selecione vários para publicar de uma vez."
         actions={
-          <Button asChild variant="outline">
-            <Link to="/fornecedores">Ver por fornecedor</Link>
-          </Button>
+          <Hint label={ACTION_ICONS.suppliers.hint} openOnTap={false}>
+            <Button asChild variant="outline">
+              <Link to="/fornecedores">
+                <SuppliersIcon aria-hidden="true" />
+                Ver por fornecedor
+              </Link>
+            </Button>
+          </Hint>
         }
       />
       {query.isPending ? <CatalogSkeleton /> : null}
