@@ -79,7 +79,8 @@ function RootDocument({ children }: { children: ReactNode }) {
         <a href="#main-content" className="skip-link">
           Pular para o conteúdo
         </a>
-        <TooltipProvider>{children}</TooltipProvider>
+        {/* A short delay keeps tooltips from flashing while the pointer only passes over a control. */}
+        <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         <Toaster />
 
         <Scripts />

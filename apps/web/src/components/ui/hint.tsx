@@ -1,18 +1,49 @@
-import type { ReactElement } from "react";
+import { useRef, useState, type PointerEvent, type ReactElement } from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
- * The app's tooltip in place of a native `title`: it shows at once, in the theme, and is announced
- * as the element's description. Without a label it renders the child alone.
+ * The app's tooltip in place of a native `title`: it shows after the provider's short delay, in the
+ * theme, and is announced as the element's description. Without a label it renders the child alone.
  */
 export function Hint({ label, children }: { label: string | undefined; children: ReactElement }) {
   if (label === undefined) {
     return children;
   }
+  return <TappableTooltip label={label}>{children}</TappableTooltip>;
+}
+
+/**
+ * Radix tooltips never open on touch, so a tap toggles this one and a tap outside closes it. The
+ * trigger closes itself on pointer down and click; those closes are skipped while a tap is landing.
+ */
+function TappableTooltip({ label, children }: { label: string; children: ReactElement }) {
+  const [open, setOpen] = useState(false);
+  const tapLandingRef = useRef(false);
+  const handleOpenChange = (next: boolean) => {
+    if (!next && tapLandingRef.current) {
+      return;
+    }
+    setOpen(next);
+  };
+  const handlePointerDown = (event: PointerEvent) => {
+    tapLandingRef.current = event.pointerType === "touch";
+  };
+  const handleClick = () => {
+    if (!tapLandingRef.current) {
+      return;
+    }
+    setOpen((current) => !current);
+    // The trigger's own close runs right after this handler; let later closes through again.
+    queueMicrotask(() => {
+      tapLandingRef.current = false;
+    });
+  };
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <Tooltip open={open} onOpenChange={handleOpenChange}>
+      <TooltipTrigger asChild onPointerDown={handlePointerDown} onClick={handleClick}>
+        {children}
+      </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
