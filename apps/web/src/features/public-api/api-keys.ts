@@ -6,7 +6,7 @@ import { freeText } from "@sellbridge/shared/schemas";
 /** Enough for one key per integration and environment; past this, old keys should be revoked. */
 export const MAX_ACTIVE_API_KEYS = 20;
 
-export const apiKeyNameSchema = freeText()
+const apiKeyNameSchema = freeText()
   .trim()
   .min(1, "Dê um nome para a chave")
   .max(60, "Use até 60 caracteres");

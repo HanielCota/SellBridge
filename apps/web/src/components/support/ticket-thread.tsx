@@ -65,7 +65,7 @@ function formatMessageDate(date: Date): string {
 }
 
 /** "Hoje", "Ontem", "10 de outubro" — the day separators between messages, in Brasília time. */
-export function formatDayLabel(date: Date, now: Date = new Date()): string {
+function formatDayLabel(date: Date, now: Date = new Date()): string {
   const nearName = nearDayName(brazilDayKey(date), now);
   if (nearName !== null) {
     return nearName;
