@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/errors";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
+import { trackingLine } from "@/features/fulfillment/tracking-line";
 
 export interface ShipmentView {
   id: string;
@@ -419,7 +420,7 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
       {shipment.notes ? <p className="text-sm">Instruções: {shipment.notes}</p> : null}
       {shipment.trackingCode ? (
         <p className="text-sm">
-          {shipment.carrier} · {shipment.trackingCode}{" "}
+          {trackingLine(shipment.carrier, shipment.trackingCode)}{" "}
           {shipment.trackingUrl ? (
             <a
               href={shipment.trackingUrl}

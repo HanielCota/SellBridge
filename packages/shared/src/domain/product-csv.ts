@@ -2,6 +2,7 @@ import { z } from "zod";
 import { validationError } from "../runtime/errors.ts";
 import {
   adminProductValuesSchema,
+  knownCostCentsSchema,
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
 } from "../schemas/admin-suppliers.ts";
@@ -164,6 +165,7 @@ function parseActive(value: string): boolean | null | undefined {
 const csvRowSchema = adminProductValuesSchema
   .omit({ categoryId: true, suggestedPriceCents: true })
   .extend({
+    costCents: knownCostCentsSchema,
     categorySlug: freeText().trim().max(100).nullable(),
     suggestedPriceCents: adminProductValuesSchema.shape.suggestedPriceCents.optional(),
     active: z.boolean().optional(),

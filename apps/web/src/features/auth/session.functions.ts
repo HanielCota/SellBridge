@@ -62,7 +62,11 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       return null;
     }
     const role = session.user.role ?? "user";
-    const profile = await resolvePageProfile(session.user.id, session.session.activeOrganizationId);
+    // Runs before every navigation and hover preload, so the two lookups go out together.
+    const [profile, termsAccepted] = await Promise.all([
+      resolvePageProfile(session.user.id, session.session.activeOrganizationId),
+      hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+    ]);
     return {
       user: {
         id: session.user.id,
@@ -78,7 +82,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
       impersonationEndsAt: session.session.impersonatedBy
         ? new Date(session.session.expiresAt).toISOString()
         : null,
-      termsAccepted: await hasAcceptedTerms(database, session.user.id, TERMS_VERSION),
+      termsAccepted,
     };
   },
 );

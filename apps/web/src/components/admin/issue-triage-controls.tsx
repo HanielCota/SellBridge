@@ -19,6 +19,7 @@ import {
 } from "@/features/admin/customers.functions";
 import type { EntryTriage } from "@/features/admin/customer-ranking";
 import { useAdminAction } from "@/features/admin/use-admin-action";
+import { Hint } from "@/components/ui/hint";
 
 interface TriageProps {
   userId: string;
@@ -40,16 +41,17 @@ function AssignButton({ userId, issue, triage, adminId }: Omit<TriageProps, "sno
   );
   const label = isMine ? "Devolver para a equipe" : "Assumir";
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label={label}
-      title={label}
-      disabled={assign.isPending}
-      onClick={() => assign.mutate(undefined)}
-    >
-      {isMine ? <UserMinusIcon weight="duotone" /> : <UserCheckIcon weight="duotone" />}
-    </Button>
+    <Hint label={label}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={label}
+        disabled={assign.isPending}
+        onClick={() => assign.mutate(undefined)}
+      >
+        {isMine ? <UserMinusIcon weight="duotone" /> : <UserCheckIcon weight="duotone" />}
+      </Button>
+    </Hint>
   );
 }
 

@@ -1,6 +1,7 @@
 import { PlugIcon } from "@phosphor-icons/react";
 import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { useTabProfileLink } from "@/lib/tab-profile";
 
 /**
@@ -19,10 +20,12 @@ export function ReconnectAction({
   return (
     <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
       {locked ? (
-        <Button variant="outline" size="sm" disabled title={STORES_LOCKED_REASON}>
-          <PlugIcon weight="bold" aria-hidden="true" />
-          Reconectar
-        </Button>
+        <DisabledHint reason={STORES_LOCKED_REASON}>
+          <Button variant="outline" size="sm" disabled>
+            <PlugIcon weight="bold" aria-hidden="true" />
+            Reconectar
+          </Button>
+        </DisabledHint>
       ) : (
         <Button asChild variant="outline" size="sm">
           <a

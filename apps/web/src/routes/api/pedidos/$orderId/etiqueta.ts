@@ -8,6 +8,7 @@ import { orderShipments } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
+import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
 import { hasTokenInUrl, readSupplierToken } from "@/lib/server/supplier-link-token";
 
@@ -65,13 +66,14 @@ async function handleLabel(request: Request, orderId: string) {
       status,
       code: isAppError(error) ? error.code : "UNEXPECTED",
     });
+    // Opened in a new tab: a themed page instead of the plain-text view of the browser.
     return new Response(
-      isAppError(error) ? error.userMessage : "Não foi possível gerar a etiqueta",
+      labelErrorPage(isAppError(error) ? error.userMessage : "Não foi possível gerar a etiqueta"),
       {
         status,
         headers: {
           "cache-control": "no-store",
-          "content-type": "text/plain; charset=utf-8",
+          "content-type": "text/html; charset=utf-8",
           "referrer-policy": "no-referrer",
         },
       },

@@ -177,13 +177,13 @@
     overscroll-behavior-y: none;
   }
   /*
-   * A text link with no focus style of its own gets the app's ring instead of the browser's
-   * default outline. `:where` keeps it weaker than any component that styles its own focus.
+   * A bare button (quick replies, thumbnails, toast actions) gets the app's ring instead of the
+   * browser's default outline. `:where` keeps it weaker than any component styling its own focus.
+   * Links have their own rule below.
    */
-  :where(a):focus-visible {
+  :where(button, summary, [role="button"]):focus-visible {
     outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
     outline-offset: 2px;
-    border-radius: 0.25rem;
   }
   /*
    * A fieldset is as wide as its content by default (`min-inline-size: min-content`), so a row of
@@ -191,10 +191,6 @@
    */
   fieldset {
     min-inline-size: 0;
-  }
-  /* Images are content, not things to drag out of the page. */
-  img {
-    -webkit-user-drag: none;
   }
   html {
     @apply font-sans;
@@ -228,12 +224,33 @@
   a:focus-visible {
     @apply rounded-sm outline-none ring-3 ring-ring/50;
   }
-  /* Below 16px iOS zooms the page in on focus and leaves it zoomed. */
-  @media (pointer: coarse) {
-    input,
-    textarea {
-      font-size: max(16px, 1em);
-    }
+}
+/*
+ * Below 16px iOS zooms the page in on focus and leaves it zoomed. Outside the base layer on
+ * purpose: inside it, any `text-*` utility on a field won and the guard did nothing.
+ */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+/*
+ * tw-animate-css ignores "reduce motion": dialogs, sheets, menus and tooltips still zoomed and
+ * slid in. With the preference on they only fade. Outside any layer so it wins over utilities.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .animate-out {
+    --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-enter-rotate: 0;
+    --tw-exit-rotate: 0;
   }
 }
 /*
@@ -298,10 +315,14 @@
   }
   transition: transform 160ms ease-out;
 
-  /* Keyboard focus shows on the card itself, like the hover edge but unmistakable. */
+  /*
+   * Keyboard focus shows on the card itself, like the hover edge but unmistakable. Drawn as the
+   * ring a card's own `focus-visible:ring-*` would draw, so the two never stack into an outline
+   * plus a ring; forced-colors mode puts a real outline back (native-controls.css).
+   */
   &:focus-visible {
-    outline: 2px solid color-mix(in oklch, var(--ring) 70%, transparent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
   }
 
   /* Feedback on press, not on release. */
@@ -331,7 +352,7 @@
 /* Lift bottom toasts above the floating bulk actions bar so feedback never hides it. */
 body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
   --offset-bottom: 88px !important;
-  --mobile-offset-bottom: 88px !important;
+  --mobile-offset-bottom: calc(88px + env(safe-area-inset-bottom)) !important;
 }
 
 /*

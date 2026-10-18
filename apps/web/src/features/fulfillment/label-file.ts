@@ -1,4 +1,5 @@
 import { validationError } from "@sellbridge/shared/errors";
+import { formatFileSize } from "@/lib/file-size";
 import { imageToCanvas, recognizeText } from "./label-ocr";
 import { readPdfLabel } from "./label-pdf";
 import { type LabelAddress, parseShippingLabel } from "./shipping-label";
@@ -15,8 +16,9 @@ export const LABEL_FILE_ACCEPT =
  */
 export async function readLabelAddress(file: File): Promise<LabelAddress> {
   if (file.size > MAX_LABEL_BYTES) {
-    const megabytes = (file.size / 1024 / 1024).toFixed(1);
-    throw validationError(`A etiqueta tem ${megabytes} MB; o limite é 10 MB.`);
+    throw validationError(
+      `A etiqueta tem ${formatFileSize(file.size)}; o limite é ${formatFileSize(MAX_LABEL_BYTES)}.`,
+    );
   }
   if (isPdf(file)) return readPdfAddress(file);
   if (isImage(file)) return parseShippingLabel(await recognizeText([await imageToCanvas(file)]));

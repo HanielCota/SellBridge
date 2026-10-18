@@ -1,5 +1,29 @@
-import { describe, expect, it } from "vitest";
-import { OCR_IMAGE_SIDE, scaledSize } from "./label-ocr";
+import { describe, expect, it, vi } from "vitest";
+import { OCR_IMAGE_SIDE, scaledSize, terminateWhenStarted } from "./label-ocr";
+
+describe("terminateWhenStarted", () => {
+  it("shuts down a reader that finishes starting after the wait gave up", async () => {
+    const terminate = vi.fn<() => Promise<undefined>>(async () => undefined);
+    await terminateWhenStarted(Promise.resolve({ terminate }));
+    expect(terminate).toHaveBeenCalledOnce();
+  });
+
+  it("settles quietly when the late start fails, since no reader is left running", async () => {
+    await expect(terminateWhenStarted(Promise.reject(new Error("model")))).resolves.toBe(undefined);
+  });
+
+  it("settles quietly when terminating the late worker fails", async () => {
+    await expect(
+      terminateWhenStarted(
+        Promise.resolve({
+          terminate: async () => {
+            throw new Error("Worker already stopped");
+          },
+        }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe("scaledSize", () => {
   it("shrinks a large phone photo to the OCR size, keeping its proportions", () => {

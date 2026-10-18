@@ -12,7 +12,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { formatBytes, validateSelection } from "@/components/support/attachment-input";
+import { validateSelection } from "@/components/support/attachment-input";
+import { formatFileSize } from "@/lib/file-size";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ export const COMPOSER_TEXTAREA_CLASS =
 export const COMPOSER_TOOLBAR_CLASS =
   "flex items-center gap-0.5 border-t border-border/60 px-1 pt-2";
 
-const ATTACHMENT_HINT = `Anexar até ${MAX_ATTACHMENTS} arquivos PNG, JPG, WEBP ou PDF (${formatBytes(MAX_ATTACHMENT_BYTES)} cada)`;
+const ATTACHMENT_HINT = `Anexar até ${MAX_ATTACHMENTS} arquivos PNG, JPG, WEBP ou PDF (${formatFileSize(MAX_ATTACHMENT_BYTES)} cada)`;
 
 /** Ctrl/Cmd + Enter sends, as in most chat and mail apps. */
 export function submitOnModEnter(event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) {
@@ -226,7 +227,7 @@ export function AttachedFiles({
           className="inline-flex max-w-full items-center gap-1 rounded-full bg-muted py-0.5 pr-0.5 pl-2.5 text-xs"
         >
           <span className="truncate">{file.name}</span>
-          <span className="shrink-0 text-muted-foreground">{formatBytes(file.size)}</span>
+          <span className="shrink-0 text-muted-foreground">{formatFileSize(file.size)}</span>
           <Button
             type="button"
             variant="ghost"

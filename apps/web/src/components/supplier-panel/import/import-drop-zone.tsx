@@ -2,17 +2,9 @@ import { FileArrowUpIcon, FileCsvIcon, FileXlsIcon } from "@phosphor-icons/react
 import { SUPPLIER_IMPORT_ACCEPT } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { formatFileSize } from "@/lib/file-size";
 import { cn } from "@/lib/utils";
 import type { ChosenFile } from "@/features/supplier-panel/import/use-supplier-import";
-
-const sizeFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-
-export function fileSizeLabel(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${sizeFormat.format(Math.max(bytes / 1024, 0.1))} KB`;
-  }
-  return `${sizeFormat.format(bytes / (1024 * 1024))} MB`;
-}
 
 interface ImportDropZoneProps {
   file: ChosenFile | null;
@@ -44,7 +36,7 @@ function DropZoneText({ file, busy }: { file: ChosenFile | null; busy: boolean }
         <p className="text-sm text-muted-foreground">
           {file === null
             ? "Excel ou CSV, até 2 MB e 1.000 produtos"
-            : `${fileSizeLabel(file.size)}${busy ? " · Conferindo…" : ""}`}
+            : `${formatFileSize(file.size)}${busy ? " · Conferindo…" : ""}`}
         </p>
       </div>
     </>

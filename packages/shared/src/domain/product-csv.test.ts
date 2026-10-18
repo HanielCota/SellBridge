@@ -69,6 +69,13 @@ describe("product CSV", () => {
     ]);
   });
 
+  it("reports a line with zero cost as invalid", () => {
+    const parsed = parseProductCsv(`${header}\nA;Primeiro;0;1\nB;Segundo;0,01;1`);
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.errors[0]?.line).toBe(2);
+    expect(parsed.errors[0]?.reason).toBe("Custo: valor inválido");
+  });
+
   it("rejects duplicated trimmed SKUs in the file", () => {
     const parsed = parseProductCsv(`${header}\nA;Primeiro;1;1\n A ;Segundo;2;2`);
     expect(parsed.errors).toEqual([{ line: 3, reason: "SKU duplicado no arquivo: A" }]);

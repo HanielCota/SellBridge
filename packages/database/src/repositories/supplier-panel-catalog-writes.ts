@@ -184,6 +184,10 @@ export async function saveSupplierPanelDraft(
       await updateDraft(transaction, stored, input, now);
       return await getSupplierPanelProduct(transaction, input);
     }
+    // Opening counts come from the client; only a stored product can preserve a negative shelf.
+    if (input.values.stock < 0) {
+      throw validationError("New products cannot have negative stock");
+    }
     await categorySlugOf(transaction, input.values.categoryId);
     const created = await transaction
       .insert(supplierProducts)

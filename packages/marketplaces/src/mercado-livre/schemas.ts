@@ -1,6 +1,17 @@
 import { z } from "zod";
 
 /** Zod schemas for the Mercado Livre API responses and notifications used by the connector. */
+
+/**
+ * Optional text where Mercado Livre sends "" or spaces for "none": read as null, so a blank
+ * tracking number can't overwrite the one the supplier typed and a blank nickname isn't a name.
+ */
+function blankAsNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "" ? null : trimmed;
+}
+
+export const presentTextSchema = z.string().nullable().optional().transform(blankAsNull);
 export const tokenResponseSchema = z.object({
   access_token: z.string().min(1),
   expires_in: z.number().int().positive(),
@@ -65,7 +76,7 @@ export const orderSchema = z.object({
   date_created: z.iso.datetime({ offset: true }),
   total_amount: reaisSchema,
   buyer: z
-    .object({ nickname: z.string().max(255).optional() })
+    .object({ nickname: z.string().max(255).nullable().optional().transform(blankAsNull) })
     .nullable()
     .optional(),
   tags: z.array(z.string()).optional(),

@@ -91,6 +91,49 @@ beforeAll(async () => {
 });
 
 describe("saveSupplierPanelDraft", () => {
+  it("rejects a new draft with a fabricated negative opening count", async () => {
+    const productId = randomUUID();
+    await expectAppError(
+      saveSupplierPanelDraft(database, {
+        supplierId,
+        productId,
+        expectedStock: -3,
+        values: { ...readyValues("NEGATIVE-CREATE"), stock: -3 },
+      }),
+      "VALIDATION",
+    );
+    const stored = await database
+      .select()
+      .from(supplierProducts)
+      .where(eq(supplierProducts.id, productId));
+    expect(stored).toEqual([]);
+  });
+
+  it("keeps a negative shelf editable without overwriting later sales", async () => {
+    const productId = randomUUID();
+    const values = readyValues("NEGATIVE-EDIT");
+    await saveSupplierPanelDraft(database, { supplierId, productId, values });
+    await database
+      .update(supplierProducts)
+      .set({ stock: -3 })
+      .where(eq(supplierProducts.id, productId));
+    const opened = await getSupplierPanelProduct(database, { supplierId, productId });
+    await database
+      .update(supplierProducts)
+      .set({ stock: -4 })
+      .where(eq(supplierProducts.id, productId));
+    const current = await getSupplierPanelProduct(database, { supplierId, productId });
+    const saved = await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      expectedUpdatedAt: current.updatedAt.toISOString(),
+      expectedStock: opened.stock,
+      values: { ...values, stock: opened.stock, title: "Updated title" },
+    });
+    expect(saved.title).toBe("Updated title");
+    expect(saved.stock).toBe(-4);
+  });
+
   it("creates a draft once under the form's id, even when the autosave is retried", async () => {
     const productId = randomUUID();
     const input = { supplierId, productId, values: { ...readyValues("DRAFT-1"), title: "" } };

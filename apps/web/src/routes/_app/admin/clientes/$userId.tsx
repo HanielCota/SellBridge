@@ -39,6 +39,7 @@ import { useImpersonate } from "@/features/admin/use-impersonate";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
+import { DisabledHint } from "@/components/ui/hint";
 
 export const Route = createFileRoute("/_app/admin/clientes/$userId")({
   loader: ({ context, params }) =>
@@ -59,14 +60,15 @@ function ImpersonateButton({
 }) {
   const { impersonate, pendingUserId } = useImpersonate();
   return (
-    <Button
-      disabled={disabledReason !== null || pendingUserId !== null}
-      title={disabledReason ?? undefined}
-      onClick={() => void impersonate(userId)}
-    >
-      <SignInIcon weight="bold" aria-hidden="true" />
-      {pendingUserId ? "Entrando…" : "Entrar como cliente"}
-    </Button>
+    <DisabledHint reason={disabledReason ?? undefined}>
+      <Button
+        disabled={disabledReason !== null || pendingUserId !== null}
+        onClick={() => void impersonate(userId)}
+      >
+        <SignInIcon weight="bold" aria-hidden="true" />
+        {pendingUserId ? "Entrando…" : "Entrar como cliente"}
+      </Button>
+    </DisabledHint>
   );
 }
 

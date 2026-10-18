@@ -133,6 +133,10 @@ export async function assertBillingCapacity(
   resource: "stores" | "listings",
   requested = 1,
 ) {
+  // Asking for nothing never passes the plan, even for a tenant already over it after a downgrade.
+  if (requested <= 0) {
+    return;
+  }
   await lockBillingTenant(database, tenantId);
   const account = await getBillingAccount(database, tenantId);
   const plan = effectiveBillingPlan(account);

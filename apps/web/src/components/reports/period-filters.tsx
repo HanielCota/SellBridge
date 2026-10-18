@@ -1,4 +1,4 @@
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { MAX_CUSTOM_DAYS, REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridge/shared/schemas";
 
 /** The fixed presets, plus "all" (no date limit) on screens of work to do, like operations. */
@@ -226,8 +226,6 @@ function StoreSelect({
     </Select>
   );
 }
-
-const MAX_CUSTOM_DAYS = 366;
 
 const rangeFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",

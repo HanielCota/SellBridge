@@ -29,7 +29,8 @@ export interface ResolvedPeriod {
   previousToDate: string;
 }
 
-const MAX_CUSTOM_DAYS = 366;
+/** The longest custom range the reports accept; the date picker reads the same limit. */
+export const MAX_CUSTOM_DAYS = 366;
 /**
  * Custom ranges stay inside these years. Outside them the comparison window or the exclusive end
  * reaches year 0 or 10000, which the database rejects (an error instead of a report).

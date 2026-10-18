@@ -1,5 +1,6 @@
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
+import { keepsNegativeShelfOnly, NEGATIVE_STOCK_MESSAGE } from "@sellbridge/shared/schemas";
 import {
   catalogDraftValuesSchema,
   type CatalogDraftValues,
@@ -108,9 +109,10 @@ export type DraftParse =
 
 /**
  * The values to autosave. Money and units must be typed correctly to be sent: a half-typed
- * "12," waits for the next keystroke instead of saving a wrong amount.
+ * "12," waits for the next keystroke instead of saving a wrong amount. A shelf below zero
+ * (shipped past the last count) saves as it is; only typing a new negative count is refused.
  */
-export function parseDraft(values: PanelFormValues): DraftParse {
+export function parseDraft(values: PanelFormValues, expectedStock?: number): DraftParse {
   const costCents = values.cost.trim() === "" ? 0 : parseCsvMoney(values.cost);
   const suggestedPriceCents =
     values.suggestedPrice.trim() === "" ? 0 : parseCsvMoney(values.suggestedPrice);
@@ -126,6 +128,9 @@ export function parseDraft(values: PanelFormValues): DraftParse {
     imageUrls: [...values.imageUrls],
     mercadoLivreAttributes: filledAttributes(values.attributes),
   });
+  if (parsed.success && !keepsNegativeShelfOnly(parsed.data.stock, expectedStock)) {
+    return { ok: false, errors: { stock: NEGATIVE_STOCK_MESSAGE } };
+  }
   if (parsed.success) {
     return { ok: true, values: parsed.data };
   }

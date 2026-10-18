@@ -115,6 +115,32 @@ describe("claimDueNotificationDeliveries", () => {
     });
     expect(claimed).toHaveLength(1);
   });
+
+  it("takes a delivery whose stored content no longer reads out of the queue", async () => {
+    await enqueueNotificationDeliveries(database, {
+      tenantId: tenants.tenantB,
+      event: "sale_paid",
+      dedupeKey: "order:b:unreadable",
+      content,
+      recipients: [{ userId: resellerB, channels: ["email"] }],
+    });
+    const unreadable = and(
+      eq(notificationDeliveries.recipientId, resellerB),
+      eq(notificationDeliveries.dedupeKey, "order:b:unreadable"),
+    );
+    await database
+      .update(notificationDeliveries)
+      .set({ content: { subject: "" } })
+      .where(unreadable);
+    const claimed = await claimDueNotificationDeliveries(database, {
+      ...lease,
+      now: new Date(),
+      tenantId: tenants.tenantB,
+    });
+    expect(claimed).toEqual([]);
+    const [row] = await database.select().from(notificationDeliveries).where(unreadable);
+    expect(row?.status).toBe("skipped");
+  });
 });
 
 /** CI runs Postgres in its own container, whose clock can run ahead of the test runner's. */

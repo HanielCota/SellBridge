@@ -12,7 +12,7 @@ import { supplierShipmentCountsQueryOptions } from "@/features/supplier-panel/or
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 
 /** Said above the list, so the order of the rows is never a guess. */
-export function sortDescription(tab: SupplierOrderTab): string {
+function sortDescription(tab: SupplierOrderTab): string {
   if (isQueueTab(tab)) {
     return "Atrasados primeiro, depois o prazo mais próximo.";
   }

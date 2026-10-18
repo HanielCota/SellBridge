@@ -18,6 +18,7 @@ import { adminListTeam, adminResendTeamInvite } from "@/features/admin/team.func
 import { errorMessage } from "@/lib/errors";
 import { initials } from "@/lib/initials";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { DisabledHint } from "@/components/ui/hint";
 
 const teamQueryOptions = () => queryOptions({ queryKey: ["team"], queryFn: () => adminListTeam() });
 
@@ -164,15 +165,14 @@ function TeamSkeleton() {
 
 function InviteButton({ canInvite, onClick }: { canInvite: boolean; onClick: () => void }) {
   return (
-    <Button
-      type="button"
-      onClick={onClick}
-      disabled={!canInvite}
-      title={canInvite ? undefined : "Só um dono da plataforma convida pessoas para a equipe"}
+    <DisabledHint
+      reason={canInvite ? undefined : "Só um dono da plataforma convida pessoas para a equipe"}
     >
-      <UserPlusIcon aria-hidden="true" />
-      Convidar pessoa
-    </Button>
+      <Button type="button" onClick={onClick} disabled={!canInvite}>
+        <UserPlusIcon aria-hidden="true" />
+        Convidar pessoa
+      </Button>
+    </DisabledHint>
   );
 }
 

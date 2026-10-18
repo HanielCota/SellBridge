@@ -24,13 +24,28 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
   newest: "Mais recentes",
 };
 
+/**
+ * A cost bound from the URL. `?maxCost=` (or `null`) is no bound: coerced, it read as zero and
+ * showed an empty catalog without saying why.
+ */
+const costBoundParameter = optionalParameter(
+  z.preprocess(
+    (value) =>
+      value === null || (typeof value === "string" && value.trim() === "") ? undefined : value,
+    z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS).optional(),
+  ),
+);
+
+/** `?inStock=false` means off; coerced, any non-empty text (even "false") read as true. */
+const inStockParameter = optionalParameter(z.union([z.boolean(), z.stringbool()]));
+
 /** Search params of the supplier catalog page; money filters are in cents. */
 export const catalogSearchSchema = z.object({
   query: optionalParameter(searchQuery()),
   category: optionalParameter(freeText().trim().max(100)),
-  minCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
-  maxCost: optionalParameter(z.coerce.number().int().min(0).max(LISTING_MAX_PRICE_CENTS)),
-  inStock: optionalParameter(z.coerce.boolean()),
+  minCost: costBoundParameter,
+  maxCost: costBoundParameter,
+  inStock: inStockParameter,
   sort: withFallback(productSortSchema.default("title"), "title"),
   page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(6).max(48).default(12), 12),

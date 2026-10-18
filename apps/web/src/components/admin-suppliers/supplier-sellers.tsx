@@ -14,7 +14,7 @@ interface SellerGroup {
 }
 
 /** One row per reseller, however many of their shops sell the supplier. */
-export function groupSellers(stores: readonly SupplierSellerStore[]): SellerGroup[] {
+function groupSellers(stores: readonly SupplierSellerStore[]): SellerGroup[] {
   const groups = new Map<string, SellerGroup>();
   for (const store of stores) {
     const group = groups.get(store.tenantId) ?? {

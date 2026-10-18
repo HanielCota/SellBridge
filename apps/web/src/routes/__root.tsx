@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
+import { NotFound } from "@/components/feedback/not-found";
 import { THEME_COLORS, themeInitScript } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +38,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
   }),
   component: RootComponent,
+  // A URL outside every layout has no <main>: without one the skip link led nowhere. Inner
+  // routes keep the plain default inside their layout's own main.
+  notFoundComponent: () => (
+    <main id="main-content" tabIndex={-1}>
+      <NotFound />
+    </main>
+  ),
 });
 
 function RootComponent() {

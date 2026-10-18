@@ -19,7 +19,7 @@ export interface CatalogPage {
 export type OpenProduct = (productId: string, focusField?: string) => void;
 
 /** Where "Corrigir" lands: the reviewer's first reason, else the first thing blocking. */
-export function fieldToFix(product: SupplierPanelProduct): string | undefined {
+function fieldToFix(product: SupplierPanelProduct): string | undefined {
   const showsReasons = product.reviewStatus === "rejected" || product.reviewStatus === "draft";
   const reason = showsReasons ? product.rejectionReasons[0] : undefined;
   return reason?.field ?? product.completeness.blocking[0]?.field;

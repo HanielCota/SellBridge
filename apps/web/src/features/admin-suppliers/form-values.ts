@@ -61,7 +61,8 @@ export function productFormValues(product?: AdminSupplierProduct) {
     sku: product?.sku ?? "",
     title: product?.title ?? "",
     description: product?.description ?? "",
-    cost: formatCentsForInput(product?.costCents ?? 0),
+    // A new product starts with no cost: "0,00" was saved as a real cost of zero.
+    cost: product === undefined ? "" : formatCentsForInput(product.costCents),
     suggestedPrice: formatCentsForInput(product?.suggestedPriceCents ?? 0),
     stock: String(product?.stock ?? 0),
     categoryId: product?.categoryId ?? "",
@@ -86,7 +87,8 @@ export function productFormInput(
     description: values.description,
     costCents: parseCsvMoney(values.cost),
     suggestedPriceCents: parseCsvMoney(values.suggestedPrice),
-    stock: /^\d+$/.test(values.stock) ? Number(values.stock) : null,
+    // Negative only when shipments outran the count; the schema refuses typing a new one.
+    stock: /^-?\d+$/.test(values.stock) ? Number(values.stock) : null,
     categoryId: values.categoryId || null,
     mercadoLivreAttributes: parseMercadoLivreAttributes(values.mercadoLivreAttributes),
     imageUrls: values.images

@@ -171,4 +171,30 @@ describe("stock-price-sync processor", () => {
     });
     expect(row?.syncAttemptedAt).not.toBeNull();
   });
+
+  it("sends a failing target only once per run, however many batches follow", async () => {
+    let attemptsOnDeletedItem = 0;
+    const countingSync = createStockPriceSyncProcessor({
+      database,
+      connectors: {
+        ...connectorsWithDeletedItem,
+        mock: {
+          ...connectorsWithDeletedItem.mock,
+          updateStockPrice: async (...parameters) => {
+            if (parameters[1].externalId === "MOCK-ITEM-GONE") {
+              attemptsOnDeletedItem += 1;
+            }
+            await connectorsWithDeletedItem.mock.updateStockPrice(...parameters);
+          },
+        },
+      },
+      cipher,
+      acquireRateLimit: async () => {},
+      safetyUnits: 0,
+      runBudgetMilliseconds: 1_500,
+      batchSize: 1,
+    });
+    await countingSync();
+    expect(attemptsOnDeletedItem).toBe(1);
+  });
 });

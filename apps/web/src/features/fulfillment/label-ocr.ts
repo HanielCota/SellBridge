@@ -89,10 +89,30 @@ async function createOcrWorker() {
     cachePath: OCR_MODEL_DIRECTORY,
     errorHandler: failure.fail,
   });
-  return withTimeout(Promise.race([startup, failure.promise]), {
-    milliseconds: STARTUP_TIMEOUT_MILLISECONDS,
-    message: "O leitor de imagens demorou para carregar. Tente de novo.",
-  });
+  try {
+    return await withTimeout(Promise.race([startup, failure.promise]), {
+      milliseconds: STARTUP_TIMEOUT_MILLISECONDS,
+      message: "O leitor de imagens demorou para carregar. Tente de novo.",
+    });
+  } catch (error) {
+    // The start keeps going after a timeout; a worker that comes up late is shut down instead
+    // of keeping the model in memory with nobody holding it.
+    void terminateWhenStarted(startup);
+    throw error;
+  }
+}
+
+export async function terminateWhenStarted(
+  startup: Promise<{ terminate: () => Promise<unknown> }>,
+): Promise<void> {
+  try {
+    const worker = await startup;
+    await worker.terminate();
+  } catch {
+    // This cleanup runs without awaiting it after a startup failure. Neither startup nor
+    // termination failures may become unhandled rejections after the caller showed its error.
+    return;
+  }
 }
 
 /**

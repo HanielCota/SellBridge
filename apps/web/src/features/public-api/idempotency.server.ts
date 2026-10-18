@@ -96,7 +96,7 @@ export async function finishIdempotentRequest(
 const storedBodySchema = z.object({ encrypted: z.string() });
 
 /** The stored response body, or null when it can't be read back (key rotated, old format). */
-export function readStoredBody(stored: unknown): unknown {
+function readStoredBody(stored: unknown): unknown {
   const parsed = storedBodySchema.safeParse(stored);
   if (!parsed.success) {
     return null;
