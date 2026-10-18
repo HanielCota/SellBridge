@@ -617,3 +617,16 @@ Pedido do cliente nos áudios de 14/10: o SellBridge liga quem não tem estoque 
 - **Aceite de termos (L4):** tabela `terms_acceptances` (pessoa, versão, data), só de inserção. A versão em vigor é `TERMS_VERSION` (`shared/domain/terms.ts`, data da publicação). O cadastro tem a caixa obrigatória "Li e aceito…" e grava o aceite logo depois de criar a conta. Quem entra sem aceite da versão em vigor (Google, contas anteriores, termos novos) vai para `/aceitar-termos` antes de qualquer página do app (aprovado no ⏸A: vale para os usuários atuais). Uma visita de admin ("Entrar como cliente") nunca aceita pelo cliente (`acceptTermsFn` bloqueada e o portão não pede).
 - **Seed:** as contas demo e admin nascem com o aceite gravado.
 - **Exportação (LGPD):** a exportação da conta passa a levar telefone e empresa do titular.
+
+## 2026-10-16: Perfil por aba na URL (perfis, fase 1, etapas 0 e 3)
+
+O tenant vinha só de `session.activeOrganizationId`, a mesma em todas as abas: trocar de perfil numa aba mudava as outras. Agora cada aba tem o próprio perfil em `?perfil=<slug>`, mantido em todos os links por `retainSearchParams` no layout `_app`.
+
+Spike no TanStack Start 1.169: o middleware de função com `.client()` roda em toda chamada, inclusive durante o SSR (no servidor, sem `window`); e no SSR a função de servidor recebe a própria requisição da página em `getRequest()`. Por isso a ordem de resolução é: cabeçalho `x-sellbridge-profile` (chamadas do navegador) → `?perfil=` da URL da requisição (SSR, downloads, OAuth, anexos) → perfil ativo da sessão → primeiro perfil. Perfil pedido que não é da conta é recusado (403), nunca trocado por outro.
+
+- O layout grava o perfil da aba antes de qualquer chamada da navegação, porque durante uma navegação `window.location` ainda mostra a página anterior; prefetch (passar o mouse num link) não muda o perfil da aba.
+- Página sem `?perfil=` recebe o da sessão por redirecionamento, para F5 e link copiado abrirem o mesmo perfil.
+- Link de perfil fora da conta vai para `/outro-perfil`, com o caminho de volta.
+- O perfil ativo da sessão só muda numa troca explícita; ler outro perfil numa aba não o altera.
+- Links abertos pelo próprio navegador (etiqueta, exportação, anexos, OAuth) levam `?perfil=` lido da URL da página, igual no SSR e no navegador; uploads `fetch` levam o cabeçalho.
+- O tipo do perfil (vendedor ou fornecedor) é o do perfil da aba, não o da sessão: funções e rotas de vendedor (etiqueta, exportação, OAuth) recusam com 403 uma aba num perfil de fornecedor, e o painel do fornecedor confere o fornecedor do perfil da aba.

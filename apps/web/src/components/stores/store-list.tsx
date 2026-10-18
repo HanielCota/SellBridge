@@ -1,18 +1,17 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
-import { PackageIcon, PlugIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { PackageIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreMenu, type StoreRowActions } from "@/components/stores/store-menu";
 import { StoreStatusDot } from "@/components/stores/store-status-badge";
 import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
-import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
 import type { listStores } from "@/features/stores/stores.functions";
 import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
-import { DisabledHint } from "@/components/ui/hint";
+import { ReconnectAction } from "./store-reconnect-action";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
 
@@ -217,30 +216,6 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
   );
 }
 
-/** Figures a disconnected store can't vouch for give way to the one action that fixes it. */
-function ReconnectAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
-  const locked = useStoresLocked();
-  return (
-    <div className="col-span-2 row-start-2 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:justify-self-end md:pl-0">
-      {locked ? (
-        <DisabledHint reason={STORES_LOCKED_REASON}>
-          <Button variant="outline" size="sm" disabled>
-            <PlugIcon weight="bold" aria-hidden="true" />
-            Reconectar
-          </Button>
-        </DisabledHint>
-      ) : (
-        <Button asChild variant="outline" size="sm">
-          <a href={`/api/oauth/${store.marketplace}/start`} aria-label={`Reconectar ${storeName}`}>
-            <PlugIcon weight="bold" aria-hidden="true" />
-            Reconectar
-          </a>
-        </Button>
-      )}
-    </div>
-  );
-}
-
 function StoreFigures({ store }: { store: StoreWithActivity }) {
   const { activity } = store;
   return (
@@ -297,7 +272,7 @@ function StoreRow({
         {store.status === "connected" ? (
           <StoreFigures store={store} />
         ) : (
-          <ReconnectAction store={store} storeName={name} />
+          <ReconnectAction marketplace={store.marketplace} storeName={name} />
         )}
         <StoreMenu
           store={store}

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { brazilDayKey, nearDayName } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
+import { useTabProfileLink } from "@/lib/tab-profile";
 
 type ThreadMessage = TicketThreadData["messages"][number];
 type Attachment = ThreadMessage["attachments"][number];
@@ -107,9 +108,13 @@ function AuthorAvatar({ message }: { message: ThreadMessage }) {
   );
 }
 
-function attachmentUrl(attachment: Attachment, inline = false): string {
-  const base = `/api/suporte/anexos/${attachment.id}`;
-  return inline ? `${base}?inline=1` : base;
+/** Images and downloads are fetched by the browser itself, so the URL names the tab's profile. */
+function useAttachmentUrl(): (attachment: Attachment, inline?: boolean) => string {
+  const withProfile = useTabProfileLink();
+  return (attachment, inline = false) => {
+    const base = `/api/suporte/anexos/${attachment.id}`;
+    return withProfile(inline ? `${base}?inline=1` : base);
+  };
 }
 
 function isImage(attachment: Attachment): boolean {
@@ -119,6 +124,7 @@ function isImage(attachment: Attachment): boolean {
 /** Images open large on the page; the download stays one click away. */
 function ImagePreview({ attachment }: { attachment: Attachment }) {
   const [open, setOpen] = useState(false);
+  const attachmentUrl = useAttachmentUrl();
   return (
     <>
       <button
@@ -156,6 +162,7 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
 }
 
 function MessageAttachments({ attachments }: { attachments: readonly Attachment[] }) {
+  const attachmentUrl = useAttachmentUrl();
   if (attachments.length === 0) {
     return null;
   }

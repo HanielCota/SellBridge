@@ -134,6 +134,25 @@ export async function listSupplierShipments(
   };
 }
 
+/** Fetch each home group independently so a full page of one cannot hide the other. */
+export async function listSupplierHomeShipments(
+  database: Database,
+  supplierId: string,
+  limit: number,
+  now: Date = new Date(),
+): Promise<SupplierShipmentRow[]> {
+  const groups: FulfillmentStatus[][] = [["forwarded"], ["accepted", "picking", "ready"]];
+  const rows = await Promise.all(
+    groups.map((statuses) =>
+      shipmentsFrom(database)
+        .where(and(supplierScope(supplierId), inArray(orderShipments.status, statuses)))
+        .orderBy(...orderFor("todo"))
+        .limit(limit),
+    ),
+  );
+  return rows.flatMap((group) => group.map((row) => presentRow(row, now)));
+}
+
 function countColumn(filter: SQL | undefined) {
   return sql<number>`(count(*) filter (where ${filter ?? sql`true`}))::int`;
 }

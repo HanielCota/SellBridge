@@ -15,7 +15,11 @@ import { forwardOrder } from "./fulfillment.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
 import { queueDueAt } from "./supplier-panel-orders-sql.ts";
-import { countSupplierShipmentsByTab, listSupplierShipments } from "./supplier-panel-orders.ts";
+import {
+  countSupplierShipmentsByTab,
+  listSupplierHomeShipments,
+  listSupplierShipments,
+} from "./supplier-panel-orders.ts";
 
 const HOUR = 3_600_000;
 const database = createTestDatabase();
@@ -301,5 +305,21 @@ describe("a sale not released for shipping", () => {
       urgency: "normal",
       problems: ["order_blocked"],
     });
+  });
+});
+
+describe("listSupplierHomeShipments", () => {
+  it("shows both groups even when more than one page waits for acceptance", async () => {
+    for (let index = 0; index < 26; index += 1) {
+      await forwardedShipment({ hoursAgo: 100 + index });
+    }
+    const underway = await forwardedShipment();
+    await setStatus(underway.shipmentId, "accepted");
+    const rows = await listSupplierHomeShipments(database, supplier.supplierId, 5);
+    expect(rows.filter((row) => row.status === "forwarded")).toHaveLength(5);
+    expect(rows.filter((row) => row.status !== "forwarded").length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.orderStatus === "paid")).toBe(true);
+    const other = await listSupplierHomeShipments(database, otherSupplier.supplierId, 5);
+    expect(other.some((row) => rows.some((own) => own.id === row.id))).toBe(false);
   });
 });

@@ -54,10 +54,10 @@ const LAYOUTS = {
     modeBadge: "hidden",
   },
   dense: {
-    row: "xl:grid-cols-[auto_1fr_auto]",
-    desktopNav: "justify-self-center xl:flex",
+    row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
+    desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    tab: "px-3",
+    tab: "px-2",
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
     // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
     accountName: "sr-only",
@@ -116,7 +116,7 @@ function NavTab({
       aria-current={isActive ? "page" : undefined}
       onClick={onNavigate}
       className={cn(
-        "relative flex h-10 items-center gap-2 rounded-full text-sm whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
+        "relative flex h-10 items-center gap-2 rounded-full text-base whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
         isActive
           ? "font-medium text-background"
           : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
@@ -300,14 +300,14 @@ function AccountChip({
         ) : null}
       </span>
       <span className={cn("min-w-0 leading-tight", layout.accountName)}>
-        <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
+        <span className="block max-w-40 truncate text-base font-medium">{user.name}</span>
         {adminMode ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap text-brand-text">
+          <span className="flex items-center gap-1.5 text-sm font-medium whitespace-nowrap text-brand-text">
             <span className="size-1.5 rounded-full bg-brand-mark" aria-hidden="true" />
             {teamModeActiveTag(user.role)}
           </span>
         ) : (
-          <span className="block text-xs text-muted-foreground">
+          <span className="block text-sm text-muted-foreground">
             {accountLabel(user.role, profileKind)}
           </span>
         )}

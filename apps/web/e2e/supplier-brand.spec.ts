@@ -36,7 +36,7 @@ test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page 
     }
   });
   const email = await signUpAsSupplier(page, "Olaria Nova");
-  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca$/);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
 
   await page.getByLabel("Nome da marca").fill("Olaria Nova");
   await page.getByLabel("O que você vende (nicho)").fill("Casa e decoração");

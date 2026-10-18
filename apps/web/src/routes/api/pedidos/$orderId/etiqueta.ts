@@ -7,7 +7,7 @@ import { z } from "zod";
 import { orderShipments } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { database } from "@/lib/server/database";
-import { requireSellerSession } from "@/lib/server/tenant-session";
+import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
 import { hasTokenInUrl, readSupplierToken } from "@/lib/server/supplier-link-token";
@@ -22,7 +22,7 @@ async function labelTenant(request: Request, orderId: string) {
     throw validationError("Abra a etiqueta pelo botão da página do pedido.");
   }
   if (request.method !== "POST") {
-    return (await requireSellerSession(request.headers)).tenantId;
+    return (await requireSellerRequest(request)).tenantId;
   }
   const token = await readSupplierToken(request);
   if (token === null) {

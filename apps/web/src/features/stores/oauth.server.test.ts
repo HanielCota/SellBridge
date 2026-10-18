@@ -2,8 +2,13 @@ import { conflictError, unauthorizedError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireSellerSession:
-    vi.fn<() => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>>(),
+  requireSellerRequest:
+    vi.fn<
+      (
+        request: Request,
+      ) => Promise<{ tenantId: string; userId: string; impersonatedBy: string | null }>
+    >(),
+  findOAuthStateProfile: vi.fn<() => Promise<string | null>>(),
   createOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<void>>(),
   consumeOAuthState: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
   upsertStoreConnection: vi.fn<(database: unknown, input: unknown) => Promise<unknown>>(),
@@ -13,7 +18,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/tenant-session", () => ({
-  requireSellerSession: mocks.requireSellerSession,
+  requireSellerRequest: mocks.requireSellerRequest,
+}));
+vi.mock("@/lib/server/auth", () => ({
+  auth: { api: { getSession: async () => ({ user: { id: "user-b" } }) } },
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
@@ -35,6 +43,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   assertActiveSupplier: vi.fn<() => Promise<void>>(),
   findOnboardingProfile: vi.fn<() => Promise<unknown>>(),
   consumeOAuthState: mocks.consumeOAuthState,
+  findOAuthStateProfile: mocks.findOAuthStateProfile,
   createOAuthState: mocks.createOAuthState,
   upsertStoreConnection: mocks.upsertStoreConnection,
   isUserEmailVerified: mocks.isUserEmailVerified,
@@ -57,7 +66,8 @@ async function redirectedTo(): Promise<URL> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireSellerSession.mockResolvedValue({
+  mocks.findOAuthStateProfile.mockResolvedValue(null);
+  mocks.requireSellerRequest.mockResolvedValue({
     tenantId: "tenant-b",
     userId: "user-b",
     impersonatedBy: null,
@@ -72,6 +82,26 @@ beforeEach(() => {
 });
 
 describe("OAuth callback", () => {
+  it("recovers the transaction profile and returns to it after a callback without a profile parameter", async () => {
+    mocks.findOAuthStateProfile.mockResolvedValue("second-profile");
+    mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+    const location = await redirectedTo();
+    expect(location.searchParams.get("perfil")).toBe("second-profile");
+    const request = mocks.requireSellerRequest.mock.calls.at(-1)?.[0];
+    expect(request).toBeInstanceOf(Request);
+    expect(new URL(request?.url ?? "https://missing.example").searchParams.get("perfil")).toBe(
+      "second-profile",
+    );
+    expect(mocks.findOAuthStateProfile).toHaveBeenCalledWith(
+      {},
+      {
+        state: "state-1",
+        marketplace: "mock",
+        userId: "user-b",
+      },
+    );
+  });
+
   it("saves the shop under the organization of the session, never another", async () => {
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
     const location = await redirectedTo();
@@ -112,7 +142,7 @@ describe("OAuth callback", () => {
 
 describe("connecting a store while an admin uses the customer's account", () => {
   beforeEach(() => {
-    mocks.requireSellerSession.mockResolvedValue({
+    mocks.requireSellerRequest.mockResolvedValue({
       tenantId: "tenant-b",
       userId: "user-b",
       impersonatedBy: "admin-1",
@@ -140,7 +170,7 @@ describe("connecting a store while an admin uses the customer's account", () => 
 
 describe("redirects on a trusted host other than APP_URL", () => {
   it("keeps the person on the host their session cookie belongs to", async () => {
-    mocks.requireSellerSession.mockResolvedValue({
+    mocks.requireSellerRequest.mockResolvedValue({
       tenantId: "tenant-b",
       userId: "user-b",
       impersonatedBy: "admin-1",
@@ -155,7 +185,7 @@ describe("redirects on a trusted host other than APP_URL", () => {
   });
 
   it("never follows a host that is not trusted", async () => {
-    mocks.requireSellerSession.mockRejectedValue(unauthorizedError());
+    mocks.requireSellerRequest.mockRejectedValue(unauthorizedError());
     const response = await handleOAuthStart(
       new Request("http://evil.example/api/oauth/mock/start"),
       "mock",

@@ -33,13 +33,13 @@ async function giveBrand(email: string, name: string): Promise<void> {
 test("fornecedor recém-cadastrado vai direto para o cadastro da marca", async ({ page }) => {
   await signUpAsSupplier(page, "Ateliê Sem Marca");
 
-  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca$/);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { name: "Cadastre sua marca" })).toBeVisible();
 
   await gotoHydrated(page, "/dashboard");
-  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca$/);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
   await gotoHydrated(page, "/fornecedor/painel/pedidos");
-  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca$/);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
 });
 
 test("fornecedor com marca abre o próprio painel com os dados carregados", async ({ page }) => {
@@ -47,9 +47,15 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
   await giveBrand(email, "Ateliê Com Marca");
 
   await gotoHydrated(page, "/fornecedor/painel");
-  await expect(page.getByText("Nenhuma pendência")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nada esperando por você" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Produtos" }).first()).toBeVisible();
   await expect(page.getByText("Fornecedor", { exact: true }).first()).toBeVisible();
+
+  const profile = new URL(page.url()).searchParams.get("perfil");
+  for (const name of ["Ver pedidos", "Ver desempenho"]) {
+    const href = await page.getByRole("link", { name, exact: true }).getAttribute("href");
+    expect(new URL(href ?? "", page.url()).searchParams.get("perfil")).toBe(profile);
+  }
 
   await page.getByRole("link", { name: "Produtos" }).first().click();
   await expect(page.getByRole("heading", { name: "Produtos" })).toBeVisible();

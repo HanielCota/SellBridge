@@ -164,7 +164,7 @@ const COMPLETENESS_RULE_TITLES: Readonly<Record<string, string>> = {
   model_recommended: "Modelo ausente",
 };
 
-const OTHER_REASON_TITLE = "Outro motivo";
+export const OTHER_REASON_TITLE = "Outro motivo";
 
 export function reviewReasonTitle(rule: string): string {
   const preset = REVIEW_REASON_PRESETS.find((candidate) => candidate.rule === rule);

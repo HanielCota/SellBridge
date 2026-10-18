@@ -5,7 +5,7 @@ import { accountMiddleware } from "@/lib/server/middleware";
 import { assertSupplierProfile } from "@/lib/server/supplier-panel-access";
 
 /**
- * The catalog the session's supplier profile runs, or null while it has not set up its brand.
+ * The catalog the tab's supplier profile runs, or null while it has not set up its brand.
  * Every panel page reads its `supplierId` from here, never from the address.
  */
 export const getOwnSupplierFn = createServerFn({ method: "GET" })

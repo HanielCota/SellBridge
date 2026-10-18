@@ -21,6 +21,7 @@ import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { useTabProfileLink } from "@/lib/tab-profile";
 
 export const Route = createFileRoute("/_app/dashboard")({
   validateSearch: periodSearchSchema,
@@ -85,6 +86,7 @@ function DashboardPage() {
 
 function DashboardContent({ data }: { data: DashboardData }) {
   const search = Route.useSearch();
+  const withProfile = useTabProfileLink();
   const { onboarding, summary, previous } = data;
   const onboardingComplete = findNextStep(onboarding) === undefined;
   if (!onboardingComplete && summary.orders === 0 && summary.cancelledOrders === 0) {
@@ -120,7 +122,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
           periodDays={data.period.days}
           summary={summary}
           previous={previous}
-          exportUrl={financialExportUrl(financialSearchSchema.parse(search))}
+          exportUrl={withProfile(financialExportUrl(financialSearchSchema.parse(search)))}
           filters={<DashboardFilters data={data} />}
         />
       </div>
