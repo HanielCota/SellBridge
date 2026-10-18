@@ -94,4 +94,26 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E relacionados 27/28 (accessibility, publishing, stock, suppliers, catalog-deactivation). Nenhum teste alterado. A falha (`stock.spec.ts`, "uma venda simulada reduz o estoque mostrado no catálogo") também acontece sem estas mudanças: o produto do primeiro anúncio da conta demo está esgotado no banco de testes (problema de dados que já existia).
 
-**Próxima seção:** Vendedor · 2b. Catálogo: fornecedores (`/fornecedores` e a página de cada fornecedor).
+**Seção seguinte:** Vendedor · 2b. Catálogo: fornecedores.
+
+## Vendedor · 2b. Catálogo: fornecedores — 2026-10-18 · commit "feat(suppliers): explain the score, align terms and the publish icon"
+
+**Proposta escolhida: B (score explicado à vista)**. Propostas: [página clicável](../propostas/vendedor/2b-catalogo-fornecedores/index.html) · [A](vendedor/2b-catalogo-fornecedores/2-proposta-a.png) · [B](vendedor/2b-catalogo-fornecedores/2-proposta-b.png) · [C](vendedor/2b-catalogo-fornecedores/2-proposta-c.png).
+
+| Mudança                                                                                                            | Arquivo                                          | Tela                                                | Antes                                                          | Depois                                                                         |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Número do score ao lado do nível ("Bom · 85") e legendas no nível, em "Fornecedor destaque" e em "Novo fornecedor" | `components/suppliers/reputation.tsx`            | `/fornecedores` e escolha de fornecedor do cadastro | [lista](vendedor/2b-catalogo-fornecedores/1-antes-lista.png)   | [claro, com legenda](vendedor/2b-catalogo-fornecedores/3-depois-claro.png)     |
+| Linha explicando o score; legendas (com sublinhado pontilhado) no nível, nos pontos avaliados e em "meta até"      | `components/suppliers/reputation-panel.tsx`      | `/fornecedores/:id`                                 | [página](vendedor/2b-catalogo-fornecedores/1-antes-pagina.png) | [legenda da meta](vendedor/2b-catalogo-fornecedores/3-depois-legenda-meta.png) |
+| "Vender este fornecedor" com legenda (ícone da aba Lojas, mesmo destino)                                           | `routes/_app/fornecedores/$supplierId.tsx`       | `/fornecedores/:id`                                 | [página](vendedor/2b-catalogo-fornecedores/1-antes-pagina.png) | [página](vendedor/2b-catalogo-fornecedores/3-depois-pagina.png)                |
+| Busca "SKU" → "código"; "Somente com estoque" → "Só com estoque" (igual ao Catálogo)                               | `routes/_app/fornecedores/$supplierId.tsx`       | `/fornecedores/:id`                                 | [página](vendedor/2b-catalogo-fornecedores/1-antes-pagina.png) | [página](vendedor/2b-catalogo-fornecedores/3-depois-pagina.png)                |
+| Cartão de produto: "SKU" → "código"; Publicar com o ícone único e legenda                                          | `components/suppliers/supplier-product-card.tsx` | `/fornecedores/:id`                                 | [página](vendedor/2b-catalogo-fornecedores/1-antes-pagina.png) | [página](vendedor/2b-catalogo-fornecedores/3-depois-pagina.png)                |
+
+**Ícones:** nenhum novo; reaproveitados publish (PaperPlaneTilt) e stores (Storefront). **Textos novos:** `TERM_HINTS` (nível do score, destaque, novo fornecedor, ponto avaliado, meta) e `CONTROL_HINTS.sellSupplier`. **Glossário:** Score, Fornecedor destaque, Novo fornecedor, Meta.
+
+**Componentes compartilhados (aprovado: "Aplicar em todas"):** o resumo do score também aparece na escolha de fornecedor do cadastro (`components/onboarding/supplier-picker.tsx`). O início do painel do fornecedor usa só o termômetro, que não mudou.
+
+**Acessibilidade:** nos cartões (link esticado sobre o cartão) e nas opções do cadastro, a legenda do nível abre com o mouse ou toque, mas não recebe foco próprio, para não criar um controle dentro de outro; o nível fica acima do link esticado para o mouse alcançar. Na página do fornecedor as legendas recebem foco pelo teclado.
+
+**Testes ajustados (aprovados pelo usuário em 2026-10-18):** `e2e/suppliers.spec.ts` (linhas 139 e 141) e `e2e/store-supplier.spec.ts` (linha 69) procuravam "Somente com estoque"; passaram a procurar "Só com estoque". Depois do ajuste: 11/11. Demais: typecheck, oxlint e Prettier limpos; Vitest web 853/853; accessibility, reviews, browser-defaults, account-terms e profile verdes.
+
+**Próxima seção:** Vendedor · 3. Publicações (`/publicacoes`, nova publicação e editar preço), incluindo a legenda de "Taxa do marketplace" que ficou da 2a.

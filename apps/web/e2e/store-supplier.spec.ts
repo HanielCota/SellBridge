@@ -66,7 +66,7 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   // No shop sells BH Beauty anymore: its products can't be published until one does.
   await gotoHydrated(page, "/fornecedores");
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
-  await page.getByLabel("Somente com estoque").click();
+  await page.getByLabel("Só com estoque").click();
   await expect(page).toHaveURL(/inStock=true/);
   await page.getByRole("link", { name: "Publicar" }).first().click();
   await expect(page.getByText("Nenhuma loja vende BH Beauty Distribuidora")).toBeVisible();

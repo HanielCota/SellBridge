@@ -44,15 +44,19 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 
 ## Envio e atendimento
 
-| Termo              | Significado                               | Não use                                  |
-| ------------------ | ----------------------------------------- | ---------------------------------------- |
-| Envio              | Despacho de um pedido pelo fornecedor     | fulfillment, remessa                     |
-| Etiqueta           | Etiqueta de envio do pedido               | label, rótulo                            |
-| Código de rastreio | Código para acompanhar a entrega          | tracking                                 |
-| Chamado            | Pedido de ajuda aberto no Suporte         | ticket                                   |
-| Suporte            | Onde se fala com a equipe do SellBridge   | ajuda, central, help desk                |
-| Avisos             | Notificações do sino                      | notificações, alertas (em texto de tela) |
-| Avaliação          | Nota e comentário deixados pelo comprador | review, feedback                         |
+| Termo               | Significado                                                         | Não use                                  |
+| ------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| Envio               | Despacho de um pedido pelo fornecedor                               | fulfillment, remessa                     |
+| Etiqueta            | Etiqueta de envio do pedido                                         | label, rótulo                            |
+| Código de rastreio  | Código para acompanhar a entrega                                    | tracking                                 |
+| Chamado             | Pedido de ajuda aberto no Suporte                                   | ticket                                   |
+| Suporte             | Onde se fala com a equipe do SellBridge                             | ajuda, central, help desk                |
+| Avisos              | Notificações do sino                                                | notificações, alertas (em texto de tela) |
+| Avaliação           | Nota e comentário deixados pelo comprador                           | review, feedback                         |
+| Score               | Nota de 0 a 100 do fornecedor, pelas avaliações dos últimos 90 dias | reputação, ranking                       |
+| Fornecedor destaque | Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos          | top, premium                             |
+| Novo fornecedor     | Fornecedor com menos de 10 avaliações, ainda sem score              | sem nota                                 |
+| Meta                | Limite de devoluções ou cancelamentos; acima dele o score cai       | target, limite                           |
 
 ## Ações (verbos padronizados)
 

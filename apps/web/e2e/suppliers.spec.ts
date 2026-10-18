@@ -136,9 +136,9 @@ test.describe("fornecedores e catálogo", () => {
     ).toBeVisible();
     await expect(page.getByText(/produtos · página 1 de/)).toBeVisible();
 
-    await page.getByLabel("Somente com estoque").click();
+    await page.getByLabel("Só com estoque").click();
     await expect(page).toHaveURL(/inStock=true/);
-    await expect(page.getByLabel("Somente com estoque")).toBeChecked();
+    await expect(page.getByLabel("Só com estoque")).toBeChecked();
     await expect(page.getByText("Esgotado")).toHaveCount(0);
 
     await page.getByLabel("Buscar produto").fill("vestido");

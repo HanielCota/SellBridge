@@ -78,6 +78,11 @@ export type ActionIconName = keyof typeof ACTION_ICONS;
 export const TERM_HINTS = {
   averageTicket: "Valor médio de cada pedido no período",
   published: "Este produto já está à venda em uma das suas lojas",
+  scoreLevel: "Score de 0 a 100, pelas avaliações de quem já vendeu os produtos",
+  highlightedSupplier: "Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos",
+  newSupplier: "Tem menos de 10 avaliações; o score aparece depois",
+  reviewAspect: "Parte das avaliações que elogiou este ponto",
+  metricGoal: "Acima da meta, o score do fornecedor cai",
 } as const;
 
 /** Legends for controls whose name alone does not say what happens. */
@@ -85,6 +90,7 @@ export const CONTROL_HINTS = {
   selectForBulk: "Marque para publicar vários produtos de uma vez",
   inStockOnly: "Mostra só produtos que o fornecedor tem em estoque",
   hidePublished: "Esconde os produtos que você já publicou",
+  sellSupplier: "Conectar uma loja para vender os produtos deste fornecedor",
 } as const;
 
 /**
