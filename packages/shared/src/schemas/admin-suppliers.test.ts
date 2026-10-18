@@ -105,6 +105,17 @@ describe("product stock bounds", () => {
     ).toBe(true);
   });
 
+  it("rejects a new product with a fabricated negative opening count", () => {
+    expect(
+      adminSaveProductSchema.safeParse({
+        ...product,
+        productId: undefined,
+        stock: -3,
+        expectedStock: -3,
+      }).success,
+    ).toBe(false);
+  });
+
   it("refuses typing a negative shelf over the opened count", () => {
     const parsed = adminSaveProductSchema.safeParse({ ...product, stock: -1, expectedStock: 5 });
     expect(parsed.error?.issues[0]?.message).toBe("O estoque não pode ser negativo");

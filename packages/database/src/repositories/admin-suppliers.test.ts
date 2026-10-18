@@ -73,6 +73,28 @@ async function importRows(content: string, targetSupplierId = supplierId) {
 }
 
 describe("admin suppliers", () => {
+  it("rejects creating a product with negative stock even with an opening count", async () => {
+    await expect(
+      saveAdminSupplierProduct(database, {
+        ...productValues,
+        supplierId,
+        sku: "NEGATIVE-CREATE",
+        stock: -3,
+        expectedStock: -3,
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    const stored = await database
+      .select()
+      .from(supplierProducts)
+      .where(
+        and(
+          eq(supplierProducts.supplierId, supplierId),
+          eq(supplierProducts.sku, "NEGATIVE-CREATE"),
+        ),
+      );
+    expect(stored).toEqual([]);
+  });
+
   it("saves where the supplier ships from, with no delivery area", async () => {
     await saveAdminSupplier(database, { ...supplierInput, supplierId, city: "Santos" });
     expect((await getAdminSupplier(database, supplierId)).supplier).toMatchObject({

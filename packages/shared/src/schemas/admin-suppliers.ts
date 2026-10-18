@@ -176,10 +176,14 @@ export const adminSaveProductSchema = adminProductValuesSchema
     /** The shelf count the edit form was opened with; sales may have moved it since. */
     expectedStock: openedShelfCountSchema.optional(),
   })
-  .refine((input) => keepsNegativeShelfOnly(input.stock, input.expectedStock), {
-    path: ["stock"],
-    error: NEGATIVE_STOCK_MESSAGE,
-  });
+  .refine(
+    (input) =>
+      keepsNegativeShelfOnly(
+        input.stock,
+        input.productId === undefined ? undefined : input.expectedStock,
+      ),
+    { path: ["stock"], error: NEGATIVE_STOCK_MESSAGE },
+  );
 export const adminSetProductActiveSchema = z.object({
   supplierId: z.uuid(),
   productId: z.uuid(),
