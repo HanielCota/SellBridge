@@ -11,6 +11,18 @@ describe("terminateWhenStarted", () => {
   it("settles quietly when the late start fails, since no reader is left running", async () => {
     await expect(terminateWhenStarted(Promise.reject(new Error("model")))).resolves.toBe(undefined);
   });
+
+  it("settles quietly when terminating the late worker fails", async () => {
+    await expect(
+      terminateWhenStarted(
+        Promise.resolve({
+          terminate: async () => {
+            throw new Error("Worker already stopped");
+          },
+        }),
+      ),
+    ).resolves.toBeUndefined();
+  });
 });
 
 describe("scaledSize", () => {

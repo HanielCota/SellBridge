@@ -105,14 +105,14 @@ async function createOcrWorker() {
 export async function terminateWhenStarted(
   startup: Promise<{ terminate: () => Promise<unknown> }>,
 ): Promise<void> {
-  let worker: { terminate: () => Promise<unknown> };
   try {
-    worker = await startup;
+    const worker = await startup;
+    await worker.terminate();
   } catch {
-    // A start that fails leaves no worker behind; the caller already showed its own error.
+    // This cleanup runs without awaiting it after a startup failure. Neither startup nor
+    // termination failures may become unhandled rejections after the caller showed its error.
     return;
   }
-  await worker.terminate();
 }
 
 /**
