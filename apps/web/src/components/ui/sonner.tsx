@@ -47,7 +47,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
             "group flex w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-border bg-popover py-3 pr-4 pl-3 text-popover-foreground shadow-[0_12px_40px_-8px_rgb(0_0_0/0.45)] sm:w-[400px]",
           icon: "m-0 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground",
           success: "[&_[data-icon]]:bg-brand [&_[data-icon]]:text-primary-foreground",
-          error: "[&_[data-icon]]:bg-destructive [&_[data-icon]]:text-white",
+          error:
+            "[&_[data-icon]]:bg-destructive [&_[data-icon]]:text-white dark:[&_[data-icon]]:text-black",
           warning: "[&_[data-icon]]:bg-amber-400 [&_[data-icon]]:text-black",
           content: "min-w-0 flex-1",
           title: "text-sm leading-snug font-medium",
