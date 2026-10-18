@@ -114,14 +114,14 @@ function MoneySentence({ summary, scope }: { summary: SalesSummary; scope: strin
   }
   if (isOnlyPendingCost(summary)) {
     return (
-      <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+      <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-subhead">
         Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
         <PendingClause summary={summary} />
       </p>
     );
   }
   return (
-    <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+    <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-subhead">
       Você vendeu <Amount cents={revenue} color="border-foreground/40 text-foreground" />.{" "}
       {summary.pendingCostOrders > 0 ? (
         <>

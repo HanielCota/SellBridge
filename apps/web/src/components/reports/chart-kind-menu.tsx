@@ -136,7 +136,7 @@ function KindOption({
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">{copy.label}</span>
-        <span className="block h-4 text-[11px] leading-4 text-muted-foreground">
+        <span className="block h-4 text-caption leading-4 text-muted-foreground">
           {isDefault ? "Padrão" : null}
         </span>
       </span>
