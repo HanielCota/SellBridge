@@ -1,4 +1,11 @@
-import { useRef, useState, type PointerEvent, type ReactElement, type ReactNode } from "react";
+import {
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -34,34 +41,48 @@ export function Hint({
 }
 
 /**
- * Radix tooltips never open on touch, so a tap toggles this one and a tap outside closes it. The
- * trigger closes itself on pointer down and click; those closes are skipped while a tap is landing.
+ * Radix tooltips never open on touch, so a tap toggles this one and a tap outside closes it.
+ * Capture the state before touch focus changes it. Only the trigger's synchronous click close is
+ * skipped; cancelled gestures must never block outside taps, scrolling, blur or Escape.
  */
 function TappableTooltip({ label, children }: { label: string; children: ReactElement }) {
   const [open, setOpen] = useState(false);
-  const tapLandingRef = useRef(false);
+  const touchStartOpenRef = useRef<boolean | null>(null);
+  const skipClickCloseRef = useRef(false);
   const handleOpenChange = (next: boolean) => {
-    if (!next && tapLandingRef.current) {
+    if (!next && skipClickCloseRef.current) {
       return;
     }
     setOpen(next);
   };
   const handlePointerDown = (event: PointerEvent) => {
-    tapLandingRef.current = event.pointerType === "touch";
+    touchStartOpenRef.current = event.pointerType === "touch" ? open : null;
   };
-  const handleClick = () => {
-    if (!tapLandingRef.current) {
+  const handlePointerCancel = () => {
+    touchStartOpenRef.current = null;
+    setOpen(false);
+  };
+  const handleClick = (event: MouseEvent) => {
+    const wasOpen = touchStartOpenRef.current;
+    touchStartOpenRef.current = null;
+    if (wasOpen === null || event.detail === 0) {
       return;
     }
-    setOpen((current) => !current);
-    // The trigger's own close runs right after this handler; let later closes through again.
+    skipClickCloseRef.current = true;
+    setOpen(!wasOpen);
+    // Radix closes the trigger synchronously after this handler, including after touch focus.
     queueMicrotask(() => {
-      tapLandingRef.current = false;
+      skipClickCloseRef.current = false;
     });
   };
   return (
     <Tooltip open={open} onOpenChange={handleOpenChange}>
-      <TooltipTrigger asChild onPointerDown={handlePointerDown} onClick={handleClick}>
+      <TooltipTrigger
+        asChild
+        onPointerDown={handlePointerDown}
+        onPointerCancel={handlePointerCancel}
+        onClick={handleClick}
+      >
         {children}
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
