@@ -6,7 +6,7 @@ import {
 } from "@sellbridge/shared/supplier-panel-health";
 import { ToneStatus } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
-import { formatHealthValue, HEALTH_LEVEL_TONES } from "./health-format";
+import { formatHealthValue, HEALTH_LEVEL_TONES, metricHint } from "./health-format";
 import { ACTION_ICONS, TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 
@@ -26,19 +26,6 @@ function levelSentence(health: SupplierHealth): string {
 }
 
 const SeeAllIcon = ACTION_ICONS.openOrder.icon;
-
-/** What the metric measures and its goal, so the number reads without opening Desempenho. */
-function metricHint(metric: HealthMetric): string {
-  const { definition } = metric;
-  const goal = formatHealthValue(definition, definition.target);
-  const sentences: Record<HealthMetric["key"], string> = {
-    accept_on_time: `Pedidos aceitos antes do prazo; a meta é ${goal} ou mais`,
-    dispatch_on_time: `Pedidos despachados antes do prazo; a meta é ${goal} ou mais`,
-    supplier_cancellations: `Pedidos que você cancelou; a meta é até ${goal}`,
-    average_rating: `Média das notas dos revendedores; a meta é ${goal} ou mais`,
-  };
-  return sentences[metric.key];
-}
 
 /** A metric off target shows its value in the level's color; a short sample shows a dash. */
 function MetricValue({ metric }: { metric: HealthMetric }) {

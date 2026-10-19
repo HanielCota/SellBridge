@@ -14,8 +14,10 @@ import {
   formatHealthValue,
   HEALTH_LEVEL_TONES,
   healthDelta,
+  metricHint,
   sampleNote,
 } from "./health-format";
+import { HintedText } from "@/components/ui/hint";
 
 function MetricTrend({ metric }: { metric: HealthMetric }) {
   if (metric.level === "insufficient") {
@@ -53,7 +55,14 @@ function MetricRow({
     >
       <span className="min-w-0 flex-1 space-y-1.5">
         <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <span className="text-sm font-medium">{HEALTH_METRIC_LABELS[metric.key]}</span>
+          {/* The row is a button: the legend opens on hover or tap, not as a stop of its own. */}
+          <HintedText
+            label={metricHint(metric)}
+            focusable={false}
+            className="text-sm font-medium underline decoration-dotted underline-offset-4"
+          >
+            {HEALTH_METRIC_LABELS[metric.key]}
+          </HintedText>
           <ToneStatus
             tone={HEALTH_LEVEL_TONES[metric.level]}
             label={HEALTH_LEVEL_LABELS[metric.level]}

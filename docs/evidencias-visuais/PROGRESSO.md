@@ -359,4 +359,20 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Teste ajustado (aprovado pelo usuário em 2026-10-19):** `features/supplier-panel/import/import-wording.test.ts` linha 21 ("atualizados pelo código"). Depois: Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 6/6; typecheck, oxlint e Prettier limpos.
 
-**Próxima seção:** Fornecedor · 5. Desempenho (`/fornecedor/painel/desempenho`).
+**Seção seguinte:** Fornecedor · 5. Desempenho.
+
+## Fornecedor · 5. Desempenho — 2026-10-19 · commit "feat(supplier-panel): hints on the performance page"
+
+**Proposta escolhida: A (só legendas)**. Propostas: [página clicável](../propostas/fornecedor/5-desempenho/index.html) · [A](fornecedor/5-desempenho/2-proposta-a.png) · [B](fornecedor/5-desempenho/2-proposta-b.png) · [C](fornecedor/5-desempenho/2-proposta-c.png).
+
+| Mudança                                                                                                                                           | Arquivo                                                               | Tela                            | Antes                                                                                                          | Depois                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Saúde da conta" (só você vê) e "Score público" (o que os revendedores veem); legenda do nível ("Bom") igual à do perfil do fornecedor | `components/supplier-panel/home/health-thermometer.tsx`               | `/fornecedor/painel/desempenho` | [desktop](fornecedor/5-desempenho/1-antes-desktop.png) · [celular](fornecedor/5-desempenho/1-antes-mobile.png) | [desktop](fornecedor/5-desempenho/3-depois-desktop.png) · [celular](fornecedor/5-desempenho/3-depois-mobile.png) · [claro](fornecedor/5-desempenho/3-depois-claro.png) |
+| Legenda no nome de cada métrica, com a meta                                                                                                       | `components/supplier-panel/home/health-metric-list.tsx`               | Desempenho                      | [desktop](fornecedor/5-desempenho/1-antes-desktop.png)                                                         | [métrica](fornecedor/5-desempenho/3-depois-metrica.png)                                                                                                                |
+| A legenda da métrica saiu do Início para `health-format.ts`: Início e Desempenho usam o mesmo texto                                               | `components/supplier-panel/home/health-format.ts`, `health-strip.tsx` | Início e Desempenho             | —                                                                                                              | [Início](fornecedor/5-desempenho/3-depois-inicio.png)                                                                                                                  |
+
+**Ícones:** nenhum novo.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 7/7. Nenhum teste alterado.
+
+**Próxima seção:** Fornecedor · 6. Marca (`/fornecedor/painel/marca`).

@@ -23,6 +23,19 @@ export function formatHealthValue(
   return definition.unit === "stars" ? stars.format(value) : percent.format(value);
 }
 
+/** What the metric measures and its goal, so the number reads without opening Desempenho. */
+export function metricHint(metric: HealthMetric): string {
+  const { definition } = metric;
+  const goal = formatHealthValue(definition, definition.target);
+  const sentences: Record<HealthMetric["key"], string> = {
+    accept_on_time: `Pedidos aceitos antes do prazo; a meta é ${goal} ou mais`,
+    dispatch_on_time: `Pedidos despachados antes do prazo; a meta é ${goal} ou mais`,
+    supplier_cancellations: `Pedidos que você cancelou; a meta é até ${goal}`,
+    average_rating: `Média das notas dos revendedores; a meta é ${goal} ou mais`,
+  };
+  return sentences[metric.key];
+}
+
 /** The line beside each value: "meta ≥ 90%", "meta ≤ 2%", "meta ≥ 4,0". */
 export function formatHealthTarget(definition: HealthMetricDefinition): string {
   const sign = definition.direction === "higher_is_better" ? "≥" : "≤";

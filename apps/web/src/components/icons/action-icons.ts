@@ -180,6 +180,8 @@ export const TERM_HINTS = {
   autosave: "Cada alteração é salva sozinha; não precisa de botão Salvar",
   productCode: "Código que você usa para identificar o produto no seu estoque",
   failedRows: "Linhas que não entram; veja o motivo na tabela abaixo",
+  accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
+  publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
