@@ -1,15 +1,22 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import react from "@vitejs/plugin-react";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
 
 let server: ViteDevServer | undefined;
+let cacheDirectory: string | undefined;
 let fixtureUrl: string;
 
 test.beforeAll(async () => {
   // Exercise the actual React/Radix components without depending on accounts or seed data.
+  // The app's dev server runs concurrently; sharing its optimizer cache invalidates lazy imports.
+  cacheDirectory = await mkdtemp(join(tmpdir(), "sellbridge-hint-"));
   server = await createServer({
     configFile: false,
+    cacheDir: cacheDirectory,
     root: fileURLToPath(new URL("..", import.meta.url)),
     plugins: [react()],
     resolve: { tsconfigPaths: true },
@@ -25,6 +32,9 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await server?.close();
+  if (cacheDirectory !== undefined) {
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
 });
 
 async function swipeFrom(page: Page, trigger: Locator) {
