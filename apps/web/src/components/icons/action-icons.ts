@@ -137,6 +137,8 @@ export const TERM_HINTS = {
   lastSync: "Última vez que o SellBridge atualizou estoque e preço nesta loja",
   lastOrderPing: "Última vez que o marketplace avisou de um pedido novo",
   storeListings: "Quantos produtos estão publicados nesta loja",
+  notASale: "Ainda não pago, cancelado ou devolvido: não conta na receita nem no lucro",
+  fees: "Taxas do marketplace e do SellBridge sobre a venda",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */

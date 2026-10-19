@@ -236,4 +236,26 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; store-attention, store-disconnect, store-health, store-supplier, stores-messages, accessibility e admin-store-supplier 12/12. Nenhum teste alterado.
 
-**Próxima seção:** Vendedor · 6. Financeiro (`/financeiro`; o gráfico, o Exportar e o período já vieram da seção 1).
+**Seção seguinte:** Vendedor · 6. Financeiro.
+
+## Vendedor · 6. Financeiro — 2026-10-19 · commit "feat(financials): plain words and app tooltips on the statement"
+
+**Proposta escolhida: B (palavras mais claras)**. Propostas: [página clicável](../propostas/vendedor/6-financeiro/index.html) · [A](vendedor/6-financeiro/2-proposta-a.png) · [B](vendedor/6-financeiro/2-proposta-b.png) · [C](vendedor/6-financeiro/2-proposta-c.png).
+
+| Mudança                                                                                                 | Arquivo                                     | Tela              | Antes                                                | Depois                                                |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| Os ⓘ do resumo usam a legenda única do site (300 ms, abre por toque); saiu o tooltip próprio desta tela | `components/financials/profit-summary.tsx`  | `/financeiro`     | [resumo](vendedor/6-financeiro/1-antes-resumo.png)   | [resumo](vendedor/6-financeiro/3-depois-resumo.png)   |
+| "fora da receita" → "não conta como venda", com legenda                                                 | `components/financials/order-statement.tsx` | Extrato           | [extrato](vendedor/6-financeiro/1-antes-extrato.png) | [extrato](vendedor/6-financeiro/3-depois-extrato.png) |
+| "N vendas válidas" com sublinhado pontilhado (a legenda já existia)                                     | `components/financials/order-statement.tsx` | Extrato           | [extrato](vendedor/6-financeiro/1-antes-extrato.png) | [claro](vendedor/6-financeiro/3-depois-claro.png)     |
+| Setinha em cada linha do extrato, mostrando que abre o detalhe                                          | `components/financials/order-statement.tsx` | Extrato           | [extrato](vendedor/6-financeiro/1-antes-extrato.png) | [extrato](vendedor/6-financeiro/3-depois-extrato.png) |
+| "Taxas" no detalhe do pedido com legenda                                                                | `components/financials/order-parts.tsx`     | detalhe do pedido | [pedido](vendedor/6-financeiro/1-antes-pedido.png)   | [pedido](vendedor/6-financeiro/3-depois-pedido.png)   |
+
+**Divisão de arquivo:** o detalhe do pedido saiu para `components/financials/order-detail.tsx`; `order-statement.tsx` caiu de 585 para cerca de 565 linhas (a guarda só bloqueia crescer).
+
+**Ajuste por teste visual:** a linha do extrato não ganhou legenda própria. Ela abria junto com a do termo e as duas se sobrepunham; a setinha já diz que a linha abre o detalhe.
+
+**Textos novos:** `TERM_HINTS.notASale` e `fees`. **Glossário:** "não conta como venda" substitui "fora da receita".
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; reports, financeiro-scroll, pending-cost e accessibility 21/21. Nenhum teste alterado.
+
+**Área do vendedor concluída.** **Próxima área:** Fornecedor · 1. Início (`/fornecedor/painel`).

@@ -1,10 +1,10 @@
 import type { SalesSummary } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { InfoIcon, XIcon } from "@phosphor-icons/react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
 import { PENDING_COST_HINT } from "@/components/reports/pending-cost";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Hint as AppHint } from "@/components/ui/hint";
 import { formatDayHeading } from "@/features/reports/financial-rows";
 import { cn } from "@/lib/utils";
 
@@ -50,23 +50,18 @@ function Amount({
 }
 
 /** A small "i" beside a word; the explanation opens on hover or focus, never in the way. */
-function Hint({ label, children }: { label: string; children: ReactNode }) {
+function Hint({ label, children }: { label: string; children: string }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          // Drawn at the icon's size so it hugs the word; the invisible ::after keeps a fair touch target.
-          className="relative ml-1 inline-flex size-3 items-center justify-center rounded-full align-[-1px] text-muted-foreground/70 outline-none after:absolute after:-inset-2 hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-        >
-          <InfoIcon aria-hidden="true" className="size-3" weight="bold" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        {children}
-      </TooltipContent>
-    </Tooltip>
+    <AppHint label={children}>
+      <button
+        type="button"
+        aria-label={label}
+        // Drawn at the icon's size so it hugs the word; the invisible ::after keeps a fair touch target.
+        className="relative ml-1 inline-flex size-3 items-center justify-center rounded-full align-[-1px] text-muted-foreground/70 outline-none after:absolute after:-inset-2 hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <InfoIcon aria-hidden="true" className="size-3" weight="bold" />
+      </button>
+    </AppHint>
   );
 }
 
