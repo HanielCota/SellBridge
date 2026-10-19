@@ -28,7 +28,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await expect(page).toHaveURL(/\/admin\/fornecedores\/[a-f0-9-]+/);
 
   await page.getByRole("button", { name: "Novo produto", exact: true }).click();
-  await page.getByLabel("SKU", { exact: true }).fill("CSV-MANUAL");
+  await page.getByLabel("Código", { exact: true }).fill("CSV-MANUAL");
   await page.getByLabel("Título", { exact: true }).fill("Produto manual");
   await page.getByLabel("Custo (R$)", { exact: true }).fill("12,90");
   await page.getByLabel("Preço sugerido (R$)").fill("19,90");

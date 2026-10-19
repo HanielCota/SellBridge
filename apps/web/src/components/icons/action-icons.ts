@@ -269,6 +269,10 @@ export const CONTROL_HINTS = {
   importNeedsChoice: "Marque a caixa acima para importar só as linhas válidas",
   customerQuickView: "Abre um resumo do cliente aqui mesmo, sem sair da lista",
   customerActions: "Entrar como cliente, abrir a ficha, ver chamados, senha ou bloqueio",
+  reviewQueue: "Produtos enviados pelos fornecedores esperando sua análise",
+  createSupplier: "Cadastrar um fornecedor novo",
+  deactivateSupplier: "Tira os produtos do catálogo e pausa os anúncios; os pedidos continuam",
+  deactivateProduct: "Tira o produto do catálogo e pausa os anúncios dos revendedores",
 } as const;
 
 /**

@@ -1,7 +1,6 @@
 import type { AdminSupplier, SupplierSellerStore } from "@sellbridge/database/repositories";
 import type { AdminSupplierSearch } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { ToneStatus } from "@/components/data/tone-status";
@@ -19,6 +18,9 @@ import { ProductCsvImport } from "./product-csv-import";
 import { ProductList } from "./product-list";
 import { SupplierForm } from "./supplier-form";
 import { sellersSummary, SupplierSellers } from "./supplier-sellers";
+import { CONTROL_HINTS } from "@/components/icons/action-icons";
+import { BackLink } from "@/components/layout/page-header";
+import { Hint } from "@/components/ui/hint";
 
 /** What deactivating does, with the reach the supplier has today. */
 function deactivationImpact(sellers: readonly SupplierSellerStore[]): string {
@@ -56,19 +58,24 @@ function SupplierActiveToggle({
         tone={supplier.active ? "success" : "muted"}
         label={supplier.active ? "Ativo" : "Desativado"}
       />
-      <Button
-        variant={supplier.active ? "destructive" : "secondary"}
-        disabled={setActive.isPending}
-        onClick={() => {
-          if (supplier.active) {
-            setConfirming(true);
-            return;
-          }
-          setActive.mutate({ data: { supplierId: supplier.id, active: true } });
-        }}
+      <Hint
+        label={supplier.active ? CONTROL_HINTS.deactivateSupplier : undefined}
+        openOnTap={false}
       >
-        {toggleLabel(supplier.active, setActive.isPending && !confirming)}
-      </Button>
+        <Button
+          variant={supplier.active ? "destructive" : "secondary"}
+          disabled={setActive.isPending}
+          onClick={() => {
+            if (supplier.active) {
+              setConfirming(true);
+              return;
+            }
+            setActive.mutate({ data: { supplierId: supplier.id, active: true } });
+          }}
+        >
+          {toggleLabel(supplier.active, setActive.isPending && !confirming)}
+        </Button>
+      </Hint>
       <ConfirmDialog
         open={confirming}
         onOpenChange={(open) => (open ? undefined : setConfirming(false))}
@@ -93,9 +100,7 @@ function SupplierHeader({
 }) {
   return (
     <div className="space-y-4">
-      <Link to="/admin/fornecedores" className="text-sm text-muted-foreground underline">
-        Voltar aos fornecedores
-      </Link>
+      <BackLink to="/admin/fornecedores" label="Fornecedores" />
       <PageHeader
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}`}

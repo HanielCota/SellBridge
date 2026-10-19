@@ -455,4 +455,19 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, accessibility, store-health, impersonation e support 18/18. Nenhum teste alterado.
 
-**Próxima seção:** Administração · 2a. Fornecedores (`/admin/fornecedores`).
+**Seção seguinte:** Administração · 2a.
+
+## Administração · 2a. Fornecedores (lista e ficha) — 2026-10-19 · commit "feat(admin): supplier pages follow the app icons and words"
+
+**Proposta escolhida: A (mesmo padrão do resto)**. Propostas: [página clicável](../propostas/admin/2a-fornecedores/index.html) · [A](admin/2a-fornecedores/2-proposta-a.png) · [B](admin/2a-fornecedores/2-proposta-b.png) · [C](admin/2a-fornecedores/2-proposta-c.png).
+
+| Mudança                                                                                                                               | Arquivo                                                           | Tela                  | Antes                                            | Depois                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Legenda em "Produtos em análise"; "+" e legenda em "Novo fornecedor"                                                                  | `components/admin-suppliers/supplier-index.tsx`                   | `/admin/fornecedores` | [lista](admin/2a-fornecedores/1-antes-lista.png) | [lista](admin/2a-fornecedores/3-depois-lista.png) · [celular](admin/2a-fornecedores/3-depois-mobile.png) |
+| "Voltar aos fornecedores" (link sublinhado) vira o `BackLink` das outras fichas ("← Fornecedores"); legenda em "Desativar fornecedor" | `components/admin-suppliers/supplier-detail.tsx`                  | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [ficha](admin/2a-fornecedores/3-depois-ficha.png) · [claro](admin/2a-fornecedores/3-depois-claro.png)    |
+| "+" em "Novo produto"; legenda em "Editar" e "Desativar"; "SKU" → "Código" na tabela, na busca e no formulário                        | `components/admin-suppliers/product-list.tsx`, `product-form.tsx` | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [produtos](admin/2a-fornecedores/3-depois-produtos.png)                                                  |
+| Ícone de baixar em "Baixar modelo CSV" e de importar em "Escolher arquivo" (do dicionário); "Códigos existentes serão atualizados"    | `components/admin-suppliers/product-csv-import.tsx`               | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [produtos](admin/2a-fornecedores/3-depois-produtos.png)                                                  |
+
+**Teste ajustado (aprovado com a proposta A):** `e2e/admin-suppliers.spec.ts` linha 31, `getByLabel("Código")`. Depois: admin-suppliers, admin-supplier-sellers, browser-defaults, catalog-deactivation, csv-attributes, supplier-product-review e accessibility verdes (os quatro que falharam na rodada paralela passaram sozinhos); Vitest web 853/853; typecheck, oxlint e Prettier limpos.
+
+**Próxima seção:** Administração · 2b. Análise de produtos (`/admin/fornecedores/analise`).
