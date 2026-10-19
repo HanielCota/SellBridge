@@ -1,5 +1,7 @@
 import {
+  ArrowCounterClockwiseIcon,
   ArrowUpRightIcon,
+  BellZIcon,
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
@@ -25,6 +27,8 @@ import {
   IdentificationBadgeIcon,
   PaletteIcon,
   TruckIcon,
+  UserCheckIcon,
+  UserMinusIcon,
   UsersThreeIcon,
   FileArrowDownIcon,
   HeadsetIcon,
@@ -158,6 +162,14 @@ export const ACTION_ICONS = {
   staff: {
     icon: IdentificationBadgeIcon,
     hint: "Quem trabalha na administração e o que cada um pode fazer",
+  },
+  /** The team's queue of customer issues (Clientes > Pendências). Snoozing is not `overdue`'s clock. */
+  assignIssue: { icon: UserCheckIcon, hint: "A pendência fica com você e sai da fila dos colegas" },
+  releaseIssue: { icon: UserMinusIcon, hint: "Devolve a pendência para a fila da equipe" },
+  snoozeIssue: { icon: BellZIcon, hint: "Adiar por alguns dias, quando depende do cliente" },
+  unsnoozeIssue: {
+    icon: ArrowCounterClockwiseIcon,
+    hint: "Traz a pendência de volta para a fila agora",
   },
 } as const satisfies Record<string, ActionIcon>;
 

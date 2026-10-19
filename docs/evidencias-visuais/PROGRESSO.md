@@ -440,4 +440,19 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, platform-owner, admin-store-supplier, impersonation, store-health, support e accessibility verdes. `support.spec.ts:40` falhou uma vez numa rodada paralela (aviso "Resposta enviada") e passou três vezes sozinho, com e sem a mudança.
 
-**Próxima seção:** Administração · 1b. Clientes: ficha, Pendências e Jornada.
+**Seção seguinte:** Administração · 1b.
+
+## Administração · 1b. Clientes: Pendências, Jornada e ficha — 2026-10-19 · commit "feat(admin): labeled triage buttons and score hints"
+
+**Escolha do usuário:** "mescle entre A e C": legendas e o sino para adiar (A) e, no computador, o texto ao lado do ícone (C). Propostas: [página clicável](../propostas/admin/1b-clientes-ficha/index.html) · [A](admin/1b-clientes-ficha/2-proposta-a.png) · [B](admin/1b-clientes-ficha/2-proposta-b.png) · [C](admin/1b-clientes-ficha/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                                              | Arquivo                                                                                                       | Tela            | Antes                                                                                                       | Depois                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Assumir", "Devolver", "Adiar" e "Trazer de volta" com legenda do app (sai o `title` do navegador) e, a partir de lg, o texto ao lado; "Adiar" troca o relógio (que já é "atrasado") pelo sino com z | `components/admin/issue-triage-controls.tsx`                                                                  | Pendências      | [desktop](admin/1b-clientes-ficha/1-antes-pendencias.png)                                                   | [desktop](admin/1b-clientes-ficha/3-depois-pendencias.png) · [celular](admin/1b-clientes-ficha/3-depois-pendencias-mobile.png) · [claro](admin/1b-clientes-ficha/3-depois-claro.png) |
+| A nota ganha a legenda da lista (com a faixa) nos cards da Jornada e no topo da ficha; marcas de loja da Jornada dizem o nome da loja                                                                | `components/admin/customer-cells.tsx`, `customer-journey-board.tsx`, `routes/_app/admin/clientes/$userId.tsx` | Jornada e ficha | [Jornada](admin/1b-clientes-ficha/1-antes-jornada.png) · [ficha](admin/1b-clientes-ficha/1-antes-ficha.png) | [Jornada](admin/1b-clientes-ficha/3-depois-jornada.png) · [ficha](admin/1b-clientes-ficha/3-depois-ficha.png)                                                                        |
+
+**Ícones:** novos assignIssue (UserCheck), releaseIssue (UserMinus), snoozeIssue (BellZ) e unsnoozeIssue (ArrowCounterClockwise), todos no dicionário.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, accessibility, store-health, impersonation e support 18/18. Nenhum teste alterado.
+
+**Próxima seção:** Administração · 2a. Fornecedores (`/admin/fornecedores`).

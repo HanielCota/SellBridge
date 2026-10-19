@@ -1,10 +1,4 @@
 import { SNOOZE_DAYS, type CustomerIssueKind } from "@sellbridge/shared/schemas";
-import {
-  ArrowCounterClockwiseIcon,
-  ClockCountdownIcon,
-  UserCheckIcon,
-  UserMinusIcon,
-} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +14,7 @@ import {
 import type { EntryTriage } from "@/features/admin/customer-ranking";
 import { useAdminAction } from "@/features/admin/use-admin-action";
 import { Hint } from "@/components/ui/hint";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 
 interface TriageProps {
   userId: string;
@@ -27,6 +22,13 @@ interface TriageProps {
   triage: EntryTriage | null;
   adminId: string;
   snoozed: boolean;
+}
+
+/** Icon alone on phones; from lg the word sits beside it (admin section 1b, proposals A + C). */
+const LABELED = "gap-1.5 lg:w-auto lg:px-2.5";
+
+function ButtonWord({ children }: { children: string }) {
+  return <span className="hidden lg:inline">{children}</span>;
 }
 
 function plural(days: number): string {
@@ -40,20 +42,27 @@ function AssignButton({ userId, issue, triage, adminId }: Omit<TriageProps, "sno
     isMine ? "Pendência devolvida para a equipe" : "Pendência atribuída a você",
   );
   const label = isMine ? "Devolver para a equipe" : "Assumir";
+  const action = isMine ? ACTION_ICONS.releaseIssue : ACTION_ICONS.assignIssue;
+  const ActionIcon = action.icon;
   return (
-    <Hint label={label}>
+    <Hint label={action.hint} openOnTap={false}>
       <Button
         variant="ghost"
         size="icon-sm"
+        className={LABELED}
         aria-label={label}
         disabled={assign.isPending}
         onClick={() => assign.mutate(undefined)}
       >
-        {isMine ? <UserMinusIcon weight="duotone" /> : <UserCheckIcon weight="duotone" />}
+        <ActionIcon weight="duotone" />
+        <ButtonWord>{isMine ? "Devolver" : "Assumir"}</ButtonWord>
       </Button>
     </Hint>
   );
 }
+
+const SnoozeIcon = ACTION_ICONS.snoozeIssue.icon;
+const UnsnoozeIcon = ACTION_ICONS.unsnoozeIssue.icon;
 
 function SnoozeControl({
   userId,
@@ -66,31 +75,37 @@ function SnoozeControl({
   );
   if (snoozed) {
     return (
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Trazer de volta à fila"
-        title="Trazer de volta à fila"
-        disabled={snooze.isPending}
-        onClick={() => snooze.mutate(null)}
-      >
-        <ArrowCounterClockwiseIcon weight="duotone" />
-      </Button>
+      <Hint label={ACTION_ICONS.unsnoozeIssue.hint} openOnTap={false}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className={LABELED}
+          aria-label="Trazer de volta à fila"
+          disabled={snooze.isPending}
+          onClick={() => snooze.mutate(null)}
+        >
+          <UnsnoozeIcon weight="duotone" />
+          <ButtonWord>Trazer de volta</ButtonWord>
+        </Button>
+      </Hint>
     );
   }
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Adiar"
-          title="Adiar"
-          disabled={snooze.isPending}
-        >
-          <ClockCountdownIcon weight="duotone" />
-        </Button>
-      </DropdownMenuTrigger>
+      <Hint label={ACTION_ICONS.snoozeIssue.hint} openOnTap={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className={LABELED}
+            aria-label="Adiar"
+            disabled={snooze.isPending}
+          >
+            <SnoozeIcon weight="duotone" />
+            <ButtonWord>Adiar</ButtonWord>
+          </Button>
+        </DropdownMenuTrigger>
+      </Hint>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuLabel>Adiar por</DropdownMenuLabel>
         {SNOOZE_DAYS.map((days) => (

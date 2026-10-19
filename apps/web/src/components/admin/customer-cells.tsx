@@ -40,14 +40,23 @@ export function supplierSummary(customer: RankedCustomer): { text: string; pendi
 }
 
 /** The ring plus, on hover or tap, its band in words (admin section 1a). */
-export function CustomerScore({ score }: { score: number | null }) {
-  const ring = <HealthRing score={score} size="sm" />;
+export function CustomerScore({
+  score,
+  size = "sm",
+  focusable = true,
+}: {
+  score: number | null;
+  size?: "sm" | "lg";
+  /** False inside a link (a journey card), where the legend opens on hover only. */
+  focusable?: boolean;
+}) {
+  const ring = <HealthRing score={score} size={size} />;
   if (score === null) {
     return ring;
   }
   const label = `Nota ${score}: ${LEVEL_WORDS[healthLevel(score)]} (abaixo de 40 é crítico; de 70 para cima, bem)`;
   return (
-    <HintedText label={label} className="inline-flex rounded-full">
+    <HintedText label={label} focusable={focusable} className="inline-flex shrink-0 rounded-full">
       {ring}
     </HintedText>
   );
