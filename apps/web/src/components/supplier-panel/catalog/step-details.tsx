@@ -35,7 +35,7 @@ export interface StepProps {
 }
 
 const MAIN_FIELDS = [
-  { field: "sku", key: "sku", label: "SKU", inputMode: "text", code: true },
+  { field: "sku", key: "sku", label: "Código", inputMode: "text", code: true },
   { field: "title", key: "title", label: "Título", inputMode: "text", code: false },
   { field: "costCents", key: "cost", label: "Custo (R$)", inputMode: "decimal", code: false },
   {

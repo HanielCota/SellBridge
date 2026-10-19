@@ -8,6 +8,8 @@ import { FormErrorAlert } from "@/components/form/form-feedback";
 import { Button } from "@/components/ui/button";
 import type { PanelFormValues } from "@/features/supplier-panel/catalog/draft-form";
 import { ReviewStatus } from "./review-status";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
+import { DisabledHint, HintedText } from "@/components/ui/hint";
 
 const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
   draft: "Envie para análise quando estiver pronto.",
@@ -16,7 +18,7 @@ const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
   rejected: "Corrija os campos marcados e envie de novo.",
 };
 
-function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+function SummaryRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-2">
       <dt className="text-sm text-muted-foreground">{label}</dt>
@@ -55,19 +57,24 @@ function SubmitForReview({
           Corrija os itens em “Impede publicar” para enviar.
         </p>
       ) : null}
-      <Button
-        type="submit"
+      <DisabledHint
+        reason={blockingCount > 0 ? CONTROL_HINTS.submitBlocked : undefined}
         className="justify-self-start"
-        disabled={isSubmitting || blockingCount > 0 || !canSubmitNow}
-        aria-busy={isSubmitting}
       >
-        {isSubmitting ? (
-          <CircleNotchIcon className="animate-spin" aria-hidden="true" />
-        ) : (
-          <PaperPlaneTiltIcon aria-hidden="true" />
-        )}
-        {isSubmitting ? "Enviando…" : "Enviar para análise"}
-      </Button>
+        <Button
+          type="submit"
+          className="justify-self-start"
+          disabled={isSubmitting || blockingCount > 0 || !canSubmitNow}
+          aria-busy={isSubmitting}
+        >
+          {isSubmitting ? (
+            <CircleNotchIcon className="animate-spin" aria-hidden="true" />
+          ) : (
+            <PaperPlaneTiltIcon aria-hidden="true" />
+          )}
+          {isSubmitting ? "Enviando…" : "Enviar para análise"}
+        </Button>
+      </DisabledHint>
     </form>
   );
 }
@@ -90,7 +97,18 @@ export function StepReview({
       <dl className="divide-y divide-border">
         <SummaryRow label="Categoria">{categoryName ?? "Não informado"}</SummaryRow>
         <SummaryRow label="Título">{values.title || "Não informado"}</SummaryRow>
-        <SummaryRow label="SKU">{values.sku || "Não informado"}</SummaryRow>
+        <SummaryRow
+          label={
+            <HintedText
+              label={TERM_HINTS.productCode}
+              className="underline decoration-dotted underline-offset-4"
+            >
+              Código
+            </HintedText>
+          }
+        >
+          {values.sku || "Não informado"}
+        </SummaryRow>
         <SummaryRow label="Custo">
           {cost === null ? "Não informado" : <Money cents={cost} />}
         </SummaryRow>

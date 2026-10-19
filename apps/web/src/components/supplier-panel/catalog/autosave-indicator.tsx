@@ -1,16 +1,25 @@
 import { CheckIcon, CircleNotchIcon, WarningIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import type { AutosaveState } from "@/features/supplier-panel/catalog/use-draft-autosave";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 const TIME_FORMAT = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 function StatusLine({ state }: { state: AutosaveState }) {
   switch (state.kind) {
     case "idle": {
-      return <span className="text-muted-foreground">Salvamento automático</span>;
+      return (
+        <HintedText
+          label={TERM_HINTS.autosave}
+          className="text-muted-foreground underline decoration-dotted underline-offset-4"
+        >
+          Salvamento automático
+        </HintedText>
+      );
     }
     case "needs-sku": {
-      return <span className="text-muted-foreground">Informe o SKU para salvar</span>;
+      return <span className="text-muted-foreground">Informe o código para salvar</span>;
     }
     case "invalid": {
       return (

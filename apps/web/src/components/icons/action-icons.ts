@@ -34,7 +34,9 @@ import {
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
+  StarIcon,
   StorefrontIcon,
+  TrashIcon,
   WalletIcon,
   XIcon,
   type Icon,
@@ -134,6 +136,9 @@ export const ACTION_ICONS = {
   /** Time left before a deadline; once it passes, `overdue` takes over. */
   deadline: { icon: ClockIcon },
   createProduct: { icon: PlusIcon, hint: "Cadastrar um produto novo, passo a passo" },
+  /** Sends the photo straight to the cover spot: a star, not an arrow that reads as "move up one". */
+  setCover: { icon: StarIcon, hint: "Usar esta imagem como capa do anúncio" },
+  removeImage: { icon: TrashIcon, hint: "Remover esta imagem do produto" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -166,6 +171,11 @@ export const TERM_HINTS = {
   blockingPublish: "Faltam itens obrigatórios: o produto não pode ser publicado",
   canImprove: "Já pode ser publicado, mas fotos e detalhes extras ajudam a vender",
   completeListing: "Cadastro completo: tem tudo o que o anúncio precisa",
+  blockingIssues: "Sem estes itens o produto não pode ser publicado",
+  improvementIssues: "Opcionais, mas deixam o anúncio mais completo e vendem mais",
+  stepPending: "Itens desta etapa que impedem publicar",
+  autosave: "Cada alteração é salva sozinha; não precisa de botão Salvar",
+  productCode: "Código que você usa para identificar o produto no seu estoque",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
@@ -211,6 +221,7 @@ export const CONTROL_HINTS = {
   storeActions: "Ver a saúde da loja, publicar, trocar fornecedor ou desconectar",
   fixProduct: "Abre o cadastro direto no que precisa corrigir",
   editProduct: "Abre o cadastro do produto",
+  submitBlocked: "Corrija os itens em “Impede publicar” para enviar",
 } as const;
 
 /**
