@@ -136,4 +136,29 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes ajustados (aprovados pelo usuário em 2026-10-18):** `e2e/publishing.spec.ts` linha 58, mesma troca da 2b ("Somente com estoque" → "Só com estoque"), que não tinha sido rodado na 2b. Depois: publishing, accessibility, browser-defaults e catalog-deactivation 20/20; Vitest web 853/853; typecheck, oxlint e Prettier limpos. `stock.spec.ts` segue com a falha de dados já registrada na 2a.
 
-**Próxima seção:** Vendedor · 3b. Publicações: nova publicação (`/publicacoes/nova`), com a legenda de "Taxa do marketplace" do quadro de lucro.
+**Seção seguinte:** Vendedor · 3b. Publicações: nova publicação.
+
+## Vendedor · 3b. Publicações: nova publicação — 2026-10-18 · commit "feat(listings): explain the new listing form"
+
+**Proposta escolhida: B (explicações à vista)**. Propostas: [página clicável](../propostas/vendedor/3b-publicacoes-nova/index.html) · [A](vendedor/3b-publicacoes-nova/2-proposta-a.png) · [B](vendedor/3b-publicacoes-nova/2-proposta-b.png) · [C](vendedor/3b-publicacoes-nova/2-proposta-c.png).
+
+| Mudança                                                                         | Arquivo                                                                                                              | Tela                                                             | Antes                                                       | Depois                                                                                                                               |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Legenda no contador de caracteres e nos preços prontos (sugerido e cada margem) | `routes/_app/publicacoes/nova.tsx`                                                                                   | `/publicacoes/nova`                                              | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [legenda do preço](vendedor/3b-publicacoes-nova/3-depois-legenda-preco.png)                                                          |
+| "Loja simulada" → "Loja simulada · pedidos de teste"                            | `routes/_app/publicacoes/nova.tsx`                                                                                   | `/publicacoes/nova`                                              | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [desktop](vendedor/3b-publicacoes-nova/3-depois-desktop.png)                                                                         |
+| "Publicar em N lojas" com o ícone único de publicar e legenda                   | `routes/_app/publicacoes/nova.tsx`                                                                                   | `/publicacoes/nova`                                              | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [desktop](vendedor/3b-publicacoes-nova/3-depois-desktop.png)                                                                         |
+| "Enviado pelo fornecedor" com caminhão e legenda                                | `components/listings/new-listing-cards.tsx` (prévia e quadro de lucro saíram de `nova.tsx`, que passa de 500 linhas) | `/publicacoes/nova`                                              | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [claro](vendedor/3b-publicacoes-nova/3-depois-claro.png)                                                                             |
+| Legenda (com sublinhado pontilhado) em "Taxa do marketplace"                    | `components/listings/profit-split.tsx`                                                                               | `/publicacoes/nova` e janela "Publicar selecionados" do Catálogo | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [desktop](vendedor/3b-publicacoes-nova/3-depois-desktop.png) · [Catálogo](vendedor/3b-publicacoes-nova/3-depois-janela-catalogo.png) |
+| Botão de chat escondido nesta tela (cobria o "Publicar")                        | `components/support/support-chat.tsx`                                                                                | `/publicacoes/nova`                                              | [desktop](vendedor/3b-publicacoes-nova/1-antes-desktop.png) | [desktop](vendedor/3b-publicacoes-nova/3-depois-desktop.png)                                                                         |
+
+**Ícones novos:** supplierShips (Truck). **Reaproveitado:** publish (PaperPlaneTilt). **Textos novos:** `TERM_HINTS` (limite de caracteres, preço sugerido). Pendência da 2a (legenda da taxa na janela do Catálogo) resolvida.
+
+**Componentes compartilhados (aprovados):** `profit-split.tsx` (legenda da taxa nas duas telas); `support-chat.tsx` (escondido só em `/publicacoes/nova`, a ajuda continua no botão Suporte da barra).
+
+**Não alterado:** o selo "42% de margem" fica dentro do campo de preço e não recebe o mouse (para não atrapalhar a digitação), então não ganhou legenda; a frase do topo já diz o lucro e a margem.
+
+**Ajuste por medida:** "Enviado pelo fornecedor" com caminhão quebra em duas linhas na prévia em vez de encostar na borda do cartão (sobravam 5 px).
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E relacionados 35/35 (publishing, profile-tabs, store-supplier, store-disconnect, csv-attributes, suppliers, accessibility). Nenhum teste alterado.
+
+**Próxima seção:** Vendedor · 4. Pedidos (`/pedidos`).

@@ -7,6 +7,7 @@ import {
   CaretRightIcon,
   ChatCircleDotsIcon,
   FactoryIcon,
+  TruckIcon,
   FileArrowDownIcon,
   HeadsetIcon,
   ListIcon,
@@ -70,6 +71,10 @@ export const ACTION_ICONS = {
   increase: { icon: PlusIcon, hint: "Aumentar o valor" },
   previous: { icon: CaretLeftIcon, hint: "Ver o anterior" },
   next: { icon: CaretRightIcon, hint: "Ver o próximo" },
+  supplierShips: {
+    icon: TruckIcon,
+    hint: "O fornecedor despacha o pedido direto para o comprador",
+  },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -84,6 +89,8 @@ export const TERM_HINTS = {
   unitsSold: "Pedidos deste anúncio nos últimos 30 dias",
   healthyMargin: "Verde: sobra lucro; amarelo: lucro baixo; vermelho: prejuízo",
   marketplaceFee: "Média do que o Mercado Livre cobra por venda; muda conforme a categoria",
+  characterLimit: "Limite de caracteres que o Mercado Livre aceita",
+  suggestedPrice: "Preço que o fornecedor recomenda para este produto",
   reviewAspect: "Parte das avaliações que elogiou este ponto",
   metricGoal: "Acima da meta, o score do fornecedor cai",
 } as const;

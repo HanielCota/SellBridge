@@ -19,7 +19,8 @@ import { errorMessage } from "@/lib/errors";
 const createdSchema = z.object({ ticketId: z.uuid() });
 
 /** The support pages already hold the full form and the threads. */
-const HIDDEN_ON = ["/suporte"];
+// The new-listing page has a publish bar along the bottom; the bubble covered its button there.
+const HIDDEN_ON = ["/suporte", "/publicacoes/nova"];
 
 function buildChatTicketFormData(message: string): FormData {
   const formData = new FormData();
