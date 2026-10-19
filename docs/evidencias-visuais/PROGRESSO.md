@@ -298,4 +298,25 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Teste ajustado (aprovado pelo usuário em 2026-10-19):** `e2e/fulfillment.spec.ts` linhas 99, 110, 117, 129, 299 e 418: os botões do fornecedor passaram a ser "Marcar como aceito / em separação / pronto para envio / enviado / entregue". Depois: fulfillment 11/11; order-page, support-links, label-import, supplier-panel-access e accessibility verdes; Vitest web 853/853.
 
-**Próxima seção:** Fornecedor · 3. Produtos (`/fornecedor/painel/produtos`).
+**Seção seguinte:** Fornecedor · 3a. Produtos: lista.
+
+## Fornecedor · 3a. Produtos: lista — 2026-10-19 · commit "feat(supplier-panel): plain words and hints on the product list"
+
+**Proposta escolhida: A (só legendas e termos claros)**. Propostas: [página clicável](../propostas/fornecedor/3a-produtos-lista/index.html) · [A](fornecedor/3a-produtos-lista/2-proposta-a.png) · [B](fornecedor/3a-produtos-lista/2-proposta-b.png) · [C](fornecedor/3a-produtos-lista/2-proposta-c.png).
+
+| Mudança                                                                                   | Arquivo                                                                                   | Tela                                  | Antes                                                                                                                    | Depois                                                                                                                     |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| "SKU" → "Código" no cabeçalho, na busca e na ordenação do celular                         | `components/supplier-panel/catalog/catalog-product-table.tsx`, `catalog-product-list.tsx` | `/fornecedor/painel/produtos`         | [desktop](fornecedor/3a-produtos-lista/1-antes-desktop.png) · [celular](fornecedor/3a-produtos-lista/1-antes-mobile.png) | [desktop](fornecedor/3a-produtos-lista/3-depois-desktop.png) · [celular](fornecedor/3a-produtos-lista/3-depois-mobile.png) |
+| Legenda em "Completude" (sublinhado pontilhado)                                           | `catalog-product-table.tsx`                                                               | Produtos                              | [desktop](fornecedor/3a-produtos-lista/1-antes-desktop.png)                                                              | [completude](fornecedor/3a-produtos-lista/3-depois-completude.png)                                                         |
+| Legenda nos selos de completude ("impedem publicar", "Pode melhorar", "Anúncio completo") | `components/supplier-panel/catalog/review-status.tsx`                                     | Produtos, cadastro e revisão do admin | [desktop](fornecedor/3a-produtos-lista/1-antes-desktop.png)                                                              | [desktop](fornecedor/3a-produtos-lista/3-depois-desktop.png)                                                               |
+| Legenda em "Corrigir", "Editar" e "Cadastrar produto" (ícone do dicionário)               | `catalog-product-table.tsx`, `catalog-product-list.tsx`                                   | Produtos                              | [desktop](fornecedor/3a-produtos-lista/1-antes-desktop.png)                                                              | [claro](fornecedor/3a-produtos-lista/3-depois-claro.png)                                                                   |
+
+**Ícones:** novo createProduct (Plus, o mesmo que já estava no botão, agora vindo do dicionário). Botões das linhas seguem só com texto.
+
+**Componente compartilhado (aprovado: "Em todas"):** o selo de completude ganhou a legenda também no cadastro (3b) e na revisão de produtos do admin.
+
+**Não alterado:** "SKU" no formulário de cadastro e no resumo fica para a 3b; as abas usam o componente compartilhado.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel e admin-product-review 11/11; e2e supplier-product-review, supplier-product-images, supplier-brand e admin-suppliers 7/7. Nenhum teste alterado.
+
+**Próxima seção:** Fornecedor · 3b. Produtos: cadastro.

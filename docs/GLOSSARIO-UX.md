@@ -43,6 +43,7 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 | Ticket médio                | Valor médio de cada pedido no período (receita ÷ pedidos)                | ticket, valor médio por venda                         |
 | Unidades                    | Quantidade de itens vendidos                                             | unid., qtd.                                           |
 | Não conta como venda        | Pedido não pago, cancelado ou devolvido: fica fora da receita e do lucro | fora da receita, inválido                             |
+| Completude                  | Quanto do cadastro do produto está preenchido (selo com % e o que falta) | score, qualidade                                      |
 | Repasse                     | Valor que o marketplace libera para o revendedor                         | saque, transferência                                  |
 
 ## Envio e atendimento

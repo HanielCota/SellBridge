@@ -4,6 +4,8 @@ import {
 } from "@sellbridge/shared/supplier-panel-catalog-status";
 import { ToneStatus, type StatusTone } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 const REVIEW_TONES: Readonly<Record<ProductReviewStatus, StatusTone>> = {
   draft: "muted",
@@ -34,17 +36,26 @@ function completenessLabel(score: number, blocking: number): string {
   return score === 100 ? "Anúncio completo" : "Pode melhorar";
 }
 
+function completenessHint(score: number, blocking: number): string {
+  if (blocking > 0) {
+    return TERM_HINTS.blockingPublish;
+  }
+  return score === 100 ? TERM_HINTS.completeListing : TERM_HINTS.canImprove;
+}
+
 /** Score plus why, in words: never a bare percentage the supplier has to interpret. */
 export function CompletenessBadge({ score, blocking }: { score: number; blocking: number }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-footnote font-medium whitespace-nowrap tabular-nums",
-        completenessTone(score, blocking),
-      )}
-    >
-      <span>{score}%</span>
-      <span className="font-normal opacity-80">· {completenessLabel(score, blocking)}</span>
-    </span>
+    <HintedText label={completenessHint(score, blocking)}>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-footnote font-medium whitespace-nowrap tabular-nums",
+          completenessTone(score, blocking),
+        )}
+      >
+        <span>{score}%</span>
+        <span className="font-normal opacity-80">· {completenessLabel(score, blocking)}</span>
+      </span>
+    </HintedText>
   );
 }

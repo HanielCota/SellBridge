@@ -133,6 +133,7 @@ export const ACTION_ICONS = {
   brand: { icon: PaletteIcon, hint: "Logo e cores que aparecem para os revendedores" },
   /** Time left before a deadline; once it passes, `overdue` takes over. */
   deadline: { icon: ClockIcon },
+  createProduct: { icon: PlusIcon, hint: "Cadastrar um produto novo, passo a passo" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -161,6 +162,10 @@ export const TERM_HINTS = {
   rejectedProduct: "A equipe do SellBridge pediu ajustes; abra para ver o motivo",
   healthLevel: "Cor geral do seu desempenho; vermelho quando alguma métrica passou do limite",
   fees: "Taxas do marketplace e do SellBridge sobre a venda",
+  completeness: "Quanto do cadastro está preenchido; produtos completos vendem mais",
+  blockingPublish: "Faltam itens obrigatórios: o produto não pode ser publicado",
+  canImprove: "Já pode ser publicado, mas fotos e detalhes extras ajudam a vender",
+  completeListing: "Cadastro completo: tem tudo o que o anúncio precisa",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
@@ -204,6 +209,8 @@ export const CONTROL_HINTS = {
   rateSupplier: "Dar uma nota ao fornecedor por este pedido; ajuda outros revendedores",
   editReview: "Mudar a nota ou o comentário que você deu",
   storeActions: "Ver a saúde da loja, publicar, trocar fornecedor ou desconectar",
+  fixProduct: "Abre o cadastro direto no que precisa corrigir",
+  editProduct: "Abre o cadastro do produto",
 } as const;
 
 /**

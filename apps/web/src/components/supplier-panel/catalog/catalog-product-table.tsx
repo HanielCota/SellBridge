@@ -8,6 +8,8 @@ import { SmartDate } from "@/components/data/smart-date";
 import { Button } from "@/components/ui/button";
 import { CompletenessBadge, ReviewStatus } from "./review-status";
 import { SortableHeader, type CatalogSort } from "./sortable-header";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
 
 export interface CatalogPage {
   items: SupplierPanelProduct[];
@@ -35,15 +37,30 @@ function ProductAction({
   const field = fieldToFix(product);
   if (field === undefined) {
     return (
-      <Button variant="outline" size="sm" onClick={() => onOpen(product.id)}>
-        Editar
-      </Button>
+      <Hint label={CONTROL_HINTS.editProduct} openOnTap={false}>
+        <Button variant="outline" size="sm" onClick={() => onOpen(product.id)}>
+          Editar
+        </Button>
+      </Hint>
     );
   }
   return (
-    <Button size="sm" onClick={() => onOpen(product.id, field)}>
-      Corrigir
-    </Button>
+    <Hint label={CONTROL_HINTS.fixProduct} openOnTap={false}>
+      <Button size="sm" onClick={() => onOpen(product.id, field)}>
+        Corrigir
+      </Button>
+    </Hint>
+  );
+}
+
+function CompletenessHeader() {
+  return (
+    <HintedText
+      label={TERM_HINTS.completeness}
+      className="underline decoration-dotted underline-offset-4"
+    >
+      Completude
+    </HintedText>
   );
 }
 
@@ -106,7 +123,7 @@ function catalogColumns(
       cell: (information) => <ProductCell product={information.row.original} onOpen={onOpen} />,
     }),
     columnHelper.accessor("sku", {
-      header: header("sku", "SKU"),
+      header: header("sku", "Código"),
       cell: (information) => (
         <span className="font-mono text-footnote">{information.getValue()}</span>
       ),
@@ -117,7 +134,7 @@ function catalogColumns(
     }),
     columnHelper.display({
       id: "completeness",
-      header: "Completude",
+      header: () => <CompletenessHeader />,
       cell: (information) => (
         <CompletenessBadge
           score={information.row.original.completeness.score}
