@@ -2,7 +2,7 @@ import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repo
 import { internalPathSchema } from "@sellbridge/shared/schemas";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,9 +19,11 @@ import {
 import { SETUP_STEPS } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 const onboardingSearchSchema = z.object({
   redirect: internalPathSchema,
+  step: z.enum(["details", "supplier"]).optional(),
 });
 
 export const Route = createFileRoute("/_app/onboarding")({
@@ -40,10 +42,60 @@ const SIGNUP_MINUTES = SETUP_STEPS.filter(
 
 function OnboardingPage() {
   const profile = Route.useLoaderData();
+  const { step } = Route.useSearch();
+  if (step !== undefined) {
+    return <OnboardingStepEditor key={step} step={step} profile={profile} />;
+  }
   if (profile.holder !== null && profile.starterSupplier !== null) {
     return <EditProfile holder={profile.holder} supplier={profile.starterSupplier} />;
   }
   return <FirstVisit profile={profile} />;
+}
+
+/** Each dashboard card opens its own editable step, including a partially completed setup. */
+function OnboardingStepEditor({
+  step,
+  profile,
+}: {
+  step: "details" | "supplier";
+  profile: OnboardingProfile;
+}) {
+  const router = useRouter();
+  const [saved, setSaved] = useState(false);
+  const navigate = useNavigate();
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <Button asChild variant="ghost">
+        <Link to="/dashboard">
+          <ArrowLeftIcon aria-hidden="true" />
+          Back to setup
+        </Link>
+      </Button>
+      <PageHeader
+        title={step === "details" ? "Your details" : "Your supplier"}
+        description="Review your saved settings. You can return and update them at any time."
+      />
+      <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
+        {step === "details" ? (
+          <HolderForm
+            holder={profile.holder}
+            submitLabel={saved ? "Details saved" : "Save details"}
+            onSaved={async () => {
+              await router.invalidate();
+              setSaved(true);
+            }}
+          />
+        ) : (
+          <SupplierStep
+            initialSupplierId={profile.starterSupplier?.id ?? null}
+            onBack={() => {
+              void navigate({ to: "/dashboard" });
+            }}
+          />
+        )}
+      </section>
+    </div>
+  );
 }
 
 /** After saving, the next setup step: the stores while there is none, else the catalog. */
@@ -55,7 +107,11 @@ function useFinishOnboarding() {
   return async function finish() {
     await router.invalidate();
     const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
-    await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
+    await navigate({
+      to:
+        search.redirect ??
+        (search.step ? "/dashboard" : progress.hasStore ? "/catalogo" : "/lojas"),
+    });
   };
 }
 
@@ -130,13 +186,16 @@ function SupplierStep({
   const [picked, setPicked] = useState<PickableSupplier | null>(null);
   const saving = useSaveSupplier(finish);
   const pickedId = picked?.id ?? initialSupplierId;
+  const canDiscard = useUnsavedChanges(
+    pickedId !== initialSupplierId && !saving.isSaving && !saving.isSaved,
+  );
   return (
     <div className="grid min-w-0 grid-cols-1 gap-5">
       <div className="space-y-1">
         <h2 className="text-subhead font-semibold">Escolha seu fornecedor</h2>
         <p className="text-sm text-muted-foreground">
-          Ele vende pela sua primeira loja e entrega direto ao seu cliente. Para vender de outro
-          fornecedor, conecte outra loja depois.
+          Choose the supplier for your next store. Existing stores, listings, and orders keep their
+          current supplier. You can manage each store separately from the stores page.
         </p>
       </div>
       <SupplierPicker value={pickedId} onChange={setPicked} />
@@ -147,7 +206,14 @@ function SupplierStep({
       ) : null}
       {/* Pinned while the supplier list scrolls, so the choice can be confirmed from anywhere. */}
       <div className="sticky bottom-3 z-10 -mx-2 flex items-center gap-2 rounded-3xl bg-card/80 p-2 backdrop-blur-xl backdrop-saturate-150 contrast-more:bg-card">
-        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            if (canDiscard()) onBack();
+          }}
+        >
           <ArrowLeftIcon aria-hidden="true" />
           Voltar
         </Button>
@@ -241,9 +307,9 @@ function EditProfile({
           <HolderForm
             holder={holder}
             submitLabel={savedHolder ? "Dados salvos" : "Salvar dados"}
-            onSaved={() => {
+            onSaved={async () => {
+              await router.invalidate();
               setSavedHolder(true);
-              void router.invalidate();
             }}
           />
         </section>
@@ -269,7 +335,8 @@ function StarterSupplierCard({
           Fornecedor escolhido no cadastro
         </h2>
         <p className="text-sm text-muted-foreground">
-          A primeira loja que você conectar vende os produtos dele.
+          The next store you connect uses this supplier. Changing this setting does not change
+          existing stores, listings, or orders.
         </p>
       </div>
       <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-4">
@@ -300,6 +367,7 @@ function SupplierChange({ currentId, onDone }: { currentId: string; onDone: () =
     await router.invalidate();
     onDone();
   });
+  useUnsavedChanges(picked !== null && picked !== currentId && !saving.isSaving && !saving.isSaved);
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <SupplierPicker value={picked ?? currentId} onChange={(next) => setPicked(next.id)} />
