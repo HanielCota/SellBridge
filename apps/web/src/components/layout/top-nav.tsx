@@ -50,11 +50,12 @@ const LAYOUTS = {
     row: "lg:grid-cols-[1fr_auto_1fr]",
     desktopNav: "lg:flex",
     sheetTrigger: "lg:hidden",
-    tab: "px-4",
+    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
+    tab: "px-3 text-[0.9375rem] gap-1.5",
     // From lg to xl the capsule and the name no longer fit the row; the avatar alone stays.
     accountName: "hidden sm:block lg:hidden xl:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
-    tabIcon: "hidden size-4.5 min-[1440px]:block",
+    tabIcon: "hidden size-4 min-[1440px]:block",
     modeBadge: "hidden",
   },
   dense: {
@@ -265,7 +266,7 @@ function DesktopNav({
       ref={containerRef}
       aria-label="Principal"
       className={cn(
-        "relative hidden items-center gap-1 rounded-full bg-card p-1.5",
+        "relative hidden items-center gap-0.5 rounded-full bg-card p-1.5",
         layout.desktopNav,
       )}
     >
