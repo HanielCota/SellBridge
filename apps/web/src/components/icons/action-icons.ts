@@ -5,6 +5,7 @@ import {
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
+  ChartLineIcon,
   CaretLeftIcon,
   CaretRightIcon,
   ChatsCircleIcon,
@@ -171,6 +172,8 @@ export const ACTION_ICONS = {
     icon: ArrowCounterClockwiseIcon,
     hint: "Traz a pendência de volta para a fila agora",
   },
+  /** The team's support numbers; `chartKind` (bars) picks how a chart is drawn. */
+  supportMetrics: { icon: ChartLineIcon, hint: "Tempo de resposta, volume e notas da equipe" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -210,6 +213,9 @@ export const TERM_HINTS = {
   productCode: "Código que você usa para identificar o produto no seu estoque",
   failedRows: "Linhas que não entram; veja o motivo na tabela abaixo",
   reviewKind: "Produto novo é a primeira análise; reenvio e alteração voltam depois de ajustes",
+  ticketPriority: "Prazo para responder: urgente 2 h, alta 8 h, normal 24 h, baixa 48 h",
+  ticketOverdue: "Passou do prazo de resposta da prioridade; responda primeiro",
+  ticketDueIn: "Tempo que falta para responder dentro do prazo",
   accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
   publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
   brandDescription: "Aparece no seu perfil, na página que os revendedores abrem",

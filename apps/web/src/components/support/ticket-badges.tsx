@@ -5,11 +5,13 @@ import {
   type TicketPriority,
   type TicketStatus,
 } from "@sellbridge/shared/schemas";
-import { responseTiming } from "@sellbridge/shared/ticket-rules";
+import { RESPONSE_TARGET_HOURS, responseTiming } from "@sellbridge/shared/ticket-rules";
 import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/features/support/response-time";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 const PRIORITY_TONES: Record<TicketPriority, StatusTone> = {
   low: "muted",
@@ -22,7 +24,51 @@ const PRIORITY_TONES: Record<TicketPriority, StatusTone> = {
 const DUE_SOON_MILLISECONDS = 60 * 60_000;
 
 export function TicketPriorityBadge({ priority }: { priority: TicketPriority }) {
-  return <ToneStatus tone={PRIORITY_TONES[priority]} label={TICKET_PRIORITY_LABELS[priority]} />;
+  const label = TICKET_PRIORITY_LABELS[priority];
+  return (
+    <HintedText
+      className="inline-flex"
+      label={`${label}: responder em até ${RESPONSE_TARGET_HOURS[priority]} h`}
+    >
+      <ToneStatus tone={PRIORITY_TONES[priority]} label={label} />
+    </HintedText>
+  );
+}
+
+const DEADLINE_TEXT: Record<"danger" | "warning" | "muted", string> = {
+  danger: "text-destructive",
+  warning: "text-amber-700 dark:text-amber-400",
+  muted: "text-muted-foreground",
+};
+
+/** The answer deadline with the app's clocks, the same pair the orders use (admin section 3a). */
+function DeadlineStatus({
+  late,
+  tone,
+  label,
+}: {
+  late: boolean;
+  tone: keyof typeof DEADLINE_TEXT;
+  label: string;
+}) {
+  const Icon = late ? ACTION_ICONS.overdue.icon : ACTION_ICONS.deadline.icon;
+  return (
+    <HintedText
+      className="inline-flex"
+      label={late ? TERM_HINTS.ticketOverdue : TERM_HINTS.ticketDueIn}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap",
+          DEADLINE_TEXT[tone],
+        )}
+        suppressHydrationWarning
+      >
+        <Icon className="size-3.5 shrink-0" weight={late ? "bold" : "regular"} aria-hidden="true" />
+        {label}
+      </span>
+    </HintedText>
+  );
 }
 
 export function TicketCategoryLabel({
@@ -67,19 +113,19 @@ export function ResponseDeadlineBadge({ status, priority, awaitingSince }: Timin
   }
   if (timing.state === "overdue") {
     return (
-      <ToneStatus
+      <DeadlineStatus
+        late
         tone="danger"
         label={`Atrasado ${formatDuration(timing.lateMilliseconds)}`}
-        timeBased
       />
     );
   }
   const tone = timing.remainingMilliseconds < DUE_SOON_MILLISECONDS ? "warning" : "muted";
   return (
-    <ToneStatus
+    <DeadlineStatus
+      late={false}
       tone={tone}
       label={`Vence em ${formatDuration(timing.remainingMilliseconds)}`}
-      timeBased
     />
   );
 }

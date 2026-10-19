@@ -488,4 +488,22 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853 e shared 704/704; e2e supplier-product-review, supplier-panel-access e accessibility 10/10.
 
-**Próxima seção:** Administração · 3a. Chamados (`/admin/chamados`).
+**Seção seguinte:** Administração · 3a.
+
+## Administração · 3a. Chamados (lista e conversa) — 2026-10-19 · commit "feat(support): app clocks and hints on ticket deadlines"
+
+**Proposta escolhida: A (relógio do app e legendas)**. Propostas: [página clicável](../propostas/admin/3a-chamados/index.html) · [A](admin/3a-chamados/2-proposta-a.png) · [B](admin/3a-chamados/2-proposta-b.png) · [C](admin/3a-chamados/2-proposta-c.png).
+
+| Mudança                                                                                                                             | Arquivo                                                     | Tela             | Antes                                                                                             | Depois                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Prazo de resposta com os relógios do dicionário (contagem quando atrasou, relógio comum enquanto corre, como nos pedidos) e legenda | `components/support/ticket-badges.tsx`                      | lista e conversa | [lista](admin/3a-chamados/1-antes-lista.png) · [conversa](admin/3a-chamados/1-antes-conversa.png) | [lista](admin/3a-chamados/3-depois-lista.png) · [conversa](admin/3a-chamados/3-depois-conversa.png) · [celular](admin/3a-chamados/3-depois-mobile.png) |
+| Legenda em "Prioridade" (os 4 prazos) e em cada prioridade ("Alta: responder em até 8 h", lido de `RESPONSE_TARGET_HOURS`)          | `ticket-badges.tsx`, `routes/_app/admin/chamados/index.tsx` | lista e conversa | [lista](admin/3a-chamados/1-antes-lista.png)                                                      | [claro](admin/3a-chamados/3-depois-claro.png)                                                                                                          |
+| "Métricas" troca as barras (que são o "Gráfico") pelo gráfico de linha `supportMetrics`, com legenda                                | `routes/_app/admin/chamados/index.tsx`                      | lista            | [lista](admin/3a-chamados/1-antes-lista.png)                                                      | [topo](admin/3a-chamados/3-depois-prioridade.png)                                                                                                      |
+
+**Ícones:** novo supportMetrics (ChartLine); reaproveitados overdue (ClockCountdown) e deadline (Clock).
+
+**Não alterado:** os botões só com ícone da conversa (respostas prontas, anexo, nota, ficha, entrar, copiar) já tinham legenda.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support, profile-tabs-edges e accessibility 16/16. Nenhum teste alterado.
+
+**Próxima seção:** Administração · 3b. Métricas de chamados (`/admin/chamados/metricas`).

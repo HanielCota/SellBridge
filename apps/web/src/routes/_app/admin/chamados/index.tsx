@@ -13,7 +13,7 @@ import {
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ChartBarIcon, TrayIcon } from "@phosphor-icons/react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -48,6 +48,10 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
+
+const MetricsIcon = ACTION_ICONS.supportMetrics.icon;
 
 export const Route = createFileRoute("/_app/admin/chamados/")({
   validateSearch: staffTicketsSearchSchema,
@@ -98,7 +102,11 @@ const columns = columnHelper.columns([
     ),
   }),
   columnHelper.accessor("priority", {
-    header: "Prioridade",
+    header: () => (
+      <HintedText label={TERM_HINTS.ticketPriority} className="hinted-term">
+        Prioridade
+      </HintedText>
+    ),
     cell: (info) => <TicketPriorityBadge priority={info.getValue()} />,
   }),
   columnHelper.accessor("assigneeName", {
@@ -228,12 +236,14 @@ function StaffTicketsHeader({ role }: { role: string }) {
       description="Pegue os chamados sem responsável e responda dentro do prazo de cada prioridade."
       actions={
         hasStaffPermission(role, "support.metrics") ? (
-          <Button asChild variant="outline">
-            <Link to="/admin/chamados/metricas">
-              <ChartBarIcon aria-hidden="true" />
-              Métricas
-            </Link>
-          </Button>
+          <Hint label={ACTION_ICONS.supportMetrics.hint} openOnTap={false}>
+            <Button asChild variant="outline">
+              <Link to="/admin/chamados/metricas">
+                <MetricsIcon aria-hidden="true" />
+                Métricas
+              </Link>
+            </Button>
+          </Hint>
         ) : null
       }
     />
