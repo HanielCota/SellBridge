@@ -200,6 +200,8 @@ export const TERM_HINTS = {
   accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
   publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
   brandDescription: "Aparece no seu perfil, na página que os revendedores abrem",
+  customerScore: "De 0 a 100: quanto mais baixa, mais o cliente precisa de ajuda agora",
+  onboardingSteps: "Passos já feitos dos 4 primeiros: dados, fornecedor, loja e publicação",
   acceptDeadline: "Contado a partir do encaminhamento; passar dele pesa no Desempenho",
   dispatchDeadline:
     "Também contado do encaminhamento, não do aceite; passar dele pesa no Desempenho",
@@ -253,6 +255,8 @@ export const CONTROL_HINTS = {
   downloadGuide: "Lista do que cada coluna aceita, com exemplos",
   downloadErrors: "Só as linhas com erro, para corrigir e enviar de novo",
   importNeedsChoice: "Marque a caixa acima para importar só as linhas válidas",
+  customerQuickView: "Abre um resumo do cliente aqui mesmo, sem sair da lista",
+  customerActions: "Entrar como cliente, abrir a ficha, ver chamados, senha ou bloqueio",
 } as const;
 
 /**

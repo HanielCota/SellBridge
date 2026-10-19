@@ -421,4 +421,23 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e accessibility, admin, admin-suppliers, admin-store-supplier, admin-supplier-sellers, browser-defaults e catalog-deactivation verdes. `admin-audit.spec.ts:45` falha com e sem esta mudança (espera "Admin SellBridge" e o banco local mostra "Carla Mendes" como autor): é anterior a esta seção e não foi mexido.
 
-**Próxima seção:** Administração · 1a. Clientes: lista (`/admin/clientes`).
+**Seção seguinte:** Administração · 1a. Clientes: lista.
+
+## Administração · 1a. Clientes: lista — 2026-10-19 · commit "feat(admin): hints on the customers list"
+
+**Proposta escolhida: A (legendas e o mesmo ícone de chamados)**. Propostas: [página clicável](../propostas/admin/1a-clientes-lista/index.html) · [A](admin/1a-clientes-lista/2-proposta-a.png) · [B](admin/1a-clientes-lista/2-proposta-b.png) · [C](admin/1a-clientes-lista/2-proposta-c.png).
+
+| Mudança                                                                                                                               | Arquivo                                                                              | Tela              | Antes                                                  | Depois                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Legenda em "Nota" e em cada anel (com a faixa: crítico, atenção, bem)                                                                 | `components/admin/customer-cells.tsx` (novo), `routes/_app/admin/clientes/index.tsx` | `/admin/clientes` | [desktop](admin/1a-clientes-lista/1-antes-desktop.png) | [desktop](admin/1a-clientes-lista/3-depois-desktop.png)                                                      |
+| Legenda nos selos de Saúde (o texto de `describeIssue` e os 4 primeiros passos); no celular a linha é um link, então fica sem legenda | `customer-cells.tsx`                                                                 | Clientes          | [desktop](admin/1a-clientes-lista/1-antes-desktop.png) | [saúde](admin/1a-clientes-lista/3-depois-saude.png) · [celular](admin/1a-clientes-lista/3-depois-mobile.png) |
+| As marcas das lojas trocaram o `title` do navegador pela legenda do app                                                               | `customer-cells.tsx`                                                                 | Clientes          | —                                                      | —                                                                                                            |
+| Legenda na seta ao lado do nome e no ⋯; "Ver chamados" usa os balões de conversa, como a aba                                          | `routes/_app/admin/clientes/index.tsx`, `components/admin/customer-row-actions.tsx`  | Clientes          | [menu](admin/1a-clientes-lista/1-antes-menu.png)       | [menu](admin/1a-clientes-lista/3-depois-menu.png) · [claro](admin/1a-clientes-lista/3-depois-claro.png)      |
+
+**Arquivo grande:** `clientes/index.tsx` tinha 527 linhas; as células (lojas, saúde, nota) foram para `customer-cells.tsx` e a rota ficou com 431.
+
+**Não alterado:** os cards do topo usam as marcas animadas do painel do revendedor (o fone em "Chamados aguardando" é o mesmo que o revendedor vê).
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, platform-owner, admin-store-supplier, impersonation, store-health, support e accessibility verdes. `support.spec.ts:40` falhou uma vez numa rodada paralela (aviso "Resposta enviada") e passou três vezes sozinho, com e sem a mudança.
+
+**Próxima seção:** Administração · 1b. Clientes: ficha, Pendências e Jornada.
