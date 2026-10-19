@@ -22,7 +22,8 @@ import { EditPriceDialog } from "./edit-price-dialog";
 import { ListingMenu } from "./listing-actions";
 import { RUN_STATE_DOT } from "./run-state-style";
 import { SalesSparkline } from "./sales-sparkline";
-import { Hint } from "@/components/ui/hint";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
 
 /** Every store and its status, for the tooltip of the status line. */
 function storesSummary(row: ListingOverviewRow): string {
@@ -66,10 +67,13 @@ function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolea
 function SalesTrend({ row }: { row: ListingOverviewRow }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-      <p className="text-xs text-muted-foreground tabular-nums">
+      <HintedText
+        label={TERM_HINTS.unitsSold}
+        className="text-xs text-muted-foreground tabular-nums"
+      >
         {row.unitsSold.toLocaleString("pt-BR")} {row.unitsSold === 1 ? "venda" : "vendas"} em 30
         dias
-      </p>
+      </HintedText>
       <SalesSparkline dailySales={row.dailySales} muted={row.stock <= 0} />
     </div>
   );
@@ -259,12 +263,14 @@ export function ListingCard({
         className="aspect-[16/10]"
       />
       {outOfStock ? <SoldOutRibbon placement="clearOfMenu" /> : null}
-      <Checkbox
-        aria-label={`Selecionar ${row.title}`}
-        checked={selected}
-        onCheckedChange={(checked) => onSelectedChange(checked === true)}
-        className="absolute top-3 left-3 size-5 bg-background"
-      />
+      <Hint label={CONTROL_HINTS.selectListings} openOnTap={false}>
+        <Checkbox
+          aria-label={`Selecionar ${row.title}`}
+          checked={selected}
+          onCheckedChange={(checked) => onSelectedChange(checked === true)}
+          className="absolute top-3 left-3 size-5 bg-background"
+        />
+      </Hint>
       <ListingMenu row={row} onEditPrice={openPriceEditor} />
       <ListingCardBody row={row} soldOut={soldOut} showsStatus={!showsSoldOutFooter} />
       {showsSoldOutFooter ? <SoldOutFooter label={health.label} detail={health.reason} /> : null}

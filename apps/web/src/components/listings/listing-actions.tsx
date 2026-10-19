@@ -22,6 +22,8 @@ import { listingRunState, type ListingRunState } from "@/features/listings/listi
 import { useBulkListingActions, useSimulateSale } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
+import { CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 import {
   useFlaskMotion,
@@ -220,8 +222,13 @@ function SimulateSaleItem({ row }: { row: ListingOverviewRow }) {
       <ActionItem
         motion={motion}
         label="Simular venda"
+        trailing={<span className="sr-only">. {CONTROL_HINTS.simulateSale}</span>}
         onSelect={() => simulate.mutate(target.id)}
       />
+      {/* Said in words, not only in a hover legend: a menu item takes no tooltip. */}
+      <p className="-mt-1 pr-2 pb-1.5 pl-8 text-xs text-muted-foreground" aria-hidden="true">
+        Teste: cria um pedido sem cobrar ninguém
+      </p>
     </>
   );
 }
@@ -254,24 +261,23 @@ export function ListingMenu({
   const state = listingRunState(row);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Ações de ${row.title}`}
-          title={RUN_STATE_LABEL[state]}
-          className="absolute top-3 right-3 rounded-full bg-background text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-foreground/15 aria-expanded:bg-background"
-        >
-          <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
-          <span
-            aria-hidden="true"
-            className={cn(
-              "absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-card",
-              RUN_STATE_DOT[state],
-            )}
-          />
-        </Button>
-      </DropdownMenuTrigger>
+      <Hint label={CONTROL_HINTS.listingActions} openOnTap={false}>
+        <DropdownMenuTrigger asChild>
+          {/* The state reads as a word beside its dot, so it never depends on color alone. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Ações de ${row.title}`}
+            className="absolute top-3 right-3 h-8 gap-1.5 rounded-full bg-background pr-2 pl-2.5 text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-foreground/15 aria-expanded:bg-background"
+          >
+            <span aria-hidden="true" className={cn("size-2 rounded-full", RUN_STATE_DOT[state])} />
+            <span aria-hidden="true" className={RUN_STATE_TEXT[state]}>
+              {RUN_STATE_LABEL[state]}
+            </span>
+            <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+      </Hint>
       <DropdownMenuContent align="end" className="w-60">
         <EditPriceItem onEditPrice={onEditPrice} />
         <RunStateItem row={row} />

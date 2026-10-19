@@ -1,9 +1,13 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import type { getSupplierCatalog } from "@/features/suppliers/suppliers.functions";
 import { ProductStockLine } from "@/components/catalog/product-stock-line";
 import { ProductVisual } from "@/components/catalog/product-visual";
+
+const PublishIcon = ACTION_ICONS.publish.icon;
 
 export type SupplierCatalogProduct = Awaited<
   ReturnType<typeof getSupplierCatalog>
@@ -22,7 +26,7 @@ export function SupplierProductCard({ product }: { readonly product: SupplierCat
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="space-y-1">
           <p className="truncate text-xs text-muted-foreground">
-            {product.categoryName ? `${product.categoryName} · ` : null}SKU {product.sku}
+            {product.categoryName ? `${product.categoryName} · ` : null}código {product.sku}
           </p>
           <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
         </div>
@@ -38,11 +42,14 @@ export function SupplierProductCard({ product }: { readonly product: SupplierCat
             <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
           </span>
           {product.stock > 0 ? (
-            <Button asChild size="sm" variant="secondary">
-              <Link to="/publicacoes/nova" search={{ productId: product.id }}>
-                Publicar
-              </Link>
-            </Button>
+            <Hint label={ACTION_ICONS.publish.hint} openOnTap={false}>
+              <Button asChild size="sm" variant="secondary">
+                <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+                  <PublishIcon weight="bold" aria-hidden="true" />
+                  Publicar
+                </Link>
+              </Button>
+            </Hint>
           ) : null}
         </div>
       </div>

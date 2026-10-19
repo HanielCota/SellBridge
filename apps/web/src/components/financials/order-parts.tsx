@@ -5,6 +5,8 @@ import { orderMargin, orderSplit, type OrderSplitKind } from "@/features/reports
 import { PENDING_COST_HINT, PENDING_HATCH_CLASS } from "@/components/reports/pending-cost";
 import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** Same colors as the period summary, so a row's bar reads like the big one above it. */
 const SPLIT_COLORS: Record<OrderSplitKind, string> = {
@@ -130,7 +132,13 @@ export function OrderBreakdown({ row }: { row: OrderFinance }) {
         <div key={entry.label} className="flex justify-between gap-4 text-muted-foreground">
           <dt className="flex items-center gap-2">
             <span aria-hidden="true" className={cn("size-1.5 rounded-full", entry.color)} />
-            {entry.label}
+            {entry.label === "Taxas" ? (
+              <HintedText label={TERM_HINTS.fees} className="hinted-term">
+                {entry.label}
+              </HintedText>
+            ) : (
+              entry.label
+            )}
           </dt>
           <dd className="tabular-nums">{signedCents(entry.cents, { plus: true })}</dd>
         </div>

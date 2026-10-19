@@ -55,7 +55,7 @@ async function centAboveCost(page: Page): Promise<string> {
 async function openPublishFormForFirstProduct(page: Page) {
   await gotoHydrated(page, "/fornecedores");
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
-  await page.getByLabel("Somente com estoque").click();
+  await page.getByLabel("Só com estoque").click();
   await expect(page).toHaveURL(/inStock=true/);
   await page.getByRole("link", { name: "Publicar" }).first().click();
   await expect(page.getByRole("heading", { name: "Nova publicação" })).toBeVisible();

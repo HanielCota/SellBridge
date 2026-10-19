@@ -22,8 +22,8 @@ export function confirmDescription(counts: {
   // "produto" once, on the first part: "1 produto novo e 3 atualizados".
   const updatedNoun =
     counts.created > 0
-      ? ["atualizado pelo SKU", "atualizados pelo SKU"]
-      : ["produto atualizado pelo SKU", "produtos atualizados pelo SKU"];
+      ? ["atualizado pelo código", "atualizados pelo código"]
+      : ["produto atualizado pelo código", "produtos atualizados pelo código"];
   const changes = [
     counts.created > 0 ? plural(counts.created, "produto novo", "produtos novos") : null,
     counts.updated > 0 ? plural(counts.updated, updatedNoun[0] ?? "", updatedNoun[1] ?? "") : null,

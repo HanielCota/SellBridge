@@ -2,7 +2,7 @@ import type {
   CatalogListSearch,
   CatalogStatusFilter,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import { PackageIcon, PlusIcon } from "@phosphor-icons/react";
+import { PackageIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
@@ -23,6 +23,8 @@ import { supplierPanelProductsQueryOptions } from "@/features/supplier-panel/cat
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { CatalogProductTable, type OpenProduct } from "./catalog-product-table";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 /** Work first: what needs the supplier comes before what is already live. */
 const STATUS_TABS: readonly { value: CatalogStatusFilter; label: string }[] = [
@@ -40,7 +42,7 @@ const SORT_OPTIONS: readonly (Pick<CatalogListSearch, "sort" | "direction"> & { 
     { sort: "stock", direction: "asc", label: "Menor estoque" },
     { sort: "stock", direction: "desc", label: "Maior estoque" },
     { sort: "costCents", direction: "desc", label: "Maior custo" },
-    { sort: "sku", direction: "asc", label: "SKU de A a Z" },
+    { sort: "sku", direction: "asc", label: "Código de A a Z" },
   ];
 
 function sortKey(option: Pick<CatalogListSearch, "sort" | "direction">): string {
@@ -141,6 +143,8 @@ interface CatalogProductListProps {
   onCreateProduct: () => void;
 }
 
+const CreateProductIcon = ACTION_ICONS.createProduct.icon;
+
 export function CatalogProductList({
   supplierId,
   search,
@@ -160,10 +164,12 @@ export function CatalogProductList({
         title="Produtos"
         description="Só os aprovados aparecem para os revendedores."
         actions={
-          <Button onClick={onCreateProduct}>
-            <PlusIcon aria-hidden="true" />
-            Cadastrar produto
-          </Button>
+          <Hint label={ACTION_ICONS.createProduct.hint} openOnTap={false}>
+            <Button onClick={onCreateProduct}>
+              <CreateProductIcon aria-hidden="true" />
+              Cadastrar produto
+            </Button>
+          </Hint>
         }
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -177,7 +183,7 @@ export function CatalogProductList({
         </div>
         <SearchInput
           label="Buscar produtos"
-          placeholder="Buscar por SKU ou título"
+          placeholder="Buscar por código ou título"
           value={term}
           onValueChange={setTerm}
           maxLength={100}

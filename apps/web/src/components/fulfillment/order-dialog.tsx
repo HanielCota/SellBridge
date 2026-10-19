@@ -32,6 +32,7 @@ import { errorMessage } from "@/lib/errors";
 import { AddressImportBar } from "./label-import";
 import { Field, ShipmentPanel } from "./shipment-panel";
 import { useTabProfileLink } from "@/lib/tab-profile";
+import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
 
 type Detail = Awaited<
   ReturnType<typeof import("@/features/fulfillment/fulfillment.functions").getFulfillmentFn>
@@ -227,20 +228,26 @@ function SupplierLink({
       {closed ? null : (
         // Wraps on phones: side by side, the two buttons are wider than a 320 px screen.
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate("create")}
-          >
-            Gerar novo link para fornecedor
-          </Button>
-          <Button
-            variant="ghost"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate("revoke")}
-          >
-            Revogar acesso
-          </Button>
+          <ShipmentActionHint action="supplierLink" operator="reseller">
+            <Button
+              variant="outline"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate("create")}
+            >
+              <ShipmentActionIcon action="supplierLink" />
+              Gerar novo link para fornecedor
+            </Button>
+          </ShipmentActionHint>
+          <ShipmentActionHint action="revokeLink" operator="reseller">
+            <Button
+              variant="ghost"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate("revoke")}
+            >
+              <ShipmentActionIcon action="revokeLink" />
+              Revogar acesso
+            </Button>
+          </ShipmentActionHint>
         </div>
       )}
       {link?.url ? <CopySupplierLink url={link.url} emailed={link.emailed} /> : null}

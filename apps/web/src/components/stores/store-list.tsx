@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { GroupedList, MarkSlot } from "./grouped-list";
 import { MarketplaceMark } from "./marketplace-mark";
 import { ReconnectAction } from "./store-reconnect-action";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 export type StoreWithActivity = Awaited<ReturnType<typeof listStores>>["stores"][number];
 
@@ -320,7 +322,12 @@ export function StoreList({
         className={`hidden gap-x-4 px-5 text-footnote text-muted-foreground md:grid ${ROW_COLUMNS}`}
       >
         <span>Lojas · {stores.length}</span>
-        <span className="text-right">Publicações</span>
+        <span className="text-right">
+          {/* The header row is hidden from screen readers, so its legend takes no focus. */}
+          <HintedText label={TERM_HINTS.storeListings} focusable={false} className="hinted-term">
+            Publicações
+          </HintedText>
+        </span>
         <span className="text-right">Vendas</span>
         <span className="text-right">Receita</span>
       </div>

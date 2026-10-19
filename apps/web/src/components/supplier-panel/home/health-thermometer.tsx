@@ -16,6 +16,10 @@ import {
 } from "@/components/suppliers/reputation";
 import { cn } from "@/lib/utils";
 import { HEALTH_SEGMENT_CLASSES } from "./health-format";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
+
+const TERM_MARK = "hinted-term";
 
 const SEGMENTS = ["red", "yellow", "green"] as const;
 
@@ -48,7 +52,9 @@ function PublicScore({ reputation }: { reputation: SupplierReputation }) {
   return (
     <div className="space-y-3">
       <p className="text-footnote text-muted-foreground">
-        Score público em {SCORE_WINDOW_DAYS} dias
+        <HintedText label={TERM_HINTS.publicScore} className={TERM_MARK}>
+          Score público em {SCORE_WINDOW_DAYS} dias
+        </HintedText>
       </p>
       {reputation.score === null || reputation.level === null ? (
         <p className="text-sm text-muted-foreground">
@@ -61,9 +67,16 @@ function PublicScore({ reputation }: { reputation: SupplierReputation }) {
           <span className="text-3xl font-semibold tracking-tight tabular-nums">
             {reputation.score}
           </span>
-          <span className={cn("text-subhead font-medium", LEVEL_COLORS[reputation.level].text)}>
+          <HintedText
+            label={TERM_HINTS.scoreLevel}
+            className={cn(
+              "text-subhead font-medium",
+              TERM_MARK,
+              LEVEL_COLORS[reputation.level].text,
+            )}
+          >
             {SCORE_LEVEL_LABELS[reputation.level]}
-          </span>
+          </HintedText>
         </p>
       )}
       <ReputationThermometer level={reputation.level} />
@@ -87,7 +100,9 @@ export function HealthThermometer({
     >
       <div className="space-y-3">
         <p className="text-footnote text-muted-foreground">
-          Saúde da conta em {health.windowDays} dias
+          <HintedText label={TERM_HINTS.accountHealth} className={TERM_MARK}>
+            Saúde da conta em {health.windowDays} dias
+          </HintedText>
         </p>
         <p className="text-3xl font-semibold tracking-tight">{HEALTH_LEVEL_LABELS[health.level]}</p>
         <LevelBar level={health.level} />

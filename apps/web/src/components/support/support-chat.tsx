@@ -1,12 +1,14 @@
 import { ticketBodySchema } from "@sellbridge/shared/schemas";
-import { ChatCircleDotsIcon, PaperPlaneRightIcon, XIcon } from "@phosphor-icons/react";
+import { PaperPlaneRightIcon, XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Popover } from "radix-ui";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { RecentTickets } from "@/components/support/recent-tickets";
+import { Hint } from "@/components/ui/hint";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chatSubjectFrom } from "@/features/support/chat-subject";
@@ -17,7 +19,8 @@ import { errorMessage } from "@/lib/errors";
 const createdSchema = z.object({ ticketId: z.uuid() });
 
 /** The support pages already hold the full form and the threads. */
-const HIDDEN_ON = ["/suporte"];
+// The new-listing page has a publish bar along the bottom; the bubble covered its button there.
+const HIDDEN_ON = ["/suporte", "/publicacoes/nova"];
 
 function buildChatTicketFormData(message: string): FormData {
   const formData = new FormData();
@@ -125,11 +128,13 @@ function ChatComposer({ onSent }: { onSent: () => void }) {
   );
 }
 
+const SupportChatIcon = ACTION_ICONS.supportChat.icon;
+
 function LauncherIcon({ open }: { open: boolean }) {
   if (open) {
     return <XIcon className="size-6" weight="bold" aria-hidden="true" />;
   }
-  return <ChatCircleDotsIcon className="size-7" weight="fill" aria-hidden="true" />;
+  return <SupportChatIcon className="size-7" weight="fill" aria-hidden="true" />;
 }
 
 /**
@@ -146,19 +151,22 @@ export function SupportChat({ unread }: { unread: number }) {
   const close = () => setOpen(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        aria-label={
-          unread > 0 ? `Chat de suporte: ${unreadRepliesText(unread)}` : "Chat de suporte"
-        }
-        className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-brand text-primary-foreground shadow-lg shadow-black/25 transition-[scale] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-[0.94] active:duration-100 motion-reduce:active:scale-100 md:right-8 md:bottom-8"
-      >
-        <LauncherIcon open={open} />
-        {unread > 0 && !open ? (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-caption font-semibold text-background tabular-nums">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        ) : null}
-      </Popover.Trigger>
+      {/* Same wrapper open or shut, so the trigger keeps its focus when the hint text changes. */}
+      <Hint label={open ? "Fechar o chat" : ACTION_ICONS.supportChat.hint} openOnTap={false}>
+        <Popover.Trigger
+          aria-label={
+            unread > 0 ? `Chat de suporte: ${unreadRepliesText(unread)}` : "Chat de suporte"
+          }
+          className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-brand text-primary-foreground shadow-lg shadow-black/25 transition-[scale] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-[0.94] active:duration-100 motion-reduce:active:scale-100 md:right-8 md:bottom-8"
+        >
+          <LauncherIcon open={open} />
+          {unread > 0 && !open ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-caption font-semibold text-background tabular-nums">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          ) : null}
+        </Popover.Trigger>
+      </Hint>
       <Popover.Portal>
         <Popover.Content
           side="top"

@@ -1,10 +1,11 @@
-import { FileArrowUpIcon, FileCsvIcon, FileXlsIcon } from "@phosphor-icons/react";
+import { FileCsvIcon, FileXlsIcon } from "@phosphor-icons/react";
 import { SUPPLIER_IMPORT_ACCEPT } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/file-size";
 import { cn } from "@/lib/utils";
 import type { ChosenFile } from "@/features/supplier-panel/import/use-supplier-import";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 
 interface ImportDropZoneProps {
   file: ChosenFile | null;
@@ -12,10 +13,13 @@ interface ImportDropZoneProps {
   onChoose: (file: File | undefined) => void;
 }
 
+/** Choosing a spreadsheet is the Importar tab's own function, so it shares that icon. */
+const ChooseFileIcon = ACTION_ICONS.importProducts.icon;
+
 function FileKindIcon({ file }: { file: ChosenFile | null }) {
   const props = { className: "size-6", weight: "light", "aria-hidden": true } as const;
   if (file === null) {
-    return <FileArrowUpIcon {...props} />;
+    return <ChooseFileIcon {...props} />;
   }
   if (file.name.toLowerCase().endsWith(".xlsx")) {
     return <FileXlsIcon {...props} />;
@@ -113,7 +117,7 @@ export function ImportDropZone({ file, busy, onChoose }: ImportDropZoneProps) {
         disabled={busy}
         onClick={() => input.current?.click()}
       >
-        <FileArrowUpIcon aria-hidden="true" />
+        <ChooseFileIcon aria-hidden="true" />
         {file === null ? "Escolher arquivo" : "Trocar arquivo"}
       </Button>
     </div>

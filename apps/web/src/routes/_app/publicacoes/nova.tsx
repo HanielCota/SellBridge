@@ -14,21 +14,14 @@ import { ArrowCounterClockwiseIcon, ArrowLeftIcon, StorefrontIcon } from "@phosp
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { ProductVisual } from "@/components/catalog/product-visual";
 import { ToneStatus } from "@/components/data/tone-status";
 import { firstErrorMessage, TextField } from "@/components/form/form-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  FeeLines,
-  PROFIT_SPLIT_COLORS,
-  ProfitSplitBar,
-  ProfitSplitLine,
-  profitTone,
-  totalFeeCents,
-} from "@/components/listings/profit-split";
+import { ListingPreview, ProfitCard } from "@/components/listings/new-listing-cards";
+import { profitTone } from "@/components/listings/profit-split";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -51,6 +44,8 @@ import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
 
 export const Route = createFileRoute("/_app/publicacoes/nova")({
   // A missing or malformed product id (a typed or stale URL) sends the reseller back to pick one.
@@ -70,6 +65,8 @@ export const Route = createFileRoute("/_app/publicacoes/nova")({
   head: () => ({ meta: [{ title: "Nova publicação | SellBridge" }] }),
   component: NewListingPage,
 });
+
+const PublishIcon = ACTION_ICONS.publish.icon;
 
 /** One-tap prices besides the supplier's suggestion, named by the margin they leave. */
 const MARGIN_PRESETS = [30, 40, 50] as const;
@@ -353,9 +350,12 @@ function FieldAside({ children }: { children: ReactNode }) {
 function CharacterCount({ value, max }: { value: string; max: number }) {
   const length = value.trim().length;
   return (
-    <span className={cn(length > max && "font-medium text-destructive")}>
+    <HintedText
+      label={TERM_HINTS.characterLimit}
+      className={cn(length > max && "font-medium text-destructive")}
+    >
       {length.toLocaleString("pt-BR")}/{max.toLocaleString("pt-BR")}
-    </span>
+    </HintedText>
   );
 }
 
@@ -445,6 +445,14 @@ function pricePresets(product: ListingProduct, schedule: FeeSchedule): PricePres
   return presets;
 }
 
+/** What a ready-made price means, in the reseller's words. */
+function presetHint(preset: PricePreset): string {
+  if (preset.key === "suggested") {
+    return TERM_HINTS.suggestedPrice;
+  }
+  return `Preço para sobrar ${preset.label.replace("Margem ", "")} do valor da venda como lucro`;
+}
+
 /** Tint behind the margin badge, in step with `profitTone` for its text. */
 function marginSurface(estimate: ProfitEstimate): string {
   if (estimate.profitCents < 0) {
@@ -490,18 +498,19 @@ function PricePresets({
       {pricePresets(product, schedule)
         .filter(keepsFloor(product, schedule))
         .map((preset) => (
-          <button
-            key={preset.key}
-            type="button"
-            aria-pressed={priceCents === preset.priceCents}
-            onClick={() => onPick(formatCentsForInput(preset.priceCents))}
-            className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
-          >
-            {preset.label}
-            <span className="font-normal tabular-nums opacity-80">
-              {formatCents(preset.priceCents)}
-            </span>
-          </button>
+          <Hint key={preset.key} label={presetHint(preset)} openOnTap={false}>
+            <button
+              type="button"
+              aria-pressed={priceCents === preset.priceCents}
+              onClick={() => onPick(formatCentsForInput(preset.priceCents))}
+              className="flex flex-col items-center justify-center rounded-2xl bg-muted px-3 py-1.5 text-xs whitespace-nowrap sm:h-8 sm:flex-row sm:gap-1.5 sm:rounded-full sm:py-0 font-medium text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-150 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] aria-pressed:bg-brand/15 aria-pressed:text-brand-text aria-pressed:ring-1 aria-pressed:ring-brand/40 motion-reduce:active:scale-100"
+            >
+              {preset.label}
+              <span className="font-normal tabular-nums opacity-80">
+                {formatCents(preset.priceCents)}
+              </span>
+            </button>
+          </Hint>
         ))}
     </fieldset>
   );
@@ -574,7 +583,9 @@ function PriceField({
 }
 
 function storeSubtitle(store: ListingStore): string | null {
-  return displayStoreName(store.shopName) === store.shopName ? null : "Loja simulada";
+  return displayStoreName(store.shopName) === store.shopName
+    ? null
+    : "Loja simulada · pedidos de teste";
 }
 
 /** Under the store name: that it already sells the product, or what kind of store it is. */
@@ -702,128 +713,6 @@ function ListingSidebar({
   );
 }
 
-/** Roughly how the ad reads on a marketplace grid: photo, title and price, live as they change. */
-function ListingPreview({
-  product,
-  title,
-  priceCents,
-}: {
-  product: ListingProduct;
-  title: string;
-  priceCents: number | null;
-}) {
-  return (
-    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
-      <CardHeader>
-        <CardTitle className="text-sm font-normal text-muted-foreground">
-          Prévia do anúncio
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-3 overflow-hidden rounded-2xl bg-background p-2 ring-1 ring-border">
-          <ProductVisual
-            imageUrl={product.imageUrls.at(0) ?? null}
-            title={title}
-            categoryName={product.categoryName}
-            className="aspect-square w-28! shrink-0 rounded-xl"
-          />
-          <div className="min-w-0 space-y-1 py-1 pr-1">
-            <p className="line-clamp-2 text-sm wrap-anywhere">
-              {title.trim() || "Título do anúncio"}
-            </p>
-            <p className="text-lg font-semibold tabular-nums">
-              {priceCents === null ? "—" : formatCents(priceCents)}
-            </p>
-            <p className="text-xs text-brand-text">Enviado pelo fornecedor</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Whole reais big, cents small, like the dashboard tiles. */
-function ProfitFigure({ estimate }: { estimate: ProfitEstimate | null }) {
-  if (!estimate) {
-    return <p className="text-3xl font-semibold tracking-tight">—</p>;
-  }
-  const [reais, cents] = formatCents(Math.abs(estimate.profitCents))
-    .replace(/^R\$\s?/, "")
-    .split(",");
-  return (
-    <p
-      className={cn(
-        "flex items-baseline gap-1 tabular-nums transition-colors duration-300",
-        estimate.profitCents < 0 ? "text-destructive" : "text-foreground",
-      )}
-    >
-      <span className="text-sm text-muted-foreground">
-        {estimate.profitCents < 0 ? "− R$" : "R$"}
-      </span>
-      <span>
-        <span className="text-3xl font-semibold tracking-tight">{reais}</span>
-        <span className="text-base font-medium text-muted-foreground">,{cents}</span>
-      </span>
-    </p>
-  );
-}
-
-function ProfitCard({
-  priceCents,
-  product,
-}: {
-  priceCents: number | null;
-  product: ListingProduct;
-}) {
-  const schedule = useFeeSchedule();
-  const estimate = estimateProfit(priceCents, product.costCents, schedule);
-  const isLoss = estimate !== null && estimate.profitCents < 0;
-  return (
-    <Card className="animate-in duration-500 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
-      <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            {isLoss ? "Prejuízo estimado" : "Lucro estimado"} por venda
-          </p>
-          <ProfitFigure estimate={estimate} />
-        </div>
-        {estimate ? (
-          <ProfitSplitBar
-            costCents={product.costCents}
-            feeCents={totalFeeCents(estimate)}
-            profitCents={estimate.profitCents}
-          />
-        ) : null}
-        <dl className="space-y-1.5 text-sm">
-          <ProfitSplitLine
-            swatch={PROFIT_SPLIT_COLORS.cost}
-            label="Custo do fornecedor"
-            value={formatCents(product.costCents)}
-          />
-          <FeeLines estimate={estimate} schedule={schedule} />
-          <ProfitSplitLine
-            swatch={isLoss ? PROFIT_SPLIT_COLORS.loss : PROFIT_SPLIT_COLORS.profit}
-            label={isLoss ? "Seu prejuízo" : "Seu lucro"}
-            value={estimate ? formatCents(Math.abs(estimate.profitCents)) : "—"}
-            valueClassName={
-              estimate
-                ? cn("font-medium", profitTone(estimate.profitCents, estimate.marginPercent))
-                : undefined
-            }
-          />
-          <div className="flex items-center justify-between border-t border-border pt-2 font-medium">
-            <dt>Preço de venda</dt>
-            <dd className="tabular-nums">{priceCents === null ? "—" : formatCents(priceCents)}</dd>
-          </div>
-        </dl>
-        <p className="text-xs text-muted-foreground">
-          A taxa real depende do marketplace e da categoria do anúncio.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
 function publishSummary(selected: readonly ListingStore[]): string {
   const [only] = selected;
   if (selected.length === 1 && only) {
@@ -869,9 +758,12 @@ function PublishBar({
             <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground" aria-live="polite">
               {publishSummary(selected)}
             </p>
-            <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando…" : publishLabel(selected.length)}
-            </Button>
+            <Hint label={ACTION_ICONS.publish.hint} openOnTap={false}>
+              <Button type="submit" size="lg" disabled={isSubmitting}>
+                <PublishIcon aria-hidden="true" />
+                {isSubmitting ? "Enviando…" : publishLabel(selected.length)}
+              </Button>
+            </Hint>
           </section>
         );
       }}

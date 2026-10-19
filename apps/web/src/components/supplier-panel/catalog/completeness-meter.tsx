@@ -4,6 +4,8 @@ import type {
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 function barTone(report: CompletenessReport): string {
   if (report.blocking.length > 0) {
@@ -14,11 +16,13 @@ function barTone(report: CompletenessReport): string {
 
 function IssueList({
   title,
+  hint,
   issues,
   tone,
   onFix,
 }: {
   title: string;
+  hint: string;
   issues: readonly CompletenessIssue[];
   tone: "danger" | "warning";
   onFix: (field: string) => void;
@@ -34,7 +38,9 @@ function IssueList({
           tone === "danger" ? "text-destructive" : "text-amber-700 dark:text-amber-400",
         )}
       >
-        {title} · {issues.length}
+        <HintedText label={hint} className="hinted-term">
+          {title} · {issues.length}
+        </HintedText>
       </h3>
       <ul className="space-y-1">
         {issues.map((issue) => (
@@ -85,9 +91,16 @@ export function CompletenessMeter({
           />
         </div>
       </div>
-      <IssueList title="Impede publicar" issues={report.blocking} tone="danger" onFix={onFix} />
+      <IssueList
+        title="Impede publicar"
+        hint={TERM_HINTS.blockingIssues}
+        issues={report.blocking}
+        tone="danger"
+        onFix={onFix}
+      />
       <IssueList
         title="Melhora o anúncio"
+        hint={TERM_HINTS.improvementIssues}
         issues={report.improvements}
         tone="warning"
         onFix={onFix}

@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PackageIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -16,7 +16,9 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReputationPanel } from "@/components/suppliers/reputation-panel";
 import { SupplierProductCard } from "@/components/suppliers/supplier-product-card";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +53,8 @@ export const Route = createFileRoute("/_app/fornecedores/$supplierId")({
   component: CatalogPage,
 });
 
+const StoresIcon = ACTION_ICONS.stores.icon;
+
 function useCatalogQuery() {
   const { supplierId } = Route.useParams();
   const search = Route.useSearch();
@@ -80,12 +84,15 @@ function CatalogPage() {
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
         actions={
-          <Button asChild>
-            <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
-              <StorefrontIcon weight="bold" aria-hidden="true" />
-              Vender este fornecedor
-            </Link>
-          </Button>
+          // Same destination as the Lojas tab (adding a store), so the same icon.
+          <Hint label={CONTROL_HINTS.sellSupplier} openOnTap={false}>
+            <Button asChild>
+              <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
+                <StoresIcon weight="bold" aria-hidden="true" />
+                Vender este fornecedor
+              </Link>
+            </Button>
+          </Hint>
         }
       />
       <ReputationPanel supplierId={supplier.id} />
@@ -131,7 +138,7 @@ function CatalogFilters({
           }
         />
         <Label htmlFor="in-stock" className="font-normal">
-          Somente com estoque
+          Só com estoque
         </Label>
       </div>
     </div>
@@ -149,7 +156,7 @@ function CatalogSearchInput() {
   return (
     <SearchInput
       label="Buscar produto"
-      placeholder="Buscar por nome ou SKU"
+      placeholder="Buscar por nome ou código"
       className="md:col-span-2 xl:col-span-1"
       value={term}
       onValueChange={setTerm}

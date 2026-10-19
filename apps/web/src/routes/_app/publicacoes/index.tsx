@@ -33,6 +33,8 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { feeScheduleQueryOptions } from "@/features/reports/fee-schedule.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 /** The catalog's grid, so a product looks the same before and after it is published. */
 const GRID = "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
@@ -50,6 +52,8 @@ export const Route = createFileRoute("/_app/publicacoes/")({
   head: () => ({ meta: [{ title: "Publicações | SellBridge" }] }),
   component: ListingsPage,
 });
+
+const PublishIcon = ACTION_ICONS.publish.icon;
 
 function listingId(row: ListingOverviewRow): string {
   return row.listingId;
@@ -75,9 +79,14 @@ function ListingsPage() {
         title="Publicações"
         description="Seus produtos e onde cada um está no ar."
         actions={
-          <Button asChild>
-            <Link to="/catalogo">Publicar produtos</Link>
-          </Button>
+          <Hint label={CONTROL_HINTS.publishFromCatalog} openOnTap={false}>
+            <Button asChild>
+              <Link to="/catalogo">
+                <PublishIcon aria-hidden="true" />
+                Publicar produtos
+              </Link>
+            </Button>
+          </Hint>
         }
       />
       <ListingsToolbar />

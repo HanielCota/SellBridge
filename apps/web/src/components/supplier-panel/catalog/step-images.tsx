@@ -1,4 +1,4 @@
-import { ArrowUpIcon, ImageIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react";
+import { ImageIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import { isSupplierImageUrl } from "@sellbridge/shared/supplier-panel-image-urls";
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { InlineFormError } from "@/components/form/inline-form-error";
@@ -10,8 +10,12 @@ import { PRODUCT_IMAGE_TYPES } from "@/features/supplier-panel/catalog/product-i
 import { useProductImageUpload } from "@/features/supplier-panel/catalog/use-product-image-upload";
 import { FieldReason } from "./field-reason";
 import type { StepProps } from "./step-details";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 const MAX_IMAGES = 20;
+const SetCoverIcon = ACTION_ICONS.setCover.icon;
+const RemoveImageIcon = ACTION_ICONS.removeImage.icon;
 
 function ImageRow({
   url,
@@ -38,25 +42,29 @@ function ImageRow({
         <p className="truncate text-footnote text-muted-foreground">{url}</p>
       </div>
       {index > 0 ? (
+        <Hint label={ACTION_ICONS.setCover.hint} openOnTap={false}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onPromote}
+            aria-label={`Usar a imagem ${index + 1} como capa`}
+          >
+            <SetCoverIcon aria-hidden="true" />
+          </Button>
+        </Hint>
+      ) : null}
+      <Hint label={ACTION_ICONS.removeImage.hint} openOnTap={false}>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          onClick={onPromote}
-          aria-label={`Usar a imagem ${index + 1} como capa`}
+          onClick={onRemove}
+          aria-label={`Remover a imagem ${index + 1}`}
         >
-          <ArrowUpIcon aria-hidden="true" />
+          <RemoveImageIcon aria-hidden="true" />
         </Button>
-      ) : null}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={onRemove}
-        aria-label={`Remover a imagem ${index + 1}`}
-      >
-        <TrashIcon aria-hidden="true" />
-      </Button>
+      </Hint>
     </li>
   );
 }

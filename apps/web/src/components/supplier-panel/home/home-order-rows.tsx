@@ -1,13 +1,14 @@
 import type { QueueDeadline } from "@sellbridge/shared/supplier-panel-orders";
-import { AlarmIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import type { SupplierHomeOrderRow } from "@/features/supplier-panel/home/home-types";
 import { cn } from "@/lib/utils";
-import { liveUrgency } from "../orders/countdown-badge";
+import { DeadlineIcon, liveUrgency } from "../orders/countdown-badge";
 import { ProblemList, RowAction } from "../orders/order-row-parts";
 import { HomeListRow, HomePhoto } from "./home-list";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** "Vaso cerâmica P", or "Vaso cerâmica P e mais 1 item": the name the photo stands for. */
 export function orderTitle(items: SupplierHomeOrderRow["items"]): string {
@@ -33,19 +34,24 @@ function DeadlineText({ deadline, now }: { deadline: QueueDeadline | null; now: 
   const { urgency, label } = liveUrgency(deadline, now);
   const pressing = urgency === "overdue" || urgency === "danger";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 text-footnote whitespace-nowrap tabular-nums",
-        pressing && "font-medium text-destructive",
-        urgency === "warning" && "font-medium text-amber-700 dark:text-amber-300",
-        urgency === "normal" && "text-muted-foreground",
-      )}
-      // The label follows the clock: the server render and hydration may differ by a minute.
-      suppressHydrationWarning
+    <HintedText
+      label={urgency === "overdue" ? TERM_HINTS.overdueDeadline : TERM_HINTS.openDeadline}
+      focusable={false}
     >
-      {pressing ? <AlarmIcon className="size-4" aria-hidden="true" /> : null}
-      {label}
-    </span>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 text-footnote whitespace-nowrap tabular-nums",
+          pressing && "font-medium text-destructive",
+          urgency === "warning" && "font-medium text-amber-700 dark:text-amber-300",
+          urgency === "normal" && "text-muted-foreground",
+        )}
+        // The label follows the clock: the server render and hydration may differ by a minute.
+        suppressHydrationWarning
+      >
+        {pressing ? <DeadlineIcon urgency={urgency} className="size-4" /> : null}
+        {label}
+      </span>
+    </HintedText>
   );
 }
 
@@ -81,7 +87,10 @@ export function HomeOrderRow({
       title={title}
       detail={
         <>
-          <MarketplaceMark marketplace={row.marketplace} className="size-4 rounded-[5px]" />
+          {/* The row is a button: the legend opens on hover or tap, not as a stop of its own. */}
+          <HintedText label={TERM_HINTS.orderStore} focusable={false} className="shrink-0">
+            <MarketplaceMark marketplace={row.marketplace} className="size-4 rounded-[5px]" />
+          </HintedText>
           <span className="truncate">
             {units} un. · {row.destinationCity}, {row.destinationState} · Pedido{" "}
             {row.externalOrderId}

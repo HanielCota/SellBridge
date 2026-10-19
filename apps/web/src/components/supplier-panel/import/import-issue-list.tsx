@@ -63,7 +63,7 @@ function DesktopTable({ rows }: { rows: readonly ImportRowIssues[] }) {
       <TableHeader>
         <TableRow>
           <TableHead className="w-20">Linha</TableHead>
-          <TableHead className="w-44">SKU</TableHead>
+          <TableHead className="w-44">Código</TableHead>
           <TableHead className="w-40">Coluna</TableHead>
           <TableHead className="w-48">Recebido</TableHead>
           <TableHead>Esperado</TableHead>
@@ -83,7 +83,7 @@ function DesktopTable({ rows }: { rows: readonly ImportRowIssues[] }) {
                       rowSpan={row.issues.length}
                       className="max-w-44 truncate font-mono text-footnote"
                     >
-                      {row.sku ?? "sem SKU"}
+                      {row.sku ?? "sem código"}
                     </TableCell>
                   </>
                 ) : null}
@@ -113,7 +113,7 @@ function MobileList({ rows }: { rows: readonly ImportRowIssues[] }) {
           <p className="flex items-baseline justify-between gap-3">
             <span className="font-medium">Linha {row.line}</span>
             <span className="truncate font-mono text-footnote text-muted-foreground">
-              {row.sku ?? "sem SKU"}
+              {row.sku ?? "sem código"}
             </span>
           </p>
           <ul className="space-y-3">

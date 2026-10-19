@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { batchPriceProblem } from "@sellbridge/shared/fee-model";
 import { priceForRule } from "@sellbridge/shared/schemas";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +23,8 @@ import { BulkPublishResult, type PublishedBatch } from "./bulk-publish-result";
 import { pluralize } from "./bulk-publish-parts";
 import { NoStores } from "./bulk-publish-stores";
 import { type PublishStore, StorePicker, storesForProducts } from "./bulk-store-picker";
+
+const PublishIcon = ACTION_ICONS.publish.icon;
 
 export type { PublishStore } from "./bulk-store-picker";
 
@@ -129,6 +132,7 @@ function BulkPublishForm({
       <div className="space-y-2">
         <FloorProblem problem={floorProblem} />
         <Button type="submit" size="lg" className="w-full" disabled={!canSubmit}>
+          <PublishIcon aria-hidden="true" />
           {mutation.isPending
             ? "Publicando…"
             : `Publicar em ${pluralize(storeIds.size, "loja", "lojas")}`}

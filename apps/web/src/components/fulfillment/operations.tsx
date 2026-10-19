@@ -36,6 +36,16 @@ import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { FulfillmentDialog } from "./order-dialog";
+import {
+  ACTION_ICONS,
+  CONTROL_HINTS,
+  ORDER_STATUS_HINTS,
+  SHIPMENT_DELAY_HINTS,
+} from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
+
+const OpenOrderIcon = ACTION_ICONS.openOrder.icon;
+const OverdueIcon = ACTION_ICONS.overdue.icon;
 
 type Search = z.infer<typeof operationsSearchSchema>;
 type OperationRowData = Awaited<
@@ -121,12 +131,14 @@ function StageSelect({
       value={stage}
       onValueChange={(value) => onStageChange(operationsSearchSchema.shape.stage.parse(value))}
     >
-      <SelectTrigger
-        className="w-full rounded-full sm:w-auto sm:min-w-52"
-        aria-label="Etapa operacional"
-      >
-        <SelectValue>{STAGE_OPTIONS.find((option) => option.value === stage)?.label}</SelectValue>
-      </SelectTrigger>
+      <Hint label={CONTROL_HINTS.orderStage} openOnTap={false}>
+        <SelectTrigger
+          className="w-full rounded-full sm:w-auto sm:min-w-52"
+          aria-label="Etapa operacional"
+        >
+          <SelectValue>{STAGE_OPTIONS.find((option) => option.value === stage)?.label}</SelectValue>
+        </SelectTrigger>
+      </Hint>
       <SelectContent>
         {STAGE_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
@@ -237,13 +249,18 @@ function OperationRow({
         </p>
       </div>
       <div className="flex flex-col items-start gap-1">
-        <OrderStatusBadge status={row.status} />
+        <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>
+          <OrderStatusBadge status={row.status} />
+        </HintedText>
         {row.stockShort ? <ToneStatus tone="warning" label="Falta estoque" /> : null}
         <ShipmentDelayBadge shipments={row.shipments} />
       </div>
-      <Button variant="outline" onClick={() => onOpen(row)}>
-        Operar pedido
-      </Button>
+      <Hint label={ACTION_ICONS.openOrder.hint} openOnTap={false}>
+        <Button variant="outline" onClick={() => onOpen(row)}>
+          Operar pedido
+          <OpenOrderIcon aria-hidden="true" />
+        </Button>
+      </Hint>
     </li>
   );
 }
@@ -254,5 +271,17 @@ function ShipmentDelayBadge({ shipments }: { shipments: OperationRowData["shipme
   if (delay === undefined || delay === null) {
     return null;
   }
-  return <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[delay]} />;
+  return (
+    <HintedText
+      label={SHIPMENT_DELAY_HINTS[delay] ?? SHIPMENT_DELAY_LABELS[delay]}
+      className="inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap"
+    >
+      <OverdueIcon
+        className="size-3.5 shrink-0 text-amber-600 dark:text-amber-500"
+        weight="bold"
+        aria-hidden="true"
+      />
+      {SHIPMENT_DELAY_LABELS[delay]}
+    </HintedText>
+  );
 }

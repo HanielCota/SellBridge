@@ -2,6 +2,8 @@ import type { SupplierAttentionTarget } from "@sellbridge/shared/supplier-panel-
 import { Button } from "@/components/ui/button";
 import type { SupplierHomeCatalogFix } from "@/features/supplier-panel/home/home-types";
 import { HomeListRow, HomePhoto } from "./home-list";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** Where each kind of fix is made: the stock field, or the product with the review's reasons. */
 function targetOf(fix: SupplierHomeCatalogFix): SupplierAttentionTarget {
@@ -25,7 +27,15 @@ function StatusWord({ fix }: { fix: SupplierHomeCatalogFix }) {
       </span>
     );
   }
-  return <span className="text-footnote whitespace-nowrap text-muted-foreground">Reprovado</span>;
+  return (
+    <HintedText
+      label={TERM_HINTS.rejectedProduct}
+      focusable={false}
+      className="text-footnote whitespace-nowrap text-muted-foreground hinted-term"
+    >
+      Reprovado
+    </HintedText>
+  );
 }
 
 export function HomeCatalogRow({

@@ -5,6 +5,8 @@ import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { DropdownMenuGroup } from "@/components/ui/dropdown-menu";
 import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** What the store health rows read from a store: its access and the last signs of life. */
 export interface StoreHealthFacts {
@@ -40,11 +42,28 @@ function LastTime({ date }: { date: Date | null }) {
   );
 }
 
-function HealthRow({ label, children }: { label: string; children: ReactNode }) {
+function HealthRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  /** Legend on the row's name, for a term the reseller may not know. */
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
     // The label gives way first: a narrow row wraps it rather than squeezing the value.
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="min-w-0 flex-1 text-muted-foreground">{label}</dt>
+      <dt className="min-w-0 flex-1 text-muted-foreground">
+        {hint ? (
+          <HintedText label={hint} className="hinted-term">
+            {label}
+          </HintedText>
+        ) : (
+          label
+        )}
+      </dt>
       <dd className="max-w-[60%] shrink-0 text-right">{children}</dd>
     </div>
   );
@@ -65,10 +84,10 @@ export function StoreHealthRows({
   const access = describeStoreAccess(store);
   return (
     <dl className={cn("space-y-1 text-xs", className)}>
-      <HealthRow label="Última sincronização">
+      <HealthRow label="Última sincronização" hint={TERM_HINTS.lastSync}>
         <LastTime date={store.lastSyncedAt} />
       </HealthRow>
-      <HealthRow label="Último aviso de pedido">
+      <HealthRow label="Último aviso de pedido" hint={TERM_HINTS.lastOrderPing}>
         <LastTime date={store.lastWebhookAt} />
       </HealthRow>
       <HealthRow label="Acesso">

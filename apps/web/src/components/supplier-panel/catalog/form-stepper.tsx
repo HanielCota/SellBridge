@@ -6,6 +6,8 @@ import {
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 function blockingCountOf(step: FormStepId, blocking: readonly CompletenessIssue[]): number {
   return blocking.filter((issue) => stepOfField(issue.field) === step).length;
@@ -15,10 +17,13 @@ function blockingCountOf(step: FormStepId, blocking: readonly CompletenessIssue[
 function StepMark({ step, pending }: { step: FormStepId; pending: number }) {
   if (pending > 0) {
     return (
-      <span className="ml-auto rounded-full bg-destructive/10 px-1.5 text-caption text-destructive tabular-nums">
-        <span className="sr-only">pendências:</span>
-        {pending}
-      </span>
+      // Inside the step button: the legend opens on hover or tap, not as a stop of its own.
+      <HintedText label={TERM_HINTS.stepPending} focusable={false} className="ml-auto">
+        <span className="rounded-full bg-destructive/10 px-1.5 text-caption text-destructive tabular-nums">
+          <span className="sr-only">pendências:</span>
+          {pending}
+        </span>
+      </HintedText>
     );
   }
   if (step === "review") {

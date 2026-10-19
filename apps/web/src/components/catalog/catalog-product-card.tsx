@@ -1,9 +1,11 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
-import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
 import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
@@ -61,6 +63,8 @@ function CardBody({ product }: { product: SellableCatalogProduct }) {
   );
 }
 
+const PublishIcon = ACTION_ICONS.publish.icon;
+
 function StockFooter({ product }: { product: SellableCatalogProduct }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
@@ -69,14 +73,32 @@ function StockFooter({ product }: { product: SellableCatalogProduct }) {
         <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
       </span>
       {product.published ? null : (
-        <Button asChild variant="secondary" size="sm">
-          <Link to="/publicacoes/nova" search={{ productId: product.id }}>
-            <PackageIcon weight="bold" aria-hidden="true" />
-            Publicar
-          </Link>
-        </Button>
+        <Hint label={ACTION_ICONS.publish.hint} openOnTap={false}>
+          <Button asChild variant="secondary" size="sm">
+            <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+              <PublishIcon weight="bold" aria-hidden="true" />
+              Publicar
+            </Link>
+          </Button>
+        </Hint>
       )}
     </div>
+  );
+}
+
+/** Marks a product already on sale; its legend says so for whoever does not read the badge. */
+function PublishedBadge() {
+  return (
+    <Hint label={TERM_HINTS.published}>
+      <span
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the badge's legend must be reachable by keyboard too
+        tabIndex={0}
+        className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
+        Publicado
+      </span>
+    </Hint>
   );
 }
 
@@ -121,19 +143,16 @@ export function CatalogProductCard({
       />
       {soldOut ? <SoldOutRibbon /> : null}
       {canSelect ? (
-        <Checkbox
-          aria-label={`Selecionar ${product.title}`}
-          checked={selected}
-          onCheckedChange={(checked) => onSelectedChange(checked === true)}
-          className="absolute top-3 left-3 size-5 bg-background"
-        />
+        <Hint label={CONTROL_HINTS.selectForBulk} openOnTap={false}>
+          <Checkbox
+            aria-label={`Selecionar ${product.title}`}
+            checked={selected}
+            onCheckedChange={(checked) => onSelectedChange(checked === true)}
+            className="absolute top-3 left-3 size-5 bg-background"
+          />
+        </Hint>
       ) : null}
-      {product.published ? (
-        <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-xs font-medium">
-          <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
-          Publicado
-        </span>
-      ) : null}
+      {product.published ? <PublishedBadge /> : null}
       <CardBody product={product} />
       {soldOut ? <SoldOutFooter /> : null}
     </article>

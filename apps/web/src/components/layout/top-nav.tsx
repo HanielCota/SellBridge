@@ -1,4 +1,4 @@
-import { ListIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
@@ -6,6 +6,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
+import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { useActiveIndicator } from "@/components/data/use-active-indicator";
 import { TrackPill } from "@/components/data/track-pill";
 import { useOptimisticChoice } from "@/hooks/use-optimistic-choice";
@@ -48,9 +50,12 @@ const LAYOUTS = {
     row: "lg:grid-cols-[1fr_auto_1fr]",
     desktopNav: "lg:flex",
     sheetTrigger: "lg:hidden",
-    tab: "px-4",
+    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
+    tab: "px-3 text-[0.9375rem] gap-1.5",
     // From lg to xl the capsule and the name no longer fit the row; the avatar alone stays.
     accountName: "hidden sm:block lg:hidden xl:block",
+    // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
+    tabIcon: "hidden size-4 min-[1440px]:block",
     modeBadge: "hidden",
   },
   dense: {
@@ -61,6 +66,8 @@ const LAYOUTS = {
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
     // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
     accountName: "sr-only",
+    // Ten tabs already fill the capsule; icons wait for the admin area's own review.
+    tabIcon: "hidden",
     modeBadge: "flex",
   },
 } as const;
@@ -97,6 +104,8 @@ function NavTab({
   tabRef,
   onNavigate,
   padding = "px-4",
+  withHint = false,
+  iconClassName = "size-5",
 }: {
   item: NavItem;
   isActive: boolean;
@@ -107,9 +116,15 @@ function NavTab({
   onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
   /** Horizontal padding from the header layout. */
   padding?: string;
+  /** Desktop tabs explain their section on hover; in the phone sheet a tap just opens it. */
+  withHint?: boolean;
+  /** Icon classes from the header layout. */
+  iconClassName?: string;
 }) {
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
-  return (
+  const action = tabAction(item);
+  const TabIcon = action?.icon;
+  const link = (
     <Link
       ref={tabRef}
       to={item.to}
@@ -124,26 +139,58 @@ function NavTab({
         padding,
       )}
     >
+      {TabIcon ? <TabIcon className={cn("shrink-0", iconClassName)} aria-hidden="true" /> : null}
       {item.label}
       {description ? (
-        <>
-          <span
-            aria-hidden="true"
-            className={cn(
-              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-              item.badge === "failedListings"
-                ? "bg-destructive/15 text-destructive"
-                : "bg-brand/20 text-brand-text",
-            )}
-          >
-            {count}
-          </span>
-          <span className="sr-only">, {description}</span>
-        </>
+        <TabBadge
+          isError={item.badge === "failedListings"}
+          count={count}
+          description={description}
+        />
       ) : null}
     </Link>
   );
+  return (
+    <Hint label={withHint ? action?.hint : undefined} openOnTap={false}>
+      {link}
+    </Hint>
+  );
 }
+
+function TabBadge({
+  isError,
+  count,
+  description,
+}: {
+  isError: boolean;
+  count: number;
+  description: string;
+}) {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
+          isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text",
+        )}
+      >
+        {count}
+      </span>
+      <span className="sr-only">, {description}</span>
+    </>
+  );
+}
+
+function tabAction(item: NavItem): ActionIcon | undefined {
+  const name = NAV_TAB_ICONS[item.to];
+  if (name === undefined) {
+    return undefined;
+  }
+  return ACTION_ICONS[name];
+}
+
+const MenuIcon = ACTION_ICONS.menu.icon;
 
 function MobileNav({
   items,
@@ -159,15 +206,22 @@ function MobileNav({
   const [isOpen, setIsOpen] = useState(false);
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger
-        aria-label="Abrir menu"
-        className={cn(
-          "flex size-11 items-center justify-center rounded-full bg-muted text-foreground",
-          layout.sheetTrigger,
-        )}
-      >
-        <ListIcon className="size-5" aria-hidden="true" />
-      </SheetTrigger>
+      <Hint label={ACTION_ICONS.menu.hint} openOnTap={false}>
+        <SheetTrigger
+          aria-label="Abrir menu"
+          className={cn(
+            // On phones the label pushed the logo under the search button (measured at 390px);
+            // the three-line icon stands alone there, like search and close.
+            "flex size-11 items-center justify-center gap-2 rounded-full bg-muted text-sm font-medium text-foreground sm:w-auto sm:pr-4 sm:pl-3.5",
+            layout.sheetTrigger,
+          )}
+        >
+          <MenuIcon className="size-5" aria-hidden="true" />
+          <span aria-hidden="true" className="hidden sm:inline">
+            Menu
+          </span>
+        </SheetTrigger>
+      </Hint>
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
@@ -212,7 +266,7 @@ function DesktopNav({
       ref={containerRef}
       aria-label="Principal"
       className={cn(
-        "relative hidden items-center gap-1 rounded-full bg-card p-1.5",
+        "relative hidden items-center gap-0.5 rounded-full bg-card p-1.5",
         layout.desktopNav,
       )}
     >
@@ -227,6 +281,8 @@ function DesktopNav({
           count={item.badge ? counts[item.badge] : 0}
           paintsOwnPill={indicator === null}
           padding={layout.tab}
+          withHint
+          iconClassName={layout.tabIcon}
           tabRef={(node) => {
             if (!node) {
               tabRefs.current.delete(item.to);

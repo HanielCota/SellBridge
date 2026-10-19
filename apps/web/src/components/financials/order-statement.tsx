@@ -4,8 +4,8 @@ import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { ProductVisual } from "@/components/catalog/product-visual";
 import { SmartDate } from "@/components/data/smart-date";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useId, useState } from "react";
 import {
   type DaySplit,
@@ -14,20 +14,13 @@ import {
   formatDayHeading,
   groupOrdersByDay,
 } from "@/features/reports/financial-rows";
-import { displayBuyerName } from "@/features/orders/buyer-name";
 import { displayStoreName } from "@/features/stores/store-name";
-import { formatAbsoluteTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
-import {
-  isVoidOrder,
-  marginLabel,
-  OrderBreakdown,
-  OrderSplitBar,
-  ProfitAmount,
-  signedCents,
-} from "./order-parts";
+import { isVoidOrder, ProfitAmount, signedCents } from "./order-parts";
+import { OrderDetail } from "./order-detail";
+import { TERM_HINTS } from "@/components/icons/action-icons";
 import { PendingCostStatus } from "@/components/reports/pending-cost";
-import { Hint } from "@/components/ui/hint";
+import { Hint, HintedText } from "@/components/ui/hint";
 
 export interface DayTotal {
   date: string;
@@ -50,36 +43,6 @@ function itemsLabel(items: string): string {
 }
 
 /** The order's math, opened from its row, with what the row leaves out (id, buyer, margin). */
-function OrderDetail({ row }: { row: OrderFinancialRow }) {
-  const margin = marginLabel(row);
-  return (
-    <PopoverContent
-      aria-label={`Cálculo do pedido ${row.externalOrderId}`}
-      side="bottom"
-      align="end"
-      // The sticky top bar (88px) is off limits, so a flipped detail never hides beneath it.
-      collisionPadding={{ top: 100, right: 16, bottom: 16, left: 16 }}
-      className="w-80 max-w-[calc(100vw-2rem)] space-y-4 p-4"
-    >
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-sm font-medium">{row.externalOrderId}</p>
-          <OrderStatusBadge status={row.status} />
-        </div>
-        <p className="text-xs text-muted-foreground">{row.items}</p>
-        <p className="text-xs text-muted-foreground">
-          {formatAbsoluteTime(row.orderedAt)}
-          {" · "}
-          {displayBuyerName(row.buyerName)}
-          {margin ? ` · margem ${margin}` : null}
-        </p>
-      </div>
-      <OrderSplitBar row={row} />
-      <OrderBreakdown row={row} />
-    </PopoverContent>
-  );
-}
-
 /** When it happened: the clock time under a day heading, the full smart date in a flat list. */
 function RowWhen({ date, byDay }: { date: Date; byDay: boolean }) {
   if (byDay) {
@@ -134,7 +97,11 @@ function RowSummary({
 /** What the row says under its amount: the sale it came from, or why it is out of the math. */
 function AmountNote({ row, revenueCents }: { row: OrderFinancialRow; revenueCents: number }) {
   if (isVoidOrder(row)) {
-    return "fora da receita";
+    return (
+      <HintedText label={TERM_HINTS.notASale} focusable={false} className="hinted-term">
+        não conta como venda
+      </HintedText>
+    );
   }
   return (
     <>
@@ -204,6 +171,7 @@ function StatementRow({
   return (
     <li className={ROW_DIVIDER}>
       <Popover>
+        {/* The chevron says the row opens; a row legend would pile on the legends of its terms. */}
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -212,6 +180,7 @@ function StatementRow({
             <RowThumb row={row} />
             <RowSummary row={row} byDay={byDay} showStore={showStore} />
             <RowAmount row={row} />
+            <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </button>
         </PopoverTrigger>
         <OrderDetail row={row} />
@@ -465,7 +434,9 @@ function DayHeading({
       {total && total.orders > 0 ? (
         <Hint label={hasVoidRows ? VOID_ROWS_HINT : undefined}>
           <p className="text-xs text-muted-foreground tabular-nums">
-            {salesLabel(total.orders, hasVoidRows)}
+            <span className={cn(hasVoidRows && "hinted-term")}>
+              {salesLabel(total.orders, hasVoidRows)}
+            </span>
             {" · "}
             <span
               className={cn(

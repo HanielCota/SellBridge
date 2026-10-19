@@ -1,4 +1,3 @@
-import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import {
   type ComponentProps,
   type ReactNode,
@@ -23,6 +22,7 @@ import {
   YAxis,
 } from "recharts";
 import { ChartKindMenu, type ChartLayers } from "@/components/reports/chart-kind-menu";
+import { ExportLink } from "@/components/reports/export-link";
 import { DeltaBadge, MoneyFigure, TrendBadge } from "@/components/reports/figures";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import {
@@ -1376,20 +1376,6 @@ function SeriesOrCaption({
     return <p className="flex h-10 items-center text-sm text-muted-foreground">{caption}</p>;
   }
   return <SeriesPills value={series} onChange={onSeriesChange} />;
-}
-
-function ExportLink({ href }: { href: string }) {
-  return (
-    <a
-      href={href}
-      download
-      aria-label="Exportar CSV do período"
-      title="Exportar CSV do período"
-      className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <DownloadSimpleIcon className="size-4" aria-hidden="true" />
-    </a>
-  );
 }
 
 const KIND_TITLES: Record<ChartKind, string> = {

@@ -349,6 +349,18 @@
   color: var(--foreground);
 }
 
+/* A term that opens a legend (HintedText): a hairline that lights up on hover, quieter than dots. */
+@utility hinted-term {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklch, currentColor 30%, transparent);
+  text-underline-offset: 4px;
+  &:hover,
+  &:focus-visible {
+    text-decoration-color: currentColor;
+  }
+}
+
 /* Lift bottom toasts above the floating bulk actions bar so feedback never hides it. */
 body:has([data-bulk-actions]) [data-sonner-toaster][data-y-position="bottom"] {
   --offset-bottom: 88px !important;

@@ -1,4 +1,4 @@
-import { CheckCircleIcon, DownloadSimpleIcon, TableIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, TableIcon } from "@phosphor-icons/react";
 import type { SupplierImportResult } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -15,12 +15,16 @@ import { ImportDropZone } from "./import-drop-zone";
 import { ImportIssueList } from "./import-issue-list";
 import { ImportPreviewSummary } from "./import-preview-summary";
 import { ImportTemplatePanel } from "./import-template-panel";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 interface LeftOut {
   readonly rows: number;
   readonly csv: string;
   readonly fileName: string;
 }
+
+const DownloadIcon = ACTION_ICONS.downloadFile.icon;
 
 function ImportDone(props: {
   result: SupplierImportResult;
@@ -43,10 +47,12 @@ function ImportDone(props: {
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         {leftOut === null ? null : (
-          <Button onClick={() => downloadCsv(failedRowsFileName(leftOut.fileName), leftOut.csv)}>
-            <DownloadSimpleIcon aria-hidden="true" />
-            Baixar erros
-          </Button>
+          <Hint label={CONTROL_HINTS.downloadErrors} openOnTap={false}>
+            <Button onClick={() => downloadCsv(failedRowsFileName(leftOut.fileName), leftOut.csv)}>
+              <DownloadIcon aria-hidden="true" />
+              Baixar erros
+            </Button>
+          </Hint>
         )}
         <Button variant="outline" onClick={props.onAgain}>
           Importar outra

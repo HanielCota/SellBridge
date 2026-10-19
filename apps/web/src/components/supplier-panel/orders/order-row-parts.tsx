@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { FULFILLMENT_TONES } from "@/features/fulfillment/shipment-timeline";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
+import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 /** "2× Camiseta (CAM-01) e mais 1 item": enough to pick the parcel without opening it. */
 export function itemsSummary(items: SupplierOrderRow["items"]): string {
@@ -97,22 +99,28 @@ export function RowAction({
   }
   if (action === null) {
     return (
-      <Button size="sm" variant="outline" onClick={() => onOpen(row)}>
-        Ver pedido
-      </Button>
+      <Hint label={CONTROL_HINTS.viewOrder} openOnTap={false}>
+        <Button size="sm" variant="outline" onClick={() => onOpen(row)}>
+          Ver pedido
+        </Button>
+      </Hint>
     );
   }
   if (action.needsTracking) {
     return (
-      <Button size="sm" onClick={() => onOpen(row)}>
-        {action.label}
-      </Button>
+      <Hint label={SUPPLIER_NEXT_STEP_HINTS[action.status]} openOnTap={false}>
+        <Button size="sm" onClick={() => onOpen(row)}>
+          {action.label}
+        </Button>
+      </Hint>
     );
   }
   return (
-    <Button size="sm" disabled={pending} onClick={() => onAdvance(row)}>
-      {pending ? "Salvando…" : action.label}
-    </Button>
+    <Hint label={SUPPLIER_NEXT_STEP_HINTS[action.status]} openOnTap={false}>
+      <Button size="sm" disabled={pending} onClick={() => onAdvance(row)}>
+        {pending ? "Salvando…" : action.label}
+      </Button>
+    </Hint>
   );
 }
 
@@ -134,10 +142,12 @@ export function RowCheckbox({
     return <span className="block size-4" aria-hidden="true" />;
   }
   return (
-    <Checkbox
-      checked={checked}
-      onCheckedChange={() => onToggle(row)}
-      aria-label={`Selecionar pedido ${row.externalOrderId}`}
-    />
+    <Hint label={CONTROL_HINTS.batchAccept} openOnTap={false}>
+      <Checkbox
+        checked={checked}
+        onCheckedChange={() => onToggle(row)}
+        aria-label={`Selecionar pedido ${row.externalOrderId}`}
+      />
+    </Hint>
   );
 }

@@ -2,6 +2,8 @@ import type { FeeSchedule } from "@sellbridge/shared/fee-model";
 import { formatCents } from "@sellbridge/shared/money";
 import { feePercentLabel, isThinMargin, type ProfitEstimate } from "@/features/listings/profit";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /**
  * Where a sale price goes, in the financial page's colors, so every screen that splits a price
@@ -70,16 +72,27 @@ export function ProfitSplitLine({
   label,
   value,
   valueClassName,
+  hint,
 }: {
   swatch: string;
   label: string;
   value: string;
   valueClassName?: string | undefined;
+  /** Legend on the line's name, for a term the reseller may not know. */
+  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
       <span className={cn("size-2 shrink-0 rounded-[3px]", swatch)} aria-hidden="true" />
-      <dt className="flex-1">{label}</dt>
+      <dt className="flex-1">
+        {hint ? (
+          <HintedText label={hint} className="hinted-term">
+            {label}
+          </HintedText>
+        ) : (
+          label
+        )}
+      </dt>
       <dd className={cn("text-muted-foreground tabular-nums", valueClassName)}>{value}</dd>
     </div>
   );
@@ -109,6 +122,7 @@ export function FeeLines({
       <ProfitSplitLine
         swatch={PROFIT_SPLIT_COLORS.fee}
         label={marketplaceFeeLabel(schedule)}
+        hint={TERM_HINTS.marketplaceFee}
         value={estimate ? formatCents(estimate.feeCents) : "—"}
       />
       {schedule.platformFeeBasisPoints > 0 ? (

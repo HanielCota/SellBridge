@@ -37,6 +37,7 @@ import {
 } from "@/features/notifications/notification-tabs";
 import { useNotificationChime } from "@/features/notifications/use-notification-chime";
 import { Hint } from "@/components/ui/hint";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 
 /** Problems that wait for the reseller, in the warning tone of `ToneStatus`. */
 const WARNING_TINT = "bg-amber-500/15 text-amber-700 dark:text-amber-400";
@@ -349,6 +350,26 @@ function NotificationTabs({
   );
 }
 
+const NotificationsIcon = ACTION_ICONS.notifications.icon;
+
+function BellTrigger({ unread }: { unread: number }) {
+  return (
+    <Hint label={ACTION_ICONS.notifications.hint} openOnTap={false}>
+      <Popover.Trigger
+        aria-label={unread > 0 ? `Avisos: ${unread} novos` : "Avisos"}
+        className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
+      >
+        <NotificationsIcon className="size-5" aria-hidden="true" />
+        {unread > 0 ? (
+          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        ) : null}
+      </Popover.Trigger>
+    </Hint>
+  );
+}
+
 /** Bell with the unread count; opening it lists recent events and marks them as seen. */
 export function NotificationBell() {
   const query = useQuery(notificationsQueryOptions());
@@ -372,17 +393,7 @@ export function NotificationBell() {
   const items = query.data?.items ?? [];
   return (
     <Popover.Root open={open} onOpenChange={handleOpenChange}>
-      <Popover.Trigger
-        aria-label={unread > 0 ? `Avisos: ${unread} novos` : "Avisos"}
-        className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30"
-      >
-        <BellIcon className="size-5" aria-hidden="true" />
-        {unread > 0 ? (
-          <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        ) : null}
-      </Popover.Trigger>
+      <BellTrigger unread={unread} />
       <Popover.Portal>
         <Popover.Content
           align="end"

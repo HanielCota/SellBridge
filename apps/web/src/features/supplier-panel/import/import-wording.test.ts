@@ -18,7 +18,7 @@ describe("confirmDescription", () => {
 
   it("names new, updated and left-out rows", () => {
     expect(confirmDescription({ created: 1, updated: 3, failedRows: 1 })).toBe(
-      "1 produto novo e 3 atualizados pelo SKU; 1 linha com erro fica de fora.",
+      "1 produto novo e 3 atualizados pelo código; 1 linha com erro fica de fora.",
     );
   });
 });
