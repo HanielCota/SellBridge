@@ -76,6 +76,12 @@ describe("catalogFixes", () => {
     expect(fix?.reason).toBe("Revisar título");
   });
 
+  it("leaves out the label's parenthesis when naming the field to revise", () => {
+    const reason = { field: "attributes.GTIN", rule: "other", message: "Confira o código" };
+    const [fix] = catalogFixes([], [{ ...rejectedRow, rejectionReasons: [reason] }]);
+    expect(fix?.reason).toBe("Revisar código de barras");
+  });
+
   it("says the product was refused when the review left no reason", () => {
     const [fix] = catalogFixes([], [{ ...rejectedRow, rejectionReasons: [] }]);
     expect(fix?.reason).toBe("Reprovado na análise");
