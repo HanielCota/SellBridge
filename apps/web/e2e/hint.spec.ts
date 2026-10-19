@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,7 +19,7 @@ test.beforeAll(async () => {
     configFile: false,
     cacheDir: cacheDirectory,
     root: fileURLToPath(new URL("..", import.meta.url)),
-    plugins: [react()],
+    plugins: [tailwindcss(), react()],
     resolve: { tsconfigPaths: true },
     server: { host: "127.0.0.1", port: 0 },
   });
@@ -111,3 +112,61 @@ test("hover and keyboard focus still open tooltips", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Test button", exact: true })).toBeFocused();
   await expect(page.getByRole("tooltip")).toBeVisible();
 });
+
+function readCssProperty(node: HTMLElement, name: string): string {
+  return getComputedStyle(node).getPropertyValue(name);
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`checkbox selection styles survive tooltip composition in ${theme} mode`, async ({
+    page,
+  }) => {
+    await page.goto(`${fixtureUrl}?theme=${theme}`);
+    const plain = page.getByRole("checkbox", { name: "Plain selection", exact: true });
+    const hinted = page.getByRole("checkbox", { name: "Hinted selection", exact: true });
+    const outside = page.getByRole("button", { name: "Outside", exact: true });
+
+    const expectMatchingStyles = async () => {
+      for (const property of ["background-color", "border-top-color", "color"]) {
+        await expect
+          .poll(
+            async () => {
+              const [expected, actual] = await Promise.all([
+                plain.evaluate(readCssProperty, property),
+                hinted.evaluate(readCssProperty, property),
+              ]);
+              return actual === expected;
+            },
+            { message: `Checkbox ${property} should match with and without a tooltip` },
+          )
+          .toBe(true);
+      }
+    };
+
+    await expect(plain).toBeChecked();
+    await expect(hinted).toBeChecked();
+    await expectMatchingStyles();
+    const selectedBackground = await plain.evaluate(readCssProperty, "background-color");
+
+    await hinted.hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    await expectMatchingStyles();
+
+    await hinted.click();
+    await plain.click();
+    await outside.click();
+    await expect(hinted).not.toBeChecked();
+    await expect(plain).not.toBeChecked();
+    await expectMatchingStyles();
+    await expect(plain).not.toHaveCSS("background-color", selectedBackground);
+
+    await hinted.focus();
+    await page.keyboard.press("Space");
+    await plain.check();
+    await outside.focus();
+    await expect(hinted).toBeChecked();
+    await expect(plain).toBeChecked();
+    await expectMatchingStyles();
+    await expect(hinted).toHaveCSS("background-color", selectedBackground);
+  });
+}
