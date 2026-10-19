@@ -1,13 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useId, useRef } from "react";
-import {
-  ArrowsLeftRightIcon,
-  ChatCircleDotsIcon,
-  DotsThreeIcon,
-  PackageIcon,
-  SignOutIcon,
-  StorefrontIcon,
-} from "@phosphor-icons/react";
+import { ArrowsLeftRightIcon, ChatCircleDotsIcon, DotsThreeIcon } from "@phosphor-icons/react";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreHealthSection, storeHealthSummary } from "@/components/stores/store-health";
 import { StoreStatusChip } from "@/components/stores/store-status-badge";
@@ -24,6 +19,12 @@ import {
 import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { cn } from "@/lib/utils";
 import type { StoreWithActivity } from "./store-list";
+
+// Each action keeps the icon of its function across the app (docs/PLANO-UX-ICONES.md):
+// publishing is the paper plane, listings the megaphone, and disconnecting never borrows sign-out.
+const PublishIcon = ACTION_ICONS.publish.icon;
+const ListingsIcon = ACTION_ICONS.listings.icon;
+const DisconnectIcon = ACTION_ICONS.disconnectStore.icon;
 
 /** The tinted square each menu action sits in, colored by what the action does. */
 const MENU_TILE_TONES = {
@@ -122,7 +123,7 @@ function StoreMenuEntries({
       <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
         <Link to="/catalogo">
           <MenuTile tone="publish">
-            <PackageIcon weight="bold" />
+            <PublishIcon weight="bold" />
           </MenuTile>
           Publicar produtos
         </Link>
@@ -130,7 +131,7 @@ function StoreMenuEntries({
       <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
         <Link to="/publicacoes">
           <MenuTile tone="view">
-            <StorefrontIcon weight="bold" />
+            <ListingsIcon weight="bold" />
           </MenuTile>
           Ver publicações
         </Link>
@@ -151,7 +152,7 @@ function StoreMenuEntries({
         className={cn("gap-2.5 py-1.5 pl-1.5", NEUTRAL_DESTRUCTIVE_HIGHLIGHT)}
       >
         <MenuTile tone="danger">
-          <SignOutIcon weight="bold" />
+          <DisconnectIcon weight="bold" />
         </MenuTile>
         Desconectar
       </DropdownMenuItem>
@@ -179,23 +180,25 @@ export function StoreMenu({
       <span id={healthId} className="sr-only" suppressHydrationWarning>
         {storeHealthSummary({ ...store, lastSyncedAt: store.activity.lastSyncedAt })}
       </span>
-      <DropdownMenuTrigger asChild>
-        <Button
-          onPointerDown={() => {
-            openedWithPointer.current = true;
-          }}
-          onKeyDown={() => {
-            openedWithPointer.current = false;
-          }}
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Opções de ${storeName}`}
-          aria-describedby={healthId}
-          className="col-start-2 row-start-1 justify-self-end rounded-full text-muted-foreground md:col-start-5"
-        >
-          <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
+      <Hint label={CONTROL_HINTS.storeActions} openOnTap={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            onPointerDown={() => {
+              openedWithPointer.current = true;
+            }}
+            onKeyDown={() => {
+              openedWithPointer.current = false;
+            }}
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Opções de ${storeName}`}
+            aria-describedby={healthId}
+            className="col-start-2 row-start-1 justify-self-end rounded-full text-muted-foreground md:col-start-5"
+          >
+            <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+      </Hint>
       <DropdownMenuContent
         align="end"
         className="w-72"

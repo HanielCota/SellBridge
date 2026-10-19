@@ -25,6 +25,7 @@ import {
   MinusIcon,
   PackageIcon,
   PaperPlaneTiltIcon,
+  PlugsIcon,
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
@@ -110,6 +111,11 @@ export const ACTION_ICONS = {
   },
   /** Records the next step of a shipment; each step has its own legend in shipment-hints. */
   advanceStep: { icon: CheckIcon, hint: "Registra a próxima etapa do envio" },
+  /** Stops syncing a store; never the sign-out icon, which leaves the account. */
+  disconnectStore: {
+    icon: PlugsIcon,
+    hint: "Para de sincronizar esta loja; os anúncios continuam no marketplace",
+  },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -128,6 +134,9 @@ export const TERM_HINTS = {
   suggestedPrice: "Preço que o fornecedor recomenda para este produto",
   reviewAspect: "Parte das avaliações que elogiou este ponto",
   metricGoal: "Acima da meta, o score do fornecedor cai",
+  lastSync: "Última vez que o SellBridge atualizou estoque e preço nesta loja",
+  lastOrderPing: "Última vez que o marketplace avisou de um pedido novo",
+  storeListings: "Quantos produtos estão publicados nesta loja",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
@@ -160,6 +169,7 @@ export const CONTROL_HINTS = {
   orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
   rateSupplier: "Dar uma nota ao fornecedor por este pedido; ajuda outros revendedores",
   editReview: "Mudar a nota ou o comentário que você deu",
+  storeActions: "Ver a saúde da loja, publicar, trocar fornecedor ou desconectar",
 } as const;
 
 /**

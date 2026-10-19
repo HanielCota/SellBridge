@@ -216,4 +216,24 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; reviews, order-page e accessibility 12/12. Nenhum teste alterado (o nome acessível "Editar avaliação de …" continua igual).
 
-**Fim da área do vendedor até Pedidos. Próxima seção:** Vendedor · 5. Lojas (`/lojas`).
+**Seção seguinte:** Vendedor · 5. Lojas.
+
+## Vendedor · 5. Lojas — 2026-10-19 · commit "feat(stores): dictionary icons and tooltips in the store menu"
+
+**Proposta escolhida: A (ícones certos e legendas)**. Propostas: [página clicável](../propostas/vendedor/5-lojas/index.html) · [A](vendedor/5-lojas/2-proposta-a.png) · [B](vendedor/5-lojas/2-proposta-b.png) · [C](vendedor/5-lojas/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                              | Arquivo                                    | Tela     | Antes                                           | Depois                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | -------- | ----------------------------------------------- | ------------------------------------------------ |
+| Menu ⋯: "Publicar produtos" com o avião (era a caixa do Catálogo), "Ver publicações" com o megafone (era a loja de Lojas), "Desconectar" com a tomada (era o ícone de Sair da conta) | `components/stores/store-menu.tsx`         | `/lojas` | [menu](vendedor/5-lojas/1-antes-menu.png)       | [menu](vendedor/5-lojas/3-depois-menu.png)       |
+| Legenda no ⋯                                                                                                                                                                         | `components/stores/store-menu.tsx`         | `/lojas` | [desktop](vendedor/5-lojas/1-antes-desktop.png) | [desktop](vendedor/5-lojas/3-depois-desktop.png) |
+| Legendas (sublinhado pontilhado) em "Última sincronização" e "Último aviso de pedido"                                                                                                | `components/stores/store-health.tsx`       | menu ⋯   | [menu](vendedor/5-lojas/1-antes-menu.png)       | [menu](vendedor/5-lojas/3-depois-menu.png)       |
+| Ponto de status da loja: legenda do app no lugar do `title` nativo                                                                                                                   | `components/stores/store-status-badge.tsx` | `/lojas` | [desktop](vendedor/5-lojas/1-antes-desktop.png) | [claro](vendedor/5-lojas/3-depois-claro.png)     |
+| Legenda em "Publicações" (cabeçalho)                                                                                                                                                 | `components/stores/store-list.tsx`         | `/lojas` | [desktop](vendedor/5-lojas/1-antes-desktop.png) | [desktop](vendedor/5-lojas/3-depois-desktop.png) |
+
+**Ícones:** novo disconnectStore (Plugs); reaproveitados publish (PaperPlaneTilt) e listings (MegaphoneSimple). Fecha duas inconsistências da Etapa 0: "Desconectar loja" deixou de usar o ícone de sair da conta, e a loja deixou de servir para "Ver publicações".
+
+**Compartilhado:** `store-health.tsx` também é usado pelo admin (`customer-stores.tsx`), mas só pela parte `StoreHealthLine`, que não mudou.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; store-attention, store-disconnect, store-health, store-supplier, stores-messages, accessibility e admin-store-supplier 12/12. Nenhum teste alterado.
+
+**Próxima seção:** Vendedor · 6. Financeiro (`/financeiro`; o gráfico, o Exportar e o período já vieram da seção 1).

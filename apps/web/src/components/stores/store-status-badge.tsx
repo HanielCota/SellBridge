@@ -2,6 +2,7 @@ import { STORE_STATUS_LABELS } from "@sellbridge/shared/schemas";
 import { STORE_ATTENTION_LABEL, type StoreHealth } from "@sellbridge/shared/store-attention";
 import { type StatusTone, TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
+import { Hint } from "@/components/ui/hint";
 
 const STORE_TONES: Record<StoreHealth, StatusTone> = {
   connected: "success",
@@ -45,15 +46,17 @@ export function StoreStatusChip({ status }: { status: StoreHealth }) {
 /** The status as a dot pinned to a store's mark, with its label kept for screen readers. */
 export function StoreStatusDot({ status, className }: { status: StoreHealth; className?: string }) {
   return (
-    <span
-      title={healthLabel(status)}
-      className={cn(
-        "size-3 rounded-full ring-[2.5px] ring-card",
-        TONE_DOT_CLASSES[STORE_TONES[status]],
-        className,
-      )}
-    >
-      <span className="sr-only">{healthLabel(status)}</span>
-    </span>
+    // The app's legend instead of a native title: it shows in the theme, on hover and on tap.
+    <Hint label={healthLabel(status)}>
+      <span
+        className={cn(
+          "size-3 rounded-full ring-[2.5px] ring-card",
+          TONE_DOT_CLASSES[STORE_TONES[status]],
+          className,
+        )}
+      >
+        <span className="sr-only">{healthLabel(status)}</span>
+      </span>
+    </Hint>
   );
 }
