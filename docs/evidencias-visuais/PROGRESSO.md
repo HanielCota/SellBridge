@@ -277,4 +277,25 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; supplier-panel-access e accessibility 8/8. Nenhum teste alterado.
 
-**Próxima seção:** Fornecedor · 2. Pedidos (`/fornecedor/painel/pedidos`).
+**Seção seguinte:** Fornecedor · 2. Pedidos.
+
+## Fornecedor · 2. Pedidos — 2026-10-19 · commit "feat(supplier-panel): one deadline icon and the shipment panel for suppliers"
+
+**Proposta escolhida: A (mesmo padrão do revendedor)**. Propostas: [página clicável](../propostas/fornecedor/2-pedidos/index.html) · [A](fornecedor/2-pedidos/2-proposta-a.png) · [B](fornecedor/2-pedidos/2-proposta-b.png) · [C](fornecedor/2-pedidos/2-proposta-c.png).
+
+| Mudança                                                                                                                               | Arquivo                                                                               | Tela                                          | Antes                                             | Depois                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Prazo vencido com o relógio de contagem (era "!"; o revendedor já usava o relógio) e prazo a vencer com relógio; legenda em cada selo | `components/supplier-panel/orders/countdown-badge.tsx`, `home/home-order-rows.tsx`    | `/fornecedor/painel/pedidos` e Início         | [lista](fornecedor/2-pedidos/1-antes-lista.png)   | [lista](fornecedor/2-pedidos/3-depois-lista.png) · [Início](fornecedor/2-pedidos/3-depois-inicio-prazo.png) |
+| Busca "SKU" → "código"                                                                                                                | `components/supplier-panel/orders/order-filters.tsx`                                  | Pedidos                                       | [lista](fornecedor/2-pedidos/1-antes-lista.png)   | [lista](fornecedor/2-pedidos/3-depois-lista.png)                                                            |
+| Legenda nos botões da linha (Aceitar, Separar, Marcar pronto, Despachar, Ver pedido) e na caixinha                                    | `components/supplier-panel/orders/order-row-parts.tsx`                                | Pedidos                                       | [lista](fornecedor/2-pedidos/1-antes-lista.png)   | [claro](fornecedor/2-pedidos/3-depois-claro.png)                                                            |
+| Janela do pedido (lado do fornecedor): "Marcar como …", ícones e legendas no ponto de vista do fornecedor                             | `components/fulfillment/shipment-hints.tsx`, `shipment-panel.tsx`, `order-dialog.tsx` | janela do pedido e link enviado ao fornecedor | [janela](fornecedor/2-pedidos/1-antes-janela.png) | [janela](fornecedor/2-pedidos/3-depois-janela.png)                                                          |
+
+**Ícones:** novo deadline (Clock); reaproveitados overdue (ClockCountdown), printLabel, printOrder, occurrence, cancelShipment, advanceStep. Fecha a pendência da 4b ("só no vendedor agora").
+
+**Componentes compartilhados (aprovado: "Sim, nas duas telas"):** o selo de prazo vale em Pedidos e no Início; o painel de envio vale para revendedor e fornecedor, com legendas próprias de cada um.
+
+**Não alterado:** "Prazo vencido" já tem a explicação escrita logo abaixo; e a aba "Com problema" usa o componente de abas compartilhado (mesma decisão da 3a).
+
+**Teste ajustado (aprovado pelo usuário em 2026-10-19):** `e2e/fulfillment.spec.ts` linhas 99, 110, 117, 129, 299 e 418: os botões do fornecedor passaram a ser "Marcar como aceito / em separação / pronto para envio / enviado / entregue". Depois: fulfillment 11/11; order-page, support-links, label-import, supplier-panel-access e accessibility verdes; Vitest web 853/853.
+
+**Próxima seção:** Fornecedor · 3. Produtos (`/fornecedor/painel/produtos`).

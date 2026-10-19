@@ -52,8 +52,8 @@ export function OrderFilters({
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
-          label="Buscar por número do pedido ou SKU"
-          placeholder="Número do pedido ou SKU"
+          label="Buscar por número do pedido ou código"
+          placeholder="Número do pedido ou código"
           value={term}
           onValueChange={setTerm}
           className="sm:max-w-sm sm:flex-1"

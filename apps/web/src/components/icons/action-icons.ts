@@ -13,6 +13,7 @@ import {
   WarningCircleIcon,
   XCircleIcon,
   ClockCountdownIcon,
+  ClockIcon,
   ArrowRightIcon,
   ChatCircleDotsIcon,
   FactoryIcon,
@@ -130,6 +131,8 @@ export const ACTION_ICONS = {
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
   performance: { icon: GaugeIcon, hint: "Prazos, cancelamentos e notas que os revendedores veem" },
   brand: { icon: PaletteIcon, hint: "Logo e cores que aparecem para os revendedores" },
+  /** Time left before a deadline; once it passes, `overdue` takes over. */
+  deadline: { icon: ClockIcon },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -153,6 +156,8 @@ export const TERM_HINTS = {
   storeListings: "Quantos produtos estão publicados nesta loja",
   notASale: "Ainda não pago, cancelado ou devolvido: não conta na receita nem no lucro",
   orderStore: "Loja do revendedor onde o pedido foi feito",
+  overdueDeadline: "O prazo já passou; avance a etapa ou registre uma ocorrência",
+  openDeadline: "Tempo que falta antes de o prazo vencer",
   rejectedProduct: "A equipe do SellBridge pediu ajustes; abra para ver o motivo",
   healthLevel: "Cor geral do seu desempenho; vermelho quando alguma métrica passou do limite",
   fees: "Taxas do marketplace e do SellBridge sobre a venda",
@@ -175,6 +180,14 @@ export const SHIPMENT_DELAY_HINTS: Readonly<Record<string, string>> = {
   delivery_overdue: "A entrega passou da data prevista",
   awaiting_confirmation: "O pedido parece entregue; confirme a entrega",
 };
+/** What the supplier's next-step button does, keyed by the status it leads to. */
+export const SUPPLIER_NEXT_STEP_HINTS: Readonly<Record<string, string>> = {
+  accepted: "Confirma que você vai atender este pedido",
+  picking: "Marca que você começou a separar o pedido",
+  ready: "Marca que o pedido está embalado e pronto para despachar",
+  shipped: "Abre o pedido para informar a transportadora e o rastreio",
+};
+
 /** Legends for controls whose name alone does not say what happens. */
 export const CONTROL_HINTS = {
   selectForBulk: "Marque para publicar vários produtos de uma vez",
@@ -186,6 +199,8 @@ export const CONTROL_HINTS = {
   publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
   simulateSale: "Cria um pedido de teste; não cobra ninguém",
   orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
+  batchAccept: "Marque para aceitar vários pedidos de uma vez",
+  viewOrder: "Ver os dados, o histórico e os documentos do pedido",
   rateSupplier: "Dar uma nota ao fornecedor por este pedido; ajuda outros revendedores",
   editReview: "Mudar a nota ou o comentário que você deu",
   storeActions: "Ver a saúde da loja, publicar, trocar fornecedor ou desconectar",

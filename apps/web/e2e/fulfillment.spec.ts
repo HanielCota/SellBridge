@@ -96,7 +96,11 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   const supplier = await supplierContext.newPage();
   await gotoHydrated(supplier, supplierUrl);
   await expect(supplier.getByRole("heading", { level: 1 })).toHaveText(/^Pedido /);
-  for (const status of ["Aceito", "Em separação", "Pronto para envio"])
+  for (const status of [
+    "Marcar como aceito",
+    "Marcar como em separação",
+    "Marcar como pronto para envio",
+  ])
     await supplier.getByRole("button", { name: status, exact: true }).click();
   await supplier.screenshot({ path: test.info().outputPath("supplier-order.png"), fullPage: true });
   await supplier.setViewportSize({ width: 390, height: 844 });
@@ -107,14 +111,14 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
     path: test.info().outputPath("supplier-order-mobile.png"),
     fullPage: true,
   });
-  await supplier.getByRole("button", { name: "Enviado", exact: true }).click();
+  await supplier.getByRole("button", { name: "Marcar como enviado", exact: true }).click();
   await expect(supplier.getByText("Informe transportadora e código de rastreio")).toBeVisible();
   await supplier.getByLabel("Transportadora", { exact: true }).fill("Correios");
   await supplier.getByLabel("Código de rastreio", { exact: true }).fill("AB123456789BR");
   await supplier
     .getByLabel("Link de rastreio (opcional)")
     .fill("https://rastreamento.correios.com.br");
-  await supplier.getByRole("button", { name: "Enviado", exact: true }).click();
+  await supplier.getByRole("button", { name: "Marcar como enviado", exact: true }).click();
   await expect(supplier.getByRole("link", { name: "Consultar rastreio" })).toHaveAttribute(
     "href",
     "https://rastreamento.correios.com.br",
@@ -126,7 +130,9 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await expect(popup.getByText("Maria Silva", { exact: true })).toBeVisible();
   await popup.close();
   // The supplier's part ends at dispatch: delivery is not theirs to declare.
-  await expect(supplier.getByRole("button", { name: "Entregue", exact: true })).toHaveCount(0);
+  await expect(
+    supplier.getByRole("button", { name: "Marcar como entregue", exact: true }),
+  ).toHaveCount(0);
   await expect(supplier.getByText(DELIVERY_CONFIRMED_BY)).toBeVisible();
   await supplierContext.close();
 
@@ -296,7 +302,9 @@ test("the reseller learns a supplier cancelled and re-forwards the parcel", asyn
     const again = await browser.newContext();
     const reopened = await again.newPage();
     await gotoHydrated(reopened, supplierUrl);
-    await expect(reopened.getByRole("button", { name: "Aceito", exact: true })).toBeVisible();
+    await expect(
+      reopened.getByRole("button", { name: "Marcar como aceito", exact: true }),
+    ).toBeVisible();
     await again.close();
   } finally {
     await database.delete(orders).where(eq(orders.id, order.id));
@@ -415,7 +423,9 @@ test("a parcel of an order on hold warns the supplier and offers no next step", 
     const warning = supplier.getByRole("alert");
     await expect(warning).toContainText("Pedido sem liberação para envio");
     await expect(warning).toContainText("Fale com o revendedor");
-    await expect(supplier.getByRole("button", { name: "Aceito", exact: true })).toHaveCount(0);
+    await expect(
+      supplier.getByRole("button", { name: "Marcar como aceito", exact: true }),
+    ).toHaveCount(0);
   } finally {
     await context.close();
     await database.delete(orders).where(eq(orders.id, order.id));

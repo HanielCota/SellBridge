@@ -80,11 +80,7 @@ export function ShipmentPanel({
   return (
     <section className="surface-card space-y-4 rounded-2xl bg-card p-5">
       <ShipmentSummary shipment={shipment} />
-      <ShipmentToolbar
-        shipment={shipment}
-        externalOrderId={externalOrderId}
-        forReseller={actsAs === "reseller"}
-      >
+      <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId} operator={actsAs}>
         {children}
       </ShipmentToolbar>
       {closed ? null : (
@@ -103,12 +99,12 @@ export function ShipmentPanel({
 function ShipmentToolbar({
   shipment,
   externalOrderId,
-  forReseller,
+  operator,
   children,
 }: {
   shipment: ShipmentView;
   externalOrderId: string;
-  forReseller: boolean;
+  operator: ShipmentOperator;
   children?: React.ReactNode;
 }) {
   return (
@@ -117,21 +113,21 @@ function ShipmentToolbar({
       {/* Both documents carry the buyer's address, which a finished supplier link no longer has. */}
       {shipment.address ? (
         <>
-          <ShipmentActionHint action="printLabel" forReseller={forReseller}>
+          <ShipmentActionHint action="printLabel" operator={operator}>
             <Button
               variant="outline"
               onClick={() => printShipment(shipment, externalOrderId, "label")}
             >
-              <ShipmentActionIcon action="printLabel" forReseller={forReseller} />
+              <ShipmentActionIcon action="printLabel" />
               Imprimir etiqueta de identificação
             </Button>
           </ShipmentActionHint>
-          <ShipmentActionHint action="printOrder" forReseller={forReseller}>
+          <ShipmentActionHint action="printOrder" operator={operator}>
             <Button
               variant="outline"
               onClick={() => printShipment(shipment, externalOrderId, "order")}
             >
-              <ShipmentActionIcon action="printOrder" forReseller={forReseller} />
+              <ShipmentActionIcon action="printOrder" />
               Imprimir ordem de fornecimento
             </Button>
           </ShipmentActionHint>
@@ -189,7 +185,7 @@ function ShipmentActions({
 }) {
   const [noteError, setNoteError] = useState<string | null>(null);
   const pending = update.mutation.isPending;
-  const forReseller = actsAs === "reseller";
+  const operator = actsAs;
   const registerOccurrence = () => {
     if (!update.note.trim()) {
       setNoteError(EMPTY_OCCURRENCE);
@@ -217,14 +213,14 @@ function ShipmentActions({
         {next ? (
           <StepButton
             next={next}
-            forReseller={forReseller}
+            operator={operator}
             disabled={pending}
             onAdvance={() => update.mutation.mutate({ status: next, note: update.note })}
           />
         ) : null}
-        <ShipmentActionHint action="occurrence" forReseller={forReseller}>
+        <ShipmentActionHint action="occurrence" operator={operator}>
           <Button variant="outline" disabled={pending} onClick={registerOccurrence}>
-            <ShipmentActionIcon action="occurrence" forReseller={forReseller} />
+            <ShipmentActionIcon action="occurrence" />
             Registrar ocorrência
           </Button>
         </ShipmentActionHint>
@@ -298,9 +294,9 @@ function CancelShipment({
   const copy = cancelCopy(actsAs, supplierName);
   return (
     <>
-      <ShipmentActionHint action="cancelShipment" forReseller={actsAs === "reseller"}>
+      <ShipmentActionHint action="cancelShipment" operator={actsAs}>
         <Button variant="destructive" disabled={update.mutation.isPending} onClick={dialog.start}>
-          <ShipmentActionIcon action="cancelShipment" forReseller={actsAs === "reseller"} />
+          <ShipmentActionIcon action="cancelShipment" />
           Cancelar envio
         </Button>
       </ShipmentActionHint>

@@ -228,23 +228,23 @@ function SupplierLink({
       {closed ? null : (
         // Wraps on phones: side by side, the two buttons are wider than a 320 px screen.
         <div className="flex flex-wrap gap-2">
-          <ShipmentActionHint action="supplierLink" forReseller>
+          <ShipmentActionHint action="supplierLink" operator="reseller">
             <Button
               variant="outline"
               disabled={mutation.isPending}
               onClick={() => mutation.mutate("create")}
             >
-              <ShipmentActionIcon action="supplierLink" forReseller />
+              <ShipmentActionIcon action="supplierLink" />
               Gerar novo link para fornecedor
             </Button>
           </ShipmentActionHint>
-          <ShipmentActionHint action="revokeLink" forReseller>
+          <ShipmentActionHint action="revokeLink" operator="reseller">
             <Button
               variant="ghost"
               disabled={mutation.isPending}
               onClick={() => mutation.mutate("revoke")}
             >
-              <ShipmentActionIcon action="revokeLink" forReseller />
+              <ShipmentActionIcon action="revokeLink" />
               Revogar acesso
             </Button>
           </ShipmentActionHint>
