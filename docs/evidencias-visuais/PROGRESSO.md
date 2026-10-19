@@ -198,4 +198,22 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Teste ajustado (aprovado pelo usuário em 2026-10-18):** `e2e/fulfillment.spec.ts` linha 139, "Entregue" → "Marcar como entregue" na janela do vendedor. Depois: fulfillment, order-page, accessibility e support-links 23/23; label-import e supplier-panel-access verdes; Vitest web 853/853.
 
-**Próxima seção:** Vendedor · 4c. Pedidos: avaliações.
+**Seção seguinte:** Vendedor · 4c. Pedidos: avaliações.
+
+## Vendedor · 4c. Pedidos: avaliações — 2026-10-18 · commit "feat(orders): hints and an Editar label on reviews"
+
+**Proposta escolhida: B (editar com texto)**. Propostas: [página clicável](../propostas/vendedor/4c-pedidos-avaliacoes/index.html) · [A](vendedor/4c-pedidos-avaliacoes/2-proposta-a.png) · [B](vendedor/4c-pedidos-avaliacoes/2-proposta-b.png) · [C](vendedor/4c-pedidos-avaliacoes/2-proposta-c.png).
+
+| Mudança                                            | Arquivo                               | Tela                            | Antes                                                             | Depois                                                             |
+| -------------------------------------------------- | ------------------------------------- | ------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Legenda em "Avaliar"                               | `components/orders/review-action.tsx` | aba Avaliações e `/pedidos/:id` | [lista](vendedor/4c-pedidos-avaliacoes/1-antes-lista.png)         | [lista](vendedor/4c-pedidos-avaliacoes/3-depois-lista.png)         |
+| Lápis de editar ganha a palavra "Editar" e legenda | `components/orders/review-action.tsx` | aba Avaliados e `/pedidos/:id`  | [avaliados](vendedor/4c-pedidos-avaliacoes/1-antes-avaliados.png) | [avaliados](vendedor/4c-pedidos-avaliacoes/3-depois-avaliados.png) |
+| Legenda no status do pedido                        | `routes/_app/pedidos/index.tsx`       | aba Avaliações                  | [lista](vendedor/4c-pedidos-avaliacoes/1-antes-lista.png)         | [claro](vendedor/4c-pedidos-avaliacoes/3-depois-claro.png)         |
+
+**Não alterado:** a janela de avaliar já tinha ícones, subtítulos em cada ponto e o significado de cada estrela ao passar o mouse.
+
+**Ícones:** nenhum novo. **Textos novos:** `CONTROL_HINTS.rateSupplier` e `editReview`; reaproveitado `ORDER_STATUS_HINTS`.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; reviews, order-page e accessibility 12/12. Nenhum teste alterado (o nome acessível "Editar avaliação de …" continua igual).
+
+**Fim da área do vendedor até Pedidos. Próxima seção:** Vendedor · 5. Lojas (`/lojas`).

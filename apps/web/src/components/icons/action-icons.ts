@@ -158,6 +158,8 @@ export const CONTROL_HINTS = {
   publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
   simulateSale: "Cria um pedido de teste; não cobra ninguém",
   orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
+  rateSupplier: "Dar uma nota ao fornecedor por este pedido; ajuda outros revendedores",
+  editReview: "Mudar a nota ou o comentário que você deu",
 } as const;
 
 /**

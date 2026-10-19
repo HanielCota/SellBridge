@@ -1,6 +1,8 @@
 import { PencilSimpleIcon, StarIcon } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
+import { CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import type { ReviewTarget } from "./review-dialog";
 
 /**
@@ -42,15 +44,19 @@ export function ReviewAction({
           <span className="sr-only">Sua nota: {target.review.rating} de 5</span>
         </span>
         {canReview ? (
-          <Button
-            ref={editButton}
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Editar avaliação de ${target.supplierName}`}
-            onClick={() => onReview(target)}
-          >
-            <PencilSimpleIcon aria-hidden="true" />
-          </Button>
+          <Hint label={CONTROL_HINTS.editReview} openOnTap={false}>
+            <Button
+              ref={editButton}
+              variant="ghost"
+              size="sm"
+              aria-label={`Editar avaliação de ${target.supplierName}`}
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => onReview(target)}
+            >
+              <PencilSimpleIcon aria-hidden="true" />
+              <span aria-hidden="true">Editar</span>
+            </Button>
+          </Hint>
         ) : null}
       </div>
     );
@@ -59,21 +65,23 @@ export function ReviewAction({
     return null;
   }
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="group/rate border-amber-500/30 bg-amber-500/[0.06] hover:border-amber-500/50 hover:bg-amber-500/15 group-hover/row:border-amber-500/45"
-      onClick={() => onReview(target)}
-    >
-      <span className="relative size-4" aria-hidden="true">
-        <StarIcon className="absolute inset-0 size-4 text-amber-500 transition-opacity duration-150 group-hover/rate:opacity-0" />
-        {/* The filled star swings in with a little overshoot, like it just got picked. */}
-        <StarIcon
-          weight="fill"
-          className="absolute inset-0 size-4 scale-50 text-amber-500 opacity-0 drop-shadow-[0_0_6px_rgb(245_158_11/0.6)] transition-[opacity,scale,rotate] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover/rate:scale-115 group-hover/rate:-rotate-[18deg] group-hover/rate:opacity-100 motion-reduce:transition-opacity motion-reduce:group-hover/rate:scale-100 motion-reduce:group-hover/rate:rotate-0"
-        />
-      </span>
-      Avaliar
-    </Button>
+    <Hint label={CONTROL_HINTS.rateSupplier} openOnTap={false}>
+      <Button
+        size="sm"
+        variant="outline"
+        className="group/rate border-amber-500/30 bg-amber-500/[0.06] hover:border-amber-500/50 hover:bg-amber-500/15 group-hover/row:border-amber-500/45"
+        onClick={() => onReview(target)}
+      >
+        <span className="relative size-4" aria-hidden="true">
+          <StarIcon className="absolute inset-0 size-4 text-amber-500 transition-opacity duration-150 group-hover/rate:opacity-0" />
+          {/* The filled star swings in with a little overshoot, like it just got picked. */}
+          <StarIcon
+            weight="fill"
+            className="absolute inset-0 size-4 scale-50 text-amber-500 opacity-0 drop-shadow-[0_0_6px_rgb(245_158_11/0.6)] transition-[opacity,scale,rotate] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover/rate:scale-115 group-hover/rate:-rotate-[18deg] group-hover/rate:opacity-100 motion-reduce:transition-opacity motion-reduce:group-hover/rate:scale-100 motion-reduce:group-hover/rate:rotate-0"
+          />
+        </span>
+        Avaliar
+      </Button>
+    </Hint>
   );
 }

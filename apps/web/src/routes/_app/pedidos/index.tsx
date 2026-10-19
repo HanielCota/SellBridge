@@ -22,6 +22,8 @@ import { Operations, operationsQuery } from "@/components/fulfillment/operations
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
+import { ORDER_STATUS_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
@@ -175,7 +177,9 @@ function OrderRow({
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-        <OrderStatusBadge status={row.status} />
+        <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>
+          <OrderStatusBadge status={row.status} />
+        </HintedText>
         <ReviewAction
           target={{
             orderId: row.orderId,
