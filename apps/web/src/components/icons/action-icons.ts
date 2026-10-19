@@ -81,6 +81,9 @@ export const TERM_HINTS = {
   scoreLevel: "Score de 0 a 100, pelas avaliações de quem já vendeu os produtos",
   highlightedSupplier: "Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos",
   newSupplier: "Tem menos de 10 avaliações; o score aparece depois",
+  unitsSold: "Pedidos deste anúncio nos últimos 30 dias",
+  healthyMargin: "Verde: sobra lucro; amarelo: lucro baixo; vermelho: prejuízo",
+  marketplaceFee: "Média do que o Mercado Livre cobra por venda; muda conforme a categoria",
   reviewAspect: "Parte das avaliações que elogiou este ponto",
   metricGoal: "Acima da meta, o score do fornecedor cai",
 } as const;
@@ -88,9 +91,13 @@ export const TERM_HINTS = {
 /** Legends for controls whose name alone does not say what happens. */
 export const CONTROL_HINTS = {
   selectForBulk: "Marque para publicar vários produtos de uma vez",
+  selectListings: "Marque para pausar ou reativar vários anúncios de uma vez",
   inStockOnly: "Mostra só produtos que o fornecedor tem em estoque",
   hidePublished: "Esconde os produtos que você já publicou",
   sellSupplier: "Conectar uma loja para vender os produtos deste fornecedor",
+  listingActions: "Editar preço, pausar e outras ações deste anúncio",
+  publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
+  simulateSale: "Cria um pedido de teste; não cobra ninguém",
 } as const;
 
 /**

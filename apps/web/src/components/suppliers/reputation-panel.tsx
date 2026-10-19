@@ -18,11 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supplierReputationQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { formatPercent } from "@/lib/percent";
 import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 import {
   formatAverage,
   HighlightBadge,
-  HintedText,
   LEVEL_COLORS,
   ReputationThermometer,
   StarAverage,

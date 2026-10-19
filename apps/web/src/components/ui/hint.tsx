@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent, type ReactElement } from "react";
+import { useRef, useState, type PointerEvent, type ReactElement, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -93,6 +93,37 @@ export function DisabledHint({
         tabIndex={0}
         className={cn(
           "inline-flex w-fit rounded-full outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
+          className,
+        )}
+      >
+        {children}
+      </span>
+    </Hint>
+  );
+}
+
+/**
+ * Text with a legend. It takes focus so keyboard users reach the legend, except inside a card
+ * that is already a link or an option: a focusable span there would be a control inside a control.
+ */
+export function HintedText({
+  label,
+  className,
+  focusable = true,
+  children,
+}: {
+  label: string;
+  className?: string;
+  focusable?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Hint label={label}>
+      <span
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the legend explains a term, so it must be reachable by keyboard
+        tabIndex={focusable ? 0 : undefined}
+        className={cn(
+          "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
           className,
         )}
       >

@@ -5,9 +5,8 @@ import {
   type SupplierReputation,
 } from "@sellbridge/shared/supplier-score";
 import { MedalIcon, StarIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
 import { TERM_HINTS } from "@/components/icons/action-icons";
-import { Hint } from "@/components/ui/hint";
+import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 
 /** One colour per level, from red to green, like Mercado Livre's thermometer. */
@@ -76,37 +75,6 @@ export function StarAverage({
         ({reviewCount} {reviewCount === 1 ? "avaliação" : "avaliações"})
       </span>
     </span>
-  );
-}
-
-/**
- * Text with a legend. It takes focus so keyboard users reach the legend, except inside a card
- * that is already a link or an option: a focusable span there would be a control inside a control.
- */
-export function HintedText({
-  label,
-  className,
-  focusable = true,
-  children,
-}: {
-  label: string;
-  className?: string;
-  focusable?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Hint label={label}>
-      <span
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the legend explains a term, so it must be reachable by keyboard
-        tabIndex={focusable ? 0 : undefined}
-        className={cn(
-          "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          className,
-        )}
-      >
-        {children}
-      </span>
-    </Hint>
   );
 }
 

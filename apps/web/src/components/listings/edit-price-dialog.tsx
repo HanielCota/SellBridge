@@ -28,6 +28,8 @@ import { useUpdatePrice } from "@/features/listings/use-listing-actions";
 import { formatCentsForField, maskCurrencyInput, readPastedCurrency } from "@/lib/currency-mask";
 import { cn } from "@/lib/utils";
 import { RUN_STATE_DOT, RUN_STATE_TEXT, RUN_STATE_TINT } from "./run-state-style";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 type PricedListing = Pick<
   ListingOverviewRow,
@@ -118,7 +120,8 @@ function shelfPrice(cents: number): number {
 
 function MarginChip({ tone, estimate }: { tone: MarginTone; estimate: ProfitEstimate | null }) {
   return (
-    <span
+    <HintedText
+      label={TERM_HINTS.healthyMargin}
       className={cn(
         "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold whitespace-nowrap transition-colors duration-300",
         RUN_STATE_TEXT[tone],
@@ -128,7 +131,7 @@ function MarginChip({ tone, estimate }: { tone: MarginTone; estimate: ProfitEsti
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", RUN_STATE_DOT[tone])} />
       {estimate ? `${wholeMarginPercent(estimate.marginPercent)}% · ` : null}
       {MARGIN_NAMES[tone]}
-    </span>
+    </HintedText>
   );
 }
 
@@ -274,23 +277,36 @@ function PriceBreakdown({
 }) {
   const schedule = useFeeSchedule();
   const parts = [
-    { label: "Custo", value: formatCents(costCents), className: "" },
+    { label: "Custo", value: formatCents(costCents), className: "", hint: undefined },
     {
       label: feesLabel(schedule),
       value: estimate ? formatCents(totalFeeCents(estimate)) : "—",
       className: "",
+      hint: TERM_HINTS.marketplaceFee,
     },
     {
       label: "Lucro",
       value: estimate ? formatCents(estimate.profitCents) : "—",
       className: cn("transition-colors duration-300", RUN_STATE_TEXT[tone]),
+      hint: undefined,
     },
   ];
   return (
     <dl className="grid grid-cols-3 divide-x divide-border rounded-xl bg-foreground/[0.035] tabular-nums">
       {parts.map((part) => (
         <div key={part.label} className="px-3.5 py-2.5">
-          <dt className="text-xs text-muted-foreground">{part.label}</dt>
+          <dt className="text-xs text-muted-foreground">
+            {part.hint ? (
+              <HintedText
+                label={part.hint}
+                className="underline decoration-dotted underline-offset-4"
+              >
+                {part.label}
+              </HintedText>
+            ) : (
+              part.label
+            )}
+          </dt>
           <dd className={cn("mt-0.5 text-sm font-bold", part.className)}>{part.value}</dd>
         </div>
       ))}

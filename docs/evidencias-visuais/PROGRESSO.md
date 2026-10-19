@@ -116,4 +116,24 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes ajustados (aprovados pelo usuário em 2026-10-18):** `e2e/suppliers.spec.ts` (linhas 139 e 141) e `e2e/store-supplier.spec.ts` (linha 69) procuravam "Somente com estoque"; passaram a procurar "Só com estoque". Depois do ajuste: 11/11. Demais: typecheck, oxlint e Prettier limpos; Vitest web 853/853; accessibility, reviews, browser-defaults, account-terms e profile verdes.
 
-**Próxima seção:** Vendedor · 3. Publicações (`/publicacoes`, nova publicação e editar preço), incluindo a legenda de "Taxa do marketplace" que ficou da 2a.
+**Seção seguinte:** Vendedor · 3. Publicações, dividida em 3a (lista) e 3b (nova publicação), aprovado pelo usuário.
+
+## Vendedor · 3a. Publicações: lista — 2026-10-18 · commit "feat(listings): status in words, action hints and fee legend"
+
+**Proposta escolhida: B (status à vista)**. Propostas: [página clicável](../propostas/vendedor/3a-publicacoes-lista/index.html) · [A](vendedor/3a-publicacoes-lista/2-proposta-a.png) · [B](vendedor/3a-publicacoes-lista/2-proposta-b.png) · [C](vendedor/3a-publicacoes-lista/2-proposta-c.png).
+
+| Mudança                                                                                               | Arquivo                                     | Tela                | Antes                                                            | Depois                                                            |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Botão "⋯" mostra o status em palavra ao lado do ponto ("• No ar"), com legenda; o `title` nativo saiu | `components/listings/listing-actions.tsx`   | `/publicacoes`      | [desktop](vendedor/3a-publicacoes-lista/1-antes-desktop.png)     | [desktop](vendedor/3a-publicacoes-lista/3-depois-desktop.png)     |
+| "Simular venda" com a linha "Teste: cria um pedido sem cobrar ninguém"                                | `components/listings/listing-actions.tsx`   | menu ⋯              | [menu](vendedor/3a-publicacoes-lista/1-antes-menu.png)           | [menu](vendedor/3a-publicacoes-lista/3-depois-menu.png)           |
+| Legendas em "N vendas em 30 dias" e na caixinha de seleção                                            | `components/listings/listing-card.tsx`      | `/publicacoes`      | [desktop](vendedor/3a-publicacoes-lista/1-antes-desktop.png)     | [claro](vendedor/3a-publicacoes-lista/3-depois-claro.png)         |
+| "Publicar produtos" com o ícone único de publicar e legenda                                           | `routes/_app/publicacoes/index.tsx`         | `/publicacoes`      | [desktop](vendedor/3a-publicacoes-lista/1-antes-desktop.png)     | [desktop](vendedor/3a-publicacoes-lista/3-depois-desktop.png)     |
+| Editar preço: legendas em "saudável" e na taxa (sublinhado pontilhado)                                | `components/listings/edit-price-dialog.tsx` | janela Editar preço | [janela](vendedor/3a-publicacoes-lista/1-antes-editar-preco.png) | [janela](vendedor/3a-publicacoes-lista/3-depois-editar-preco.png) |
+
+**Ícones:** nenhum novo; reaproveitado publish (PaperPlaneTilt). **Textos novos:** `TERM_HINTS` (vendas em 30 dias, faixas da margem, taxa do marketplace) e `CONTROL_HINTS` (ações do anúncio, publicar pelo Catálogo, simular venda, selecionar anúncios). **Glossário:** Simular venda, faixas da margem, Taxa do marketplace. **Reorganização:** `HintedText` (texto com legenda) foi para `components/ui/hint.tsx`, ao lado do `Hint`, porque agora é usado em Fornecedores e Publicações.
+
+**Não alterado:** a legenda em "Com erro" exigiria mexer em `components/data/segmented-control.tsx`, usado também em Pedidos, chaves de API e admin; fica para quando as abas forem revisadas juntas.
+
+**Testes ajustados (aprovados pelo usuário em 2026-10-18):** `e2e/publishing.spec.ts` linha 58, mesma troca da 2b ("Somente com estoque" → "Só com estoque"), que não tinha sido rodado na 2b. Depois: publishing, accessibility, browser-defaults e catalog-deactivation 20/20; Vitest web 853/853; typecheck, oxlint e Prettier limpos. `stock.spec.ts` segue com a falha de dados já registrada na 2a.
+
+**Próxima seção:** Vendedor · 3b. Publicações: nova publicação (`/publicacoes/nova`), com a legenda de "Taxa do marketplace" do quadro de lucro.

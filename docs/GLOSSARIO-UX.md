@@ -22,25 +22,27 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 
 ## Catálogo e vendas
 
-| Termo        | Significado                                                          | Não use                                               |
-| ------------ | -------------------------------------------------------------------- | ----------------------------------------------------- |
-| Produto      | Item do catálogo de um fornecedor                                    | item, SKU, mercadoria                                 |
-| Código       | Identificação do produto dada pelo fornecedor (na busca)             | SKU                                                   |
-| Publicação   | Produto publicado em uma loja do revendedor (aba "Publicações")      | listing                                               |
-| Anúncio      | A página do produto dentro do marketplace (o que o comprador vê)     | publicação, quando se fala do que está no marketplace |
-| Loja         | Conta do marketplace conectada ao SellBridge (ex.: Mercado Livre)    | integração, canal                                     |
-| Pedido       | Uma compra feita por um comprador no marketplace                     | venda, quando se fala de um pedido específico         |
-| Vendas       | Total ou contagem de pedidos em relatórios ("172 vendas no período") | pedidos, em indicadores de faturamento                |
-| Comprador    | Quem comprou no marketplace                                          | cliente (reservado para a área de administração)      |
-| Estoque      | Quantidade disponível de um produto                                  | saldo, inventário                                     |
-| Custo        | Quanto o revendedor paga ao fornecedor pelo produto                  | preço de custo, CMV                                   |
-| Preço        | Quanto o comprador paga no anúncio                                   | valor de venda                                        |
-| Lucro        | Receita menos custo e taxas                                          | ganho, margem (margem é percentual)                   |
-| Margem       | Lucro em percentual do preço                                         | lucro                                                 |
-| Receita      | Soma do que os compradores pagaram                                   | faturamento                                           |
-| Ticket médio | Valor médio de cada pedido no período (receita ÷ pedidos)            | ticket, valor médio por venda                         |
-| Unidades     | Quantidade de itens vendidos                                         | unid., qtd.                                           |
-| Repasse      | Valor que o marketplace libera para o revendedor                     | saque, transferência                                  |
+| Termo                       | Significado                                                          | Não use                                               |
+| --------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------- |
+| Produto                     | Item do catálogo de um fornecedor                                    | item, SKU, mercadoria                                 |
+| Código                      | Identificação do produto dada pelo fornecedor (na busca)             | SKU                                                   |
+| Publicação                  | Produto publicado em uma loja do revendedor (aba "Publicações")      | listing                                               |
+| Anúncio                     | A página do produto dentro do marketplace (o que o comprador vê)     | publicação, quando se fala do que está no marketplace |
+| Loja                        | Conta do marketplace conectada ao SellBridge (ex.: Mercado Livre)    | integração, canal                                     |
+| Pedido                      | Uma compra feita por um comprador no marketplace                     | venda, quando se fala de um pedido específico         |
+| Vendas                      | Total ou contagem de pedidos em relatórios ("172 vendas no período") | pedidos, em indicadores de faturamento                |
+| Comprador                   | Quem comprou no marketplace                                          | cliente (reservado para a área de administração)      |
+| Estoque                     | Quantidade disponível de um produto                                  | saldo, inventário                                     |
+| Custo                       | Quanto o revendedor paga ao fornecedor pelo produto                  | preço de custo, CMV                                   |
+| Preço                       | Quanto o comprador paga no anúncio                                   | valor de venda                                        |
+| Lucro                       | Receita menos custo e taxas                                          | ganho, margem (margem é percentual)                   |
+| Margem                      | Lucro em percentual do preço                                         | lucro                                                 |
+| Saudável / baixa / prejuízo | Faixas da margem no preço: verde, amarelo, vermelho                  | boa, ruim                                             |
+| Taxa do marketplace         | O que o Mercado Livre cobra por venda (média; muda com a categoria)  | comissão, fee                                         |
+| Receita                     | Soma do que os compradores pagaram                                   | faturamento                                           |
+| Ticket médio                | Valor médio de cada pedido no período (receita ÷ pedidos)            | ticket, valor médio por venda                         |
+| Unidades                    | Quantidade de itens vendidos                                         | unid., qtd.                                           |
+| Repasse                     | Valor que o marketplace libera para o revendedor                     | saque, transferência                                  |
 
 ## Envio e atendimento
 
@@ -75,6 +77,7 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 | Pôr produtos à venda numa loja      | Publicar           | Um ícone só (avião de papel), para um produto ou vários      |
 | Desmarcar tudo o que foi marcado    | Limpar             | X; no celular só o X, com legenda                            |
 | Ver fornecedores                    | Ver por fornecedor | Ícone de fábrica                                             |
+| Criar um pedido de teste            | Simular venda      | Sempre dizer que é teste e não cobra ninguém                 |
 | Repetir algo que falhou             | Tentar de novo     |                                                              |
 | Voltar a um estado anterior         | Restaurar          | ícone diferente de "Tentar de novo"                          |
 | Sair da conta                       | Sair               | ícone exclusivo; "Desconectar loja" usa outro                |
