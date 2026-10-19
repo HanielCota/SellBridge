@@ -258,4 +258,23 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; reports, financeiro-scroll, pending-cost e accessibility 21/21. Nenhum teste alterado.
 
-**Área do vendedor concluída.** **Próxima área:** Fornecedor · 1. Início (`/fornecedor/painel`).
+**Área do vendedor concluída.**
+
+## Fornecedor · 1. Início — 2026-10-19 · commit "feat(supplier-panel): tab icons and home tooltips"
+
+**Proposta escolhida: A (padrão do site)**. Propostas: [página clicável](../propostas/fornecedor/1-inicio/index.html) · [A](fornecedor/1-inicio/2-proposta-a.png) · [B](fornecedor/1-inicio/2-proposta-b.png) · [C](fornecedor/1-inicio/2-proposta-c.png).
+
+| Mudança                                                                                                  | Arquivo                                                | Tela                         | Antes                                              | Depois                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Abas do fornecedor com ícone (a partir de 1440 px) e legenda                                             | `components/icons/action-icons.ts` (`NAV_TAB_ICONS`)   | todas as telas do fornecedor | [desktop](fornecedor/1-inicio/1-antes-desktop.png) | [legenda da aba](fornecedor/1-inicio/3-depois-legenda-aba.png) · [celular](fornecedor/1-inicio/3-depois-mobile-menu.png) |
+| Legenda no selo da loja do pedido                                                                        | `components/supplier-panel/home/home-order-rows.tsx`   | `/fornecedor/painel`         | [desktop](fornecedor/1-inicio/1-antes-desktop.png) | [desktop](fornecedor/1-inicio/3-depois-desktop.png)                                                                      |
+| "Reprovado" com sublinhado pontilhado e legenda                                                          | `components/supplier-panel/home/home-catalog-rows.tsx` | `/fornecedor/painel`         | [desktop](fornecedor/1-inicio/1-antes-desktop.png) | [desktop](fornecedor/1-inicio/3-depois-desktop.png)                                                                      |
+| Legenda no nível e em cada métrica (com a meta, lida das regras de desempenho); seta em "Ver desempenho" | `components/supplier-panel/home/health-strip.tsx`      | `/fornecedor/painel`         | [desktop](fornecedor/1-inicio/1-antes-desktop.png) | [desktop](fornecedor/1-inicio/3-depois-desktop.png) · [claro](fornecedor/1-inicio/3-depois-claro.png)                    |
+
+**Ícones (decisão do usuário: "ícones próprios"):** Início = casa (supplierHome, fila de tarefas, diferente da Visão geral); Pedidos = sacola (mesma função do vendedor); Produtos = caixa (mesmo ícone do Catálogo, lista de produtos); Importar = arquivo com seta (importProducts); Desempenho = medidor (performance); Marca = paleta (brand). "Ver desempenho" reaproveita a seta de openOrder.
+
+**Não alterado:** "Revisar código de barras (gtin)" vem do nome do campo na análise de produto, compartilhado com a área admin; fica para a vez do admin.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; supplier-panel-access e accessibility 8/8. Nenhum teste alterado.
+
+**Próxima seção:** Fornecedor · 2. Pedidos (`/fornecedor/painel/pedidos`).

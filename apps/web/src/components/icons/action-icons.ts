@@ -16,6 +16,10 @@ import {
   ArrowRightIcon,
   ChatCircleDotsIcon,
   FactoryIcon,
+  FileArrowUpIcon,
+  GaugeIcon,
+  HouseIcon,
+  PaletteIcon,
   TruckIcon,
   FileArrowDownIcon,
   HeadsetIcon,
@@ -116,6 +120,16 @@ export const ACTION_ICONS = {
     icon: PlugsIcon,
     hint: "Para de sincronizar esta loja; os anúncios continuam no marketplace",
   },
+  /** The supplier's tabs: orders and products share the reseller's icons (same function). */
+  supplierHome: {
+    icon: HouseIcon,
+    hint: "O que precisa de você hoje: pedidos para aceitar e despachar",
+  },
+  supplierOrders: { icon: ShoppingBagIcon, hint: "Todos os pedidos dos revendedores, por etapa" },
+  supplierProducts: { icon: PackageIcon, hint: "Seus produtos, estoque e o que está em análise" },
+  importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
+  performance: { icon: GaugeIcon, hint: "Prazos, cancelamentos e notas que os revendedores veem" },
+  brand: { icon: PaletteIcon, hint: "Logo e cores que aparecem para os revendedores" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -138,6 +152,9 @@ export const TERM_HINTS = {
   lastOrderPing: "Última vez que o marketplace avisou de um pedido novo",
   storeListings: "Quantos produtos estão publicados nesta loja",
   notASale: "Ainda não pago, cancelado ou devolvido: não conta na receita nem no lucro",
+  orderStore: "Loja do revendedor onde o pedido foi feito",
+  rejectedProduct: "A equipe do SellBridge pediu ajustes; abra para ver o motivo",
+  healthLevel: "Cor geral do seu desempenho; vermelho quando alguma métrica passou do limite",
   fees: "Taxas do marketplace e do SellBridge sobre a venda",
 } as const;
 
@@ -186,4 +203,10 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/lojas": "stores",
   "/financeiro": "financials",
   "/suporte": "support",
+  "/fornecedor/painel": "supplierHome",
+  "/fornecedor/painel/pedidos": "supplierOrders",
+  "/fornecedor/painel/produtos": "supplierProducts",
+  "/fornecedor/painel/importar": "importProducts",
+  "/fornecedor/painel/desempenho": "performance",
+  "/fornecedor/painel/marca": "brand",
 };

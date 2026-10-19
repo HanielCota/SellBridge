@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { liveUrgency } from "../orders/countdown-badge";
 import { ProblemList, RowAction } from "../orders/order-row-parts";
 import { HomeListRow, HomePhoto } from "./home-list";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** "Vaso cerâmica P", or "Vaso cerâmica P e mais 1 item": the name the photo stands for. */
 export function orderTitle(items: SupplierHomeOrderRow["items"]): string {
@@ -81,7 +83,10 @@ export function HomeOrderRow({
       title={title}
       detail={
         <>
-          <MarketplaceMark marketplace={row.marketplace} className="size-4 rounded-[5px]" />
+          {/* The row is a button: the legend opens on hover or tap, not as a stop of its own. */}
+          <HintedText label={TERM_HINTS.orderStore} focusable={false} className="shrink-0">
+            <MarketplaceMark marketplace={row.marketplace} className="size-4 rounded-[5px]" />
+          </HintedText>
           <span className="truncate">
             {units} un. · {row.destinationCity}, {row.destinationState} · Pedido{" "}
             {row.externalOrderId}
