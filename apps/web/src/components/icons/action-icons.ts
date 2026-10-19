@@ -5,6 +5,13 @@ import {
   ChartBarIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  CheckIcon,
+  LinkBreakIcon,
+  LinkSimpleIcon,
+  PrinterIcon,
+  TagIcon,
+  WarningCircleIcon,
+  XCircleIcon,
   ClockCountdownIcon,
   ArrowRightIcon,
   ChatCircleDotsIcon,
@@ -83,6 +90,26 @@ export const ACTION_ICONS = {
     icon: ArrowRightIcon,
     hint: "Encaminhar ao fornecedor, imprimir etiquetas e acompanhar o envio",
   },
+  printLabel: { icon: TagIcon, hint: "Imprime a etiqueta que identifica o volume do pedido" },
+  printOrder: {
+    icon: PrinterIcon,
+    hint: "Imprime a lista do que o fornecedor deve separar e enviar",
+  },
+  supplierLink: {
+    icon: LinkSimpleIcon,
+    hint: "Cria um novo link para o fornecedor ver e atualizar este envio",
+  },
+  revokeLink: { icon: LinkBreakIcon, hint: "O link atual do fornecedor deixa de funcionar" },
+  occurrence: {
+    icon: WarningCircleIcon,
+    hint: "Anota um problema ou observação no histórico do envio",
+  },
+  cancelShipment: {
+    icon: XCircleIcon,
+    hint: "Cancela o envio com este fornecedor; não dá para desfazer",
+  },
+  /** Records the next step of a shipment; each step has its own legend in shipment-hints. */
+  advanceStep: { icon: CheckIcon, hint: "Registra a próxima etapa do envio" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;

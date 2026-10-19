@@ -178,4 +178,24 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E 30/31 em paralelo (accessibility, fulfillment, label-import, order-page, pending-cost, reviews, support-links). A falha de `support-links.spec.ts` passou ao rodar sozinho (2/2): concorrência entre testes, não a mudança. Nenhum teste alterado.
 
-**Próxima seção:** Vendedor · 4b. Janela "Operar pedido" e página do pedido.
+**Seção seguinte:** Vendedor · 4b. Janela "Operar pedido" e página do pedido.
+
+## Vendedor · 4b. Pedidos: operar pedido — 2026-10-18 · commit "feat(orders): clear actions in the shipment panel"
+
+**Proposta escolhida: B (ações claras)**. Propostas: [página clicável](../propostas/vendedor/4b-pedidos-operar/index.html) · [A](vendedor/4b-pedidos-operar/2-proposta-a.png) · [B](vendedor/4b-pedidos-operar/2-proposta-b.png) · [C](vendedor/4b-pedidos-operar/2-proposta-c.png).
+
+| Mudança                                                                                                                         | Arquivo                                                                  | Tela                                    | Antes                                                   | Depois                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| Botão de etapa diz a ação ("Marcar como aceito", "… em separação", "… enviado", "… entregue") com legenda própria de cada etapa | `components/fulfillment/shipment-hints.tsx` (novo), `shipment-panel.tsx` | janela "Operar pedido" e `/pedidos/:id` | [janela](vendedor/4b-pedidos-operar/1-antes-janela.png) | [janela](vendedor/4b-pedidos-operar/3-depois-janela.png) |
+| Ícone e legenda em Imprimir etiqueta, Imprimir ordem, Registrar ocorrência e Cancelar envio                                     | `components/fulfillment/shipment-panel.tsx`                              | mesmas                                  | [página](vendedor/4b-pedidos-operar/1-antes-pagina.png) | [claro](vendedor/4b-pedidos-operar/3-depois-claro.png)   |
+| Ícone e legenda em Gerar novo link e Revogar acesso                                                                             | `components/fulfillment/order-dialog.tsx`                                | mesmas                                  | [página](vendedor/4b-pedidos-operar/1-antes-pagina.png) | [página](vendedor/4b-pedidos-operar/3-depois-pagina.png) |
+
+**Ícones novos:** printLabel (Tag), printOrder (Printer), supplierLink (LinkSimple), revokeLink (LinkBreak), occurrence (WarningCircle), cancelShipment (XCircle), advanceStep (Check).
+
+**Componente compartilhado (aprovado: "Só no vendedor agora"):** o painel de envio também aparece no painel do fornecedor e no link que ele recebe. Tudo depende de `actsAs === "reseller"`; para o fornecedor os botões ficam iguais (nomes das etapas, sem ícone e sem legenda). O `fulfillment.spec.ts` confere o lado do fornecedor ("Aceito", "Enviado") e passou.
+
+**Divisão de arquivo:** os botões com legenda e o botão de etapa ficaram em `shipment-hints.tsx` para `shipment-panel.tsx` não passar de 500 linhas (ficou em 481).
+
+**Teste ajustado (aprovado pelo usuário em 2026-10-18):** `e2e/fulfillment.spec.ts` linha 139, "Entregue" → "Marcar como entregue" na janela do vendedor. Depois: fulfillment, order-page, accessibility e support-links 23/23; label-import e supplier-panel-access verdes; Vitest web 853/853.
+
+**Próxima seção:** Vendedor · 4c. Pedidos: avaliações.

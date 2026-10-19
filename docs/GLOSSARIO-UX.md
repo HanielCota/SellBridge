@@ -81,6 +81,7 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 | Desmarcar tudo o que foi marcado    | Limpar             | X; no celular só o X, com legenda                            |
 | Ver fornecedores                    | Ver por fornecedor | Ícone de fábrica                                             |
 | Criar um pedido de teste            | Simular venda      | Sempre dizer que é teste e não cobra ninguém                 |
+| Registrar a próxima etapa do envio  | Marcar como …      | "Marcar como aceito", nunca só o nome da etapa no botão      |
 | Repetir algo que falhou             | Tentar de novo     |                                                              |
 | Voltar a um estado anterior         | Restaurar          | ícone diferente de "Tentar de novo"                          |
 | Sair da conta                       | Sair               | ícone exclusivo; "Desconectar loja" usa outro                |

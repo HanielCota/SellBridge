@@ -136,7 +136,7 @@ test("reseller forwards an order and an unauthenticated supplier completes prepa
   await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
   await page.getByRole("button", { name: "Operar pedido" }).click();
   const reopened = page.getByRole("dialog", { name: "Operar pedido" });
-  await reopened.getByRole("button", { name: "Entregue", exact: true }).click();
+  await reopened.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
   // Newest first: the delivery heads the history, with who confirmed it.
   const latest = reopened
     .getByRole("list", { name: "Histórico do envio" })
