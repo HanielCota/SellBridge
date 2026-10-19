@@ -49,6 +49,8 @@ Termos e tom de voz que todos os textos de tela, rótulos e legendas (tooltips) 
 | Termo               | Significado                                                         | Não use                                  |
 | ------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
 | Envio               | Despacho de um pedido pelo fornecedor                               | fulfillment, remessa                     |
+| Operar pedido       | Abrir o pedido para encaminhar, imprimir etiquetas e acompanhar     | gerenciar, processar                     |
+| Atrasado            | Prazo de aceite, despacho ou entrega já passou (ícone de relógio)   | vencido, overdue                         |
 | Loja simulada       | Loja de teste do SellBridge: os pedidos dela não são reais          | loja mock, sandbox                       |
 | Etiqueta            | Etiqueta de envio do pedido                                         | label, rótulo                            |
 | Código de rastreio  | Código para acompanhar a entrega                                    | tracking                                 |

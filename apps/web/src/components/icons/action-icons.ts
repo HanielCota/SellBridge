@@ -5,6 +5,8 @@ import {
   ChartBarIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  ClockCountdownIcon,
+  ArrowRightIcon,
   ChatCircleDotsIcon,
   FactoryIcon,
   TruckIcon,
@@ -75,6 +77,12 @@ export const ACTION_ICONS = {
     icon: TruckIcon,
     hint: "O fornecedor despacha o pedido direto para o comprador",
   },
+  /** Marks a deadline already missed, so lateness never depends on the amber color alone. */
+  overdue: { icon: ClockCountdownIcon },
+  openOrder: {
+    icon: ArrowRightIcon,
+    hint: "Encaminhar ao fornecedor, imprimir etiquetas e acompanhar o envio",
+  },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -95,6 +103,23 @@ export const TERM_HINTS = {
   metricGoal: "Acima da meta, o score do fornecedor cai",
 } as const;
 
+/** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
+export const ORDER_STATUS_HINTS: Readonly<Record<string, string>> = {
+  pending: "O comprador ainda não pagou; não encaminhe ainda",
+  paid: "O comprador pagou; o pedido pode ir para o fornecedor",
+  shipped: "O fornecedor despachou; o pedido está a caminho",
+  delivered: "O comprador recebeu o pedido",
+  cancelled: "O pedido foi cancelado e não será enviado",
+  returned: "O comprador devolveu o pedido",
+};
+
+/** What each late warning asks of the reseller, keyed like `SHIPMENT_DELAY_LABELS`. */
+export const SHIPMENT_DELAY_HINTS: Readonly<Record<string, string>> = {
+  accept_overdue: "O fornecedor não aceitou o pedido no prazo",
+  dispatch_overdue: "O fornecedor não despachou o pedido no prazo",
+  delivery_overdue: "A entrega passou da data prevista",
+  awaiting_confirmation: "O pedido parece entregue; confirme a entrega",
+};
 /** Legends for controls whose name alone does not say what happens. */
 export const CONTROL_HINTS = {
   selectForBulk: "Marque para publicar vários produtos de uma vez",
@@ -105,6 +130,7 @@ export const CONTROL_HINTS = {
   listingActions: "Editar preço, pausar e outras ações deste anúncio",
   publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
   simulateSale: "Cria um pedido de teste; não cobra ninguém",
+  orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
 } as const;
 
 /**

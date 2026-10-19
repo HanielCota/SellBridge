@@ -161,4 +161,21 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E relacionados 35/35 (publishing, profile-tabs, store-supplier, store-disconnect, csv-attributes, suppliers, accessibility). Nenhum teste alterado.
 
-**Próxima seção:** Vendedor · 4. Pedidos (`/pedidos`).
+**Seção seguinte:** Vendedor · 4. Pedidos, dividida em 4a (operação), 4b (operar pedido e página do pedido) e 4c (avaliações), aprovado pelo usuário.
+
+## Vendedor · 4a. Pedidos: operação — 2026-10-18 · commit "feat(orders): status hints and clock on late orders"
+
+**Proposta escolhida: B (atraso sem depender de cor)**. Propostas: [página clicável](../propostas/vendedor/4a-pedidos-operacao/index.html) · [A](vendedor/4a-pedidos-operacao/2-proposta-a.png) · [B](vendedor/4a-pedidos-operacao/2-proposta-b.png) · [C](vendedor/4a-pedidos-operacao/2-proposta-c.png).
+
+| Mudança                                                          | Arquivo                                 | Tela       | Antes                                                       | Depois                                                                                                                 |
+| ---------------------------------------------------------------- | --------------------------------------- | ---------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Legenda em cada status do pedido (o que significa e o que fazer) | `components/fulfillment/operations.tsx` | `/pedidos` | [desktop](vendedor/4a-pedidos-operacao/1-antes-desktop.png) | [desktop](vendedor/4a-pedidos-operacao/3-depois-desktop.png)                                                           |
+| Aviso de atraso com ícone de relógio e legenda                   | `components/fulfillment/operations.tsx` | `/pedidos` | [desktop](vendedor/4a-pedidos-operacao/1-antes-desktop.png) | [desktop](vendedor/4a-pedidos-operacao/3-depois-desktop.png)                                                           |
+| "Operar pedido" com seta e legenda                               | `components/fulfillment/operations.tsx` | `/pedidos` | [celular](vendedor/4a-pedidos-operacao/1-antes-mobile.png)  | [claro](vendedor/4a-pedidos-operacao/3-depois-claro.png) · [celular](vendedor/4a-pedidos-operacao/3-depois-mobile.png) |
+| Legenda em "Todas as etapas"                                     | `components/fulfillment/operations.tsx` | `/pedidos` | [etapas](vendedor/4a-pedidos-operacao/1-antes-etapas.png)   | [etapas](vendedor/4a-pedidos-operacao/3-depois-etapas.png)                                                             |
+
+**Ícones novos:** overdue (ClockCountdown), openOrder (ArrowRight). **Textos novos:** `ORDER_STATUS_HINTS`, `SHIPMENT_DELAY_HINTS`, `CONTROL_HINTS.orderStage`. **Componentes compartilhados:** nenhum alterado; `ToneStatus` (usado nas três áreas) ficou igual, a legenda e o relógio foram postos em volta dele só nesta lista.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; E2E 30/31 em paralelo (accessibility, fulfillment, label-import, order-page, pending-cost, reviews, support-links). A falha de `support-links.spec.ts` passou ao rodar sozinho (2/2): concorrência entre testes, não a mudança. Nenhum teste alterado.
+
+**Próxima seção:** Vendedor · 4b. Janela "Operar pedido" e página do pedido.
