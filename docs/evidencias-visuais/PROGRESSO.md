@@ -506,4 +506,19 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support, profile-tabs-edges e accessibility 16/16. Nenhum teste alterado.
 
-**Próxima seção:** Administração · 3b. Métricas de chamados (`/admin/chamados/metricas`).
+**Seção seguinte:** Administração · 3b.
+
+## Administração · 3b. Métricas do suporte — 2026-10-19 · commit "feat(support): hints on the support metrics"
+
+**Proposta escolhida: A (só legendas)**. Propostas: [página clicável](../propostas/admin/3b-metricas/index.html) · [A](admin/3b-metricas/2-proposta-a.png) · [B](admin/3b-metricas/2-proposta-b.png) · [C](admin/3b-metricas/2-proposta-c.png).
+
+| Mudança                                                                                                                                    | Arquivo                                   | Tela                       | Antes                                                                                              | Depois                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Aguardando o suporte", "Primeira resposta", "Respondidos no prazo" (os quatro prazos) e "Satisfação" (escala de 1 a 5 e o "—") | `routes/_app/admin/chamados/metricas.tsx` | `/admin/chamados/metricas` | [desktop](admin/3b-metricas/1-antes-desktop.png) · [celular](admin/3b-metricas/1-antes-mobile.png) | [desktop](admin/3b-metricas/3-depois-desktop.png) · [claro](admin/3b-metricas/3-depois-claro.png) · [celular](admin/3b-metricas/3-depois-mobile.png) |
+| Legenda em "Em aberto", "Respostas" e "Satisfação" na tabela da equipe (cabeçalho extraído em `TeamTableHead`)                             | `metricas.tsx`                            | Métricas                   | [desktop](admin/3b-metricas/1-antes-desktop.png)                                                   | [tabela](admin/3b-metricas/3-depois-tabela.png)                                                                                                      |
+
+**Ícones:** nenhum novo.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support e accessibility 10/10. Nenhum teste alterado.
+
+**Próxima seção:** Administração · 4. Equipe (`/admin/equipe`).
