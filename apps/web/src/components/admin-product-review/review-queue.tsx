@@ -21,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { reviewQueueQueryOptions } from "@/features/admin-product-review/review.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 type QueueResult = UseQueryResult<{
   items: ProductAwaitingReview[];
@@ -48,7 +50,7 @@ function ProductCell({ product }: { product: ProductAwaitingReview }) {
         <span className="line-clamp-2 font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline">
           {product.title.length > 0 ? product.title : "Sem título"}
         </span>
-        <span className="block text-footnote text-muted-foreground">SKU {product.sku}</span>
+        <span className="block text-footnote text-muted-foreground">Código {product.sku}</span>
       </span>
     </Link>
   );
@@ -87,7 +89,11 @@ const queueColumns = columnHelper.columns([
     ),
   }),
   columnHelper.accessor("kind", {
-    header: "Tipo",
+    header: () => (
+      <HintedText label={TERM_HINTS.reviewKind} className="hinted-term">
+        Tipo
+      </HintedText>
+    ),
     cell: (information) => (
       <ToneStatus
         tone={KIND_TONES[information.getValue()]}
@@ -97,7 +103,11 @@ const queueColumns = columnHelper.columns([
   }),
   columnHelper.display({
     id: "completeness",
-    header: "Completude",
+    header: () => (
+      <HintedText label={TERM_HINTS.completeness} className="hinted-term">
+        Completude
+      </HintedText>
+    ),
     cell: (information) => (
       <CompletenessBadge
         score={information.row.original.completeness.score}
@@ -190,7 +200,7 @@ export function ReviewQueue({ search, onSearch, onPageChange }: ReviewQueueProps
       />
       <SearchInput
         label="Buscar produtos em análise"
-        placeholder="Buscar por título, SKU ou fornecedor"
+        placeholder="Buscar por título, código ou fornecedor"
         value={term}
         onValueChange={setTerm}
       />

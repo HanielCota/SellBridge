@@ -470,4 +470,22 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Teste ajustado (aprovado com a proposta A):** `e2e/admin-suppliers.spec.ts` linha 31, `getByLabel("Código")`. Depois: admin-suppliers, admin-supplier-sellers, browser-defaults, catalog-deactivation, csv-attributes, supplier-product-review e accessibility verdes (os quatro que falharam na rodada paralela passaram sozinhos); Vitest web 853/853; typecheck, oxlint e Prettier limpos.
 
-**Próxima seção:** Administração · 2b. Análise de produtos (`/admin/fornecedores/analise`).
+**Seção seguinte:** Administração · 2b.
+
+## Administração · 2b. Análise de produtos — 2026-10-19 · commits "fix(supplier-panel): drop the label parenthesis in a review reason" e "feat(admin): code wording and hints on the product review"
+
+**Proposta escolhida: A (código, legendas e motivo limpo)**. Propostas: [página clicável](../propostas/admin/2b-analise/index.html) · [A](admin/2b-analise/2-proposta-a.png) · [B](admin/2b-analise/2-proposta-b.png) · [C](admin/2b-analise/2-proposta-c.png).
+
+| Mudança                                                                                                                   | Arquivo                                                                                                                                                              | Tela                 | Antes                                                                                       | Depois                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| "SKU" → "Código" na busca, nas linhas, no subtítulo e nos motivos ("Código ausente")                                      | `components/admin-product-review/review-queue.tsx`, `routes/_app/admin/fornecedores/analise/$productId.tsx`, `packages/shared/src/domain/supplier-product-review.ts` | fila e análise       | [fila](admin/2b-analise/1-antes-fila.png) · [análise](admin/2b-analise/1-antes-produto.png) | [fila](admin/2b-analise/3-depois-fila.png) · [análise](admin/2b-analise/3-depois-produto.png) · [celular](admin/2b-analise/3-depois-mobile.png) |
+| Legenda em "Tipo" e "Completude" (cabeçalhos) e em "Aprovar" e "Reprovar"                                                 | `review-queue.tsx`, `review-decision.tsx`                                                                                                                            | fila e análise       | [análise](admin/2b-analise/1-antes-produto.png)                                             | [análise](admin/2b-analise/3-depois-produto.png) · [claro](admin/2b-analise/3-depois-claro.png)                                                 |
+| O motivo no Início do fornecedor deixou de mostrar "(gtin)": "Revisar código de barras" (pendência da seção Fornecedor 1) | `packages/shared/src/domain/supplier-panel-home-queue.ts`                                                                                                            | Início do fornecedor | —                                                                                           | [Início](admin/2b-analise/3-depois-inicio-fornecedor.png)                                                                                       |
+
+**Teste de regressão:** `supplier-panel-home-queue.test.ts` ganhou "leaves out the label's parenthesis when naming the field to revise": falha sem a correção (recebia "Revisar código de barras (gtin)") e passa com ela.
+
+**Não alterado:** o rótulo "SKU" das colunas e erros de CSV (`product-csv.ts`, `supplier-panel-import-columns.ts`) é o nome da coluna do arquivo, e um e2e confere "SKU duplicado".
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853 e shared 704/704; e2e supplier-product-review, supplier-panel-access e accessibility 10/10.
+
+**Próxima seção:** Administração · 3a. Chamados (`/admin/chamados`).
