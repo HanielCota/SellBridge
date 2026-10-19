@@ -182,6 +182,10 @@ export const TERM_HINTS = {
   failedRows: "Linhas que não entram; veja o motivo na tabela abaixo",
   accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
   publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
+  brandDescription: "Aparece no seu perfil, na página que os revendedores abrem",
+  acceptDeadline: "Contado a partir do encaminhamento; passar dele pesa no Desempenho",
+  dispatchDeadline:
+    "Também contado do encaminhamento, não do aceite; passar dele pesa no Desempenho",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */

@@ -375,7 +375,7 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 7/7. Nenhum teste alterado.
 
-**Próxima seção:** Fornecedor · 6. Marca (`/fornecedor/painel/marca`).
+**Seção seguinte:** Fornecedor · 6. Marca.
 
 ## Revisão · marca dos termos com legenda — 2026-10-19 · commit "style(web): a quiet hairline for terms with a legend"
 
@@ -388,3 +388,21 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 **Daqui em diante:** todo termo com legenda usa a classe `hinted-term`; o estilo muda num lugar só.
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853. Nenhum teste alterado.
+
+## Fornecedor · 6. Marca — 2026-10-19 · commit "feat(supplier-panel): hints and a consistent privacy note on the brand form"
+
+**Proposta escolhida: A (legendas e frase corrigida)**. Propostas: [página clicável](../propostas/fornecedor/6-marca/index.html) · [hoje](fornecedor/6-marca/2-atual.png) · [A](fornecedor/6-marca/2-proposta-a.png) · [B](fornecedor/6-marca/2-proposta-b.png) · [C](fornecedor/6-marca/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                                                    | Arquivo                                                  | Tela                                            | Antes                                                                                                | Depois                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Descrição" (onde aparece)                                                                                                                                                                      | `components/supplier-panel/brand/brand-form.tsx`         | `/fornecedor/painel/marca`                      | [desktop](fornecedor/6-marca/1-antes-desktop.png)                                                    | [descrição](fornecedor/6-marca/3-depois-descricao.png)                                                                                                  |
+| Legenda nos dois prazos (os dois contam do encaminhamento, como em `shipment-delay.ts`); a frase "Só a equipe SellBridge vê estes dados" contradizia o topo e virou "Os revendedores não veem estes dados" | `components/admin-suppliers/supplier-contact-fields.tsx` | Marca e cadastro de fornecedor da equipe        | [desktop](fornecedor/6-marca/1-antes-desktop.png) · [celular](fornecedor/6-marca/1-antes-mobile.png) | [desktop](fornecedor/6-marca/3-depois-desktop.png) · [celular](fornecedor/6-marca/3-depois-mobile.png) · [claro](fornecedor/6-marca/3-depois-claro.png) |
+| `TextField` e `TextareaField` ganharam o prop opcional `hint` (legenda no rótulo); sem ele nada muda                                                                                                       | `components/form/form-field.tsx`, `textarea-field.tsx`   | todos os formulários (só onde `hint` é passado) | —                                                                                                    | —                                                                                                                                                       |
+
+**Componente compartilhado (aprovado: "Nas duas"):** o bloco Pedidos vale também no cadastro de fornecedor da equipe. A captura do lado admin fica para a área Administração.
+
+**Ícones:** nenhum novo.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e supplier-brand, admin-suppliers e supplier-panel-access 8/8. Nenhum teste alterado.
+
+**Área Fornecedor concluída. Próxima área:** Administração (Clientes, Fornecedores, Chamados, Equipe).
