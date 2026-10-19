@@ -324,11 +324,7 @@ export function StoreList({
         <span>Lojas · {stores.length}</span>
         <span className="text-right">
           {/* The header row is hidden from screen readers, so its legend takes no focus. */}
-          <HintedText
-            label={TERM_HINTS.storeListings}
-            focusable={false}
-            className="underline decoration-dotted underline-offset-4"
-          >
+          <HintedText label={TERM_HINTS.storeListings} focusable={false} className="hinted-term">
             Publicações
           </HintedText>
         </span>

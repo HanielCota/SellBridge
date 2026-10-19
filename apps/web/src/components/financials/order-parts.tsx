@@ -133,10 +133,7 @@ export function OrderBreakdown({ row }: { row: OrderFinance }) {
           <dt className="flex items-center gap-2">
             <span aria-hidden="true" className={cn("size-1.5 rounded-full", entry.color)} />
             {entry.label === "Taxas" ? (
-              <HintedText
-                label={TERM_HINTS.fees}
-                className="underline decoration-dotted underline-offset-4"
-              >
+              <HintedText label={TERM_HINTS.fees} className="hinted-term">
                 {entry.label}
               </HintedText>
             ) : (

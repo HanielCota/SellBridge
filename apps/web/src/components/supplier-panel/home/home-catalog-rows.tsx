@@ -31,7 +31,7 @@ function StatusWord({ fix }: { fix: SupplierHomeCatalogFix }) {
     <HintedText
       label={TERM_HINTS.rejectedProduct}
       focusable={false}
-      className="text-footnote whitespace-nowrap text-muted-foreground underline decoration-dotted underline-offset-4"
+      className="text-footnote whitespace-nowrap text-muted-foreground hinted-term"
     >
       Reprovado
     </HintedText>

@@ -36,12 +36,7 @@ function KpiTile({ label, figure, change, trend, hint, isTerm = false }: TilePro
         className="group surface-interactive flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <div className="flex items-start justify-between gap-3">
-          <span
-            className={cn(
-              "text-sm text-muted-foreground",
-              isTerm && "underline decoration-dotted underline-offset-4",
-            )}
-          >
+          <span className={cn("text-sm text-muted-foreground", isTerm && "hinted-term")}>
             {label}
           </span>
           <SeeAllIcon

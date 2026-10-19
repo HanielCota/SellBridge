@@ -57,7 +57,7 @@ function HealthRow({
     <div className="flex items-baseline justify-between gap-3">
       <dt className="min-w-0 flex-1 text-muted-foreground">
         {hint ? (
-          <HintedText label={hint} className="underline decoration-dotted underline-offset-4">
+          <HintedText label={hint} className="hinted-term">
             {label}
           </HintedText>
         ) : (

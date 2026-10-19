@@ -38,7 +38,7 @@ function IssueList({
           tone === "danger" ? "text-destructive" : "text-amber-700 dark:text-amber-400",
         )}
       >
-        <HintedText label={hint} className="underline decoration-dotted underline-offset-4">
+        <HintedText label={hint} className="hinted-term">
           {title} · {issues.length}
         </HintedText>
       </h3>

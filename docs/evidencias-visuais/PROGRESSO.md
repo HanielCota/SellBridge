@@ -376,3 +376,15 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 7/7. Nenhum teste alterado.
 
 **Próxima seção:** Fornecedor · 6. Marca (`/fornecedor/painel/marca`).
+
+## Revisão · marca dos termos com legenda — 2026-10-19 · commit "style(web): a quiet hairline for terms with a legend"
+
+**Pedido do usuário:** "não gostei tanto deste sublinhado tracejado". **Proposta escolhida: A (linha fina e apagada)**. Propostas: [página clicável](../propostas/revisao-sublinhado/index.html) · [hoje](revisao-sublinhado/2-atual.png) · [A](revisao-sublinhado/2-proposta-a.png) · [B](revisao-sublinhado/2-proposta-b.png) · [C](revisao-sublinhado/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                                        | Arquivo                                                               | Telas                                                                                    | Depois                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| O pontilhado (`underline decoration-dotted underline-offset-4`) virou um utilitário único `hinted-term`: linha contínua de 1 px com 30% da cor do texto, que acende ao passar o mouse ou focar | `apps/web/src/styles.css` e os 17 componentes que usavam o pontilhado | Visão geral, Publicações, Lojas, Financeiro, perfil do fornecedor e painel do fornecedor | [Visão geral](revisao-sublinhado/3-depois-visao-geral.png) · [Desempenho](revisao-sublinhado/3-depois-desempenho.png) · [claro](revisao-sublinhado/3-depois-claro.png) · [celular](revisao-sublinhado/3-depois-mobile.png) |
+
+**Daqui em diante:** todo termo com legenda usa a classe `hinted-term`; o estilo muda num lugar só.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853. Nenhum teste alterado.

@@ -297,10 +297,7 @@ function PriceBreakdown({
         <div key={part.label} className="px-3.5 py-2.5">
           <dt className="text-xs text-muted-foreground">
             {part.hint ? (
-              <HintedText
-                label={part.hint}
-                className="underline decoration-dotted underline-offset-4"
-              >
+              <HintedText label={part.hint} className="hinted-term">
                 {part.label}
               </HintedText>
             ) : (

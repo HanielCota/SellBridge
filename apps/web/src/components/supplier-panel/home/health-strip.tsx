@@ -56,10 +56,7 @@ export function HealthStrip({ health, href }: { health: SupplierHealth; href: st
         ? null
         : health.metrics.map((metric) => (
             <span key={metric.key} className="text-muted-foreground">
-              <HintedText
-                label={metricHint(metric)}
-                className="underline decoration-dotted underline-offset-4"
-              >
+              <HintedText label={metricHint(metric)} className="hinted-term">
                 {HEALTH_METRIC_LABELS[metric.key]}
               </HintedText>{" "}
               <MetricValue metric={metric} />

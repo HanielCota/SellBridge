@@ -34,7 +34,7 @@ const precisePercent = new Intl.NumberFormat("pt-BR", {
 });
 
 /** Dotted underline: the sign, as on the overview's "Ticket médio", that a term has a legend. */
-const TERM_UNDERLINE = "underline decoration-dotted underline-offset-4";
+const TERM_UNDERLINE = "hinted-term";
 
 /** Aspects at or above this share of praise get the check; below, the warning. */
 const GOOD_ASPECT_SHARE = 0.8;

@@ -86,7 +86,7 @@ export function ProfitSplitLine({
       <span className={cn("size-2 shrink-0 rounded-[3px]", swatch)} aria-hidden="true" />
       <dt className="flex-1">
         {hint ? (
-          <HintedText label={hint} className="underline decoration-dotted underline-offset-4">
+          <HintedText label={hint} className="hinted-term">
             {label}
           </HintedText>
         ) : (

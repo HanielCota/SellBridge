@@ -99,10 +99,7 @@ export function StepReview({
         <SummaryRow label="Título">{values.title || "Não informado"}</SummaryRow>
         <SummaryRow
           label={
-            <HintedText
-              label={TERM_HINTS.productCode}
-              className="underline decoration-dotted underline-offset-4"
-            >
+            <HintedText label={TERM_HINTS.productCode} className="hinted-term">
               Código
             </HintedText>
           }

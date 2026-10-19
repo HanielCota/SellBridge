@@ -64,10 +64,7 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
         <Figure label="Atualizados" value={preview.updated} />
         <Figure
           label={
-            <HintedText
-              label={TERM_HINTS.failedRows}
-              className="underline decoration-dotted underline-offset-4"
-            >
+            <HintedText label={TERM_HINTS.failedRows} className="hinted-term">
               Com erro
             </HintedText>
           }

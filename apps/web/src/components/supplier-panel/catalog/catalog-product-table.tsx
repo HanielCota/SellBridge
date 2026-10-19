@@ -55,10 +55,7 @@ function ProductAction({
 
 function CompletenessHeader() {
   return (
-    <HintedText
-      label={TERM_HINTS.completeness}
-      className="underline decoration-dotted underline-offset-4"
-    >
+    <HintedText label={TERM_HINTS.completeness} className="hinted-term">
       Completude
     </HintedText>
   );

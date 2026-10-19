@@ -59,7 +59,7 @@ function MetricRow({
           <HintedText
             label={metricHint(metric)}
             focusable={false}
-            className="text-sm font-medium underline decoration-dotted underline-offset-4"
+            className="text-sm font-medium hinted-term"
           >
             {HEALTH_METRIC_LABELS[metric.key]}
           </HintedText>

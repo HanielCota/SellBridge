@@ -98,11 +98,7 @@ function RowSummary({
 function AmountNote({ row, revenueCents }: { row: OrderFinancialRow; revenueCents: number }) {
   if (isVoidOrder(row)) {
     return (
-      <HintedText
-        label={TERM_HINTS.notASale}
-        focusable={false}
-        className="underline decoration-dotted underline-offset-4"
-      >
+      <HintedText label={TERM_HINTS.notASale} focusable={false} className="hinted-term">
         não conta como venda
       </HintedText>
     );
@@ -438,7 +434,7 @@ function DayHeading({
       {total && total.orders > 0 ? (
         <Hint label={hasVoidRows ? VOID_ROWS_HINT : undefined}>
           <p className="text-xs text-muted-foreground tabular-nums">
-            <span className={cn(hasVoidRows && "underline decoration-dotted underline-offset-4")}>
+            <span className={cn(hasVoidRows && "hinted-term")}>
               {salesLabel(total.orders, hasVoidRows)}
             </span>
             {" · "}

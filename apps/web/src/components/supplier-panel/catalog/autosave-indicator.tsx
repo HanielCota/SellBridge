@@ -10,10 +10,7 @@ function StatusLine({ state }: { state: AutosaveState }) {
   switch (state.kind) {
     case "idle": {
       return (
-        <HintedText
-          label={TERM_HINTS.autosave}
-          className="text-muted-foreground underline decoration-dotted underline-offset-4"
-        >
+        <HintedText label={TERM_HINTS.autosave} className="text-muted-foreground hinted-term">
           Salvamento automático
         </HintedText>
       );
