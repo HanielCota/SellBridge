@@ -339,4 +339,24 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel, admin-product-review e features/supplier-panel 73/73; e2e supplier-product-review, supplier-product-images, admin-suppliers e csv-attributes 6/6. Nenhum teste alterado.
 
-**Próxima seção:** Fornecedor · 4. Importar (`/fornecedor/painel/importar`).
+**Seção seguinte:** Fornecedor · 4. Importar.
+
+## Fornecedor · 4. Importar — 2026-10-19 · commit "feat(supplier-panel): hints and plain words on the spreadsheet import"
+
+**Proposta escolhida: A (legendas e "código")**. Propostas: [página clicável](../propostas/fornecedor/4-importar/index.html) · [A](fornecedor/4-importar/2-proposta-a.png) · [B](fornecedor/4-importar/2-proposta-b.png) · [C](fornecedor/4-importar/2-proposta-c.png).
+
+| Mudança                                                                                       | Arquivo                                                                                      | Tela                          | Antes                                                | Depois                                                                                                   |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Legenda em "Baixar modelo" e "Baixar guia"; "pelo SKU" → "pelo código"                        | `components/supplier-panel/import/import-template-panel.tsx`                                 | `/fornecedor/painel/importar` | [desktop](fornecedor/4-importar/1-antes-desktop.png) | [desktop](fornecedor/4-importar/3-depois-desktop.png)                                                    |
+| Legenda em "Com erro" e "Baixar erros"; "Importar" desligado explica que falta marcar a caixa | `components/supplier-panel/import/import-preview-summary.tsx`, `supplier-product-import.tsx` | prévia e fim da importação    | [prévia](fornecedor/4-importar/1-antes-previa.png)   | [prévia](fornecedor/4-importar/3-depois-previa.png) · [claro](fornecedor/4-importar/3-depois-claro.png)  |
+| Tabela de erros: "SKU" → "Código", "sem SKU" → "sem código"                                   | `components/supplier-panel/import/import-issue-list.tsx`                                     | prévia                        | [prévia](fornecedor/4-importar/1-antes-previa.png)   | [erros](fornecedor/4-importar/3-depois-erros.png) · [celular](fornecedor/4-importar/3-depois-mobile.png) |
+| Resumo final: "atualizados pelo código"                                                       | `features/supplier-panel/import/import-wording.ts`                                           | confirmação                   | —                                                    | —                                                                                                        |
+| Ícones de baixar e de escolher arquivo vindos do dicionário                                   | `import-drop-zone.tsx` e os acima                                                            | Importar                      | —                                                    | —                                                                                                        |
+
+**Ícones:** novo downloadFile (DownloadSimple, para arquivos que a tela gera); o de escolher arquivo reaproveita importProducts (o mesmo da aba Importar).
+
+**Não alterado:** os nomes das colunas da planilha (`sku`, `titulo`…) são o formato do arquivo e continuam iguais.
+
+**Teste ajustado (aprovado pelo usuário em 2026-10-19):** `features/supplier-panel/import/import-wording.test.ts` linha 21 ("atualizados pelo código"). Depois: Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 6/6; typecheck, oxlint e Prettier limpos.
+
+**Próxima seção:** Fornecedor · 5. Desempenho (`/fornecedor/painel/desempenho`).

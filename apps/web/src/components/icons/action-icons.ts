@@ -6,6 +6,7 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   CheckIcon,
+  DownloadSimpleIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
   PrinterIcon,
@@ -139,6 +140,8 @@ export const ACTION_ICONS = {
   /** Sends the photo straight to the cover spot: a star, not an arrow that reads as "move up one". */
   setCover: { icon: StarIcon, hint: "Usar esta imagem como capa do anúncio" },
   removeImage: { icon: TrashIcon, hint: "Remover esta imagem do produto" },
+  /** Saves a file the page made (model, guide, failed rows); exporting a report is `exportReport`. */
+  downloadFile: { icon: DownloadSimpleIcon },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -176,6 +179,7 @@ export const TERM_HINTS = {
   stepPending: "Itens desta etapa que impedem publicar",
   autosave: "Cada alteração é salva sozinha; não precisa de botão Salvar",
   productCode: "Código que você usa para identificar o produto no seu estoque",
+  failedRows: "Linhas que não entram; veja o motivo na tabela abaixo",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
@@ -222,6 +226,10 @@ export const CONTROL_HINTS = {
   fixProduct: "Abre o cadastro direto no que precisa corrigir",
   editProduct: "Abre o cadastro do produto",
   submitBlocked: "Corrija os itens em “Impede publicar” para enviar",
+  downloadTemplate: "Planilha vazia com as colunas certas, pronta para preencher",
+  downloadGuide: "Lista do que cada coluna aceita, com exemplos",
+  downloadErrors: "Só as linhas com erro, para corrigir e enviar de novo",
+  importNeedsChoice: "Marque a caixa acima para importar só as linhas válidas",
 } as const;
 
 /**

@@ -1,6 +1,5 @@
-import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import type { SupplierImportPreview } from "@sellbridge/shared/supplier-panel-import-schemas";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ToneStatus } from "@/components/data/tone-status";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,13 @@ import {
   onlyValidLabel,
   plural,
 } from "@/features/supplier-panel/import/import-wording";
+import { ACTION_ICONS, CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
+import { DisabledHint, Hint, HintedText } from "@/components/ui/hint";
 
 const count = new Intl.NumberFormat("pt-BR");
+const DownloadIcon = ACTION_ICONS.downloadFile.icon;
 
-function Figure({ label, value, tone }: { label: string; value: number; tone?: "danger" }) {
+function Figure({ label, value, tone }: { label: ReactNode; value: number; tone?: "danger" }) {
   return (
     <div className="rounded-2xl bg-surface-grouped px-4 py-3">
       <dt className="text-footnote text-muted-foreground">{label}</dt>
@@ -60,7 +62,18 @@ function SummaryHeader({ preview }: { preview: SupplierImportPreview }) {
         <Figure label="Linhas" value={preview.totalRows} />
         <Figure label="Produtos novos" value={preview.created} />
         <Figure label="Atualizados" value={preview.updated} />
-        <Figure label="Com erro" value={preview.failedRows} tone="danger" />
+        <Figure
+          label={
+            <HintedText
+              label={TERM_HINTS.failedRows}
+              className="underline decoration-dotted underline-offset-4"
+            >
+              Com erro
+            </HintedText>
+          }
+          value={preview.failedRows}
+          tone="danger"
+        />
       </dl>
     </>
   );
@@ -110,19 +123,23 @@ export function ImportPreviewSummary(props: ImportPreviewSummaryProps) {
         <OnlyValidChoice preview={preview} checked={onlyValid} onChange={setOnlyValid} />
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
-          {preview.confirmation === null
-            ? "Importar"
-            : `Importar ${plural(preview.validRows, "produto", "produtos")}`}
-        </Button>
-        {partial ? (
-          <Button
-            variant="outline"
-            onClick={() => downloadCsv(failedRowsFileName(props.fileName), preview.failedRowsCsv)}
-          >
-            <DownloadSimpleIcon aria-hidden="true" />
-            Baixar erros
+        <DisabledHint reason={partial && !onlyValid ? CONTROL_HINTS.importNeedsChoice : undefined}>
+          <Button disabled={!canImport || props.importing} onClick={() => setConfirming(true)}>
+            {preview.confirmation === null
+              ? "Importar"
+              : `Importar ${plural(preview.validRows, "produto", "produtos")}`}
           </Button>
+        </DisabledHint>
+        {partial ? (
+          <Hint label={CONTROL_HINTS.downloadErrors} openOnTap={false}>
+            <Button
+              variant="outline"
+              onClick={() => downloadCsv(failedRowsFileName(props.fileName), preview.failedRowsCsv)}
+            >
+              <DownloadIcon aria-hidden="true" />
+              Baixar erros
+            </Button>
+          </Hint>
         ) : null}
       </div>
       <ConfirmDialog
