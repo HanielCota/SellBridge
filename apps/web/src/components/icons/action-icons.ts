@@ -5,6 +5,7 @@ import {
   ChartBarIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  ChatsCircleIcon,
   CheckIcon,
   DownloadSimpleIcon,
   LinkBreakIcon,
@@ -21,8 +22,10 @@ import {
   FileArrowUpIcon,
   GaugeIcon,
   HouseIcon,
+  IdentificationBadgeIcon,
   PaletteIcon,
   TruckIcon,
+  UsersThreeIcon,
   FileArrowDownIcon,
   HeadsetIcon,
   ListIcon,
@@ -142,6 +145,20 @@ export const ACTION_ICONS = {
   removeImage: { icon: TrashIcon, hint: "Remover esta imagem do produto" },
   /** Saves a file the page made (model, guide, failed rows); exporting a report is `exportReport`. */
   downloadFile: { icon: DownloadSimpleIcon },
+  /** The team's tabs in admin mode; Fornecedores keeps the reseller's factory (same function). */
+  clients: {
+    icon: UsersThreeIcon,
+    hint: "Revendedores e fornecedores; quem precisa de ajuda aparece primeiro",
+  },
+  adminSuppliers: {
+    icon: FactoryIcon,
+    hint: "Cadastro dos fornecedores e a fila de produtos para analisar",
+  },
+  tickets: { icon: ChatsCircleIcon, hint: "Conversas de suporte abertas pelos clientes" },
+  staff: {
+    icon: IdentificationBadgeIcon,
+    hint: "Quem trabalha na administração e o que cada um pode fazer",
+  },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -256,4 +273,8 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",
   "/fornecedor/painel/marca": "brand",
+  "/admin/clientes": "clients",
+  "/admin/fornecedores": "adminSuppliers",
+  "/admin/chamados": "tickets",
+  "/admin/equipe": "staff",
 };

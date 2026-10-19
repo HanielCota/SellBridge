@@ -406,3 +406,19 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e supplier-brand, admin-suppliers e supplier-panel-access 8/8. Nenhum teste alterado.
 
 **Área Fornecedor concluída. Próxima área:** Administração (Clientes, Fornecedores, Chamados, Equipe).
+
+## Administração · 0. Barra superior — 2026-10-19 · commit "feat(top-nav): team tab icons and a divider in admin mode"
+
+**Divisão aprovada:** por tela (0 barra; 1a/1b Clientes; 2a/2b Fornecedores; 3a/3b Chamados; 4 Equipe). **Proposta escolhida: A** e ícones aprovados ("Sim, esses"). Propostas: [página clicável](../propostas/admin/0-barra/index.html) · [A](admin/0-barra/2-proposta-a.png) · [B](admin/0-barra/2-proposta-b.png) · [C](admin/0-barra/2-proposta-c.png).
+
+| Mudança                                                                                                                                                         | Arquivo                            | Tela               | Antes                                                                                     | Depois                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Ícones das abas da equipe no menu do celular (Clientes: pessoas; Fornecedores: fábrica; Chamados: conversas; Equipe: crachá) e legenda nas quatro no computador | `components/icons/action-icons.ts` | modo administrador | [menu](admin/0-barra/1-antes-mobile-menu.png) · [1440](admin/0-barra/1-antes-desktop.png) | [menu](admin/0-barra/3-depois-mobile-menu.png) · [1440](admin/0-barra/3-depois-desktop.png) · [claro](admin/0-barra/3-depois-claro.png) |
+| Divisor entre as abas do perfil e as da equipe, no computador e no menu                                                                                         | `components/layout/top-nav.tsx`    | modo administrador | —                                                                                         | [1440](admin/0-barra/3-depois-desktop.png)                                                                                              |
+| Abaixo de 1440 px as abas ficam 2 px mais juntas: "Equipe" aparecia cortada a 1280 px (já acontecia antes)                                                      | `components/layout/top-nav.tsx`    | modo administrador | [1280](admin/0-barra/1-antes-laptop.png)                                                  | [1280](admin/0-barra/3-depois-laptop.png)                                                                                               |
+
+**Ícones:** novos clients (UsersThree), adminSuppliers (Factory, o mesmo de suppliers), tickets (ChatsCircle) e staff (IdentificationBadge).
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e accessibility, admin, admin-suppliers, admin-store-supplier, admin-supplier-sellers, browser-defaults e catalog-deactivation verdes. `admin-audit.spec.ts:45` falha com e sem esta mudança (espera "Admin SellBridge" e o banco local mostra "Carla Mendes" como autor): é anterior a esta seção e não foi mexido.
+
+**Próxima seção:** Administração · 1a. Clientes: lista (`/admin/clientes`).
