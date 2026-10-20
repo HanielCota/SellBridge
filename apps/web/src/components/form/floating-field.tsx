@@ -3,6 +3,7 @@ import { ArrowFatUpIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { type ComponentProps, type KeyboardEvent, type ReactNode, useState } from "react";
 import { keyboardDefaultsForType } from "@/lib/input-keyboard";
 import { firstErrorMessage } from "./form-field";
+import { PasswordStrengthMeter } from "./password-strength-meter";
 
 type NativeInputProps = Omit<ComponentProps<"input">, "id" | "onChange" | "value" | "placeholder">;
 
@@ -145,8 +146,17 @@ function CapsLockNotice() {
   );
 }
 
+interface FloatingPasswordFieldProps extends Omit<FloatingFieldProps, "type"> {
+  /** Shows the weak / medium / strong bars under the field; for a new password only. */
+  showStrength?: boolean | undefined;
+}
+
 /** Floating-label password field with a show/hide toggle and a Caps Lock warning. */
-export function FloatingPasswordField({ onBlur, ...props }: Omit<FloatingFieldProps, "type">) {
+export function FloatingPasswordField({
+  onBlur,
+  showStrength = false,
+  ...props
+}: FloatingPasswordFieldProps) {
   const state = usePasswordFieldState();
   const ToggleIcon = state.isVisible ? EyeSlashIcon : EyeIcon;
   const toggle = (
@@ -171,7 +181,12 @@ export function FloatingPasswordField({ onBlur, ...props }: Omit<FloatingFieldPr
         onBlur?.(event);
       }}
       trailing={toggle}
-      notice={state.isCapsLockOn ? <CapsLockNotice /> : null}
+      notice={
+        <>
+          {showStrength ? <PasswordStrengthMeter password={props.value} /> : null}
+          {state.isCapsLockOn ? <CapsLockNotice /> : null}
+        </>
+      }
     />
   );
 }

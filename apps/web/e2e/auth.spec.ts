@@ -60,6 +60,24 @@ test("cadastro só marca erro depois que o campo é deixado e mostra a regra da 
   );
 });
 
+test("cadastro mostra a força da senha enquanto ela é digitada", async ({ page }) => {
+  await gotoHydrated(page, "/cadastro");
+  const password = page.getByLabel("Senha", { exact: true });
+  const strength = page.locator("output[aria-live]");
+  await expect(strength).toBeHidden();
+
+  await password.fill("casa");
+  await expect(strength).toHaveText("Senha fraca");
+  await expect(page.getByText("Mínimo de 8 caracteres")).toBeVisible();
+
+  await password.fill("Casa7mar");
+  await expect(strength).toHaveText("Senha média");
+  await expect(page.getByText("Mínimo de 8 caracteres")).toBeHidden();
+
+  await password.fill("Casa7mar!sol");
+  await expect(strength).toHaveText("Senha forte");
+});
+
 test("pede link de redefinição de senha sem revelar se a conta existe", async ({ page }) => {
   await gotoHydrated(page, "/login");
   await page.getByRole("link", { name: "Esqueceu a senha?" }).click();
