@@ -295,6 +295,13 @@
       "when": 1792243312089,
       "tag": "0041_supplier_organization",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792454034606,
+      "tag": "0042_seller_catalog_sources",
+      "breakpoints": true
     }
   ]
 }

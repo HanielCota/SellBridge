@@ -55,3 +55,4 @@ export * from "./supplier-panel-orders.ts";
 export * from "./supplier-panel-orders-detail.ts";
 export * from "./supplier-panel-home.ts";
 export * from "./supplier-panel-home-photos.ts";
+export * from "./seller-catalog.ts";

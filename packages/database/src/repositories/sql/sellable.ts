@@ -1,6 +1,17 @@
 import { sql, type SQL } from "drizzle-orm";
 import { supplierProducts, suppliers } from "../../schema/index.ts";
 
+/** Public supplier reads must never expose a seller's private inventory source. */
+export function publicSupplier(): SQL {
+  return sql`${suppliers.catalogKind} = 'supplier'`;
+}
+
+/** An authenticated tenant may also read its own private catalog, never another seller's. */
+export function catalogVisibleTo(tenantId?: string): SQL {
+  if (tenantId === undefined) return publicSupplier();
+  return sql`(${publicSupplier()} or (${suppliers.catalogKind} = 'seller' and ${suppliers.ownerTenantId} = ${tenantId}))`;
+}
+
 /**
  * A product resellers may see, list and publish: active and approved by the platform. Drafts,
  * products under review and rejected ones from the supplier panel stay out (migration 0039).
@@ -30,5 +41,5 @@ export function sellableOnMarketplace(): SQL {
  * `suppliers` in the FROM clause.
  */
 export function supplierFindable(): SQL {
-  return sql`(${suppliers.active} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
+  return sql`(${publicSupplier()} and ${suppliers.active} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
 }
