@@ -32,22 +32,24 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
   );
 }
 
+const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
+
 /** The e-mail step resends the link; every other step opens its page. */
 function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
   if (step.key === "hasVerifiedEmail") {
     if (done) {
       return (
-        <Button asChild variant="outline" className="w-fit">
+        <Button asChild variant="outline" className={STEP_ACTION_CLASS_NAME}>
           <Link to="/perfil">Gerenciar e-mail</Link>
         </Button>
       );
     }
-    return <ResendVerificationButton label={step.cta} />;
+    return <ResendVerificationButton label={step.cta} className={STEP_ACTION_CLASS_NAME} />;
   }
   if (step.key === "hasHolder" || step.key === "hasSupplier") {
     const isHolder = step.key === "hasHolder";
     return (
-      <Button asChild variant={done ? "outline" : "default"} className="w-fit">
+      <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
         <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
           {done ? (isHolder ? "Editar dados" : "Editar origem dos produtos") : step.cta}
           <ArrowRightIcon aria-hidden="true" />
@@ -56,7 +58,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     );
   }
   return (
-    <Button asChild variant={done ? "outline" : "default"} className="w-fit">
+    <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
       <Link to={step.to}>
         {done ? (step.key === "hasStore" ? "Gerenciar lojas" : "Gerenciar anúncios") : step.cta}
         <ArrowRightIcon aria-hidden="true" />
@@ -77,7 +79,7 @@ function StepCard({
   return (
     <li
       className={cn(
-        "flex flex-col gap-4 rounded-2xl p-5",
+        "flex min-w-0 flex-col gap-4 rounded-2xl p-5",
         state === "next" ? "bg-muted ring-1 ring-brand/60" : "bg-muted/50",
       )}
     >
