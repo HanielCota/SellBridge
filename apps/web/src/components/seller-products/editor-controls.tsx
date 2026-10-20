@@ -162,12 +162,14 @@ function PublishCatalogLink({ form, settled }: Pick<ControlsProps, "form" | "set
   if (!settled || form.saved?.reviewStatus !== "approved" || !form.saved.active)
     return (
       <Button variant="secondary" disabled>
-        Publish from catalog
+        Publish product
       </Button>
     );
   return (
     <Button asChild variant="secondary">
-      <Link to="/catalogo">Publish from catalog</Link>
+      <Link to="/publicacoes/nova" search={{ productId: form.saved.id }}>
+        Publish product
+      </Link>
     </Button>
   );
 }

@@ -16,6 +16,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { notifyListingFailed } from "./notification-producers.ts";
+import { assertPrivateProductPublication } from "./private-product-publication.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -96,6 +97,12 @@ export async function createListingWithTargets(
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
+    await assertPrivateProductPublication(
+      transaction,
+      tenantId,
+      values.supplierProductId,
+      storeConnectionIds,
+    );
     if (billingEnabled) {
       // One plan slot per destination store (item 16, N7).
       await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
@@ -210,6 +217,7 @@ export interface TargetForPublishing {
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
   availability: CatalogAvailability;
+  source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
 }
 
 export async function getTargetForPublishing(
@@ -224,6 +232,7 @@ export async function getTargetForPublishing(
       product: supplierProducts,
       store: storeConnections,
       supplierActive: suppliers.active,
+      source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
@@ -240,7 +249,12 @@ export async function getTargetForPublishing(
     ...target,
     // A product back in review or rejected in the supplier panel is not published (0039).
     availability: {
-      productActive: row.product.active && row.product.reviewStatus === "approved",
+      productActive:
+        row.product.active &&
+        row.product.reviewStatus === "approved" &&
+        row.store.tenantId === tenantId &&
+        row.listing.tenantId === tenantId &&
+        (row.source.catalogKind === "supplier" || row.source.ownerTenantId === tenantId),
       supplierActive,
     },
   };

@@ -212,7 +212,10 @@ async function requireSellable(
   if (reason !== null) {
     await failPermanently(dependencies, row.target.id, unavailableMessage(reason));
   }
-  if (storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier") {
+  if (
+    row.source.catalogKind === "supplier" &&
+    storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier"
+  ) {
     await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
   }
 }
