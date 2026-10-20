@@ -43,11 +43,11 @@ async function connectMockStore(page: Page, shopName: string) {
   ).toBeVisible();
 }
 
-/** The supplier's cost shown on the publish form, plus one cent, in the field's format. */
+/** The unit cost shown on the publish form, plus one cent, in the field's format. */
 async function centAboveCost(page: Page): Promise<string> {
   const hint = await page.locator("#price-hint").innerText();
-  const match = /Custo do fornecedor:\s*R\$\s*([\d.]+),(\d{2})/.exec(hint);
-  if (!match) throw new Error(`Custo não encontrado em: ${hint}`);
+  const match = /R\$\s*([\d.]+),(\d{2})/.exec(hint);
+  if (!match) throw new Error(`Unit cost not found in: ${hint}`);
   const cents = Number(`${match[1]?.replaceAll(".", "")}${match[2]}`) + 1;
   return `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, "0")}`;
 }
