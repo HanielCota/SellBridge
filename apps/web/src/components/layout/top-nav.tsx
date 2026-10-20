@@ -266,7 +266,7 @@ function DesktopNav({
       ref={containerRef}
       aria-label="Principal"
       className={cn(
-        "relative hidden items-center gap-0.5 rounded-full bg-card p-1.5",
+        "relative hidden items-center gap-0.5 rounded-full bg-card p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         layout.desktopNav,
       )}
     >
