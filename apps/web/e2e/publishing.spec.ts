@@ -1,8 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+import { Queue } from "bullmq";
+import {
+  QUEUE_NAMES,
+  STOCK_SYNC_JOB_NAME,
+  STOCK_SYNC_JOB_OPTIONS,
+} from "@sellbridge/shared/queues";
 import { createDatabase } from "@sellbridge/database/client";
 import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
 import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
@@ -87,23 +93,27 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
 });
 
 test("avisa a descrição que não chegou ao marketplace e reenvia", async ({ page }) => {
-  await signUp(page, "Revendedora Descrição");
+  test.setTimeout(120_000);
+  const title = `QA description ${Date.now()} [sem descricao]`;
+  await signUp(page, "Description Retry Customer");
   await onboardWithBhBeauty(page);
   await connectMockStore(page, "Loja Descrição");
 
   // The mock marketplace takes the listing but refuses the description of this title.
   await openPublishFormForFirstProduct(page);
-  await page.getByLabel("Título").fill("Produto lindo [sem descricao]");
+  await page.getByLabel("Título").fill(title);
+  await page.getByLabel("Descrição", { exact: true }).fill("QA [descricao recusada]");
   await page.getByRole("button", { name: "Publicar" }).click();
   await expect(cardStatus(page, "No ar na Loja Descrição")).toBeVisible({
     timeout: STATUS_TIMEOUT,
   });
-  // Any stock sync (another spec's simulated sale starts one) resends the description, and the
-  // mock takes it, so the warning could leave before this page polls. Out of automatic resends,
-  // it stays until the reseller resends.
-  await holdDescriptionFailure("Produto lindo [sem descricao]");
-  const card = page.getByRole("article", { name: "Produto lindo [sem descricao]" });
+  // Keep automatic resends refused, then wait for their permanent failure before repairing
+  // the fixture. A fresh page reads the warning even if its previous query stopped polling.
+  await exhaustDescriptionRetries(title);
+  await gotoHydrated(page, "/publicacoes");
+  const card = page.getByRole("article", { name: title });
   await expect(card.getByText("Descrição não enviada")).toBeVisible({ timeout: STATUS_TIMEOUT });
+  await repairDescription(title);
 
   await card.getByRole("button", { name: "Reenviar descrição" }).click();
   await expect(page.getByText(/^Descrição reenviada/).filter({ visible: true })).toBeVisible();
@@ -232,21 +242,46 @@ test("valida o formulário de publicação e bloqueia preço abaixo do custo", a
 });
 
 /** The listing's description failed and no automatic resend is left: only "Reenviar" sends it. */
-async function holdDescriptionFailure(title: string): Promise<void> {
+async function requestDescriptionSync(): Promise<void> {
+  const url = new URL(requireEnvironmentVariable("REDIS_URL"));
+  url.pathname = `/${process.env.E2E_REDIS_DB ?? "1"}`;
+  const queue = new Queue(QUEUE_NAMES.stockPriceSync, { connection: { url: url.toString() } });
+  try {
+    await queue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
+  } finally {
+    await queue.close();
+  }
+}
+
+async function exhaustDescriptionRetries(title: string): Promise<void> {
   const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
   try {
-    const titled = database
-      .select({ id: listings.id })
-      .from(listings)
-      .where(eq(listings.title, title));
+    await requestDescriptionSync();
+    await expect
+      .poll(
+        async () => {
+          const targets = await database
+            .select({ attempts: listingTargets.descriptionAttempts })
+            .from(listingTargets)
+            .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+            .where(eq(listings.title, title));
+          return targets.map((target) => target.attempts);
+        },
+        { timeout: 60_000 },
+      )
+      .toEqual([DESCRIPTION_AUTOMATIC_ATTEMPTS]);
+  } finally {
+    await database.$client.end();
+  }
+}
+
+async function repairDescription(title: string): Promise<void> {
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  try {
     await database
-      .update(listingTargets)
-      .set({
-        descriptionError: "A descrição não chegou à loja simulada. Reenvie a descrição.",
-        descriptionAttempts: DESCRIPTION_AUTOMATIC_ATTEMPTS,
-        descriptionFailedAt: new Date(),
-      })
-      .where(inArray(listingTargets.listingId, titled));
+      .update(listings)
+      .set({ description: "A valid QA product description." })
+      .where(eq(listings.title, title));
   } finally {
     await database.$client.end();
   }
