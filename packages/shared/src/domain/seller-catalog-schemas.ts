@@ -31,6 +31,7 @@ export const sellerSaveProductSchema = sellerProductRefSchema
 export type SellerSaveProductInput = z.infer<typeof sellerSaveProductSchema>;
 
 export const sellerDuplicateProductSchema = sellerProductRefSchema.extend({
+  newProductId: z.uuid(),
   newSku: catalogDraftValuesSchema.shape.sku,
 });
 

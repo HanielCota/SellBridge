@@ -1,3 +1,4 @@
+import { SELLER_PRODUCT_ACTION_LABELS } from "@/features/seller-products/action-labels";
 import type { AuditEntry } from "@sellbridge/database/repositories";
 import {
   TICKET_CATEGORY_LABELS,
@@ -11,6 +12,7 @@ type DescribedEntry = Pick<AuditEntry, "source" | "action" | "details" | "subjec
 
 /** The catalog actions the admin's supplier screens record (see `catalog-audit.server.ts`). */
 const CATALOG_COPY: Readonly<Record<string, string>> = {
+  ...SELLER_PRODUCT_ACTION_LABELS,
   "supplier.created": "Cadastrou o fornecedor",
   "supplier.updated": "Editou o fornecedor",
   "supplier.activated": "Ativou o fornecedor",

@@ -63,6 +63,15 @@ export class DraftAutosaver<TProduct extends StoredVersion> {
     this.#onSaved = listener;
   }
 
+  setSaveDraft(saveDraft: AutosaverOptions<TProduct>["saveDraft"]): void {
+    this.#options.saveDraft = saveDraft;
+  }
+
+  /** Compare exact typed values, rather than reformatted money or server-side stock counts. */
+  hasUnsavedChanges(values: PanelFormValues = this.#latest): boolean {
+    return JSON.stringify(values) !== this.#lastSent;
+  }
+
   async flush(): Promise<void> {
     const values = this.#latest;
     const serialized = JSON.stringify(values);

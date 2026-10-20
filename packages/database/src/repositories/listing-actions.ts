@@ -15,7 +15,7 @@ import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 /** What the reseller does to listings from the list: pause, resume, reprice, retry. */
 
 async function requireTenantListings(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   listingIds: readonly string[],
 ): Promise<void> {
@@ -54,7 +54,7 @@ async function unavailableAmong(executor: DatabaseExecutor, ids: readonly string
  * targets changed.
  */
 export async function setListingsPaused(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   listingIds: readonly string[],
   paused: boolean,

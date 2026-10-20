@@ -18,6 +18,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
+  { label: "My products", to: "/products" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
   { label: "Pedidos", to: "/pedidos" },
@@ -36,6 +37,7 @@ export const SUPPLIER_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Products", to: "/admin/products", permission: "customers.manage" },
   { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
   {
     label: "Fornecedores",
