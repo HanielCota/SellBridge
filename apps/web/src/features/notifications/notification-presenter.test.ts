@@ -18,7 +18,7 @@ describe("presentNotification", () => {
     });
     expect(notification.title).toBe("Anúncio pausado: Moletom canguru - Rosa");
     expect(notification.detail).toBe(
-      "O fornecedor tirou este produto do catálogo. O anúncio fica pausado; reative quando ele voltar.",
+      "This product is unavailable. Its listings stay paused until it becomes available again and you resume them.",
     );
     expect(notification.href).toBe("/publicacoes?query=Moletom%20canguru%20-%20Rosa");
   });

@@ -591,8 +591,7 @@ function PriceField({
         </p>
       ) : (
         <p id="price-hint" className="text-xs text-muted-foreground">
-          Digite o preço que quiser ou use um dos prontos. Custo do fornecedor:{" "}
-          {formatCents(product.costCents)}.
+          Enter your selling price or choose a preset. Unit cost: {formatCents(product.costCents)}.
         </p>
       )}
     </div>

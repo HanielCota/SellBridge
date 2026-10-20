@@ -210,6 +210,27 @@ describe("holding stock for paid orders", () => {
     expect(await shelfOf(product.productId)).toEqual({ stock: 3, reserved: 3 });
   });
 
+  it("reallocates cancelled supplier holds to another seller without replaying their paid order", async () => {
+    const product = await sharedProduct(5);
+    const held = orderOf(product.first, product.sku, { status: "paid", quantity: 3 });
+    await sell(product.first, held);
+    const waiting = await sell(
+      product.second,
+      orderOf(product.second, product.sku, { status: "paid", quantity: 3 }),
+    );
+    expect(await stateOf(waiting.orderId)).toBe("short");
+    expect(await shortageWarnings(product.second.tenantId)).toContain(waiting.orderId);
+
+    const cancelled = await sell(product.first, { ...held, status: "cancelled" });
+    expect(cancelled.stockMoves).toBe(2);
+    expect(await stateOf(waiting.orderId)).toBe("reserved");
+    expect(await shelfOf(product.productId)).toEqual({ stock: 5, reserved: 3 });
+    expect(await shortageWarnings(product.second.tenantId)).not.toContain(waiting.orderId);
+    const duplicate = await sell(product.first, { ...held, status: "cancelled" });
+    expect(duplicate.stockMoves).toBe(0);
+    expect(await shelfOf(product.productId)).toEqual({ stock: 5, reserved: 3 });
+  });
+
   it("holds a short item once stock comes back", async () => {
     const product = await sharedProduct(0);
     const order = orderOf(product.first, product.sku, { status: "paid", quantity: 1 });
