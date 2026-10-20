@@ -16,6 +16,7 @@ import {
   type SupplierPanelProductRow,
 } from "./supplier-panel-catalog.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 /** A product waiting for the platform's review, with who sent it. */
 export interface ProductAwaitingReview extends SupplierPanelProduct {
@@ -60,6 +61,7 @@ function toAwaitingReview(row: {
 function queueCondition(query: string | undefined) {
   return and(
     awaitingReview,
+    publicSupplier(),
     query === undefined
       ? undefined
       : matchesEveryWord(query, [supplierProducts.sku, supplierProducts.title, suppliers.name]),
@@ -95,7 +97,8 @@ export async function countProductsAwaitingReview(database: DatabaseExecutor): P
   const [row] = await database
     .select({ value: count() })
     .from(supplierProducts)
-    .where(awaitingReview);
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(and(awaitingReview, publicSupplier()));
   return row?.value ?? 0;
 }
 
@@ -104,7 +107,8 @@ async function nextInQueue(database: DatabaseExecutor, productId: string): Promi
   const [next] = await database
     .select({ id: supplierProducts.id })
     .from(supplierProducts)
-    .where(and(awaitingReview, ne(supplierProducts.id, productId)))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(and(awaitingReview, publicSupplier(), ne(supplierProducts.id, productId)))
     .orderBy(...queueOrder)
     .limit(1);
   return next?.id ?? null;
@@ -120,7 +124,7 @@ export async function getProductForReview(database: DatabaseExecutor, productId:
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(eq(supplierProducts.id, productId));
+    .where(and(eq(supplierProducts.id, productId), publicSupplier()));
   if (row === undefined) {
     throw notFoundError(`Produto ${productId} não encontrado`);
   }

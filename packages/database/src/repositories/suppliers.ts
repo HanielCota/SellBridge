@@ -24,7 +24,12 @@ import type { Database } from "../client.ts";
 import { containsPattern, matchesEveryWord } from "./sql/search-pattern.ts";
 import { categories, listings, supplierProducts, suppliers } from "../schema/index.ts";
 import { availableStock } from "./sql/available-stock.ts";
-import { productListable, supplierFindable } from "./sql/sellable.ts";
+import {
+  catalogVisibleTo,
+  productListable,
+  publicSupplier,
+  supplierFindable,
+} from "./sql/sellable.ts";
 
 export interface SupplierSummary {
   id: string;
@@ -194,7 +199,7 @@ export async function getDirectorySupplier(
       productCount: sql<number>`0`.mapWith(Number),
     })
     .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true)))
+    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
     .limit(1);
   if (!supplier) {
     throw notFoundError("Fornecedor não encontrado");
@@ -251,7 +256,7 @@ function catalogConditions(supplierId: string, filters: CatalogFilters): SQL[] {
   const conditions: SQL[] = [eq(supplierProducts.supplierId, supplierId), productListable()];
   conditions.push(
     exists(
-      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true))})`,
+      sql`(select 1 from ${suppliers} where ${and(eq(suppliers.id, supplierProducts.supplierId), eq(suppliers.active, true), publicSupplier())})`,
     ),
   );
   if (filters.search) {
@@ -335,6 +340,7 @@ export async function listSupplierCategories(
         eq(supplierProducts.supplierId, supplierId),
         productListable(),
         eq(suppliers.active, true),
+        publicSupplier(),
       ),
     )
     .orderBy(asc(categories.name));
@@ -344,6 +350,7 @@ export async function listSupplierCategories(
 export async function getSellableCatalogProduct(
   database: Database,
   productId: string,
+  tenantId?: string,
 ): Promise<CatalogProduct & { supplierId: string; supplierName: string; imageUrls: string[] }> {
   const [row] = await database
     .select({
@@ -364,7 +371,14 @@ export async function getSellableCatalogProduct(
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(and(eq(supplierProducts.id, productId), productListable(), eq(suppliers.active, true)))
+    .where(
+      and(
+        eq(supplierProducts.id, productId),
+        productListable(),
+        eq(suppliers.active, true),
+        catalogVisibleTo(tenantId),
+      ),
+    )
     .limit(1);
   if (row === undefined) {
     throw notFoundError("Produto não encontrado no catálogo");
@@ -395,7 +409,11 @@ function isPublishedBy(tenantId: string): SQL {
 }
 
 function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFilters): SQL[] {
-  const conditions: SQL[] = [productListable(), eq(suppliers.active, true)];
+  const conditions: SQL[] = [
+    productListable(),
+    eq(suppliers.active, true),
+    catalogVisibleTo(tenantId),
+  ];
   if (filters.search) {
     const searchCondition = matchesEveryWord(filters.search, [
       supplierProducts.title,
@@ -473,13 +491,14 @@ export async function listSellableCatalog(
 /** Categories with at least one active product of an active supplier. */
 export async function listSellableCategories(
   database: Database,
+  tenantId?: string,
 ): Promise<{ name: string; slug: string }[]> {
   return database
     .selectDistinct({ name: categories.name, slug: categories.slug })
     .from(categories)
     .innerJoin(supplierProducts, eq(supplierProducts.categoryId, categories.id))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(productListable(), eq(suppliers.active, true)))
+    .where(and(productListable(), eq(suppliers.active, true), catalogVisibleTo(tenantId)))
     .orderBy(asc(categories.name));
 }
 

@@ -1,6 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { suppliers } from "../schema/index.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 export interface AdminSupplierOption {
   id: string;
@@ -15,6 +16,6 @@ export async function listAdminSupplierOptions(database: Database): Promise<Admi
   return database
     .select({ id: suppliers.id, name: suppliers.name })
     .from(suppliers)
-    .where(eq(suppliers.active, true))
+    .where(and(eq(suppliers.active, true), publicSupplier()))
     .orderBy(asc(suppliers.name));
 }

@@ -78,6 +78,8 @@ const savedSupplier = {
   dispatchWithinHours: 48,
   active: true,
   organizationId: null,
+  catalogKind: "supplier" as const,
+  ownerTenantId: null,
   createdAt: new Date("2026-10-01T00:00:00Z"),
 };
 function importPlan(revision = "initial"): SupplierProductImportPlan {

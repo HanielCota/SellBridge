@@ -23,6 +23,7 @@ import {
 import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 import { reviewedImportValues } from "./supplier-panel-import-review.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
 export type AdminSupplierProduct = typeof supplierProducts.$inferSelect;
@@ -33,9 +34,10 @@ export async function listAdminSuppliers(
   search: string | undefined,
   pagination: Pagination,
 ) {
-  const condition = search
+  const searchCondition = search
     ? matchesEveryWord(search, [suppliers.name, suppliers.niche, suppliers.city])
     : undefined;
+  const condition = and(publicSupplier(), searchCondition);
   const [total] = await database.select({ value: count() }).from(suppliers).where(condition);
   const items = await database
     .select()
@@ -51,7 +53,7 @@ export async function getAdminSupplier(database: DatabaseExecutor, supplierId: s
   const [supplier] = await database
     .select()
     .from(suppliers)
-    .where(eq(suppliers.id, supplierId))
+    .where(and(eq(suppliers.id, supplierId), publicSupplier()))
     .limit(1);
   if (!supplier) {
     throw notFoundError("Fornecedor não encontrado");

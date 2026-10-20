@@ -40,11 +40,22 @@ export const suppliers = pgTable(
      * supplier panel. Null for suppliers the team still manages on their behalf.
      */
     organizationId: text().references(() => organization.id, { onDelete: "set null" }),
+    /** The legacy table also holds private, self-fulfilled seller catalog sources. */
+    catalogKind: text({ enum: ["supplier", "seller"] })
+      .notNull()
+      .default("supplier"),
+    /** Private sources belong to a seller tenant and never enter the supplier directory. */
+    ownerTenantId: text().references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("suppliers_state_idx").on(table.state),
     uniqueIndex("suppliers_organization_id_unique").on(table.organizationId),
+    uniqueIndex("suppliers_owner_tenant_id_unique").on(table.ownerTenantId),
+    check(
+      "suppliers_catalog_owner_check",
+      sql`(${table.catalogKind} = 'supplier' and ${table.ownerTenantId} is null) or (${table.catalogKind} = 'seller' and ${table.ownerTenantId} is not null and ${table.organizationId} is null)`,
+    ),
     check(
       "suppliers_deadlines_check",
       sql`${table.acceptWithinHours} between 1 and 720 and ${table.dispatchWithinHours} between ${table.acceptWithinHours} and 720`,
