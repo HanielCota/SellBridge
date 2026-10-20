@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { fulfillmentQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import {
   forwardOrderFn,
+  restartOwnShipmentFn,
   revokeSupplierLinkFn,
   reforwardShipmentFn,
   rotateSupplierLinkFn,
@@ -55,7 +56,7 @@ export function FulfillmentDialog({
         <DialogHeader>
           <DialogTitle>Operar pedido {order?.externalOrderId}</DialogTitle>
           <DialogDescription>
-            Encaminhe ao fornecedor e acompanhe cada volume até a entrega.
+            Prepare your shipments and track each parcel through delivery.
           </DialogDescription>
         </DialogHeader>
         {order ? <OrderOperations key={order.id} orderId={order.id} /> : null}
@@ -89,7 +90,14 @@ function ShipmentList({
       }}
     >
       {/* The server re-forwards only parcels of a paid order: offered only then. */}
-      {shipment.status === "cancelled" && detail.order.status === "paid" ? (
+      {shipment.catalogKind === "seller" &&
+      shipment.status === "cancelled" &&
+      detail.order.status === "paid" ? (
+        <OwnRestartButton shipmentId={shipment.id} onRestart={refresh} />
+      ) : null}
+      {shipment.catalogKind !== "seller" &&
+      shipment.status === "cancelled" &&
+      detail.order.status === "paid" ? (
         <ReforwardButton
           shipmentId={shipment.id}
           onLink={async (url) => {
@@ -98,14 +106,16 @@ function ShipmentList({
           }}
         />
       ) : null}
-      <SupplierLink
-        shipmentId={shipment.id}
-        link={links[shipment.id]}
-        closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
-        onLink={(url) =>
-          setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }))
-        }
-      />
+      {shipment.catalogKind === "seller" ? null : (
+        <SupplierLink
+          shipmentId={shipment.id}
+          link={links[shipment.id]}
+          closed={SETTLED_FULFILLMENT_STATUSES.includes(shipment.status)}
+          onLink={(url) =>
+            setLinks((previous) => ({ ...previous, [shipment.id]: { url, emailed: false } }))
+          }
+        />
+      )}
     </ShipmentPanel>
   ));
 }
@@ -277,6 +287,28 @@ function ReforwardButton({
     </Button>
   );
 }
+function OwnRestartButton({
+  shipmentId,
+  onRestart,
+}: {
+  shipmentId: string;
+  onRestart: () => Promise<void>;
+}) {
+  const mutation = useMutation({
+    mutationFn: async () => {
+      await restartOwnShipmentFn({ data: { shipmentId } });
+      await onRestart();
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+    onSuccess: () => toast.success("Preparation restarted"),
+  });
+  return (
+    <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+      Restart preparation
+    </Button>
+  );
+}
+
 const ADDRESS_KEYS = [
   "recipient",
   "street",
@@ -319,6 +351,7 @@ function ForwardForm({
     detail,
     onForwarded,
   );
+  const ownsItems = detail.items.some((item) => item.catalogKind === "seller");
   const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
   return (
     <form
@@ -341,7 +374,11 @@ function ForwardForm({
         address={address}
         onChange={(key, value) => setAddress((previous) => ({ ...previous, [key]: value }))}
       />
-      <Field label="Instruções para o fornecedor" value={notes} onChange={setNotes} />
+      <Field
+        label={ownsItems ? "Shipping instructions" : "Instruções para o fornecedor"}
+        value={notes}
+        onChange={setNotes}
+      />
       {unmapped ? (
         <p className="text-sm text-destructive">
           Um item deste pedido não é de um fornecedor ativo do SellBridge: encaminhe-o por fora.
@@ -353,13 +390,24 @@ function ForwardForm({
         className="h-auto min-h-9 w-full py-2 text-balance whitespace-normal sm:w-auto"
         disabled={forward.isPending || unmapped || detail.order.status !== "paid"}
       >
-        {forward.isPending ? "Encaminhando…" : "Criar ordens e encaminhar aos fornecedores"}
+        {forward.isPending
+          ? "Preparing…"
+          : ownsItems
+            ? "Prepare shipments"
+            : "Criar ordens e encaminhar aos fornecedores"}
       </Button>
-      <p className="text-xs text-muted-foreground">
-        Cada fornecedor recebe uma ordem com seus próprios itens. Após criar, compartilhe o link de
-        acesso exibido em cada envio.
-      </p>
+      <PreparationExplanation ownsItems={ownsItems} />
     </form>
+  );
+}
+
+function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {ownsItems
+        ? "You prepare and ship your products; suppliers receive only their own items."
+        : "Each supplier receives only their own items. Share the access link shown in each supplier shipment."}
+    </p>
   );
 }
 
@@ -438,7 +486,9 @@ function ForwardItems({ detail }: { detail: Detail }) {
         <li key={item.id}>
           {item.quantity} × {item.title} ·{" "}
           <span className={item.supplierId ? "text-muted-foreground" : "text-destructive"}>
-            {item.supplierName ?? "Sem fornecedor vinculado"}
+            {item.catalogKind === "seller"
+              ? "You fulfill this item"
+              : (item.supplierName ?? "Sem fornecedor vinculado")}
           </span>
         </li>
       ))}

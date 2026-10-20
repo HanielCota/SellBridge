@@ -22,6 +22,13 @@ import { upsertMarketplaceOrder } from "./orders.ts";
 import { ensureSellerCatalog } from "./seller-catalog.ts";
 import { restartSellerShipment } from "./restart-seller-shipment.ts";
 import { upsertStoreConnection } from "./stores.ts";
+import {
+  countPendingReviews,
+  getReviewTarget,
+  listReviewableOrders,
+  saveSupplierReview,
+} from "./supplier-reviews.ts";
+import { orders, supplierReviews } from "../schema/index.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -290,5 +297,41 @@ describe("seller and supplier fulfillment", () => {
     await expect(restartSellerShipment(database, tenants.tenantA, own.id)).rejects.toMatchObject({
       code: "CONFLICT",
     });
+  });
+});
+
+describe("mixed order reviews", () => {
+  it("offers only the external supplier for review and refuses own-product review writes", async () => {
+    const order = await paidOrder();
+    await database
+      .update(orders)
+      .set({ status: "delivered", deliveredAt: new Date() })
+      .where(eq(orders.id, order.orderId));
+    const own = { orderId: order.orderId, supplierId: ownSource };
+    expect(await getReviewTarget(database, tenants.tenantA, own)).toBeNull();
+    expect(
+      await getReviewTarget(database, tenants.tenantA, { ...own, supplierId: publicSource }),
+    ).not.toBeNull();
+    const pending = await listReviewableOrders(database, tenants.tenantA, {
+      filters: { filter: "pending", reviewableSince: new Date(0) },
+      pagination: { page: 1, pageSize: 100 },
+    });
+    expect(
+      pending.items.filter((item) => item.orderId === order.orderId).map((item) => item.supplierId),
+    ).toEqual([publicSource]);
+    expect(
+      (await countPendingReviews(database, tenants.tenantA, new Date(0))).total,
+    ).toBeGreaterThan(0);
+    await saveSupplierReview(database, tenants.tenantA, {
+      ...own,
+      rating: 5,
+      tags: [],
+      comment: "Self review forbidden",
+    });
+    const saved = await database
+      .select()
+      .from(supplierReviews)
+      .where(eq(supplierReviews.supplierId, ownSource));
+    expect(saved).toEqual([]);
   });
 });

@@ -344,7 +344,11 @@ const DELIVERED_AT = sql.raw("coalesce(o.delivered_at, o.ordered_at)");
 
 /** One row per order and supplier of the tenant, with the review when there is one. */
 function reviewablePairsCte(tenantId: string, filters: ReviewableOrderFilters): SQL {
-  const conditions = [sql`o.tenant_id = ${tenantId}`, ...reviewConditions(filters)];
+  const conditions = [
+    sql`o.tenant_id = ${tenantId}`,
+    sql`s.catalog_kind = 'supplier'`,
+    ...reviewConditions(filters),
+  ];
   return sql`pairs as (
     select o.id as order_id, o.external_order_id, o.ordered_at, ${DELIVERED_AT} as delivered_at,
       o.status, sc.shop_name,
@@ -419,6 +423,7 @@ export async function getReviewTarget(
       and exists (
         select 1 from order_items oi
         join supplier_products sp on sp.id = oi.supplier_product_id
+        join suppliers s on s.id = sp.supplier_id and s.catalog_kind = 'supplier'
         where oi.order_id = o.id and sp.supplier_id = ${target.supplierId}::uuid
       )
   `);
@@ -450,6 +455,7 @@ export async function saveSupplierReview(
   tenantId: string,
   input: SaveSupplierReviewInput,
 ): Promise<void> {
+  if ((await getReviewTarget(database, tenantId, input)) === null) return;
   const values = { rating: input.rating, tags: [...input.tags], comment: input.comment };
   await database
     .insert(supplierReviews)

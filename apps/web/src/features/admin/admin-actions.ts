@@ -45,6 +45,7 @@ function issueLabel(details: AdminEventDetails | null): string {
  */
 export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   forwardOrderFn: "encaminhou um pedido",
+  restartOwnShipmentFn: "restarted own shipment preparation",
   reforwardShipmentFn: "reencaminhou um envio",
   updateShipmentFn: "atualizou um envio",
   rotateSupplierLinkFn: "gerou um novo link do fornecedor",

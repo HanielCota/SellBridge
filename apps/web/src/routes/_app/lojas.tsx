@@ -273,8 +273,8 @@ function PendingSupplierNotice({
         {pending === 1
           ? "1 loja ainda não tem fornecedor."
           : `${pending.toLocaleString("pt-BR")} lojas ainda não têm fornecedor.`}{" "}
-        Cada loja vende os produtos de um único fornecedor: escolha o de cada uma para continuar
-        publicando. Os anúncios no ar seguem vendendo.
+        Choose a supplier for each store to publish that supplier's products. Your own products can
+        already be published without a supplier. Existing listings keep selling.
       </AlertDescription>
     </Alert>
   );
