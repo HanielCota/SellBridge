@@ -323,6 +323,13 @@
       "when": 1792509854901,
       "tag": "0045_bootstrap_product_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792522130003,
+      "tag": "0046_portuguese_category_labels",
+      "breakpoints": true
     }
   ]
 }

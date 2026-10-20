@@ -56,6 +56,6 @@ export async function writeSellerProduct(
 export function assertOwnerProductWrite(session: { impersonatedBy: string | null }) {
   if (session.impersonatedBy !== null)
     throw forbiddenError(
-      "Use Product management in the admin panel and provide an intervention reason.",
+      "Use a gestão de produtos no painel administrativo e informe o motivo da alteração.",
     );
 }

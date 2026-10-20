@@ -23,19 +23,19 @@ async function recordCreation(context: ParcelContext, shipmentId: string, own: b
     return;
   }
   await context.transaction.insert(shipmentEvents).values([
-    { ...forwarded, note: "Own products assigned to the seller for fulfillment." },
+    { ...forwarded, note: "Produtos próprios atribuídos ao revendedor para preparação e envio." },
     {
       shipmentId,
       status: "accepted",
       actor: credit.actor,
-      note: "Ready for the seller to prepare and ship.",
+      note: "Pronto para o revendedor preparar e enviar.",
     },
   ]);
 }
 
 async function createParcel(context: ParcelContext, supplierId: string, lines: Lines) {
   const first = lines[0];
-  if (first === undefined) throw new Error("Cannot create an empty parcel.");
+  if (first === undefined) throw new Error("Não é possível criar um envio sem itens.");
   const own = first.catalogKind === "seller";
   const link = own ? null : issueSupplierLink();
   const [shipment] = await context.transaction
@@ -57,7 +57,7 @@ async function createParcel(context: ParcelContext, supplierId: string, lines: L
       supplierTokenExpiresAt: link?.expiresAt ?? null,
     })
     .returning({ id: orderShipments.id });
-  if (shipment === undefined) throw new Error("Could not prepare the shipment.");
+  if (shipment === undefined) throw new Error("Não foi possível preparar o envio.");
   await recordCreation(context, shipment.id, own);
   if (link === null) return null;
   return { shipmentId: shipment.id, supplierId, token: link.token };

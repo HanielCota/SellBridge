@@ -81,7 +81,7 @@ function ProductBackLink({
       {product.catalogKind === "seller" ? (
         <Link to="/products" search={{ product: product.id }}>
           <ArrowLeftIcon aria-hidden="true" />
-          My products
+          Meus produtos
         </Link>
       ) : (
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
@@ -591,7 +591,8 @@ function PriceField({
         </p>
       ) : (
         <p id="price-hint" className="text-xs text-muted-foreground">
-          Enter your selling price or choose a preset. Unit cost: {formatCents(product.costCents)}.
+          Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
+          {formatCents(product.costCents)}.
         </p>
       )}
     </div>

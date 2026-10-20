@@ -16,7 +16,7 @@ import { errorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/products")({
   validateSearch: sellerProductListSearchSchema.extend({ product: optionalParameter(z.uuid()) }),
-  head: () => ({ meta: [{ title: "My products | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Meus produtos | SellBridge" }] }),
   component: SellerProductsPage,
 });
 
@@ -41,9 +41,9 @@ function SellerProductsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My products"
-        description="Manage your own inventory. Supplier products remain available in the supplier catalog."
-        actions={<Button onClick={() => open(crypto.randomUUID())}>Add product</Button>}
+        title="Meus produtos"
+        description="Cadastre e gerencie seu próprio estoque. Os produtos de fornecedores continuam disponíveis no catálogo."
+        actions={<Button onClick={() => open(crypto.randomUUID())}>Cadastrar produto</Button>}
       />
       <ProductsToolbar
         search={search}
@@ -51,7 +51,7 @@ function SellerProductsPage() {
           void navigate({ search: (previous) => ({ ...previous, ...change }), replace: true })
         }
       />
-      {query.isPending ? <output>Loading products…</output> : null}
+      {query.isPending ? <output>Carregando produtos…</output> : null}
       {query.isError ? <p role="alert">{errorMessage(query.error)}</p> : null}
       {query.data ? (
         <>

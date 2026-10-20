@@ -25,9 +25,9 @@ export async function assertPrivateProductPublication(
     .where(eq(supplierProducts.id, productId))
     .for("share", { of: [supplierProducts] });
   if (source?.kind !== "seller") return;
-  if (source.owner !== tenantId) throw notFoundError("Product not found.");
+  if (source.owner !== tenantId) throw notFoundError("Produto não encontrado.");
   if (!source.active || !source.productActive || source.reviewStatus !== "approved") {
-    throw conflictError("Make this product ready before publishing it.");
+    throw conflictError("Deixe este produto pronto antes de publicá-lo.");
   }
   const [stores] = await executor
     .select({ total: count() })

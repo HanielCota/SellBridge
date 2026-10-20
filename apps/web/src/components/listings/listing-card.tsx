@@ -195,7 +195,7 @@ function ListingCardBody({
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
         <p className="truncate text-xs text-muted-foreground">
-          {row.catalogKind === "seller" ? "Your product" : row.supplierName}
+          {row.catalogKind === "seller" ? "Seu produto" : row.supplierName}
         </p>
         <h2
           className={cn(

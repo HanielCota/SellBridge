@@ -4,23 +4,27 @@ import {
   adminInspectSellerProductFn,
   adminPauseSellerPublicationsFn,
 } from "@/features/seller-products/products.functions";
-import { SELLER_PRODUCT_ACTION_LABELS } from "@/features/seller-products/action-labels";
+import {
+  SELLER_PRODUCT_ACTION_LABELS,
+  productAuditFields,
+} from "@/features/seller-products/action-labels";
 import { errorMessage } from "@/lib/errors";
+import { LISTING_STATUS_LABELS } from "@sellbridge/shared/schemas";
 
 type Inspection = Awaited<ReturnType<typeof adminInspectSellerProductFn>>;
 
 function Publications({ items }: { items: Inspection["publications"] }) {
-  if (items.length === 0) return <p>No marketplace publications yet.</p>;
+  if (items.length === 0) return <p>Nenhum anúncio publicado nos marketplaces.</p>;
   return (
     <ul className="space-y-2">
       {items.map((item) => (
         <li key={item.id} className="rounded-xl border border-border p-3">
-          <strong>{item.storeName}</strong> · {item.status}
+          <strong>{item.storeName}</strong> · {LISTING_STATUS_LABELS[item.status]}
           <p>{item.title}</p>
           {item.error ? <p className="text-destructive">{item.error}</p> : null}
           {item.url ? (
             <a href={item.url} target="_blank" rel="noreferrer">
-              View marketplace listing
+              Ver anúncio no marketplace
             </a>
           ) : null}
         </li>
@@ -32,17 +36,19 @@ function Publications({ items }: { items: Inspection["publications"] }) {
 function AuditHistory({ items }: { items: Inspection["history"] }) {
   return (
     <>
-      <h2 className="text-xl font-semibold">Administrative history</h2>
+      <h2 className="text-xl font-semibold">Histórico administrativo</h2>
       <ol className="space-y-3">
         {items.map((item) => (
           <li key={item.id} className="rounded-xl border border-border p-3">
             <p>
-              {item.actor ?? "Former administrator"} ·{" "}
-              {SELLER_PRODUCT_ACTION_LABELS[item.action] ?? "Updated product"} ·{" "}
-              <time dateTime={item.createdAt.toISOString()}>{item.createdAt.toLocaleString()}</time>
+              {item.actor ?? "Administrador removido"} ·{" "}
+              {SELLER_PRODUCT_ACTION_LABELS[item.action] ?? "Produto atualizado"} ·{" "}
+              <time dateTime={item.createdAt.toISOString()}>
+                {item.createdAt.toLocaleString("pt-BR")}
+              </time>
             </p>
             <p>{String(item.details?.reason ?? "")}</p>
-            {item.details?.fields ? <p>Fields: {String(item.details.fields)}</p> : null}
+            {item.details?.fields ? <p>Campos: {productAuditFields(item.details.fields)}</p> : null}
           </li>
         ))}
       </ol>
@@ -72,14 +78,14 @@ export function AdminProductHistory({
       await inspection.refetch();
     },
   });
-  if (inspection.isPending) return <output>Loading publications and history…</output>;
+  if (inspection.isPending) return <output>Carregando anúncios e histórico…</output>;
   if (inspection.isError) return <p role="alert">{errorMessage(inspection.error)}</p>;
   return (
     <section
       className="surface-card space-y-5 rounded-3xl bg-card p-6"
-      aria-label="Product operations and audit history"
+      aria-label="Ações e histórico do produto"
     >
-      <h2 className="text-xl font-semibold">Marketplace publications</h2>
+      <h2 className="text-xl font-semibold">Anúncios nos marketplaces</h2>
       <Publications items={inspection.data.publications} />
       {inspection.data.publications.length > 0 ? (
         <div className="flex gap-3">
@@ -88,14 +94,14 @@ export function AdminProductHistory({
             disabled={!canAct || reason.trim().length < 5 || action.isPending}
             onClick={() => action.mutate(true)}
           >
-            Pause publications
+            Pausar anúncios
           </Button>
           <Button
             variant="outline"
             disabled={!canAct || reason.trim().length < 5 || action.isPending}
             onClick={() => action.mutate(false)}
           >
-            Resume publications
+            Reativar anúncios
           </Button>
         </div>
       ) : null}

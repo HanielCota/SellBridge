@@ -43,7 +43,7 @@ describe("unavailableMessage", () => {
 describe("unavailable listing wording", () => {
   it("names the cause in a few words for the listing card", () => {
     expect(unavailableListingLabel("supplier_inactive")).toBe("Fornecedor inativo");
-    expect(unavailableListingLabel("product_inactive")).toBe("Product unavailable");
+    expect(unavailableListingLabel("product_inactive")).toBe("Produto indisponível");
   });
 
   it("says the listing stays paused and who brings it back", () => {
@@ -51,7 +51,7 @@ describe("unavailable listing wording", () => {
       "O fornecedor está inativo. O anúncio fica pausado; reative quando ele voltar ao catálogo.",
     );
     expect(unavailableListingMessage("product_inactive")).toBe(
-      "This product is unavailable. Its listings stay paused until it becomes available again and you resume them.",
+      "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
     );
   });
 });

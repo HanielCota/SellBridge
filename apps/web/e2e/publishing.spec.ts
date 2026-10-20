@@ -318,7 +318,7 @@ test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
   await page.getByLabel("Título").fill("Produto esgotado no fornecedor");
   await page.getByRole("button", { name: "Publicar" }).click();
   await expect(
-    page.getByText(/This product is out of stock/).filter({ visible: true }),
+    page.getByText(/Este produto está sem estoque/).filter({ visible: true }),
   ).toBeVisible();
 });
 

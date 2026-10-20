@@ -177,7 +177,7 @@ export async function assertStoresSellSupplier(
   }
   const source = await executor.query.suppliers.findFirst({ where: eq(suppliers.id, supplierId) });
   if (source?.catalogKind === "seller") {
-    if (source.ownerTenantId !== tenantId) throw notFoundError("Product source not found.");
+    if (source.ownerTenantId !== tenantId) throw notFoundError("Origem do produto não encontrada.");
     return;
   }
   const stores = await executor

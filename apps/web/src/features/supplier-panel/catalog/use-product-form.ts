@@ -7,7 +7,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supplierPanelSubmitProduct } from "./catalog.functions";
-import { supplierPanelCatalogKey } from "./catalog.queries";
+import { supplierPanelCatalogKey, supplierPanelProductFormQueryOptions } from "./catalog.queries";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import {
   completenessInput,
   editedFields,
@@ -52,6 +53,13 @@ export function useProductForm({ supplierId, productId, product, categories }: P
     initial: product,
     onSaved: (stored, sentStock) => {
       setSaved(stored);
+      queryClient.setQueryData(
+        supplierPanelProductFormQueryOptions(supplierId, stored.id).queryKey,
+        {
+          product: stored,
+          categories: [...categories],
+        },
+      );
       // A sale moved the shelf while the supplier left stock alone: show the real count.
       setValues((current) =>
         current.stock === String(sentStock) && stored.stock !== sentStock
@@ -63,14 +71,10 @@ export function useProductForm({ supplierId, productId, product, categories }: P
       });
     },
   });
-  const submit = useMutation({
-    mutationFn: async () => await supplierPanelSubmitProduct({ data: { supplierId, productId } }),
-    onSuccess: async (submitted) => {
-      setSaved(submitted);
-      toast.success("Produto enviado para análise");
-      await queryClient.invalidateQueries({ queryKey: supplierPanelCatalogKey(supplierId) });
-    },
-  });
+  const submit = useSubmitProduct(supplierId, productId, setSaved);
+  const canDiscard = useUnsavedChanges(autosave.hasUnsavedChanges(values), () =>
+    autosave.hasUnsavedChanges(values),
+  );
   const status: ProductReviewStatus = saved?.reviewStatus ?? "draft";
   const showsReasons = status === "rejected" || status === "draft";
   return {
@@ -86,5 +90,22 @@ export function useProductForm({ supplierId, productId, product, categories }: P
     edited,
     autosave,
     submit,
+    canDiscard,
   };
+}
+
+function useSubmitProduct(
+  supplierId: string,
+  productId: string,
+  onSaved: (product: SavedProduct) => void,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => await supplierPanelSubmitProduct({ data: { supplierId, productId } }),
+    onSuccess: async (submitted) => {
+      onSaved(submitted);
+      toast.success("Produto enviado para análise");
+      await queryClient.invalidateQueries({ queryKey: supplierPanelCatalogKey(supplierId) });
+    },
+  });
 }

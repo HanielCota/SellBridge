@@ -59,10 +59,10 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   },
   {
     key: "hasSupplier",
-    title: "Choose product sources",
-    description: "Sell your own products, supplier products, or both.",
+    title: "Escolher origem dos produtos",
+    description: "Venda seus próprios produtos, produtos de fornecedores ou os dois.",
     to: "/onboarding",
-    cta: "Choose product sources",
+    cta: "Escolher origem dos produtos",
     estimatedMinutes: 2,
   },
   {
@@ -97,10 +97,10 @@ export function getSetupSteps(progress: SetupProgress): readonly SetupStep[] {
     step.key === "hasPublishedListing"
       ? {
           ...step,
-          title: "Publish your products",
-          description: "Register your products and publish them to a connected store.",
+          title: "Publique seus produtos",
+          description: "Cadastre seus produtos e publique em uma loja conectada.",
           to: "/products",
-          cta: "Open my products",
+          cta: "Abrir meus produtos",
         }
       : step,
   );

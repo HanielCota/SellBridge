@@ -244,7 +244,7 @@ function OperationRow({
             ? row.shipments
                 .map(
                   (shipment) =>
-                    `${shipment.catalogKind === "seller" ? "Your shipment" : shipment.supplierName}: ${shipmentStatusLabel(shipment.status, shipment.catalogKind)}`,
+                    `${shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}: ${shipmentStatusLabel(shipment.status, shipment.catalogKind)}`,
                 )
                 .join(" · ")
             : "Shipments have not been prepared"}

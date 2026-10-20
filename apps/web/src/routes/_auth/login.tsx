@@ -179,6 +179,15 @@ function LoginPage() {
           Criar conta
         </Link>
       </p>
+      <p className="text-center text-sm text-muted-foreground">
+        Tem produtos para fornecer?{" "}
+        <Link
+          to="/cadastro/fornecedor"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
+        >
+          Cadastrar como fornecedor
+        </Link>
+      </p>
     </div>
   );
 }

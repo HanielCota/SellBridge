@@ -32,21 +32,21 @@ export function handleSellerProductImage(request: Request, admin: boolean) {
       "profileKind" in session &&
       (session.profileKind !== "seller" || session.impersonatedBy !== null)
     )
-      throw forbiddenError("Use the authorized product panel for this account.");
+      throw forbiddenError("Use o painel de produtos autorizado para esta conta.");
     assertUploadAllowed(productImageUploads, session.userId);
     const form = await readFormDataWithin(request, MAX_PRODUCT_IMAGE_BYTES + 64 * 1024);
-    if (form === null) throw validationError("Images must be no larger than 5 MB.");
+    if (form === null) throw validationError("As imagens devem ter no máximo 5 MB.");
     const scope = adminSellerProductScopeSchema
       .extend({ reason: adminProductReasonSchema })
       .safeParse({ tenantId: form.get("tenantId"), reason: form.get("reason") });
     if (admin && !scope.success)
-      throw validationError("Select a seller account and provide a reason for the upload.");
+      throw validationError("Selecione uma conta de revendedor e informe o motivo do envio.");
     const tenantId =
       admin && scope.success ? scope.data.tenantId : "tenantId" in session ? session.tenantId : "";
     const reason = admin && scope.success ? scope.data.reason : null;
     const file = form.get("file");
     if (!(file instanceof File) || file.size === 0 || file.size > MAX_PRODUCT_IMAGE_BYTES)
-      throw validationError("Select a PNG, JPG, or WebP image up to 5 MB.");
+      throw validationError("Selecione uma imagem PNG, JPG ou WebP de até 5 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     const type = checkProductImageBytes(bytes);
     const source = await ensureSellerCatalog(database, tenantId);

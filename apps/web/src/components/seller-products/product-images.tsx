@@ -65,11 +65,11 @@ function ImageLink({
   function add() {
     const url = link.trim();
     if (!isSupplierImageUrl(url)) {
-      setError("Use an HTTPS image URL.");
+      setError("Use um endereço de imagem que comece com HTTPS.");
       return;
     }
     if (images.includes(url)) {
-      setError("This image is already included.");
+      setError("Esta imagem já foi adicionada.");
       return;
     }
     onChange([...images, url]);
@@ -80,7 +80,7 @@ function ImageLink({
     <>
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
-          <Label htmlFor="seller-image-url">Image URL</Label>
+          <Label htmlFor="seller-image-url">Endereço da imagem</Label>
           <Input
             id="seller-image-url"
             value={link}
@@ -90,7 +90,7 @@ function ImageLink({
           />
         </div>
         <Button variant="secondary" disabled={disabled || link.trim() === ""} onClick={add}>
-          Add image
+          Adicionar imagem
         </Button>
       </div>
       {error ? (
@@ -113,12 +113,12 @@ function ProductGallery({
         <li key={`${index}-${url}`} className="space-y-2 rounded-xl border border-border p-3">
           <img
             src={url}
-            alt={`Product view ${index + 1}`}
+            alt={`Imagem do produto ${index + 1}`}
             className="h-32 w-full rounded-lg object-contain"
           />
           <div className="flex flex-wrap gap-2">
             {index === 0 ? (
-              <span className="text-sm">Cover</span>
+              <span className="text-sm">Capa</span>
             ) : (
               <Button
                 size="sm"
@@ -128,7 +128,7 @@ function ProductGallery({
                   onChange([url, ...images.filter((_, position) => position !== index)])
                 }
               >
-                Set cover {index + 1}
+                Definir como capa {index + 1}
               </Button>
             )}
             <Button
@@ -137,7 +137,7 @@ function ProductGallery({
               disabled={disabled}
               onClick={() => onChange(images.filter((_, position) => position !== index))}
             >
-              Remove image {index + 1}
+              Remover imagem {index + 1}
             </Button>
           </div>
         </li>
@@ -150,12 +150,12 @@ export function ProductImages(props: ImagesProps) {
   const upload = usePhotoUpload(props);
   const disabled = props.disabled || upload.sending;
   return (
-    <section aria-label="Product images" className="space-y-4">
-      <h2 className="text-lg font-semibold">Images</h2>
+    <section aria-label="Imagens do produto" className="space-y-4">
+      <h2 className="text-lg font-semibold">Imagens</h2>
       <p className="text-sm text-muted-foreground">
-        Up to 20 PNG, JPG, or WebP images, 5 MB each. The first image is the cover.
+        Até 20 imagens PNG, JPG ou WebP, com até 5 MB cada. A primeira imagem é a capa.
       </p>
-      <Label htmlFor="seller-image-files">Upload images</Label>
+      <Label htmlFor="seller-image-files">Enviar imagens</Label>
       <input
         id="seller-image-files"
         type="file"
@@ -169,7 +169,7 @@ export function ProductImages(props: ImagesProps) {
           void upload.upload(files);
         }}
       />
-      {upload.sending ? <output>Uploading images…</output> : null}
+      {upload.sending ? <output>Enviando imagens…</output> : null}
       <ImageLink
         images={props.images}
         onChange={props.onChange}

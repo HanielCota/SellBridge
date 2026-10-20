@@ -56,7 +56,7 @@ export function FulfillmentDialog({
         <DialogHeader>
           <DialogTitle>Operar pedido {order?.externalOrderId}</DialogTitle>
           <DialogDescription>
-            Prepare your shipments and track each parcel through delivery.
+            Prepare seus envios e acompanhe cada pacote até a entrega.
           </DialogDescription>
         </DialogHeader>
         {order ? <OrderOperations key={order.id} orderId={order.id} /> : null}
@@ -300,11 +300,11 @@ function OwnRestartButton({
       await onRestart();
     },
     onError: (error) => toast.error(errorMessage(error)),
-    onSuccess: () => toast.success("Preparation restarted"),
+    onSuccess: () => toast.success("Preparação retomada"),
   });
   return (
     <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
-      Restart preparation
+      Retomar preparação
     </Button>
   );
 }
@@ -405,8 +405,8 @@ function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
   return (
     <p className="text-xs text-muted-foreground">
       {ownsItems
-        ? "You prepare and ship your products; suppliers receive only their own items."
-        : "Each supplier receives only their own items. Share the access link shown in each supplier shipment."}
+        ? "Você prepara e envia seus produtos; cada fornecedor recebe apenas os itens dele."
+        : "Cada fornecedor recebe apenas os itens dele. Compartilhe o link de acesso exibido em cada envio do fornecedor."}
     </p>
   );
 }
@@ -487,7 +487,7 @@ function ForwardItems({ detail }: { detail: Detail }) {
           {item.quantity} × {item.title} ·{" "}
           <span className={item.supplierId ? "text-muted-foreground" : "text-destructive"}>
             {item.catalogKind === "seller"
-              ? "You fulfill this item"
+              ? "Você envia este item"
               : (item.supplierName ?? "Sem fornecedor vinculado")}
           </span>
         </li>

@@ -292,7 +292,7 @@ export async function saveAdminSupplierProduct(
 ) {
   const { supplierId, productId, expectedStock, ...values } = input;
   if (productId === undefined && values.stock < 0) {
-    throw validationError("New products cannot have negative stock");
+    throw validationError("Novos produtos não podem ter estoque negativo");
   }
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);

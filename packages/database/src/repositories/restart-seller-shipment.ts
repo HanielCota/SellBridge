@@ -23,13 +23,14 @@ export async function restartSellerShipment(
           eq(suppliers.ownerTenantId, tenantId),
         ),
       );
-    if (candidate === undefined) throw notFoundError("Own shipment not found.");
+    if (candidate === undefined) throw notFoundError("Seu envio não foi encontrado.");
     const [order] = await transaction
       .select({ status: orders.status })
       .from(orders)
       .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, tenantId)))
       .for("update");
-    if (order?.status !== "paid") throw conflictError("Only paid orders can restart preparation.");
+    if (order?.status !== "paid")
+      throw conflictError("Só é possível retomar a preparação de pedidos pagos.");
     const [shipment] = await transaction
       .update(orderShipments)
       .set({
@@ -49,7 +50,8 @@ export async function restartSellerShipment(
         ),
       )
       .returning({ id: orderShipments.id });
-    if (shipment === undefined) throw conflictError("Only stopped preparation can be restarted.");
+    if (shipment === undefined)
+      throw conflictError("Só é possível retomar uma preparação interrompida.");
     await recordRestart(transaction, shipmentId);
     return { shipmentId };
   });
@@ -61,13 +63,13 @@ async function recordRestart(transaction: Transaction, shipmentId: string) {
       shipmentId,
       status: "forwarded",
       actor: SHIPMENT_ACTORS.reseller,
-      note: "Own preparation restarted by the seller.",
+      note: "Preparação do envio retomada pelo revendedor.",
     },
     {
       shipmentId,
       status: "accepted",
       actor: SHIPMENT_ACTORS.reseller,
-      note: "Ready for the seller to prepare and ship.",
+      note: "Pronto para o revendedor preparar e enviar.",
     },
   ]);
 }

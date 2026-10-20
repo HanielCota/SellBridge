@@ -33,7 +33,7 @@ describe("setup progress", () => {
     const progress = { ...ALL_DONE, hasPublishedListing: false, productSourceMode: "own" as const };
     expect(findNextStep(progress)?.to).toBe("/products");
     expect(getSetupSteps(progress).find((step) => step.key === "hasPublishedListing")?.cta).toBe(
-      "Open my products",
+      "Abrir meus produtos",
     );
     expect(findNextStep({ ...progress, productSourceMode: "both" })?.to).toBe("/catalogo");
   });

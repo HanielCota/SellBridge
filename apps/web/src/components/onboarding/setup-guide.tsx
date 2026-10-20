@@ -38,7 +38,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     if (done) {
       return (
         <Button asChild variant="outline" className="w-fit">
-          <Link to="/perfil">Manage email</Link>
+          <Link to="/perfil">Gerenciar e-mail</Link>
         </Button>
       );
     }
@@ -49,7 +49,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     return (
       <Button asChild variant={done ? "outline" : "default"} className="w-fit">
         <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
-          {done ? (isHolder ? "Edit details" : "Edit product sources") : step.cta}
+          {done ? (isHolder ? "Editar dados" : "Editar origem dos produtos") : step.cta}
           <ArrowRightIcon aria-hidden="true" />
         </Link>
       </Button>
@@ -58,7 +58,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
   return (
     <Button asChild variant={done ? "outline" : "default"} className="w-fit">
       <Link to={step.to}>
-        {done ? (step.key === "hasStore" ? "Manage stores" : "Manage listings") : step.cta}
+        {done ? (step.key === "hasStore" ? "Gerenciar lojas" : "Gerenciar anúncios") : step.cta}
         <ArrowRightIcon aria-hidden="true" />
       </Link>
     </Button>
