@@ -28,7 +28,7 @@ async function createOwnProduct(page: Page) {
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
 }
 
-test("seller-owned product publishes through the worker to a supplier-free store", async ({
+test("seller-owned product publishes and archives through a supplier-free store", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -57,4 +57,16 @@ test("seller-owned product publishes through the worker to a supplier-free store
     page.getByText("No ar na Own Publishing Store", { exact: true }).filter({ visible: true }),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Your product", { exact: true })).toBeVisible();
+  await gotoHydrated(page, "/products");
+  await page.getByRole("button", { name: "Edit product", exact: true }).click();
+  await page.getByRole("button", { name: "Archive product", exact: true }).click();
+  await expect(page.getByText("Archived", { exact: true })).toBeVisible();
+  await gotoHydrated(page, "/publicacoes");
+  await expect(page.getByText("Product unavailable", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(
+      "This product is unavailable. Its listings stay paused until it becomes available again and you resume them.",
+      { exact: true },
+    ),
+  ).toBeVisible();
 });
