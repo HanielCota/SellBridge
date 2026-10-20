@@ -11,6 +11,7 @@ import {
   ChatsCircleIcon,
   CheckIcon,
   DownloadSimpleIcon,
+  EnvelopeSimpleIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
   PrinterIcon,
@@ -30,6 +31,7 @@ import {
   TruckIcon,
   UserCheckIcon,
   UserMinusIcon,
+  UserPlusIcon,
   UsersThreeIcon,
   FileArrowDownIcon,
   HeadsetIcon,
@@ -174,6 +176,12 @@ export const ACTION_ICONS = {
   },
   /** The team's support numbers; `chartKind` (bars) picks how a chart is drawn. */
   supportMetrics: { icon: ChartLineIcon, hint: "Tempo de resposta, volume e notas da equipe" },
+  inviteMember: {
+    icon: UserPlusIcon,
+    hint: "Mandar um convite por e-mail para alguém entrar na equipe",
+  },
+  /** An e-mail goes out again; the paper plane is `publish`. */
+  resendInvite: { icon: EnvelopeSimpleIcon, hint: "Manda o e-mail do convite de novo" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -221,6 +229,9 @@ export const TERM_HINTS = {
   supportRating: "Nota de 1 a 5 que o revendedor dá ao encerrar; — quando ninguém avaliou",
   agentOpen: "Chamados com esta pessoa que ainda esperam resposta",
   agentReplies: "Mensagens que a pessoa mandou aos revendedores no período",
+  staffRole:
+    "Atendente responde chamados; supervisor também distribui e vê métricas; administrador faz tudo",
+  invitePending: "A pessoa ainda não criou a senha pelo e-mail do convite",
   accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
   publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
   brandDescription: "Aparece no seu perfil, na página que os revendedores abrem",
@@ -254,6 +265,13 @@ export const SUPPLIER_NEXT_STEP_HINTS: Readonly<Record<string, string>> = {
   picking: "Marca que você começou a separar o pedido",
   ready: "Marca que o pedido está embalado e pronto para despachar",
   shipped: "Abre o pedido para informar a transportadora e o rastreio",
+};
+
+/** What each team role does, keyed like `STAFF_ROLE_LABELS`; the invite dialog shows the same words. */
+export const STAFF_ROLE_HINTS: Readonly<Record<string, string>> = {
+  agent: "Responde e organiza chamados",
+  supervisor: "Também distribui chamados para a equipe e vê as métricas do suporte",
+  admin: "Faz tudo, inclusive cuidar das contas dos clientes e dos fornecedores",
 };
 
 /** Legends for controls whose name alone does not say what happens. */

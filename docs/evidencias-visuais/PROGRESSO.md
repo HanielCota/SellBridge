@@ -521,4 +521,20 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support e accessibility 10/10. Nenhum teste alterado.
 
-**Próxima seção:** Administração · 4. Equipe (`/admin/equipe`).
+**Seção seguinte:** Administração · 4.
+
+## Administração · 4. Equipe — 2026-10-19 · commit "feat(admin): role hints and an invite icon of its own on the team page"
+
+**Proposta escolhida: A (legendas e ícone de convite próprio)**. Propostas: [página clicável](../propostas/admin/4-equipe/index.html) · [A](admin/4-equipe/2-proposta-a.png) · [B](admin/4-equipe/2-proposta-b.png) · [C](admin/4-equipe/2-proposta-c.png).
+
+| Mudança                                                                                                                                        | Arquivo                                                                                                       | Tela            | Antes                                                                                         | Depois                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Cargo" e em cada cargo, com o mesmo texto da janela de convite (agora `STAFF_ROLE_HINTS`, uma fonte só)                            | `routes/_app/admin/equipe.tsx`, `components/admin/team-invite-dialog.tsx`, `components/icons/action-icons.ts` | `/admin/equipe` | [desktop](admin/4-equipe/1-antes-desktop.png) · [convite](admin/4-equipe/1-antes-convite.png) | [desktop](admin/4-equipe/3-depois-desktop.png) · [convite](admin/4-equipe/3-depois-convite.png) · [claro](admin/4-equipe/3-depois-claro.png) · [celular](admin/4-equipe/3-depois-mobile.png) |
+| Legenda em "Convite enviado"                                                                                                                   | `equipe.tsx`                                                                                                  | Equipe          | —                                                                                             | (sem convite pendente no banco local; coberto pelo team.spec)                                                                                                                                |
+| "Convidar pessoa" com o ícone do dicionário e legenda; "Reenviar convite" troca o avião de papel (que é "Publicar") pelo envelope, com legenda | `equipe.tsx`                                                                                                  | Equipe          | [desktop](admin/4-equipe/1-antes-desktop.png)                                                 | [convidar](admin/4-equipe/3-depois-convidar.png)                                                                                                                                             |
+
+**Ícones:** novos inviteMember (UserPlus) e resendInvite (EnvelopeSimple).
+
+**Testes:** typecheck (fora o `fornecedores/index.tsx` em edição por outra sessão, sem relação), oxlint e Prettier limpos; Vitest web 853/853; e2e team e accessibility (páginas da equipe) 5/5. Nenhum teste alterado.
+
+**Área Administração concluída. Projeto de ícones e legendas concluído nas três áreas.**

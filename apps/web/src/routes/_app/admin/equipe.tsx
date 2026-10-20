@@ -2,7 +2,7 @@ import type { StaffMember } from "@sellbridge/database/repositories";
 import { STAFF_ROLE_LABELS, staffRoleOf } from "@sellbridge/shared/staff-access";
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PaperPlaneTiltIcon, UserPlusIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import { UsersThreeIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
@@ -18,7 +18,8 @@ import { adminListTeam, adminResendTeamInvite } from "@/features/admin/team.func
 import { errorMessage } from "@/lib/errors";
 import { initials } from "@/lib/initials";
 import { prefetchOnServer } from "@/lib/prefetch";
-import { DisabledHint } from "@/components/ui/hint";
+import { DisabledHint, Hint, HintedText } from "@/components/ui/hint";
+import { ACTION_ICONS, STAFF_ROLE_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 
 const teamQueryOptions = () => queryOptions({ queryKey: ["team"], queryFn: () => adminListTeam() });
 
@@ -29,6 +30,9 @@ export const Route = createFileRoute("/_app/admin/equipe")({
 });
 
 type MemberState = "active" | "invited" | "blocked";
+
+const InviteIcon = ACTION_ICONS.inviteMember.icon;
+const ResendIcon = ACTION_ICONS.resendInvite.icon;
 
 const STATE_TONE: Record<MemberState, { tone: StatusTone; label: string }> = {
   active: { tone: "success", label: "Ativa" },
@@ -43,9 +47,29 @@ function memberState(member: StaffMember): MemberState {
   return member.lastSeenAt === null ? "invited" : "active";
 }
 
-function roleLabel(role: string): string {
+function RoleLabel({ role }: { role: string }) {
   const staffRole = staffRoleOf(role);
-  return staffRole === null ? role : STAFF_ROLE_LABELS[staffRole];
+  if (staffRole === null) {
+    return role;
+  }
+  return (
+    <HintedText label={STAFF_ROLE_HINTS[staffRole] ?? ""} className="hinted-term">
+      {STAFF_ROLE_LABELS[staffRole]}
+    </HintedText>
+  );
+}
+
+function MemberStatus({ member }: { member: StaffMember }) {
+  const state = memberState(member);
+  const status = <ToneStatus {...STATE_TONE[state]} />;
+  if (state !== "invited") {
+    return status;
+  }
+  return (
+    <HintedText label={TERM_HINTS.invitePending} className="inline-flex">
+      {status}
+    </HintedText>
+  );
 }
 
 function MemberIdentity({ member }: { member: StaffMember }) {
@@ -81,17 +105,19 @@ function ResendInvite({ member, canInvite }: { member: StaffMember; canInvite: b
     return null;
   }
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled={resend.isPending}
-      onClick={() => resend.mutate()}
-      aria-label={`Reenviar convite para ${member.name}`}
-    >
-      <PaperPlaneTiltIcon aria-hidden="true" />
-      Reenviar convite
-    </Button>
+    <Hint label={ACTION_ICONS.resendInvite.hint} openOnTap={false}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={resend.isPending}
+        onClick={() => resend.mutate()}
+        aria-label={`Reenviar convite para ${member.name}`}
+      >
+        <ResendIcon aria-hidden="true" />
+        Reenviar convite
+      </Button>
+    </Hint>
   );
 }
 
@@ -102,13 +128,17 @@ const columns = columnHelper.columns([
     cell: (info) => <MemberIdentity member={info.row.original} />,
   }),
   columnHelper.accessor("role", {
-    header: "Cargo",
-    cell: (info) => roleLabel(info.getValue()),
+    header: () => (
+      <HintedText label={TERM_HINTS.staffRole} className="hinted-term">
+        Cargo
+      </HintedText>
+    ),
+    cell: (info) => <RoleLabel role={info.getValue()} />,
   }),
   columnHelper.display({
     id: "state",
     header: "Situação",
-    cell: (info) => <ToneStatus {...STATE_TONE[memberState(info.row.original)]} />,
+    cell: (info) => <MemberStatus member={info.row.original} />,
   }),
   columnHelper.accessor("lastSeenAt", {
     header: "Último acesso",
@@ -136,7 +166,7 @@ function MobileMemberRow({ member }: { member: StaffMember & { canInvite: boolea
       <MemberIdentity member={member} />
       <div className="flex flex-wrap items-center justify-between gap-2 pl-12">
         <p className="flex items-center gap-3 text-sm">
-          {roleLabel(member.role)}
+          <RoleLabel role={member.role} />
           <ToneStatus {...STATE_TONE[memberState(member)]} />
         </p>
         <ResendInvite member={member} canInvite={member.canInvite} />
@@ -168,10 +198,12 @@ function InviteButton({ canInvite, onClick }: { canInvite: boolean; onClick: () 
     <DisabledHint
       reason={canInvite ? undefined : "Só um dono da plataforma convida pessoas para a equipe"}
     >
-      <Button type="button" onClick={onClick} disabled={!canInvite}>
-        <UserPlusIcon aria-hidden="true" />
-        Convidar pessoa
-      </Button>
+      <Hint label={canInvite ? ACTION_ICONS.inviteMember.hint : undefined} openOnTap={false}>
+        <Button type="button" onClick={onClick} disabled={!canInvite}>
+          <InviteIcon aria-hidden="true" />
+          Convidar pessoa
+        </Button>
+      </Hint>
     </DisabledHint>
   );
 }
