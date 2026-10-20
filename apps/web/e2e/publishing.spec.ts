@@ -282,7 +282,9 @@ test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
   await gotoHydrated(page, `/publicacoes/nova?productId=${await outOfStockProductId()}`);
   await page.getByLabel("Título").fill("Produto esgotado no fornecedor");
   await page.getByRole("button", { name: "Publicar" }).click();
-  await expect(page.getByText(/sem estoque no fornecedor/).filter({ visible: true })).toBeVisible();
+  await expect(
+    page.getByText(/This product is out of stock/).filter({ visible: true }),
+  ).toBeVisible();
 });
 
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {

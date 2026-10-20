@@ -309,6 +309,13 @@
       "when": 1792456295971,
       "tag": "0043_product_source_choice",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792457686254,
+      "tag": "0044_publication_pause_intent",
+      "breakpoints": true
     }
   ]
 }

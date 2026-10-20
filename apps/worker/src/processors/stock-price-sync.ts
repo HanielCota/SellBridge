@@ -1,7 +1,6 @@
 import type { Database } from "@sellbridge/database";
 import {
   findTargetsNeedingSync,
-  markTargetSynced,
   markTargetSyncFailed,
   type TargetNeedingSync,
 } from "@sellbridge/database/repositories";
@@ -9,15 +8,12 @@ import type { ConnectorRegistry } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import {
-  expireStoreOnAuthError,
-  resolveStoreCredentials,
-  storeRateKey,
-} from "../lib/store-access.ts";
+import { expireStoreOnAuthError, resolveStoreCredentials } from "../lib/store-access.ts";
 import {
   DESCRIPTION_RUN_BUDGET_MILLISECONDS,
   resendPendingDescriptions,
 } from "./description-resend.ts";
+import { reconcilePublicationStock } from "./publication-stock.ts";
 
 export interface StockPriceSyncDependencies {
   database: Database;
@@ -61,15 +57,9 @@ async function syncOne(
       await recordSyncFailure(dependencies, target, MISSING_CREDENTIALS_REASON);
       return "store_lost";
     }
-    await dependencies.acquireRateLimit(storeRateKey(target.store));
-    await dependencies.connectors[target.store.marketplace].updateStockPrice(credentials, {
-      externalId: target.externalId,
-      stock: target.stock,
-      priceCents: target.priceCents,
-    });
-    await markTargetSynced(dependencies.database, target.targetId, {
-      stock: target.stock,
-      priceCents: target.priceCents,
+    await reconcilePublicationStock(dependencies, {
+      tenantId: target.tenantId,
+      targetId: target.targetId,
     });
     return "synced";
   } catch (error) {

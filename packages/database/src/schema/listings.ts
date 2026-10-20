@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -56,6 +57,8 @@ export const listingTargets = pgTable(
       .notNull()
       .references(() => storeConnections.id, { onDelete: "cascade" }),
     status: listingTargetStatusEnum().notNull().default("pending"),
+    /** Durable seller intent, including a marketplace creation already in flight. */
+    pauseRequested: boolean().notNull().default(false),
     externalId: text(),
     externalUrl: text(),
     errorReason: text(),

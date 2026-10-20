@@ -1,17 +1,11 @@
+import { stopProductPublications } from "./stop-product-publications.ts";
 import type { SellerProductStatus } from "@sellbridge/shared/seller-catalog-schemas";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import type { CatalogSaveDraftInput } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { toPaginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
-import {
-  categories,
-  listings,
-  listingTargets,
-  organization,
-  supplierProducts,
-  suppliers,
-} from "../schema/index.ts";
+import { categories, organization, supplierProducts, suppliers } from "../schema/index.ts";
 import { panelProductColumns, withPanelCompleteness } from "./supplier-panel-catalog.ts";
 import { saveSupplierPanelDraft } from "./supplier-panel-catalog-writes.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
@@ -185,24 +179,10 @@ export async function archiveSellerProduct(
       .update(supplierProducts)
       .set({ active: false })
       .where(eq(supplierProducts.id, productId));
-    const productListings = transaction
-      .select({ id: listings.id })
-      .from(listings)
-      .where(and(eq(listings.tenantId, tenantId), eq(listings.supplierProductId, productId)));
-    const paused = await transaction
-      .update(listingTargets)
-      .set({ status: "paused" })
-      .where(
-        and(
-          eq(listingTargets.tenantId, tenantId),
-          eq(listingTargets.status, "published"),
-          inArray(listingTargets.listingId, productListings),
-        ),
-      )
-      .returning({ id: listingTargets.id });
+    const pausedTargets = await stopProductPublications(transaction, tenantId, productId);
     return {
       product: await getSellerProduct(transaction, tenantId, productId),
-      pausedTargets: paused.length,
+      pausedTargets,
     };
   });
 }

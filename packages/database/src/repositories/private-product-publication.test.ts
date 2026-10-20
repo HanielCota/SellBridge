@@ -8,9 +8,10 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { setListingsPaused } from "./listing-actions.ts";
+import { resetListingErrorsForRetry, setListingsPaused } from "./listing-actions.ts";
+import { findTargetsNeedingSync } from "./listing-sync.ts";
 import { createListingWithTargets, markTargetPublished } from "./listings.ts";
-import { ensureSellerCatalog } from "./seller-catalog.ts";
+import { archiveSellerProduct, ensureSellerCatalog } from "./seller-catalog.ts";
 import { assertStoresSellSupplier, changeStoreSupplier } from "./store-suppliers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -137,5 +138,57 @@ describe("private product publication", () => {
       (await database.query.listingTargets.findFirst({ where: eq(listingTargets.id, targetId) }))
         ?.status,
     ).toBe("published");
+  });
+
+  it("clears a stopped queue only after an explicit retry of a ready product", async () => {
+    await archiveSellerProduct(database, tenants.tenantA, productId);
+    await expect(
+      resetListingErrorsForRetry(database, tenants.tenantA, [listingId], { billingEnabled: false }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await database
+      .update(supplierProducts)
+      .set({ active: true })
+      .where(eq(supplierProducts.id, productId));
+    const retried = await resetListingErrorsForRetry(database, tenants.tenantA, [listingId], {
+      billingEnabled: false,
+    });
+    expect(retried).toHaveLength(1);
+    const queued = await database.query.listingTargets.findFirst({
+      where: eq(listingTargets.id, retried[0] ?? ""),
+    });
+    expect(queued).toMatchObject({ status: "pending", pauseRequested: false });
+    expect(
+      await database.query.listingTargets.findFirst({ where: eq(listingTargets.id, targetId) }),
+    ).toMatchObject({ status: "paused", pauseRequested: true });
+  });
+
+  it("keeps stop intent in SQL stock sync even if a legacy writer records a live status", async () => {
+    await database
+      .update(listingTargets)
+      .set({ status: "published" })
+      .where(eq(listingTargets.id, targetId));
+    const targets = await findTargetsNeedingSync(database, 100_000);
+    expect(targets.find((target) => target.targetId === targetId)?.stock).toBe(0);
+  });
+
+  it("never replenishes a private source associated with another tenant", async () => {
+    const foreignSource = await ensureSellerCatalog(database, tenants.tenantB);
+    await database
+      .update(listingTargets)
+      .set({ pauseRequested: false })
+      .where(eq(listingTargets.id, targetId));
+    await database
+      .update(supplierProducts)
+      .set({ supplierId: foreignSource.id })
+      .where(eq(supplierProducts.id, productId));
+    try {
+      const targets = await findTargetsNeedingSync(database, 100_000);
+      expect(targets.find((target) => target.targetId === targetId)?.stock).toBe(0);
+    } finally {
+      await database
+        .update(supplierProducts)
+        .set({ supplierId: sourceId })
+        .where(eq(supplierProducts.id, productId));
+    }
   });
 });

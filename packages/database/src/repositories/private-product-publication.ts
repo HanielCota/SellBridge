@@ -2,6 +2,7 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
 import { storeConnections, supplierProducts, suppliers } from "../schema/index.ts";
+import { shareLockProductSource } from "./lock-product-source.ts";
 
 /** Checks private ownership and readiness under the same transaction as the publication. */
 export async function assertPrivateProductPublication(
@@ -10,6 +11,7 @@ export async function assertPrivateProductPublication(
   productId: string,
   storeIds: readonly string[],
 ) {
+  await shareLockProductSource(executor, productId);
   const [source] = await executor
     .select({
       kind: suppliers.catalogKind,
@@ -21,7 +23,7 @@ export async function assertPrivateProductPublication(
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(eq(supplierProducts.id, productId))
-    .for("share", { of: [suppliers, supplierProducts] });
+    .for("share", { of: [supplierProducts] });
   if (source?.kind !== "seller") return;
   if (source.owner !== tenantId) throw notFoundError("Product not found.");
   if (!source.active || !source.productActive || source.reviewStatus !== "approved") {
