@@ -1,3 +1,4 @@
+import { createFulfillmentParcels } from "./create-fulfillment-parcels.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
 import * as timing from "./shipment-timing.ts";
 import {
@@ -47,7 +48,7 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { FORWARD_CREDIT, type ForwardActor, supplierGroups } from "./supplier-groups.ts";
+import { type ForwardActor, supplierGroups } from "./supplier-groups.ts";
 import { hashSupplierToken, issueSupplierLink } from "./supplier-link.ts";
 
 /** The operations list's filters; dates are already resolved to Brazil calendar days. */
@@ -103,6 +104,7 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
           id: orderShipments.id,
           orderId: orderShipments.orderId,
           supplierName: suppliers.name,
+          catalogKind: suppliers.catalogKind,
           trackingCode: orderShipments.trackingCode,
           ...timing.shipmentTimingColumns,
         })
@@ -191,6 +193,7 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       quantity: orderItems.quantity,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       sku: supplierProducts.sku,
     })
     .from(orderItems)
@@ -206,6 +209,7 @@ function detailShipments(database: Database, tenantId: string, orderId: string) 
       id: orderShipments.id,
       supplierId: orderShipments.supplierId,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       address: orderShipments.address,
       items: orderShipments.items,
       notes: orderShipments.notes,
@@ -270,7 +274,6 @@ export async function forwardOrder(
   tenantId: string,
   input: z.infer<typeof forwardOrderSchema> & { actor?: ForwardActor },
 ) {
-  const credit = FORWARD_CREDIT[input.actor ?? "reseller"];
   return database.transaction(async (transaction) => {
     const [order] = await transaction
       .select()
@@ -286,36 +289,17 @@ export async function forwardOrder(
       .where(eq(orderShipments.orderId, order.id));
     if (existing.length) throw conflictError("Este pedido já foi encaminhado");
     const grouped = await supplierGroups(transaction, tenantId, order.id);
-    const links: { shipmentId: string; supplierId: string; token: string }[] = [];
-    for (const [supplierId, lines] of grouped) {
-      const link = issueSupplierLink();
-      const [shipment] = await transaction
-        .insert(orderShipments)
-        .values({
-          tenantId,
-          orderId: order.id,
-          supplierId,
-          address: input.address,
-          notes: input.notes,
-          items: lines.map(({ orderItemId, title, quantity, sku }) => ({
-            orderItemId,
-            title,
-            quantity,
-            sku: sku ?? "",
-          })),
-          supplierTokenHash: link.hash,
-          supplierTokenExpiresAt: link.expiresAt,
-        })
-        .returning({ id: orderShipments.id });
-      if (!shipment) throw new Error("Não foi possível encaminhar o pedido");
-      await transaction.insert(shipmentEvents).values({
-        shipmentId: shipment.id,
-        status: "forwarded",
-        ...credit,
-      });
-      links.push({ shipmentId: shipment.id, supplierId, token: link.token });
-    }
-    return links;
+    return createFulfillmentParcels(
+      {
+        transaction,
+        tenantId,
+        orderId: order.id,
+        address: input.address,
+        notes: input.notes,
+        actor: input.actor ?? "reseller",
+      },
+      grouped,
+    );
   });
 }
 
@@ -328,7 +312,13 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
     const [candidate] = await transaction
       .select({ orderId: orderShipments.orderId })
       .from(orderShipments)
-      .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.tenantId, tenantId)));
+      .where(
+        and(
+          eq(orderShipments.id, shipmentId),
+          eq(orderShipments.tenantId, tenantId),
+          publicShipmentSource(),
+        ),
+      );
     if (!candidate) throw notFoundError("Envio não encontrado");
     // The order first, like every other fulfillment write.
     const [order] = await transaction
@@ -367,6 +357,11 @@ export async function reforwardShipment(database: Database, tenantId: string, sh
   });
 }
 
+function publicShipmentSource() {
+  return sql`exists (select 1 from ${suppliers} where ${suppliers.id} = ${orderShipments.supplierId}
+    and ${suppliers.catalogKind} = 'supplier')`;
+}
+
 export async function rotateSupplierLink(database: Database, tenantId: string, shipmentId: string) {
   const link = issueSupplierLink();
   const [shipment] = await database
@@ -376,6 +371,7 @@ export async function rotateSupplierLink(database: Database, tenantId: string, s
       and(
         eq(orderShipments.id, shipmentId),
         eq(orderShipments.tenantId, tenantId),
+        publicShipmentSource(),
         inArray(orderShipments.status, ["forwarded", "accepted", "picking", "ready", "shipped"]),
       ),
     )
@@ -401,6 +397,7 @@ export async function getSupplierShipment(database: Database, token: string) {
       orderStatus: orders.status,
       marketplace: storeConnections.marketplace,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
@@ -409,6 +406,7 @@ export async function getSupplierShipment(database: Database, token: string) {
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
+        publicShipmentSource(),
         eq(orderShipments.supplierTokenHash, hashSupplierToken(token)),
         gt(orderShipments.supplierTokenExpiresAt, new Date()),
       ),
@@ -540,9 +538,10 @@ function shipmentAccessFilter(access: ShipmentAccess) {
     return eq(orderShipments.tenantId, access.tenantId);
   }
   if ("supplierId" in access) {
-    return eq(orderShipments.supplierId, access.supplierId);
+    return and(eq(orderShipments.supplierId, access.supplierId), publicShipmentSource());
   }
   return and(
+    publicShipmentSource(),
     eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
     gt(orderShipments.supplierTokenExpiresAt, new Date()),
   );

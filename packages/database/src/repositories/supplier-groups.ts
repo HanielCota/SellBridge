@@ -29,14 +29,24 @@ export async function supplierGroups(transaction: Transaction, tenantId: string,
       sku: supplierProducts.sku,
       supplierId: supplierProducts.supplierId,
       active: suppliers.active,
+      catalogKind: suppliers.catalogKind,
+      ownerTenantId: suppliers.ownerTenantId,
     })
     .from(orderItems)
     .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
     .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
   const linked = items.filter(
-    (item): item is (typeof items)[number] & { supplierId: string } =>
-      item.supplierId !== null && item.active === true,
+    (
+      item,
+    ): item is (typeof items)[number] & {
+      supplierId: string;
+      catalogKind: "supplier" | "seller";
+    } =>
+      item.supplierId !== null &&
+      item.active === true &&
+      (item.catalogKind === "supplier" ||
+        (item.catalogKind === "seller" && item.ownerTenantId === tenantId)),
   );
   if (!items.length || linked.length !== items.length)
     throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
