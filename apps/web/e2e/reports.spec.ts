@@ -257,7 +257,7 @@ test.describe("avisos", () => {
 });
 
 test.describe("busca global", () => {
-  test("Ctrl+K encontra um pedido e leva até ele no financeiro", async ({ page }) => {
+  test("Ctrl+K opens the selected order directly in operations", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
     const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
@@ -275,7 +275,14 @@ test.describe("busca global", () => {
     await input.fill("MOCK-ORD-0000");
     const order = page.getByRole("option", { name: /^MOCK-ORD-0000/ }).first();
     await expect(order).toBeVisible();
+    const externalOrderId = (await order.innerText()).match(/MOCK-ORD-\d+/)?.[0];
+    if (externalOrderId === undefined) throw new Error("Missing search result order number");
+    const profile = new URL(page.url()).searchParams.get("perfil");
     await order.click();
-    await expect(page).toHaveURL(/\/financeiro\?query=MOCK-ORD-0000/);
+    await expect(page).toHaveURL(/\/pedidos\/[0-9a-f-]{36}(?:\?|$)/);
+    await expect(
+      page.getByRole("heading", { name: `Pedido ${externalOrderId}`, exact: true }),
+    ).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("perfil")).toBe(profile);
   });
 });
