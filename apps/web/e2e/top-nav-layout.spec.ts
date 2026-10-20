@@ -50,4 +50,8 @@ test("seller header stays clear with a long account name", async ({ page }) => {
   await signUp(page, "Seller with a deliberately long account display name");
   await gotoHydrated(page, "/dashboard");
   await expectClearHeader(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(
+    page.getByText("Seller with a deliberately long account display name", { exact: true }),
+  ).toBeVisible();
 });

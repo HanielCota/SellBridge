@@ -42,7 +42,7 @@ type BadgeCounts = Record<NavBadge, number>;
 /**
  * Reserve the side controls before allocating space to the navigation capsule. Admin mode
  * uses denser tabs and an account badge. Both layouts move navigation into the menu below xl;
- * regular account names return at 1440px. Full class strings, so Tailwind sees them.
+ * regular account names stay compact until 1440px. Full class strings, so Tailwind sees them.
  */
 const LAYOUTS = {
   regular: {
@@ -52,8 +52,8 @@ const LAYOUTS = {
     sheetTrigger: "xl:hidden",
     // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
     tab: "px-3 text-[0.9375rem] gap-1.5",
-    // The translated tabs and a long account name need 1440px; the avatar stays below that.
-    accountName: "hidden sm:block lg:hidden min-[1440px]:block",
+    // Account names stay visible on desktop; their text is capped until the row has more room.
+    accountName: "hidden sm:block lg:hidden xl:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
     tabIcon: "hidden size-4 min-[1440px]:block",
     modeBadge: "hidden",
@@ -356,7 +356,9 @@ function AccountChip({
         ) : null}
       </span>
       <span className={cn("min-w-0 leading-tight", layout.accountName)}>
-        <span className="block max-w-40 truncate text-base font-medium">{user.name}</span>
+        <span className="block max-w-40 truncate text-base font-medium xl:max-w-24 min-[1440px]:max-w-40">
+          {user.name}
+        </span>
         {adminMode ? (
           <span className="flex items-center gap-1.5 text-sm font-medium whitespace-nowrap text-brand-text">
             <span className="size-1.5 rounded-full bg-brand-mark" aria-hidden="true" />
