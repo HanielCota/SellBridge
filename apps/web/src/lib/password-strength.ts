@@ -2,14 +2,8 @@ import { MIN_PASSWORD_LENGTH } from "@sellbridge/shared/schemas";
 
 export type PasswordStrength = "weak" | "medium" | "strong";
 
-/** Lowercase, uppercase, digit and symbol: each kind present adds one point. */
-const CHARACTER_KINDS = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/] as const;
-
-/** Each length reached adds one point, so a long passphrase can make up for fewer kinds. */
-const LENGTH_STEPS = [12, 16, 20] as const;
-
-const MEDIUM_SCORE = 3;
-const STRONG_SCORE = 5;
+/** One character past the minimum already counts as strong (product rule, PR #65). */
+const STRONG_LENGTH = MIN_PASSWORD_LENGTH + 1;
 
 /** Pieces people reach for first; what is left after removing them must still be long enough. */
 const PREDICTABLE_PIECES = [
@@ -36,15 +30,11 @@ function isPredictable(password: string): boolean {
   return withoutPredictablePieces(password).length < MIN_PASSWORD_LENGTH;
 }
 
-function strengthScore(password: string): number {
-  const kinds = CHARACTER_KINDS.filter((kind) => kind.test(password)).length;
-  const lengthSteps = LENGTH_STEPS.filter((step) => password.length >= step).length;
-  return kinds + lengthSteps;
-}
-
 /**
  * A quick guide for the person typing a new password, not a security check: the server still
- * enforces the minimum length and refuses breached passwords. Null while the field is empty.
+ * enforces the minimum length and refuses breached passwords. Below the minimum is weak, exactly
+ * the minimum is medium and anything longer is strong, unless the password is predictable.
+ * Null while the field is empty.
  */
 export function passwordStrength(password: string): PasswordStrength | null {
   if (password.length === 0) {
@@ -53,12 +43,8 @@ export function passwordStrength(password: string): PasswordStrength | null {
   if (password.length < MIN_PASSWORD_LENGTH || isPredictable(password)) {
     return "weak";
   }
-  const score = strengthScore(password);
-  if (score >= STRONG_SCORE) {
+  if (password.length >= STRONG_LENGTH) {
     return "strong";
   }
-  if (score >= MEDIUM_SCORE) {
-    return "medium";
-  }
-  return "weak";
+  return "medium";
 }

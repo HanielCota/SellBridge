@@ -74,7 +74,7 @@ test("cadastro mostra a força da senha enquanto ela é digitada", async ({ page
   await expect(strength).toHaveText("Senha média");
   await expect(page.getByText("Mínimo de 8 caracteres")).toBeHidden();
 
-  await password.fill("Casa7mar!sol");
+  await password.fill("Casa7mar!");
   await expect(strength).toHaveText("Senha forte");
 });
 
