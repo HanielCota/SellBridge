@@ -32,14 +32,32 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
 }
 
 /** The e-mail step resends the link; every other step opens its page. */
-function StepAction({ step }: { step: SetupStep }) {
+function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
   if (step.key === "hasVerifiedEmail") {
+    if (done) {
+      return (
+        <Button asChild variant="outline" className="w-fit">
+          <Link to="/perfil">Manage email</Link>
+        </Button>
+      );
+    }
     return <ResendVerificationButton label={step.cta} />;
   }
+  if (step.key === "hasHolder" || step.key === "hasSupplier") {
+    const isHolder = step.key === "hasHolder";
+    return (
+      <Button asChild variant={done ? "outline" : "default"} className="w-fit">
+        <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
+          {done ? (isHolder ? "Edit details" : "Change supplier") : step.cta}
+          <ArrowRightIcon aria-hidden="true" />
+        </Link>
+      </Button>
+    );
+  }
   return (
-    <Button asChild className="w-fit">
+    <Button asChild variant={done ? "outline" : "default"} className="w-fit">
       <Link to={step.to}>
-        {step.cta}
+        {done ? (step.key === "hasStore" ? "Manage stores" : "Manage listings") : step.cta}
         <ArrowRightIcon aria-hidden="true" />
       </Link>
     </Button>
@@ -90,7 +108,7 @@ function StepCard({
         )}
         <p className="text-sm text-muted-foreground">{step.description}</p>
       </div>
-      {state === "next" ? <StepAction step={step} /> : null}
+      <StepAction step={step} done={state === "done"} />
     </li>
   );
 }
@@ -162,9 +180,9 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
       <div className="flex-1 sm:max-w-48">
         <ProgressBar progress={progress} />
       </div>
-      <Button asChild size="sm" className="w-fit sm:ml-auto">
-        <Link to={next.to}>{next.cta}</Link>
-      </Button>
+      <div className="sm:ml-auto">
+        <StepAction step={next} />
+      </div>
     </aside>
   );
 }
