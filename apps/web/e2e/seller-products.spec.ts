@@ -22,7 +22,7 @@ async function createProduct(page: Page, sku: string) {
   await page.getByLabel("Unit cost (BRL)").fill("12,00");
   await page.getByLabel("Selling price (BRL)").fill("30,00");
   await page.getByLabel("Stock on hand").fill("7");
-  await page.getByLabel("Category", { exact: true }).selectOption({ label: "Casa e decoração" });
+  await page.getByLabel("Category", { exact: true }).selectOption({ index: 1 });
   await page
     .getByLabel("Upload images", { exact: true })
     .setInputFiles({ name: "product.png", mimeType: "image/png", buffer: PIXEL_PNG });
