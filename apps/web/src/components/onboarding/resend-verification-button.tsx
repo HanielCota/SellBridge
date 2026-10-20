@@ -8,7 +8,13 @@ import { authClient } from "@/lib/auth-client";
 const appRoute = getRouteApi("/_app");
 
 /** Sends the confirmation link again to the signed-in e-mail (item 26.b). */
-export function ResendVerificationButton({ label }: { label: string }) {
+export function ResendVerificationButton({
+  label,
+  className = "w-fit",
+}: {
+  label: string;
+  className?: string;
+}) {
   const { session } = appRoute.useRouteContext();
   const resend = useMutation({
     mutationFn: async () => {
@@ -24,7 +30,7 @@ export function ResendVerificationButton({ label }: { label: string }) {
     onError: (error) => toast.error(error.message),
   });
   return (
-    <Button className="w-fit" disabled={resend.isPending} onClick={() => resend.mutate()}>
+    <Button className={className} disabled={resend.isPending} onClick={() => resend.mutate()}>
       {resend.isPending ? "Enviando…" : label}
       <ArrowRightIcon aria-hidden="true" />
     </Button>

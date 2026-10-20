@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   completeOnboarding,
   fillBillingHolder,
@@ -7,12 +7,35 @@ import {
   signUp,
 } from "./helpers";
 
+async function expectSetupActionsInsideCards(page: Page) {
+  const cards = page.locator('section[aria-labelledby="setup-title"] ol > li');
+  await expect(cards).toHaveCount(5);
+  for (const width of [390, 768, 1024, 1280, 1366, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const card of await cards.all()) {
+      const action = card.getByRole("link").or(card.getByRole("button"));
+      const cardBox = await card.boundingBox();
+      const actionBox = await action.boundingBox();
+      if (cardBox === null || actionBox === null) throw new Error("Missing setup card or action");
+      expect(actionBox.x, `action left edge at ${width}px`).toBeGreaterThanOrEqual(cardBox.x - 1);
+      expect(actionBox.x + actionBox.width, `action right edge at ${width}px`).toBeLessThanOrEqual(
+        cardBox.x + cardBox.width + 1,
+      );
+      expect(
+        await action.evaluate((element) => element.scrollHeight <= element.clientHeight + 1),
+        `action text is not clipped at ${width}px`,
+      ).toBe(true);
+    }
+  }
+}
+
 test("completed details remain editable while supplier setup is unfinished", async ({ page }) => {
   test.setTimeout(120_000);
   await signUp(page, "Editable Setup Customer");
   await fillBillingHolder(page);
   await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
   await gotoHydrated(page, "/dashboard");
+  await expectSetupActionsInsideCards(page);
   await page.getByRole("link", { name: "Editar dados", exact: true }).click();
   await expect(page).toHaveURL(/step=details/);
   const name = page.getByLabel("Nome completo", { exact: true });
@@ -55,6 +78,7 @@ test("supplier edits can be cancelled and saved without resetting completed deta
   await completeOnboarding(page);
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
   await gotoHydrated(page, "/dashboard");
+  await expectSetupActionsInsideCards(page);
   await page.getByRole("link", { name: "Editar origem dos produtos", exact: true }).click();
   await expect(page).toHaveURL(/step=supplier/);
   const selected = page.getByRole("radio", { name: /BH Beauty Distribuidora/ });
