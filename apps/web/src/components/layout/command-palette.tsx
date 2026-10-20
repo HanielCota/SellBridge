@@ -23,6 +23,7 @@ import { useGlobalSearch } from "@/features/search/use-global-search";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { searchResultHref } from "@/features/search/search-targets";
+import { matchesCommand } from "@/features/navigation/command-matching";
 
 interface PageCommand {
   label: string;
@@ -32,6 +33,18 @@ interface PageCommand {
 }
 
 const PAGES: PageCommand[] = [
+  {
+    label: "Meus produtos",
+    to: "/products",
+    icon: PackageIcon,
+    keywords: "cadastrar cadastro criar editar estoque sku próprios",
+  },
+  {
+    label: "Meu cadastro",
+    to: "/onboarding",
+    icon: UserCircleIcon,
+    keywords: "onboarding dados cpf editar origem produtos fornecedor",
+  },
   {
     label: "Visão geral",
     to: "/dashboard",
@@ -80,14 +93,6 @@ const ACTIONS: ActionCommand[] = [
     keywords: "anunciar novo anúncio vender",
   },
 ];
-
-function matchesCommand(command: { label: string; keywords: string }, term: string): boolean {
-  const haystack = `${command.label} ${command.keywords}`.toLowerCase();
-  return term
-    .toLowerCase()
-    .split(/\s+/)
-    .every((word) => haystack.includes(word));
-}
 
 /** Ctrl+K / Cmd+K opens or closes the palette from anywhere. */
 function useOpenShortcut(setOpen: (update: (open: boolean) => boolean) => void) {

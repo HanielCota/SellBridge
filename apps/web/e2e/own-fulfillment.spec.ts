@@ -121,16 +121,16 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   })) {
     await dialog.getByLabel(label, { exact: true }).fill(value);
   }
-  await expect(dialog.getByText("You fulfill this item")).toBeVisible();
+  await expect(dialog.getByText("Você envia este item")).toBeVisible();
   await dialog.getByRole("button", { name: "Prepare shipments", exact: true }).click();
   const own = dialog
     .locator("section")
-    .filter({ has: page.getByRole("heading", { name: "Your shipment", exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: "Seu envio", exact: true }) });
   const external = dialog
     .locator("section")
     .filter({ has: page.getByText("External packing item", { exact: false }) });
   await expect(own.getByText("Private packing item", { exact: false })).toBeVisible();
-  await expect(own.getByText("Assigned to you", { exact: true })).toBeVisible();
+  await expect(own.getByText("Aguardando sua preparação", { exact: true })).toBeVisible();
   await expect(own.getByRole("button", { name: /link.*fornecedor/ })).toHaveCount(0);
   await expect(own.getByLabel("Link do fornecedor")).toHaveCount(0);
   const supplierLink = external.getByLabel("Link do fornecedor");
@@ -139,18 +139,18 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await gotoHydrated(supplier, await supplierLink.inputValue());
   await expect(supplier.getByText("External packing item", { exact: false })).toBeVisible();
   await expect(supplier.getByText("Private packing item", { exact: false })).toHaveCount(0);
-  await own.getByRole("button", { name: "Stop preparation", exact: true }).click();
+  await own.getByRole("button", { name: "Interromper preparação", exact: true }).click();
   const confirm = page.getByRole("dialog", {
-    name: "Stop your shipment preparation?",
+    name: "Interromper a preparação do seu envio?",
     exact: true,
   });
-  await confirm.getByLabel("Reason", { exact: true }).fill("Repack the parcel");
-  await confirm.getByRole("button", { name: "Stop preparation", exact: true }).click();
-  await own.getByRole("button", { name: "Restart preparation", exact: true }).click();
-  await own.getByRole("button", { name: "Start picking", exact: true }).click();
-  await own.getByRole("button", { name: "Mark ready to ship", exact: true }).click();
-  await own.getByLabel("Carrier", { exact: true }).fill("Postal Service");
-  await own.getByLabel("Tracking code", { exact: true }).fill("OWN123456BR");
+  await confirm.getByLabel("Motivo", { exact: true }).fill("Repack the parcel");
+  await confirm.getByRole("button", { name: "Interromper preparação", exact: true }).click();
+  await own.getByRole("button", { name: "Retomar preparação", exact: true }).click();
+  await own.getByRole("button", { name: "Iniciar separação", exact: true }).click();
+  await own.getByRole("button", { name: "Marcar como pronto para envio", exact: true }).click();
+  await own.getByLabel("Transportadora", { exact: true }).fill("Postal Service");
+  await own.getByLabel("Código de rastreio", { exact: true }).fill("OWN123456BR");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
@@ -162,14 +162,14 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   const popupPromise = page.waitForEvent("popup");
   await own.getByRole("button", { name: "Print packing list", exact: true }).click();
   const popup = await popupPromise;
-  await expect(popup.getByRole("heading", { name: "Packing list" })).toBeVisible();
+  await expect(popup.getByRole("heading", { name: "Lista de separação" })).toBeVisible();
   await expect(popup.getByText("Private packing item", { exact: true })).toBeVisible();
   await expect(popup.getByText("External packing item", { exact: true })).toHaveCount(0);
   await popup.close();
-  await own.getByRole("button", { name: "Record shipment", exact: true }).click();
+  await own.getByRole("button", { name: "Registrar envio", exact: true }).click();
   await expect(own.getByText("OWN123456BR", { exact: false })).toBeVisible();
-  await own.getByRole("button", { name: "Confirm delivery", exact: true }).click();
-  await expect(own.getByRole("button", { name: "Confirm delivery", exact: true })).toHaveCount(0);
+  await own.getByRole("button", { name: "Confirmar entrega", exact: true }).click();
+  await expect(own.getByRole("button", { name: "Confirmar entrega", exact: true })).toHaveCount(0);
   const [order] = await database.select().from(orders).where(eq(orders.id, orderId));
   expect(order?.status).toBe("paid");
   for (const label of [

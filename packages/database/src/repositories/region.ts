@@ -227,7 +227,7 @@ export async function saveProductSourceChoice(
         .from(suppliers)
         .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
         .for("share");
-      if (supplier === undefined) throw notFoundError("Supplier not found or inactive.");
+      if (supplier === undefined) throw notFoundError("Fornecedor não encontrado ou inativo.");
     }
     await upsertTenantProfile(transaction, {
       tenantId,

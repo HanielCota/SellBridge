@@ -8,7 +8,7 @@ test.describe("cadastro do revendedor", () => {
     const cpf = testCpf();
     await signUp(page, "Revendedor Onboarding");
     await expect(page).toHaveURL(/\/onboarding/);
-    await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Configure sua conta" })).toBeVisible();
     await expect(page.getByText("Etapa 1 de 2 · Seus dados")).toBeVisible();
     await expect(
       page.getByText(
@@ -30,25 +30,25 @@ test.describe("cadastro do revendedor", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
 
     // No address: the second step picks the supplier, from any state.
-    await expect(page.getByText("Etapa 2 de 2 · Product sources")).toBeVisible();
+    await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
     await expect(page.getByLabel("CEP")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Save product sources", exact: true }),
+      page.getByRole("button", { name: "Salvar origem dos produtos", exact: true }),
     ).toBeDisabled();
 
     // Going back keeps the saved data.
-    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("button", { name: "Voltar" }).click();
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
     await expect(page.getByLabel("Telefone com DDD")).toHaveValue(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await pickSupplier(page, "Rio Pet Atacado");
-    await page.getByRole("button", { name: "Save product sources" }).click();
+    await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
 
     // After the profile the guide sends to the next step (stores).
     await expect(page).toHaveURL(/\/lojas/);
     await gotoHydrated(page, "/onboarding");
-    await expect(page.getByRole("heading", { name: "Setup settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meu cadastro" })).toBeVisible();
     await expect(page.getByLabel("Nome completo")).toHaveValue("Revendedor Onboarding");
     await expect(page.getByLabel("CPF")).toHaveValue(cpf);
     await expect(page.getByLabel("Telefone com DDD")).toHaveValue(PHONE);
@@ -61,7 +61,7 @@ test.describe("cadastro do revendedor", () => {
     await page.getByLabel("CPF").fill(cpf);
     await page.getByLabel("Telefone com DDD").fill(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
-    await expect(page.getByText("Etapa 2 de 2 · Product sources")).toBeVisible();
+    await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
 
     await page.context().clearCookies();
     await signUp(page, "Segunda Conta");

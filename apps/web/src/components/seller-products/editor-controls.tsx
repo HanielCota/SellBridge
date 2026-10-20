@@ -11,14 +11,14 @@ export function productStatus(
   product: { active: boolean; reviewStatus: string },
   origin: "seller" | "supplier" = "seller",
 ) {
-  if (product.reviewStatus === "rejected") return origin === "seller" ? "Blocked" : "Rejected";
-  if (!product.active) return "Archived";
-  if (product.reviewStatus === "in_review") return "Under review";
+  if (product.reviewStatus === "rejected") return origin === "seller" ? "Bloqueado" : "Reprovado";
+  if (!product.active) return "Arquivado";
+  if (product.reviewStatus === "in_review") return "Em análise";
   return product.reviewStatus === "approved"
     ? origin === "seller"
-      ? "Ready"
-      : "Approved"
-    : "Draft";
+      ? "Pronto para publicar"
+      : "Aprovado"
+    : "Rascunho";
 }
 
 interface ControlsProps {
@@ -34,7 +34,7 @@ function CustomerControls({ form, action, settled }: ControlsProps) {
       <PublishCatalogLink form={form} settled={settled} />
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <Label htmlFor="duplicate-sku">SKU for duplicate</Label>
+          <Label htmlFor="duplicate-sku">Código do produto duplicado (SKU)</Label>
           <Input
             id="duplicate-sku"
             value={newSku}
@@ -49,7 +49,7 @@ function CustomerControls({ form, action, settled }: ControlsProps) {
             action.mutate({ kind: "duplicate", newSku, newProductId: crypto.randomUUID() })
           }
         >
-          Duplicate as draft
+          Duplicar como rascunho
         </Button>
       </div>
     </>
@@ -69,20 +69,20 @@ export function EditorControls({
         disabled={!form.canSave || action.isPending || form.state.kind === "conflict"}
         onClick={() => void form.save()}
       >
-        Save now
+        Salvar agora
       </Button>
       <Button
         disabled={!settled || !form.report.canSubmit || form.saved?.reviewStatus === "rejected"}
         onClick={() => action.mutate({ kind: "activate" })}
       >
-        Make ready
+        Deixar pronto para publicar
       </Button>
       <Button
         variant="outline"
         disabled={!settled}
         onClick={() => action.mutate({ kind: "archive" })}
       >
-        Archive product
+        Arquivar produto
       </Button>
       {admin ? (
         <>
@@ -91,14 +91,14 @@ export function EditorControls({
             disabled={!settled}
             onClick={() => action.mutate({ kind: "block" })}
           >
-            Block product
+            Bloquear produto
           </Button>
           <Button
             variant="outline"
             disabled={!settled || form.saved?.reviewStatus !== "rejected"}
             onClick={() => action.mutate({ kind: "unblock" })}
           >
-            Remove block
+            Remover bloqueio
           </Button>
         </>
       ) : (
@@ -114,11 +114,11 @@ export function EditorControls({
 }
 
 function saveStatus(form: SellerProductEditor) {
-  if (!form.canSave) return "Enter a reason before changes can be saved.";
-  if (form.state.kind === "saving") return "Saving…";
-  if (form.state.kind === "saved" && !form.dirty) return "All changes saved";
-  if (form.state.kind === "needs-sku") return "Enter a SKU to start saving.";
-  return form.dirty ? "Unsaved changes" : "No unsaved changes";
+  if (!form.canSave) return "Informe o motivo antes de salvar as alterações.";
+  if (form.state.kind === "saving") return "Salvando…";
+  if (form.state.kind === "saved" && !form.dirty) return "Todas as alterações foram salvas";
+  if (form.state.kind === "needs-sku") return "Informe um código (SKU) para começar a salvar.";
+  return form.dirty ? "Alterações não salvas" : "Nenhuma alteração pendente";
 }
 
 export function EditorFeedback({ form }: { form: SellerProductEditor }) {
@@ -146,7 +146,7 @@ export function EditorFeedback({ form }: { form: SellerProductEditor }) {
       ) : null}
       {form.report.blocking.length > 0 ? (
         <aside className="rounded-xl bg-muted p-4">
-          <h2 className="font-medium">Before publishing</h2>
+          <h2 className="font-medium">Antes de publicar</h2>
           <ul className="list-inside list-disc">
             {form.report.blocking.map((issue) => (
               <li key={issue.rule}>{issue.message}</li>
@@ -162,13 +162,13 @@ function PublishCatalogLink({ form, settled }: Pick<ControlsProps, "form" | "set
   if (!settled || form.saved?.reviewStatus !== "approved" || !form.saved.active)
     return (
       <Button variant="secondary" disabled>
-        Publish product
+        Publicar produto
       </Button>
     );
   return (
     <Button asChild variant="secondary">
       <Link to="/publicacoes/nova" search={{ productId: form.saved.id }}>
-        Publish product
+        Publicar produto
       </Link>
     </Button>
   );

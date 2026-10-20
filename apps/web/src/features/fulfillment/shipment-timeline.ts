@@ -28,15 +28,15 @@ export function shipmentTimeline<Event extends { createdAt: Date | string }>(
 }
 
 const SELLER_FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
-  forwarded: "Assigned to you",
-  accepted: "Preparation accepted",
-  picking: "Picking",
-  ready: "Ready to ship",
-  shipped: "Shipped",
-  delivered: "Delivered",
-  not_delivered: "Delivery issue",
-  returned: "Returned",
-  cancelled: "Preparation stopped",
+  forwarded: "Aguardando sua preparação",
+  accepted: "Preparação aceita",
+  picking: "Em separação",
+  ready: "Pronto para envio",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  not_delivered: "Problema na entrega",
+  returned: "Devolvido",
+  cancelled: "Preparação interrompida",
 };
 
 export function shipmentStatusLabel(

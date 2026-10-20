@@ -15,9 +15,9 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { errorMessage } from "@/lib/errors";
 
 const DESCRIPTIONS: Record<ProductSourceMode, string> = {
-  own: "Register your products and handle stock and shipping yourself.",
-  suppliers: "Choose a supplier who stocks and ships their products to your customers.",
-  both: "Sell your own products alongside products shipped by suppliers.",
+  own: "Cadastre seus produtos e cuide do estoque e do envio.",
+  suppliers: "Escolha um fornecedor que mantém o estoque e envia os produtos aos seus clientes.",
+  both: "Venda seus próprios produtos junto com produtos enviados por fornecedores.",
 };
 
 function SourceModePicker({
@@ -31,7 +31,7 @@ function SourceModePicker({
 }) {
   return (
     <fieldset disabled={disabled} className="grid min-w-0 gap-3">
-      <legend className="mb-3 text-subhead font-semibold">Which products will you sell?</legend>
+      <legend className="mb-3 text-subhead font-semibold">Quais produtos você vai vender?</legend>
       {PRODUCT_SOURCE_MODES.map((mode) => (
         <label
           key={mode}
@@ -117,7 +117,7 @@ function SourceChoiceActions({
         }}
       >
         <ArrowLeftIcon aria-hidden="true" />
-        Back
+        Voltar
       </Button>
       <Button
         type="button"
@@ -128,10 +128,10 @@ function SourceChoiceActions({
         }}
       >
         {saving.isSaved
-          ? "Product sources saved"
+          ? "Origem dos produtos salva"
           : saving.isSaving
-            ? "Saving…"
-            : "Save product sources"}
+            ? "Salvando…"
+            : "Salvar origem dos produtos"}
         <ArrowRightIcon aria-hidden="true" />
       </Button>
     </div>
@@ -157,11 +157,11 @@ export function ProductSourceChoice({
         disabled={saving.isSaving || saving.isSaved}
       />
       <p className="text-sm text-muted-foreground">
-        You can change this choice later. Existing stores, listings, stock, and orders keep their
-        current settings. The selected supplier is the default for your next store.
+        Você pode mudar esta escolha depois. Lojas, anúncios, estoque e pedidos existentes mantêm as
+        configurações atuais. O fornecedor escolhido será o padrão da sua próxima loja.
       </p>
       {mode === "own" ? null : (
-        <fieldset disabled={saving.isSaving || saving.isSaved} aria-label="Supplier selection">
+        <fieldset disabled={saving.isSaving || saving.isSaved} aria-label="Escolha do fornecedor">
           <SupplierPicker value={supplierId} onChange={(supplier) => setSupplierId(supplier.id)} />
         </fieldset>
       )}

@@ -21,7 +21,8 @@ export async function stopProductPublications(
     .update(listingTargets)
     .set({
       status: "error",
-      errorReason: "Product archived. Restore it and retry this publication when ready.",
+      errorReason:
+        "Produto arquivado. Restaure-o e tente publicar novamente quando estiver pronto.",
     })
     .where(and(scope, eq(listingTargets.status, "pending")));
   const paused = await executor

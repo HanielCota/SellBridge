@@ -39,15 +39,15 @@ describe("shipment print documents", () => {
   it("prints own parcels as escaped packing lists without supplier instructions", () => {
     const own = { ...shipment, catalogKind: "seller" as const, notes: "<img src=x>" };
     const html = shipmentDocument(own, "<order>", "order");
-    expect(html).toContain("Packing list");
-    expect(html).toContain("Your shipment:");
+    expect(html).toContain("Lista de separação");
+    expect(html).toContain("Seu envio:");
     expect(html).not.toContain("Fornecedor:");
     expect(html).toContain("&lt;img src=x&gt;");
     expect(html).toContain("&lt;order&gt;");
     expect(html).toContain("SKU1");
-    expect(html).toContain("does not replace the carrier's postage label");
+    expect(html).toContain("não substitui a etiqueta de postagem da transportadora");
     const label = shipmentDocument(own, "ORDER1", "label");
-    expect(label).toContain("Parcel identification");
+    expect(label).toContain("Identificação do pacote");
     expect(label).not.toContain("SKU1");
   });
 });

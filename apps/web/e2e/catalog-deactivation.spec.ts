@@ -133,7 +133,7 @@ test("admin desativa um produto e o revendedor vê o anúncio pausado e o aviso"
     .filter({ has: reseller.getByText(productTitle, { exact: true }) })
     // While the route settles the list can render twice for a moment.
     .first();
-  await expect(card.getByText("Product unavailable")).toBeVisible();
+  await expect(card.getByText("Produto indisponível")).toBeVisible();
 
   await reseller.getByRole("button", { name: /^Avisos/ }).click();
   await expect(reseller.getByText(`Anúncio pausado: ${productTitle}`)).toBeVisible();

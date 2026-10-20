@@ -23,12 +23,12 @@ const onboardingSearchSchema = z.object({
 
 export const Route = createFileRoute("/_app/onboarding")({
   validateSearch: onboardingSearchSchema,
-  head: () => ({ meta: [{ title: "Setup settings | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Meu cadastro | SellBridge" }] }),
   loader: () => getOnboardingProfile(),
   component: OnboardingPage,
 });
 
-const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Product sources" }] as const;
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Origem dos produtos" }] as const;
 
 /** Minutes of the two steps of this page, from the setup estimates (item 26.c). */
 const SIGNUP_MINUTES = SETUP_STEPS.filter(
@@ -70,18 +70,18 @@ function OnboardingStepEditor({
       <Button asChild variant="ghost">
         <Link to="/dashboard">
           <ArrowLeftIcon aria-hidden="true" />
-          Back to setup
+          Voltar ao painel
         </Link>
       </Button>
       <PageHeader
-        title={step === "details" ? "Your details" : "Your product sources"}
-        description="Review your saved settings. You can return and update them at any time."
+        title={step === "details" ? "Seus dados" : "Origem dos seus produtos"}
+        description="Confira os dados salvos. Você pode voltar e editar quando quiser."
       />
       <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
         {step === "details" ? (
           <HolderForm
             holder={profile.holder}
-            submitLabel={saved ? "Details saved" : "Save details"}
+            submitLabel={saved ? "Dados salvos" : "Salvar dados"}
             onSaved={async () => {
               await router.invalidate();
               setSaved(true);
@@ -134,8 +134,8 @@ function FirstVisit({ profile }: { profile: OnboardingProfile }) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
-        title="Set up your account"
-        description={`Save your details and choose your product sources in about ${SIGNUP_MINUTES} minutes.`}
+        title="Configure sua conta"
+        description={`Salve seus dados e escolha a origem dos produtos em cerca de ${SIGNUP_MINUTES} minutos.`}
       />
       <section
         aria-label="Cadastro"

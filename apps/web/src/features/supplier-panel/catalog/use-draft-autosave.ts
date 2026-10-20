@@ -46,5 +46,9 @@ export function useDraftAutosave({
     const timer = window.setTimeout(() => void autosaver.flush(), AUTOSAVE_DELAY_MILLISECONDS);
     return () => window.clearTimeout(timer);
   }, [autosaver, values]);
-  return { state, retry: () => void autosaver.flush() };
+  return {
+    state,
+    retry: () => void autosaver.flush(),
+    hasUnsavedChanges: (current = values) => autosaver.hasUnsavedChanges(current),
+  };
 }

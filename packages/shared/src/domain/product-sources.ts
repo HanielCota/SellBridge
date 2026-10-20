@@ -10,15 +10,15 @@ export const productSourceChoiceSchema = z
   })
   .refine((choice) => choice.mode === "own" || choice.supplierId != null, {
     path: ["supplierId"],
-    error: "Choose a supplier for supplier products.",
+    error: "Escolha um fornecedor para vender os produtos dele.",
   });
 
 export type ProductSourceChoice = z.infer<typeof productSourceChoiceSchema>;
 
 export const PRODUCT_SOURCE_LABELS: Record<ProductSourceMode, string> = {
-  own: "My own products",
-  suppliers: "Supplier products",
-  both: "Own and supplier products",
+  own: "Meus próprios produtos",
+  suppliers: "Produtos de fornecedores",
+  both: "Produtos próprios e de fornecedores",
 };
 
 export function isProductSourceSetupComplete(

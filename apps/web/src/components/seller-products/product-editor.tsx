@@ -39,7 +39,7 @@ export function ProductEditor(props: EditorProps) {
             data: { tenantId: props.adminTenantId, productId: props.productId },
           }),
   });
-  if (query.isPending) return <output>Loading product…</output>;
+  if (query.isPending) return <output>Carregando produto…</output>;
   if (query.isError)
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   return (
@@ -64,15 +64,15 @@ function InterventionReason({
 }) {
   return (
     <div className="surface-card space-y-2 rounded-2xl bg-card p-5">
-      <Label htmlFor="product-admin-reason">Reason for intervention</Label>
+      <Label htmlFor="product-admin-reason">Motivo da alteração administrativa</Label>
       <Input
         id="product-admin-reason"
         value={reason}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Explain the correction or operational action"
+        placeholder="Explique a correção ou ação realizada"
       />
       <p className="text-sm text-muted-foreground">
-        Every saved change and action records your identity and this reason.
+        Cada alteração salva e cada ação registra sua identificação e este motivo.
       </p>
     </div>
   );
@@ -105,6 +105,7 @@ function LoadedEditor({
             onChange={form.change}
             categories={data.categories}
             required={form.required}
+            reservedStock={form.saved?.reservedStock ?? 0}
           />
           <ProductImages
             images={form.values.imageUrls}
@@ -138,8 +139,8 @@ function LoadedEditor({
 function EditorHeader({ form, onBack }: { form: SellerProductEditor; onBack: () => void }) {
   return (
     <PageHeader
-      title={form.saved === null ? "New product" : form.values.title || "Edit product"}
-      description="Your private inventory. Creating a product does not publish a marketplace listing."
+      title={form.saved === null ? "Novo produto" : form.values.title || "Editar produto"}
+      description="Seu estoque particular. Cadastrar um produto não cria um anúncio no marketplace."
       back={
         <Button
           variant="ghost"
@@ -147,7 +148,7 @@ function EditorHeader({ form, onBack }: { form: SellerProductEditor; onBack: () 
             if (form.canDiscard()) onBack();
           }}
         >
-          Back to products
+          Voltar aos produtos
         </Button>
       }
       actions={form.saved ? <span>{productStatus(form.saved)}</span> : undefined}

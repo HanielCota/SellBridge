@@ -181,9 +181,7 @@ function StoreSupplierLine({
 }) {
   if (store.supplierId === null && ownProducts) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Your products · stock and shipping handled by you
-      </p>
+      <p className="text-sm text-muted-foreground">Seus produtos · estoque e envio por sua conta</p>
     );
   }
   if (store.supplierId === null || supplier === undefined) {

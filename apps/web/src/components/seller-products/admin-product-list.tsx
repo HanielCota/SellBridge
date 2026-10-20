@@ -22,7 +22,7 @@ export function AdminProductsToolbar({
   return (
     <div className="flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
-        <Label htmlFor="admin-product-search">Search product, SKU, customer, or supplier</Label>
+        <Label htmlFor="admin-product-search">Buscar produto, código, cliente ou fornecedor</Label>
         <Input
           id="admin-product-search"
           value={search.query ?? ""}
@@ -30,7 +30,7 @@ export function AdminProductsToolbar({
         />
       </div>
       <div>
-        <Label htmlFor="admin-product-origin">Product origin</Label>
+        <Label htmlFor="admin-product-origin">Origem do produto</Label>
         <select
           id="admin-product-origin"
           className="h-11 rounded-xl border border-input bg-background px-3"
@@ -42,14 +42,14 @@ export function AdminProductsToolbar({
             })
           }
         >
-          <option value="all">All origins</option>
-          <option value="seller">Seller owned</option>
-          <option value="supplier">Supplier catalog</option>
+          <option value="all">Todas as origens</option>
+          <option value="seller">Produto próprio do revendedor</option>
+          <option value="supplier">Catálogo de fornecedores</option>
         </select>
       </div>
       {search.tenantId ? (
         <Button variant="outline" onClick={() => onChange({ tenantId: undefined, page: 1 })}>
-          Clear customer filter
+          Limpar filtro de cliente
         </Button>
       ) : null}
     </div>
@@ -63,15 +63,15 @@ export function AdminProductCards({
   products: AdminProducts;
   onOpen: (tenantId: string, productId: string) => void;
 }) {
-  if (products.length === 0) return <p>No products match these filters.</p>;
+  if (products.length === 0) return <p>Nenhum produto encontrado com estes filtros.</p>;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map((row) => (
         <li key={row.product.id} className="surface-card space-y-3 rounded-2xl bg-card p-5">
-          <h2 className="font-semibold">{row.product.title || "Untitled draft"}</h2>
+          <h2 className="font-semibold">{row.product.title || "Rascunho sem título"}</h2>
           <p>
             {row.ownerName ?? row.sourceName} ·{" "}
-            {row.origin === "seller" ? "Seller owned" : "Supplier catalog"}
+            {row.origin === "seller" ? "Produto próprio do revendedor" : "Catálogo de fornecedores"}
           </p>
           <p>
             {row.product.sku} · {productStatus(row.product, row.origin)}
@@ -79,7 +79,7 @@ export function AdminProductCards({
           {row.tenantId === null ? (
             <Button asChild variant="outline">
               <Link to="/admin/fornecedores/$supplierId" params={{ supplierId: row.sourceId }}>
-                Manage supplier catalog
+                Gerenciar catálogo do fornecedor
               </Link>
             </Button>
           ) : (
@@ -89,7 +89,7 @@ export function AdminProductCards({
                 if (row.tenantId !== null) onOpen(row.tenantId, row.product.id);
               }}
             >
-              Manage customer product
+              Gerenciar produto do cliente
             </Button>
           )}
         </li>

@@ -81,9 +81,9 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   await expect(page.getByText("Confira o CNPJ: os dígitos não batem")).toBeVisible();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000181");
   await page.getByRole("button", { name: "Continuar" }).click();
-  await expect(page.getByText("Etapa 2 de 2 · Product sources")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
   await pickSupplier(page, "BH Beauty Distribuidora");
-  await page.getByRole("button", { name: "Save product sources" }).click();
+  await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
 
   await gotoHydrated(page, "/onboarding");

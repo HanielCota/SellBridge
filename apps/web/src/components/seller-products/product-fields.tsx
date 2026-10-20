@@ -7,21 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 
 const FIELDS = [
   { key: "sku", label: "SKU" },
-  { key: "title", label: "Product title" },
-  { key: "cost", label: "Unit cost (BRL)" },
-  { key: "suggestedPrice", label: "Selling price (BRL)" },
-  { key: "stock", label: "Stock on hand" },
+  { key: "title", label: "Nome do produto" },
+  { key: "cost", label: "Custo por unidade (R$)" },
+  { key: "suggestedPrice", label: "Preço de venda (R$)" },
+  { key: "stock", label: "Estoque total" },
 ] as const;
 interface FieldsProps {
   values: PanelFormValues;
   onChange: (values: Partial<PanelFormValues>) => void;
 }
 interface ProductFieldsProps extends FieldsProps {
+  reservedStock: number;
   categories: SellerProductFormData["categories"];
   required: readonly { id: string; label: string }[];
 }
 
-function TextFields({ values, onChange }: FieldsProps) {
+function TextFields({ values, onChange, reservedStock }: FieldsProps & { reservedStock: number }) {
   return (
     <>
       {FIELDS.map(({ key, label }) => (
@@ -39,6 +40,13 @@ function TextFields({ values, onChange }: FieldsProps) {
             }
             onChange={(event) => onChange({ [key]: event.target.value })}
           />
+          {key === "stock" ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Inclui {reservedStock}{" "}
+              {reservedStock === 1 ? "unidade reservada" : "unidades reservadas"}. As reservas não
+              ficam disponíveis para novas vendas.
+            </p>
+          ) : null}
         </div>
       ))}
     </>
@@ -56,14 +64,16 @@ function ProductAttributes({
   return (
     <details className="sm:col-span-2 rounded-xl border border-border p-4">
       <summary className="cursor-pointer font-medium">
-        Marketplace attributes and package measurements
+        Dados do marketplace e medidas da embalagem
       </summary>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {attributes.map((id) => (
           <div key={id}>
             <Label htmlFor={`seller-attribute-${id}`}>
-              {id.replaceAll("_", " ")}
-              {required.some((item) => item.id === id) ? " (required)" : ""}
+              {required.find((item) => item.id === id)?.label ??
+                COMMON_ATTRIBUTES.find((item) => item.id === id)?.label ??
+                id}
+              {required.some((item) => item.id === id) ? "(obrigatório)" : ""}
             </Label>
             <Input
               id={`seller-attribute-${id}`}
@@ -79,19 +89,25 @@ function ProductAttributes({
   );
 }
 
-export function ProductFields({ values, onChange, categories, required }: ProductFieldsProps) {
+export function ProductFields({
+  values,
+  onChange,
+  categories,
+  required,
+  reservedStock,
+}: ProductFieldsProps) {
   return (
     <div className="grid gap-5 sm:grid-cols-2">
-      <TextFields values={values} onChange={onChange} />
+      <TextFields values={values} onChange={onChange} reservedStock={reservedStock} />
       <div>
-        <Label htmlFor="seller-category">Category</Label>
+        <Label htmlFor="seller-category">Categoria</Label>
         <select
           id="seller-category"
           className="mt-1 h-11 w-full rounded-xl border border-input bg-background px-3"
           value={values.categoryId}
           onChange={(event) => onChange({ categoryId: event.target.value })}
         >
-          <option value="">Choose a category</option>
+          <option value="">Escolha uma categoria</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
@@ -100,7 +116,7 @@ export function ProductFields({ values, onChange, categories, required }: Produc
         </select>
       </div>
       <div className="sm:col-span-2">
-        <Label htmlFor="seller-description">Description</Label>
+        <Label htmlFor="seller-description">Descrição</Label>
         <Textarea
           id="seller-description"
           rows={6}

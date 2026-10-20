@@ -39,7 +39,7 @@ async function audited<TResult>(
   run: (transaction: Transaction) => Promise<TResult>,
 ) {
   if (input.reason.trim().length < 5)
-    throw validationError("Explain the intervention in at least 5 characters.");
+    throw validationError("Explique o motivo da alteração com pelo menos 5 caracteres.");
   return database.transaction(async (transaction) => {
     const result = await run(transaction);
     await transaction.insert(adminAuditEvents).values({

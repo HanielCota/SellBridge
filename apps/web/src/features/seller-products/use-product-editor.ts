@@ -55,7 +55,7 @@ function useProductDraftSaver(
         onState: setState,
         describeError: errorMessage,
         saveDraft: async () => {
-          throw new Error("Saving is not ready yet.");
+          throw new Error("Ainda não é possível salvar. Aguarde o carregamento do produto.");
         },
       }),
   );

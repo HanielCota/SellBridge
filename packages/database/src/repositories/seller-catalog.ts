@@ -27,7 +27,7 @@ export async function ensureSellerCatalog(database: DatabaseExecutor, tenantId: 
       .from(organization)
       .where(and(eq(organization.id, tenantId), eq(organization.kind, "seller")))
       .for("update");
-    if (owner === undefined) throw notFoundError("Seller account not found");
+    if (owner === undefined) throw notFoundError("Conta do revendedor não encontrada");
     const existing = await findSellerCatalog(transaction, tenantId);
     if (existing !== null) return existing;
     const [created] = await transaction
@@ -65,7 +65,7 @@ export async function getSellerProduct(
         eq(suppliers.ownerTenantId, tenantId),
       ),
     );
-  if (row === undefined) throw notFoundError("Product not found in this account");
+  if (row === undefined) throw notFoundError("Produto não encontrado nesta conta");
   return withPanelCompleteness(row);
 }
 
@@ -145,11 +145,11 @@ export async function activateSellerProduct(
     const product = await getSellerProduct(transaction, tenantId, productId);
     if (product.reviewStatus === "rejected")
       throw validationError(
-        "This product is blocked by the platform. Contact support to request a review.",
+        "Este produto está bloqueado pela plataforma. Fale com o suporte para solicitar uma revisão.",
       );
     if (!product.completeness.canSubmit)
       throw validationError(
-        "Complete the required product fields before making it ready to publish.",
+        "Preencha os campos obrigatórios do produto antes de deixá-lo pronto para publicar.",
       );
     await transaction
       .update(supplierProducts)
@@ -196,7 +196,7 @@ export async function duplicateSellerProduct(
   const { productId, newProductId, newSku } = input;
   const product = await getSellerProduct(database, tenantId, productId);
   if (product.reviewStatus === "rejected")
-    throw validationError("Blocked products cannot be duplicated.");
+    throw validationError("Produtos bloqueados não podem ser duplicados.");
   return saveSellerProductDraft(database, tenantId, {
     productId: newProductId,
     values: {

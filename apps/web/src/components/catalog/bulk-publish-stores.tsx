@@ -16,7 +16,7 @@ function sharedSupplierOf(products: readonly SellableCatalogProduct[]): string |
 function noStoresMessage(products: readonly SellableCatalogProduct[], hasStores: boolean) {
   const external = products.filter((product) => product.catalogKind !== "seller");
   if (new Set(external.map((product) => product.supplierId)).size > 1) {
-    return "Choose products from one external supplier at a time. You can include your own products in the same batch.";
+    return "Escolha produtos de um fornecedor por vez. Você pode incluir seus próprios produtos no mesmo lote.";
   }
   if (hasStores) {
     return "Nenhuma loja vende este fornecedor. Conecte uma loja para ele antes de publicar.";

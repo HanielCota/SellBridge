@@ -171,10 +171,10 @@ export function AddStore({
     <GroupedList>
       {ownProducts && supplier === null ? (
         <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <span className="font-medium">This store will sell your own products.</span>
+          <span className="font-medium">Esta loja venderá seus próprios produtos.</span>
           <Button asChild variant="outline" size="sm">
             <Link to="/onboarding" search={{ step: "supplier" }}>
-              Edit product sources
+              Editar origem dos produtos
             </Link>
           </Button>
         </li>

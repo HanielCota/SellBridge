@@ -386,7 +386,7 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
       {" "}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-medium">
-          {shipment.catalogKind === "seller" ? "Your shipment" : shipment.supplierName}
+          {shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}
         </h3>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToneStatus
@@ -399,7 +399,7 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
         </div>
       </div>
       {shipment.catalogKind === "seller" ? (
-        <p className="text-sm text-muted-foreground">You prepare and ship these items.</p>
+        <p className="text-sm text-muted-foreground">Você prepara e envia estes itens.</p>
       ) : null}
       <ShipmentDates shipment={shipment} />
       <ul className="space-y-1 text-sm">

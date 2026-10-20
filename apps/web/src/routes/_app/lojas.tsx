@@ -105,7 +105,7 @@ function StoresPage() {
 
 const ONBOARDING_STEPS = [
   "Autorize o SellBridge na sua conta do marketplace.",
-  "Publish your own products and products from the store’s selected supplier.",
+  "Publique seus próprios produtos e os produtos do fornecedor escolhido para a loja.",
   "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
 ] as const;
 
@@ -273,8 +273,8 @@ function PendingSupplierNotice({
         {pending === 1
           ? "1 loja ainda não tem fornecedor."
           : `${pending.toLocaleString("pt-BR")} lojas ainda não têm fornecedor.`}{" "}
-        Choose a supplier for each store to publish that supplier's products. Your own products can
-        already be published without a supplier. Existing listings keep selling.
+        Escolha um fornecedor para cada loja para publicar os produtos dele. Seus próprios produtos
+        já podem ser publicados sem fornecedor. Os anúncios existentes continuam vendendo.
       </AlertDescription>
     </Alert>
   );

@@ -6,10 +6,10 @@ import { Field } from "./shipment-field";
 import type { ShipmentUpdate, ShipmentView } from "./shipment-panel";
 
 const STEP_LABELS: Partial<Record<FulfillmentStatus, string>> = {
-  picking: "Start picking",
-  ready: "Mark ready to ship",
-  shipped: "Record shipment",
-  delivered: "Confirm delivery",
+  picking: "Iniciar separação",
+  ready: "Marcar como pronto para envio",
+  shipped: "Registrar envio",
+  delivered: "Confirmar entrega",
 };
 
 export function OwnShipmentActions({
@@ -24,14 +24,14 @@ export function OwnShipmentActions({
   return (
     <div className="space-y-3">
       {next === "shipped" ? <OwnDispatchFields update={update} /> : null}
-      <Field label="Shipment note" value={update.note} onChange={update.setNote} />
+      <Field label="Observação do envio" value={update.note} onChange={update.setNote} />
       <div className="flex flex-wrap gap-2">
         {next ? (
           <Button
             disabled={update.mutation.isPending}
             onClick={() => update.mutation.mutate({ status: next, note: update.note })}
           >
-            {STEP_LABELS[next] ?? "Continue preparation"}
+            {STEP_LABELS[next] ?? "Continuar preparação"}
           </Button>
         ) : null}
         {next && shipment.status !== "shipped" ? <StopPreparation update={update} /> : null}
@@ -43,9 +43,9 @@ export function OwnShipmentActions({
 function OwnDispatchFields({ update }: { update: ShipmentUpdate }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Carrier" value={update.carrier} onChange={update.setCarrier} />
+      <Field label="Transportadora" value={update.carrier} onChange={update.setCarrier} />
       <Field
-        label="Tracking code"
+        label="Código de rastreio"
         value={update.trackingCode}
         onChange={update.setTrackingCode}
         autoCorrect="off"
@@ -53,7 +53,7 @@ function OwnDispatchFields({ update }: { update: ShipmentUpdate }) {
       />
       <div className="sm:col-span-2">
         <Field
-          label="Tracking URL (optional)"
+          label="Link de rastreio (opcional)"
           value={update.trackingUrl}
           onChange={update.setTrackingUrl}
           type="url"
@@ -72,7 +72,7 @@ function StopPreparation({ update }: { update: ShipmentUpdate }) {
   const [error, setError] = useState<string | null>(null);
   function confirm() {
     if (!reason.trim()) {
-      setError("Enter a reason for stopping preparation");
+      setError("Informe o motivo para interromper a preparação");
       return;
     }
     update.mutation.mutate(
@@ -91,22 +91,22 @@ function StopPreparation({ update }: { update: ShipmentUpdate }) {
           setOpen(true);
         }}
       >
-        Stop preparation
+        Interromper preparação
       </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="Stop your shipment preparation?"
-        description="The order still needs these items. Restart preparation when ready, or cancel and refund the order in the marketplace. This action does not cancel the buyer's order."
-        confirmLabel="Stop preparation"
-        pendingLabel="Stopping…"
-        cancelLabel="Keep preparing"
+        title="Interromper a preparação do seu envio?"
+        description="O pedido ainda precisa destes itens. Retome a preparação quando puder ou cancele e reembolse o pedido no marketplace. Esta ação não cancela o pedido do comprador."
+        confirmLabel="Interromper preparação"
+        pendingLabel="Interrompendo…"
+        cancelLabel="Continuar preparando"
         destructive
         isPending={update.mutation.isPending}
         onConfirm={confirm}
       >
         <Field
-          label="Reason"
+          label="Motivo"
           value={reason}
           error={error}
           maxLength={500}

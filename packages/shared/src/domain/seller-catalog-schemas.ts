@@ -26,7 +26,7 @@ export const sellerSaveProductSchema = sellerProductRefSchema
   })
   .refine((input) => keepsNegativeShelfOnly(input.values.stock, input.expectedStock), {
     path: ["values", "stock"],
-    error: "Negative stock can only preserve a recorded shortage.",
+    error: "O estoque negativo só pode manter uma falta de estoque já registrada.",
   });
 export type SellerSaveProductInput = z.infer<typeof sellerSaveProductSchema>;
 
@@ -38,7 +38,7 @@ export const sellerDuplicateProductSchema = sellerProductRefSchema.extend({
 export const adminSellerProductScopeSchema = z.object({ tenantId: z.string().min(1).max(200) });
 export const adminProductReasonSchema = freeText()
   .trim()
-  .min(5, "Explain the change in at least 5 characters.")
+  .min(5, "Explique a alteração com pelo menos 5 caracteres.")
   .max(500);
 export const adminSaveSellerProductSchema = sellerSaveProductSchema.safeExtend({
   ...adminSellerProductScopeSchema.shape,

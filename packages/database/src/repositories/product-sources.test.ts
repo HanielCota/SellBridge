@@ -64,7 +64,7 @@ describe("persisted product sources", () => {
     await saveProductSourceChoice(database, tenantId, { mode: "own" });
     const source = await ensureSellerCatalog(database, tenant(2));
     await expect(saveProductSourceChoice(database, tenantId, { mode: "both" })).rejects.toThrow(
-      "Choose a supplier",
+      "Escolha um fornecedor",
     );
     for (const supplierId of [randomUUID(), source.id]) {
       await expect(

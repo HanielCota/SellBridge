@@ -19,8 +19,8 @@ export function EditOnboardingProfile({
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <PageHeader
-        title="Setup settings"
-        description="Review your details and product sources at any time."
+        title="Meu cadastro"
+        description="Confira seus dados e a origem dos seus produtos quando quiser."
       />
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <section
@@ -28,11 +28,11 @@ export function EditOnboardingProfile({
           className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
         >
           <h2 id="holder-data" className="text-subhead font-semibold">
-            Your details
+            Seus dados
           </h2>
           <HolderForm
             holder={holder}
-            submitLabel={savedHolder ? "Details saved" : "Save details"}
+            submitLabel={savedHolder ? "Dados salvos" : "Salvar dados"}
             onSaved={async () => {
               await router.invalidate();
               setSavedHolder(true);
@@ -54,7 +54,7 @@ function ProductSourceSummary({ profile }: { profile: OnboardingProfile }) {
     >
       <div className="space-y-1">
         <h2 id="product-sources" className="text-subhead font-semibold">
-          Your product sources
+          Origem dos seus produtos
         </h2>
         <p className="text-sm text-muted-foreground">
           {PRODUCT_SOURCE_LABELS[profile.productSourceMode ?? "suppliers"]}
@@ -72,12 +72,12 @@ function ProductSourceSummary({ profile }: { profile: OnboardingProfile }) {
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        Changes apply to future setup. Existing stores, listings, and orders keep their current
-        settings.
+        As alterações valem para as próximas configurações. Lojas, anúncios e pedidos existentes
+        mantêm as configurações atuais.
       </p>
       <Button asChild variant="outline">
         <Link to="/onboarding" search={{ step: "supplier" }}>
-          Edit product sources
+          Editar origem dos produtos
         </Link>
       </Button>
     </section>

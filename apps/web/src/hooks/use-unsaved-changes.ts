@@ -19,5 +19,5 @@ export function useUnsavedChanges(isDirty: boolean, hasUnsavedChanges = () => is
 }
 
 function confirmDiscardChanges(): boolean {
-  return window.confirm("You have unsaved changes. Leave without saving?");
+  return window.confirm("Você tem alterações não salvas. Sair sem salvar?");
 }

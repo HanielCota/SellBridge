@@ -17,7 +17,7 @@ import { errorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/admin/products")({
   validateSearch: adminProductListSearchSchema.extend({ product: optionalParameter(z.uuid()) }),
-  head: () => ({ meta: [{ title: "Product management | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Gestão de produtos | SellBridge" }] }),
   component: AdminProductsPage,
 });
 
@@ -43,8 +43,8 @@ function AdminProductsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Product management"
-        description="Inspect seller-owned inventory and supplier products. Administrative changes require a reason and are audited."
+        title="Gestão de produtos"
+        description="Confira o estoque dos revendedores e os produtos de fornecedores. Alterações administrativas exigem um motivo e ficam registradas no histórico."
       />
       <AdminProductsToolbar
         search={search}
@@ -52,7 +52,7 @@ function AdminProductsPage() {
           void navigate({ search: (previous) => ({ ...previous, ...change }), replace: true })
         }
       />
-      {query.isPending ? <output>Loading product management…</output> : null}
+      {query.isPending ? <output>Carregando gestão de produtos…</output> : null}
       {query.isError ? <p role="alert">{errorMessage(query.error)}</p> : null}
       {query.data ? (
         <>
