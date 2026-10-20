@@ -40,20 +40,20 @@ import { UserMenu } from "./user-menu";
 type BadgeCounts = Record<NavBadge, number>;
 
 /**
- * Admin mode adds up to three team tabs, and nine tabs no longer fit a capsule centred
- * between equal side columns (the row is capped at 1440px). The dense layout sizes the side
- * columns to their content, trims the tab padding, hides the account name behind a badge and
- * moves the tabs into the menu sheet below xl. Full class strings, so Tailwind sees them.
+ * Reserve the side controls before allocating space to the navigation capsule. Admin mode
+ * uses denser tabs and an account badge. Both layouts move navigation into the menu below xl;
+ * regular account names return at 1440px. Full class strings, so Tailwind sees them.
  */
 const LAYOUTS = {
   regular: {
-    row: "lg:grid-cols-[1fr_auto_1fr]",
-    desktopNav: "lg:flex",
-    sheetTrigger: "lg:hidden",
+    // Reserve the actual account width: equal side tracks overlap the logo with long names.
+    row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
+    desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
+    sheetTrigger: "xl:hidden",
     // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
     tab: "px-3 text-[0.9375rem] gap-1.5",
-    // From lg to xl the capsule and the name no longer fit the row; the avatar alone stays.
-    accountName: "hidden sm:block lg:hidden xl:block",
+    // The translated tabs and a long account name need 1440px; the avatar stays below that.
+    accountName: "hidden sm:block lg:hidden min-[1440px]:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
     tabIcon: "hidden size-4 min-[1440px]:block",
     modeBadge: "hidden",
@@ -392,7 +392,7 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
-      {/* Equal side columns keep the tab capsule centred on the page (dense: see LAYOUTS). */}
+      {/* Side columns reserve their content; the capsule uses the space between them. */}
       <div
         className={cn(
           "mx-auto grid max-w-[1440px] grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 md:px-8",

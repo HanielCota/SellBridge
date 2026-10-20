@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_USER, enableAdminMode, signIn } from "./helpers";
+import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
 
-const DESKTOP_WIDTHS = [1280, 1366, 1440, 1536, 1600, 1920] as const;
+const DESKTOP_WIDTHS = [1024, 1280, 1366, 1440, 1536, 1600, 1920] as const;
 
 async function headerBoxes(page: Page) {
   const header = page.locator("header").first();
@@ -13,9 +13,7 @@ async function headerBoxes(page: Page) {
   return { logo, nav: navBox, search, actions };
 }
 
-test("admin header keeps the tab capsule clear of the logo and the actions", async ({ page }) => {
-  await signIn(page, ADMIN_USER);
-  await enableAdminMode(page);
+async function expectClearHeader(page: Page) {
   for (const width of DESKTOP_WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     const boxes = await headerBoxes(page);
@@ -29,6 +27,7 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
       width,
     );
     if (boxes.nav === null) {
+      await expect(page.getByRole("button", { name: "Abrir menu", exact: true })).toBeVisible();
       continue;
     }
     expect(boxes.nav.x, `capsule clears the logo at ${width}px`).toBeGreaterThanOrEqual(
@@ -39,4 +38,16 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
       `capsule clears search at ${width}px`,
     ).toBeLessThanOrEqual(boxes.search.x);
   }
+}
+
+test("admin header keeps the tab capsule clear of the logo and the actions", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await expectClearHeader(page);
+});
+
+test("seller header stays clear with a long account name", async ({ page }) => {
+  await signUp(page, "Seller with a deliberately long account display name");
+  await gotoHydrated(page, "/dashboard");
+  await expectClearHeader(page);
 });
