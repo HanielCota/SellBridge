@@ -49,6 +49,8 @@ test("seller-owned product publishes through the worker to a supplier-free store
     page.getByRole("main").getByRole("link", { name: "My products", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Título", { exact: true })).toHaveValue(TITLE);
+  await expect(page.getByText("Shipped by you", { exact: true })).toBeVisible();
+  await expect(page.getByText("Shipped by the supplier", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Publicar em 1 loja", exact: true }).click();
   await expect(page).toHaveURL(/\/publicacoes(?:\?|$)/);
   await expect(

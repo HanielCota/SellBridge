@@ -130,6 +130,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     .locator("section")
     .filter({ has: page.getByText("External packing item", { exact: false }) });
   await expect(own.getByText("Private packing item", { exact: false })).toBeVisible();
+  await expect(own.getByText("Assigned to you", { exact: true })).toBeVisible();
   await expect(own.getByRole("button", { name: /link.*fornecedor/ })).toHaveCount(0);
   await expect(own.getByLabel("Link do fornecedor")).toHaveCount(0);
   const supplierLink = external.getByLabel("Link do fornecedor");

@@ -1,7 +1,6 @@
 import {
   DELIVERY_CONFIRMED_BY,
   DISPATCHED_FULFILLMENT_STATUSES,
-  FULFILLMENT_LABELS,
   FULFILLMENT_NEXT,
   shipmentUpdateSchema,
   type DeliveryAddress,
@@ -22,7 +21,11 @@ import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
 import { printShipment } from "@/features/fulfillment/print-shipment";
-import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
+import {
+  FULFILLMENT_TONES,
+  shipmentTimeline,
+  shipmentStatusLabel,
+} from "@/features/fulfillment/shipment-timeline";
 import { trackingLine } from "@/features/fulfillment/tracking-line";
 import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-hints";
 
@@ -388,7 +391,7 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToneStatus
             tone={FULFILLMENT_TONES[shipment.status]}
-            label={FULFILLMENT_LABELS[shipment.status]}
+            label={shipmentStatusLabel(shipment.status, shipment.catalogKind)}
           />
           {shipment.delay ? (
             <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[shipment.delay]} />
@@ -444,7 +447,9 @@ function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
             dotClassName={TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]]}
             date={event.createdAt}
           >
-            <span className="block text-foreground">{FULFILLMENT_LABELS[event.status]}</span>
+            <span className="block text-foreground">
+              {shipmentStatusLabel(event.status, shipment.catalogKind)}
+            </span>
             <span className="block text-muted-foreground">por {event.actor}</span>
             {event.note ? (
               <span className="block break-words text-muted-foreground">{event.note}</span>

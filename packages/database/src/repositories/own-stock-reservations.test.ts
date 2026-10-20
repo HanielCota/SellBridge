@@ -6,7 +6,6 @@ import { createTestDatabase, createTestTenantPair, testStoreInput } from "../tes
 import { createListingWithTargets, markTargetPublished } from "./listings.ts";
 import { type IncomingOrder, upsertMarketplaceOrder } from "./orders.ts";
 import { ensureSellerCatalog } from "./seller-catalog.ts";
-import { reserveShortItems } from "./stock-reservations.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -128,8 +127,6 @@ describe("own-product stock reservations", () => {
         status: "cancelled",
       });
     }
-    expect(await shelf(product.id)).toEqual({ stock: 5, reserved: 0 });
-    await reserveShortItems(database, [product.id]);
     expect(await shelf(product.id)).toEqual({ stock: 5, reserved: 3 });
     const shortIndex = held === 0 ? 1 : 0;
     const remaining = incoming[shortIndex];
