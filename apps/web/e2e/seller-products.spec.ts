@@ -39,6 +39,13 @@ test("seller can start a product from the dashboard and read Portuguese product 
   await page.getByRole("button", { name: "Limpar filtros", exact: true }).click();
   await expect(filters).toHaveValue("all");
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Buscar no SellBridge", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("listbox", { name: "Resultados da busca", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: /^Notificações/ })).toHaveCount(1);
   await page.getByPlaceholder("Buscar produtos, publicações, pedidos ou páginas").fill("cadastro");
   await page.getByRole("option", { name: "Meu cadastro", exact: true }).click();
   await expect(page).toHaveURL(/\/onboarding/);

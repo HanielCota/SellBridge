@@ -308,17 +308,21 @@ export function CommandPalette() {
             className="fixed top-[12svh] left-1/2 z-50 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-xl shadow-black/20 ring-1 ring-border"
           >
             <Dialog.Title className="sr-only">Buscar no SellBridge</Dialog.Title>
-            <Command shouldFilter={false} loop>
+            <Command label="Buscar no SellBridge" shouldFilter={false} loop>
               <div className="flex items-center gap-3 border-b border-border px-4">
                 <MagnifyingGlassIcon className="size-5 text-muted-foreground" aria-hidden="true" />
                 <Command.Input
+                  aria-label="Buscar no SellBridge"
                   value={term}
                   onValueChange={setTerm}
                   placeholder="Buscar produtos, publicações, pedidos ou páginas"
                   className="h-14 flex-1 bg-transparent text-body outline-none sm:text-subhead placeholder:text-muted-foreground"
                 />
               </div>
-              <Command.List className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]">
+              <Command.List
+                label="Resultados da busca"
+                className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]"
+              >
                 <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
                   Nada encontrado para essa busca.
                 </Command.Empty>
