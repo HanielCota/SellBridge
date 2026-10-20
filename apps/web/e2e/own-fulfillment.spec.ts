@@ -154,6 +154,10 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBe(true);
+  await page.screenshot({
+    path: test.info().outputPath("own-shipment-mobile.png"),
+    fullPage: true,
+  });
   const popupPromise = page.waitForEvent("popup");
   await own.getByRole("button", { name: "Print packing list", exact: true }).click();
   const popup = await popupPromise;
@@ -164,6 +168,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await own.getByRole("button", { name: "Record shipment", exact: true }).click();
   await expect(own.getByText("OWN123456BR", { exact: false })).toBeVisible();
   await own.getByRole("button", { name: "Confirm delivery", exact: true }).click();
+  await expect(own.getByRole("button", { name: "Confirm delivery", exact: true })).toHaveCount(0);
   const [order] = await database.select().from(orders).where(eq(orders.id, orderId));
   expect(order?.status).toBe("paid");
   for (const label of [
@@ -180,8 +185,12 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
   await openOrderAfterRefresh(page);
   const refreshed = page.getByRole("dialog", { name: "Operar pedido" });
   await refreshed.getByRole("button", { name: "Marcar como entregue", exact: true }).click();
-  const [delivered] = await database.select().from(orders).where(eq(orders.id, orderId));
-  expect(delivered?.status).toBe("delivered");
+  await expect
+    .poll(async () => {
+      const [delivered] = await database.select().from(orders).where(eq(orders.id, orderId));
+      return delivered?.status;
+    })
+    .toBe("delivered");
   await supplier.close();
 });
 
