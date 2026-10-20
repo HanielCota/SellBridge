@@ -38,7 +38,7 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const [product, stores, listedOn] = await Promise.all([
-      getSellableCatalogProduct(database, data.productId),
+      getSellableCatalogProduct(database, data.productId, context.tenantId),
       listStoreConnections(database, context.tenantId),
       storesListingProduct(database, context.tenantId, data.productId),
     ]);
@@ -49,9 +49,13 @@ export const getNewListingData = createServerFn({ method: "GET" })
     return {
       product,
       stores: connected
-        .filter((store) => store.supplierId === product.supplierId)
+        .filter(
+          (store) => product.catalogKind === "seller" || store.supplierId === product.supplierId,
+        )
         .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
-      hasOtherStores: connected.some((store) => store.supplierId !== product.supplierId),
+      hasOtherStores:
+        product.catalogKind !== "seller" &&
+        connected.some((store) => store.supplierId !== product.supplierId),
     };
   });
 

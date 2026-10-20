@@ -1,3 +1,4 @@
+import { isProductSourceSetupComplete } from "@sellbridge/shared/product-sources";
 import {
   findOnboardingProfile,
   getSalesByStore,
@@ -41,8 +42,12 @@ async function loadOnboardingState(
   ]);
   return {
     hasHolder: profile.holder !== null,
-    hasSupplier:
-      profile.starterSupplier !== null || stores.some((store) => store.supplierId !== null),
+    hasSupplier: isProductSourceSetupComplete(
+      profile.productSourceMode,
+      profile.starterSupplier?.active === true,
+      stores.some((store) => store.supplierId !== null),
+    ),
+    productSourceMode: profile.productSourceMode,
     // An account that already has a store is past this step; /lojas explains it for a new one.
     hasVerifiedEmail: emailVerified || stores.length > 0,
     hasStore: stores.length > 0,

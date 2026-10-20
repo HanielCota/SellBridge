@@ -52,7 +52,9 @@ function CardBody({ product }: { product: SellableCatalogProduct }) {
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
-        <p className="truncate text-xs text-muted-foreground">{product.supplierName}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {product.catalogKind === "seller" ? "Your product" : product.supplierName}
+        </p>
         <h2 className={cn("line-clamp-2 text-sm font-medium", soldOut && "text-muted-foreground")}>
           {product.title}
         </h2>

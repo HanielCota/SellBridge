@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   countDoneSteps,
   findNextStep,
+  getSetupSteps,
   remainingSetupMinutes,
   SETUP_STEPS,
   setupEtaLabel,
@@ -48,7 +49,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     return (
       <Button asChild variant={done ? "outline" : "default"} className="w-fit">
         <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
-          {done ? (isHolder ? "Edit details" : "Change supplier") : step.cta}
+          {done ? (isHolder ? "Edit details" : "Edit product sources") : step.cta}
           <ArrowRightIcon aria-hidden="true" />
         </Link>
       </Button>
@@ -147,7 +148,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {SETUP_STEPS.map((step, index) => (
+        {getSetupSteps(progress).map((step, index) => (
           <StepCard
             key={step.key}
             step={step}

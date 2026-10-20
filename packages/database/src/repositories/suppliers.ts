@@ -351,7 +351,14 @@ export async function getSellableCatalogProduct(
   database: Database,
   productId: string,
   tenantId?: string,
-): Promise<CatalogProduct & { supplierId: string; supplierName: string; imageUrls: string[] }> {
+): Promise<
+  CatalogProduct & {
+    supplierId: string;
+    supplierName: string;
+    imageUrls: string[];
+    catalogKind: "supplier" | "seller";
+  }
+> {
   const [row] = await database
     .select({
       id: supplierProducts.id,
@@ -367,6 +374,7 @@ export async function getSellableCatalogProduct(
       categorySlug: categories.slug,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
     })
     .from(supplierProducts)
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
@@ -396,6 +404,8 @@ export interface SellableCatalogFilters {
 }
 
 export interface SellableCatalogProduct extends CatalogProduct {
+  /** Older consumers may omit this field; an absent kind means a public supplier. */
+  catalogKind?: "supplier" | "seller";
   supplierId: string;
   supplierName: string;
   /** Every picture of the product, the first one being `imageUrl`. */
@@ -455,6 +465,7 @@ function selectSellableCatalog(database: Database, tenantId: string) {
       categorySlug: categories.slug,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       published: sql<boolean>`${isPublishedBy(tenantId)}`,
     })
     .from(supplierProducts)

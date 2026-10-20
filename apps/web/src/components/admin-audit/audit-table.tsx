@@ -39,6 +39,21 @@ function AuditSubject({ entry }: { entry: AuditEntry }) {
       </Link>
     );
   }
+  const sellerTenant = entry.details?.tenantId;
+  if (id !== null && typeof sellerTenant === "string" && entry.action.startsWith("product.")) {
+    return (
+      <Link
+        to="/admin/products"
+        search={{
+          tenantId: sellerTenant,
+          product: entry.entityType === "product" ? id : undefined,
+        }}
+        className={className}
+      >
+        {label}
+      </Link>
+    );
+  }
   if (id !== null && entry.entityType === "supplier") {
     return (
       <Link to="/admin/fornecedores/$supplierId" params={{ supplierId: id }} className={className}>

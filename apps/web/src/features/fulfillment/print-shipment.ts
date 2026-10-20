@@ -12,6 +12,8 @@ export function shipmentDocument(
   externalOrderId: string,
   kind: "label" | "order",
 ) {
+  if (shipment.catalogKind === "seller")
+    return ownShipmentDocument(shipment, externalOrderId, kind);
   const address = shipment.address;
   if (!address) throw new Error("Este envio já foi encerrado");
   const safe = escapeHtml;
@@ -28,4 +30,21 @@ export function printShipment(
   popup.document.open();
   popup.document.write(shipmentDocument(shipment, externalOrderId, kind));
   popup.document.close();
+}
+
+/** Own stock travels with a packing list, without supplier-order wording. */
+function ownShipmentDocument(shipment: ShipmentView, orderId: string, kind: "label" | "order") {
+  const address = shipment.address;
+  if (!address) throw new Error("This shipment is closed");
+  const safe = escapeHtml;
+  const items =
+    kind === "order"
+      ? shipment.items
+          .map(
+            (item) =>
+              `<tr><td>${safe(item.sku)}</td><td>${safe(item.title)}</td><td>${item.quantity}</td></tr>`,
+          )
+          .join("")
+      : "";
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${safe(orderId)}</title><style>body{font:16px/1.5 system-ui,sans-serif;margin:24px;color:#000;background:#fff}article{border:2px solid #000;padding:20px;max-width:600px}table{width:100%;border-collapse:collapse}td,th{padding:8px;text-align:left;border-bottom:1px solid #ccc}@media print{button{display:none}body{margin:0}article{break-inside:avoid}}</style></head><body><button id="print">Print / save PDF</button><article><h1>${kind === "order" ? "Packing list" : "Parcel identification"}</h1><p>Order: ${safe(orderId)}<br>Your shipment: ${safe(shipment.id)}</p><h2>Recipient</h2><p>${safe(address.recipient)}<br>${safe(address.street)}, ${safe(address.number)} ${safe(address.complement)}<br>${safe(address.neighborhood)}<br>${safe(address.city)} / ${safe(address.state)}<br>${safe(address.postalCode)}</p>${kind === "order" ? `<table><thead><tr><th>SKU</th><th>Product</th><th>Quantity</th></tr></thead><tbody>${items}</tbody></table><p>${safe(shipment.notes)}</p>` : ""}<p>${safe(shipment.carrier ?? "")} ${safe(shipment.trackingCode ?? "")}</p><small>This identification does not replace the carrier's postage label.</small></article><script>document.getElementById('print').addEventListener('click',()=>window.print())</script></body></html>`;
 }

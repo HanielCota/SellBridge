@@ -180,7 +180,7 @@ function AccountLinks({
         <DropdownMenuItem asChild className={MENU_ROW}>
           <Link to="/onboarding">
             <IdentificationCardIcon aria-hidden="true" />
-            Meus dados
+            Setup settings
           </Link>
         </DropdownMenuItem>
       ) : null}

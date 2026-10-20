@@ -1,17 +1,11 @@
+import { stopProductPublications } from "./stop-product-publications.ts";
 import type { SellerProductStatus } from "@sellbridge/shared/seller-catalog-schemas";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import type { CatalogSaveDraftInput } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { toPaginated, type Pagination } from "@sellbridge/shared/schemas";
-import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
-import type { Database, DatabaseExecutor } from "../client.ts";
-import {
-  categories,
-  listings,
-  listingTargets,
-  organization,
-  supplierProducts,
-  suppliers,
-} from "../schema/index.ts";
+import { and, asc, count, desc, eq, ne } from "drizzle-orm";
+import type { DatabaseExecutor } from "../client.ts";
+import { categories, organization, supplierProducts, suppliers } from "../schema/index.ts";
 import { panelProductColumns, withPanelCompleteness } from "./supplier-panel-catalog.ts";
 import { saveSupplierPanelDraft } from "./supplier-panel-catalog-writes.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
@@ -26,7 +20,7 @@ export async function findSellerCatalog(database: DatabaseExecutor, tenantId: st
 }
 
 /** Serialize first creation on the tenant so parallel tabs always get the same source. */
-export async function ensureSellerCatalog(database: Database, tenantId: string) {
+export async function ensureSellerCatalog(database: DatabaseExecutor, tenantId: string) {
   return database.transaction(async (transaction) => {
     const [owner] = await transaction
       .select({ id: organization.id, name: organization.name })
@@ -80,7 +74,7 @@ export type { SellerProductStatus } from "@sellbridge/shared/seller-catalog-sche
 export async function listSellerProducts(
   database: DatabaseExecutor,
   tenantId: string,
-  input: Pagination & { query?: string; status: SellerProductStatus },
+  input: Pagination & { query?: string | undefined; status: SellerProductStatus },
 ) {
   const statusCondition = {
     all: undefined,
@@ -129,7 +123,7 @@ async function lockSellerCatalog(database: DatabaseExecutor, tenantId: string) {
 
 /** The source is resolved from the authenticated tenant, never from a submitted source id. */
 export async function saveSellerProductDraft(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   input: Omit<CatalogSaveDraftInput, "supplierId">,
 ) {
@@ -142,7 +136,7 @@ export async function saveSellerProductDraft(
 
 /** Ready products are publishable immediately; suppliers' approval rules do not apply. */
 export async function activateSellerProduct(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   productId: string,
 ) {
@@ -174,7 +168,7 @@ export async function activateSellerProduct(
 
 /** Archiving preserves orders and pauses live listings; restoring never republishes them. */
 export async function archiveSellerProduct(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   productId: string,
 ) {
@@ -185,31 +179,17 @@ export async function archiveSellerProduct(
       .update(supplierProducts)
       .set({ active: false })
       .where(eq(supplierProducts.id, productId));
-    const productListings = transaction
-      .select({ id: listings.id })
-      .from(listings)
-      .where(and(eq(listings.tenantId, tenantId), eq(listings.supplierProductId, productId)));
-    const paused = await transaction
-      .update(listingTargets)
-      .set({ status: "paused" })
-      .where(
-        and(
-          eq(listingTargets.tenantId, tenantId),
-          eq(listingTargets.status, "published"),
-          inArray(listingTargets.listingId, productListings),
-        ),
-      )
-      .returning({ id: listingTargets.id });
+    const pausedTargets = await stopProductPublications(transaction, tenantId, productId);
     return {
       product: await getSellerProduct(transaction, tenantId, productId),
-      pausedTargets: paused.length,
+      pausedTargets,
     };
   });
 }
 
 /** Copying creates a distinct draft with no inventory or reservations carried over. */
 export async function duplicateSellerProduct(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   input: { productId: string; newProductId: string; newSku: string },
 ) {

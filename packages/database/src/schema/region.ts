@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { PRODUCT_SOURCE_MODES } from "@sellbridge/shared/product-sources";
+import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { suppliers } from "./suppliers.ts";
 
@@ -20,15 +21,21 @@ export const tenantProfile = pgTable(
     companyName: text(),
     /**
      * The supplier picked during onboarding, before any shop exists: the first shop the tenant
-     * connects sells it. Null until picked, or when that supplier was deleted.
+     * connects sells it. Null for own-only sellers, until picked, or after supplier deletion.
      */
     starterSupplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
+    /** Null until the seller explicitly chooses which products to sell. */
+    productSourceMode: text({ enum: PRODUCT_SOURCE_MODES }),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
+    check(
+      "tenant_profile_product_source_mode_check",
+      sql`${table.productSourceMode} is null or ${table.productSourceMode} in ('own', 'suppliers', 'both')`,
+    ),
     /** One account per CPF: a second account would only repeat the free plan. */
     uniqueIndex("tenant_profile_cpf_idx")
       .on(table.cpf)

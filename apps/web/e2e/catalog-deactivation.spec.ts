@@ -1,16 +1,29 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database";
-import { createListingWithTargets, markTargetPublished } from "@sellbridge/database/repositories";
+import {
+  createListingWithTargets,
+  markTargetPublished,
+  upsertStoreConnection,
+} from "@sellbridge/database/repositories";
 import {
   listings,
+  organization,
   member,
-  storeConnections,
   supplierProducts,
   suppliers,
   user,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
+import {
+  ADMIN_USER,
+  SIGN_UP_PASSWORD,
+  enableAdminMode,
+  gotoHydrated,
+  signIn,
+  signUp,
+} from "./helpers";
+import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
 import { requireEnvironmentVariable } from "./environment";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
@@ -19,24 +32,29 @@ const supplierName = `Fornecedor desativado E2E ${stamp}`;
 const productTitle = `Luminária desativada ${stamp}`;
 let supplierId = "";
 let productId = "";
+let tenantId = "";
+let customerEmail = "";
 
-/** The demo reseller's tenant and first connected store. */
-async function demoSeller() {
+/** A dedicated customer keeps publication state isolated from other browser tests. */
+async function catalogSeller(email: string) {
   const [row] = await database
-    .select({ tenantId: member.organizationId, storeId: storeConnections.id })
+    .select({ tenantId: member.organizationId })
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
-    .innerJoin(storeConnections, eq(storeConnections.tenantId, member.organizationId))
-    .where(eq(user.email, DEMO_USER.email))
+    .where(eq(user.email, email))
     .limit(1);
   if (row === undefined) {
-    throw new Error("Conta demo sem loja no banco de teste");
+    throw new Error("Customer tenant was not created");
   }
   return row;
 }
 
-test.beforeAll(async () => {
-  const seller = await demoSeller();
+test.beforeAll(async ({ browser }) => {
+  const customer = await browser.newPage();
+  customerEmail = await signUp(customer, "Catalog Deactivation Customer");
+  await customer.close();
+  const seller = await catalogSeller(customerEmail);
+  tenantId = seller.tenantId;
   const [supplier] = await database
     .insert(suppliers)
     .values({ name: supplierName, niche: "Casa", state: "SP", city: "Teste" })
@@ -60,6 +78,10 @@ test.beforeAll(async () => {
     throw new Error("produto não criado");
   }
   productId = product.id;
+  const store = await upsertStoreConnection(database, {
+    ...testStoreInput(tenantId, randomUUID()),
+    supplierId,
+  });
   const created = await createListingWithTargets(
     database,
     seller.tenantId,
@@ -69,7 +91,7 @@ test.beforeAll(async () => {
       description: "Descrição",
       priceCents: 4990,
     },
-    [seller.storeId],
+    [store.id],
   );
   const [targetId] = created.targetIds;
   if (!targetId) {
@@ -82,8 +104,10 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await database.delete(listings).where(eq(listings.supplierProductId, productId));
-  await database.delete(suppliers).where(eq(suppliers.id, supplierId));
+  if (productId) await database.delete(listings).where(eq(listings.supplierProductId, productId));
+  if (tenantId) await database.delete(organization).where(eq(organization.id, tenantId));
+  if (supplierId) await database.delete(suppliers).where(eq(suppliers.id, supplierId));
+  if (customerEmail) await database.delete(user).where(eq(user.email, customerEmail));
   await database.$client.end();
 });
 
@@ -99,7 +123,7 @@ test("admin desativa um produto e o revendedor vê o anúncio pausado e o aviso"
   await expect(page.getByText("1 anúncio pausado")).toBeVisible();
 
   const reseller = await browser.newPage();
-  await signIn(reseller, DEMO_USER);
+  await signIn(reseller, { email: customerEmail, password: SIGN_UP_PASSWORD });
   await gotoHydrated(
     reseller,
     `/publicacoes?status=paused&query=${encodeURIComponent(productTitle)}`,

@@ -15,12 +15,18 @@ export interface PublishStore {
   supplierId: string | null;
 }
 
-/** Stores that sell the supplier of every chosen product; none when they come from several. */
+/** Own products fit every store; external products must share its selected supplier. */
 export function storesForProducts(
-  products: readonly SellableCatalogProduct[],
+  products: readonly Pick<SellableCatalogProduct, "catalogKind" | "supplierId">[],
   stores: readonly PublishStore[],
 ): PublishStore[] {
-  const supplierIds = new Set(products.map((product) => product.supplierId));
+  if (products.length === 0) return [];
+  const supplierIds = new Set(
+    products
+      .filter((product) => product.catalogKind !== "seller")
+      .map((product) => product.supplierId),
+  );
+  if (supplierIds.size === 0) return [...stores];
   const [only] = supplierIds;
   if (supplierIds.size !== 1 || only === undefined) {
     return [];

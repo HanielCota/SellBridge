@@ -151,9 +151,9 @@ export async function completeOnboarding(
   supplierName = "BH Beauty Distribuidora",
 ): Promise<void> {
   await fillBillingHolder(page);
-  await expect(page.getByText("Etapa 2 de 2 · Seu fornecedor")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Product sources")).toBeVisible();
   await pickSupplier(page, supplierName);
-  await page.getByRole("button", { name: `Continuar com ${supplierName}` }).click();
+  await page.getByRole("button", { name: "Save product sources" }).click();
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

@@ -8,6 +8,7 @@ import {
   type StoreSupplierChangeImpact,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import type { ProductSourceMode } from "@sellbridge/shared/product-sources";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -15,6 +16,7 @@ import { tenantMiddleware } from "@/lib/server/middleware";
 import { requestStockSync } from "@/lib/server/stock-sync";
 
 export interface StoreSuppliersOverview {
+  productSourceMode: ProductSourceMode | null;
   /** Who each shop sells, by supplier id. */
   suppliers: StoreSupplier[];
   /** The supplier picked during onboarding, which a first shop sells. */
@@ -40,6 +42,7 @@ export const getStoreSuppliers = createServerFn({ method: "GET" })
     );
     const suppliers = await findStoreSuppliers(database, [...ids, ...extra]);
     return {
+      productSourceMode: profile.productSourceMode,
       suppliers,
       starterSupplier: suppliers.find((supplier) => supplier.id === starterId) ?? null,
       pickedSupplier:

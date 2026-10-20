@@ -10,7 +10,7 @@ import {
   type ShipmentOperator,
 } from "@sellbridge/shared/schemas";
 import { SHIPMENT_DELAY_LABELS, type ShipmentDelay } from "@sellbridge/shared/shipment-delay";
-import { type ComponentProps, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
@@ -20,15 +20,18 @@ import { FormErrorAlert } from "@/components/form/form-feedback";
 import { TextareaField } from "@/components/form/textarea-field";
 import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/errors";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import { FULFILLMENT_TONES, shipmentTimeline } from "@/features/fulfillment/shipment-timeline";
 import { trackingLine } from "@/features/fulfillment/tracking-line";
 import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-hints";
 
+import { Field } from "./shipment-field";
+export { Field } from "./shipment-field";
+import { OwnShipmentActions } from "./own-shipment-actions";
+
 export interface ShipmentView {
+  catalogKind?: "seller" | "supplier";
   id: string;
   supplierName: string;
   status: FulfillmentStatus;
@@ -83,7 +86,9 @@ export function ShipmentPanel({
       <ShipmentToolbar shipment={shipment} externalOrderId={externalOrderId} operator={actsAs}>
         {children}
       </ShipmentToolbar>
-      {closed ? null : (
+      {closed ? null : shipment.catalogKind === "seller" ? (
+        <OwnShipmentActions update={update} shipment={shipment} next={blocked ? null : next} />
+      ) : (
         <ShipmentActions
           update={update}
           shipment={shipment}
@@ -128,7 +133,9 @@ function ShipmentToolbar({
               onClick={() => printShipment(shipment, externalOrderId, "order")}
             >
               <ShipmentActionIcon action="printOrder" />
-              Imprimir ordem de fornecimento
+              {shipment.catalogKind === "seller"
+                ? "Print packing list"
+                : "Imprimir ordem de fornecimento"}
             </Button>
           </ShipmentActionHint>
         </>
@@ -138,7 +145,7 @@ function ShipmentToolbar({
   );
 }
 
-type ShipmentUpdate = ReturnType<typeof useShipmentUpdate>;
+export type ShipmentUpdate = ReturnType<typeof useShipmentUpdate>;
 
 /** What dispatch needs: carrier and tracking. */
 function DispatchFields({ update }: { update: ShipmentUpdate }) {
@@ -329,38 +336,6 @@ function CancelShipment({
   );
 }
 
-/** A labelled text field; the rest of the input's attributes (autocomplete, keyboard) pass through. */
-export function Field({
-  label,
-  value,
-  onChange,
-  error = null,
-  ...inputProps
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  /** Shown under the field after an action that needs it, announced to screen readers. */
-  error?: string | null;
-} & Omit<ComponentProps<typeof Input>, "value" | "onChange">) {
-  return (
-    <Label className="grid gap-2">
-      {label}
-      <Input
-        {...inputProps}
-        value={value}
-        aria-invalid={error ? true : undefined}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {error ? (
-        <span role="alert" className="text-sm font-normal text-destructive">
-          {error}
-        </span>
-      ) : null}
-    </Label>
-  );
-}
-
 function useShipmentUpdate(
   shipment: ShipmentView,
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>,
@@ -407,7 +382,9 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
     <>
       {" "}
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="font-medium">{shipment.supplierName}</h3>
+        <h3 className="font-medium">
+          {shipment.catalogKind === "seller" ? "Your shipment" : shipment.supplierName}
+        </h3>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToneStatus
             tone={FULFILLMENT_TONES[shipment.status]}
@@ -418,6 +395,9 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
           ) : null}
         </div>
       </div>
+      {shipment.catalogKind === "seller" ? (
+        <p className="text-sm text-muted-foreground">You prepare and ship these items.</p>
+      ) : null}
       <ShipmentDates shipment={shipment} />
       <ul className="space-y-1 text-sm">
         {shipment.items.map((item, index) => (

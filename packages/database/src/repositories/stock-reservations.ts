@@ -136,6 +136,7 @@ export async function applyStockMoves(
   executor: DatabaseExecutor,
   orderId: string,
   status: OrderStatus,
+  itemIds?: readonly string[],
 ): Promise<number> {
   const items = await executor
     .select({
@@ -145,7 +146,12 @@ export async function applyStockMoves(
       stockState: orderItems.stockState,
     })
     .from(orderItems)
-    .where(eq(orderItems.orderId, orderId))
+    .where(
+      and(
+        eq(orderItems.orderId, orderId),
+        itemIds === undefined ? undefined : inArray(orderItems.id, [...itemIds]),
+      ),
+    )
     .orderBy(asc(orderItems.supplierProductId), asc(orderItems.id))
     .for("update");
   let moved = 0;

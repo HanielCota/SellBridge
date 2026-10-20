@@ -85,8 +85,10 @@ function otherSupplierTargets(executor: DatabaseExecutor, input: AssignStoreSupp
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(
       and(
+        publicSupplier(),
         eq(listingTargets.tenantId, input.tenantId),
         eq(listingTargets.storeConnectionId, input.storeConnectionId),
         ne(supplierProducts.supplierId, input.supplierId),
@@ -171,6 +173,11 @@ export async function assertStoresSellSupplier(
   supplierId: string,
 ): Promise<void> {
   if (storeConnectionIds.length === 0) {
+    return;
+  }
+  const source = await executor.query.suppliers.findFirst({ where: eq(suppliers.id, supplierId) });
+  if (source?.catalogKind === "seller") {
+    if (source.ownerTenantId !== tenantId) throw notFoundError("Product source not found.");
     return;
   }
   const stores = await executor

@@ -26,6 +26,7 @@ import { Route as AppIntegracoesRouteImport } from './routes/_app/integracoes'
 import { Route as AppLojasRouteImport } from './routes/_app/lojas'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AuthCadastroRouteImport } from './routes/_auth/cadastro'
 import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-senha'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -34,6 +35,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
+import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
 import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
@@ -45,11 +47,13 @@ import { Route as AppSuporteIndexRouteImport } from './routes/_app/suporte/index
 import { Route as AppSuporteTicketIdRouteImport } from './routes/_app/suporte/$ticketId'
 import { Route as AppSuporteNovoRouteImport } from './routes/_app/suporte/novo'
 import { Route as AuthCadastroFornecedorRouteImport } from './routes/_auth/cadastro_.fornecedor'
+import { Route as ApiAdminProductImagesRouteImport } from './routes/api/admin/product-images'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiContaExportarRouteImport } from './routes/api/conta/exportar'
 import { Route as ApiDiagnosticsErrorsRouteImport } from './routes/api/diagnostics/errors'
 import { Route as ApiFinanceiroExportarRouteImport } from './routes/api/financeiro/exportar'
 import { Route as ApiPerfilFotoRouteImport } from './routes/api/perfil/foto'
+import { Route as ApiProductsImagesRouteImport } from './routes/api/products/images'
 import { Route as ApiV1DocsRouteImport } from './routes/api/v1/docs'
 import { Route as ApiV1EventsRouteImport } from './routes/api/v1/events'
 import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
@@ -178,6 +182,11 @@ const AppPerfilRoute = AppPerfilRouteImport.update({
   path: '/perfil',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppProductsRoute = AppProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AuthCadastroRoute = AuthCadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
@@ -216,6 +225,11 @@ const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
 const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
   id: '/equipe',
   path: '/equipe',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminProductsRoute = AppAdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppFornecedorPainelRouteRoute =
@@ -275,6 +289,11 @@ const AuthCadastroFornecedorRoute = AuthCadastroFornecedorRouteImport.update({
   path: '/cadastro/fornecedor',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const ApiAdminProductImagesRoute = ApiAdminProductImagesRouteImport.update({
+  id: '/api/admin/product-images',
+  path: '/api/admin/product-images',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -298,6 +317,11 @@ const ApiFinanceiroExportarRoute = ApiFinanceiroExportarRouteImport.update({
 const ApiPerfilFotoRoute = ApiPerfilFotoRouteImport.update({
   id: '/api/perfil/foto',
   path: '/api/perfil/foto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProductsImagesRoute = ApiProductsImagesRouteImport.update({
+  id: '/api/products/images',
+  path: '/api/products/images',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1DocsRoute = ApiV1DocsRouteImport.update({
@@ -563,6 +587,7 @@ export interface FileRoutesByFullPath {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
@@ -572,17 +597,20 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
+  '/admin/products': typeof AppAdminProductsRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
   '/api/v1/docs': typeof ApiV1DocsRoute
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
@@ -647,6 +675,7 @@ export interface FileRoutesByTo {
   '/lojas': typeof AppLojasRoute
   '/onboarding': typeof AppOnboardingRoute
   '/perfil': typeof AppPerfilRoute
+  '/products': typeof AppProductsRoute
   '/cadastro': typeof AuthCadastroRoute
   '/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/login': typeof AuthLoginRoute
@@ -654,17 +683,20 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
+  '/admin/products': typeof AppAdminProductsRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/suporte/novo': typeof AppSuporteNovoRoute
   '/cadastro/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
   '/api/v1/docs': typeof ApiV1DocsRoute
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
@@ -733,6 +765,7 @@ export interface FileRoutesById {
   '/_app/lojas': typeof AppLojasRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_app/products': typeof AppProductsRoute
   '/_auth/cadastro': typeof AuthCadastroRoute
   '/_auth/esqueci-senha': typeof AuthEsqueciSenhaRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -742,17 +775,20 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
+  '/_app/admin/products': typeof AppAdminProductsRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
   '/_app/suporte/$ticketId': typeof AppSuporteTicketIdRoute
   '/_app/suporte/novo': typeof AppSuporteNovoRoute
   '/_auth/cadastro_/fornecedor': typeof AuthCadastroFornecedorRoute
+  '/api/admin/product-images': typeof ApiAdminProductImagesRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conta/exportar': typeof ApiContaExportarRoute
   '/api/diagnostics/errors': typeof ApiDiagnosticsErrorsRoute
   '/api/financeiro/exportar': typeof ApiFinanceiroExportarRoute
   '/api/perfil/foto': typeof ApiPerfilFotoRouteWithChildren
+  '/api/products/images': typeof ApiProductsImagesRoute
   '/api/v1/docs': typeof ApiV1DocsRoute
   '/api/v1/events': typeof ApiV1EventsRoute
   '/api/v1/me': typeof ApiV1MeRoute
@@ -820,6 +856,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/products'
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
@@ -829,17 +866,20 @@ export interface FileRouteTypes {
     | '/fornecedor/painel'
     | '/admin/auditoria'
     | '/admin/equipe'
+    | '/admin/products'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
     | '/cadastro/fornecedor'
+    | '/api/admin/product-images'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/products/images'
     | '/api/v1/docs'
     | '/api/v1/events'
     | '/api/v1/me'
@@ -904,6 +944,7 @@ export interface FileRouteTypes {
     | '/lojas'
     | '/onboarding'
     | '/perfil'
+    | '/products'
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
@@ -911,17 +952,20 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/admin/auditoria'
     | '/admin/equipe'
+    | '/admin/products'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
     | '/suporte/$ticketId'
     | '/suporte/novo'
     | '/cadastro/fornecedor'
+    | '/api/admin/product-images'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/products/images'
     | '/api/v1/docs'
     | '/api/v1/events'
     | '/api/v1/me'
@@ -989,6 +1033,7 @@ export interface FileRouteTypes {
     | '/_app/lojas'
     | '/_app/onboarding'
     | '/_app/perfil'
+    | '/_app/products'
     | '/_auth/cadastro'
     | '/_auth/esqueci-senha'
     | '/_auth/login'
@@ -998,17 +1043,20 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
     | '/_app/admin/equipe'
+    | '/_app/admin/products'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
     | '/_app/publicacoes/nova'
     | '/_app/suporte/$ticketId'
     | '/_app/suporte/novo'
     | '/_auth/cadastro_/fornecedor'
+    | '/api/admin/product-images'
     | '/api/auth/$'
     | '/api/conta/exportar'
     | '/api/diagnostics/errors'
     | '/api/financeiro/exportar'
     | '/api/perfil/foto'
+    | '/api/products/images'
     | '/api/v1/docs'
     | '/api/v1/events'
     | '/api/v1/me'
@@ -1068,11 +1116,13 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContaExportarRoute: typeof ApiContaExportarRoute
   ApiDiagnosticsErrorsRoute: typeof ApiDiagnosticsErrorsRoute
   ApiFinanceiroExportarRoute: typeof ApiFinanceiroExportarRoute
   ApiPerfilFotoRoute: typeof ApiPerfilFotoRouteWithChildren
+  ApiProductsImagesRoute: typeof ApiProductsImagesRoute
   ApiV1DocsRoute: typeof ApiV1DocsRoute
   ApiV1EventsRoute: typeof ApiV1EventsRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
@@ -1224,6 +1274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPerfilRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/products': {
+      id: '/_app/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof AppProductsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_auth/cadastro': {
       id: '/_auth/cadastro'
       path: '/cadastro'
@@ -1278,6 +1335,13 @@ declare module '@tanstack/react-router' {
       path: '/equipe'
       fullPath: '/admin/equipe'
       preLoaderRoute: typeof AppAdminEquipeRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/products': {
+      id: '/_app/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AppAdminProductsRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/fornecedor/painel': {
@@ -1357,6 +1421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCadastroFornecedorRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/api/admin/product-images': {
+      id: '/api/admin/product-images'
+      path: '/api/admin/product-images'
+      fullPath: '/api/admin/product-images'
+      preLoaderRoute: typeof ApiAdminProductImagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -1390,6 +1461,13 @@ declare module '@tanstack/react-router' {
       path: '/api/perfil/foto'
       fullPath: '/api/perfil/foto'
       preLoaderRoute: typeof ApiPerfilFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/products/images': {
+      id: '/api/products/images'
+      path: '/api/products/images'
+      fullPath: '/api/products/images'
+      preLoaderRoute: typeof ApiProductsImagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/docs': {
@@ -1722,6 +1800,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
   AppAdminEquipeRoute: typeof AppAdminEquipeRoute
+  AppAdminProductsRoute: typeof AppAdminProductsRoute
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
   AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
@@ -1735,6 +1814,7 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
   AppAdminEquipeRoute: AppAdminEquipeRoute,
+  AppAdminProductsRoute: AppAdminProductsRoute,
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,
   AppAdminChamadosMetricasRoute: AppAdminChamadosMetricasRoute,
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
@@ -1797,6 +1877,7 @@ interface AppRouteRouteChildren {
   AppLojasRoute: typeof AppLojasRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppPerfilRoute: typeof AppPerfilRoute
+  AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
@@ -1818,6 +1899,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLojasRoute: AppLojasRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppPerfilRoute: AppPerfilRoute,
+  AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
@@ -1873,11 +1955,13 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContaExportarRoute: ApiContaExportarRoute,
   ApiDiagnosticsErrorsRoute: ApiDiagnosticsErrorsRoute,
   ApiFinanceiroExportarRoute: ApiFinanceiroExportarRoute,
   ApiPerfilFotoRoute: ApiPerfilFotoRouteWithChildren,
+  ApiProductsImagesRoute: ApiProductsImagesRoute,
   ApiV1DocsRoute: ApiV1DocsRoute,
   ApiV1EventsRoute: ApiV1EventsRoute,
   ApiV1MeRoute: ApiV1MeRoute,

@@ -16,6 +16,8 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { notifyListingFailed } from "./notification-producers.ts";
+import { assertPrivateProductPublication } from "./private-product-publication.ts";
+import { publicationMayGoLive } from "./publication-completion.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -96,6 +98,12 @@ export async function createListingWithTargets(
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
     await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
+    await assertPrivateProductPublication(
+      transaction,
+      tenantId,
+      values.supplierProductId,
+      storeConnectionIds,
+    );
     if (billingEnabled) {
       // One plan slot per destination store (item 16, N7).
       await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
@@ -210,6 +218,7 @@ export interface TargetForPublishing {
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
   availability: CatalogAvailability;
+  source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
 }
 
 export async function getTargetForPublishing(
@@ -224,6 +233,7 @@ export async function getTargetForPublishing(
       product: supplierProducts,
       store: storeConnections,
       supplierActive: suppliers.active,
+      source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
@@ -240,7 +250,12 @@ export async function getTargetForPublishing(
     ...target,
     // A product back in review or rejected in the supplier panel is not published (0039).
     availability: {
-      productActive: row.product.active && row.product.reviewStatus === "approved",
+      productActive:
+        row.product.active &&
+        row.product.reviewStatus === "approved" &&
+        row.store.tenantId === tenantId &&
+        row.listing.tenantId === tenantId &&
+        (row.source.catalogKind === "supplier" || row.source.ownerTenantId === tenantId),
       supplierActive,
     },
   };
@@ -258,7 +273,13 @@ export async function claimTargetForPublishing(
   const claimed = await database
     .update(listingTargets)
     .set({ status: "publishing", attempts: sql`${listingTargets.attempts} + 1` })
-    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "pending")))
+    .where(
+      and(
+        eq(listingTargets.id, listingTargetId),
+        eq(listingTargets.status, "pending"),
+        eq(listingTargets.pauseRequested, false),
+      ),
+    )
     .returning({ id: listingTargets.id });
   return claimed.length > 0;
 }
@@ -354,12 +375,14 @@ export async function markTargetPublished(
   result: { externalId: string; externalUrl: string | null; descriptionError?: string | null },
 ): Promise<void> {
   await database.transaction(async (transaction) => {
+    const mayPublish = await publicationMayGoLive(transaction, listingTargetId);
     const [updated] = await transaction
       .update(listingTargets)
       .set({
         externalId: result.externalId,
         externalUrl: result.externalUrl,
-        status: "published",
+        status: sql`case when ${listingTargets.pauseRequested} or ${!mayPublish} then 'paused'::listing_target_status else 'published'::listing_target_status end`,
+        pauseRequested: sql`${listingTargets.pauseRequested} or ${!mayPublish}`,
         errorReason: null,
         publishedAt: new Date(),
         // A refused description keeps the listing live, with the warning on its card (13.b).
@@ -397,7 +420,10 @@ export async function markTargetFailed(
   await database.transaction(async (transaction) => {
     const [updated] = await transaction
       .update(listingTargets)
-      .set({ status: options.final ? "error" : "pending", errorReason: reason })
+      .set({
+        status: sql`case when ${listingTargets.pauseRequested} or ${options.final} then 'error'::listing_target_status else 'pending'::listing_target_status end`,
+        errorReason: reason,
+      })
       .where(
         and(
           eq(listingTargets.id, listingTargetId),
@@ -405,7 +431,7 @@ export async function markTargetFailed(
         ),
       )
       .returning(listingEventColumns);
-    if (!options.final) {
+    if (!options.final && updated?.status !== "error") {
       return;
     }
     await recordListingEvent(transaction, "listing.failed", updated);
@@ -424,7 +450,13 @@ export async function setTargetCreationStarted(
   const rows = await database
     .update(listingTargets)
     .set({ creationStartedAt: started ? new Date() : null })
-    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "publishing")))
+    .where(
+      and(
+        eq(listingTargets.id, listingTargetId),
+        eq(listingTargets.status, "publishing"),
+        started ? eq(listingTargets.pauseRequested, false) : undefined,
+      ),
+    )
     .returning({ id: listingTargets.id });
   if (rows.length !== 1) throw conflictError("A publicação não está mais em processamento");
 }
