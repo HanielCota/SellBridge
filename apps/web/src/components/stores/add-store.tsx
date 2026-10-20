@@ -1,4 +1,5 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
 import { Button } from "@/components/ui/button";
 import { STORES_LOCKED_REASON, useStoresLocked } from "@/components/stores/stores-lock";
@@ -30,13 +31,15 @@ const DESCRIPTIONS: Record<string, string> = {
 function AvailableOption({
   option,
   supplier,
+  ownProducts,
 }: {
   option: MarketplaceOption;
   supplier: NewStoreSupplier | null;
+  ownProducts: boolean;
 }) {
   const locked = useStoresLocked();
   const withProfile = useTabProfileLink();
-  if (supplier === null) {
+  if (supplier === null && !ownProducts) {
     return <WaitingOption option={option} />;
   }
   if (locked) {
@@ -149,25 +152,42 @@ function ComingSoonOption({ option }: { option: MarketplaceOption }) {
 }
 
 /**
- * The supplier the new shop sells, then every marketplace: the ones ready to connect first, then
- * the ones on the way. Each shop sells a single supplier, so connecting waits for one.
+ * Own-only stores connect without a supplier. Other new stores require a selected supplier.
  */
 export function AddStore({
   marketplaces,
   supplier,
   onChooseSupplier,
+  ownProducts = false,
 }: {
   marketplaces: MarketplaceOption[];
   supplier: NewStoreSupplier | null;
   onChooseSupplier: () => void;
+  ownProducts?: boolean;
 }) {
   const available = marketplaces.filter((option) => option.available);
   const comingSoon = marketplaces.filter((option) => !option.available);
   return (
     <GroupedList>
-      <SupplierRow supplier={supplier} onChooseSupplier={onChooseSupplier} />
+      {ownProducts && supplier === null ? (
+        <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <span className="font-medium">This store will sell your own products.</span>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/onboarding" search={{ step: "supplier" }}>
+              Edit product sources
+            </Link>
+          </Button>
+        </li>
+      ) : (
+        <SupplierRow supplier={supplier} onChooseSupplier={onChooseSupplier} />
+      )}
       {available.map((option) => (
-        <AvailableOption key={option.id} option={option} supplier={supplier} />
+        <AvailableOption
+          key={option.id}
+          option={option}
+          supplier={supplier}
+          ownProducts={ownProducts}
+        />
       ))}
       {comingSoon.map((option) => (
         <ComingSoonOption key={option.id} option={option} />

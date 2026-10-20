@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findNextStep,
+  getSetupSteps,
   PUBLISHING_POLL_MILLISECONDS,
   remainingSetupMinutes,
   SETUP_STEPS,
@@ -28,6 +29,14 @@ const ALL_DONE: SetupProgress = {
 
 // Item 26.c (I1–I4): the setup shows how far along it is and how long is left.
 describe("setup progress", () => {
+  it("opens the private product panel for own-only sellers", () => {
+    const progress = { ...ALL_DONE, hasPublishedListing: false, productSourceMode: "own" as const };
+    expect(findNextStep(progress)?.to).toBe("/products");
+    expect(getSetupSteps(progress).find((step) => step.key === "hasPublishedListing")?.cta).toBe(
+      "Open my products",
+    );
+    expect(findNextStep({ ...progress, productSourceMode: "both" })?.to).toBe("/catalogo");
+  });
   it("estimates every step", () => {
     for (const step of SETUP_STEPS) {
       expect(step.estimatedMinutes).toBeGreaterThan(0);

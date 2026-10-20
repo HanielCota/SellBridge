@@ -75,7 +75,8 @@
     "./supplier-panel-attention": "./src/domain/supplier-panel-attention.ts",
     "./supplier-panel-home-queue": "./src/domain/supplier-panel-home-queue.ts",
     "./forward-notes": "./src/domain/forward-notes.ts",
-    "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts"
+    "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
+    "./product-sources": "./src/domain/product-sources.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

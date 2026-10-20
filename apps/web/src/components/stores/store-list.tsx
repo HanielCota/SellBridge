@@ -172,11 +172,20 @@ function StoreSupplierLine({
   store,
   supplier,
   onChangeSupplier,
+  ownProducts,
 }: {
+  ownProducts: boolean;
   store: StoreWithActivity;
   supplier: StoreSupplierLabel | undefined;
   onChangeSupplier: () => void;
 }) {
+  if (store.supplierId === null && ownProducts) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Your products · stock and shipping handled by you
+      </p>
+    );
+  }
   if (store.supplierId === null || supplier === undefined) {
     return (
       <button
@@ -198,7 +207,15 @@ function StoreSupplierLine({
 }
 
 /** An idle store gets one small step beside its name; stores already selling get none. */
-function PublishAction({ store, storeName }: { store: StoreWithActivity; storeName: string }) {
+function PublishAction({
+  store,
+  storeName,
+  ownProducts,
+}: {
+  store: StoreWithActivity;
+  storeName: string;
+  ownProducts: boolean;
+}) {
   if (!isIdle(store)) {
     return null;
   }
@@ -206,8 +223,12 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
     <Button asChild variant="outline" size="sm" className="shrink-0">
       {/* Only this store's supplier: products of another one could not be published here. */}
       <Link
-        to="/catalogo"
-        search={{ supplier: store.supplierId ?? undefined }}
+        to={ownProducts && store.supplierId === null ? "/products" : "/catalogo"}
+        search={
+          ownProducts && store.supplierId === null
+            ? {}
+            : { supplier: store.supplierId ?? undefined }
+        }
         aria-label={`Publicar produtos em ${storeName}`}
       >
         <PackageIcon weight="bold" aria-hidden="true" />
@@ -243,7 +264,9 @@ function StoreRow({
   marketplaceLabel,
   supplier,
   actions,
+  ownProducts,
 }: {
+  ownProducts: boolean;
   store: StoreWithActivity;
   marketplaceLabel: string;
   supplier: StoreSupplierLabel | undefined;
@@ -267,9 +290,10 @@ function StoreRow({
               store={store}
               supplier={supplier}
               onChangeSupplier={actions.onChangeSupplier}
+              ownProducts={ownProducts}
             />
           </div>
-          <PublishAction store={store} storeName={name} />
+          <PublishAction store={store} storeName={name} ownProducts={ownProducts} />
         </div>
         {store.status === "connected" ? (
           <StoreFigures store={store} />
@@ -308,7 +332,9 @@ export function StoreList({
   suppliers,
   onDisconnect,
   onChangeSupplier,
+  ownProducts = false,
 }: {
+  ownProducts?: boolean;
   stores: StoreWithActivity[];
   labels: Map<string, string>;
   suppliers: Map<string, StoreSupplierLabel>;
@@ -335,6 +361,7 @@ export function StoreList({
         {byConnectedFirst(stores).map((store) => (
           <StoreRow
             key={store.id}
+            ownProducts={ownProducts}
             store={store}
             marketplaceLabel={labels.get(store.marketplace) ?? store.marketplace}
             supplier={store.supplierId === null ? undefined : suppliers.get(store.supplierId)}

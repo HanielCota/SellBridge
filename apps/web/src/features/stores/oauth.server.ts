@@ -122,6 +122,8 @@ async function supplierForNewShop(
   const picked = query.success ? query.data.fornecedor : undefined;
   if (picked === undefined) {
     const profile = await findOnboardingProfile(database, tenantId);
+    if (profile.productSourceMode === "own") return null;
+    if (profile.starterSupplier?.active === false) return undefined;
     return profile.starterSupplier?.id ?? null;
   }
   try {
