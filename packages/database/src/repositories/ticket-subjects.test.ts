@@ -10,7 +10,7 @@ import {
 import { createListingWithTargets } from "./listings.ts";
 import { upsertMarketplaceOrder } from "./orders.ts";
 import { upsertStoreConnection } from "./stores.ts";
-import { createTicket } from "./support.ts";
+import { createTicket } from "./support-create.ts";
 import { listTicketOrders } from "./ticket-links.ts";
 import { describeTicketAbout, getTicketSubject, linkTicketAbout } from "./ticket-subjects.ts";
 

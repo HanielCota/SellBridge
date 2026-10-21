@@ -20,6 +20,7 @@ export * from "./listing-batch-progress.ts";
 export * from "./webhooks.ts";
 export * from "./orders.ts";
 export * from "./support.ts";
+export * from "./support-create.ts";
 export * from "./customers.ts";
 export * from "./notifications.ts";
 export * from "./global-search.ts";

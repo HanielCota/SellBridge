@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { notificationDeliveries, notificationPreferences, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair } from "../testing/fixtures.ts";
 import { queueNewTicketNotices } from "./notification-producers.ts";
-import { createTicket } from "./support.ts";
+import { createTicket } from "./support-create.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;

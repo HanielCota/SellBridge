@@ -237,7 +237,7 @@ async function markRead(
     });
 }
 
-async function insertAttachments(
+export async function insertAttachments(
   executor: DatabaseExecutor,
   ticketId: string,
   messageId: string,
@@ -249,53 +249,6 @@ async function insertAttachments(
   await executor
     .insert(ticketAttachments)
     .values(attachments.map((file) => ({ ...file, ticketId, messageId })));
-}
-
-export async function createTicket(
-  database: Database,
-  input: {
-    tenantId: string;
-    userId: string;
-    category: TicketCategory;
-    subject: string;
-    body: string;
-    attachments: readonly NewAttachment[];
-    now?: Date;
-  },
-): Promise<{ ticketId: string }> {
-  const now = input.now ?? new Date();
-  return database.transaction(async (transaction) => {
-    const [ticket] = await transaction
-      .insert(tickets)
-      .values({
-        tenantId: input.tenantId,
-        createdById: input.userId,
-        category: input.category,
-        subject: input.subject,
-        awaitingSince: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning({ id: tickets.id });
-    if (!ticket) {
-      throw conflictError("Não foi possível abrir o chamado");
-    }
-    const [message] = await transaction
-      .insert(ticketMessages)
-      .values({
-        ticketId: ticket.id,
-        authorId: input.userId,
-        isAdmin: false,
-        body: input.body,
-        createdAt: now,
-      })
-      .returning({ id: ticketMessages.id });
-    if (!message) {
-      throw conflictError("Não foi possível registrar a mensagem");
-    }
-    await insertAttachments(transaction, ticket.id, message.id, input.attachments);
-    return { ticketId: ticket.id };
-  });
 }
 
 /** The ticket row, locked for the rest of the transaction; `tenantId` null means staff. */

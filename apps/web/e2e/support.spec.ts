@@ -10,13 +10,25 @@ import {
 
 const PDF_BYTES = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 
-async function openTicket(page: Page, subject: string, body: string) {
+/** The subject the server gives a late-order ticket: the situation, then the description. */
+function lateOrderSubject(body: string): string {
+  return `O pedido atrasou: ${body}`;
+}
+
+/** Picks "Pedido ou entrega" › "O pedido atrasou" and writes the description. */
+async function describeLateOrder(page: Page, body: string) {
+  await page.getByRole("button", { name: /^Pedido ou entrega/ }).click();
+  await page.getByRole("button", { name: /^O pedido atrasou/ }).click();
+  await page.getByLabel("O que aconteceu com a entrega?").fill(body);
+}
+
+async function openTicket(page: Page, body: string): Promise<string> {
   await gotoHydrated(page, "/suporte/novo");
-  await page.getByText("Pedido ou entrega").click();
-  await page.getByLabel("Assunto").fill(subject);
-  await page.getByLabel("Descrição").fill(body);
-  await page.getByRole("button", { name: "Abrir chamado" }).click();
+  await describeLateOrder(page, body);
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
+  const subject = lateOrderSubject(body);
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
+  return subject;
 }
 
 async function openAsStaff(page: Page, subject: string) {
@@ -41,28 +53,30 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   const resellerContext = await browser.newContext({ locale: "pt-BR" });
   const reseller = await resellerContext.newPage();
   await signUp(reseller, "Revendedor Suporte");
-  const subject = `Pedido atrasado ${Date.now()}`;
+  const body = `O pedido SIM-${Date.now()} ainda não foi entregue.`;
+  const subject = lateOrderSubject(body);
 
   await gotoHydrated(reseller, "/suporte");
   await expect(reseller.getByText("Você ainda não abriu chamados")).toBeVisible();
   await reseller.getByRole("link", { name: "Abrir chamado" }).click();
   await reseller.waitForLoadState("networkidle");
 
-  await reseller.getByLabel("Assunto").fill(subject);
-  await reseller
-    .getByLabel("Descrição")
-    .fill("O pedido SIM-123 ainda não foi entregue ao comprador.");
-  await reseller.getByRole("button", { name: "Abrir chamado" }).click();
-  await expect(reseller.getByText("Escolha sobre o que é o chamado")).toBeVisible();
+  await describeLateOrder(reseller, "Atrasou");
+  await reseller.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(
+    reseller.getByText("Conte um pouco mais para a equipe entender o caso."),
+  ).toBeVisible();
 
-  await reseller.getByText("Pedido ou entrega").click();
-  await reseller.getByLabel("Anexos (opcional)").setInputFiles({
+  await reseller.getByLabel("O que aconteceu com a entrega?").fill(body);
+  await reseller.locator('input[type="file"]').setInputFiles({
     name: "comprovante.pdf",
     mimeType: "application/pdf",
     buffer: PDF_BYTES,
   });
-  await expect(reseller.getByText("comprovante.pdf")).toBeVisible();
-  await reseller.getByRole("button", { name: "Abrir chamado" }).click();
+  await expect(
+    reseller.getByRole("list", { name: "Arquivos escolhidos" }).getByText("comprovante.pdf"),
+  ).toBeVisible();
+  await reseller.getByRole("button", { name: "Enviar chamado" }).click();
 
   await expect(reseller.getByRole("heading", { name: subject })).toBeVisible();
   const resellerHeader = reseller.getByRole("heading", { name: subject }).locator("..");
@@ -119,14 +133,13 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   const resellerContext = await browser.newContext({ locale: "pt-BR" });
   const reseller = await resellerContext.newPage();
   await signUp(reseller, "Revendedor Avaliação");
-  const subject = `Repasse do mês ${Date.now()}`;
 
   await gotoHydrated(reseller, "/dashboard");
   await reseller.getByRole("button", { name: "Suporte", exact: true }).click();
   await reseller.getByRole("link", { name: "Abrir chamado" }).click();
   await expect(reseller).toHaveURL(/\/suporte\/novo/);
   await waitForHydration(reseller);
-  await openTicket(reseller, subject, "Quando cai o repasse das vendas desta semana?");
+  const subject = await openTicket(reseller, `Quando cai o repasse da semana ${Date.now()}`);
 
   const { context: adminContext, page: admin } = await adminPage(browser);
   await openAsStaff(admin, subject);
@@ -169,8 +182,7 @@ test("atendente vê só o suporte e assume um chamado da fila", async ({ browser
   const resellerContext = await browser.newContext({ locale: "pt-BR" });
   const reseller = await resellerContext.newPage();
   await signUp(reseller, "Revendedor Fila");
-  const subject = `Loja desconectou ${Date.now()}`;
-  await openTicket(reseller, subject, "Minha loja aparece como desconectada desde ontem.");
+  const subject = await openTicket(reseller, `Loja desconectada desde ontem ${Date.now()}`);
 
   const { context: adminContext, page: admin } = await adminPage(browser);
   await gotoHydrated(admin, `/admin/clientes?query=${encodeURIComponent(agentEmail)}`);
@@ -212,15 +224,13 @@ test("atendente vê só o suporte e assume um chamado da fila", async ({ browser
 test("recusa anexo com conteúdo diferente da extensão", async ({ page }) => {
   await signUp(page, "Revendedor Anexo Falso");
   await gotoHydrated(page, "/suporte/novo");
-  await page.getByText("Conexão de loja").click();
-  await page.getByLabel("Assunto").fill("Teste de anexo inválido");
-  await page.getByLabel("Descrição").fill("Este arquivo não é realmente uma imagem PNG.");
-  await page.getByLabel("Anexos (opcional)").setInputFiles({
+  await describeLateOrder(page, "Este arquivo não é realmente uma imagem PNG.");
+  await page.locator('input[type="file"]').setInputFiles({
     name: "foto.png",
     mimeType: "image/png",
     buffer: Buffer.from("MZ executável disfarçado"),
   });
-  await page.getByRole("button", { name: "Abrir chamado" }).click();
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
   await expect(
     page.getByText('"foto.png" não é um formato aceito (PNG, JPG, WEBP ou PDF)'),
   ).toBeVisible();

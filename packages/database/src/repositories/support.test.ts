@@ -9,7 +9,6 @@ import {
   autoCloseIdleTickets,
   closeTicketForCustomer,
   countUnreadSupportReplies,
-  createTicket,
   findTicketForMessage,
   getAttachment,
   getSupportMetrics,
@@ -21,6 +20,7 @@ import {
   setTicketPriority,
   setTicketStatus,
 } from "./support.ts";
+import { createTicket } from "./support-create.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
