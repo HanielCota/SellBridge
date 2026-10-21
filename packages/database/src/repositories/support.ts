@@ -44,6 +44,7 @@ import {
   STAFF_ROLE_LIST,
   withoutActiveAssigneeSql,
 } from "./support-assignee.ts";
+import { staffTicketSearch } from "./support-search.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
@@ -741,9 +742,7 @@ export async function listStaffTickets(
     input.status ? eq(tickets.status, input.status) : undefined,
     input.priority ? eq(tickets.priority, input.priority) : undefined,
     input.category ? eq(tickets.category, input.category) : undefined,
-    term
-      ? or(ilike(tickets.subject, term), ilike(organization.name, term), ilike(user.email, term))
-      : undefined,
+    term ? staffTicketSearch(term) : undefined,
   );
   const order =
     input.queue === "overdue"

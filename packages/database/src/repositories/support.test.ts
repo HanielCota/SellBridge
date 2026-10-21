@@ -320,6 +320,24 @@ describe("support queues and response deadlines", () => {
     expect(queue.indexOf(urgent)).toBeLessThan(queue.indexOf(low));
   });
 
+  it("finds a ticket by words the customer wrote past the subject's excerpt", async () => {
+    const code = `rastreio-${RUN}-zz`;
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "order",
+      subject: "O pedido atrasou: Comprei faz 10 dias e o pedido ainda não chegou",
+      body: `Comprei faz 10 dias e o pedido ainda não chegou, o rastreio parou. Código ${code}.`,
+      attachments: [],
+    });
+    const page = await listStaffTickets(
+      database,
+      { queue: "all", viewerId: agent, now: new Date(), search: code },
+      PAGE,
+    );
+    expect(page.items.map((item) => item.id)).toEqual([ticketId]);
+  });
+
   it("only hands tickets to the support team", async () => {
     const ticketId = await openTicket("Atribuição");
     const self = { ticketId, actorId: agent, mayAssignOthers: false };
