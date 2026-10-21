@@ -7,6 +7,8 @@
     ".": "./src/index.ts",
     "./money": "./src/domain/money.ts",
     "./product-csv": "./src/domain/product-csv.ts",
+    "./catalog-spreadsheet": "./src/domain/catalog-spreadsheet.ts",
+    "./xlsx-reader": "./src/runtime/xlsx-reader.ts",
     "./cep": "./src/domain/cep.ts",
     "./cep-providers": "./src/domain/cep-providers.ts",
     "./errors": "./src/runtime/errors.ts",

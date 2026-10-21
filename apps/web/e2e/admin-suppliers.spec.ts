@@ -39,7 +39,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Baixar modelo CSV" }).click();
   expect((await downloadPromise).suggestedFilename()).toBe("modelo-produtos.csv");
-  await page.getByLabel("Arquivo CSV (UTF-8)").setInputFiles({
+  await page.getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx").setInputFiles({
     name: "invalido.csv",
     mimeType: "text/csv",
     buffer: Buffer.from("sku;titulo;custo;estoque\nCSV-NEW;Novo;12,90;1\nCSV-NEW;Duplicado;1;1"),
@@ -51,7 +51,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   const csv =
     "sku;titulo;custo;estoque\nCSV-MANUAL;Produto atualizado;14.50;20\nCSV-NEW;Produto importado;12,90;5";
   await page
-    .getByLabel("Arquivo CSV (UTF-8)")
+    .getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx")
     .setInputFiles({ name: "produtos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   const requestPromise = page.waitForRequest(
     (request) =>

@@ -109,6 +109,13 @@ EXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.
 
 Required columns: `sku`, `titulo`, `custo`, `estoque`. Optional columns: `descricao`, `categoria` (an existing category slug), `imagens` (HTTP/HTTPS URLs separated by `|`), `ativo` (`sim`/`nao`, `true`/`false`, or `1`/`0`), and `preco_sugerido`. Money accepts `12,90` or `12.90`, without grouping separators, and is stored as integer cents. Blank descriptions, categories, and images clear their values. A blank active flag or suggested price preserves the existing value; new products default to active and the existing 50% markup rule with a retail ending in `,90`.
 
+The same field also accepts `.xlsx` spreadsheets (up to 20 MiB each, several at once). The browser reads them, converts them into the CSV above and sends that CSV through the same preview and confirmation, so server validation is unchanged. Two layouts are recognized by their header row:
+
+- **Supplier catalog** (EnvioVelox export, required): `SKU`, `Nome produto`, `Preço de venda`, `Estoque`, plus `Descrição`, `Preço de custo`, `URL Imagem 1…10`, `Cor`, `Tamanho`, `Categoria Pai`/`Categoria Filho`. Cost is `Preço de custo` when above zero, otherwise the supplier's `Preço de venda`. The title adds color and size (except "único"), and categories match an existing category by name or slug.
+- **Shopee listings** (optional): `Nome do Produto`, `SKU da Variação`, `Preço`. Matched by SKU, it supplies the suggested price, the listing title with its variation, the description and the cover/product images (appended after the supplier's). Shopee SKUs missing from the supplier catalog are listed and ignored, since they have no cost or stock.
+
+Preview errors on spreadsheet imports show the file, sheet row and SKU instead of the generated CSV line.
+
 Supplier and product deactivation only hides items from the reseller catalog. Existing listings and orders remain available, and published listings still receive stock synchronization. Product saves and imports enqueue `stock-price-sync` after committing; if Redis is unavailable, the UI reports deferred synchronization and the worker's existing 15-minute scheduler recovers it from database values. Listing prices remain the reseller's chosen prices; supplier cost changes do not automatically reprice existing listings.
 
 The existing schema already contains `active` columns and the unique supplier/SKU index; this feature requires no migration or production seed.
