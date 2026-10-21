@@ -28,7 +28,8 @@ test("abre um chamado já ligado ao pedido pela página do pedido", async ({ pag
   const order = await demoOrder();
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, `/pedidos/${order.id}`);
-  await page.getByRole("link", { name: "Falar com o suporte" }).click();
+  // The page's own button carries the order; the corner bubble only opens the form.
+  await page.getByRole("main").getByRole("link", { name: "Falar com o suporte" }).click();
 
   await expect(page).toHaveURL(/\/suporte\/novo/);
   const about = page.getByRole("region", { name: "Sobre" });
@@ -64,4 +65,31 @@ test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {
   await page.getByRole("button", { name: "Enviar chamado" }).click();
   await expect(page.getByRole("alert")).toContainText("Venda não encontrada nesta conta");
   await expect(page).toHaveURL(/\/suporte\/novo/);
+});
+
+// Money questions start from where the reseller sees the money: the corner bubble picks the topic.
+for (const from of ["/financeiro", "/assinatura"]) {
+  test(`abre o chamado de dinheiro já no tema a partir de ${from}`, async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, from);
+    await page.getByRole("link", { name: "Falar com o suporte" }).click();
+    await expect(page).toHaveURL(/\/suporte\/novo\?categoria=payment/);
+    await expect(page.getByText("1. Dinheiro das vendas ou cobrança")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^O dinheiro de uma venda não caiu/ }),
+    ).toBeVisible();
+  });
+}
+
+test("a bolha mostra o texto na chegada e depois fica só o ícone", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/dashboard");
+  const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
+  await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
+  // Folds after 10 seconds of real time (the test clock does not reach React's timer).
+  await expect(bubble.getByText("Falar com o suporte")).toBeHidden({ timeout: 15_000 });
+  await expect(bubble).toBeVisible();
+  // Away from the money pages the form starts at step 1.
+  await bubble.click();
+  await expect(page).toHaveURL(/\/suporte\/novo(\?perfil=[^&]+)?$/);
 });
