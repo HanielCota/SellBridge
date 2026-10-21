@@ -40,6 +40,19 @@ async function expectClearHeader(page: Page) {
   }
 }
 
+/** The seller capsule has no scroll cue: a tab past its edge is clipped (Financeiro, 1536px+). */
+async function expectEveryTabVisible(page: Page) {
+  for (const width of DESKTOP_WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    const nav = page.getByRole("navigation", { name: "Principal" });
+    if (!(await nav.isVisible())) {
+      continue;
+    }
+    const clippedWidth = await nav.evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(clippedWidth, `every tab fits the capsule at ${width}px`).toBeLessThanOrEqual(0);
+  }
+}
+
 test("admin header keeps the tab capsule clear of the logo and the actions", async ({ page }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
@@ -50,6 +63,7 @@ test("seller header stays clear with a long account name", async ({ page }) => {
   await signUp(page, "Seller with a deliberately long account display name");
   await gotoHydrated(page, "/dashboard");
   await expectClearHeader(page);
+  await expectEveryTabVisible(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(
     page.getByText("Seller with a deliberately long account display name", { exact: true }),

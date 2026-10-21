@@ -50,8 +50,9 @@ const LAYOUTS = {
     row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
     desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
-    tab: "px-3 text-[0.9375rem] gap-1.5",
+    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo,
+    // and with icons and px-3 the seven tabs overflowed the 1440px row and clipped Financeiro.
+    tab: "px-2.5 text-[0.9375rem] gap-1",
     // Account names stay visible on desktop; their text is capped until the row has more room.
     accountName: "hidden sm:block lg:hidden xl:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
