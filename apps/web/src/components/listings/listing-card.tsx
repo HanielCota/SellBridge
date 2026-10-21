@@ -183,7 +183,7 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
 
 /**
  * Why nothing sells, in place of the status line. When the cost passed the price, the price
- * editor is the fix, so it sits beside the cause instead of only in the menu.
+ * editor is the fix, so it sits under the reason instead of only in the menu.
  */
 function StoppedFooter({
   row,

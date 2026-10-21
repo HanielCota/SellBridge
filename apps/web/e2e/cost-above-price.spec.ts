@@ -115,7 +115,7 @@ test("o fornecedor sobe o custo acima do preço e o revendedor vê o anúncio pa
   await expect(page.getByText("Custo subiu. Aumente o preço para vender.")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // The fix sits beside the cause, not only in the card's menu.
+  // The fix sits under the reason, not only in the card's menu.
   await card.getByRole("button", { name: "Ajustar preço" }).click();
   await expect(page.getByRole("dialog", { name: "Editar preço" })).toBeVisible();
 });

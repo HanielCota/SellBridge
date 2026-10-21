@@ -29,16 +29,15 @@ export function SoldOutFooter({
 }: {
   label?: string;
   detail?: string | null;
-  /** The one fix the reseller can make here, beside the cause instead of inside the menu. */
+  /** The one fix the reseller can make here, on the card instead of only inside the menu. */
   action?: React.ReactNode;
 }) {
   return (
     <div className="space-y-1 bg-destructive/12 px-4 py-3 text-destructive">
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-        <p className="text-footnote font-medium">{label}</p>
-        {action}
-      </div>
+      <p className="text-footnote font-medium">{label}</p>
       {detail === null ? null : <p className="text-xs">{detail}</p>}
+      {/* After the reason, so a narrow card still reads cause, explanation, then the fix. */}
+      {action === null ? null : <div className="pt-1.5">{action}</div>}
     </div>
   );
 }
