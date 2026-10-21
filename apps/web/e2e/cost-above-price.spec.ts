@@ -99,13 +99,23 @@ test("o fornecedor sobe o custo acima do preço e o revendedor vê o anúncio pa
     .where(eq(supplierProducts.id, productId));
 
   await signIn(page, { email: customerEmail, password: SIGN_UP_PASSWORD });
-  await gotoHydrated(page, `/publicacoes?query=${encodeURIComponent(productTitle)}`);
+  // It sells nothing, so it is listed under "Pausadas" and its card says so in one word.
+  await gotoHydrated(page, `/publicacoes?status=paused&query=${encodeURIComponent(productTitle)}`);
   const card = page
     .locator("article")
     .filter({ has: page.getByText(productTitle, { exact: true }) })
     .first();
   await expect(card.getByText("Custo acima do preço")).toBeVisible();
+  await expect(card.getByRole("button", { name: `Ações de ${productTitle}` })).toContainText(
+    "Pausado",
+  );
 
   await page.getByRole("button", { name: /^Avisos/ }).click();
   await expect(page.getByText(`Anúncio pausado: ${productTitle}`)).toBeVisible();
+  await expect(page.getByText("Custo subiu. Aumente o preço para vender.")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The fix sits beside the cause, not only in the card's menu.
+  await card.getByRole("button", { name: "Ajustar preço" }).click();
+  await expect(page.getByRole("dialog", { name: "Editar preço" })).toBeVisible();
 });

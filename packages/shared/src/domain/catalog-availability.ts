@@ -58,8 +58,14 @@ const LISTING_MESSAGES: Record<UnavailableReason, string> = {
     "O fornecedor está inativo. O anúncio fica pausado; reative quando ele voltar ao catálogo.",
   product_inactive:
     "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
-  cost_above_price:
-    "O fornecedor mudou o custo e ele passou do seu preço de venda. O anúncio foi pausado para você não vender no prejuízo. Aumente o preço para voltar a vender.",
+  cost_above_price: "O fornecedor subiu o custo. Aumente o preço para voltar a vender.",
+};
+
+/** One line each: the bell cuts its detail at the panel's width. */
+const BELL_LINES: Record<UnavailableReason, string> = {
+  supplier_inactive: "Fornecedor inativo. Reative quando ele voltar.",
+  product_inactive: "Produto indisponível no fornecedor.",
+  cost_above_price: "Custo subiu. Aumente o preço para vender.",
 };
 
 /** The cause in a few words, on the listing card. */
@@ -67,7 +73,12 @@ export function unavailableListingLabel(reason: UnavailableReason): string {
   return LISTING_LABELS[reason];
 }
 
-/** Why a live listing stopped and who brings it back (card and bell). */
+/** Why a live listing stopped and who brings it back, on the listing card. */
 export function unavailableListingMessage(reason: UnavailableReason): string {
   return LISTING_MESSAGES[reason];
+}
+
+/** The same in one line of the bell, whose title already says the listing was paused. */
+export function unavailableBellLine(reason: UnavailableReason): string {
+  return BELL_LINES[reason];
 }

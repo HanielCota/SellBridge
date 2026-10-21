@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type CatalogAvailability,
+  unavailableBellLine,
   unavailableListingLabel,
   unavailableListingMessage,
   unavailableMessage,
@@ -64,6 +65,28 @@ describe("unavailable listing wording", () => {
     );
     expect(unavailableListingMessage("product_inactive")).toBe(
       "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
+    );
+  });
+
+  it("tells the cost change and the fix in two short sentences", () => {
+    expect(unavailableListingMessage("cost_above_price")).toBe(
+      "O fornecedor subiu o custo. Aumente o preço para voltar a vender.",
+    );
+  });
+});
+
+describe("unavailableBellLine", () => {
+  // The bell shows one line of detail; past ~48 characters it is cut and the fix is lost.
+  it.each(["supplier_inactive", "product_inactive", "cost_above_price"] as const)(
+    "fits %s in one line of the bell",
+    (reason) => {
+      expect(unavailableBellLine(reason).length).toBeLessThanOrEqual(48);
+    },
+  );
+
+  it("puts the fix in the line when the reseller can make it", () => {
+    expect(unavailableBellLine("cost_above_price")).toBe(
+      "Custo subiu. Aumente o preço para vender.",
     );
   });
 });

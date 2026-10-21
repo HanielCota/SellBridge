@@ -80,3 +80,14 @@ const RUN_STATES: Record<ListingHealthTone, ListingRunState> = {
 export function listingRunState(row: ListingOverviewRow): ListingRunState {
   return RUN_STATES[listingHealth(row).tone];
 }
+
+/**
+ * The state the card names. A listing the supplier's catalog stops is paused by the rule, not
+ * broken: it reads "Pausado", like the tab that counts it, while keeping the problem's color.
+ */
+export function listingNamedState(row: ListingOverviewRow): ListingRunState {
+  if (row.unavailable !== null) {
+    return "paused";
+  }
+  return listingRunState(row);
+}

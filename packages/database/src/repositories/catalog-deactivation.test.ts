@@ -18,7 +18,7 @@ import {
   setAdminSupplierProductActive,
 } from "./admin-suppliers.ts";
 import { setListingsPaused } from "./listing-actions.ts";
-import { getListingOverview } from "./listing-overview.ts";
+import { getListingOverview, listListingOverview } from "./listing-overview.ts";
 import { getTargetForPublishing } from "./listings.ts";
 import { listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
@@ -328,6 +328,30 @@ describe("a supplier raising the cost past the listing price", () => {
       (await getListingOverview(database, first.tenantId, listingOfFirst)).unavailable,
     ).toBeNull();
     expect(await unavailableInBell(first.tenantId, listingOfFirst)).toEqual([]);
+  });
+
+  it("moves the stopped listing from the live tab to the paused tab and back", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const listingId = await listingIdOf(product.targets.get(first.tenantId) ?? "");
+    await priceListing(listingId, 3990);
+    const search = product.productId;
+    const page = { page: 1, pageSize: 10 };
+
+    await costProduct(product.productId, 4500);
+    const stopped = await listListingOverview(database, first.tenantId, { search }, page);
+    expect(stopped.statusCounts).toMatchObject({ published: 0, paused: 1 });
+    const pausedTab = await listListingOverview(
+      database,
+      first.tenantId,
+      { search, status: "paused" },
+      page,
+    );
+    expect(pausedTab.items.map((row) => row.listingId)).toEqual([listingId]);
+
+    await priceListing(listingId, 5990);
+    const resumed = await listListingOverview(database, first.tenantId, { search }, page);
+    expect(resumed.statusCounts).toMatchObject({ published: 1, paused: 0 });
   });
 
   it("treats a cost equal to the price as a loss and one cent below it as a sale", async () => {

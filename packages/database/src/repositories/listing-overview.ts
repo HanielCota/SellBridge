@@ -24,7 +24,11 @@ import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { listingCoversCostColumn, productListableColumn } from "./sql/sellable.ts";
+import {
+  listingCoversCostColumn,
+  listingSellableByProduct,
+  productListableColumn,
+} from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -88,12 +92,27 @@ function hasTargetWith(status: ListingTargetStatus | undefined): SQL {
   return sql`exists (select 1 from ${listingTargets} where ${listingTargets.listingId} = ${listings.id}${targetFilter})`;
 }
 
+/**
+ * The status tab a listing belongs to. A live listing the supplier's catalog stops (inactive
+ * product or supplier, cost above the price) sells nothing: it counts as paused, the word its
+ * card shows, and leaves the live tab.
+ */
+function inStatusTab(status: ListingTargetStatus | undefined): SQL {
+  if (status === "published") {
+    return sql`(${hasTargetWith("published")} and ${listingSellableByProduct()})`;
+  }
+  if (status === "paused") {
+    return sql`(${hasTargetWith("paused")} or (${hasTargetWith("published")} and not ${listingSellableByProduct()}))`;
+  }
+  return hasTargetWith(status);
+}
+
 function listingConditions(tenantId: string, filters: ListingOverviewFilters): SQL | undefined {
   const conditions: SQL[] = [eq(listings.tenantId, tenantId)];
   if (filters.search) {
     conditions.push(ilike(listings.title, containsPattern(filters.search)));
   }
-  conditions.push(hasTargetWith(filters.status));
+  conditions.push(inStatusTab(filters.status));
   return and(...conditions);
 }
 
@@ -297,7 +316,7 @@ async function loadOverviewRows(
 }
 
 function countWith(status: ListingTargetStatus): SQL<number> {
-  return sql<number>`count(*) filter (where ${hasTargetWith(status)})`.mapWith(Number);
+  return sql<number>`count(*) filter (where ${inStatusTab(status)})`.mapWith(Number);
 }
 
 /** Counts for the status tabs: the search applies, the status filter itself does not. */

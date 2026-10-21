@@ -65,3 +65,11 @@ export function listingSellable(): SQL {
 export function supplierFindable(): SQL {
   return sql`(${publicSupplier()} and ${suppliers.active} and exists (select 1 from ${supplierProducts} where ${supplierProducts.supplierId} = ${suppliers.id} and ${productListable()}))`;
 }
+
+/**
+ * `listingSellable` for a query that only has `listings` in the FROM clause: the status tabs
+ * count a listing the rule stops as paused, the word its card shows, not as live.
+ */
+export function listingSellableByProduct(): SQL {
+  return sql`exists (select 1 from ${supplierProducts} inner join ${suppliers} on ${suppliers.id} = ${supplierProducts.supplierId} where ${supplierProducts.id} = ${listings.supplierProductId} and ${listingSellable()})`;
+}

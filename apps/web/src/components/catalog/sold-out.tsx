@@ -25,13 +25,19 @@ export function SoldOutRibbon({ placement = "corner" }: { placement?: "corner" |
 export function SoldOutFooter({
   label = "Sem estoque no fornecedor",
   detail = null,
+  action = null,
 }: {
   label?: string;
   detail?: string | null;
+  /** The one fix the reseller can make here, beside the cause instead of inside the menu. */
+  action?: React.ReactNode;
 }) {
   return (
     <div className="space-y-1 bg-destructive/12 px-4 py-3 text-destructive">
-      <p className="text-footnote font-medium">{label}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <p className="text-footnote font-medium">{label}</p>
+        {action}
+      </div>
       {detail === null ? null : <p className="text-xs">{detail}</p>}
     </div>
   );

@@ -18,7 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { listingRunState, type ListingRunState } from "@/features/listings/listing-health";
+import {
+  listingNamedState,
+  listingRunState,
+  type ListingRunState,
+} from "@/features/listings/listing-health";
 import { useBulkListingActions, useSimulateSale } from "@/features/listings/use-listing-actions";
 import { displayStoreName } from "@/features/stores/store-name";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
@@ -89,7 +93,14 @@ function EditPriceItem({ onEditPrice }: { onEditPrice: () => void }) {
 }
 
 /** The listing's state in its color, so the action beside it reads as "this is what changes". */
-function RunStateChip({ state }: { state: ListingRunState }) {
+function RunStateChip({
+  state,
+  named = state,
+}: {
+  state: ListingRunState;
+  /** The word shown, when it differs from the color (a listing the catalog stops). */
+  named?: ListingRunState;
+}) {
   return (
     <span
       className={cn(
@@ -99,13 +110,13 @@ function RunStateChip({ state }: { state: ListingRunState }) {
       )}
     >
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", RUN_STATE_DOT[state])} />
-      {RUN_STATE_LABEL[state]}
+      {RUN_STATE_LABEL[named]}
     </span>
   );
 }
 
 /** Kept off by a problem: nothing to toggle, so the item explains instead of acting. */
-function UnavailableItem() {
+function UnavailableItem({ named }: { named: ListingRunState }) {
   return (
     <DropdownMenuItem
       disabled
@@ -113,7 +124,7 @@ function UnavailableItem() {
     >
       <ProhibitIcon weight="duotone" aria-hidden="true" />
       Indisponível
-      <RunStateChip state="off" />
+      <RunStateChip state="off" named={named} />
     </DropdownMenuItem>
   );
 }
@@ -132,7 +143,7 @@ function RunStateItem({ row }: { row: ListingOverviewRow }) {
   const canStillPause =
     row.unavailable !== null && row.stores.some((store) => store.status === "published");
   if (state === "off" && !canStillPause) {
-    return <UnavailableItem />;
+    return <UnavailableItem named={listingNamedState(row)} />;
   }
   if (state === "paused") {
     return (
@@ -151,7 +162,7 @@ function RunStateItem({ row }: { row: ListingOverviewRow }) {
       motion={pauseMotion}
       label="Pausar"
       iconClassName={state === "live" ? "*:[svg]:text-emerald-500" : "*:[svg]:text-sky-500"}
-      trailing={<RunStateChip state={state} />}
+      trailing={<RunStateChip state={state} named={listingNamedState(row)} />}
       disabled={state === "busy"}
       keepOpen
       onSelect={() => pause.mutate({ listingIds: [row.listingId], paused: true })}
@@ -272,7 +283,7 @@ export function ListingMenu({
           >
             <span aria-hidden="true" className={cn("size-2 rounded-full", RUN_STATE_DOT[state])} />
             <span aria-hidden="true" className={RUN_STATE_TEXT[state]}>
-              {RUN_STATE_LABEL[state]}
+              {RUN_STATE_LABEL[listingNamedState(row)]}
             </span>
             <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
           </Button>
