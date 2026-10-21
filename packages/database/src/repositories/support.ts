@@ -12,8 +12,6 @@ import {
   awaitingAfterMessage,
   awaitingAfterStatus,
   nextTicketStatus,
-  RESPONSE_TARGET_HOURS,
-  TICKET_PRIORITIES,
   type TicketCategory,
   type TicketMessageKind,
   type TicketPriority,
@@ -34,7 +32,6 @@ import {
   or,
   sql,
   type SQL,
-  type SQLWrapper,
 } from "drizzle-orm";
 import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import {
@@ -44,6 +41,7 @@ import {
   STAFF_ROLE_LIST,
   withoutActiveAssigneeSql,
 } from "./support-assignee.ts";
+import { isOverdue, plusResponseTarget, responseDueAtSql } from "./support-deadline.ts";
 import { staffTicketSearch } from "./support-search.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
@@ -108,6 +106,7 @@ export interface TicketThread {
     tenantName: string;
     createdById: string;
     createdByName: string;
+    createdByImage: string | null;
     createdByEmail: string;
     assigneeId: string | null;
     assigneeName: string | null;
@@ -146,25 +145,6 @@ export type TicketSide = "customer" | "staff";
 export interface TicketReader {
   userId: string;
   side: TicketSide;
-}
-
-/**
- * `base` plus the ticket priority's target hours, in SQL. The hours are inlined: bound as
- * parameters inside the CASE they would reach Postgres as text.
- */
-function plusResponseTarget(base: SQLWrapper): SQL {
-  return sql`(${base} + (case ${tickets.priority} ${sql.join(
-    TICKET_PRIORITIES.map((priority) =>
-      sql.raw(`when '${priority}' then ${RESPONSE_TARGET_HOURS[priority]}`),
-    ),
-    sql` `,
-  )} end) * interval '1 hour')`;
-}
-
-const responseDueAtSql = plusResponseTarget(tickets.awaitingSince);
-
-function isOverdue(now: Date): SQL {
-  return sql`(${tickets.status} = 'open' and ${tickets.awaitingSince} is not null and ${responseDueAtSql} < ${timestampOf(now)})`;
 }
 
 /**
@@ -828,6 +808,7 @@ async function findThreadTicket(
       tenantName: organization.name,
       createdById: tickets.createdById,
       createdByName: user.name,
+      createdByImage: user.image,
       createdByEmail: user.email,
       assigneeId: activeAssigneeIdSql,
       assigneeName: activeAssigneeNameSql,

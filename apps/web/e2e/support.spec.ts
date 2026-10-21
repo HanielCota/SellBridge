@@ -282,6 +282,9 @@ test("a foto de perfil do cliente aparece para ele e para o suporte no chamado",
   await openAsStaff(admin, subject);
   const adminMessages = admin.getByRole("list", { name: "Mensagens do chamado" });
   await expectLoadedImage(adminMessages.locator("img[src^='/api/perfil/foto/']").first());
+  // The customer card beside the thread shows the same photo, not only the initials.
+  const customerCard = admin.getByLabel("Contexto do cliente");
+  await expectLoadedImage(customerCard.locator("img[src^='/api/perfil/foto/']"));
 
   await resellerContext.close();
   await adminContext.close();
