@@ -173,8 +173,7 @@ export function BillingPage({ returned }: { returned?: string | undefined }) {
             Escolha o plano para suas lojas. Os planos pagos renovam automaticamente a cada mês.
           </p>
         </div>
-        {/* A charge that went wrong is a payment ticket; the shortcut opens that topic. */}
-        <TalkToSupportButton topic="payment" />
+        <TalkToSupportButton search={{ categoria: "payment" }} />
       </div>
       {returned === "sucesso" ? (
         <output className="block">

@@ -77,7 +77,7 @@ function FinancialHeader() {
     <PageHeader
       title="Financeiro"
       description="Lucro por pedido e por período."
-      actions={<TalkToSupportButton topic="payment" />}
+      actions={<TalkToSupportButton search={{ categoria: "payment" }} />}
     />
   );
 }

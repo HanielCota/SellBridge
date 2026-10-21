@@ -1,16 +1,16 @@
-import type { TicketCategory } from "@sellbridge/shared/schemas";
+import type { NewTicketSearch } from "@sellbridge/shared/schemas";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 /**
- * "Falar com o suporte" for pages about a topic rather than one item (money, the plan): the
- * new-ticket form opens with that topic picked, like the order, store and listing shortcuts.
+ * "Falar com o suporte": opens the new-ticket form already about what the page shows, a topic
+ * (money, the plan) or one item (`supportTicketSearch` for an order).
  */
-export function TalkToSupportButton({ topic }: { topic: TicketCategory }) {
+export function TalkToSupportButton({ search }: { search: NewTicketSearch }) {
   return (
     <Button asChild variant="outline">
-      <Link to="/suporte/novo" search={{ categoria: topic }}>
+      <Link to="/suporte/novo" search={search}>
         <ChatCircleDotsIcon aria-hidden="true" />
         Falar com o suporte
       </Link>
