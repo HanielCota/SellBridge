@@ -117,6 +117,8 @@ export interface TicketThread {
     /** Support-only note; only present in threads loaded for staff. */
     isInternal: boolean;
     authorName: string;
+    /** Profile photo of the author; the thread falls back to their initials without one. */
+    authorImage: string | null;
     createdAt: Date;
     attachments: { id: string; fileName: string; mimeType: string; sizeBytes: number }[];
   }[];
@@ -866,6 +868,7 @@ async function findThreadMessages(database: Database, ticketId: string, withInte
       isAdmin: ticketMessages.isAdmin,
       isInternal: ticketMessages.isInternal,
       authorName: user.name,
+      authorImage: user.image,
       createdAt: ticketMessages.createdAt,
     })
     .from(ticketMessages)
