@@ -69,11 +69,17 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await expect(resellerHeader.getByText("Aguardando suporte")).toBeVisible();
   await expect(reseller.getByText(/Resposta prevista até/)).toBeVisible();
   await expect(reseller.getByRole("link", { name: /comprovante\.pdf/ })).toBeVisible();
+  // Without a photo the reseller's own message shows their initials, like the top bar does.
+  const resellerMessages = reseller.getByRole("list", { name: "Mensagens do chamado" });
+  await expect(resellerMessages.getByText("RS", { exact: true })).toBeVisible();
 
   const { context: adminContext, page: admin } = await adminPage(browser);
   await openAsStaff(admin, subject);
   await expect(admin.getByLabel("Contexto do cliente").getByText(/^e2e-/)).toBeVisible();
   await expect(admin.getByLabel("Atendimento").getByText(/^Vence em/)).toBeVisible();
+  const adminMessages = admin.getByRole("list", { name: "Mensagens do chamado" });
+  await expect(adminMessages.getByText("O pedido SIM-123 ainda não foi entregue")).toBeVisible();
+  await expect(adminMessages.getByText("RS", { exact: true })).toBeVisible();
 
   const download = admin.waitForEvent("download");
   await admin.getByRole("link", { name: /comprovante\.pdf/ }).click();
