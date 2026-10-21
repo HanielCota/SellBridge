@@ -34,6 +34,7 @@ import { staffTicketQueryOptions } from "@/features/support/support.queries";
 import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { NOT_SOLVED_MESSAGE } from "@/features/support/use-ticket-verdict";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { customerTicketTitle } from "@sellbridge/shared/support-topics";
 import { AUTO_CLOSE_AFTER_DAYS, ticketCode } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -191,7 +192,7 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
     <header className="min-w-0 space-y-1">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="min-w-0 text-2xl font-semibold tracking-tight break-words">
-          {ticket.subject}
+          {customerTicketTitle(ticket.subject)}
         </h1>
         <TicketStatusBadge status={ticket.status} />
         <TicketPriorityBadge priority={ticket.priority} />
