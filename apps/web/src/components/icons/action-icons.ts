@@ -80,7 +80,7 @@ export const ACTION_ICONS = {
   /** "Exportar" builds a file from the data; "Baixar" (a ready file) gets another icon. */
   exportReport: { icon: FileArrowDownIcon, hint: "Exportar os pedidos do período em uma planilha" },
   customPeriod: { icon: CalendarBlankIcon, hint: "Escolher as datas do período" },
-  supportChat: { icon: ChatCircleDotsIcon, hint: "Converse com a equipe do SellBridge" },
+  supportChat: { icon: ChatCircleDotsIcon, hint: "Abrir um chamado com a equipe do SellBridge" },
   /** Putting products on sale in a store: one icon for one product or many. */
   publish: { icon: PaperPlaneTiltIcon, hint: "Colocar à venda nas suas lojas" },
   suppliers: { icon: FactoryIcon, hint: "Ver os fornecedores e os produtos de cada um" },

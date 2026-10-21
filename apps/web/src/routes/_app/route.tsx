@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { TopNav } from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
-import { SupportChat } from "@/components/support/support-chat";
+import { SupportLauncher } from "@/components/support/support-launcher";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
 import { planProfileNavigation } from "@/features/auth/profile-navigation";
 import { profileRedirectFor } from "@/features/auth/profile-routes";
@@ -110,7 +110,7 @@ function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
   if (adminMode) {
     return null;
   }
-  return <SupportChat />;
+  return <SupportLauncher />;
 }
 
 function AppLayout() {
