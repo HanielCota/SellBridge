@@ -65,3 +65,17 @@ test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("Venda não encontrada nesta conta");
   await expect(page).toHaveURL(/\/suporte\/novo/);
 });
+
+// Money questions start from where the reseller sees the money: the topic comes picked.
+for (const from of ["/financeiro", "/assinatura"]) {
+  test(`abre o chamado de dinheiro já no tema a partir de ${from}`, async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, from);
+    await page.getByRole("link", { name: "Falar com o suporte" }).click();
+    await expect(page).toHaveURL(/\/suporte\/novo\?categoria=payment/);
+    await expect(page.getByText("1. Dinheiro das vendas ou cobrança")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^O dinheiro de uma venda não caiu/ }),
+    ).toBeVisible();
+  });
+}
