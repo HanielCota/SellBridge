@@ -80,3 +80,16 @@ const RUN_STATES: Record<ListingHealthTone, ListingRunState> = {
 export function listingRunState(row: ListingOverviewRow): ListingRunState {
   return RUN_STATES[listingHealth(row).tone];
 }
+
+/**
+ * The state the card names. A live or paused listing the supplier's catalog stops is paused by
+ * the rule, not broken: it reads "Pausado", like the tab that counts it, while keeping the
+ * problem's color. One that never went live (only failed or queued stores) keeps its run state.
+ */
+export function listingNamedState(row: ListingOverviewRow): ListingRunState {
+  const countsAsPaused = storesWith(row.stores, ["published", "paused"]).length > 0;
+  if (row.unavailable !== null && countsAsPaused) {
+    return "paused";
+  }
+  return listingRunState(row);
+}

@@ -181,6 +181,33 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
   );
 }
 
+/**
+ * Why nothing sells, in place of the status line. When the cost passed the price, the price
+ * editor is the fix, so it sits under the reason instead of only in the menu.
+ */
+function StoppedFooter({
+  row,
+  onAdjustPrice,
+}: {
+  row: ListingOverviewRow;
+  onAdjustPrice: () => void;
+}) {
+  const health = listingHealth(row);
+  const adjustPrice =
+    row.unavailable === "cost_above_price" ? (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="bg-background"
+        onClick={onAdjustPrice}
+      >
+        Ajustar preço
+      </Button>
+    ) : null;
+  return <SoldOutFooter label={health.label} detail={health.reason} action={adjustPrice} />;
+}
+
 /** Supplier, title, prices and sales, with the store status unless the sold-out footer replaces it. */
 function ListingCardBody({
   row,
@@ -275,7 +302,7 @@ export function ListingCard({
       </Hint>
       <ListingMenu row={row} onEditPrice={openPriceEditor} />
       <ListingCardBody row={row} soldOut={soldOut} showsStatus={!showsSoldOutFooter} />
-      {showsSoldOutFooter ? <SoldOutFooter label={health.label} detail={health.reason} /> : null}
+      {showsSoldOutFooter ? <StoppedFooter row={row} onAdjustPrice={openPriceEditor} /> : null}
       <EditPriceDialog open={isEditingPrice} onOpenChange={setIsEditingPrice} listing={row} />
     </article>
   );

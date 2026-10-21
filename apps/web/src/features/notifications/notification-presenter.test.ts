@@ -17,10 +17,19 @@ describe("presentNotification", () => {
       kind: "listing_unavailable",
     });
     expect(notification.title).toBe("Anúncio pausado: Moletom canguru - Rosa");
-    expect(notification.detail).toBe(
-      "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
-    );
+    expect(notification.detail).toBe("Produto indisponível no fornecedor.");
     expect(notification.href).toBe("/publicacoes?query=Moletom%20canguru%20-%20Rosa");
+  });
+
+  it("keeps the fix in the bell line when the cost passed the price", () => {
+    const notification = presentNotification({
+      kind: "listing_unavailable",
+      entityId: "listing-5",
+      at,
+      listingTitle: "Moletom canguru - Rosa",
+      reason: "cost_above_price",
+    });
+    expect(notification.detail).toBe("Custo subiu. Aumente o preço para vender.");
   });
 
   it("tells the reseller which order is short and what to do about it", () => {

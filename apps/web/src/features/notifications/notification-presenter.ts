@@ -3,7 +3,7 @@ import type {
   NotificationKind,
   SaleProduct,
 } from "@sellbridge/database/repositories";
-import { unavailableListingMessage } from "@sellbridge/shared/catalog-availability";
+import { unavailableBellLine } from "@sellbridge/shared/catalog-availability";
 import { formatCents } from "@sellbridge/shared/money";
 import { displayStoreName } from "@/features/stores/store-name";
 import type { NotificationFeed } from "./notification-feed";
@@ -101,7 +101,7 @@ function listingUnavailable(
   return {
     id: `unavailable:${event.entityId}`,
     title: `Anúncio pausado: ${event.listingTitle}`,
-    detail: unavailableListingMessage(event.reason),
+    detail: unavailableBellLine(event.reason),
     href: `/publicacoes?query=${encodeURIComponent(event.listingTitle)}`,
   };
 }

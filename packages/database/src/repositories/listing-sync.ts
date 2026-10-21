@@ -2,7 +2,7 @@ import { safetyMargin } from "@sellbridge/shared/stock-reservation";
 import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { availableStock } from "./sql/available-stock.ts";
-import { sellableOnMarketplace } from "./sql/sellable.ts";
+import { listingSellable } from "./sql/sellable.ts";
 import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 import {
   listings,
@@ -32,7 +32,7 @@ export interface TargetNeedingSync {
  */
 function liveStock(safetyUnits: number) {
   const margin = sql.raw(String(safetyMargin(safetyUnits)));
-  return sql<number>`case when ${listingTargets.status} = 'paused' or ${listingTargets.pauseRequested} or not ${sellableOnMarketplace()} or not ${targetMatchesStoreSupplier()} then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
+  return sql<number>`case when ${listingTargets.status} = 'paused' or ${listingTargets.pauseRequested} or not ${listingSellable()} or not ${targetMatchesStoreSupplier()} then 0 else greatest(${availableStock} - ${margin}, 0) end`.mapWith(
     Number,
   );
 }
