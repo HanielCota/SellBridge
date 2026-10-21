@@ -93,3 +93,44 @@ test("a bolha mostra o texto na chegada e depois fica só o ícone", async ({ pa
   await bubble.click();
   await expect(page).toHaveURL(/\/suporte\/novo(\?perfil=[^&]+)?$/);
 });
+
+// The expanded bubble covered "Próxima" and "Operar pedido" at the bottom of the screen; a tap
+// meant for them opened support instead.
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1280, height: 800 },
+]) {
+  test(`a bolha recolhe na hora quando o texto cobre um botão da página (${viewport.width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
+    await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
+
+    // A page button lands where the label is, as a list that loads late would put it.
+    const box = await bubble.boundingBox();
+    if (box === null) {
+      throw new Error("bolha sem posição");
+    }
+    const placeButton = (spot: { left: number; top: number }) =>
+      page.evaluate(({ left, top }) => {
+        if (document.getElementById("e2e-covered") !== null) {
+          return;
+        }
+        const button = document.createElement("button");
+        button.id = "e2e-covered";
+        button.textContent = "Próxima";
+        button.style.cssText = `position:fixed;left:${left}px;top:${top}px;width:80px;height:40px`;
+        document.getElementById("main-content")?.append(button);
+      }, spot);
+
+    // Placed again if a late client render replaces the page under it.
+    await expect(async () => {
+      await placeButton({ left: box.x + 8, top: box.y + 8 });
+      await expect(bubble.getByText("Falar com o suporte")).toBeHidden({ timeout: 1_000 });
+      await page.getByRole("button", { name: "Próxima" }).click({ trial: true, timeout: 1_000 });
+    }).toPass({ timeout: 5_000 });
+  });
+}
