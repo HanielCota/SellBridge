@@ -78,7 +78,7 @@ export function ResponseDeadlineBadge({ status, priority, awaitingSince }: Timin
   return (
     <ToneStatus
       tone={tone}
-      label={`Vence em ${formatDuration(timing.remainingMilliseconds)}`}
+      label={`Vence em ${formatDuration(timing.remainingMilliseconds, Math.floor)}`}
       timeBased
     />
   );

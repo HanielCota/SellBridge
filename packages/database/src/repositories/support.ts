@@ -36,8 +36,14 @@ import {
   type SQL,
   type SQLWrapper,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
+import {
+  activeAssigneeIdSql,
+  activeAssigneeNameSql,
+  assignee,
+  STAFF_ROLE_LIST,
+  withoutActiveAssigneeSql,
+} from "./support-assignee.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
@@ -116,6 +122,8 @@ export interface TicketThread {
     isAdmin: boolean;
     /** Support-only note; only present in threads loaded for staff. */
     isInternal: boolean;
+    /** Who wrote it; a reader never needs to mark their own message as read. */
+    authorId: string;
     authorName: string;
     /** Profile photo of the author; the thread falls back to their initials without one. */
     authorImage: string | null;
@@ -139,8 +147,6 @@ export interface TicketReader {
   side: TicketSide;
 }
 
-const assignee = alias(user, "assignee");
-
 /**
  * `base` plus the ticket priority's target hours, in SQL. The hours are inlined: bound as
  * parameters inside the CASE they would reach Postgres as text.
@@ -155,19 +161,6 @@ function plusResponseTarget(base: SQLWrapper): SQL {
 }
 
 const responseDueAtSql = plusResponseTarget(tickets.awaitingSince);
-
-const STAFF_ROLE_LIST = sql.raw(STAFF_ROLES.map((role) => `'${role}'`).join(", "));
-
-/**
- * The ticket has nobody active in charge: no assignee, or one who left the team (role changed
- * or account blocked). Those tickets go back to the queue instead of sitting in a dead inbox.
- */
-const withoutActiveAssigneeSql = sql`("tickets"."assignee_id" is null or not exists (
-  select 1 from "user" team_u
-  where team_u.id = "tickets"."assignee_id"
-    and team_u.role in (${STAFF_ROLE_LIST})
-    and not coalesce(team_u.banned, false)
-))`;
 
 function isOverdue(now: Date): SQL {
   return sql`(${tickets.status} = 'open' and ${tickets.awaitingSince} is not null and ${responseDueAtSql} < ${timestampOf(now)})`;
@@ -754,7 +747,8 @@ export async function listStaffTickets(
   );
   const order =
     input.queue === "overdue"
-      ? [asc(tickets.awaitingSince)]
+      ? // Most late first: a low ticket waiting long can be less late than an urgent one.
+        [asc(responseDueAtSql)]
       : [asc(tickets.status), desc(tickets.priority), desc(tickets.updatedAt)];
   const [rows, totals] = await Promise.all([
     database
@@ -762,8 +756,8 @@ export async function listStaffTickets(
         ...summaryColumns({ userId: input.viewerId, side: "staff" }),
         tenantName: organization.name,
         createdByEmail: user.email,
-        assigneeId: tickets.assigneeId,
-        assigneeName: assignee.name,
+        assigneeId: activeAssigneeIdSql,
+        assigneeName: activeAssigneeNameSql,
       })
       .from(tickets)
       .innerJoin(organization, eq(organization.id, tickets.tenantId))
@@ -836,8 +830,8 @@ async function findThreadTicket(
       createdById: tickets.createdById,
       createdByName: user.name,
       createdByEmail: user.email,
-      assigneeId: tickets.assigneeId,
-      assigneeName: assignee.name,
+      assigneeId: activeAssigneeIdSql,
+      assigneeName: activeAssigneeNameSql,
       firstResponseAt: tickets.firstResponseAt,
       closedAt: tickets.closedAt,
       rating: tickets.rating,
@@ -867,6 +861,7 @@ async function findThreadMessages(database: Database, ticketId: string, withInte
       body: ticketMessages.body,
       isAdmin: ticketMessages.isAdmin,
       isInternal: ticketMessages.isInternal,
+      authorId: ticketMessages.authorId,
       authorName: user.name,
       authorImage: user.image,
       createdAt: ticketMessages.createdAt,
