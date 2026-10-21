@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, notificationDeliveries, notificationPreferences } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
 import { queueSupportReplyNotices } from "./notification-producers.ts";
-import { createTicket } from "./support.ts";
+import { createTicket } from "./support-create.ts";
 import { addTicketFollower, setTicketNotifications } from "./ticket-links.ts";
 
 const database = createTestDatabase();

@@ -10,6 +10,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
+import { planSupportTicket } from "@sellbridge/shared/support-topics";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -51,7 +52,6 @@ function firstIssue(error: z.ZodError): string {
   return error.issues.at(0)?.message ?? "Dados inválidos";
 }
 
-/** POST /api/suporte/chamados: opens a ticket (multipart: category, subject, body, files). */
 /**
  * The order, store and listing the ticket was opened from, checked against the account before
  * anything is saved, so a stale or foreign link never leaves a half-made ticket.
@@ -69,6 +69,7 @@ async function readTicketAbout(formData: FormData, tenantId: string): Promise<Ti
   return about.data;
 }
 
+/** POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body, files). */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
@@ -76,12 +77,20 @@ export function handleCreateTicket(request: Request) {
     const formData = await readUploadForm(request, session.userId);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),
-      subject: textField(formData, "subject"),
+      situation: textField(formData, "situation"),
+      about: textField(formData, "about"),
       body: textField(formData, "body"),
     });
     if (!input.success) {
       throw validationError(firstIssue(input.error));
     }
+    const plan = planSupportTicket({
+      kind: session.profileKind,
+      category: input.data.category,
+      situationId: input.data.situation,
+      about: input.data.about,
+      description: input.data.body,
+    });
     const about = await readTicketAbout(formData, session.tenantId);
     const files = await validateAttachments(formData);
     const attachments = await storeAttachments(fileStorage, session.tenantId, files);
@@ -90,7 +99,8 @@ export function handleCreateTicket(request: Request) {
         tenantId: session.tenantId,
         userId: session.userId,
         category: input.data.category,
-        subject: input.data.subject,
+        priority: plan.priority,
+        subject: plan.subject,
         body: input.data.body,
         attachments,
       }),

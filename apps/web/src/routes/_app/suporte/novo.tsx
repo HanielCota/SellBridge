@@ -1,39 +1,19 @@
-import {
-  createTicketSchema,
-  newTicketSearchSchema,
-  TICKET_CATEGORIES,
-  TICKET_CATEGORY_LABELS,
-  type TicketCategory,
-} from "@sellbridge/shared/schemas";
-import { useForm } from "@tanstack/react-form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  ChatCircleDotsIcon,
-  ClockIcon,
-  CreditCardIcon,
-  type Icon,
-  MegaphoneIcon,
-  PackageIcon,
-  PlugsConnectedIcon,
-  UserCircleIcon,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
-import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
-import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
-import { TextField } from "@/components/form/form-field";
-import { TextareaField } from "@/components/form/textarea-field";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { newTicketSearchSchema, type NewTicketSearch } from "@sellbridge/shared/schemas";
+import { supportTopicsFor } from "@sellbridge/shared/support-topics";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { FormErrorAlert } from "@/components/form/form-feedback";
 import { BackLink, PageHeader } from "@/components/layout/page-header";
-import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
 import { AttachmentInput } from "@/components/support/attachment-input";
+import { SituationStep, TopicStep } from "@/components/support/new-ticket/choice-steps";
+import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/description-step";
+import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
+import { useNewTicket } from "@/components/support/new-ticket/use-new-ticket";
+import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
 import { Card, CardContent } from "@/components/ui/card";
-import { responseTargetText } from "@/features/support/response-time";
+import { responsePromise } from "@/features/support/support-copy";
 import { getTicketAboutPreview } from "@/features/support/support.functions";
-import { postMultipart } from "@/features/support/upload";
-import { errorMessage } from "@/lib/errors";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/suporte/novo")({
   validateSearch: newTicketSearchSchema,
@@ -41,202 +21,91 @@ export const Route = createFileRoute("/_app/suporte/novo")({
   component: NewTicketPage,
 });
 
-const createdSchema = z.object({ ticketId: z.uuid() });
-const textFieldsSchema = createTicketSchema.omit({ category: true });
-const categorySchema = createTicketSchema.shape.category;
-
-function categoryMessage(error: z.ZodError): string {
-  return error.issues.at(0)?.message ?? "Escolha sobre o que é o chamado";
-}
-
-const CATEGORY_ICONS: Record<TicketCategory, Icon> = {
-  order: PackageIcon,
-  payment: CreditCardIcon,
-  store: PlugsConnectedIcon,
-  listing: MegaphoneIcon,
-  account: UserCircleIcon,
-  other: ChatCircleDotsIcon,
-};
-
-interface NewTicketValues {
-  subject: string;
-  body: string;
-}
-
-/** The ids from the URL; the server checks them against the account before saving. */
-interface TicketAboutIds {
-  pedido?: string | undefined;
-  loja?: string | undefined;
-  anuncio?: string | undefined;
-}
-
-function buildTicketFormData(
-  category: TicketCategory,
-  value: NewTicketValues & { about: TicketAboutIds },
-  files: readonly File[],
-): FormData {
-  const formData = new FormData();
-  formData.set("orderId", value.about.pedido ?? "");
-  formData.set("storeConnectionId", value.about.loja ?? "");
-  formData.set("listingId", value.about.anuncio ?? "");
-  formData.set("category", category);
-  formData.set("subject", value.subject);
-  formData.set("body", value.body);
-  for (const file of files) {
-    formData.append("files", file);
-  }
-  return formData;
-}
-
-function useNewTicketForm(files: readonly File[]) {
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [category, setCategory] = useState<TicketCategory | null>(search.categoria ?? null);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-
-  const form = useForm({
-    defaultValues: { subject: search.assunto ?? "", body: "" },
-    validators: { onSubmit: textFieldsSchema },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      const chosen = categorySchema.safeParse(category);
-      if (!chosen.success) {
-        setCategoryError(categoryMessage(chosen.error));
-        return;
-      }
-      try {
-        const response = await postMultipart(
-          "/api/suporte/chamados",
-          buildTicketFormData(chosen.data, { ...value, about: search }, files),
-        );
-        const created = createdSchema.parse(response);
-        toast.success("Chamado aberto. Avisamos quando a equipe responder.");
-        await queryClient.invalidateQueries({ queryKey: ["tickets"] });
-        await navigate({ to: "/suporte/$ticketId", params: { ticketId: created.ticketId } });
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-      }
-    },
-  });
-
-  function chooseCategory(next: TicketCategory) {
-    setCategory(next);
-    setCategoryError(null);
-  }
-
-  /** Flags a missing subject choice together with the text errors, not only after them. */
-  async function submit() {
-    const chosen = categorySchema.safeParse(category);
-    if (!chosen.success) {
-      setCategoryError(categoryMessage(chosen.error));
-    }
-    await form.handleSubmit();
-  }
-
-  return { form, submit, submitError, category, chooseCategory, categoryError };
-}
-
-/** One card per subject: picking it routes the ticket to the right person on the team. */
-function CategoryPicker({
-  value,
-  error,
-  onChange,
-}: {
-  value: TicketCategory | null;
-  error: string | null;
-  onChange: (category: TicketCategory) => void;
-}) {
+function ChoiceSteps({ flow, kind }: { flow: ReturnType<typeof useNewTicket>; kind: ProfileKind }) {
+  const { topic, situation } = flow;
   return (
-    <fieldset className="grid gap-2" aria-describedby={error ? "category-error" : undefined}>
-      <legend className="mb-2 text-sm font-medium">Sobre o que é?</legend>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {TICKET_CATEGORIES.map((category) => {
-          const CategoryIcon = CATEGORY_ICONS[category];
-          const checked = value === category;
-          return (
-            <label
-              key={category}
-              className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm transition-[background-color,border-color,box-shadow,scale] duration-150 select-none active:scale-[0.98] active:duration-100 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40 motion-reduce:active:scale-100",
-                // Chosen like a product card in the catalog: the brand ring, content unchanged.
-                checked ? "border-transparent bg-card ring-2 ring-brand" : "bg-card hover:bg-muted",
-              )}
-            >
-              <input
-                type="radio"
-                name="category"
-                value={category}
-                checked={checked}
-                onChange={() => onChange(category)}
-                className="sr-only"
-              />
-              <CategoryIcon className="size-4 shrink-0" aria-hidden="true" />
-              {TICKET_CATEGORY_LABELS[category]}
-            </label>
-          );
-        })}
-      </div>
-      {error ? (
-        <p id="category-error" role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-    </fieldset>
+    <>
+      {topic === undefined ? (
+        <TopicStep kind={kind} topics={supportTopicsFor(kind)} onPick={flow.pickTopic} />
+      ) : (
+        <AnsweredStep
+          number={1}
+          answer={topic.label}
+          changeLabel="Alterar o tema"
+          onChange={flow.changeTopic}
+        />
+      )}
+      {topic === undefined || !flow.needsSituation ? null : situation === undefined ? (
+        <SituationStep situations={topic.situations} onPick={flow.pickSituation} />
+      ) : (
+        <AnsweredStep
+          number={2}
+          answer={situation.label}
+          changeLabel="Alterar o que está acontecendo"
+          onChange={flow.changeSituation}
+        />
+      )}
+    </>
   );
 }
 
-function NewTicketForm() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const { form, submit, submitError, category, chooseCategory, categoryError } =
-    useNewTicketForm(files);
-
+function WritingSteps({ flow }: { flow: ReturnType<typeof useNewTicket> }) {
+  const { topic, situation, attachments } = flow;
+  if (topic === undefined || !flow.isReadyToWrite) {
+    return null;
+  }
   return (
-    <form noValidate className="grid gap-5" onSubmit={submitHandler(submit)}>
-      <FormErrorAlert message={submitError} />
-      <CategoryPicker value={category} error={categoryError} onChange={chooseCategory} />
-      <form.Field name="subject">
-        {(field) => <TextField id="subject" label="Assunto" {...fieldBindings(field)} />}
-      </form.Field>
-      <form.Field name="body">
-        {(field) => (
-          <TextareaField id="body" label="Descrição" rows={6} {...fieldBindings(field)} />
-        )}
-      </form.Field>
-      <AttachmentInput files={files} onChange={setFiles} error={fileError} onError={setFileError} />
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
-          {responseTargetText("normal")}. Avisamos por e-mail.
-        </p>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <PendingSubmitButton
-              isPending={isSubmitting}
-              idleLabel="Abrir chamado"
-              pendingLabel="Enviando…"
-            />
-          )}
-        </form.Subscribe>
-      </div>
+    <>
+      <DescriptionStep
+        number={flow.needsSituation ? 3 : 2}
+        question={situation?.question ?? topic.question}
+        example={situation?.example ?? topic.example}
+        notice={situation?.notice ?? null}
+        value={flow.body}
+        isTooShort={flow.showTooShort}
+        onChange={flow.writeBody}
+        onPaste={attachments.pasteFiles}
+      />
+      <AttachmentInput
+        files={attachments.files}
+        rejected={attachments.rejected}
+        tip={situation?.attachmentTip ?? null}
+        onAdd={attachments.addFiles}
+        onRemove={attachments.removeFile}
+      />
+      <FormErrorAlert
+        message={
+          flow.sendError === null ? null : `${flow.sendError} O que você escreveu continua aqui.`
+        }
+      />
+      <SendFooter
+        promise={responsePromise(situation?.priority ?? "normal")}
+        isSending={flow.isSending}
+      />
+    </>
+  );
+}
+
+function NewTicketForm({ kind, search }: { kind: ProfileKind; search: NewTicketSearch }) {
+  const flow = useNewTicket(kind, search);
+  return (
+    <form noValidate className="grid gap-6" onSubmit={flow.send}>
+      <ChoiceSteps flow={flow} kind={kind} />
+      <WritingSteps flow={flow} />
     </form>
   );
 }
 
 function NewTicketPage() {
+  const { session } = Route.useRouteContext();
+  const search = Route.useSearch();
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <PageHeader
-        back={<BackLink to="/suporte" label="Suporte" />}
-        title="Novo chamado"
-        description="Conte o que aconteceu e anexe prints ou comprovantes."
-      />
+      <PageHeader back={<BackLink to="/suporte" label="Suporte" />} title="Novo chamado" />
       <Card>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6">
           <TicketAboutPreview />
-          <NewTicketForm />
+          <NewTicketForm kind={session.profileKind} search={search} />
         </CardContent>
       </Card>
     </div>
@@ -258,7 +127,7 @@ function TicketAboutPreview() {
   }
   return (
     <section className="space-y-2.5 rounded-2xl bg-muted/50 p-4" aria-label="Sobre">
-      <h2 className="text-xs text-muted-foreground">O chamado vai junto com</h2>
+      <h2 className="text-sm text-muted-foreground">O chamado vai junto com</h2>
       <TicketSubjectList subject={preview.data} />
     </section>
   );

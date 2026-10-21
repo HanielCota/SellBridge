@@ -20,7 +20,7 @@ import {
   type ComposerMode,
 } from "@/components/support/admin-composer";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
-import { LinkedOrdersCard } from "@/components/support/ticket-context-panel";
+import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
 import { TicketThread } from "@/components/support/ticket-thread";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,9 +31,11 @@ import {
 } from "@/features/support/support.functions";
 import { firstName, quoteMessage } from "@/features/support/reply-templates";
 import { staffTicketQueryOptions } from "@/features/support/support.queries";
-import { useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
+import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
+import { NOT_SOLVED_MESSAGE } from "@/features/support/use-ticket-verdict";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
-import { ticketCode } from "@sellbridge/shared/ticket-rules";
+import { customerTicketTitle } from "@sellbridge/shared/support-topics";
+import { AUTO_CLOSE_AFTER_DAYS, ticketCode } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -47,16 +49,31 @@ export const Route = createFileRoute("/_app/admin/chamados/$ticketId")({
   component: AdminTicketPage,
 });
 
+/** Only the team's ticket queries change; the customer-side lists stay cached. */
+const STAFF_TICKETS_KEY = ["tickets", "admin"] as const;
+
+/**
+ * "Encerrar sem responder" sits one click away in the send menu, so a close comes with
+ * "Reabrir" on its notice instead of a confirmation dialog.
+ */
 function useTicketStatusMutation(ticketId: string) {
   const queryClient = useQueryClient();
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (status: "open" | "closed") => staffSetTicketStatus({ data: { ticketId, status } }),
     onSuccess: async (_result, status) => {
-      toast.success(status === "closed" ? "Chamado encerrado" : "Chamado reaberto");
-      await queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      if (status === "closed") {
+        toast.success("Chamado encerrado", {
+          action: { label: "Reabrir", onClick: () => mutation.mutate("open") },
+        });
+      }
+      if (status === "open") {
+        toast.success("Chamado reaberto");
+      }
+      await queryClient.invalidateQueries({ queryKey: STAFF_TICKETS_KEY });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+  return mutation;
 }
 
 function sentMessage(mode: ComposerMode, status: TicketStatus): string {
@@ -69,13 +86,39 @@ function sentMessage(mode: ComposerMode, status: TicketStatus): string {
   if (status === "open") {
     return "Resposta enviada; o chamado segue aguardando o suporte";
   }
-  return "Resposta enviada ao revendedor";
+  return `Resposta enviada. Sem retorno do cliente em ${AUTO_CLOSE_AFTER_DAYS} dias, o chamado encerra sozinho.`;
+}
+
+/**
+ * The customer pressed "Não" under the last answer: the ticket is back in the queue with a
+ * one-line message, and the agent needs to know their answer did not solve it.
+ */
+function reopenedByVerdict(detail: AdminTicketDetail): boolean {
+  const last = detail.messages.at(-1);
+  if (last === undefined || last.isAdmin) {
+    return false;
+  }
+  return detail.ticket.status === "open" && last.body === NOT_SOLVED_MESSAGE;
+}
+
+function NotSolvedBanner() {
+  return (
+    <p className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+      <span className="font-medium">O cliente disse que a resposta não resolveu.</span>{" "}
+      <span className="text-muted-foreground">Releia o caso e responda com o próximo passo.</span>
+    </p>
+  );
 }
 
 function AdminTicketPage() {
   const { ticketId } = Route.useParams();
   const query = useQuery(staffTicketQueryOptions(ticketId));
-  useMarkTicketRead(ticketId, query.data?.messages.at(-1)?.id, staffMarkTicketRead);
+  const { session } = Route.useRouteContext();
+  useMarkTicketRead(
+    ticketId,
+    messageToMarkRead(query.data?.messages ?? [], session.user.id),
+    staffMarkTicketRead,
+  );
 
   if (query.isPending) {
     return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando chamado" />;
@@ -97,6 +140,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <BackLink to="/admin/chamados" label="Chamados" />
       <AdminTicketHeader ticket={ticket} />
+      {reopenedByVerdict(detail) ? <NotSolvedBanner /> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
           <TicketThread
@@ -119,7 +163,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             onChangeStatus={(status) => statusMutation.mutate(status)}
             onSent={async (mode, status) => {
               toast.success(sentMessage(mode, status));
-              await queryClient.invalidateQueries({ queryKey: ["tickets"] });
+              await queryClient.invalidateQueries({ queryKey: STAFF_TICKETS_KEY });
             }}
           />
         </div>
@@ -147,7 +191,9 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
   return (
     <header className="min-w-0 space-y-1">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
+        <h1 className="min-w-0 text-2xl font-semibold tracking-tight break-words">
+          {customerTicketTitle(ticket.subject)}
+        </h1>
         <TicketStatusBadge status={ticket.status} />
         <TicketPriorityBadge priority={ticket.priority} />
         <ResponseDeadlineBadge

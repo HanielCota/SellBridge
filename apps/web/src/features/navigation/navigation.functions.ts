@@ -1,12 +1,11 @@
 import {
   countPendingReviews,
-  countStaffQueues,
   countUnreadSupportReplies,
   listListingTargets,
 } from "@sellbridge/database/repositories";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
-import { accountMiddleware, staffMiddleware } from "@/lib/server/middleware";
+import { accountMiddleware } from "@/lib/server/middleware";
 import { reviewableSince } from "@/features/orders/review-window";
 
 const COUNT_ONLY = { page: 1, pageSize: 1 } as const;
@@ -36,12 +35,4 @@ export const getAttentionCounts = createServerFn({ method: "GET" })
       unreadSupportReplies,
       pendingReviews: pendingReviews.total,
     };
-  });
-
-/** Tickets waiting for the support team (status open). */
-export const getOpenTicketCount = createServerFn({ method: "GET" })
-  .middleware([staffMiddleware("support.answer")])
-  .handler(async ({ context }) => {
-    const queues = await countStaffQueues(database, context.userId);
-    return queues.open;
   });

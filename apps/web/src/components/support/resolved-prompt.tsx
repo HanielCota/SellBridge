@@ -1,38 +1,30 @@
-import { ThumbsDownIcon, ThumbsUpIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 
 /**
- * Under the latest support answer: one tap closes the ticket (and opens the rating), or starts
- * a reply saying it is not solved yet.
+ * Under the latest support answer: one tap closes the ticket (with a few seconds to undo), the
+ * other tells support at once that it is not solved, so the ticket never sits answered and
+ * closes on its own while the customer thinks they replied.
  */
 export function ResolvedPrompt({
-  isClosing,
+  isBusy,
   onSolved,
   onNotSolved,
 }: {
-  isClosing: boolean;
+  isBusy: boolean;
   onSolved: () => void;
   onNotSolved: () => void;
 }) {
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-primary/20 pt-2.5 print:hidden">
-      <span className="text-xs text-muted-foreground">Isso resolveu?</span>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-7"
-        disabled={isClosing}
-        aria-busy={isClosing}
-        onClick={onSolved}
-      >
-        <ThumbsUpIcon aria-hidden="true" />
-        {isClosing ? "Encerrando…" : "Sim, resolveu"}
-      </Button>
-      <Button type="button" variant="ghost" size="sm" className="h-7" onClick={onNotSolved}>
-        <ThumbsDownIcon aria-hidden="true" />
-        Ainda não
-      </Button>
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-3 print:hidden">
+      <p className="text-sm font-medium">Isso resolveu seu problema?</p>
+      <div className="flex gap-2">
+        <Button type="button" size="sm" disabled={isBusy} onClick={onSolved}>
+          Sim, resolveu
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={isBusy} onClick={onNotSolved}>
+          Não
+        </Button>
+      </div>
     </div>
   );
 }

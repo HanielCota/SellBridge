@@ -11,6 +11,22 @@ export function isUnreadCountQuery(queryKey: QueryKey): boolean {
 }
 
 /**
+ * The message to mark the thread read up to, or undefined when there is nothing new for this
+ * reader. Writing a message already marks the thread read for its author on the server, so the
+ * reader's own latest message only cost a request and a refetch of every unread count.
+ */
+export function messageToMarkRead(
+  messages: readonly { id: string; authorId: string }[],
+  viewerId: string,
+): string | undefined {
+  const latest = messages.at(-1);
+  if (latest === undefined || latest.authorId === viewerId) {
+    return undefined;
+  }
+  return latest.id;
+}
+
+/**
  * Marks the thread as read up to the newest message on screen whenever one shows up, then
  * refreshes the places that count unread replies (support button, nav badges, notifications).
  */

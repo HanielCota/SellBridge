@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useImpersonate } from "@/features/admin/use-impersonate";
 import { copyToClipboard } from "@/lib/clipboard";
-import { initials } from "@/lib/initials";
+import { UserAvatar } from "@/components/layout/user-avatar";
 
 function PanelAction({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -88,12 +88,11 @@ function CustomerCard({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-medium text-primary"
-          aria-hidden="true"
-        >
-          {initials(ticket.createdByName)}
-        </span>
+        <UserAvatar
+          name={ticket.createdByName}
+          image={ticket.createdByImage}
+          className="size-10 text-sm"
+        />
         <div className="min-w-0">
           <p className="truncate font-medium">{ticket.createdByName}</p>
           <p className="truncate text-xs text-muted-foreground">{ticket.tenantName}</p>

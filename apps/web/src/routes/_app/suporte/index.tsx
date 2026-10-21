@@ -10,6 +10,7 @@ import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { TicketCategoryLabel, UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
+import { CUSTOMER_TICKET_STATUS_LABELS } from "@/features/support/customer-ticket-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,7 +18,7 @@ import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
-import { responseTargetText } from "@/features/support/response-time";
+import { RESPONSE_PROMISE } from "@/features/support/response-time";
 import { noTicketsDescription } from "@/features/support/support-copy";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
@@ -54,7 +55,7 @@ function TicketState({ ticket }: { ticket: TicketSummary }) {
   if (ticket.hasUnread) {
     return <UnreadDot />;
   }
-  return <TicketStatusBadge status={ticket.status} />;
+  return <TicketStatusBadge status={ticket.status} labels={CUSTOMER_TICKET_STATUS_LABELS} />;
 }
 
 const columns = columnHelper.columns([
@@ -92,7 +93,7 @@ function SupportHeader() {
   return (
     <PageHeader
       title="Suporte"
-      description={`${responseTargetText("normal")}. Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
+      description={`${RESPONSE_PROMISE}. Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
       actions={
         <Button asChild>
           <Link to="/suporte/novo">
@@ -173,6 +174,35 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
   );
 }
 
+function TicketFilters({
+  term,
+  onTermChange,
+  status,
+  onStatusChange,
+}: {
+  term: string;
+  onTermChange: (term: string) => void;
+  status: TicketsSearch["status"];
+  onStatusChange: (status: TicketsSearch["status"]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <SearchInput
+        label="Buscar chamados"
+        placeholder="Buscar pelo assunto"
+        className="flex-1"
+        value={term}
+        onValueChange={onTermChange}
+      />
+      <TicketStatusFilter
+        labels={CUSTOMER_TICKET_STATUS_LABELS}
+        value={status}
+        onChange={onStatusChange}
+      />
+    </div>
+  );
+}
+
 function SupportPage() {
   const { session } = Route.useRouteContext();
   const search = Route.useSearch();
@@ -211,19 +241,12 @@ function SupportPage() {
     <>
       <SupportHeader />
       {isEmpty && !isFiltered ? null : (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <SearchInput
-            label="Buscar chamados"
-            placeholder="Buscar pelo assunto"
-            className="flex-1"
-            value={term}
-            onValueChange={setTerm}
-          />
-          <TicketStatusFilter
-            value={search.status}
-            onChange={(status) => updateSearch({ status })}
-          />
-        </div>
+        <TicketFilters
+          term={term}
+          onTermChange={setTerm}
+          status={search.status}
+          onStatusChange={(status) => updateSearch({ status })}
+        />
       )}
       {isEmpty ? (
         <NoTickets

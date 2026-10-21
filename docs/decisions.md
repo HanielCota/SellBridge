@@ -630,3 +630,21 @@ Spike no TanStack Start 1.169: o middleware de função com `.client()` roda em 
 - O perfil ativo da sessão só muda numa troca explícita; ler outro perfil numa aba não o altera.
 - Links abertos pelo próprio navegador (etiqueta, exportação, anexos, OAuth) levam `?perfil=` lido da URL da página, igual no SSR e no navegador; uploads `fetch` levam o cabeçalho.
 - O tipo do perfil (vendedor ou fornecedor) é o do perfil da aba, não o da sessão: funções e rotas de vendedor (etiqueta, exportação, OAuth) recusam com 403 uma aba num perfil de fornecedor, e o painel do fornecedor confere o fornecedor do perfil da aba.
+
+## 2026-10-20: Novo chamado guiado (MVP do suporte)
+
+O formulário de chamado pedia tema, assunto e descrição livres, e o cliente não sabia o que escrever. Agora são três passos no mesmo card: tema → o que está acontecendo → uma pergunta guiada com exemplo. Tudo o que o cliente lê fica em `packages/shared/src/domain/support-topics-*.ts`, um arquivo por perfil (revendedor e fornecedor).
+
+- O servidor deriva a prioridade (normal ou alta) e o assunto ("{situação}: {item ou começo da descrição}") a partir do tema e da situação; o cliente não escolhe urgência nem escreve assunto.
+- Ids de situação são estáveis: só o rótulo muda. O servidor recusa tema que o perfil não tem e situação que não é do tema.
+- Todo tema com situações termina em "Outro problema" (id `other-issue`), que repete a pergunta do tema, pede 40 caracteres como "Outra coisa" e dá ao chamado o assunto do tema.
+- Fornecedor: os produtos dele ficam no tema `listing` até o catálogo ganhar um tema próprio, sem migração no MVP.
+- Prazo prometido em dias úteis ("até 1 dia útil"), nunca em horas: a meta interna ainda é em horas corridas.
+- Escolhas são botões, não radios: a seta do radio já escolhe, e escolher abre o próximo passo. As setas só movem o foco.
+- Anexos: cada arquivo é avaliado sozinho (um arquivo ruim não recusa o lote), com motivo em português simples, miniatura sem corte, colar e arrastar print. Vale também para a resposta do chamado.
+
+Fica para a fase 2: seletor de itens com busca (hoje o item vem pelo atalho da tela do pedido, loja ou anúncio), rascunho salvo, diagnóstico e aviso de chamado duplicado, coluna `situation` e tema `catalog` (migração), horário comercial com feriados, 4 status para o cliente com as 3 ações de envio do admin, tela de confirmação, linha do tempo, avaliação 👍/👎, reabrir em Y dias, resumo do cliente e filtros no admin, métricas do funil, botão fixo no rodapé do celular e o texto "Minha loja conectada" com o nome do marketplace quando o cliente pedir.
+
+## 2026-10-21: Chamado na visão do cliente (estados e veredito)
+
+Uma linha de status cobre as situações que os 3 status escondem: esperando, atrasado, respondido (com a data do encerramento automático), encerrado por alguém e encerrado por falta de resposta. A promessa é sempre "Respondemos em até 1 dia útil": a meta da equipe conta horas corridas, e um horário prometido à noite seria quebrado de manhã; quando a meta passa, a página admite o atraso em vez de mostrar uma hora no passado. "Não" envia "Ainda não resolveu." na hora e devolve o chamado à fila, porque só preencher a caixa deixava o chamado respondido, e ele fechava sozinho em 7 dias com o cliente achando que tinha avisado. "Sim, resolveu" tem 5 s para desfazer. Painel lateral e respostas rápidas saem da visão do cliente.

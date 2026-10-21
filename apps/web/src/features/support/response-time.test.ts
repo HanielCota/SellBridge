@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   formatDeadline,
   formatDuration,
-  responseTargetText,
+  RESPONSE_PROMISE,
+  staffResponseStateText,
   unreadRepliesText,
 } from "./response-time";
 
@@ -13,6 +14,30 @@ describe("formatDuration", () => {
     expect(formatDuration(3 * 3_600_000)).toBe("3 h");
     expect(formatDuration(47 * 3_600_000)).toBe("47 h");
     expect(formatDuration(72 * 3_600_000)).toBe("3 dias");
+  });
+
+  it("never shows more time left than there is when rounding down", () => {
+    const oneHourThirtyOne = 91 * 60_000;
+    expect(formatDuration(oneHourThirtyOne, Math.floor)).toBe("1 h");
+    expect(formatDuration(59.9 * 60_000, Math.floor)).toBe("59 min");
+    expect(formatDuration(10_000, Math.floor)).toBe("1 min");
+  });
+});
+
+describe("staffResponseStateText", () => {
+  it("leaves the live deadline to tickets with a clock running", () => {
+    expect(staffResponseStateText("open", new Date())).toBeNull();
+  });
+
+  it("does not contradict an open badge after a reply that kept the ticket open", () => {
+    expect(staffResponseStateText("open", null)).toBe(
+      "Sem prazo: o cliente já recebeu uma resposta",
+    );
+  });
+
+  it("names who the ticket waits for otherwise", () => {
+    expect(staffResponseStateText("answered", null)).toBe("Aguardando o revendedor");
+    expect(staffResponseStateText("closed", null)).toBe("Encerrado");
   });
 });
 
@@ -31,9 +56,9 @@ describe("formatDeadline", () => {
   });
 });
 
-describe("responseTargetText", () => {
-  it("states the promise for the priority", () => {
-    expect(responseTargetText("normal")).toBe("Respondemos em até 24 horas");
+describe("RESPONSE_PROMISE", () => {
+  it("promises business days, never an hour that may pass overnight", () => {
+    expect(RESPONSE_PROMISE).toBe("Respondemos em até 1 dia útil");
   });
 });
 

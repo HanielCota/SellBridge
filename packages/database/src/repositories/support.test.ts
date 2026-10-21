@@ -9,7 +9,6 @@ import {
   autoCloseIdleTickets,
   closeTicketForCustomer,
   countUnreadSupportReplies,
-  createTicket,
   findTicketForMessage,
   getAttachment,
   getSupportMetrics,
@@ -21,6 +20,7 @@ import {
   setTicketPriority,
   setTicketStatus,
 } from "./support.ts";
+import { createTicket } from "./support-create.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -298,6 +298,46 @@ describe("support queues and response deadlines", () => {
     expect(await staffQueue("overdue", at(13))).toContain(ticketId);
   });
 
+  it("lists the most overdue ticket first, by deadline rather than by how long it waited", async () => {
+    const low = await openTicket("Baixa esperando muito", at(100));
+    await setTicketPriority(database, {
+      ticketId: low,
+      priority: "low",
+      actorId: agent,
+      now: at(100),
+    });
+    const urgent = await openTicket("Urgente atrasado", at(140));
+    await setTicketPriority(database, {
+      ticketId: urgent,
+      priority: "urgent",
+      actorId: agent,
+      now: at(140),
+    });
+    // At 150h the low one waited 50h but is 2h late (48h target); the urgent one waited 10h
+    // and is 8h late (2h target).
+    const queue = await staffQueue("overdue", at(150));
+    expect(queue).toContain(urgent);
+    expect(queue.indexOf(urgent)).toBeLessThan(queue.indexOf(low));
+  });
+
+  it("finds a ticket by words the customer wrote past the subject's excerpt", async () => {
+    const code = `rastreio-${RUN}-zz`;
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "order",
+      subject: "O pedido atrasou: Comprei faz 10 dias e o pedido ainda não chegou",
+      body: `Comprei faz 10 dias e o pedido ainda não chegou, o rastreio parou. Código ${code}.`,
+      attachments: [],
+    });
+    const page = await listStaffTickets(
+      database,
+      { queue: "all", viewerId: agent, now: new Date(), search: code },
+      PAGE,
+    );
+    expect(page.items.map((item) => item.id)).toEqual([ticketId]);
+  });
+
   it("only hands tickets to the support team", async () => {
     const ticketId = await openTicket("Atribuição");
     const self = { ticketId, actorId: agent, mayAssignOthers: false };
@@ -345,6 +385,19 @@ describe("support queues and response deadlines", () => {
     await database.update(user).set({ role: "user" }).where(eq(user.id, teammate));
     try {
       expect(await staffQueue("unassigned", new Date())).toContain(ticketId);
+      // The screens show it unassigned too, so an agent gets "Assumir chamado" instead of a
+      // former member's name inside the "Sem responsável" queue.
+      const thread = await getTicketThread(database, ticketId, null);
+      expect(thread.ticket).toMatchObject({ assigneeId: null, assigneeName: null });
+      const queue = await listStaffTickets(
+        database,
+        { queue: "unassigned", viewerId: agent, now: new Date(), search: RUN },
+        PAGE,
+      );
+      expect(queue.items.find((item) => item.id === ticketId)).toMatchObject({
+        assigneeId: null,
+        assigneeName: null,
+      });
       await assignTicket(database, {
         ticketId,
         assigneeId: agent,

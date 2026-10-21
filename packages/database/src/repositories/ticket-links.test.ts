@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, orders, storeConnections, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
-import { createTicket, getTicketThread } from "./support.ts";
+import { createTicket } from "./support-create.ts";
+import { getTicketThread } from "./support.ts";
 import {
   addTicketFollower,
   findTicketEmailRecipients,
