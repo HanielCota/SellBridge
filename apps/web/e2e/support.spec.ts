@@ -1,4 +1,5 @@
-import { expect, type Browser, type Page, test } from "@playwright/test";
+import { fileURLToPath } from "node:url";
+import { expect, type Browser, type Locator, type Page, test } from "@playwright/test";
 import {
   ADMIN_USER,
   enableAdminMode,
@@ -7,6 +8,18 @@ import {
   signUp,
   waitForHydration,
 } from "./helpers";
+
+const AVATAR_FIXTURE = fileURLToPath(new URL("./fixtures/avatar.png", import.meta.url));
+
+/** The image is on screen and its file actually loaded (a broken link keeps width 0). */
+async function expectLoadedImage(image: Locator) {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate((element) => (element instanceof HTMLImageElement ? element.naturalWidth : 0)),
+    )
+    .toBeGreaterThan(0);
+}
 
 const PDF_BYTES = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 
@@ -36,7 +49,8 @@ async function openAsStaff(page: Page, subject: string) {
   // Waits for the debounced search navigation so it cannot undo the click below.
   await expect(page).toHaveURL(/query=/);
   await page.getByRole("link", { name: subject }).click();
-  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
+  // The team reads the topic as the title too; the customer's words stay in the thread.
+  await expect(page.getByRole("heading", { name: "O pedido atrasou", exact: true })).toBeVisible();
   await page.waitForLoadState("networkidle");
 }
 
@@ -102,24 +116,35 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   expect((await download).suggestedFilename()).toBe("comprovante.pdf");
 
   await admin.getByRole("button", { name: "Nota interna" }).click();
+  await expect(admin.getByText("Só a equipe vê.")).toBeVisible();
+  // Ready answers are written to the customer: a note never offers them.
+  await expect(admin.getByRole("button", { name: "Respostas prontas" })).toHaveCount(0);
   await admin.getByLabel("Nota para a equipe").fill("Fornecedor confirmou atraso na coleta.");
   await admin.getByRole("button", { name: "Salvar nota" }).click();
   await expect(admin.getByText("Nota interna salva")).toBeVisible();
-  const adminHeader = admin.getByRole("heading", { name: subject }).locator("..");
+  const adminHeader = admin
+    .getByRole("heading", { name: "O pedido atrasou", exact: true })
+    .locator("..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
 
-  await admin.getByRole("button", { name: "Voltar a responder o cliente" }).click();
+  await admin.getByRole("button", { name: "Responder ao cliente" }).click();
+  await expect(admin.getByText("O cliente vê esta mensagem.")).toBeVisible();
   await admin
     .getByLabel("Resposta do suporte")
     .fill("Verificamos com o fornecedor: o envio sai hoje.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
   await expect(adminHeader.getByText("Respondido", { exact: true })).toBeVisible();
   // Answering a ticket nobody had makes it yours, and the history says so.
   await expect(admin.getByLabel("Histórico").getByText(/assumiu o chamado/)).toBeVisible();
   await admin.getByRole("button", { name: "Opções de envio" }).click();
   await admin.getByRole("menuitem", { name: "Encerrar sem responder" }).click();
   await expect(admin.getByText("Chamado encerrado. Reabra para responder.")).toBeVisible();
+  // Quoting on a closed ticket opens a note with the quote, instead of a hidden reply box.
+  await admin.getByRole("button", { name: /^Citar mensagem de Revendedor Suporte/ }).click();
+  await expect(admin.getByLabel("Nota para a equipe")).toHaveValue(/Revendedor Suporte escreveu/);
 
   await reseller.reload({ waitUntil: "networkidle" });
   await expect(reseller.getByText("Verificamos com o fornecedor: o envio sai hoje.")).toBeVisible();
@@ -152,8 +177,10 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   const { context: adminContext, page: admin } = await adminPage(browser);
   await openAsStaff(admin, subject);
   await admin.getByLabel("Resposta do suporte").fill("O repasse cai toda sexta-feira.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
 
   await gotoHydrated(reseller, "/dashboard");
   const supportButton = reseller.getByRole("button", {
@@ -161,6 +188,11 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
     exact: true,
   });
   await expect(supportButton).toBeVisible();
+  // One reply, one number: the bell lists it without counting it, the chat bubble shows none.
+  await expect(reseller.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
+  await expect(
+    reseller.getByRole("button", { name: "Chat de suporte", exact: true }),
+  ).toBeVisible();
   await supportButton.click();
   await reseller.getByRole("link", { name: new RegExp(subject) }).click();
   await expect(reseller.getByText("O repasse cai toda sexta-feira.")).toBeVisible();
@@ -196,8 +228,10 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   await admin
     .getByLabel("Resposta do suporte")
     .fill("O pedido sai hoje do centro de distribuição.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
 
   await gotoHydrated(reseller, ticketUrl);
   await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
@@ -221,8 +255,36 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   ).toBeFocused();
 
   await admin.reload({ waitUntil: "networkidle" });
-  const adminHeader = admin.getByRole("heading", { name: subject }).locator("..");
+  const adminHeader = admin
+    .getByRole("heading", { name: "O pedido atrasou", exact: true })
+    .locator("..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
+  await expect(admin.getByText("O cliente disse que a resposta não resolveu.")).toBeVisible();
+
+  await resellerContext.close();
+  await adminContext.close();
+});
+
+test("a foto de perfil do cliente aparece para ele e para o suporte no chamado", async ({
+  browser,
+}) => {
+  const resellerContext = await browser.newContext({ locale: "pt-BR" });
+  const reseller = await resellerContext.newPage();
+  await signUp(reseller, "Cliente Com Foto");
+  await gotoHydrated(reseller, "/perfil");
+  await reseller.getByLabel("Escolher foto de perfil").setInputFiles(AVATAR_FIXTURE);
+  await expect(reseller.getByText("Foto de perfil atualizada")).toBeVisible();
+  const subject = await openTicket(reseller, `Pedido parado na transportadora ${Date.now()}`);
+  const resellerMessages = reseller.getByRole("list", { name: "Mensagens do chamado" });
+  await expectLoadedImage(resellerMessages.locator("img[src^='/api/perfil/foto/']").first());
+
+  const { context: adminContext, page: admin } = await adminPage(browser);
+  await openAsStaff(admin, subject);
+  const adminMessages = admin.getByRole("list", { name: "Mensagens do chamado" });
+  await expectLoadedImage(adminMessages.locator("img[src^='/api/perfil/foto/']").first());
+  // The customer card beside the thread shows the same photo, not only the initials.
+  const customerCard = admin.getByLabel("Contexto do cliente");
+  await expectLoadedImage(customerCard.locator("img[src^='/api/perfil/foto/']"));
 
   await resellerContext.close();
   await adminContext.close();

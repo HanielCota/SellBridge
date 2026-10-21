@@ -341,7 +341,7 @@ function MessageItem({
               type="button"
               variant="ghost"
               size="sm"
-              className="ml-auto h-6 px-1.5 text-xs text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover/message:opacity-100 sm:focus-visible:opacity-100"
+              className="ml-auto h-6 px-1.5 text-xs text-muted-foreground opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
               aria-label={`Citar mensagem de ${message.authorName}`}
               onClick={() => onQuote(message)}
             >
