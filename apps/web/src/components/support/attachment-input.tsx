@@ -27,8 +27,9 @@ function RejectedFiles({ rejected }: { rejected: readonly RejectedAttachment[] }
   }
   return (
     <ul role="alert" className="grid gap-1 text-sm text-destructive">
-      {rejected.map((item) => (
-        <li key={item.name}>
+      {/* Two refused files can share a name (dragged from different folders). */}
+      {rejected.map((item, index) => (
+        <li key={`${item.name}-${index}`}>
           <span className="font-medium">{item.name}</span>: {item.reason}
         </li>
       ))}
