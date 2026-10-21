@@ -5,6 +5,7 @@ import {
   NOTIFICATION_EVENTS,
   type NotificationEventName,
 } from "@sellbridge/shared/notification-events";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import type { NotificationKind } from "./notification-presenter";
 
 /**
@@ -51,15 +52,27 @@ function cellOf(
   };
 }
 
-/** Every event of the catalog with what each channel will do for this person. */
+/**
+ * What reaches a supplier profile today: their support tickets. Sales, store and listing notices
+ * are the reseller's; a supplier saw switches for "Loja desconectada" that never applied to them.
+ * New orders reach a supplier by e-mail on the brand's order address, outside these switches.
+ */
+const SUPPLIER_EVENTS: ReadonlySet<NotificationEventName> = new Set(["support_reply"]);
+
+function shownTo(kind: ProfileKind, event: NotificationEventName): boolean {
+  // Team notices (a new ticket) are not the customer's to choose; the team keeps the default.
+  if (NOTIFICATION_EVENT_DEFINITIONS[event].audience !== "reseller") {
+    return false;
+  }
+  return kind === "seller" || SUPPLIER_EVENTS.has(event);
+}
+
+/** Every event this kind of profile receives, with what each channel will do for this person. */
 export function buildPreferenceRows(
   saved: readonly SavedNotificationPreference[],
+  kind: ProfileKind,
 ): PreferenceRow[] {
-  // Team notices (a new ticket) are not the reseller's to choose; the team keeps the default.
-  const resellerEvents = NOTIFICATION_EVENTS.filter(
-    (event) => NOTIFICATION_EVENT_DEFINITIONS[event].audience === "reseller",
-  );
-  return resellerEvents.map((event) => ({
+  return NOTIFICATION_EVENTS.filter((event) => shownTo(kind, event)).map((event) => ({
     event,
     label: NOTIFICATION_EVENT_DEFINITIONS[event].label,
     description: NOTIFICATION_EVENT_DEFINITIONS[event].description,
