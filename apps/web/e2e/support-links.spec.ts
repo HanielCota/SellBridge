@@ -43,12 +43,10 @@ test("abre um chamado já ligado ao pedido pela página do pedido", async ({ pag
 
   await expect(page).toHaveURL(/\/suporte\/[0-9a-f-]{36}\?perfil=[a-z0-9-]+$/);
   await expect(
-    page.getByRole("heading", {
-      name: `Chegou errado ou quebrado: Pedido ${order.externalOrderId}`,
-    }),
+    page.getByRole("heading", { name: "Chegou errado ou quebrado", exact: true }),
   ).toBeVisible();
-  const linked = page.getByRole("region", { name: "Pedidos vinculados" });
-  await expect(linked).toContainText(order.externalOrderId);
+  // The order the ticket came from shows under the title, no picking needed.
+  await expect(page.getByText(`Pedido #${order.externalOrderId}`, { exact: true })).toBeVisible();
 });
 
 test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {

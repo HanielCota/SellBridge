@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDeadline,
   formatDuration,
-  responseTargetText,
+  RESPONSE_PROMISE,
   unreadRepliesText,
 } from "./response-time";
 
@@ -31,9 +31,9 @@ describe("formatDeadline", () => {
   });
 });
 
-describe("responseTargetText", () => {
-  it("states the promise for the priority", () => {
-    expect(responseTargetText("normal")).toBe("Respondemos em até 24 horas");
+describe("RESPONSE_PROMISE", () => {
+  it("promises business days, never an hour that may pass overnight", () => {
+    expect(RESPONSE_PROMISE).toBe("Respondemos em até 1 dia útil");
   });
 });
 

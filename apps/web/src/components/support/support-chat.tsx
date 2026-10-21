@@ -12,7 +12,7 @@ import { Hint } from "@/components/ui/hint";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chatSubjectFrom } from "@/features/support/chat-subject";
-import { responseTargetText, unreadRepliesText } from "@/features/support/response-time";
+import { RESPONSE_PROMISE, unreadRepliesText } from "@/features/support/response-time";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 
@@ -179,7 +179,7 @@ export function SupportChat({ unread }: { unread: number }) {
             <h2 id="support-chat-title" className="text-base font-semibold">
               Fale com o suporte
             </h2>
-            <p className="text-sm text-muted-foreground">{responseTargetText("normal")}.</p>
+            <p className="text-sm text-muted-foreground">{RESPONSE_PROMISE}.</p>
           </div>
           <ChatComposer onSent={close} />
           <RecentTickets onNavigate={close} />

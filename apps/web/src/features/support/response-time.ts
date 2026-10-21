@@ -1,5 +1,3 @@
-import { RESPONSE_TARGET_HOURS, type TicketPriority } from "@sellbridge/shared/ticket-rules";
-
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const TIME_ZONE = "America/Sao_Paulo";
@@ -42,11 +40,12 @@ export function formatDeadline(date: Date, now: Date = new Date()): string {
   return `${day} às ${time}`;
 }
 
-/** "Respondemos em até 24 horas" for the new-ticket form, before any ticket exists. */
-export function responseTargetText(priority: TicketPriority): string {
-  const hours = RESPONSE_TARGET_HOURS[priority];
-  return `Respondemos em até ${hours} ${hours === 1 ? "hora" : "horas"}`;
-}
+/**
+ * The one response promise every customer screen makes. Business days, never hours: the team's
+ * target is counted in calendar hours for now, and an hour promised at night would be broken by
+ * morning.
+ */
+export const RESPONSE_PROMISE = "Respondemos em até 1 dia útil";
 
 /** "1 chamado com resposta nova", "3 chamados com resposta nova": counts tickets, not messages. */
 export function unreadRepliesText(tickets: number): string {

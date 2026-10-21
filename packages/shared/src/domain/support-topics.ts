@@ -174,3 +174,23 @@ export function planSupportTicket(input: {
     subject: supportTicketSubject({ heading, about: input.about, description: input.description }),
   };
 }
+
+/** Every heading a guided ticket subject can start with, longest first so prefixes never win. */
+const SUBJECT_HEADINGS: readonly string[] = Object.values(SUPPORT_TOPICS)
+  .flatMap((topics) =>
+    topics.flatMap((topic) => [
+      topic.label,
+      ...topic.situations.map((situation) => situation.label),
+    ]),
+  )
+  .toSorted((first, second) => second.length - first.length);
+
+/**
+ * What the customer reads as the ticket title: the heading of a guided subject ("O pedido
+ * atrasou"), without the excerpt of their own message that follows it for the team. Subjects
+ * typed before the guided form stay whole.
+ */
+export function customerTicketTitle(subject: string): string {
+  const heading = SUBJECT_HEADINGS.find((label) => subject.startsWith(`${label}: `));
+  return heading ?? subject;
+}

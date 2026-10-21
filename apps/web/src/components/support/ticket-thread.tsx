@@ -10,11 +10,11 @@ import {
   HeadsetIcon,
   LockSimpleIcon,
   QuotesIcon,
-  UserIcon,
 } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { formatFileSize } from "@/lib/file-size";
 import { describeCustomerEvent } from "@/components/support/ticket-event-text";
+import { UserAvatar } from "@/components/layout/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { brazilDayKey, nearDayName } from "@/lib/relative-time";
@@ -87,13 +87,19 @@ function authorLabel(message: ThreadMessage, tagSupport: boolean): string {
   return message.authorName;
 }
 
+/** The reseller sees their own photo (or initials, as in the top bar); support keeps the headset. */
 function AuthorAvatar({ message }: { message: ThreadMessage }) {
-  let icon = <UserIcon className="size-4" />;
-  let tone = "bg-muted";
-  if (message.isAdmin) {
-    icon = <HeadsetIcon className="size-4" />;
-    tone = "bg-primary text-primary-foreground";
+  if (!message.isAdmin) {
+    return (
+      <UserAvatar
+        name={message.authorName}
+        image={message.authorImage}
+        className="size-8 text-xs"
+      />
+    );
   }
+  let icon = <HeadsetIcon className="size-4" />;
+  let tone = "bg-primary text-primary-foreground";
   if (message.isInternal) {
     icon = <LockSimpleIcon className="size-4" />;
     tone = "bg-amber-500/15 text-amber-600 dark:text-amber-400";
@@ -309,13 +315,15 @@ function MessageItem({
   onQuote?: ((message: ThreadMessage) => void) | undefined;
   footer: ReactNode;
 }) {
+  // Like any chat app: whoever is reading sees their own side on the right, tinted.
+  const isMine = tagSupport ? !message.isAdmin : message.isAdmin;
   return (
-    <li className={cn("flex gap-3", message.isAdmin && "flex-row-reverse")}>
+    <li className={cn("flex gap-3", isMine && "flex-row-reverse")}>
       <AuthorAvatar message={message} />
       <article
         className={cn(
           "group/message max-w-[min(42rem,85%)] min-w-0 space-y-1.5 rounded-2xl border px-4 py-3",
-          message.isAdmin && "border-primary/30 bg-primary/5",
+          isMine && "border-primary/30 bg-primary/5",
           message.isInternal && "border-dashed border-amber-500/50 bg-amber-500/5",
         )}
       >
