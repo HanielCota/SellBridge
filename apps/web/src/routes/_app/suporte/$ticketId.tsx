@@ -18,6 +18,7 @@ import { type getMyTicket, markMyTicketRead } from "@/features/support/support.f
 import { myTicketQueryOptions } from "@/features/support/support.queries";
 import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { useCloseWithUndo, useNotSolved } from "@/features/support/use-ticket-verdict";
+import { canLinkOrders } from "@/features/support/ticket-audience";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -104,10 +105,12 @@ function TicketComposer({
   ticket,
   composerRef,
   placeholder,
+  linksOrders,
 }: {
   ticket: TicketDetail["ticket"];
   composerRef: RefObject<ReplyComposerHandle | null>;
   placeholder: string;
+  linksOrders: boolean;
 }) {
   const queryClient = useQueryClient();
   return (
@@ -118,14 +121,16 @@ function TicketComposer({
       composerRef={composerRef}
       placeholder={placeholder}
       tools={
-        <OrderLinkPicker
-          ticketId={ticket.id}
-          trigger={
-            <IconAction label="Vincular um pedido ao chamado">
-              <PackageIcon aria-hidden="true" />
-            </IconAction>
-          }
-        />
+        linksOrders ? (
+          <OrderLinkPicker
+            ticketId={ticket.id}
+            trigger={
+              <IconAction label="Vincular um pedido ao chamado">
+                <PackageIcon aria-hidden="true" />
+              </IconAction>
+            }
+          />
+        ) : null
       }
       onSent={async () => {
         toast.success("Mensagem enviada");
@@ -136,6 +141,8 @@ function TicketComposer({
 }
 
 function TicketView({ detail }: { detail: TicketDetail }) {
+  const { session } = Route.useRouteContext();
+  const linksOrders = canLinkOrders(session.profileKind);
   const { ticket, messages } = detail;
   const composer = useRef<ReplyComposerHandle>(null);
   const [askedForDetails, setAskedForDetails] = useState(false);
@@ -164,6 +171,7 @@ function TicketView({ detail }: { detail: TicketDetail }) {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <BackLink to="/suporte" label="Suporte" />
       <CustomerTicketHeader
+        asksForOrder={linksOrders}
         ticket={ticket}
         facts={ticketFacts(detail)}
         subject={detail.subject}
@@ -178,7 +186,12 @@ function TicketView({ detail }: { detail: TicketDetail }) {
         messageFooter={footerFor}
       />
       <TicketRating ticket={ticket} />
-      <TicketComposer ticket={ticket} composerRef={composer} placeholder={placeholder} />
+      <TicketComposer
+        ticket={ticket}
+        composerRef={composer}
+        placeholder={placeholder}
+        linksOrders={linksOrders}
+      />
     </div>
   );
 }

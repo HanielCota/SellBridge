@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ComposerModeSwitch, type ComposerMode } from "@/components/support/composer-mode-switch";
 import { TemplateMenu } from "@/components/support/template-menu";
+import { ClosedNotice } from "@/components/support/closed-notice";
 import {
   fillTemplate,
   insertAt,
@@ -59,6 +60,8 @@ const countFormatter = new Intl.NumberFormat("pt-BR");
 interface AdminComposerProps {
   ticketId: string;
   isClosed: boolean;
+  /** Ready answers that fit who opened the ticket (see `replyTemplatesFor`). */
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   isChangingStatus: boolean;
   onChangeStatus: (status: "open" | "closed") => void;
@@ -261,11 +264,13 @@ function CharacterCount({ length }: { length: number }) {
 
 function ComposerToolbar({
   state,
+  templates,
   templateContext,
   isSending,
   onCloseWithoutReply,
 }: {
   state: ComposerState;
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   isSending: boolean;
   onCloseWithoutReply: () => void;
@@ -281,7 +286,9 @@ function ComposerToolbar({
 
   return (
     <div className={COMPOSER_TOOLBAR_CLASS}>
-      {isNote ? null : <TemplateMenu context={templateContext} onPick={pickTemplate} />}
+      {isNote ? null : (
+        <TemplateMenu templates={templates} context={templateContext} onPick={pickTemplate} />
+      )}
       <AttachmentButton onAdd={state.addFiles} />
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <CharacterCount length={state.body.length} />
@@ -316,36 +323,6 @@ function ComposerTextarea({
       onKeyUp={state.rememberSelection}
       onKeyDown={(event) => submitOnModEnter(event, onSubmitShortcut)}
     />
-  );
-}
-
-function ClosedNotice({
-  isChangingStatus,
-  onReopen,
-  onWriteNote,
-}: {
-  isChangingStatus: boolean;
-  onReopen: () => void;
-  onWriteNote: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed px-5 py-4">
-      <p className="text-sm text-muted-foreground">Chamado encerrado. Reabra para responder.</p>
-      <div className="flex gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onWriteNote}>
-          Nota interna
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isChangingStatus}
-          onClick={onReopen}
-        >
-          Reabrir chamado
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -401,12 +378,14 @@ function useComposerSubmit(
 function ComposerBox({
   state,
   textareaRef,
+  templates,
   templateContext,
   submission,
   onCloseWithoutReply,
 }: {
   state: ComposerState;
   textareaRef: Ref<HTMLTextAreaElement>;
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   submission: ReturnType<typeof useComposerSubmit>;
   onCloseWithoutReply: () => void;
@@ -438,6 +417,7 @@ function ComposerBox({
         <AttachedFiles files={state.files} onRemove={state.removeFile} />
         <ComposerToolbar
           state={state}
+          templates={templates}
           templateContext={templateContext}
           isSending={submission.isSending}
           onCloseWithoutReply={onCloseWithoutReply}
@@ -456,6 +436,7 @@ function ComposerBox({
 export function AdminComposer({
   ticketId,
   isClosed,
+  templates,
   templateContext,
   isChangingStatus,
   onChangeStatus,
@@ -488,6 +469,7 @@ export function AdminComposer({
     <ComposerBox
       state={state}
       textareaRef={textareaRef}
+      templates={templates}
       templateContext={templateContext}
       submission={submission}
       onCloseWithoutReply={() => onChangeStatus("closed")}

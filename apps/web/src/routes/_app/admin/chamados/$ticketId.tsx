@@ -30,6 +30,7 @@ import {
   staffSetTicketStatus,
 } from "@/features/support/support.functions";
 import { firstName, quoteMessage } from "@/features/support/reply-templates";
+import { PROFILE_KIND_LABELS, replyTemplatesFor } from "@/features/support/ticket-audience";
 import { staffTicketQueryOptions } from "@/features/support/support.queries";
 import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { NOT_SOLVED_MESSAGE } from "@/features/support/use-ticket-verdict";
@@ -153,6 +154,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             ref={composerRef}
             ticketId={ticket.id}
             isClosed={ticket.status === "closed"}
+            templates={replyTemplatesFor(ticket.tenantKind)}
             templateContext={{
               customerName: firstName(ticket.createdByName),
               storeName: ticket.tenantName,
@@ -203,8 +205,9 @@ function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
         />
       </div>
       <p className="text-sm text-muted-foreground">
-        <span className="font-mono">#{ticketCode(ticket.id)}</span> · {ticket.tenantName} ·{" "}
-        <TicketCategoryLabel category={ticket.category} /> · aberto{" "}
+        <span className="font-mono">#{ticketCode(ticket.id)}</span> ·{" "}
+        {PROFILE_KIND_LABELS[ticket.tenantKind]} · {ticket.tenantName} ·{" "}
+        <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} /> · aberto{" "}
         <SmartDate date={ticket.createdAt} />
       </p>
     </header>

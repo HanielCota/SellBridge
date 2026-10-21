@@ -1,6 +1,10 @@
 import type { TicketSummary } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
+import {
+  ticketsSearchSchema,
+  type TicketCategory,
+  type TicketsSearch,
+} from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { HeadsetIcon, PlusIcon } from "@phosphor-icons/react";
@@ -45,8 +49,22 @@ function TicketSubject({ ticket }: { ticket: TicketSummary }) {
       >
         {ticket.subject}
       </Link>
-      <TicketCategoryLabel category={ticket.category} className="block" />
+      <MyTopicLabel category={ticket.category} className="block" />
     </div>
+  );
+}
+
+/** The topic in the words this account saw when opening the ticket. */
+function MyTopicLabel({
+  category,
+  className,
+}: {
+  category: TicketCategory;
+  className?: string | undefined;
+}) {
+  const { session } = Route.useRouteContext();
+  return (
+    <TicketCategoryLabel category={category} kind={session.profileKind} className={className} />
   );
 }
 
@@ -83,7 +101,7 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
         <TicketState ticket={row} />
       </div>
       <p className="text-xs text-muted-foreground">
-        <TicketCategoryLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
+        <MyTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
       </p>
     </Link>
   );
