@@ -1,3 +1,4 @@
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import {
   TICKET_CATEGORY_LABELS,
   TICKET_PRIORITY_LABELS,
@@ -9,6 +10,7 @@ import { responseTiming } from "@sellbridge/shared/ticket-rules";
 import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/features/support/response-time";
+import { ticketTopicLabel } from "@/features/support/ticket-audience";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_TONES: Record<TicketPriority, StatusTone> = {
@@ -25,16 +27,19 @@ export function TicketPriorityBadge({ priority }: { priority: TicketPriority }) 
   return <ToneStatus tone={PRIORITY_TONES[priority]} label={TICKET_PRIORITY_LABELS[priority]} />;
 }
 
+/** `kind`: name the topic the way that account saw it in the new-ticket form. */
 export function TicketCategoryLabel({
   category,
+  kind,
   className,
 }: {
   category: TicketCategory;
-  className?: string;
+  kind?: ProfileKind;
+  className?: string | undefined;
 }) {
   return (
     <span className={cn("text-footnote text-muted-foreground", className)}>
-      {TICKET_CATEGORY_LABELS[category]}
+      {kind === undefined ? TICKET_CATEGORY_LABELS[category] : ticketTopicLabel(category, kind)}
     </span>
   );
 }

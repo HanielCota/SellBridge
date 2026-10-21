@@ -6,6 +6,7 @@ import {
   gotoHydrated,
   signIn,
   signUp,
+  signUpAsSupplier,
   waitForHydration,
 } from "./helpers";
 
@@ -169,7 +170,8 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
 
   await gotoHydrated(reseller, "/dashboard");
   await reseller.getByRole("button", { name: "Suporte", exact: true }).click();
-  await reseller.getByRole("link", { name: "Abrir chamado" }).click();
+  // The corner bubble is a second "Abrir chamado"; this one sits in the Suporte panel.
+  await reseller.getByRole("dialog").getByRole("link", { name: "Abrir chamado" }).click();
   await expect(reseller).toHaveURL(/\/suporte\/novo/);
   await waitForHydration(reseller);
   const subject = await openTicket(reseller, `Quando cai o repasse da semana ${Date.now()}`);
@@ -188,11 +190,9 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
     exact: true,
   });
   await expect(supportButton).toBeVisible();
-  // One reply, one number: the bell lists it without counting it, the chat bubble shows none.
+  // One reply, one number: the bell lists it without counting it, the corner bubble shows none.
   await expect(reseller.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
-  await expect(
-    reseller.getByRole("button", { name: "Chat de suporte", exact: true }),
-  ).toBeVisible();
+  await expect(reseller.getByRole("link", { name: "Abrir chamado", exact: true })).toBeVisible();
   await supportButton.click();
   await reseller.getByRole("link", { name: new RegExp(subject) }).click();
   await expect(reseller.getByText("O repasse cai toda sexta-feira.")).toBeVisible();
@@ -288,6 +288,63 @@ test("a foto de perfil do cliente aparece para ele e para o suporte no chamado",
 
   await resellerContext.close();
   await adminContext.close();
+});
+
+test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é fornecedor", async ({
+  browser,
+}) => {
+  const supplierContext = await browser.newContext({ locale: "pt-BR" });
+  const supplier = await supplierContext.newPage();
+  await signUpAsSupplier(supplier, "Fornecedor Suporte");
+  await gotoHydrated(supplier, "/suporte/novo");
+  await supplier.getByRole("button", { name: /^Pedido encaminhado/ }).click();
+  await supplier.getByRole("button", { name: /^Endereço incompleto/ }).click();
+  const body = `O pedido veio sem número da casa ${Date.now()}, não consigo despachar.`;
+  await supplier.getByRole("textbox").first().fill(body);
+  await supplier.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(supplier.getByText("Esperando o suporte.")).toBeVisible();
+  // A supplier has no store orders: the picker only ever opened empty.
+  await expect(supplier.getByRole("button", { name: "Escolher pedido" })).toHaveCount(0);
+  await expect(supplier.getByRole("button", { name: "Vincular um pedido ao chamado" })).toHaveCount(
+    0,
+  );
+  await gotoHydrated(supplier, "/suporte");
+  await expect(
+    supplier.getByText("Pedido encaminhado", { exact: true }).filter({ visible: true }).first(),
+  ).toBeVisible();
+
+  const { context: adminContext, page: admin } = await adminPage(browser);
+  await gotoHydrated(admin, "/admin/chamados");
+  await admin.getByLabel("Buscar chamados").fill(body);
+  await expect(admin).toHaveURL(/query=/);
+  const row = admin.getByRole("row").filter({ hasText: "Fornecedor Suporte" });
+  // Earlier runs left tickets of the same name: wait for the search to narrow to this one.
+  await expect(row).toHaveCount(1);
+  await expect(row.getByText(/^Fornecedor · /)).toBeVisible();
+  await row.getByRole("link").first().click();
+  const header = admin.getByRole("heading", { level: 1 }).locator("../..");
+  await expect(header.getByText(/· Fornecedor ·/)).toBeVisible();
+  await expect(header.getByText("Pedido encaminhado", { exact: true })).toBeVisible();
+  // The topic picker beside the thread uses the supplier's words too.
+  await expect(admin.getByRole("combobox", { name: "Tema do chamado" })).toHaveText(
+    "Pedido encaminhado",
+  );
+  await admin.getByRole("button", { name: "Respostas prontas" }).click();
+  await expect(admin.getByRole("menuitem", { name: /^Saudação/ })).toBeVisible();
+  await expect(admin.getByRole("menuitem", { name: /^Encaminhado ao fornecedor/ })).toHaveCount(0);
+
+  await supplierContext.close();
+  await adminContext.close();
+});
+
+test("no celular o suporte chega na fila de atrasados pelo seletor", async ({ browser }) => {
+  const { context, page: admin } = await adminPage(browser);
+  await admin.setViewportSize({ width: 390, height: 844 });
+  await gotoHydrated(admin, "/admin/chamados");
+  await admin.getByRole("combobox", { name: "Fila de chamados" }).click();
+  await admin.getByRole("option", { name: /^Atrasados/ }).click();
+  await expect(admin).toHaveURL(/queue=overdue/);
+  await context.close();
 });
 
 test("atendente vê só o suporte e assume um chamado da fila", async ({ browser }) => {

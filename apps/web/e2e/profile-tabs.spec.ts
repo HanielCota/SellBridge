@@ -126,19 +126,18 @@ test("keeps a second profile throughout store consent and the callback", async (
   expect(store?.tenantId).toBe(profiles.secondId);
 });
 
-test("sends chat tickets using the profile of the current tab", async () => {
+test("the corner bubble opens the guided form in the profile of the current tab", async () => {
   await gotoHydrated(tabB, `/lojas?perfil=${profiles.second}`);
-  await tabB.getByRole("button", { name: "Chat de suporte", exact: true }).click();
-  const firstLine = `Chat profile ${Date.now()}`;
-  await tabB
-    .getByLabel("Sua mensagem", { exact: true })
-    .fill(`${firstLine}\nPlease help with this store.`);
-  await tabB.getByRole("button", { name: "Enviar", exact: true }).click();
-  // The chat files under "Outra coisa"; the server writes the subject from the message.
-  await expect(tabB.getByRole("heading", { name: "Outra coisa", exact: true })).toBeVisible();
-  expect(await ticketTenant(`Outra coisa: ${firstLine} Please help with this store.`)).toBe(
-    profiles.secondId,
-  );
+  // The bubble leads to the same guided form as the Suporte button, never a free-text chat.
+  await tabB.getByRole("link", { name: "Abrir chamado", exact: true }).click();
+  await expect(tabB).toHaveURL(/\/suporte\/novo/);
+  await tabB.getByRole("button", { name: /^Pedido ou entrega/ }).click();
+  await tabB.getByRole("button", { name: /^O pedido atrasou/ }).click();
+  const description = `Bubble profile ${Date.now()} parado na transportadora.`;
+  await tabB.getByLabel("O que aconteceu com a entrega?").fill(description);
+  await tabB.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(tabB.getByRole("heading", { name: "O pedido atrasou", exact: true })).toBeVisible();
+  expect(await ticketTenant(`O pedido atrasou: ${description}`)).toBe(profiles.secondId);
   expect(profileOf(tabB)).toBe(profiles.second);
 });
 
