@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,37 @@ import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
+import { useTabProfileLink } from "@/lib/tab-profile";
+
+/**
+ * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
+ * signed-in panel: the ids go in the form body and the server checks the panel session.
+ */
+function MarketplaceLabelForm({
+  supplierId,
+  shipmentId,
+  orderId,
+}: {
+  supplierId: string;
+  shipmentId: string;
+  orderId: string;
+}) {
+  const withProfile = useTabProfileLink();
+  return (
+    <form
+      method="post"
+      action={withProfile(`/api/pedidos/${orderId}/etiqueta`)}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <input type="hidden" name="supplierId" value={supplierId} />
+      <input type="hidden" name="shipmentId" value={shipmentId} />
+      <Button type="submit" variant="outline">
+        Etiqueta de postagem do marketplace
+      </Button>
+    </form>
+  );
+}
 
 /** The opened parcel: the same shipment panel the supplier link shows, acting as the supplier. */
 function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId: string }) {
@@ -45,7 +77,15 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
         actsAs="supplier"
         blocked={blocked}
         onUpdate={onUpdate}
-      />
+      >
+        {query.data.marketplace === "mercado_livre" ? (
+          <MarketplaceLabelForm
+            supplierId={supplierId}
+            shipmentId={shipmentId}
+            orderId={query.data.orderId}
+          />
+        ) : null}
+      </ShipmentPanel>
     </div>
   );
 }

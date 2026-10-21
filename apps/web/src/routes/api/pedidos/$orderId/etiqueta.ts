@@ -10,12 +10,30 @@ import { database } from "@/lib/server/database";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
-import { hasTokenInUrl, readSupplierToken } from "@/lib/server/supplier-link-token";
+import { panelLabelIds, panelLabelShipmentId } from "@/lib/server/panel-label-access";
+import { hasTokenInUrl, readLabelForm, tokenOf } from "@/lib/server/supplier-link-token";
+
+async function shipmentTenantId(shipmentId: string): Promise<string> {
+  const [row] = await database
+    .select({ tenantId: orderShipments.tenantId })
+    .from(orderShipments)
+    .where(eq(orderShipments.id, shipmentId));
+  if (!row) throw new Error("Acesso inválido");
+  return row.tenantId;
+}
+
+async function tokenLabelShipmentId(token: string, orderId: string): Promise<string> {
+  const shipment = await getSupplierShipment(database, supplierTokenSchema.parse(token));
+  if (shipment.orderId !== orderId) throw new Error("Acesso inválido");
+  // The label carries the buyer's address: only while this parcel is still on its way out.
+  if (shipment.address === null) throw conflictError("Este envio já foi encerrado");
+  return shipment.id;
+}
 
 /**
- * The reseller opens the label with a GET from their session. The supplier posts the link's
- * token in the form body (see supplier-link-token.ts): a token in the URL, from an old link,
- * is refused without being read.
+ * The reseller opens the label with a GET from their session. The supplier posts a form: the
+ * link's token (see supplier-link-token.ts), or, from the signed-in panel, its supplier and
+ * parcel ids. A token in the URL, from an old link, is refused without being read.
  */
 async function labelTenant(request: Request, orderId: string) {
   if (hasTokenInUrl(request)) {
@@ -24,21 +42,16 @@ async function labelTenant(request: Request, orderId: string) {
   if (request.method !== "POST") {
     return (await requireSellerRequest(request)).tenantId;
   }
-  const token = await readSupplierToken(request);
-  if (token === null) {
-    throw validationError("Abra a etiqueta pelo botão da página do pedido.");
+  const form = await readLabelForm(request);
+  const token = tokenOf(form);
+  if (token !== null) {
+    return shipmentTenantId(await tokenLabelShipmentId(token, orderId));
   }
-  const validToken = supplierTokenSchema.parse(token);
-  const shipment = await getSupplierShipment(database, validToken);
-  if (shipment.orderId !== orderId) throw new Error("Acesso inválido");
-  // The label carries the buyer's address: only while this parcel is still on its way out.
-  if (shipment.address === null) throw conflictError("Este envio já foi encerrado");
-  const [row] = await database
-    .select({ tenantId: orderShipments.tenantId })
-    .from(orderShipments)
-    .where(eq(orderShipments.id, shipment.id));
-  if (!row) throw new Error("Acesso inválido");
-  return row.tenantId;
+  const panelIds = panelLabelIds(form);
+  if (panelIds !== null) {
+    return shipmentTenantId(await panelLabelShipmentId(request, orderId, panelIds));
+  }
+  throw validationError("Abra a etiqueta pelo botão da página do pedido.");
 }
 async function handleLabel(request: Request, orderId: string) {
   try {
