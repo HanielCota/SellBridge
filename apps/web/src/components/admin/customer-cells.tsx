@@ -47,7 +47,7 @@ export function CustomerScore({
 }: {
   score: number | null;
   size?: "sm" | "lg";
-  /** False inside a link (a journey card), where the legend opens on hover only. */
+  /** False inside a link (a journey card): no focus stop of its own; on touch the tap opens the link. */
   focusable?: boolean;
 }) {
   const ring = <HealthRing score={score} size={size} />;
