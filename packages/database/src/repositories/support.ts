@@ -4,6 +4,7 @@ import {
   notFoundError,
   validationError,
 } from "@sellbridge/shared/errors";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole, STAFF_ROLES } from "@sellbridge/shared/staff-access";
 import {
   assertCanRate,
@@ -43,6 +44,7 @@ import {
 } from "./support-assignee.ts";
 import { isOverdue, plusResponseTarget, responseDueAtSql } from "./support-deadline.ts";
 import { staffTicketSearch } from "./support-search.ts";
+import { hasUnreadSql } from "./support-unread.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
@@ -81,6 +83,7 @@ export interface TicketSummary {
 
 export interface StaffTicketSummary extends TicketSummary {
   tenantName: string;
+  tenantKind: ProfileKind;
   createdByEmail: string;
   assigneeId: string | null;
   assigneeName: string | null;
@@ -104,6 +107,7 @@ export interface TicketThread {
   ticket: Omit<TicketSummary, "hasUnread"> & {
     tenantId: string;
     tenantName: string;
+    tenantKind: ProfileKind;
     createdById: string;
     createdByName: string;
     createdByImage: string | null;
@@ -145,30 +149,6 @@ export type TicketSide = "customer" | "staff";
 export interface TicketReader {
   userId: string;
   side: TicketSide;
-}
-
-/**
- * True when the other side wrote after the reader's last visit to the thread. Written with
- * aliases on purpose: in a single-table select Drizzle leaves columns unqualified, and inside
- * the subquery `"id"` would then mean the message, not the ticket.
- */
-function hasUnreadSql(reader: TicketReader | undefined): SQL<boolean> {
-  if (!reader) {
-    return sql<boolean>`false`;
-  }
-  const fromOtherSide =
-    reader.side === "customer"
-      ? sql.raw(`unread_m.is_admin and not unread_m.is_internal`)
-      : sql.raw(`not unread_m.is_admin`);
-  return sql<boolean>`exists (
-    select 1 from ticket_messages unread_m
-    where unread_m.ticket_id = "tickets"."id"
-      and ${fromOtherSide}
-      and unread_m.created_at > coalesce((
-        select unread_r.read_at from ticket_reads unread_r
-        where unread_r.ticket_id = "tickets"."id" and unread_r.user_id = ${reader.userId}
-      ), '-infinity'::timestamptz)
-  )`;
 }
 
 const summaryColumns = (reader: TicketReader | undefined) => ({
@@ -734,6 +714,7 @@ export async function listStaffTickets(
       .select({
         ...summaryColumns({ userId: input.viewerId, side: "staff" }),
         tenantName: organization.name,
+        tenantKind: organization.kind,
         createdByEmail: user.email,
         assigneeId: activeAssigneeIdSql,
         assigneeName: activeAssigneeNameSql,
@@ -806,6 +787,7 @@ async function findThreadTicket(
       updatedAt: tickets.updatedAt,
       tenantId: tickets.tenantId,
       tenantName: organization.name,
+      tenantKind: organization.kind,
       createdById: tickets.createdById,
       createdByName: user.name,
       createdByImage: user.image,

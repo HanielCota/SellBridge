@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { user } from "../schema/index.ts";
+import { organization, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
 import {
   addTicketMessage,
@@ -336,6 +336,43 @@ describe("support queues and response deadlines", () => {
       PAGE,
     );
     expect(page.items.map((item) => item.id)).toEqual([ticketId]);
+  });
+
+  it("tells the team whether a ticket comes from a supplier or a reseller", async () => {
+    await database
+      .update(organization)
+      .set({ kind: "supplier" })
+      .where(eq(organization.id, tenantB));
+    try {
+      const { ticketId: fromSupplier } = await createTicket(database, {
+        tenantId: tenantB,
+        userId: otherReseller,
+        category: "order",
+        subject: `Pedido encaminhado: endereço incompleto · ${RUN}`,
+        body: "O pedido chegou sem número da casa e não consigo despachar.",
+        attachments: [],
+      });
+      const fromReseller = await openTicket("Pedido do revendedor");
+      expect((await getTicketThread(database, fromSupplier, null)).ticket.tenantKind).toBe(
+        "supplier",
+      );
+      expect((await getTicketThread(database, fromReseller, null)).ticket.tenantKind).toBe(
+        "seller",
+      );
+      const page = await listStaffTickets(
+        database,
+        { queue: "all", viewerId: agent, now: new Date(), search: RUN },
+        PAGE,
+      );
+      const kinds = new Map(page.items.map((item) => [item.id, item.tenantKind]));
+      expect(kinds.get(fromSupplier)).toBe("supplier");
+      expect(kinds.get(fromReseller)).toBe("seller");
+    } finally {
+      await database
+        .update(organization)
+        .set({ kind: "seller" })
+        .where(eq(organization.id, tenantB));
+    }
   });
 
   it("only hands tickets to the support team", async () => {

@@ -8,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  REPLY_TEMPLATES,
   fillTemplate,
   type ReplyTemplate,
   type TemplateContext,
@@ -16,9 +15,11 @@ import {
 
 /** Ready answers to the customer; only offered while replying, never inside an internal note. */
 export function TemplateMenu({
+  templates,
   context,
   onPick,
 }: {
+  templates: readonly ReplyTemplate[];
   context: TemplateContext;
   onPick: (template: ReplyTemplate) => void;
 }) {
@@ -33,7 +34,7 @@ export function TemplateMenu({
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Respostas prontas
         </DropdownMenuLabel>
-        {REPLY_TEMPLATES.map((template) => (
+        {templates.map((template) => (
           <DropdownMenuItem
             key={template.id}
             className="flex-col items-start gap-0.5"

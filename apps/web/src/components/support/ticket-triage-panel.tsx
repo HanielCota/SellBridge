@@ -1,5 +1,6 @@
 import type { TicketEventView, TicketThread } from "@sellbridge/database/repositories";
 import { staffResponseStateText } from "@/features/support/response-time";
+import { ticketTopicLabel } from "@/features/support/ticket-audience";
 import {
   TICKET_CATEGORIES,
   TICKET_CATEGORY_LABELS,
@@ -183,12 +184,12 @@ function CategoryControl({ ticket }: { ticket: Ticket }) {
       }}
     >
       <SelectTrigger aria-label="Tema do chamado" className="w-full">
-        <SelectValue>{TICKET_CATEGORY_LABELS[ticket.category]}</SelectValue>
+        <SelectValue>{ticketTopicLabel(ticket.category, ticket.tenantKind)}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {TICKET_CATEGORIES.map((category) => (
           <SelectItem key={category} value={category}>
-            {TICKET_CATEGORY_LABELS[category]}
+            {ticketTopicLabel(category, ticket.tenantKind)}
           </SelectItem>
         ))}
       </SelectContent>
