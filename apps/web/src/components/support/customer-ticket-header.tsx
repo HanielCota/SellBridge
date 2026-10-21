@@ -105,7 +105,7 @@ export function CustomerTicketHeader({
   orders,
   followers,
   notifyMe,
-  asksForOrder,
+  linksOrders,
 }: {
   ticket: HeaderTicket;
   facts: CustomerTicketFacts;
@@ -114,7 +114,7 @@ export function CustomerTicketHeader({
   followers: readonly TicketFollower[];
   notifyMe: boolean;
   /** Off for suppliers: their account has no store orders to pick from. */
-  asksForOrder: boolean;
+  linksOrders: boolean;
 }): ReactNode {
   return (
     <header className="space-y-3">
@@ -132,7 +132,7 @@ export function CustomerTicketHeader({
       <TicketStateLine facts={facts} />
       <TicketAboutLine
         ticketId={ticket.id}
-        isOrderTopic={asksForOrder && ticket.category === "order"}
+        isOrderTopic={linksOrders && ticket.category === "order"}
         subject={subject}
         orders={orders}
       />

@@ -3,8 +3,11 @@ import { TICKET_CATEGORY_LABELS, type TicketCategory } from "@sellbridge/shared/
 import { findSupportTopic } from "@sellbridge/shared/support-topics";
 import { REPLY_TEMPLATES, type ReplyTemplate } from "@/features/support/reply-templates";
 
-/** Who opened the ticket, in the words the team uses for each kind of account. */
-export const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
+/**
+ * Who opened the ticket, as the support team calls them: "Revendedor", like the account chip.
+ * The admin profile screens' `PROFILE_KIND_LABELS` say "Vendedor" for the same kind.
+ */
+export const REQUESTER_KIND_LABELS: Record<ProfileKind, string> = {
   seller: "Revendedor",
   supplier: "Fornecedor",
 };
@@ -17,14 +20,11 @@ export function ticketTopicLabel(category: TicketCategory, kind: ProfileKind): s
   return findSupportTopic(kind, category)?.label ?? TICKET_CATEGORY_LABELS[category];
 }
 
-/** Ready answers that make sense for the account: a supplier is never "forwarded to the supplier". */
-const RESELLER_ONLY_TEMPLATES: ReadonlySet<string> = new Set(["supplier"]);
-
+/** The ready answers that make sense on a ticket of this kind of account. */
 export function replyTemplatesFor(kind: ProfileKind): readonly ReplyTemplate[] {
-  if (kind === "seller") {
-    return REPLY_TEMPLATES;
-  }
-  return REPLY_TEMPLATES.filter((template) => !RESELLER_ONLY_TEMPLATES.has(template.id));
+  return REPLY_TEMPLATES.filter(
+    (template) => template.onlyFor === undefined || template.onlyFor === kind,
+  );
 }
 
 /**

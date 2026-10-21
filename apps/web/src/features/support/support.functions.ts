@@ -22,7 +22,6 @@ import {
   setTicketNotifications,
   setTicketPriority,
   setTicketStatus,
-  unlinkTicketOrder,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -131,18 +130,6 @@ export const linkMyTicketOrder = createServerFn({ method: "POST" })
   .validator(ticketOrderLinkSchema)
   .handler(async ({ context, data }) => {
     await linkTicketOrder(database, {
-      ...data,
-      tenantId: context.tenantId,
-      actorId: context.userId,
-    });
-    return { ok: true };
-  });
-
-export const unlinkMyTicketOrder = createServerFn({ method: "POST" })
-  .middleware([accountMiddleware])
-  .validator(ticketOrderLinkSchema)
-  .handler(async ({ context, data }) => {
-    await unlinkTicketOrder(database, {
       ...data,
       tenantId: context.tenantId,
       actorId: context.userId,

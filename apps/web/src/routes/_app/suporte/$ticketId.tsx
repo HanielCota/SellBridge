@@ -171,7 +171,7 @@ function TicketView({ detail }: { detail: TicketDetail }) {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <BackLink to="/suporte" label="Suporte" />
       <CustomerTicketHeader
-        asksForOrder={linksOrders}
+        linksOrders={linksOrders}
         ticket={ticket}
         facts={ticketFacts(detail)}
         subject={detail.subject}

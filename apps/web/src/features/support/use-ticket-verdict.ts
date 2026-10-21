@@ -6,7 +6,7 @@ import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 
 /** Long enough to notice a wrong tap on a phone, short enough that the close feels instant. */
-export const CLOSE_UNDO_MILLISECONDS = 5000;
+const CLOSE_UNDO_MILLISECONDS = 5000;
 
 /** The words "Não" sends; support reads them in the thread like any reply. */
 export const NOT_SOLVED_MESSAGE = "Ainda não resolveu.";

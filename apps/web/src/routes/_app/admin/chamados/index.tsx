@@ -16,7 +16,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ChartBarIcon, TrayIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { FilterTabs } from "@/components/data/filter-tabs";
-import { PROFILE_KIND_LABELS } from "@/features/support/ticket-audience";
+import { REQUESTER_KIND_LABELS } from "@/features/support/ticket-audience";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SmartDate } from "@/components/data/smart-date";
@@ -95,7 +95,7 @@ const columns = columnHelper.columns([
       <div className="space-y-0.5">
         <p>{info.getValue()}</p>
         <p className="text-xs text-muted-foreground">
-          {PROFILE_KIND_LABELS[info.row.original.tenantKind]} · {info.row.original.createdByEmail}
+          {REQUESTER_KIND_LABELS[info.row.original.tenantKind]} · {info.row.original.createdByEmail}
         </p>
       </div>
     ),
@@ -154,7 +154,7 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
         {showsUnread(row) ? <UnreadDot label="Mensagem nova" /> : null}
       </div>
       <p className="truncate text-xs text-muted-foreground">
-        {row.tenantName} · {PROFILE_KIND_LABELS[row.tenantKind]} ·{" "}
+        {row.tenantName} · {REQUESTER_KIND_LABELS[row.tenantKind]} ·{" "}
         {row.assigneeName ?? "Sem responsável"} · <SmartDate date={row.updatedAt} />
       </p>
     </Link>

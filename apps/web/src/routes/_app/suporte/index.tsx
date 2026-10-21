@@ -49,13 +49,13 @@ function TicketSubject({ ticket }: { ticket: TicketSummary }) {
       >
         {ticket.subject}
       </Link>
-      <MyTopicLabel category={ticket.category} className="block" />
+      <AccountTopicLabel category={ticket.category} className="block" />
     </div>
   );
 }
 
 /** The topic in the words this account saw when opening the ticket. */
-function MyTopicLabel({
+function AccountTopicLabel({
   category,
   className,
 }: {
@@ -101,7 +101,7 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
         <TicketState ticket={row} />
       </div>
       <p className="text-xs text-muted-foreground">
-        <MyTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
+        <AccountTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
       </p>
     </Link>
   );
