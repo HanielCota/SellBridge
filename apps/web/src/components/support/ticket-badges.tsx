@@ -23,10 +23,18 @@ const PRIORITY_TONES: Record<TicketPriority, StatusTone> = {
 /** Less than this left on the clock and the deadline turns amber in the inbox. */
 const DUE_SOON_MILLISECONDS = 60 * 60_000;
 
-export function TicketPriorityBadge({ priority }: { priority: TicketPriority }) {
+export function TicketPriorityBadge({
+  priority,
+  focusable = true,
+}: {
+  priority: TicketPriority;
+  /** False inside a linked row (phone inbox), where the row is the focus stop (PR #64 review). */
+  focusable?: boolean;
+}) {
   const label = TICKET_PRIORITY_LABELS[priority];
   return (
     <HintedText
+      focusable={focusable}
       className="inline-flex"
       label={`${label}: responder em até ${RESPONSE_TARGET_HOURS[priority]} h`}
     >
@@ -46,14 +54,17 @@ function DeadlineStatus({
   late,
   tone,
   label,
+  focusable,
 }: {
   late: boolean;
   tone: keyof typeof DEADLINE_TEXT;
   label: string;
+  focusable: boolean;
 }) {
   const Icon = late ? ACTION_ICONS.overdue.icon : ACTION_ICONS.deadline.icon;
   return (
     <HintedText
+      focusable={focusable}
       className="inline-flex"
       label={late ? TERM_HINTS.ticketOverdue : TERM_HINTS.ticketDueIn}
     >
@@ -99,10 +110,17 @@ interface TimingProps {
   status: TicketStatus;
   priority: TicketPriority;
   awaitingSince: Date | null;
+  /** False inside a linked row, where the row is the focus stop. */
+  focusable?: boolean;
 }
 
 /** For the team: how long until the answer is due, or how late it already is. */
-export function ResponseDeadlineBadge({ status, priority, awaitingSince }: TimingProps) {
+export function ResponseDeadlineBadge({
+  status,
+  priority,
+  awaitingSince,
+  focusable = true,
+}: TimingProps) {
   const now = useNow();
   if (status !== "open") {
     return null;
@@ -114,6 +132,7 @@ export function ResponseDeadlineBadge({ status, priority, awaitingSince }: Timin
   if (timing.state === "overdue") {
     return (
       <DeadlineStatus
+        focusable={focusable}
         late
         tone="danger"
         label={`Atrasado ${formatDuration(timing.lateMilliseconds)}`}
@@ -123,6 +142,7 @@ export function ResponseDeadlineBadge({ status, priority, awaitingSince }: Timin
   const tone = timing.remainingMilliseconds < DUE_SOON_MILLISECONDS ? "warning" : "muted";
   return (
     <DeadlineStatus
+      focusable={focusable}
       late={false}
       tone={tone}
       label={`Vence em ${formatDuration(timing.remainingMilliseconds)}`}

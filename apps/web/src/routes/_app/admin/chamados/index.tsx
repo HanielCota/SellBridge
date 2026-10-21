@@ -122,6 +122,7 @@ const columns = columnHelper.columns([
         <div className="flex flex-col items-start gap-1">
           <TicketStatusBadge status={ticket.status} />
           <ResponseDeadlineBadge
+            focusable={false}
             status={ticket.status}
             priority={ticket.priority}
             awaitingSince={ticket.awaitingSince}
@@ -147,7 +148,7 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 font-medium">{row.subject}</p>
-        <TicketPriorityBadge priority={row.priority} />
+        <TicketPriorityBadge priority={row.priority} focusable={false} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <TicketStatusBadge status={row.status} />
