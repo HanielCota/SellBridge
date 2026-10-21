@@ -323,6 +323,10 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   const header = admin.getByRole("heading", { level: 1 }).locator("../..");
   await expect(header.getByText(/· Fornecedor ·/)).toBeVisible();
   await expect(header.getByText("Pedido encaminhado", { exact: true })).toBeVisible();
+  // The topic picker beside the thread uses the supplier's words too.
+  await expect(admin.getByRole("combobox", { name: "Tema do chamado" })).toHaveText(
+    "Pedido encaminhado",
+  );
   await admin.getByRole("button", { name: "Respostas prontas" }).click();
   await expect(admin.getByRole("menuitem", { name: /^Saudação/ })).toBeVisible();
   await expect(admin.getByRole("menuitem", { name: /^Encaminhado ao fornecedor/ })).toHaveCount(0);
