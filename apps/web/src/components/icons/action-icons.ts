@@ -52,6 +52,7 @@ import {
   XIcon,
   type Icon,
 } from "@phosphor-icons/react";
+import type { StaffRole } from "@sellbridge/shared/staff-access";
 
 /**
  * One icon per FUNCTION, shared by every area (docs/PLANO-UX-ICONES.md): the same function always
@@ -268,7 +269,7 @@ export const SUPPLIER_NEXT_STEP_HINTS: Readonly<Record<string, string>> = {
 };
 
 /** What each team role does, keyed like `STAFF_ROLE_LABELS`; the invite dialog shows the same words. */
-export const STAFF_ROLE_HINTS: Readonly<Record<string, string>> = {
+export const STAFF_ROLE_HINTS: Readonly<Record<StaffRole, string>> = {
   agent: "Responde e organiza chamados",
   supervisor: "Também distribui chamados para a equipe e vê as métricas do suporte",
   admin: "Faz tudo, inclusive cuidar das contas dos clientes e dos fornecedores",

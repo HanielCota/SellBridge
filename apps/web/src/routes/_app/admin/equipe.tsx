@@ -53,7 +53,7 @@ function RoleLabel({ role }: { role: string }) {
     return role;
   }
   return (
-    <HintedText label={STAFF_ROLE_HINTS[staffRole] ?? ""} className="hinted-term">
+    <HintedText label={STAFF_ROLE_HINTS[staffRole]} className="hinted-term">
       {STAFF_ROLE_LABELS[staffRole]}
     </HintedText>
   );
@@ -167,7 +167,7 @@ function MobileMemberRow({ member }: { member: StaffMember & { canInvite: boolea
       <div className="flex flex-wrap items-center justify-between gap-2 pl-12">
         <p className="flex items-center gap-3 text-sm">
           <RoleLabel role={member.role} />
-          <ToneStatus {...STATE_TONE[memberState(member)]} />
+          <MemberStatus member={member} />
         </p>
         <ResendInvite member={member} canInvite={member.canInvite} />
       </div>
