@@ -318,6 +318,8 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await admin.getByLabel("Buscar chamados").fill(body);
   await expect(admin).toHaveURL(/query=/);
   const row = admin.getByRole("row").filter({ hasText: "Fornecedor Suporte" });
+  // Earlier runs left tickets of the same name: wait for the search to narrow to this one.
+  await expect(row).toHaveCount(1);
   await expect(row.getByText(/^Fornecedor · /)).toBeVisible();
   await row.getByRole("link").first().click();
   const header = admin.getByRole("heading", { level: 1 }).locator("../..");
