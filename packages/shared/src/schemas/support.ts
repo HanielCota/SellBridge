@@ -61,9 +61,24 @@ export const ticketBodySchema = freeText()
   .min(10, "Descreva com ao menos 10 caracteres")
   .max(5000, "A mensagem deve ter no máximo 5.000 caracteres");
 
+/** An optional text field of a multipart form: empty means not sent. */
+function optionalFormText(max: number) {
+  return z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value.trim() === "" ? undefined : value.trim()))
+    .pipe(freeText().max(max).optional());
+}
+
+/**
+ * The guided new-ticket form. The customer picks a topic (the category) and what is going on
+ * (the situation); the server derives the subject and the priority from them.
+ */
 export const createTicketSchema = z.object({
   category: z.enum(TICKET_CATEGORIES, { error: "Escolha sobre o que é o chamado" }),
-  subject: ticketSubjectSchema,
+  situation: optionalFormText(40),
+  /** What the ticket is about when opened from an order, store or listing ("Pedido 123"). */
+  about: optionalFormText(120),
   body: ticketBodySchema,
 });
 

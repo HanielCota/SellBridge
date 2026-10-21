@@ -81,6 +81,7 @@ beforeEach(() => {
   mocks.requireTenantRequest.mockResolvedValue({
     tenantId: "tenant-a",
     userId: `reseller-${nextUser}`,
+    profileKind: "seller",
     impersonatedBy: null,
   });
   mocks.requireStaffSession.mockResolvedValue({ userId: `agent-${nextUser}`, role: "agent" });
@@ -213,11 +214,41 @@ describe("new ticket notice", () => {
     mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
     mocks.queueNewTicketNotices.mockResolvedValue(2);
     const form = messageForm(
-      { category: "payment", subject: "Repasse não caiu", body: "O repasse da semana não caiu." },
+      { category: "payment", situation: "payout-missing", body: "O repasse da semana não caiu." },
       false,
     );
     const response = await handleCreateTicket(post("/api/suporte/chamados", form));
     expect(response.status).toBe(201);
     await vi.waitFor(() => expect(mocks.queueNewTicketNotices).toHaveBeenCalledWith({}, TICKET_ID));
+  });
+
+  it("derives the priority and the subject from what the customer picked", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    const form = messageForm(
+      { category: "payment", situation: "payout-missing", body: "O repasse da semana não caiu." },
+      false,
+    );
+    expect((await handleCreateTicket(post("/api/suporte/chamados", form))).status).toBe(201);
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        priority: "high",
+        subject: "O dinheiro de uma venda não caiu: O repasse da semana não caiu.",
+      }),
+    );
+  });
+
+  it("refuses a situation that does not belong to the topic", async () => {
+    const form = messageForm(
+      {
+        category: "payment",
+        situation: "store-disconnected",
+        body: "O repasse da semana não caiu.",
+      },
+      false,
+    );
+    expect((await handleCreateTicket(post("/api/suporte/chamados", form))).status).toBe(400);
+    expect(mocks.createTicket).not.toHaveBeenCalled();
   });
 });

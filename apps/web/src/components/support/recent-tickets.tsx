@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { SmartDate } from "@/components/data/smart-date";
 import { UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
+import { CUSTOMER_TICKET_STATUS_LABELS } from "@/features/support/customer-ticket-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mySupportOverviewQueryOptions } from "@/features/support/support.queries";
 
@@ -20,7 +21,11 @@ function RecentTicket({ ticket, onNavigate }: { ticket: TicketSummary; onNavigat
         <span className="min-w-0 flex-1 space-y-0.5">
           <span className="line-clamp-1 text-sm font-medium">{ticket.subject}</span>
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            {ticket.hasUnread ? <UnreadDot /> : <TicketStatusBadge status={ticket.status} />}
+            {ticket.hasUnread ? (
+              <UnreadDot />
+            ) : (
+              <TicketStatusBadge status={ticket.status} labels={CUSTOMER_TICKET_STATUS_LABELS} />
+            )}
             <span aria-hidden="true">·</span>
             <SmartDate date={ticket.updatedAt} />
           </span>

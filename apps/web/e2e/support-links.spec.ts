@@ -33,15 +33,20 @@ test("abre um chamado já ligado ao pedido pela página do pedido", async ({ pag
   await expect(page).toHaveURL(/\/suporte\/novo/);
   const about = page.getByRole("region", { name: "Sobre" });
   await expect(about).toContainText(`#${order.externalOrderId}`);
-  await expect(page.getByLabel("Assunto")).toHaveValue(`Pedido ${order.externalOrderId}`);
-  await expect(page.getByRole("radio", { name: "Pedido" })).toBeChecked();
-
-  await page.getByLabel("Descrição").fill("O comprador disse que recebeu a cor errada.");
-  await page.getByRole("button", { name: "Abrir chamado" }).click();
+  // The topic came with the link: the flow starts at what is going on.
+  await expect(page.getByText("1. Pedido ou entrega")).toBeVisible();
+  await page.getByRole("button", { name: /^Chegou errado ou quebrado/ }).click();
+  await page
+    .getByLabel("O que chegou diferente do que foi vendido?")
+    .fill("O comprador disse que recebeu a cor errada.");
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
 
   await expect(page).toHaveURL(/\/suporte\/[0-9a-f-]{36}\?perfil=[a-z0-9-]+$/);
-  const linked = page.getByRole("region", { name: "Pedidos vinculados" });
-  await expect(linked).toContainText(order.externalOrderId);
+  await expect(
+    page.getByRole("heading", { name: "Chegou errado ou quebrado", exact: true }),
+  ).toBeVisible();
+  // The order the ticket came from shows under the title, no picking needed.
+  await expect(page.getByText(`Pedido #${order.externalOrderId}`, { exact: true })).toBeVisible();
 });
 
 test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {
@@ -52,9 +57,11 @@ test("recusa um vínculo com pedido que não é da conta", async ({ page }) => {
   );
   // Nothing to show for an id outside the account.
   await expect(page.getByRole("region", { name: "Sobre" })).toHaveCount(0);
-  await page.getByLabel("Assunto").fill("Pedido de outra conta");
-  await page.getByLabel("Descrição").fill("Tentando vincular um pedido que não é meu.");
-  await page.getByRole("button", { name: "Abrir chamado" }).click();
+  await page.getByRole("button", { name: /^O pedido atrasou/ }).click();
+  await page
+    .getByLabel("O que aconteceu com a entrega?")
+    .fill("Tentando vincular um pedido que não é meu.");
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
   await expect(page.getByRole("alert")).toContainText("Venda não encontrada nesta conta");
   await expect(page).toHaveURL(/\/suporte\/novo/);
 });

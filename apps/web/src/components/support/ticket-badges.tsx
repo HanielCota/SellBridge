@@ -145,7 +145,7 @@ export function ResponseDeadlineBadge({
       focusable={focusable}
       late={false}
       tone={tone}
-      label={`Vence em ${formatDuration(timing.remainingMilliseconds)}`}
+      label={`Vence em ${formatDuration(timing.remainingMilliseconds, Math.floor)}`}
     />
   );
 }

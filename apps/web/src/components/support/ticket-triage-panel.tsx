@@ -1,4 +1,5 @@
 import type { TicketEventView, TicketThread } from "@sellbridge/database/repositories";
+import { staffResponseStateText } from "@/features/support/response-time";
 import {
   TICKET_CATEGORIES,
   TICKET_CATEGORY_LABELS,
@@ -196,19 +197,17 @@ function CategoryControl({ ticket }: { ticket: Ticket }) {
 }
 
 function ResponseState({ ticket }: { ticket: Ticket }) {
-  if (ticket.status === "open" && ticket.awaitingSince) {
-    return (
-      <ResponseDeadlineBadge
-        status={ticket.status}
-        priority={ticket.priority}
-        awaitingSince={ticket.awaitingSince}
-      />
-    );
+  const text = staffResponseStateText(ticket.status, ticket.awaitingSince);
+  if (text !== null) {
+    return <span className="text-sm text-muted-foreground">{text}</span>;
   }
-  if (ticket.status === "closed") {
-    return <span className="text-sm text-muted-foreground">Encerrado</span>;
-  }
-  return <span className="text-sm text-muted-foreground">Aguardando o revendedor</span>;
+  return (
+    <ResponseDeadlineBadge
+      status={ticket.status}
+      priority={ticket.priority}
+      awaitingSince={ticket.awaitingSince}
+    />
+  );
 }
 
 interface Viewer {

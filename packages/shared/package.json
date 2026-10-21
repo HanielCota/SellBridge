@@ -34,6 +34,7 @@
     "./publish-progress": "./src/domain/publish-progress.ts",
     "./listing-rules": "./src/domain/listing-rules.ts",
     "./ticket-rules": "./src/domain/ticket-rules.ts",
+    "./support-topics": "./src/domain/support-topics.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./catalog-availability": "./src/domain/catalog-availability.ts",
     "./store-supplier": "./src/domain/store-supplier.ts",

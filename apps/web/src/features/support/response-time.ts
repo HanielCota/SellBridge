@@ -1,4 +1,4 @@
-import { RESPONSE_TARGET_HOURS, type TicketPriority } from "@sellbridge/shared/ticket-rules";
+import type { TicketStatus } from "@sellbridge/shared/schemas";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -15,18 +15,45 @@ const dayAndMonth = new Intl.DateTimeFormat("pt-BR", {
   timeZone: TIME_ZONE,
 });
 
-/** "40 min", "3 h", "2 dias": rounded to what a person plans around. */
-export function formatDuration(milliseconds: number): string {
-  const minutes = Math.max(1, Math.round(milliseconds / MINUTE));
+/**
+ * "40 min", "3 h", "2 dias": rounded to what a person plans around. `round` picks the direction;
+ * time left uses `Math.floor`, so "Vence em 2 h" never shows when only 1h31 is left.
+ */
+export function formatDuration(
+  milliseconds: number,
+  round: (value: number) => number = Math.round,
+): string {
+  const minutes = Math.max(1, round(milliseconds / MINUTE));
   if (minutes < 60) {
     return `${minutes} min`;
   }
-  const hours = Math.round(milliseconds / HOUR);
+  const hours = round(milliseconds / HOUR);
   if (hours < 48) {
     return `${hours} h`;
   }
-  const days = Math.round(hours / 24);
+  const days = round(hours / 24);
   return `${days} dias`;
+}
+
+/**
+ * The deadline line of the team's panel, or null when the live "Vence em" badge applies. A reply
+ * sent with "Enviar e manter aguardando" leaves the ticket open with no clock running; the panel
+ * said "Aguardando o revendedor" under an "Aguardando suporte" badge.
+ */
+export function staffResponseStateText(
+  status: TicketStatus,
+  awaitingSince: Date | null,
+): string | null {
+  if (status === "closed") {
+    return "Encerrado";
+  }
+  if (status === "answered") {
+    return "Aguardando o revendedor";
+  }
+  if (awaitingSince === null) {
+    return "Sem prazo: o cliente já recebeu uma resposta";
+  }
+  return null;
 }
 
 /** "hoje às 14:30", "amanhã às 09:00" or "15/10 às 09:00", in Brasília time. */
@@ -42,11 +69,12 @@ export function formatDeadline(date: Date, now: Date = new Date()): string {
   return `${day} às ${time}`;
 }
 
-/** "Respondemos em até 24 horas" for the new-ticket form, before any ticket exists. */
-export function responseTargetText(priority: TicketPriority): string {
-  const hours = RESPONSE_TARGET_HOURS[priority];
-  return `Respondemos em até ${hours} ${hours === 1 ? "hora" : "horas"}`;
-}
+/**
+ * The one response promise every customer screen makes. Business days, never hours: the team's
+ * target is counted in calendar hours for now, and an hour promised at night would be broken by
+ * morning.
+ */
+export const RESPONSE_PROMISE = "Respondemos em até 1 dia útil";
 
 /** "1 chamado com resposta nova", "3 chamados com resposta nova": counts tickets, not messages. */
 export function unreadRepliesText(tickets: number): string {

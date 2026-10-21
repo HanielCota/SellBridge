@@ -12,8 +12,6 @@ import {
   awaitingAfterMessage,
   awaitingAfterStatus,
   nextTicketStatus,
-  RESPONSE_TARGET_HOURS,
-  TICKET_PRIORITIES,
   type TicketCategory,
   type TicketMessageKind,
   type TicketPriority,
@@ -34,10 +32,17 @@ import {
   or,
   sql,
   type SQL,
-  type SQLWrapper,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
+import {
+  activeAssigneeIdSql,
+  activeAssigneeNameSql,
+  assignee,
+  STAFF_ROLE_LIST,
+  withoutActiveAssigneeSql,
+} from "./support-assignee.ts";
+import { isOverdue, plusResponseTarget, responseDueAtSql } from "./support-deadline.ts";
+import { staffTicketSearch } from "./support-search.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
@@ -101,6 +106,7 @@ export interface TicketThread {
     tenantName: string;
     createdById: string;
     createdByName: string;
+    createdByImage: string | null;
     createdByEmail: string;
     assigneeId: string | null;
     assigneeName: string | null;
@@ -116,6 +122,8 @@ export interface TicketThread {
     isAdmin: boolean;
     /** Support-only note; only present in threads loaded for staff. */
     isInternal: boolean;
+    /** Who wrote it; a reader never needs to mark their own message as read. */
+    authorId: string;
     authorName: string;
     /** Profile photo of the author; the thread falls back to their initials without one. */
     authorImage: string | null;
@@ -137,40 +145,6 @@ export type TicketSide = "customer" | "staff";
 export interface TicketReader {
   userId: string;
   side: TicketSide;
-}
-
-const assignee = alias(user, "assignee");
-
-/**
- * `base` plus the ticket priority's target hours, in SQL. The hours are inlined: bound as
- * parameters inside the CASE they would reach Postgres as text.
- */
-function plusResponseTarget(base: SQLWrapper): SQL {
-  return sql`(${base} + (case ${tickets.priority} ${sql.join(
-    TICKET_PRIORITIES.map((priority) =>
-      sql.raw(`when '${priority}' then ${RESPONSE_TARGET_HOURS[priority]}`),
-    ),
-    sql` `,
-  )} end) * interval '1 hour')`;
-}
-
-const responseDueAtSql = plusResponseTarget(tickets.awaitingSince);
-
-const STAFF_ROLE_LIST = sql.raw(STAFF_ROLES.map((role) => `'${role}'`).join(", "));
-
-/**
- * The ticket has nobody active in charge: no assignee, or one who left the team (role changed
- * or account blocked). Those tickets go back to the queue instead of sitting in a dead inbox.
- */
-const withoutActiveAssigneeSql = sql`("tickets"."assignee_id" is null or not exists (
-  select 1 from "user" team_u
-  where team_u.id = "tickets"."assignee_id"
-    and team_u.role in (${STAFF_ROLE_LIST})
-    and not coalesce(team_u.banned, false)
-))`;
-
-function isOverdue(now: Date): SQL {
-  return sql`(${tickets.status} = 'open' and ${tickets.awaitingSince} is not null and ${responseDueAtSql} < ${timestampOf(now)})`;
 }
 
 /**
@@ -239,7 +213,7 @@ async function markRead(
     });
 }
 
-async function insertAttachments(
+export async function insertAttachments(
   executor: DatabaseExecutor,
   ticketId: string,
   messageId: string,
@@ -251,53 +225,6 @@ async function insertAttachments(
   await executor
     .insert(ticketAttachments)
     .values(attachments.map((file) => ({ ...file, ticketId, messageId })));
-}
-
-export async function createTicket(
-  database: Database,
-  input: {
-    tenantId: string;
-    userId: string;
-    category: TicketCategory;
-    subject: string;
-    body: string;
-    attachments: readonly NewAttachment[];
-    now?: Date;
-  },
-): Promise<{ ticketId: string }> {
-  const now = input.now ?? new Date();
-  return database.transaction(async (transaction) => {
-    const [ticket] = await transaction
-      .insert(tickets)
-      .values({
-        tenantId: input.tenantId,
-        createdById: input.userId,
-        category: input.category,
-        subject: input.subject,
-        awaitingSince: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning({ id: tickets.id });
-    if (!ticket) {
-      throw conflictError("Não foi possível abrir o chamado");
-    }
-    const [message] = await transaction
-      .insert(ticketMessages)
-      .values({
-        ticketId: ticket.id,
-        authorId: input.userId,
-        isAdmin: false,
-        body: input.body,
-        createdAt: now,
-      })
-      .returning({ id: ticketMessages.id });
-    if (!message) {
-      throw conflictError("Não foi possível registrar a mensagem");
-    }
-    await insertAttachments(transaction, ticket.id, message.id, input.attachments);
-    return { ticketId: ticket.id };
-  });
 }
 
 /** The ticket row, locked for the rest of the transaction; `tenantId` null means staff. */
@@ -795,13 +722,12 @@ export async function listStaffTickets(
     input.status ? eq(tickets.status, input.status) : undefined,
     input.priority ? eq(tickets.priority, input.priority) : undefined,
     input.category ? eq(tickets.category, input.category) : undefined,
-    term
-      ? or(ilike(tickets.subject, term), ilike(organization.name, term), ilike(user.email, term))
-      : undefined,
+    term ? staffTicketSearch(term) : undefined,
   );
   const order =
     input.queue === "overdue"
-      ? [asc(tickets.awaitingSince)]
+      ? // Most late first: a low ticket waiting long can be less late than an urgent one.
+        [asc(responseDueAtSql)]
       : [asc(tickets.status), desc(tickets.priority), desc(tickets.updatedAt)];
   const [rows, totals] = await Promise.all([
     database
@@ -809,8 +735,8 @@ export async function listStaffTickets(
         ...summaryColumns({ userId: input.viewerId, side: "staff" }),
         tenantName: organization.name,
         createdByEmail: user.email,
-        assigneeId: tickets.assigneeId,
-        assigneeName: assignee.name,
+        assigneeId: activeAssigneeIdSql,
+        assigneeName: activeAssigneeNameSql,
       })
       .from(tickets)
       .innerJoin(organization, eq(organization.id, tickets.tenantId))
@@ -882,9 +808,10 @@ async function findThreadTicket(
       tenantName: organization.name,
       createdById: tickets.createdById,
       createdByName: user.name,
+      createdByImage: user.image,
       createdByEmail: user.email,
-      assigneeId: tickets.assigneeId,
-      assigneeName: assignee.name,
+      assigneeId: activeAssigneeIdSql,
+      assigneeName: activeAssigneeNameSql,
       firstResponseAt: tickets.firstResponseAt,
       closedAt: tickets.closedAt,
       rating: tickets.rating,
@@ -914,6 +841,7 @@ async function findThreadMessages(database: Database, ticketId: string, withInte
       body: ticketMessages.body,
       isAdmin: ticketMessages.isAdmin,
       isInternal: ticketMessages.isInternal,
+      authorId: ticketMessages.authorId,
       authorName: user.name,
       authorImage: user.image,
       createdAt: ticketMessages.createdAt,

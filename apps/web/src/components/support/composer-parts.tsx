@@ -12,7 +12,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { validateSelection } from "@/components/support/attachment-input";
+import { rejectionSummary, selectAttachments } from "@/features/support/attachment-selection";
 import { formatFileSize } from "@/lib/file-size";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -126,12 +126,9 @@ export function useComposerFiles() {
   const [fileError, setFileError] = useState<string | null>(null);
 
   function addFiles(added: File[]) {
-    const problem = validateSelection(files, added);
-    setFileError(problem);
-    if (problem) {
-      return;
-    }
-    setFiles([...files, ...added]);
+    const selection = selectAttachments(files, added);
+    setFileError(rejectionSummary(selection.rejected));
+    setFiles([...files, ...selection.accepted]);
   }
 
   function removeFile(index: number) {

@@ -12,7 +12,7 @@ import { Hint } from "@/components/ui/hint";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chatSubjectFrom } from "@/features/support/chat-subject";
-import { responseTargetText, unreadRepliesText } from "@/features/support/response-time";
+import { RESPONSE_PROMISE } from "@/features/support/response-time";
 import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 
@@ -139,9 +139,11 @@ function LauncherIcon({ open }: { open: boolean }) {
 
 /**
  * A chat bubble in the corner of every page: write to the team without leaving what you were
- * doing. Each message opens a ticket, so the answer lands in "Seus chamados" like any other.
+ * doing. Each message opens a ticket, so the answer lands in "Seus chamados" like any other. It
+ * carries no count: the Suporte button already shows new replies, and the same number on the
+ * bubble and the bell read as three different alerts.
  */
-export function SupportChat({ unread }: { unread: number }) {
+export function SupportChat() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -154,17 +156,10 @@ export function SupportChat({ unread }: { unread: number }) {
       {/* Same wrapper open or shut, so the trigger keeps its focus when the hint text changes. */}
       <Hint label={open ? "Fechar o chat" : ACTION_ICONS.supportChat.hint} openOnTap={false}>
         <Popover.Trigger
-          aria-label={
-            unread > 0 ? `Chat de suporte: ${unreadRepliesText(unread)}` : "Chat de suporte"
-          }
+          aria-label="Chat de suporte"
           className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full bg-brand text-primary-foreground shadow-lg shadow-black/25 transition-[scale] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-[0.94] active:duration-100 motion-reduce:active:scale-100 md:right-8 md:bottom-8"
         >
           <LauncherIcon open={open} />
-          {unread > 0 && !open ? (
-            <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-caption font-semibold text-background tabular-nums">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          ) : null}
         </Popover.Trigger>
       </Hint>
       <Popover.Portal>
@@ -179,7 +174,7 @@ export function SupportChat({ unread }: { unread: number }) {
             <h2 id="support-chat-title" className="text-base font-semibold">
               Fale com o suporte
             </h2>
-            <p className="text-sm text-muted-foreground">{responseTargetText("normal")}.</p>
+            <p className="text-sm text-muted-foreground">{RESPONSE_PROMISE}.</p>
           </div>
           <ChatComposer onSent={close} />
           <RecentTickets onNavigate={close} />
