@@ -102,24 +102,33 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   expect((await download).suggestedFilename()).toBe("comprovante.pdf");
 
   await admin.getByRole("button", { name: "Nota interna" }).click();
+  await expect(admin.getByText("Só a equipe vê.")).toBeVisible();
+  // Ready answers are written to the customer: a note never offers them.
+  await expect(admin.getByRole("button", { name: "Respostas prontas" })).toHaveCount(0);
   await admin.getByLabel("Nota para a equipe").fill("Fornecedor confirmou atraso na coleta.");
   await admin.getByRole("button", { name: "Salvar nota" }).click();
   await expect(admin.getByText("Nota interna salva")).toBeVisible();
   const adminHeader = admin.getByRole("heading", { name: subject }).locator("..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
 
-  await admin.getByRole("button", { name: "Voltar a responder o cliente" }).click();
+  await admin.getByRole("button", { name: "Responder ao cliente" }).click();
+  await expect(admin.getByText("O cliente vê esta mensagem.")).toBeVisible();
   await admin
     .getByLabel("Resposta do suporte")
     .fill("Verificamos com o fornecedor: o envio sai hoje.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
   await expect(adminHeader.getByText("Respondido", { exact: true })).toBeVisible();
   // Answering a ticket nobody had makes it yours, and the history says so.
   await expect(admin.getByLabel("Histórico").getByText(/assumiu o chamado/)).toBeVisible();
   await admin.getByRole("button", { name: "Opções de envio" }).click();
   await admin.getByRole("menuitem", { name: "Encerrar sem responder" }).click();
   await expect(admin.getByText("Chamado encerrado. Reabra para responder.")).toBeVisible();
+  // Quoting on a closed ticket opens a note with the quote, instead of a hidden reply box.
+  await admin.getByRole("button", { name: /^Citar mensagem de Revendedor Suporte/ }).click();
+  await expect(admin.getByLabel("Nota para a equipe")).toHaveValue(/Revendedor Suporte escreveu/);
 
   await reseller.reload({ waitUntil: "networkidle" });
   await expect(reseller.getByText("Verificamos com o fornecedor: o envio sai hoje.")).toBeVisible();
@@ -152,8 +161,10 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   const { context: adminContext, page: admin } = await adminPage(browser);
   await openAsStaff(admin, subject);
   await admin.getByLabel("Resposta do suporte").fill("O repasse cai toda sexta-feira.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
 
   await gotoHydrated(reseller, "/dashboard");
   const supportButton = reseller.getByRole("button", {
@@ -196,8 +207,10 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   await admin
     .getByLabel("Resposta do suporte")
     .fill("O pedido sai hoje do centro de distribuição.");
-  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+  await admin.getByRole("button", { name: "Enviar ao cliente", exact: true }).click();
+  await expect(
+    admin.getByText(/Resposta enviada\. Sem retorno do cliente em 7 dias/),
+  ).toBeVisible();
 
   await gotoHydrated(reseller, ticketUrl);
   await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
@@ -223,6 +236,7 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   await admin.reload({ waitUntil: "networkidle" });
   const adminHeader = admin.getByRole("heading", { name: subject }).locator("..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
+  await expect(admin.getByText("O cliente disse que a resposta não resolveu.")).toBeVisible();
 
   await resellerContext.close();
   await adminContext.close();

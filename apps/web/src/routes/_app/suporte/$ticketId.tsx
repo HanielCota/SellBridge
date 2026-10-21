@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { CustomerTicketFacts } from "@/features/support/customer-ticket-state";
 import { type getMyTicket, markMyTicketRead } from "@/features/support/support.functions";
 import { myTicketQueryOptions } from "@/features/support/support.queries";
-import { useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
+import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { useCloseWithUndo, useNotSolved } from "@/features/support/use-ticket-verdict";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -34,7 +34,11 @@ type ThreadMessage = TicketDetail["messages"][number];
 function TicketPage() {
   const { ticketId } = Route.useParams();
   const query = useQuery(myTicketQueryOptions(ticketId));
-  useMarkTicketRead(ticketId, query.data?.messages.at(-1)?.id, markMyTicketRead);
+  useMarkTicketRead(
+    ticketId,
+    messageToMarkRead(query.data?.messages ?? [], query.data?.viewerId ?? ""),
+    markMyTicketRead,
+  );
 
   if (query.isPending) {
     return (
