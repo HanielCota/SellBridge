@@ -375,7 +375,7 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest supplier-panel 73/73; e2e supplier-panel-access e accessibility 7/7. Nenhum teste alterado.
 
-**Próxima seção:** Fornecedor · 6. Marca (`/fornecedor/painel/marca`).
+**Seção seguinte:** Fornecedor · 6. Marca.
 
 ## Revisão · marca dos termos com legenda — 2026-10-19 · commit "style(web): a quiet hairline for terms with a legend"
 
@@ -388,3 +388,153 @@ Padrão A: ícone Phosphor regular de 18 px (abas) ou 20 px (botões redondos), 
 **Daqui em diante:** todo termo com legenda usa a classe `hinted-term`; o estilo muda num lugar só.
 
 **Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853. Nenhum teste alterado.
+
+## Fornecedor · 6. Marca — 2026-10-19 · commit "feat(supplier-panel): hints and a consistent privacy note on the brand form"
+
+**Proposta escolhida: A (legendas e frase corrigida)**. Propostas: [página clicável](../propostas/fornecedor/6-marca/index.html) · [hoje](fornecedor/6-marca/2-atual.png) · [A](fornecedor/6-marca/2-proposta-a.png) · [B](fornecedor/6-marca/2-proposta-b.png) · [C](fornecedor/6-marca/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                                                    | Arquivo                                                  | Tela                                            | Antes                                                                                                | Depois                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Descrição" (onde aparece)                                                                                                                                                                      | `components/supplier-panel/brand/brand-form.tsx`         | `/fornecedor/painel/marca`                      | [desktop](fornecedor/6-marca/1-antes-desktop.png)                                                    | [descrição](fornecedor/6-marca/3-depois-descricao.png)                                                                                                  |
+| Legenda nos dois prazos (os dois contam do encaminhamento, como em `shipment-delay.ts`); a frase "Só a equipe SellBridge vê estes dados" contradizia o topo e virou "Os revendedores não veem estes dados" | `components/admin-suppliers/supplier-contact-fields.tsx` | Marca e cadastro de fornecedor da equipe        | [desktop](fornecedor/6-marca/1-antes-desktop.png) · [celular](fornecedor/6-marca/1-antes-mobile.png) | [desktop](fornecedor/6-marca/3-depois-desktop.png) · [celular](fornecedor/6-marca/3-depois-mobile.png) · [claro](fornecedor/6-marca/3-depois-claro.png) |
+| `TextField` e `TextareaField` ganharam o prop opcional `hint` (legenda no rótulo); sem ele nada muda                                                                                                       | `components/form/form-field.tsx`, `textarea-field.tsx`   | todos os formulários (só onde `hint` é passado) | —                                                                                                    | —                                                                                                                                                       |
+
+**Componente compartilhado (aprovado: "Nas duas"):** o bloco Pedidos vale também no cadastro de fornecedor da equipe. A captura do lado admin fica para a área Administração.
+
+**Ícones:** nenhum novo.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e supplier-brand, admin-suppliers e supplier-panel-access 8/8. Nenhum teste alterado.
+
+**Área Fornecedor concluída. Próxima área:** Administração (Clientes, Fornecedores, Chamados, Equipe).
+
+## Administração · 0. Barra superior — 2026-10-19 · commit "feat(top-nav): team tab icons and a divider in admin mode"
+
+**Divisão aprovada:** por tela (0 barra; 1a/1b Clientes; 2a/2b Fornecedores; 3a/3b Chamados; 4 Equipe). **Proposta escolhida: A** e ícones aprovados ("Sim, esses"). Propostas: [página clicável](../propostas/admin/0-barra/index.html) · [A](admin/0-barra/2-proposta-a.png) · [B](admin/0-barra/2-proposta-b.png) · [C](admin/0-barra/2-proposta-c.png).
+
+| Mudança                                                                                                                                                         | Arquivo                            | Tela               | Antes                                                                                     | Depois                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Ícones das abas da equipe no menu do celular (Clientes: pessoas; Fornecedores: fábrica; Chamados: conversas; Equipe: crachá) e legenda nas quatro no computador | `components/icons/action-icons.ts` | modo administrador | [menu](admin/0-barra/1-antes-mobile-menu.png) · [1440](admin/0-barra/1-antes-desktop.png) | [menu](admin/0-barra/3-depois-mobile-menu.png) · [1440](admin/0-barra/3-depois-desktop.png) · [claro](admin/0-barra/3-depois-claro.png) |
+| Divisor entre as abas do perfil e as da equipe, no computador e no menu                                                                                         | `components/layout/top-nav.tsx`    | modo administrador | —                                                                                         | [1440](admin/0-barra/3-depois-desktop.png)                                                                                              |
+| Abaixo de 1440 px as abas ficam 2 px mais juntas: "Equipe" aparecia cortada a 1280 px (já acontecia antes)                                                      | `components/layout/top-nav.tsx`    | modo administrador | [1280](admin/0-barra/1-antes-laptop.png)                                                  | [1280](admin/0-barra/3-depois-laptop.png)                                                                                               |
+
+**Ícones:** novos clients (UsersThree), adminSuppliers (Factory, o mesmo de suppliers), tickets (ChatsCircle) e staff (IdentificationBadge).
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e accessibility, admin, admin-suppliers, admin-store-supplier, admin-supplier-sellers, browser-defaults e catalog-deactivation verdes. `admin-audit.spec.ts:45` falha com e sem esta mudança (espera "Admin SellBridge" e o banco local mostra "Carla Mendes" como autor): é anterior a esta seção e não foi mexido.
+
+**Seção seguinte:** Administração · 1a. Clientes: lista.
+
+## Administração · 1a. Clientes: lista — 2026-10-19 · commit "feat(admin): hints on the customers list"
+
+**Proposta escolhida: A (legendas e o mesmo ícone de chamados)**. Propostas: [página clicável](../propostas/admin/1a-clientes-lista/index.html) · [A](admin/1a-clientes-lista/2-proposta-a.png) · [B](admin/1a-clientes-lista/2-proposta-b.png) · [C](admin/1a-clientes-lista/2-proposta-c.png).
+
+| Mudança                                                                                                                               | Arquivo                                                                              | Tela              | Antes                                                  | Depois                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Legenda em "Nota" e em cada anel (com a faixa: crítico, atenção, bem)                                                                 | `components/admin/customer-cells.tsx` (novo), `routes/_app/admin/clientes/index.tsx` | `/admin/clientes` | [desktop](admin/1a-clientes-lista/1-antes-desktop.png) | [desktop](admin/1a-clientes-lista/3-depois-desktop.png)                                                      |
+| Legenda nos selos de Saúde (o texto de `describeIssue` e os 4 primeiros passos); no celular a linha é um link, então fica sem legenda | `customer-cells.tsx`                                                                 | Clientes          | [desktop](admin/1a-clientes-lista/1-antes-desktop.png) | [saúde](admin/1a-clientes-lista/3-depois-saude.png) · [celular](admin/1a-clientes-lista/3-depois-mobile.png) |
+| As marcas das lojas trocaram o `title` do navegador pela legenda do app                                                               | `customer-cells.tsx`                                                                 | Clientes          | —                                                      | —                                                                                                            |
+| Legenda na seta ao lado do nome e no ⋯; "Ver chamados" usa os balões de conversa, como a aba                                          | `routes/_app/admin/clientes/index.tsx`, `components/admin/customer-row-actions.tsx`  | Clientes          | [menu](admin/1a-clientes-lista/1-antes-menu.png)       | [menu](admin/1a-clientes-lista/3-depois-menu.png) · [claro](admin/1a-clientes-lista/3-depois-claro.png)      |
+
+**Arquivo grande:** `clientes/index.tsx` tinha 527 linhas; as células (lojas, saúde, nota) foram para `customer-cells.tsx` e a rota ficou com 431.
+
+**Não alterado:** os cards do topo usam as marcas animadas do painel do revendedor (o fone em "Chamados aguardando" é o mesmo que o revendedor vê).
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, platform-owner, admin-store-supplier, impersonation, store-health, support e accessibility verdes. `support.spec.ts:40` falhou uma vez numa rodada paralela (aviso "Resposta enviada") e passou três vezes sozinho, com e sem a mudança.
+
+**Seção seguinte:** Administração · 1b.
+
+## Administração · 1b. Clientes: Pendências, Jornada e ficha — 2026-10-19 · commit "feat(admin): labeled triage buttons and score hints"
+
+**Escolha do usuário:** "mescle entre A e C": legendas e o sino para adiar (A) e, no computador, o texto ao lado do ícone (C). Propostas: [página clicável](../propostas/admin/1b-clientes-ficha/index.html) · [A](admin/1b-clientes-ficha/2-proposta-a.png) · [B](admin/1b-clientes-ficha/2-proposta-b.png) · [C](admin/1b-clientes-ficha/2-proposta-c.png).
+
+| Mudança                                                                                                                                                                                              | Arquivo                                                                                                       | Tela            | Antes                                                                                                       | Depois                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Assumir", "Devolver", "Adiar" e "Trazer de volta" com legenda do app (sai o `title` do navegador) e, a partir de lg, o texto ao lado; "Adiar" troca o relógio (que já é "atrasado") pelo sino com z | `components/admin/issue-triage-controls.tsx`                                                                  | Pendências      | [desktop](admin/1b-clientes-ficha/1-antes-pendencias.png)                                                   | [desktop](admin/1b-clientes-ficha/3-depois-pendencias.png) · [celular](admin/1b-clientes-ficha/3-depois-pendencias-mobile.png) · [claro](admin/1b-clientes-ficha/3-depois-claro.png) |
+| A nota ganha a legenda da lista (com a faixa) nos cards da Jornada e no topo da ficha; marcas de loja da Jornada dizem o nome da loja                                                                | `components/admin/customer-cells.tsx`, `customer-journey-board.tsx`, `routes/_app/admin/clientes/$userId.tsx` | Jornada e ficha | [Jornada](admin/1b-clientes-ficha/1-antes-jornada.png) · [ficha](admin/1b-clientes-ficha/1-antes-ficha.png) | [Jornada](admin/1b-clientes-ficha/3-depois-jornada.png) · [ficha](admin/1b-clientes-ficha/3-depois-ficha.png)                                                                        |
+
+**Ícones:** novos assignIssue (UserCheck), releaseIssue (UserMinus), snoozeIssue (BellZ) e unsnoozeIssue (ArrowCounterClockwise), todos no dicionário.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e admin, accessibility, store-health, impersonation e support 18/18. Nenhum teste alterado.
+
+**Seção seguinte:** Administração · 2a.
+
+## Administração · 2a. Fornecedores (lista e ficha) — 2026-10-19 · commit "feat(admin): supplier pages follow the app icons and words"
+
+**Proposta escolhida: A (mesmo padrão do resto)**. Propostas: [página clicável](../propostas/admin/2a-fornecedores/index.html) · [A](admin/2a-fornecedores/2-proposta-a.png) · [B](admin/2a-fornecedores/2-proposta-b.png) · [C](admin/2a-fornecedores/2-proposta-c.png).
+
+| Mudança                                                                                                                               | Arquivo                                                           | Tela                  | Antes                                            | Depois                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Legenda em "Produtos em análise"; "+" e legenda em "Novo fornecedor"                                                                  | `components/admin-suppliers/supplier-index.tsx`                   | `/admin/fornecedores` | [lista](admin/2a-fornecedores/1-antes-lista.png) | [lista](admin/2a-fornecedores/3-depois-lista.png) · [celular](admin/2a-fornecedores/3-depois-mobile.png) |
+| "Voltar aos fornecedores" (link sublinhado) vira o `BackLink` das outras fichas ("← Fornecedores"); legenda em "Desativar fornecedor" | `components/admin-suppliers/supplier-detail.tsx`                  | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [ficha](admin/2a-fornecedores/3-depois-ficha.png) · [claro](admin/2a-fornecedores/3-depois-claro.png)    |
+| "+" em "Novo produto"; legenda em "Editar" e "Desativar"; "SKU" → "Código" na tabela, na busca e no formulário                        | `components/admin-suppliers/product-list.tsx`, `product-form.tsx` | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [produtos](admin/2a-fornecedores/3-depois-produtos.png)                                                  |
+| Ícone de baixar em "Baixar modelo CSV" e de importar em "Escolher arquivo" (do dicionário); "Códigos existentes serão atualizados"    | `components/admin-suppliers/product-csv-import.tsx`               | ficha                 | [ficha](admin/2a-fornecedores/1-antes-ficha.png) | [produtos](admin/2a-fornecedores/3-depois-produtos.png)                                                  |
+
+**Teste ajustado (aprovado com a proposta A):** `e2e/admin-suppliers.spec.ts` linha 31, `getByLabel("Código")`. Depois: admin-suppliers, admin-supplier-sellers, browser-defaults, catalog-deactivation, csv-attributes, supplier-product-review e accessibility verdes (os quatro que falharam na rodada paralela passaram sozinhos); Vitest web 853/853; typecheck, oxlint e Prettier limpos.
+
+**Seção seguinte:** Administração · 2b.
+
+## Administração · 2b. Análise de produtos — 2026-10-19 · commits "fix(supplier-panel): drop the label parenthesis in a review reason" e "feat(admin): code wording and hints on the product review"
+
+**Proposta escolhida: A (código, legendas e motivo limpo)**. Propostas: [página clicável](../propostas/admin/2b-analise/index.html) · [A](admin/2b-analise/2-proposta-a.png) · [B](admin/2b-analise/2-proposta-b.png) · [C](admin/2b-analise/2-proposta-c.png).
+
+| Mudança                                                                                                                   | Arquivo                                                                                                                                                              | Tela                 | Antes                                                                                       | Depois                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| "SKU" → "Código" na busca, nas linhas, no subtítulo e nos motivos ("Código ausente")                                      | `components/admin-product-review/review-queue.tsx`, `routes/_app/admin/fornecedores/analise/$productId.tsx`, `packages/shared/src/domain/supplier-product-review.ts` | fila e análise       | [fila](admin/2b-analise/1-antes-fila.png) · [análise](admin/2b-analise/1-antes-produto.png) | [fila](admin/2b-analise/3-depois-fila.png) · [análise](admin/2b-analise/3-depois-produto.png) · [celular](admin/2b-analise/3-depois-mobile.png) |
+| Legenda em "Tipo" e "Completude" (cabeçalhos) e em "Aprovar" e "Reprovar"                                                 | `review-queue.tsx`, `review-decision.tsx`                                                                                                                            | fila e análise       | [análise](admin/2b-analise/1-antes-produto.png)                                             | [análise](admin/2b-analise/3-depois-produto.png) · [claro](admin/2b-analise/3-depois-claro.png)                                                 |
+| O motivo no Início do fornecedor deixou de mostrar "(gtin)": "Revisar código de barras" (pendência da seção Fornecedor 1) | `packages/shared/src/domain/supplier-panel-home-queue.ts`                                                                                                            | Início do fornecedor | —                                                                                           | [Início](admin/2b-analise/3-depois-inicio-fornecedor.png)                                                                                       |
+
+**Teste de regressão:** `supplier-panel-home-queue.test.ts` ganhou "leaves out the label's parenthesis when naming the field to revise": falha sem a correção (recebia "Revisar código de barras (gtin)") e passa com ela.
+
+**Não alterado:** o rótulo "SKU" das colunas e erros de CSV (`product-csv.ts`, `supplier-panel-import-columns.ts`) é o nome da coluna do arquivo, e um e2e confere "SKU duplicado".
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853 e shared 704/704; e2e supplier-product-review, supplier-panel-access e accessibility 10/10.
+
+**Seção seguinte:** Administração · 3a.
+
+## Administração · 3a. Chamados (lista e conversa) — 2026-10-19 · commit "feat(support): app clocks and hints on ticket deadlines"
+
+**Proposta escolhida: A (relógio do app e legendas)**. Propostas: [página clicável](../propostas/admin/3a-chamados/index.html) · [A](admin/3a-chamados/2-proposta-a.png) · [B](admin/3a-chamados/2-proposta-b.png) · [C](admin/3a-chamados/2-proposta-c.png).
+
+| Mudança                                                                                                                             | Arquivo                                                     | Tela             | Antes                                                                                             | Depois                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Prazo de resposta com os relógios do dicionário (contagem quando atrasou, relógio comum enquanto corre, como nos pedidos) e legenda | `components/support/ticket-badges.tsx`                      | lista e conversa | [lista](admin/3a-chamados/1-antes-lista.png) · [conversa](admin/3a-chamados/1-antes-conversa.png) | [lista](admin/3a-chamados/3-depois-lista.png) · [conversa](admin/3a-chamados/3-depois-conversa.png) · [celular](admin/3a-chamados/3-depois-mobile.png) |
+| Legenda em "Prioridade" (os 4 prazos) e em cada prioridade ("Alta: responder em até 8 h", lido de `RESPONSE_TARGET_HOURS`)          | `ticket-badges.tsx`, `routes/_app/admin/chamados/index.tsx` | lista e conversa | [lista](admin/3a-chamados/1-antes-lista.png)                                                      | [claro](admin/3a-chamados/3-depois-claro.png)                                                                                                          |
+| "Métricas" troca as barras (que são o "Gráfico") pelo gráfico de linha `supportMetrics`, com legenda                                | `routes/_app/admin/chamados/index.tsx`                      | lista            | [lista](admin/3a-chamados/1-antes-lista.png)                                                      | [topo](admin/3a-chamados/3-depois-prioridade.png)                                                                                                      |
+
+**Ícones:** novo supportMetrics (ChartLine); reaproveitados overdue (ClockCountdown) e deadline (Clock).
+
+**Não alterado:** os botões só com ícone da conversa (respostas prontas, anexo, nota, ficha, entrar, copiar) já tinham legenda.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support, profile-tabs-edges e accessibility 16/16. Nenhum teste alterado.
+
+**Seção seguinte:** Administração · 3b.
+
+## Administração · 3b. Métricas do suporte — 2026-10-19 · commit "feat(support): hints on the support metrics"
+
+**Proposta escolhida: A (só legendas)**. Propostas: [página clicável](../propostas/admin/3b-metricas/index.html) · [A](admin/3b-metricas/2-proposta-a.png) · [B](admin/3b-metricas/2-proposta-b.png) · [C](admin/3b-metricas/2-proposta-c.png).
+
+| Mudança                                                                                                                                    | Arquivo                                   | Tela                       | Antes                                                                                              | Depois                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Aguardando o suporte", "Primeira resposta", "Respondidos no prazo" (os quatro prazos) e "Satisfação" (escala de 1 a 5 e o "—") | `routes/_app/admin/chamados/metricas.tsx` | `/admin/chamados/metricas` | [desktop](admin/3b-metricas/1-antes-desktop.png) · [celular](admin/3b-metricas/1-antes-mobile.png) | [desktop](admin/3b-metricas/3-depois-desktop.png) · [claro](admin/3b-metricas/3-depois-claro.png) · [celular](admin/3b-metricas/3-depois-mobile.png) |
+| Legenda em "Em aberto", "Respostas" e "Satisfação" na tabela da equipe (cabeçalho extraído em `TeamTableHead`)                             | `metricas.tsx`                            | Métricas                   | [desktop](admin/3b-metricas/1-antes-desktop.png)                                                   | [tabela](admin/3b-metricas/3-depois-tabela.png)                                                                                                      |
+
+**Ícones:** nenhum novo.
+
+**Testes:** typecheck, oxlint e Prettier limpos; Vitest web 853/853; e2e support e accessibility 10/10. Nenhum teste alterado.
+
+**Seção seguinte:** Administração · 4.
+
+## Administração · 4. Equipe — 2026-10-19 · commit "feat(admin): role hints and an invite icon of its own on the team page"
+
+**Proposta escolhida: A (legendas e ícone de convite próprio)**. Propostas: [página clicável](../propostas/admin/4-equipe/index.html) · [A](admin/4-equipe/2-proposta-a.png) · [B](admin/4-equipe/2-proposta-b.png) · [C](admin/4-equipe/2-proposta-c.png).
+
+| Mudança                                                                                                                                        | Arquivo                                                                                                       | Tela            | Antes                                                                                         | Depois                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legenda em "Cargo" e em cada cargo, com o mesmo texto da janela de convite (agora `STAFF_ROLE_HINTS`, uma fonte só)                            | `routes/_app/admin/equipe.tsx`, `components/admin/team-invite-dialog.tsx`, `components/icons/action-icons.ts` | `/admin/equipe` | [desktop](admin/4-equipe/1-antes-desktop.png) · [convite](admin/4-equipe/1-antes-convite.png) | [desktop](admin/4-equipe/3-depois-desktop.png) · [convite](admin/4-equipe/3-depois-convite.png) · [claro](admin/4-equipe/3-depois-claro.png) · [celular](admin/4-equipe/3-depois-mobile.png) |
+| Legenda em "Convite enviado"                                                                                                                   | `equipe.tsx`                                                                                                  | Equipe          | —                                                                                             | (sem convite pendente no banco local; coberto pelo team.spec)                                                                                                                                |
+| "Convidar pessoa" com o ícone do dicionário e legenda; "Reenviar convite" troca o avião de papel (que é "Publicar") pelo envelope, com legenda | `equipe.tsx`                                                                                                  | Equipe          | [desktop](admin/4-equipe/1-antes-desktop.png)                                                 | [convidar](admin/4-equipe/3-depois-convidar.png)                                                                                                                                             |
+
+**Ícones:** novos inviteMember (UserPlus) e resendInvite (EnvelopeSimple).
+
+**Testes:** typecheck (fora o `fornecedores/index.tsx` em edição por outra sessão, sem relação), oxlint e Prettier limpos; Vitest web 853/853; e2e team e accessibility (páginas da equipe) 5/5. Nenhum teste alterado.
+
+**Área Administração concluída. Projeto de ícones e legendas concluído nas três áreas.**

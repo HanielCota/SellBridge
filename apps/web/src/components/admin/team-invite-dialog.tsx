@@ -17,13 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { adminInviteTeamMember } from "@/features/admin/team.functions";
 import { errorMessage } from "@/lib/errors";
-
-/** What each role does, under the picker, so the choice is made knowing it. */
-const ROLE_HINTS: Record<StaffRole, string> = {
-  agent: "Responde e organiza chamados.",
-  supervisor: "Também distribui chamados para a equipe e vê as métricas do suporte.",
-  admin: "Faz tudo, inclusive cuidar das contas dos clientes e dos fornecedores.",
-};
+import { STAFF_ROLE_HINTS } from "@/components/icons/action-icons";
 
 interface InviteValues {
   name: string;
@@ -105,7 +99,7 @@ function InviteForm({ onClose }: { onClose: () => void }) {
           value={values.role}
           onChange={(role) => setValues((current) => ({ ...current, role }))}
         />
-        <p className="text-sm text-muted-foreground">{ROLE_HINTS[values.role]}</p>
+        <p className="text-sm text-muted-foreground">{STAFF_ROLE_HINTS[values.role]}.</p>
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onClose}>

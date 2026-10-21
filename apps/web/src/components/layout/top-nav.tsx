@@ -4,7 +4,7 @@ import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
+import { Fragment, useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -70,11 +70,12 @@ const LAYOUTS = {
     row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
     desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    tab: "px-2",
+    // Below 1440px the ten tabs and the team divider clipped "Equipe" (admin section 0).
+    tab: "px-1.5 min-[1440px]:px-2",
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
     // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
     accountName: "sr-only",
-    // Ten tabs already fill the capsule; icons wait for the admin area's own review.
+    // Ten tabs fill the capsule, so the icons stay in the phone sheet (admin section 0).
     tabIcon: "hidden",
     modeBadge: "flex",
   },
@@ -168,6 +169,25 @@ function tabAction(item: NavItem): ActionIcon | undefined {
 
 const MenuIcon = ACTION_ICONS.menu.icon;
 
+/** Where the team's own tabs begin, so a hairline can set them apart from the profile's. */
+function startsTeamArea(items: readonly NavItem[], index: number): boolean {
+  const item = items[index];
+  const previous = items[index - 1];
+  if (item === undefined || previous === undefined) {
+    return false;
+  }
+  return ADMIN_NAV_ITEMS.includes(item) && !ADMIN_NAV_ITEMS.includes(previous);
+}
+
+function TeamDivider({ vertical }: { vertical: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("shrink-0 bg-border", vertical ? "mx-1 h-5 w-px" : "mx-3 my-1.5 h-px")}
+    />
+  );
+}
+
 function MobileNav({
   items,
   pathname,
@@ -201,14 +221,16 @@ function MobileNav({
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
-          {[...items, SUPPORT_NAV_ITEM].map((item) => (
-            <NavTab
-              key={item.to}
-              item={item}
-              isActive={isItemActive(item, pathname)}
-              count={item.badge ? counts[item.badge] : 0}
-              onNavigate={() => setIsOpen(false)}
-            />
+          {[...items, SUPPORT_NAV_ITEM].map((item, index, all) => (
+            <Fragment key={item.to}>
+              {startsTeamArea(all, index) ? <TeamDivider vertical={false} /> : null}
+              <NavTab
+                item={item}
+                isActive={isItemActive(item, pathname)}
+                count={item.badge ? counts[item.badge] : 0}
+                onNavigate={() => setIsOpen(false)}
+              />
+            </Fragment>
           ))}
         </nav>
       </SheetContent>
@@ -281,6 +303,8 @@ function DesktopNav({
           onChoose={chosen.choose}
         />
       ) : null}
+      {/* Where the team tabs begin (admin section 0 of the icons plan). */}
+      {profileGroup && items.length > 0 ? <TeamDivider vertical /> : null}
       {items.map((item) => (
         <NavTab
           key={item.to}

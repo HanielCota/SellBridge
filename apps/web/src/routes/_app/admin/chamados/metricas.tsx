@@ -15,6 +15,8 @@ import { supportMetricsQueryOptions } from "@/features/support/support.queries";
 import { errorMessage } from "@/lib/errors";
 import { formatPercent } from "@/lib/percent";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 export const Route = createFileRoute("/_app/admin/chamados/metricas")({
   validateSearch: supportMetricsSearchSchema,
@@ -37,10 +39,29 @@ const PERIOD_LABELS: Record<Period, string> = { "7": "7 dias", "30": "30 dias", 
 const decimal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
 /** Same anatomy as the dashboard's KPI tiles: label, 30px figure, small caption. */
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Tile({
+  label,
+  value,
+  hint,
+  legend,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** What the number measures, on the label (admin section 3b). */
+  legend?: string;
+}) {
   return (
     <div className="surface-card flex min-h-36 flex-col justify-between gap-3 rounded-3xl bg-card p-5">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">
+        {legend === undefined ? (
+          label
+        ) : (
+          <HintedText label={legend} className="hinted-term">
+            {label}
+          </HintedText>
+        )}
+      </span>
       <div className="space-y-1.5">
         <p className="flex h-9 items-end text-[30px] leading-none font-semibold tabular-nums">
           {value}
@@ -62,23 +83,62 @@ function OverviewTiles({ metrics }: { metrics: SupportMetrics }) {
       <Tile label="Encerrados" value={String(metrics.closed)} hint="no período" />
       <Tile
         label="Aguardando o suporte"
+        legend={TERM_HINTS.ticketsWaiting}
         value={String(metrics.openNow)}
         hint={`${metrics.overdueNow} fora do prazo agora`}
       />
-      <Tile label="Primeira resposta" value={firstResponse} hint="tempo médio" />
+      <Tile
+        label="Primeira resposta"
+        legend={TERM_HINTS.firstResponse}
+        value={firstResponse}
+        hint="tempo médio"
+      />
       <Tile
         label="Respondidos no prazo"
+        legend={TERM_HINTS.ticketPriority}
         value={metrics.withinTargetRate === null ? "—" : formatPercent(metrics.withinTargetRate)}
         hint="primeira resposta dentro do prazo da prioridade"
       />
       <Tile
         label="Satisfação"
+        legend={TERM_HINTS.supportRating}
         value={
           metrics.averageRating === null ? "—" : `${decimal.format(metrics.averageRating)} / 5`
         }
         hint={`${metrics.ratings} ${metrics.ratings === 1 ? "avaliação" : "avaliações"}`}
       />
     </div>
+  );
+}
+
+/** The team table header; the less obvious columns explain themselves on hover. */
+function TeamTableHead() {
+  return (
+    <thead>
+      <tr className="border-b text-left text-xs text-muted-foreground">
+        <th scope="col" className="px-5 py-3 font-medium">
+          Pessoa
+        </th>
+        <th scope="col" className="px-5 py-3 text-right font-medium">
+          <HintedText label={TERM_HINTS.agentOpen} className="hinted-term">
+            Em aberto
+          </HintedText>
+        </th>
+        <th scope="col" className="px-5 py-3 text-right font-medium">
+          Encerrados
+        </th>
+        <th scope="col" className="px-5 py-3 text-right font-medium">
+          <HintedText label={TERM_HINTS.agentReplies} className="hinted-term">
+            Respostas
+          </HintedText>
+        </th>
+        <th scope="col" className="px-5 py-3 font-medium">
+          <HintedText label={TERM_HINTS.supportRating} className="hinted-term">
+            Satisfação
+          </HintedText>
+        </th>
+      </tr>
+    </thead>
   );
 }
 
@@ -95,25 +155,7 @@ function TeamTable({ metrics }: { metrics: SupportMetrics }) {
     <div className="surface-card overflow-x-auto rounded-3xl bg-card">
       <table className="w-full text-sm">
         <caption className="sr-only">Desempenho por pessoa da equipe</caption>
-        <thead>
-          <tr className="border-b text-left text-xs text-muted-foreground">
-            <th scope="col" className="px-5 py-3 font-medium">
-              Pessoa
-            </th>
-            <th scope="col" className="px-5 py-3 text-right font-medium">
-              Em aberto
-            </th>
-            <th scope="col" className="px-5 py-3 text-right font-medium">
-              Encerrados
-            </th>
-            <th scope="col" className="px-5 py-3 text-right font-medium">
-              Respostas
-            </th>
-            <th scope="col" className="px-5 py-3 font-medium">
-              Satisfação
-            </th>
-          </tr>
-        </thead>
+        <TeamTableHead />
         <tbody>
           {metrics.byAgent.map((agent) => (
             <tr key={agent.agentId} className="border-b last:border-0">

@@ -1,12 +1,17 @@
 import {
+  ArrowCounterClockwiseIcon,
   ArrowUpRightIcon,
+  BellZIcon,
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
+  ChartLineIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  ChatsCircleIcon,
   CheckIcon,
   DownloadSimpleIcon,
+  EnvelopeSimpleIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
   PrinterIcon,
@@ -21,8 +26,13 @@ import {
   FileArrowUpIcon,
   GaugeIcon,
   HouseIcon,
+  IdentificationBadgeIcon,
   PaletteIcon,
   TruckIcon,
+  UserCheckIcon,
+  UserMinusIcon,
+  UserPlusIcon,
+  UsersThreeIcon,
   FileArrowDownIcon,
   HeadsetIcon,
   ListIcon,
@@ -42,6 +52,7 @@ import {
   XIcon,
   type Icon,
 } from "@phosphor-icons/react";
+import type { StaffRole } from "@sellbridge/shared/staff-access";
 
 /**
  * One icon per FUNCTION, shared by every area (docs/PLANO-UX-ICONES.md): the same function always
@@ -142,6 +153,36 @@ export const ACTION_ICONS = {
   removeImage: { icon: TrashIcon, hint: "Remover esta imagem do produto" },
   /** Saves a file the page made (model, guide, failed rows); exporting a report is `exportReport`. */
   downloadFile: { icon: DownloadSimpleIcon },
+  /** The team's tabs in admin mode; Fornecedores keeps the reseller's factory (same function). */
+  clients: {
+    icon: UsersThreeIcon,
+    hint: "Revendedores e fornecedores; quem precisa de ajuda aparece primeiro",
+  },
+  adminSuppliers: {
+    icon: FactoryIcon,
+    hint: "Cadastro dos fornecedores e a fila de produtos para analisar",
+  },
+  tickets: { icon: ChatsCircleIcon, hint: "Conversas de suporte abertas pelos clientes" },
+  staff: {
+    icon: IdentificationBadgeIcon,
+    hint: "Quem trabalha na administração e o que cada um pode fazer",
+  },
+  /** The team's queue of customer issues (Clientes > Pendências). Snoozing is not `overdue`'s clock. */
+  assignIssue: { icon: UserCheckIcon, hint: "A pendência fica com você e sai da fila dos colegas" },
+  releaseIssue: { icon: UserMinusIcon, hint: "Devolve a pendência para a fila da equipe" },
+  snoozeIssue: { icon: BellZIcon, hint: "Adiar por alguns dias, quando depende do cliente" },
+  unsnoozeIssue: {
+    icon: ArrowCounterClockwiseIcon,
+    hint: "Traz a pendência de volta para a fila agora",
+  },
+  /** The team's support numbers; `chartKind` (bars) picks how a chart is drawn. */
+  supportMetrics: { icon: ChartLineIcon, hint: "Tempo de resposta, volume e notas da equipe" },
+  inviteMember: {
+    icon: UserPlusIcon,
+    hint: "Mandar um convite por e-mail para alguém entrar na equipe",
+  },
+  /** An e-mail goes out again; the paper plane is `publish`. */
+  resendInvite: { icon: EnvelopeSimpleIcon, hint: "Manda o e-mail do convite de novo" },
 } as const satisfies Record<string, ActionIcon>;
 
 export type ActionIconName = keyof typeof ACTION_ICONS;
@@ -180,8 +221,26 @@ export const TERM_HINTS = {
   autosave: "Cada alteração é salva sozinha; não precisa de botão Salvar",
   productCode: "Código que você usa para identificar o produto no seu estoque",
   failedRows: "Linhas que não entram; veja o motivo na tabela abaixo",
+  reviewKind: "Produto novo é a primeira análise; reenvio e alteração voltam depois de ajustes",
+  ticketPriority: "Prazo para responder: urgente 2 h, alta 8 h, normal 24 h, baixa 48 h",
+  ticketOverdue: "Passou do prazo de resposta da prioridade; responda primeiro",
+  ticketDueIn: "Tempo que falta para responder dentro do prazo",
+  ticketsWaiting: "Chamados abertos esperando a equipe responder agora",
+  firstResponse: "Tempo médio até a primeira resposta da equipe, no período",
+  supportRating: "Nota de 1 a 5 que o revendedor dá ao encerrar; — quando ninguém avaliou",
+  agentOpen: "Chamados com esta pessoa que ainda esperam resposta",
+  agentReplies: "Mensagens que a pessoa mandou aos revendedores no período",
+  staffRole:
+    "Atendente responde chamados; supervisor também distribui e vê métricas; administrador faz tudo",
+  invitePending: "A pessoa ainda não criou a senha pelo e-mail do convite",
   accountHealth: "Só você vê: a cor sai dos prazos, cancelamentos e notas dos seus pedidos",
   publicScore: "O que os revendedores veem ao escolher fornecedor, pelas avaliações",
+  brandDescription: "Aparece no seu perfil, na página que os revendedores abrem",
+  customerScore: "De 0 a 100: quanto mais baixa, mais o cliente precisa de ajuda agora",
+  onboardingSteps: "Passos já feitos dos 4 primeiros: dados, fornecedor, loja e publicação",
+  acceptDeadline: "Contado a partir do encaminhamento; passar dele pesa no Desempenho",
+  dispatchDeadline:
+    "Também contado do encaminhamento, não do aceite; passar dele pesa no Desempenho",
 } as const;
 
 /** What each order state means for the reseller, keyed like `ORDER_STATUS_LABELS`. */
@@ -209,6 +268,13 @@ export const SUPPLIER_NEXT_STEP_HINTS: Readonly<Record<string, string>> = {
   shipped: "Abre o pedido para informar a transportadora e o rastreio",
 };
 
+/** What each team role does, keyed like `STAFF_ROLE_LABELS`; the invite dialog shows the same words. */
+export const STAFF_ROLE_HINTS: Readonly<Record<StaffRole, string>> = {
+  agent: "Responde e organiza chamados",
+  supervisor: "Também distribui chamados para a equipe e vê as métricas do suporte",
+  admin: "Faz tudo, inclusive cuidar das contas dos clientes e dos fornecedores",
+};
+
 /** Legends for controls whose name alone does not say what happens. */
 export const CONTROL_HINTS = {
   selectForBulk: "Marque para publicar vários produtos de uma vez",
@@ -232,6 +298,14 @@ export const CONTROL_HINTS = {
   downloadGuide: "Lista do que cada coluna aceita, com exemplos",
   downloadErrors: "Só as linhas com erro, para corrigir e enviar de novo",
   importNeedsChoice: "Marque a caixa acima para importar só as linhas válidas",
+  customerQuickView: "Abre um resumo do cliente aqui mesmo, sem sair da lista",
+  customerActions: "Entrar como cliente, abrir a ficha, ver chamados, senha ou bloqueio",
+  reviewQueue: "Produtos enviados pelos fornecedores esperando sua análise",
+  approveProduct: "O produto entra no catálogo e os revendedores já podem vendê-lo",
+  rejectProduct: "Devolve ao fornecedor com os motivos; ele corrige e envia de novo",
+  createSupplier: "Cadastrar um fornecedor novo",
+  deactivateSupplier: "Tira os produtos do catálogo e pausa os anúncios; os pedidos continuam",
+  deactivateProduct: "Tira o produto do catálogo e pausa os anúncios dos revendedores",
 } as const;
 
 /**
@@ -252,4 +326,8 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",
   "/fornecedor/painel/marca": "brand",
+  "/admin/clientes": "clients",
+  "/admin/fornecedores": "adminSuppliers",
+  "/admin/chamados": "tickets",
+  "/admin/equipe": "staff",
 };

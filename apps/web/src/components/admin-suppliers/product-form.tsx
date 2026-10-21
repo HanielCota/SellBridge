@@ -30,7 +30,7 @@ interface ProductFormProps {
   onClose: () => void;
 }
 const productFields = [
-  { name: "sku", label: "SKU" },
+  { name: "sku", label: "Código" },
   { name: "title", label: "Título" },
   { name: "cost", label: "Custo (R$)", error: "costCents" },
   { name: "suggestedPrice", label: "Preço sugerido (R$)", error: "suggestedPriceCents" },

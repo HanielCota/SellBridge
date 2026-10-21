@@ -1,4 +1,4 @@
-import { CaretDownIcon, FileArrowUpIcon } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { PRODUCT_CSV_TEMPLATE, type ProductCsvError } from "@sellbridge/shared/product-csv";
 import { useRef } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
@@ -10,12 +10,16 @@ import { Label } from "@/components/ui/label";
 import { pausedListingsLabel } from "@/features/admin-suppliers/catalog-status";
 import { useProductCsv } from "@/features/admin-suppliers/use-product-csv";
 import { errorMessage } from "@/lib/errors";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
 
 const columnHelper = createServerColumnHelper<ProductCsvError>();
 const errorColumns = columnHelper.columns([
   columnHelper.accessor("line", { header: "Linha" }),
   columnHelper.accessor("reason", { header: "Motivo" }),
 ]);
+
+const DownloadIcon = ACTION_ICONS.downloadFile.icon;
+const ChooseFileIcon = ACTION_ICONS.importProducts.icon;
 
 function CsvPreview({ importer }: { importer: ReturnType<typeof useProductCsv> }) {
   const result = importer.preview.data;
@@ -74,6 +78,7 @@ function CsvInstructions({ categories }: { categories: { name: string; slug: str
           href={`data:text/csv;charset=utf-8,${encodeURIComponent(PRODUCT_CSV_TEMPLATE)}`}
           download="modelo-produtos.csv"
         >
+          <DownloadIcon aria-hidden="true" />
           Baixar modelo CSV
         </a>
       </Button>
@@ -141,7 +146,7 @@ function CsvFileField({
           disabled={pending}
           onClick={() => fileInput.current?.click()}
         >
-          <FileArrowUpIcon aria-hidden="true" />
+          <ChooseFileIcon aria-hidden="true" />
           Escolher arquivo
         </Button>
         <span className="min-w-0 truncate text-sm text-muted-foreground">
@@ -168,7 +173,7 @@ export function ProductCsvImport({
   return (
     <SectionCard
       title="Importar produtos por CSV"
-      description="Até 2 MiB e 1.000 produtos. SKUs existentes serão atualizados; toda a importação será aplicada de uma vez."
+      description="Até 2 MiB e 1.000 produtos. Códigos existentes serão atualizados; toda a importação será aplicada de uma vez."
     >
       <div className="space-y-4" aria-busy={pending}>
         <CsvInstructions categories={categories} />

@@ -1,7 +1,6 @@
 import {
   CopyIcon,
   DotsThreeIcon,
-  HeadsetIcon,
   IdentificationCardIcon,
   KeyIcon,
   LockSimpleIcon,
@@ -29,6 +28,8 @@ import { useAdminAction } from "@/features/admin/use-admin-action";
 import { useImpersonate } from "@/features/admin/use-impersonate";
 import { copyToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 interface RowCustomer {
   id: string;
@@ -77,7 +78,8 @@ function useActionMotions() {
       { scale: "1" },
     ]),
     tickets: useIconMotion(
-      HeadsetIcon,
+      // The same balloons as the Chamados tab (admin section 1a).
+      ACTION_ICONS.tickets.icon,
       [{ rotate: "0deg" }, { rotate: "-10deg" }, { rotate: "8deg" }, { rotate: "0deg" }],
       "50% 40%",
     ),
@@ -232,11 +234,13 @@ export function CustomerRowActions({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label={`Ações para ${customer.name}`}>
-            <DotsThreeIcon weight="bold" className="size-5" />
-          </Button>
-        </DropdownMenuTrigger>
+        <Hint label={CONTROL_HINTS.customerActions} openOnTap={false}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label={`Ações para ${customer.name}`}>
+              <DotsThreeIcon weight="bold" className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </Hint>
         <DropdownMenuContent align="end" className="w-60">
           <NavigationItems customer={customer} isSelf={isSelf} />
           <DropdownMenuSeparator />

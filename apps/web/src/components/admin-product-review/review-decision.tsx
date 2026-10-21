@@ -23,6 +23,8 @@ import {
   adminRejectPanelProduct,
 } from "@/features/supplier-panel/catalog/catalog.functions";
 import { RejectionReasonsEditor } from "./rejection-reasons-editor";
+import { CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 const NO_ERRORS: ReadonlyMap<string, string> = new Map();
 
@@ -101,10 +103,12 @@ function ApproveCard({
             Livre vai falhar.
           </p>
         ) : null}
-        <Button className="w-full" disabled={busy} onClick={onApprove}>
-          <CheckIcon aria-hidden="true" />
-          {blocking > 0 ? "Aprovar mesmo assim" : "Aprovar"}
-        </Button>
+        <Hint label={CONTROL_HINTS.approveProduct} openOnTap={false}>
+          <Button className="w-full" disabled={busy} onClick={onApprove}>
+            <CheckIcon aria-hidden="true" />
+            {blocking > 0 ? "Aprovar mesmo assim" : "Aprovar"}
+          </Button>
+        </Hint>
         <p className="text-footnote text-muted-foreground">Fica visível para os revendedores.</p>
       </div>
     </SectionCard>
@@ -189,10 +193,12 @@ export function ReviewDecision({ product, onDecided }: ReviewDecisionProps) {
             onChange={(key, patch) => setReasons((current) => updateReason(current, key, patch))}
             onRemove={(key) => setReasons((current) => removeReason(current, key))}
           />
-          <Button variant="outline" className="w-full" disabled={busy} onClick={submitRejection}>
-            <XIcon aria-hidden="true" />
-            Reprovar com {reasons.length} {reasons.length === 1 ? "motivo" : "motivos"}
-          </Button>
+          <Hint label={CONTROL_HINTS.rejectProduct} openOnTap={false}>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={submitRejection}>
+              <XIcon aria-hidden="true" />
+              Reprovar com {reasons.length} {reasons.length === 1 ? "motivo" : "motivos"}
+            </Button>
+          </Hint>
         </div>
       </SectionCard>
       <CompletenessCard product={product} onPick={addFromIssue} />

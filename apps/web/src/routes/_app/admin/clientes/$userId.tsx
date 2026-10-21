@@ -23,7 +23,6 @@ import { CustomerProfileForm } from "@/components/admin/customer-profile-form";
 import { CustomerHolderCard } from "@/components/admin/customer-holder-card";
 import { CustomerStores } from "@/components/admin/customer-stores";
 import { CustomerTimeline } from "@/components/admin/customer-timeline";
-import { HealthRing } from "@/components/admin/health-ring";
 import { ISSUE_ICONS, SEVERITY_TINT } from "@/components/admin/issue-style";
 import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
@@ -40,6 +39,7 @@ import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
 import { DisabledHint } from "@/components/ui/hint";
+import { CustomerScore } from "@/components/admin/customer-cells";
 
 export const Route = createFileRoute("/_app/admin/clientes/$userId")({
   loader: ({ context, params }) =>
@@ -98,7 +98,7 @@ function CustomerHeader({ detail, isSelf }: { detail: CustomerDetail; isSelf: bo
       <BackLink to="/admin/clientes" label="Clientes" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <HealthRing score={health.score} size="lg" />
+          <CustomerScore score={health.score} size="lg" />
           <div className="min-w-0 space-y-1">
             <h1 className="truncate text-2xl font-semibold tracking-tight">{customer.name}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
