@@ -121,10 +121,27 @@ function isImage(attachment: Attachment): boolean {
   return attachment.mimeType.startsWith("image/");
 }
 
+/** A thumbnail whose file could not be loaded: says so and keeps the download at hand. */
+function BrokenImage({ attachment }: { attachment: Attachment }) {
+  const attachmentUrl = useAttachmentUrl();
+  return (
+    <div className="flex h-24 w-36 flex-col items-center justify-center gap-1 rounded-xl border bg-muted p-2 text-center text-xs">
+      <span className="text-muted-foreground">Não foi possível carregar a imagem</span>
+      <a href={attachmentUrl(attachment)} className="underline underline-offset-4">
+        Baixar arquivo
+      </a>
+    </div>
+  );
+}
+
 /** Images open large on the page; the download stays one click away. */
 function ImagePreview({ attachment }: { attachment: Attachment }) {
   const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
   const attachmentUrl = useAttachmentUrl();
+  if (failed) {
+    return <BrokenImage attachment={attachment} />;
+  }
   return (
     <>
       <button
@@ -133,11 +150,15 @@ function ImagePreview({ attachment }: { attachment: Attachment }) {
         aria-label={`Ampliar ${attachment.fileName}`}
         onClick={() => setOpen(true)}
       >
+        {/* Contained, never cropped: a tall phone print showed only its top-left corner. */}
         <img
           src={attachmentUrl(attachment, true)}
           alt=""
           loading="lazy"
-          className="h-24 w-36 object-cover object-left-top transition-opacity group-hover/thumb:opacity-90"
+          width={144}
+          height={96}
+          className="h-24 w-36 object-contain transition-opacity group-hover/thumb:opacity-90"
+          onError={() => setFailed(true)}
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
