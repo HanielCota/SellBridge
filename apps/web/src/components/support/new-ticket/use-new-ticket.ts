@@ -162,7 +162,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
     if (topic === undefined || !isReadyToWrite) {
       return;
     }
-    if (body.trim().length < minimumDescriptionLength(topic)) {
+    if (body.trim().length < minimumDescriptionLength(situation)) {
       setShowTooShort(true);
       document.getElementById(DESCRIPTION_FIELD_ID)?.focus();
       return;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROFILE_KINDS, type ProfileKind } from "./profile-kind.ts";
 import {
+  OTHER_SITUATION_ID,
   SUPPORT_TOPICS,
   findSupportTopic,
   minimumDescriptionLength,
@@ -45,11 +46,19 @@ describe("support topics", () => {
     expect(findSupportTopic("seller", "store")).toBeDefined();
   });
 
-  it("asks for a longer description when there is no situation to go on", () => {
-    const other = findSupportTopic("seller", "other");
+  it.each(PROFILE_KINDS)("ends every %s topic with situations with Outro problema", (kind) => {
+    for (const topic of SUPPORT_TOPICS[kind].filter((item) => item.situations.length > 0)) {
+      const last = topic.situations.at(-1);
+      expect(last?.id).toBe(OTHER_SITUATION_ID);
+      expect(last?.question).toBe(topic.question);
+    }
+  });
+
+  it("asks for a longer description when there is no known situation to go on", () => {
     const order = findSupportTopic("seller", "order");
-    expect(other && minimumDescriptionLength(other)).toBe(40);
-    expect(order && minimumDescriptionLength(order)).toBe(20);
+    expect(minimumDescriptionLength(undefined)).toBe(40);
+    expect(minimumDescriptionLength(order?.situations.at(-1))).toBe(40);
+    expect(minimumDescriptionLength(order?.situations.at(0))).toBe(20);
   });
 });
 
@@ -103,6 +112,32 @@ describe("planSupportTicket", () => {
   it("refuses a description shorter than the topic asks for", () => {
     expect(() =>
       planFor({ kind: "seller", category: "other", description: "Preciso de ajuda com uma coisa" }),
+    ).toThrow("Conte um pouco mais");
+  });
+});
+
+describe("Outro problema", () => {
+  it("names the ticket after the topic, since the situation says nothing", () => {
+    const plan = planFor({
+      kind: "supplier",
+      category: "listing",
+      situationId: OTHER_SITUATION_ID,
+      description: "O produto aparece com o nome de outra marca no catálogo.",
+    });
+    expect(plan).toEqual({
+      priority: "normal",
+      subject: "Produtos e catálogo: O produto aparece com o nome de outra marca no catálogo.",
+    });
+  });
+
+  it("asks for as much text as a ticket without a situation", () => {
+    expect(() =>
+      planFor({
+        kind: "seller",
+        category: "order",
+        situationId: OTHER_SITUATION_ID,
+        description: "O pedido está com problema.",
+      }),
     ).toThrow("Conte um pouco mais");
   });
 });

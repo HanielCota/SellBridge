@@ -41,13 +41,40 @@ export interface SupportTopic {
   example: string;
 }
 
+/** Stable id of the "Outro problema" situation every topic with situations ends with. */
+export const OTHER_SITUATION_ID = "other-issue";
+
+/**
+ * The way out inside a topic: the customer got the topic right but the case is not on the
+ * list. It asks the topic's own question, so the customer still knows what to write.
+ */
+function otherSituation(topic: SupportTopic): SupportSituation {
+  return {
+    id: OTHER_SITUATION_ID,
+    label: "Outro problema",
+    legend: "Não está na lista acima",
+    priority: "normal",
+    question: topic.question,
+    example: topic.example,
+    attachmentTip: "Um print da tela onde aparece o problema.",
+    notice: null,
+  };
+}
+
+function withOtherSituation(topic: SupportTopic): SupportTopic {
+  if (topic.situations.length === 0) {
+    return topic;
+  }
+  return { ...topic, situations: [...topic.situations, otherSituation(topic)] };
+}
+
 export const SUPPORT_TOPICS: Readonly<Record<ProfileKind, readonly SupportTopic[]>> = {
-  seller: SELLER_SUPPORT_TOPICS,
-  supplier: SUPPLIER_SUPPORT_TOPICS,
+  seller: SELLER_SUPPORT_TOPICS.map(withOtherSituation),
+  supplier: SUPPLIER_SUPPORT_TOPICS.map(withOtherSituation),
 };
 
 const MIN_DESCRIPTION = 20;
-/** Without a situation the team only has the text to go on, so it asks for a little more. */
+/** Without a known situation the team only has the text to go on, so it asks for a little more. */
 const MIN_DESCRIPTION_WITHOUT_SITUATION = 40;
 const SUBJECT_MAX = 120;
 /** How much of the description names the ticket in the team's inbox. */
@@ -74,8 +101,13 @@ export function findSupportSituation(
   return topic.situations.find((situation) => situation.id === situationId);
 }
 
-export function minimumDescriptionLength(topic: SupportTopic): number {
-  return topic.situations.length === 0 ? MIN_DESCRIPTION_WITHOUT_SITUATION : MIN_DESCRIPTION;
+/** True when the team has nothing but the text to go on: no situation, or "Outro problema". */
+function isOpenEnded(situation: SupportSituation | undefined): boolean {
+  return situation === undefined || situation.id === OTHER_SITUATION_ID;
+}
+
+export function minimumDescriptionLength(situation: SupportSituation | undefined): number {
+  return isOpenEnded(situation) ? MIN_DESCRIPTION_WITHOUT_SITUATION : MIN_DESCRIPTION;
 }
 
 /** Collapses line breaks and runs of spaces so an excerpt reads as one line. */
@@ -132,10 +164,11 @@ export function planSupportTicket(input: {
       `A situação "${input.situationId ?? ""}" não existe no tema ${topic.category}; escolha o que está acontecendo`,
     );
   }
-  if (input.description.trim().length < minimumDescriptionLength(topic)) {
+  if (input.description.trim().length < minimumDescriptionLength(situation)) {
     throw validationError("Conte um pouco mais para a equipe entender o caso");
   }
-  const heading = situation?.label ?? topic.label;
+  // "Outro problema" alone tells the team nothing; the topic does.
+  const heading = situation === undefined || isOpenEnded(situation) ? topic.label : situation.label;
   return {
     priority: situation?.priority ?? "normal",
     subject: supportTicketSubject({ heading, about: input.about, description: input.description }),

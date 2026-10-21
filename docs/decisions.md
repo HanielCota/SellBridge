@@ -637,6 +637,7 @@ O formulário de chamado pedia tema, assunto e descrição livres, e o cliente n
 
 - O servidor deriva a prioridade (normal ou alta) e o assunto ("{situação}: {item ou começo da descrição}") a partir do tema e da situação; o cliente não escolhe urgência nem escreve assunto.
 - Ids de situação são estáveis: só o rótulo muda. O servidor recusa tema que o perfil não tem e situação que não é do tema.
+- Todo tema com situações termina em "Outro problema" (id `other-issue`), que repete a pergunta do tema, pede 40 caracteres como "Outra coisa" e dá ao chamado o assunto do tema.
 - Fornecedor: os produtos dele ficam no tema `listing` até o catálogo ganhar um tema próprio, sem migração no MVP.
 - Prazo prometido em dias úteis ("até 1 dia útil"), nunca em horas: a meta interna ainda é em horas corridas.
 - Escolhas são botões, não radios: a seta do radio já escolhe, e escolher abre o próximo passo. As setas só movem o foco.
