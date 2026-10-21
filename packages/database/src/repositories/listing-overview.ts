@@ -46,6 +46,7 @@ export interface ListingStoreStatus {
 
 /** One product listing with its status in every store it was sent to. */
 export interface ListingOverviewRow {
+  catalogKind?: "supplier" | "seller";
   listingId: string;
   /** The supplier product the listing sells. */
   productId: string;
@@ -177,6 +178,7 @@ async function selectListingDetails(database: Database, ids: string[]) {
       categorySlug: categories.slug,
       categoryName: categories.name,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       createdAt: listings.createdAt,
       ...availabilityColumns,
     })

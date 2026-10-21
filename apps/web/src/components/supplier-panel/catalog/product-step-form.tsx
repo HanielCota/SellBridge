@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supplierPanelProductFormQueryOptions } from "@/features/supplier-panel/catalog/catalog.queries";
 import {
   inputIdOf,
+  FORM_STEPS,
   stepOfField,
   type FormStepId,
 } from "@/features/supplier-panel/catalog/draft-form";
@@ -35,6 +36,7 @@ interface ProductStepFormProps {
   /** A field to open on, as "Corrigir" asks (e.g. `imageUrls`, `attributes.BRAND`). */
   focusField?: string | undefined;
   onBack: () => void;
+  onCreated?: ((productId: string) => void) | undefined;
 }
 
 /**
@@ -75,6 +77,49 @@ function BackButton({ onBack }: { onBack: () => void }) {
 }
 
 type ProductForm = ReturnType<typeof useProductForm>;
+
+/** Canonicalize a saved draft only after its latest edits have reached the server. */
+function useDraftAddress(form: ProductForm, onCreated: ProductStepFormProps["onCreated"]) {
+  const notified = useRef(false);
+  useEffect(() => {
+    if (
+      notified.current ||
+      form.saved === null ||
+      onCreated === undefined ||
+      form.autosave.hasUnsavedChanges()
+    )
+      return;
+    notified.current = true;
+    onCreated(form.saved.id);
+  }, [form.saved, form.autosave, onCreated]);
+}
+
+function StepNavigation({
+  step,
+  onChange,
+}: {
+  step: FormStepId;
+  onChange: (step: FormStepId) => void;
+}) {
+  const index = FORM_STEPS.findIndex((item) => item.id === step);
+  const previous = FORM_STEPS[index - 1];
+  const next = FORM_STEPS[index + 1];
+  return (
+    <nav
+      aria-label="Navegar entre etapas"
+      className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:justify-between"
+    >
+      {previous === undefined ? null : (
+        <Button variant="outline" onClick={() => onChange(previous.id)}>
+          Voltar: {previous.label}
+        </Button>
+      )}
+      {next === undefined ? null : (
+        <Button onClick={() => onChange(next.id)}>Continuar: {next.label}</Button>
+      )}
+    </nav>
+  );
+}
 
 /** Nothing typed is still on its way to the server. */
 function isSettled(form: ProductForm): boolean {
@@ -131,6 +176,7 @@ function LoadedForm({
   data,
   focusField,
   onBack,
+  onCreated,
 }: Omit<ProductStepFormProps, "productId"> & { data: FormData; productId: string }) {
   const form = useProductForm({
     supplierId,
@@ -142,11 +188,19 @@ function LoadedForm({
     focusField === undefined ? "category" : stepOfField(focusField),
   );
   const focusOn = useFieldFocus(focusField, setStep);
+  useDraftAddress(form, onCreated);
   return (
     <div className="space-y-6">
       <PageHeader
-        back={<BackButton onBack={onBack} />}
+        back={
+          <BackButton
+            onBack={() => {
+              if (form.canDiscard()) onBack();
+            }}
+          />
+        }
         title={form.values.title.trim() === "" ? "Novo produto" : form.values.title}
+        description="Informe o código do produto (SKU) para iniciar o salvamento automático. Depois de salvar, você pode voltar e continuar o cadastro."
         actions={form.saved === null ? undefined : <ReviewStatus status={form.status} />}
       />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -163,6 +217,7 @@ function LoadedForm({
             onRetry={form.autosave.retry}
             onReload={() => window.location.reload()}
           />
+          <StepNavigation step={step} onChange={setStep} />
         </section>
         <aside className="surface-card rounded-3xl bg-card p-5 lg:sticky lg:top-24">
           <CompletenessMeter report={form.report} onFix={focusOn} />
@@ -177,6 +232,7 @@ export function ProductStepForm({
   productId,
   focusField,
   onBack,
+  onCreated,
 }: ProductStepFormProps) {
   const [draftId] = useState(() => productId ?? crypto.randomUUID());
   const query = useQuery(supplierPanelProductFormQueryOptions(supplierId, productId));
@@ -193,6 +249,7 @@ export function ProductStepForm({
       data={query.data}
       focusField={focusField}
       onBack={onBack}
+      onCreated={onCreated}
     />
   );
 }

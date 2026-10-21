@@ -34,6 +34,16 @@ function SupplierProductsPage() {
         productId={product === NEW_PRODUCT ? undefined : product}
         focusField={field}
         onBack={() => openProduct(undefined)}
+        onCreated={
+          product === NEW_PRODUCT
+            ? (productId) => {
+                void navigate({
+                  search: (previous) => ({ ...previous, product: productId }),
+                  replace: true,
+                });
+              }
+            : undefined
+        }
       />
     );
   }

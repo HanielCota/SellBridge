@@ -38,12 +38,10 @@ export async function createListingForTenant(
   tenantId: string,
   command: CreateListingCommand,
 ): Promise<CreatedListing> {
-  const product = await getSellableCatalogProduct(database, command.productId);
+  const product = await getSellableCatalogProduct(database, command.productId, tenantId);
   // The batch and this flow share the rule: nothing is published that the supplier cannot ship.
   if (isOutOfStock(product.stock, environment.STOCK_SAFETY_UNITS)) {
-    throw conflictError(
-      "Este produto está sem estoque no fornecedor; publique quando houver estoque",
-    );
+    throw conflictError("Este produto está sem estoque. Adicione unidades antes de publicar.");
   }
   const draft = resolveListingDraft(product, command);
   assertPriceKeepsMargin(

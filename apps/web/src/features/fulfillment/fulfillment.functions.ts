@@ -3,6 +3,7 @@ import {
   getSupplierShipment,
   listOperationalOrders,
   reforwardShipment,
+  restartSellerShipment,
   revokeSupplierLink,
   rotateSupplierLink,
 } from "@sellbridge/database/repositories";
@@ -56,6 +57,13 @@ export const reforwardShipmentFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ shipmentId: z.uuid() }))
   .handler(({ context, data }) => reforwardShipment(database, context.tenantId, data.shipmentId));
+/** Restarts only the current tenant's own stopped preparation. */
+export const restartOwnShipmentFn = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ shipmentId: z.uuid() }))
+  .handler(({ context, data }) =>
+    restartSellerShipment(database, context.tenantId, data.shipmentId),
+  );
 export const revokeSupplierLinkFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(z.object({ shipmentId: z.uuid() }))

@@ -1,9 +1,14 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
-import { eq } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import {
+  productSourceChoiceSchema,
+  type ProductSourceChoice,
+  type ProductSourceMode,
+} from "@sellbridge/shared/product-sources";
+import { and, eq } from "drizzle-orm";
+import type { Database, DatabaseExecutor } from "../client.ts";
 import { isUniqueViolation } from "../postgres-errors.ts";
 import { suppliers, tenantProfile } from "../schema/index.ts";
-import { assertActiveSupplier } from "./store-suppliers.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 /** Who sells as a company: CNPJ (digits) and legal name. */
 export interface HolderCompany {
@@ -43,7 +48,7 @@ function rethrowCpfInUse(error: unknown): never {
 }
 
 async function upsertTenantProfile(
-  database: Database,
+  database: DatabaseExecutor,
   values: typeof tenantProfile.$inferInsert,
 ): Promise<typeof tenantProfile.$inferSelect> {
   try {
@@ -99,6 +104,7 @@ export async function saveBillingHolder(
 /** The supplier picked during onboarding, as the onboarding and profile screens show it. */
 export interface StarterSupplier {
   id: string;
+  active: boolean;
   name: string;
   niche: string;
   state: string;
@@ -110,6 +116,7 @@ export interface StarterSupplier {
 export interface OnboardingProfile {
   holder: BillingHolder | null;
   starterSupplier: StarterSupplier | null;
+  productSourceMode: ProductSourceMode | null;
 }
 
 export async function findOnboardingProfile(
@@ -129,15 +136,21 @@ export async function findOnboardingProfile(
       supplierState: suppliers.state,
       supplierCity: suppliers.city,
       supplierLogoUrl: suppliers.logoUrl,
+      supplierActive: suppliers.active,
+      productSourceMode: tenantProfile.productSourceMode,
     })
     .from(tenantProfile)
-    .leftJoin(suppliers, eq(suppliers.id, tenantProfile.starterSupplierId))
+    .leftJoin(suppliers, and(eq(suppliers.id, tenantProfile.starterSupplierId), publicSupplier()))
     .where(eq(tenantProfile.tenantId, tenantId))
     .limit(1);
   if (row === undefined) {
-    return { holder: null, starterSupplier: null };
+    return { holder: null, starterSupplier: null, productSourceMode: null };
   }
-  return { holder: holderOf(row), starterSupplier: starterSupplierOf(row) };
+  return {
+    holder: holderOf(row),
+    starterSupplier: starterSupplierOf(row),
+    productSourceMode: row.productSourceMode ?? (row.supplierId === null ? null : "suppliers"),
+  };
 }
 
 function holderOf(row: {
@@ -158,6 +171,7 @@ function holderOf(row: {
 }
 
 function starterSupplierOf(row: {
+  supplierActive: boolean | null;
   supplierId: string | null;
   supplierName: string | null;
   supplierNiche: string | null;
@@ -177,6 +191,7 @@ function starterSupplierOf(row: {
   }
   return {
     id: supplierId,
+    active: row.supplierActive === true,
     name: supplierName,
     niche: supplierNiche,
     state: supplierState,
@@ -194,6 +209,30 @@ export async function saveStarterSupplier(
   tenantId: string,
   supplierId: string,
 ): Promise<void> {
-  await assertActiveSupplier(database, supplierId);
-  await upsertTenantProfile(database, { tenantId, starterSupplierId: supplierId });
+  await saveProductSourceChoice(database, tenantId, { mode: "suppliers", supplierId });
+}
+
+/** Changes future setup defaults without rewriting existing stores, listings, or orders. */
+export async function saveProductSourceChoice(
+  database: Database,
+  tenantId: string,
+  input: ProductSourceChoice,
+): Promise<void> {
+  const choice = productSourceChoiceSchema.parse(input);
+  await database.transaction(async (transaction) => {
+    const supplierId = choice.mode === "own" ? null : (choice.supplierId ?? null);
+    if (supplierId !== null) {
+      const [supplier] = await transaction
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
+        .for("share");
+      if (supplier === undefined) throw notFoundError("Fornecedor não encontrado ou inativo.");
+    }
+    await upsertTenantProfile(transaction, {
+      tenantId,
+      productSourceMode: choice.mode,
+      starterSupplierId: supplierId,
+    });
+  });
 }

@@ -4,7 +4,6 @@ import {
   getTargetForPublishing,
   markTargetFailed,
   markTargetPublished,
-  markTargetSynced,
   setTargetCreationStarted,
   type TargetForPublishing,
 } from "@sellbridge/database/repositories";
@@ -32,6 +31,7 @@ import {
   storeRateKey,
 } from "../lib/store-access.ts";
 import type { JobContext } from "../lib/job-context.ts";
+import { reconcilePublicationStock } from "./publication-stock.ts";
 
 export interface PublishDependencies {
   database: Database;
@@ -44,7 +44,7 @@ export interface PublishDependencies {
 }
 
 /** `not_pending`: another job owns the target, or it already failed or is paused. */
-export type PublishOutcome = "published" | "already_published" | "not_pending";
+export type PublishOutcome = "published" | "paused" | "already_published" | "not_pending";
 
 const UNEXPECTED_FAILURE_REASON = "Erro inesperado ao publicar. Tente reprocessar.";
 
@@ -151,29 +151,27 @@ async function persistPublishedListing(
   }
 }
 
-/** Not fatal: unsaved stock and price differ from the listing, so the sync job sends them. */
-async function recordInitialSync(attempt: PublishAttempt): Promise<void> {
-  const { dependencies, row, listingTargetId } = attempt;
-  try {
-    await markTargetSynced(dependencies.database, listingTargetId, {
-      stock: offeredUnits(row.product.stock, row.product.reservedStock, dependencies.safetyUnits),
-      priceCents: row.listing.priceCents,
-    });
-  } catch (error) {
-    logger.warn("listing.initial_sync_not_saved", { listingTargetId, error });
-  }
-}
-
 async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOutcome> {
   const result = await callMarketplace(attempt);
   await persistPublishedListing(attempt, result);
-  await recordInitialSync(attempt);
+  const status = await reconcilePublicationStock(attempt.dependencies, {
+    tenantId: attempt.tenantId,
+    targetId: attempt.listingTargetId,
+    sent: {
+      stock: offeredUnits(
+        attempt.row.product.stock,
+        attempt.row.product.reservedStock,
+        attempt.dependencies.safetyUnits,
+      ),
+      priceCents: attempt.row.listing.priceCents,
+    },
+  });
   logger.info("listing.published", {
     tenantId: attempt.tenantId,
     listingTargetId: attempt.listingTargetId,
     externalId: result.externalId,
   });
-  return "published";
+  return status === "paused" ? "paused" : "published";
 }
 
 async function handlePublishFailure(attempt: PublishAttempt, error: unknown): Promise<never> {
@@ -208,11 +206,21 @@ async function requireSellable(
   dependencies: PublishDependencies,
   row: TargetForPublishing,
 ): Promise<void> {
+  if (row.target.pauseRequested) {
+    await failPermanently(
+      dependencies,
+      row.target.id,
+      "This publication was stopped. Restore the product and explicitly retry when ready.",
+    );
+  }
   const reason = unavailableReason(row.availability);
   if (reason !== null) {
     await failPermanently(dependencies, row.target.id, unavailableMessage(reason));
   }
-  if (storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier") {
+  if (
+    row.source.catalogKind === "supplier" &&
+    storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier"
+  ) {
     await failPermanently(dependencies, row.target.id, STORE_SUPPLIER_CHANGED_MESSAGE);
   }
 }
@@ -247,14 +255,30 @@ export function createPublishListingProcessor(dependencies: PublishDependencies)
     const row = await loadTarget(dependencies, tenantId, listingTargetId);
     const skipped = outcomeWithoutPublishing(row);
     if (skipped) {
+      if (
+        row.target.externalId !== null &&
+        (row.target.status === "published" || row.target.status === "paused")
+      ) {
+        await reconcilePublicationStock(dependencies, { tenantId, targetId: listingTargetId });
+      }
       return skipped;
     }
     await requireSellable(dependencies, row);
-    const credentials = await requireCredentials(dependencies, row);
+    await requireCredentials(dependencies, row);
     const claimed = await claimWhenRateAllows(dependencies, row);
     if (!claimed) {
       return "not_pending";
     }
-    return publishClaimedTarget({ dependencies, job, tenantId, listingTargetId, row, credentials });
+    const current = await loadTarget(dependencies, tenantId, listingTargetId);
+    await requireSellable(dependencies, current);
+    const credentials = await requireCredentials(dependencies, current);
+    return publishClaimedTarget({
+      dependencies,
+      job,
+      tenantId,
+      listingTargetId,
+      row: current,
+      credentials,
+    });
   };
 }

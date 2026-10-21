@@ -163,6 +163,83 @@ const expectedObjects = {
 };
 
 describe("migrations", { timeout: MIGRATION_TEST_TIMEOUT }, () => {
+  it("provides production categories without demo accounts and keeps them stable on rerun", async () => {
+    const url = await throwawayDatabase();
+    await runMigrator(url);
+    const before = await withClient(
+      url,
+      (sql) => sql`select id, slug, name from categories order by slug`,
+    );
+    expect(before).toHaveLength(12);
+    expect(before).toContainEqual(
+      expect.objectContaining({ slug: "casa", name: "Casa e decoração" }),
+    );
+    const demo = await withClient(
+      url,
+      (sql) =>
+        sql`select (select count(*) from "user")::int as users, (select count(*) from suppliers)::int as suppliers`,
+    );
+    expect(demo[0]).toMatchObject({ users: 0, suppliers: 0 });
+    await runMigrator(url);
+    const after = await withClient(
+      url,
+      (sql) => sql`select id, slug, name from categories order by slug`,
+    );
+    expect([...after]).toEqual([...before]);
+  });
+
+  it("translates built-in category labels on upgrade while preserving IDs and custom names", async () => {
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, 45);
+    const before = await withClient(url, async (sql) => {
+      await sql`update categories set name = 'Custom home category' where slug = 'casa'`;
+      return sql`select id, slug from categories order by slug`;
+    });
+    await runMigrator(url);
+    const after = await withClient(
+      url,
+      (sql) => sql`select id, slug, name from categories order by slug`,
+    );
+    expect(after.map(({ id, slug }) => ({ id, slug }))).toEqual([...before]);
+    expect(after).toContainEqual(
+      expect.objectContaining({ slug: "casa", name: "Custom home category" }),
+    );
+    expect(after).toContainEqual(
+      expect.objectContaining({ slug: "beleza", name: "Beleza e cuidados pessoais" }),
+    );
+    expect(after).toContainEqual(
+      expect.objectContaining({ slug: "fitness", name: "Esporte e atividade física" }),
+    );
+  });
+
+  it("fills missing categories without renaming or replacing existing category IDs", async () => {
+    const url = await throwawayDatabase();
+    await applyMigrationsUpTo(url, 44);
+    await withClient(
+      url,
+      (sql) => sql`
+      insert into categories (id, slug, name) values
+        ('00000000-0000-4000-8000-000000000045', 'casa', 'Customized home category'),
+        ('00000000-0000-4000-8000-000000000046', 'handmade', 'Legacy handmade category')`,
+    );
+    await runMigrator(url);
+    const rows = await withClient(
+      url,
+      (sql) => sql`select id, slug, name from categories order by slug`,
+    );
+    expect(rows).toHaveLength(13);
+    expect(rows).toContainEqual({
+      id: "00000000-0000-4000-8000-000000000045",
+      slug: "casa",
+      name: "Customized home category",
+    });
+    expect(rows).toContainEqual({
+      id: "00000000-0000-4000-8000-000000000046",
+      slug: "handmade",
+      name: "Legacy handmade category",
+    });
+  });
+
   it("M1: a new database takes every migration, and a second run changes nothing", async () => {
     const url = await throwawayDatabase();
     await runMigrator(url);

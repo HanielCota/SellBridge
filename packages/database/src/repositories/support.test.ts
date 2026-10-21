@@ -156,6 +156,32 @@ describe("support tickets", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("delivers the reseller's message to both sides with each author's photo", async () => {
+    const photo = `/api/avatars/${reseller}.webp`;
+    await database.update(user).set({ image: photo }).where(eq(user.id, reseller));
+    try {
+      const ticketId = await openTicket("Foto no chamado");
+      await reply(ticketId);
+
+      const resellerThread = await getTicketThread(database, ticketId, tenantA);
+      const staffThread = await getTicketThread(database, ticketId, null);
+      for (const thread of [resellerThread, staffThread]) {
+        expect(
+          thread.messages.map(({ body, isAdmin, authorImage }) => ({ body, isAdmin, authorImage })),
+        ).toEqual([
+          {
+            body: "Descrição do problema com detalhes suficientes.",
+            isAdmin: false,
+            authorImage: photo,
+          },
+          { body: "Resposta do suporte.", isAdmin: true, authorImage: null },
+        ]);
+      }
+    } finally {
+      await database.update(user).set({ image: null }).where(eq(user.id, reseller));
+    }
+  });
+
   it("moves status between answered, open and closed and keeps the history", async () => {
     const ticketId = await openTicket("Dúvida sobre repasse");
     await reply(ticketId);

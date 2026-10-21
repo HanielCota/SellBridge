@@ -159,6 +159,18 @@ function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
   );
 }
 
+function SupplierProductShortcut({ profileKind }: { profileKind: ProfileKind }) {
+  if (profileKind !== "supplier") return null;
+  return (
+    <DropdownMenuItem asChild className={MENU_ROW}>
+      <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
+        <IdentificationCardIcon aria-hidden="true" />
+        Cadastrar produto
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
 /** The pages about you; support shows how many answers are waiting. */
 function AccountLinks({
   supportReplies,
@@ -176,11 +188,12 @@ function AccountLinks({
           Meu perfil
         </Link>
       </DropdownMenuItem>
+      <SupplierProductShortcut profileKind={profileKind} />
       {pages.has("sellerData") ? (
         <DropdownMenuItem asChild className={MENU_ROW}>
           <Link to="/onboarding">
             <IdentificationCardIcon aria-hidden="true" />
-            Meus dados
+            Meu cadastro
           </Link>
         </DropdownMenuItem>
       ) : null}

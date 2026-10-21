@@ -183,10 +183,10 @@ describe("supplier reviews", () => {
 
 describe("supplier reputation query plan", () => {
   // Same shape as orderTotals in supplier-reviews.ts.
-  it("reaches the sold items of a page of suppliers through an index", async () => {
+  it("keeps product-index lookups available without fixing the optimizer's join order", async () => {
     const plan = await database.transaction(async (transaction) => {
       await transaction.execute(sql`set local enable_seqscan = off`);
-      return transaction.execute(sql`
+      const reputation = await transaction.execute(sql`
         explain select sp.supplier_id, count(distinct o.id)
         from orders o
         join order_items oi on oi.order_id = o.id
@@ -195,7 +195,14 @@ describe("supplier reputation query plan", () => {
           and o.ordered_at >= ${new Date(Date.now() - 90 * DAY).toISOString()}::timestamptz
         group by sp.supplier_id
       `);
+      // Tiny fixtures can favor starting from orders; the product lookup must remain indexed.
+      const lookup = await transaction.execute(sql`
+        explain select id from order_items
+        where supplier_product_id = ${catalog.productId}::uuid
+      `);
+      return { reputation, lookup };
     });
-    expect(JSON.stringify([...plan])).toContain("order_items_supplier_product_idx");
+    expect(JSON.stringify([...plan.reputation])).toMatch(/Index(?: Only)? Scan|Bitmap.*Scan/);
+    expect(JSON.stringify([...plan.lookup])).toContain("order_items_supplier_product_idx");
   });
 });

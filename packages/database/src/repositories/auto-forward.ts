@@ -12,6 +12,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 /** Why a paid order stays with the reseller instead of being forwarded on its own. */
 export type AutoForwardBlocker =
@@ -34,17 +35,29 @@ export interface AutoForwardCandidate {
 async function itemsBlocker(
   database: Database,
   orderId: string,
+  tenantId: string,
 ): Promise<AutoForwardBlocker | null> {
   const items = await database
-    .select({ active: suppliers.active, contactEmail: suppliers.contactEmail })
+    .select({
+      active: suppliers.active,
+      contactEmail: suppliers.contactEmail,
+      catalogKind: suppliers.catalogKind,
+      ownerTenantId: suppliers.ownerTenantId,
+    })
     .from(orderItems)
     .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
     .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(eq(orderItems.orderId, orderId));
-  if (items.length === 0 || items.some((item) => item.active !== true)) {
+  if (
+    items.length === 0 ||
+    items.some(
+      (item) =>
+        item.active !== true || (item.catalogKind === "seller" && item.ownerTenantId !== tenantId),
+    )
+  ) {
     return "unlinked_items";
   }
-  if (items.some((item) => item.contactEmail === null)) {
+  if (items.some((item) => item.catalogKind === "supplier" && item.contactEmail === null)) {
     return "missing_supplier_email";
   }
   return null;
@@ -61,7 +74,7 @@ async function isForwarded(database: Database, orderId: string): Promise<boolean
 
 async function blockerOf(
   database: Database,
-  order: { id: string; status: string },
+  order: { id: string; status: string; tenantId: string },
 ): Promise<AutoForwardBlocker | null> {
   if (order.status !== "paid") {
     return "not_paid";
@@ -69,7 +82,7 @@ async function blockerOf(
   if (await isForwarded(database, order.id)) {
     return "already_forwarded";
   }
-  return itemsBlocker(database, order.id);
+  return itemsBlocker(database, order.id, order.tenantId);
 }
 
 /**
@@ -123,7 +136,11 @@ export async function forwardRecipients(
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
-      and(eq(orderShipments.tenantId, tenantId), inArray(orderShipments.id, [...shipmentIds])),
+      and(
+        eq(orderShipments.tenantId, tenantId),
+        inArray(orderShipments.id, [...shipmentIds]),
+        publicSupplier(),
+      ),
     );
   return rows.map((row) => ({
     ...row,

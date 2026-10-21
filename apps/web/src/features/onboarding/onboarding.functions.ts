@@ -2,10 +2,12 @@ import {
   findOnboardingProfile,
   saveBillingHolder,
   saveStarterSupplier,
+  saveProductSourceChoice,
   type BillingHolder,
   type OnboardingProfile,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
+import { productSourceChoiceSchema } from "@sellbridge/shared/product-sources";
 import { billingHolderSchema, starterSupplierSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
@@ -37,5 +39,16 @@ export const saveOnboardingSupplier = createServerFn({ method: "POST" })
     logger.info("onboarding.supplier_saved", {
       tenantId: context.tenantId,
       supplierId: data.supplierId,
+    });
+  });
+
+export const saveOnboardingProductSources = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(productSourceChoiceSchema)
+  .handler(async ({ context, data }): Promise<void> => {
+    await saveProductSourceChoice(database, context.tenantId, data);
+    logger.info("onboarding.product_sources_saved", {
+      tenantId: context.tenantId,
+      mode: data.mode,
     });
   });

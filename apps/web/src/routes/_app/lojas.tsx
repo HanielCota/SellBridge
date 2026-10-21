@@ -105,11 +105,12 @@ function StoresPage() {
 
 const ONBOARDING_STEPS = [
   "Autorize o SellBridge na sua conta do marketplace.",
-  "Cada loja vende um fornecedor: escolha os produtos dele e publique.",
+  "Publique seus próprios produtos e os produtos do fornecedor escolhido para a loja.",
   "Pedidos, estoque e preço passam a ser sincronizados automaticamente.",
 ] as const;
 
 interface NewStoreChoice {
+  ownProducts: boolean;
   supplier: NewStoreSupplier | null;
   onChooseSupplier: () => void;
 }
@@ -147,6 +148,7 @@ function FirstStoreOnboarding({
       <AddStore
         marketplaces={marketplaces}
         supplier={choice.supplier}
+        ownProducts={choice.ownProducts}
         onChooseSupplier={choice.onChooseSupplier}
       />
     </section>
@@ -193,6 +195,7 @@ function AddStoreSection({
       <AddStore
         marketplaces={marketplaces}
         supplier={choice.supplier}
+        ownProducts={choice.ownProducts}
         onChooseSupplier={choice.onChooseSupplier}
       />
     </section>
@@ -221,6 +224,7 @@ function useNewStoreChoice(hasStores: boolean) {
     suppliers.data?.pickedSupplier ?? (hasStores ? null : suppliers.data?.starterSupplier) ?? null;
   const fallback = starter === null ? null : toNewStoreSupplier(starter);
   const choice: NewStoreChoice = {
+    ownProducts: suppliers.data?.productSourceMode === "own",
     supplier: picked ?? fallback,
     onChooseSupplier: () => setIsPicking(true),
   };
@@ -248,7 +252,14 @@ function supplierLabels(suppliers: readonly StoreSupplier[] | undefined) {
 }
 
 /** Shops connected before the one-supplier rule, or whose supplier was deleted, wait for one. */
-function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[] }) {
+function PendingSupplierNotice({
+  stores,
+  ownProducts,
+}: {
+  stores: readonly StoreWithActivity[];
+  ownProducts: boolean;
+}) {
+  if (ownProducts) return null;
   const pending = stores.filter(
     (store) => store.supplierId === null && store.status !== "disconnected",
   ).length;
@@ -262,8 +273,8 @@ function PendingSupplierNotice({ stores }: { stores: readonly StoreWithActivity[
         {pending === 1
           ? "1 loja ainda não tem fornecedor."
           : `${pending.toLocaleString("pt-BR")} lojas ainda não têm fornecedor.`}{" "}
-        Cada loja vende os produtos de um único fornecedor: escolha o de cada uma para continuar
-        publicando. Os anúncios no ar seguem vendendo.
+        Escolha um fornecedor para cada loja para publicar os produtos dele. Seus próprios produtos
+        já podem ser publicados sem fornecedor. Os anúncios existentes continuam vendendo.
       </AlertDescription>
     </Alert>
   );
@@ -303,11 +314,12 @@ function StoresContent() {
   return (
     <>
       <section aria-label="Suas lojas" className="space-y-4">
-        <PendingSupplierNotice stores={stores} />
+        <PendingSupplierNotice stores={stores} ownProducts={newStore.choice.ownProducts} />
         <StoreList
           stores={stores}
           labels={labels}
           suppliers={supplierLabels(suppliers.data?.suppliers)}
+          ownProducts={newStore.choice.ownProducts}
           onDisconnect={(store) => setPendingDisconnect({ id: store.id, name: store.shopName })}
           onChangeSupplier={(store) => setSupplierTarget(supplierTargetOf(store))}
         />

@@ -71,6 +71,28 @@ const PublishIcon = ACTION_ICONS.publish.icon;
 /** One-tap prices besides the supplier's suggestion, named by the margin they leave. */
 const MARGIN_PRESETS = [30, 40, 50] as const;
 
+function ProductBackLink({
+  product,
+}: {
+  product: Awaited<ReturnType<typeof getNewListingData>>["product"];
+}) {
+  return (
+    <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
+      {product.catalogKind === "seller" ? (
+        <Link to="/products" search={{ product: product.id }}>
+          <ArrowLeftIcon aria-hidden="true" />
+          Meus produtos
+        </Link>
+      ) : (
+        <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
+          <ArrowLeftIcon aria-hidden="true" />
+          {product.supplierName}
+        </Link>
+      )}
+    </Button>
+  );
+}
+
 function NewListingPage() {
   const { productId } = Route.useRouteContext();
   const query = useQuery(newListingQueryOptions(productId));
@@ -90,12 +112,7 @@ function NewListingPage() {
   const { product, stores, hasOtherStores } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
-        <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
-          <ArrowLeftIcon aria-hidden="true" />
-          {product.supplierName}
-        </Link>
-      </Button>
+      <ProductBackLink product={product} />
       {stores.length === 0 ? (
         <>
           <PageHeader
@@ -574,7 +591,7 @@ function PriceField({
         </p>
       ) : (
         <p id="price-hint" className="text-xs text-muted-foreground">
-          Digite o preço que quiser ou use um dos prontos. Custo do fornecedor:{" "}
+          Informe seu preço de venda ou escolha uma sugestão. Custo por unidade:{" "}
           {formatCents(product.costCents)}.
         </p>
       )}

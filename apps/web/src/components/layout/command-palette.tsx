@@ -23,6 +23,7 @@ import { useGlobalSearch } from "@/features/search/use-global-search";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { searchResultHref } from "@/features/search/search-targets";
+import { matchesCommand } from "@/features/navigation/command-matching";
 
 interface PageCommand {
   label: string;
@@ -32,6 +33,18 @@ interface PageCommand {
 }
 
 const PAGES: PageCommand[] = [
+  {
+    label: "Meus produtos",
+    to: "/products",
+    icon: PackageIcon,
+    keywords: "cadastrar cadastro criar editar estoque sku próprios",
+  },
+  {
+    label: "Meu cadastro",
+    to: "/onboarding",
+    icon: UserCircleIcon,
+    keywords: "onboarding dados cpf editar origem produtos fornecedor",
+  },
   {
     label: "Visão geral",
     to: "/dashboard",
@@ -80,14 +93,6 @@ const ACTIONS: ActionCommand[] = [
     keywords: "anunciar novo anúncio vender",
   },
 ];
-
-function matchesCommand(command: { label: string; keywords: string }, term: string): boolean {
-  const haystack = `${command.label} ${command.keywords}`.toLowerCase();
-  return term
-    .toLowerCase()
-    .split(/\s+/)
-    .every((word) => haystack.includes(word));
-}
 
 /** Ctrl+K / Cmd+K opens or closes the palette from anywhere. */
 function useOpenShortcut(setOpen: (update: (open: boolean) => boolean) => void) {
@@ -303,17 +308,21 @@ export function CommandPalette() {
             className="fixed top-[12svh] left-1/2 z-50 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-xl shadow-black/20 ring-1 ring-border"
           >
             <Dialog.Title className="sr-only">Buscar no SellBridge</Dialog.Title>
-            <Command shouldFilter={false} loop>
+            <Command label="Buscar no SellBridge" shouldFilter={false} loop>
               <div className="flex items-center gap-3 border-b border-border px-4">
                 <MagnifyingGlassIcon className="size-5 text-muted-foreground" aria-hidden="true" />
                 <Command.Input
+                  aria-label="Buscar no SellBridge"
                   value={term}
                   onValueChange={setTerm}
                   placeholder="Buscar produtos, publicações, pedidos ou páginas"
                   className="h-14 flex-1 bg-transparent text-body outline-none sm:text-subhead placeholder:text-muted-foreground"
                 />
               </div>
-              <Command.List className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]">
+              <Command.List
+                label="Resultados da busca"
+                className="max-h-[min(30rem,60svh)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:none]"
+              >
                 <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
                   Nada encontrado para essa busca.
                 </Command.Empty>

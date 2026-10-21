@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
+import { shipmentStatusLabel } from "@/features/fulfillment/shipment-timeline";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { useNow } from "@/hooks/use-now";
@@ -54,7 +55,7 @@ type OperationRowData = Awaited<
 
 const STAGE_OPTIONS: { value: Search["stage"]; label: string }[] = [
   { value: "all", label: "Todas as etapas" },
-  { value: "unforwarded", label: "Pagos para encaminhar" },
+  { value: "unforwarded", label: "Paid orders to prepare" },
   ...FULFILLMENT_STATUSES.map((status) => ({ value: status, label: FULFILLMENT_LABELS[status] })),
 ];
 
@@ -242,10 +243,11 @@ function OperationRow({
           {row.shipments.length
             ? row.shipments
                 .map(
-                  (shipment) => `${shipment.supplierName}: ${FULFILLMENT_LABELS[shipment.status]}`,
+                  (shipment) =>
+                    `${shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}: ${shipmentStatusLabel(shipment.status, shipment.catalogKind)}`,
                 )
                 .join(" · ")
-            : "Ainda não encaminhado ao fornecedor"}
+            : "Shipments have not been prepared"}
         </p>
       </div>
       <div className="flex flex-col items-start gap-1">

@@ -11,11 +11,12 @@ import { listings, listingTargets, supplierProducts, suppliers } from "../schema
 import { assertBillingCapacity } from "./billing.ts";
 import { availabilityColumns } from "./listing-overview.ts";
 import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
+import { shareLockListingSources } from "./lock-product-source.ts";
 
 /** What the reseller does to listings from the list: pause, resume, reprice, retry. */
 
 async function requireTenantListings(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   listingIds: readonly string[],
 ): Promise<void> {
@@ -34,13 +35,14 @@ async function requireTenantListings(
  * them off waits for a resume in progress (and then pauses it) or the resume sees them off.
  */
 async function unavailableAmong(executor: DatabaseExecutor, ids: readonly string[]) {
+  await shareLockListingSources(executor, ids);
   const rows = await executor
     .select({ listingId: listings.id, ...availabilityColumns })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
     .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(inArray(listings.id, [...ids]))
-    .for("share", { of: [supplierProducts, suppliers] });
+    .for("share", { of: [supplierProducts] });
   return rows.flatMap(({ listingId, ...availability }) => {
     const reason = unavailableReason(availability);
     return reason === null ? [] : [{ listingId, reason }];
@@ -54,7 +56,7 @@ async function unavailableAmong(executor: DatabaseExecutor, ids: readonly string
  * targets changed.
  */
 export async function setListingsPaused(
-  database: Database,
+  database: DatabaseExecutor,
   tenantId: string,
   listingIds: readonly string[],
   paused: boolean,
@@ -70,7 +72,7 @@ export async function setListingsPaused(
     const transition = pauseTransition(paused);
     const changed = await transaction
       .update(listingTargets)
-      .set({ status: transition.to })
+      .set({ status: transition.to, pauseRequested: paused })
       .where(
         and(
           eq(listingTargets.tenantId, tenantId),
@@ -128,12 +130,19 @@ export async function resetListingErrorsForRetry(
   options: { billingEnabled: boolean },
 ): Promise<string[]> {
   await requireTenantListings(database, tenantId, listingIds);
-  const failedTargets = and(
-    eq(listingTargets.tenantId, tenantId),
-    inArray(listingTargets.listingId, [...listingIds]),
-    eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
-  );
   return database.transaction(async (transaction) => {
+    const blocked = await unavailableAmong(transaction, listingIds);
+    const blockedIds = new Set(blocked.map((row) => row.listingId));
+    const allowedIds = listingIds.filter((id) => !blockedIds.has(id));
+    if (allowedIds.length === 0 && blocked[0] !== undefined) {
+      throw conflictError(unavailableListingMessage(blocked[0].reason));
+    }
+    const failedTargets = and(
+      eq(listingTargets.tenantId, tenantId),
+      inArray(listingTargets.listingId, allowedIds),
+      eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
+      targetMatchesStoreSupplier(),
+    );
     if (options.billingEnabled) {
       const [failed] = await transaction
         .select({ value: count() })
@@ -143,7 +152,7 @@ export async function resetListingErrorsForRetry(
     }
     const reset = await transaction
       .update(listingTargets)
-      .set({ status: "pending", errorReason: null })
+      .set({ status: "pending", errorReason: null, pauseRequested: false })
       .where(failedTargets)
       .returning({ id: listingTargets.id });
     return reset.map((row) => row.id);

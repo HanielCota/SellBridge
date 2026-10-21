@@ -295,6 +295,41 @@
       "when": 1792243312089,
       "tag": "0041_supplier_organization",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792454034606,
+      "tag": "0042_seller_catalog_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792456295971,
+      "tag": "0043_product_source_choice",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792457686254,
+      "tag": "0044_publication_pause_intent",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792509854901,
+      "tag": "0045_bootstrap_product_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792522130003,
+      "tag": "0046_portuguese_category_labels",
+      "breakpoints": true
     }
   ]
 }

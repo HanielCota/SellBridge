@@ -13,7 +13,7 @@ const PROFILE_OPTIONS: readonly ProfileOption[] = [
   {
     kind: "seller",
     title: "Quero vender",
-    summary: "Revenda sem estoque nos marketplaces.",
+    summary: "Venda produtos próprios ou de fornecedores.",
     icon: StorefrontIcon,
   },
   {

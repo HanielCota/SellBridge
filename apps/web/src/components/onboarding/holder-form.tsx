@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { saveOnboardingHolder } from "@/features/onboarding/onboarding.functions";
 import { errorMessage } from "@/lib/errors";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 const appRoute = getRouteApi("/_app");
 
@@ -41,7 +42,10 @@ function holderInput(value: HolderFormValues) {
   return { fullName: value.fullName, cpf: value.cpf, phone: value.phone, company };
 }
 
-function useHolderForm(holder: BillingHolder | null, onSaved: (saved: BillingHolder) => void) {
+function useHolderForm(
+  holder: BillingHolder | null,
+  onSaved: (saved: BillingHolder) => void | Promise<void>,
+) {
   const { session } = appRoute.useRouteContext();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm({
@@ -49,7 +53,9 @@ function useHolderForm(holder: BillingHolder | null, onSaved: (saved: BillingHol
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
-        onSaved(await saveOnboardingHolder({ data: holderInput(value) }));
+        const saved = await saveOnboardingHolder({ data: holderInput(value) });
+        form.reset(holderDefaults(saved, session.user.name));
+        await onSaved(saved);
       } catch (error) {
         setSubmitError(errorMessage(error));
       }
@@ -82,10 +88,13 @@ export function HolderForm({
 }: {
   holder: BillingHolder | null;
   submitLabel: string;
-  onSaved: (saved: BillingHolder) => void;
+  onSaved: (saved: BillingHolder) => void | Promise<void>;
 }) {
   const { form, submitError } = useHolderForm(holder, onSaved);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
+  const isDirty = useStore(form.store, (state) => !state.isDefaultValue);
+  // A successful save resets the baseline before React renders the next navigation.
+  useUnsavedChanges(isDirty, () => !form.state.isDefaultValue);
   return (
     <form
       noValidate

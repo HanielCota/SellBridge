@@ -48,7 +48,7 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
         },
         { page: data.page, pageSize: data.pageSize },
       ),
-      listSellableCategories(database),
+      listSellableCategories(database, context.tenantId),
       listActiveSuppliers(database, {}),
       listStoreConnections(database, context.tenantId),
     ]);

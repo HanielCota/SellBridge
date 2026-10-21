@@ -45,6 +45,7 @@ function issueLabel(details: AdminEventDetails | null): string {
  */
 export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   forwardOrderFn: "encaminhou um pedido",
+  restartOwnShipmentFn: "retomou a preparação do próprio envio",
   reforwardShipmentFn: "reencaminhou um envio",
   updateShipmentFn: "atualizou um envio",
   rotateSupplierLinkFn: "gerou um novo link do fornecedor",
@@ -60,6 +61,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   closeMyTicket: "encerrou um chamado",
   rateMyTicket: "avaliou um chamado",
   saveOnboardingSupplier: "escolheu o fornecedor inicial",
+  saveOnboardingProductSources: "alterou a origem dos produtos",
   // Routes outside the server functions, named "area.action".
   "support.createTicket": "abriu um chamado",
   "support.reply": "respondeu um chamado",

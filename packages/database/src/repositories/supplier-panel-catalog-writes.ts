@@ -28,15 +28,16 @@ const STOCK_MOVED_MESSAGE =
   "O estoque mudou depois que você abriu o produto, recarregue para conferir.";
 
 /** Serializes the supplier's catalog writes (same lock the admin form and CSV import take). */
-async function lockSupplier(transaction: DatabaseExecutor, supplierId: string): Promise<void> {
+async function lockSupplier(transaction: DatabaseExecutor, supplierId: string) {
   const [supplier] = await transaction
-    .select({ id: suppliers.id })
+    .select({ id: suppliers.id, catalogKind: suppliers.catalogKind })
     .from(suppliers)
     .where(eq(suppliers.id, supplierId))
     .for("update");
   if (supplier === undefined) {
     throw notFoundError(`Fornecedor ${supplierId} não encontrado`);
   }
+  return supplier;
 }
 
 async function lockProduct(
@@ -146,8 +147,9 @@ async function updateDraft(
   transaction: DatabaseExecutor,
   stored: SupplierPanelProductRow,
   input: CatalogSaveDraftInput,
-  now: Date,
+  options: { now: Date; reviewRequired: boolean },
 ): Promise<void> {
+  const { now, reviewRequired } = options;
   const values = valuesToWrite(stored, input);
   const changed = changedProductFields(stored, values);
   assertFreshVersion(stored, input, changed);
@@ -155,11 +157,23 @@ async function updateDraft(
     return;
   }
   const categorySlug = await categorySlugOf(transaction, values.categoryId);
-  const next = statusAfterEdit({
+  const reviewedNext = statusAfterEdit({
     current: stored.reviewStatus,
     changedFields: changed,
     blockingIssueCount: blockingCount(values, categorySlug),
   });
+  const contentReady = evaluateCompleteness(
+    values,
+    requiredAttributesFor(categorySlug),
+  ).blocking.every((issue) => issue.field === "stock");
+  // Private products do not enter supplier review. A platform block survives owner edits.
+  const next = reviewRequired
+    ? reviewedNext
+    : stored.reviewStatus === "rejected"
+      ? "rejected"
+      : stored.reviewStatus === "approved" && contentReady
+        ? "approved"
+        : "draft";
   const resubmitted = next === "in_review" && stored.reviewStatus !== "in_review";
   await transaction
     .update(supplierProducts)
@@ -172,21 +186,24 @@ async function updateDraft(
  * retried request never duplicates it; edits follow the review rules of `statusAfterEdit`.
  */
 export async function saveSupplierPanelDraft(
-  database: Database,
+  database: DatabaseExecutor,
   input: CatalogSaveDraftInput,
   now: Date = new Date(),
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
-    await lockSupplier(transaction, input.supplierId);
+    const source = await lockSupplier(transaction, input.supplierId);
     await assertUniqueSku(transaction, input);
     const stored = await lockProduct(transaction, input);
     if (stored !== undefined) {
-      await updateDraft(transaction, stored, input, now);
+      await updateDraft(transaction, stored, input, {
+        now,
+        reviewRequired: source.catalogKind === "supplier",
+      });
       return await getSupplierPanelProduct(transaction, input);
     }
     // Opening counts come from the client; only a stored product can preserve a negative shelf.
     if (input.values.stock < 0) {
-      throw validationError("New products cannot have negative stock");
+      throw validationError("Novos produtos não podem ter estoque negativo");
     }
     await categorySlugOf(transaction, input.values.categoryId);
     const created = await transaction

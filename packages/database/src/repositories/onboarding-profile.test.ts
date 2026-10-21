@@ -54,6 +54,7 @@ describe("onboarding profile", () => {
     expect(await findOnboardingProfile(database, tenantAt(0))).toEqual({
       holder: null,
       starterSupplier: null,
+      productSourceMode: null,
     });
   });
 

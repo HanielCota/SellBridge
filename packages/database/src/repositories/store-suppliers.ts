@@ -13,6 +13,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -30,7 +31,7 @@ export async function assertActiveSupplier(
   const [supplier] = await executor
     .select({ id: suppliers.id })
     .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true)))
+    .where(and(eq(suppliers.id, supplierId), eq(suppliers.active, true), publicSupplier()))
     .limit(1);
   if (supplier === undefined) {
     throw notFoundError("Fornecedor não encontrado ou inativo");
@@ -84,8 +85,10 @@ function otherSupplierTargets(executor: DatabaseExecutor, input: AssignStoreSupp
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(
       and(
+        publicSupplier(),
         eq(listingTargets.tenantId, input.tenantId),
         eq(listingTargets.storeConnectionId, input.storeConnectionId),
         ne(supplierProducts.supplierId, input.supplierId),
@@ -170,6 +173,11 @@ export async function assertStoresSellSupplier(
   supplierId: string,
 ): Promise<void> {
   if (storeConnectionIds.length === 0) {
+    return;
+  }
+  const source = await executor.query.suppliers.findFirst({ where: eq(suppliers.id, supplierId) });
+  if (source?.catalogKind === "seller") {
+    if (source.ownerTenantId !== tenantId) throw notFoundError("Origem do produto não encontrada.");
     return;
   }
   const stores = await executor

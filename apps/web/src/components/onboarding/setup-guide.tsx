@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   countDoneSteps,
   findNextStep,
+  getSetupSteps,
   remainingSetupMinutes,
   SETUP_STEPS,
   setupEtaLabel,
@@ -31,15 +32,35 @@ function ProgressBar({ progress }: { progress: SetupProgress }) {
   );
 }
 
+const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
+
 /** The e-mail step resends the link; every other step opens its page. */
-function StepAction({ step }: { step: SetupStep }) {
+function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
   if (step.key === "hasVerifiedEmail") {
-    return <ResendVerificationButton label={step.cta} />;
+    if (done) {
+      return (
+        <Button asChild variant="outline" className={STEP_ACTION_CLASS_NAME}>
+          <Link to="/perfil">Gerenciar e-mail</Link>
+        </Button>
+      );
+    }
+    return <ResendVerificationButton label={step.cta} className={STEP_ACTION_CLASS_NAME} />;
+  }
+  if (step.key === "hasHolder" || step.key === "hasSupplier") {
+    const isHolder = step.key === "hasHolder";
+    return (
+      <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
+        <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
+          {done ? (isHolder ? "Editar dados" : "Editar origem dos produtos") : step.cta}
+          <ArrowRightIcon aria-hidden="true" />
+        </Link>
+      </Button>
+    );
   }
   return (
-    <Button asChild className="w-fit">
+    <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
       <Link to={step.to}>
-        {step.cta}
+        {done ? (step.key === "hasStore" ? "Gerenciar lojas" : "Gerenciar anúncios") : step.cta}
         <ArrowRightIcon aria-hidden="true" />
       </Link>
     </Button>
@@ -58,7 +79,7 @@ function StepCard({
   return (
     <li
       className={cn(
-        "flex flex-col gap-4 rounded-2xl p-5",
+        "flex min-w-0 flex-col gap-4 rounded-2xl p-5",
         state === "next" ? "bg-muted ring-1 ring-brand/60" : "bg-muted/50",
       )}
     >
@@ -90,7 +111,7 @@ function StepCard({
         )}
         <p className="text-sm text-muted-foreground">{step.description}</p>
       </div>
-      {state === "next" ? <StepAction step={step} /> : null}
+      <StepAction step={step} done={state === "done"} />
     </li>
   );
 }
@@ -129,7 +150,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {SETUP_STEPS.map((step, index) => (
+        {getSetupSteps(progress).map((step, index) => (
           <StepCard
             key={step.key}
             step={step}
@@ -162,9 +183,9 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
       <div className="flex-1 sm:max-w-48">
         <ProgressBar progress={progress} />
       </div>
-      <Button asChild size="sm" className="w-fit sm:ml-auto">
-        <Link to={next.to}>{next.cta}</Link>
-      </Button>
+      <div className="sm:ml-auto">
+        <StepAction step={next} />
+      </div>
     </aside>
   );
 }

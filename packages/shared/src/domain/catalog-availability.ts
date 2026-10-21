@@ -26,7 +26,7 @@ const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
   supplier_inactive:
     "O fornecedor deste produto está inativo. Quando ele voltar ao catálogo, reprocesse a publicação.",
   product_inactive:
-    "Este produto saiu do catálogo do fornecedor. Quando ele voltar, reprocesse a publicação.",
+    "Este produto está indisponível. Tente publicar novamente quando ele estiver disponível.",
 };
 
 /** Why a queued publication was not sent, and what the reseller can do (listing card). */
@@ -36,14 +36,14 @@ export function unavailableMessage(reason: UnavailableReason): string {
 
 const LISTING_LABELS: Record<UnavailableReason, string> = {
   supplier_inactive: "Fornecedor inativo",
-  product_inactive: "Produto fora do catálogo",
+  product_inactive: "Produto indisponível",
 };
 
 const LISTING_MESSAGES: Record<UnavailableReason, string> = {
   supplier_inactive:
     "O fornecedor está inativo. O anúncio fica pausado; reative quando ele voltar ao catálogo.",
   product_inactive:
-    "O fornecedor tirou este produto do catálogo. O anúncio fica pausado; reative quando ele voltar.",
+    "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
 };
 
 /** The cause in a few words, on the listing card. */

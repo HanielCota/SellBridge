@@ -55,11 +55,15 @@ export function ListingPreview({
             </p>
             <p className="text-xs text-brand-text">
               <HintedText
-                label={ACTION_ICONS.supplierShips.hint}
+                label={
+                  product.catalogKind === "seller"
+                    ? "Você prepara e envia este produto do seu próprio estoque."
+                    : ACTION_ICONS.supplierShips.hint
+                }
                 className="inline-flex items-start gap-1"
               >
                 <SupplierShipsIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-                Enviado pelo fornecedor
+                {product.catalogKind === "seller" ? "Enviado por você" : "Enviado pelo fornecedor"}
               </HintedText>
             </p>
           </div>
@@ -124,7 +128,11 @@ export function ProfitCard({
         <dl className="space-y-1.5 text-sm">
           <ProfitSplitLine
             swatch={PROFIT_SPLIT_COLORS.cost}
-            label="Custo do fornecedor"
+            label={
+              product.catalogKind === "seller"
+                ? "Seu custo por unidade"
+                : "Custo por unidade do fornecedor"
+            }
             value={formatCents(product.costCents)}
           />
           <FeeLines estimate={estimate} schedule={schedule} />

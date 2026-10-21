@@ -1,6 +1,7 @@
 import { isForwardEmailFailureNote } from "@sellbridge/shared/forward-notes";
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
+import { ensureSellerCatalog } from "@sellbridge/database/repositories";
 import { marketplaceError } from "@sellbridge/marketplaces";
 import { logger } from "@sellbridge/shared/logger";
 import type { OutgoingEmail } from "@sellbridge/shared/mailer";
@@ -207,5 +208,71 @@ describe("order auto-forward", () => {
       info.mockRestore();
       warn.mockRestore();
     }
+  });
+});
+
+async function addOwnItem(orderId: string) {
+  const own = await ensureSellerCatalog(database, tenants.first);
+  const [product] = await database
+    .insert(schema.supplierProducts)
+    .values({
+      supplierId: own.id,
+      sku: randomUUID(),
+      title: "Own auto-forward item",
+      costCents: 1000,
+      suggestedPriceCents: 3000,
+      stock: 8,
+      active: true,
+      reviewStatus: "approved",
+    })
+    .returning();
+  if (!product) throw new Error("Own product missing");
+  await database.insert(schema.orderItems).values({
+    tenantId: tenants.first,
+    orderId,
+    supplierProductId: product.id,
+    title: product.title,
+    quantity: 1,
+    unitPriceCents: 3000,
+    unitCostCents: 1000,
+  });
+  return own.id;
+}
+
+describe("own-product automatic preparation", () => {
+  it("prepares own items without issuing a supplier link or sending email", async () => {
+    const order = await paidOrder();
+    await database.delete(schema.orderItems).where(eq(schema.orderItems.orderId, order.id));
+    const ownSource = await addOwnItem(order.id);
+    expect(await processor()(job(order.id))).toBe("forwarded");
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(await shipmentsOf(order.id)).toMatchObject([
+      {
+        supplierId: ownSource,
+        status: "accepted",
+        supplierTokenHash: null,
+        supplierTokenExpiresAt: null,
+      },
+    ]);
+    expect(await processor()(job(order.id))).toBe("not_eligible");
+    expect(await shipmentsOf(order.id)).toHaveLength(1);
+  });
+
+  it("emails only the external supplier when automatically preparing a mixed order", async () => {
+    const order = await paidOrder();
+    const ownSource = await addOwnItem(order.id);
+    expect(await processor()(job(order.id))).toBe("forwarded");
+    const parcels = await shipmentsOf(order.id);
+    expect(parcels).toHaveLength(2);
+    expect(parcels.find((parcel) => parcel.supplierId === ownSource)).toMatchObject({
+      status: "accepted",
+      supplierTokenHash: null,
+    });
+    expect(
+      parcels.find((parcel) => parcel.supplierId === catalog.supplierId)?.supplierTokenHash,
+    ).toBeTruthy();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail.mock.calls[0]?.[0].to).toBe(supplierEmail);
+    expect(sendEmail.mock.calls[0]?.[0].text).not.toContain("Own auto-forward item");
   });
 });

@@ -7,7 +7,7 @@ import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
-import { applyStockMoves } from "./stock-reservations.ts";
+import { applyStockMoves, reserveShortItems } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
   externalOrderId: string;
@@ -24,7 +24,7 @@ export interface IncomingOrder {
 export type UpsertOrderResult = {
   status: "created" | "updated";
   orderId: string;
-  /** Order items that moved supplier stock in this write; above zero, sync the marketplaces. */
+  /** Stock moves for this order and recovered shortages; above zero, sync the marketplaces. */
   stockMoves: number;
 };
 type OrderWriteResult = Omit<UpsertOrderResult, "stockMoves">;
@@ -318,7 +318,22 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  return database.transaction(async (transaction) =>
+  const result = await database.transaction(async (transaction) =>
     writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
   );
+  // Reclaim released units before the worker offers them on marketplaces. Retried terminal
+  // events also recover a reservation attempt that failed after the order committed.
+  const reserved = await reserveOrderShortages(database, result.orderId);
+  return { ...result, stockMoves: result.stockMoves + reserved };
+}
+
+async function reserveOrderShortages(database: Database, orderId: string): Promise<number> {
+  const items = await database
+    .select({ productId: orderItems.supplierProductId })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  const productIds = [
+    ...new Set(items.flatMap((item) => (item.productId ? [item.productId] : []))),
+  ];
+  return reserveShortItems(database, productIds);
 }

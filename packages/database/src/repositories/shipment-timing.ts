@@ -38,8 +38,16 @@ export const latestForwardedAt = sql<Date | null>`(
 /** The supplier's side of the timing: the latest forward and its own hours. */
 export const supplierTimingColumns = {
   forwardedAt: latestForwardedAt,
-  acceptWithinHours: suppliers.acceptWithinHours,
-  dispatchWithinHours: suppliers.dispatchWithinHours,
+  acceptWithinHours: sql<
+    number | null
+  >`case when ${suppliers.catalogKind} = 'supplier' then ${suppliers.acceptWithinHours} else null end`.mapWith(
+    Number,
+  ),
+  dispatchWithinHours: sql<
+    number | null
+  >`case when ${suppliers.catalogKind} = 'supplier' then ${suppliers.dispatchWithinHours} else null end`.mapWith(
+    Number,
+  ),
 };
 
 /** By when the supplier must accept and dispatch a parcel read with `supplierTimingColumns`. */

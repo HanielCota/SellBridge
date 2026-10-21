@@ -28,6 +28,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme}
+      containerAriaLabel="Notificações"
       position="bottom-center"
       offset={24}
       // Above the iPhone home indicator: the app draws edge to edge (viewport-fit=cover).
@@ -41,6 +42,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         loading: <CircleNotchIcon weight="bold" className={`${ICON} animate-spin`} />,
       }}
       toastOptions={{
+        closeButtonAriaLabel: "Fechar notificação",
         unstyled: true,
         classNames: {
           toast:

@@ -1,5 +1,5 @@
-import { and, eq, ne } from "drizzle-orm";
-import { orders, orderShipments } from "../schema/index.ts";
+import { and, eq } from "drizzle-orm";
+import { orders, orderShipments, suppliers } from "../schema/index.ts";
 import type { DatabaseExecutor } from "../client.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
@@ -15,10 +15,15 @@ export async function reconciledOrderStatus(
 ): Promise<OrderStatus> {
   if (incoming !== "paid") return incoming;
   // A cancelled parcel is waiting to be re-forwarded or dropped: it neither ships nor holds back.
-  const shipments = await database
-    .select({ status: orderShipments.status })
+  const parcels = await database
+    .select({ status: orderShipments.status, catalogKind: suppliers.catalogKind })
     .from(orderShipments)
-    .where(and(eq(orderShipments.orderId, orderId), ne(orderShipments.status, "cancelled")));
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(eq(orderShipments.orderId, orderId));
+  // Mixed orders require every party; a stopped own preparation must be restarted.
+  const shipments = parcels.some((parcel) => parcel.catalogKind === "seller")
+    ? parcels
+    : parcels.filter((parcel) => parcel.status !== "cancelled");
   if (shipments.length === 0) return incoming;
   // Every parcel came back without reaching the buyer: nothing was sold.
   if (shipments.every((shipment) => shipment.status === "returned")) return "returned";
@@ -37,6 +42,7 @@ export async function syncOrderFromShipments(
   options: { buyerReturned?: boolean } = {},
 ) {
   if (!["paid", "shipped", "delivered"].includes(order.status)) return;
+  await consumeDispatchedItems(database, order);
   const status = options.buyerReturned
     ? "returned"
     : await reconciledOrderStatus(database, order.id, "paid");
@@ -71,4 +77,18 @@ export async function syncOrderFromShipments(
       orderedAt: order.orderedAt.toISOString(),
     },
   });
+}
+
+async function consumeDispatchedItems(
+  database: DatabaseExecutor,
+  order: typeof orders.$inferSelect,
+) {
+  const parcels = await database
+    .select({ items: orderShipments.items, status: orderShipments.status })
+    .from(orderShipments)
+    .where(and(eq(orderShipments.orderId, order.id), eq(orderShipments.tenantId, order.tenantId)));
+  const itemIds = parcels
+    .filter((parcel) => parcel.status === "shipped" || parcel.status === "delivered")
+    .flatMap((parcel) => parcel.items.map((item) => item.orderItemId));
+  if (itemIds.length > 0) await applyStockMoves(database, order.id, "shipped", itemIds);
 }

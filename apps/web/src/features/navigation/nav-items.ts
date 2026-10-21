@@ -18,6 +18,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
+  { label: "Meus produtos", to: "/products" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
   { label: "Pedidos", to: "/pedidos" },
@@ -29,13 +30,14 @@ export const NAV_ITEMS: NavItem[] = [
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
   { label: "Pedidos", to: "/fornecedor/painel/pedidos" },
-  { label: "Produtos", to: "/fornecedor/painel/produtos" },
-  { label: "Importar", to: "/fornecedor/painel/importar" },
+  { label: "Meus produtos", to: "/fornecedor/painel/produtos" },
+  { label: "Importar produtos", to: "/fornecedor/painel/importar" },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
   { label: "Marca", to: "/fornecedor/painel/marca" },
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: "Produtos", to: "/admin/products", permission: "customers.manage" },
   { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
   {
     label: "Fornecedores",
