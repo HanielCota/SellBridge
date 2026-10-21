@@ -118,6 +118,11 @@ describe("listingNamedState", () => {
     expect(listingNamedState(stopped)).toBe("paused");
   });
 
+  it("keeps the run state of a stopped listing that never went live, as its tab does", () => {
+    const failed = listing([store("A", "error")], 10, "cost_above_price");
+    expect(listingNamedState(failed)).toBe("off");
+  });
+
   it("keeps the run state for every other listing", () => {
     expect(listingNamedState(listing([store("A", "error")]))).toBe("off");
     expect(listingNamedState(listing([store("A", "published")]))).toBe("live");
