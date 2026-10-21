@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_auth/cadastro")({
     meta: shareMeta({
       title: "Criar conta | SellBridge",
       description:
-        "Crie sua conta, escolha atacadistas de todo o Brasil e venda sem estoque no Mercado Livre, na Shopee e no TikTok Shop.",
+        "Crie sua conta, escolha atacadistas de todo o Brasil e venda sem estoque no Mercado Livre. Shopee e TikTok Shop em breve.",
     }),
   }),
   component: SellerSignUpPage,

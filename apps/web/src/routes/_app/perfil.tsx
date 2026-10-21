@@ -44,6 +44,23 @@ function ProfileHeader({ name, email, label, createdAt }: ProfileHeaderProps) {
   );
 }
 
+/** A supplier only gets support notices here; new orders reach them by e-mail. */
+function NotificationsCard({ isSupplier }: { isSupplier: boolean }) {
+  return (
+    <SectionCard
+      title="Notificações"
+      description="Escolha onde você quer saber de cada coisa: no sino do app ou por e-mail."
+    >
+      <NotificationPreferences />
+      {isSupplier ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Pedidos novos chegam por e-mail, no endereço de pedidos da sua marca.
+        </p>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 function ProfilePage() {
   const { session } = Route.useRouteContext();
   const { user } = session;
@@ -66,12 +83,7 @@ function ProfilePage() {
         <ProfileNameForm key={user.name} name={user.name} email={user.email} />
       </SectionCard>
 
-      <SectionCard
-        title="Notificações"
-        description="Escolha onde você quer saber de cada coisa: no sino do app ou por e-mail."
-      >
-        <NotificationPreferences />
-      </SectionCard>
+      <NotificationsCard isSupplier={session.profileKind === "supplier"} />
 
       {isImpersonating ? (
         <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">

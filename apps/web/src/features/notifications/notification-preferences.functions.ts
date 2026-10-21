@@ -19,7 +19,10 @@ const savePreferenceSchema = z.object({
 export const getNotificationPreferences = createServerFn({ method: "GET" })
   .middleware([accountMiddleware])
   .handler(async ({ context }) =>
-    buildPreferenceRows(await listNotificationPreferences(database, context.userId)),
+    buildPreferenceRows(
+      await listNotificationPreferences(database, context.userId),
+      context.profileKind,
+    ),
   );
 
 export const saveNotificationPreferenceFn = createServerFn({ method: "POST" })

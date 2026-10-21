@@ -3,7 +3,7 @@ import { buildPreferenceRows, hiddenNotificationKinds } from "./notification-pre
 
 describe("buildPreferenceRows", () => {
   it("lists every event with the default when nothing was saved", () => {
-    const rows = buildPreferenceRows([]);
+    const rows = buildPreferenceRows([], "seller");
     const sale = rows.find((row) => row.event === "sale_paid");
     expect(sale).toMatchObject({
       label: "Venda paga",
@@ -18,11 +18,20 @@ describe("buildPreferenceRows", () => {
   });
 
   it("leaves the team's notices out of the reseller's screen", () => {
-    expect(buildPreferenceRows([]).map((row) => row.event)).not.toContain("ticket_created");
+    expect(buildPreferenceRows([], "seller").map((row) => row.event)).not.toContain(
+      "ticket_created",
+    );
+  });
+
+  it("offers a supplier only the notices that reach a supplier, not the reseller's", () => {
+    expect(buildPreferenceRows([], "supplier").map((row) => row.event)).toEqual(["support_reply"]);
   });
 
   it("shows the saved choice over the default", () => {
-    const rows = buildPreferenceRows([{ event: "sale_paid", channel: "email", enabled: false }]);
+    const rows = buildPreferenceRows(
+      [{ event: "sale_paid", channel: "email", enabled: false }],
+      "seller",
+    );
     expect(rows.find((row) => row.event === "sale_paid")?.channels.email.enabled).toBe(false);
   });
 });

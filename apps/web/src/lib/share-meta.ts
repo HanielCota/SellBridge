@@ -11,7 +11,7 @@ export const SHARE_IMAGES = {
     url: `${BRAND_SITE}/brand/sellbridge-share-v1.jpg`,
     width: 1200,
     height: 630,
-    alt: "SellBridge: revenda nos marketplaces sem ter estoque. Fornecedores perto de você no Mercado Livre, Shopee e TikTok Shop.",
+    alt: "SellBridge: revenda nos marketplaces sem ter estoque. Fornecedores perto de você no Mercado Livre, com Shopee e TikTok Shop em breve.",
   },
   /** Só o símbolo, para links operacionais (ex.: pedido do fornecedor) que não devem parecer propaganda. */
   symbol: {

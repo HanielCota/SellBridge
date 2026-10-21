@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
-import { shipmentStatusLabel } from "@/features/fulfillment/shipment-timeline";
+import { shipmentsSummary } from "@/features/fulfillment/shipment-timeline";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { storesQueryOptions } from "@/features/stores/stores.queries";
 import { useNow } from "@/hooks/use-now";
@@ -239,16 +239,7 @@ function OperationRow({
         <p className="text-xs text-muted-foreground">
           {displayBuyerName(row.buyerName)} · {row.storeName} · <SmartDate date={row.orderedAt} />
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.shipments.length
-            ? row.shipments
-                .map(
-                  (shipment) =>
-                    `${shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName}: ${shipmentStatusLabel(shipment.status, shipment.catalogKind)}`,
-                )
-                .join(" · ")
-            : "Shipments have not been prepared"}
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{shipmentsSummary(row.shipments)}</p>
       </div>
       <div className="flex flex-col items-start gap-1">
         <HintedText label={ORDER_STATUS_HINTS[row.status] ?? "Situação do pedido"}>

@@ -4,9 +4,9 @@ import type {
   CatalogDraftValues,
   CatalogListSearch,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
-import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
-import { categories, supplierProducts } from "../schema/index.ts";
+import { eq, inArray } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import { createTestDatabase } from "../testing/fixtures.ts";
 import { saveAdminSupplier, saveAdminSupplierProduct } from "./admin-suppliers.ts";
 import { getSupplierPanelProduct, listSupplierPanelProducts } from "./supplier-panel-catalog.ts";
@@ -88,6 +88,17 @@ beforeAll(async () => {
     .values({ name: "Painel teste", slug: `painel-${randomUUID()}` })
     .returning();
   categoryId = category?.id ?? "";
+});
+
+// The suppliers and the "Painel teste" category used to stay in the database after each run and
+// showed up in the supplier form's category list during demos.
+afterAll(async () => {
+  const testSuppliers = [supplierId, otherSupplierId];
+  await database
+    .delete(supplierProducts)
+    .where(inArray(supplierProducts.supplierId, testSuppliers));
+  await database.delete(suppliers).where(inArray(suppliers.id, testSuppliers));
+  await database.delete(categories).where(eq(categories.id, categoryId));
 });
 
 describe("saveSupplierPanelDraft", () => {

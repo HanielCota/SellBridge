@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FULFILLMENT_TONES, shipmentTimeline } from "./shipment-timeline";
+import { FULFILLMENT_TONES, shipmentTimeline, shipmentsSummary } from "./shipment-timeline";
 
 describe("shipment status tone", () => {
   it.each([
@@ -30,5 +30,20 @@ describe("shipment timeline", () => {
       { id: "c", status: "returned" as const, actor: "Mercado Livre", note: "", createdAt: at(9) },
     ];
     expect(shipmentTimeline(events).map((event) => event.id)).toEqual(["c", "b", "a"]);
+  });
+});
+
+describe("shipmentsSummary", () => {
+  it("says in Portuguese that nothing went to the supplier yet", () => {
+    expect(shipmentsSummary([])).toBe("Ainda não encaminhado ao fornecedor");
+  });
+
+  it("names each parcel with its status", () => {
+    expect(
+      shipmentsSummary([
+        { status: "picking", catalogKind: "seller", supplierName: "" },
+        { status: "shipped", catalogKind: "supplier", supplierName: "Casa Bela" },
+      ]),
+    ).toMatch(/^Seu envio: .+ · Casa Bela: .+$/);
   });
 });
