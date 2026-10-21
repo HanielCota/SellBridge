@@ -15,6 +15,7 @@ function store(
     storeConnectionId: `store-${status}`,
     status,
     errorReason: null,
+    descriptionError: null,
     attempts: 1,
     externalUrl: null,
     publishedAt: null,
@@ -42,6 +43,7 @@ function listing(stores: ListingStoreStatus[]): ListingOverviewRow {
     unitsSold: 3,
     dailySales: [],
     stores,
+    unavailable: null,
   };
 }
 

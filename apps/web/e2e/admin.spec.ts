@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, test, type Browser } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
+import { createListingWithTargets, markTargetFailed } from "@sellbridge/database/repositories";
+import {
+  member,
+  organization,
+  storeConnections,
+  supplierProducts,
+  user,
+} from "@sellbridge/database/schema";
+import { eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   enableAdminMode,
@@ -7,6 +19,61 @@ import {
   signUp,
   waitForHydration,
 } from "./helpers";
+
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+
+test.afterAll(async () => {
+  await database.$client.end();
+});
+
+/** Own failed listing: this test also works before any publication spec has run. */
+async function customerWithListingIssue(browser: Browser) {
+  const customerPage = await browser.newPage();
+  const email = await signUp(customerPage, "Customer With Failed Listing");
+  await customerPage.close();
+  const [customer] = await database
+    .select({ userId: user.id, tenantId: member.organizationId })
+    .from(user)
+    .innerJoin(member, eq(member.userId, user.id))
+    .where(eq(user.email, email));
+  const [product] = await database
+    .select({ id: supplierProducts.id })
+    .from(supplierProducts)
+    .limit(1);
+  if (!customer || !product)
+    throw new Error("Issue fixture requires a customer and catalog product");
+  const [store] = await database
+    .insert(storeConnections)
+    .values({
+      tenantId: customer.tenantId,
+      marketplace: "mock",
+      externalShopId: randomUUID(),
+      shopName: "Issue fixture store",
+    })
+    .returning({ id: storeConnections.id });
+  if (!store) throw new Error("Issue fixture store was not created");
+  const listing = await createListingWithTargets(
+    database,
+    customer.tenantId,
+    {
+      supplierProductId: product.id,
+      title: "Issue fixture listing",
+      description: "Independent fixture for the customer issue queue",
+      priceCents: 4990,
+    },
+    [store.id],
+  );
+  const targetId = listing.targetIds[0];
+  if (!targetId) throw new Error("Issue fixture target was not created");
+  await markTargetFailed(database, targetId, "Fixture publication failure", { final: true });
+  return {
+    email,
+    async cleanup() {
+      await database.delete(organization).where(eq(organization.id, customer.tenantId));
+      await database.delete(user).where(eq(user.id, customer.userId));
+    },
+  };
+}
 
 test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   const customerContext = await browser.newContext();
@@ -18,7 +85,11 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, `/admin/clientes?query=${encodeURIComponent(email)}`);
-  await page.getByRole("link", { name: "Cliente Painel Admin" }).click();
+  // The name opens the quick view in place; the full record is one link away.
+  await page.getByRole("button", { name: /^Cliente Painel Admin/ }).click();
+  const quickView = page.getByRole("region", { name: "Resumo de Cliente Painel Admin" });
+  await expect(quickView.getByText("Primeiros passos", { exact: true })).toBeVisible();
+  await quickView.getByRole("link", { name: "Ficha completa" }).click();
   await expect(page.getByRole("heading", { name: "Cliente Painel Admin" })).toBeVisible();
 
   await page.getByLabel("Nome", { exact: true }).fill("Cliente Renomeado");
@@ -31,6 +102,44 @@ test("admin edita um cliente, entra como ele e volta", async ({ browser }) => {
   await waitForHydration(page);
   await page.getByRole("button", { name: "Voltar ao admin" }).click();
   await expect(page).toHaveURL(/\/admin\/clientes/);
+
+  // Entering as the customer lands in their timeline.
+  await gotoHydrated(page, `/admin/clientes?query=${encodeURIComponent(email)}`);
+  await page.getByRole("button", { name: /^Cliente Renomeado/ }).click();
+  const renamedView = page.getByRole("region", { name: "Resumo de Cliente Renomeado" });
+  await expect(renamedView.getByText("Entrou como o cliente")).toBeVisible();
+  await expect(renamedView.getByText("Editou nome ou e-mail")).toBeVisible();
+  // The customer's own sign-up counts as a visit; the admin's session as them does not.
+  await expect(renamedView.getByText("Último acesso do cliente")).toBeVisible();
+});
+
+test("admin finds customers by issue and journey", async ({ page, browser }) => {
+  const fixture = await customerWithListingIssue(browser);
+  try {
+    await signIn(page, ADMIN_USER);
+    await enableAdminMode(page);
+    await gotoHydrated(page, `/admin/clientes?query=${encodeURIComponent(fixture.email)}`);
+    await expect(page.getByRole("navigation", { name: "Filtrar por problema" })).toBeVisible();
+    await page.getByRole("link", { name: /Publicações com erro/ }).click();
+    await expect(page).toHaveURL(/issue=listings/);
+
+    await page.getByRole("button", { name: "Pendências" }).click();
+    const queue = page.getByRole("region", { name: "Pendências" });
+    await expect(queue).toBeVisible();
+
+    // Taking an issue moves it into the admin's own queue; letting it go puts it back.
+    await queue.getByRole("button", { name: "Assumir" }).first().click();
+    await expect(page.getByText("Pendência atribuída a você")).toBeVisible();
+    await page.getByRole("button", { name: /^Comigo/ }).click();
+    await expect(queue.getByText("Com você").first()).toBeVisible();
+    await queue.getByRole("button", { name: "Devolver para a equipe" }).first().click();
+    await expect(page.getByText("Pendência devolvida para a equipe")).toBeVisible();
+    await page.getByRole("button", { name: /^Abertas/ }).click();
+    await page.getByRole("button", { name: "Jornada" }).click();
+    await expect(page.getByRole("region", { name: "Vendendo" })).toBeVisible();
+  } finally {
+    await fixture.cleanup();
+  }
 });
 
 test("revendedor não acessa o painel de clientes", async ({ page }) => {

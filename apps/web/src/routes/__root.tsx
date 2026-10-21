@@ -1,11 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
-import { themeInitScript } from "@/components/theme/theme-provider";
+import { NotFound } from "@/components/feedback/not-found";
+import { THEME_COLORS, themeInitScript } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "@/styles.css?url";
 import { assetRecoveryScript } from "@/lib/asset-recovery";
+import { SITE_SHARE_META, shareMeta } from "@/lib/share-meta";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -15,12 +17,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SellBridge" },
-      {
-        name: "description",
-        content: "Conecte suas lojas, publique produtos de fornecedores e acompanhe suas vendas.",
-      },
+      // `viewport-fit=cover` lets the fixed bars reach under the notch; they pad by the safe areas.
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "color-scheme", content: "dark light" },
+      // Dark is the default theme; the init script swaps it for a saved light preference.
+      { name: "theme-color", content: THEME_COLORS.dark },
+      ...SITE_SHARE_META,
+      ...shareMeta({
+        title: "SellBridge",
+        description:
+          "Conecte suas lojas, publique produtos de fornecedores e acompanhe suas vendas.",
+      }),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -31,6 +38,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
   }),
   component: RootComponent,
+  // A URL outside every layout has no <main>: without one the skip link led nowhere. Inner
+  // routes keep the plain default inside their layout's own main.
+  notFoundComponent: () => (
+    <main id="main-content" tabIndex={-1}>
+      <NotFound />
+    </main>
+  ),
 });
 
 function RootComponent() {
@@ -49,12 +63,24 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/*
+          The function's source text differs between the server and the client bundles; the
+          script already ran from the server HTML, so the client's copy is never used.
+        */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: assetRecoveryScript }}
+        />
         <HeadContent />
+        {/* After the head tags, so the theme-color meta it updates already exists. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-svh bg-background font-sans text-foreground antialiased">
-        <TooltipProvider>{children}</TooltipProvider>
+        <a href="#main-content" className="skip-link">
+          Pular para o conteúdo
+        </a>
+        {/* A short delay keeps tooltips from flashing while the pointer only passes over a control. */}
+        <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         <Toaster />
 
         <Scripts />

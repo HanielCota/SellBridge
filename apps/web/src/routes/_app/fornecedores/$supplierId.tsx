@@ -16,7 +16,9 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReputationPanel } from "@/components/suppliers/reputation-panel";
 import { SupplierProductCard } from "@/components/suppliers/supplier-product-card";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +37,7 @@ import {
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { normalizeCostRange } from "@/features/catalog/cost-range";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -49,6 +52,8 @@ export const Route = createFileRoute("/_app/fornecedores/$supplierId")({
   head: () => ({ meta: [{ title: "Catálogo | SellBridge" }] }),
   component: CatalogPage,
 });
+
+const StoresIcon = ACTION_ICONS.stores.icon;
 
 function useCatalogQuery() {
   const { supplierId } = Route.useParams();
@@ -69,7 +74,7 @@ function CatalogPage() {
   const { supplier } = query.data;
   return (
     <>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
         <Link to="/fornecedores">
           <ArrowLeftIcon aria-hidden="true" />
           Fornecedores
@@ -78,6 +83,17 @@ function CatalogPage() {
       <PageHeader
         title={supplier.name}
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
+        actions={
+          // Same destination as the Lojas tab (adding a store), so the same icon.
+          <Hint label={CONTROL_HINTS.sellSupplier} openOnTap={false}>
+            <Button asChild>
+              <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
+                <StoresIcon weight="bold" aria-hidden="true" />
+                Vender este fornecedor
+              </Link>
+            </Button>
+          </Hint>
+        }
       />
       <ReputationPanel supplierId={supplier.id} />
       <CatalogFilters categories={query.data.categories} />
@@ -122,7 +138,7 @@ function CatalogFilters({
           }
         />
         <Label htmlFor="in-stock" className="font-normal">
-          Somente com estoque
+          Só com estoque
         </Label>
       </div>
     </div>
@@ -140,7 +156,7 @@ function CatalogSearchInput() {
   return (
     <SearchInput
       label="Buscar produto"
-      placeholder="Buscar por nome ou SKU"
+      placeholder="Buscar por nome ou código"
       className="md:col-span-2 xl:col-span-1"
       value={term}
       onValueChange={setTerm}
@@ -219,7 +235,14 @@ function CostRangeInputs({ minCost, maxCost, onChange }: CostRangeInputsProps) {
   const [max, setMax] = useState(formatCentsForInput(maxCost));
 
   function commit() {
-    onChange({ minCost: parseOptionalBrlToCents(min), maxCost: parseOptionalBrlToCents(max) });
+    const range = normalizeCostRange({
+      minCost: parseOptionalBrlToCents(min),
+      maxCost: parseOptionalBrlToCents(max),
+    });
+    // The fields show the filter that was applied, not what was typed.
+    setMin(formatCentsForInput(range.minCost));
+    setMax(formatCentsForInput(range.maxCost));
+    onChange(range);
   }
 
   return (
@@ -298,7 +321,7 @@ function CatalogResults() {
 
 function ProductGridSkeleton() {
   return (
-    <div
+    <output
       className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
       aria-busy="true"
       aria-label="Carregando produtos"
@@ -306,7 +329,7 @@ function ProductGridSkeleton() {
       {Array.from({ length: 8 }, (_, index) => (
         <Skeleton key={index} className="aspect-[3/4] rounded-3xl" />
       ))}
-    </div>
+    </output>
   );
 }
 

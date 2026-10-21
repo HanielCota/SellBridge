@@ -1,40 +1,46 @@
+import { DEFAULT_FEE_SCHEDULE } from "@sellbridge/shared/fee-model";
 import { describe, expect, it } from "vitest";
 import {
-  ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL,
   estimateProfit,
+  feePercentLabel,
   isLowStock,
   isThinMargin,
+  wholeMarginPercent,
   priceForMargin,
 } from "./profit";
 
+/** Today's 14% plus a SellBridge fee of 4%. */
+const schedule = { ...DEFAULT_FEE_SCHEDULE, platformFeeBasisPoints: 400 };
+
 describe("estimateProfit", () => {
   it("returns null when there is no price", () => {
-    expect(estimateProfit(null, 1000)).toBeNull();
-    expect(estimateProfit(0, 1000)).toBeNull();
+    expect(estimateProfit(null, 1000, schedule)).toBeNull();
+    expect(estimateProfit(0, 1000, schedule)).toBeNull();
   });
 
-  it("subtracts cost and estimated fee", () => {
-    expect(estimateProfit(10_000, 5000)).toEqual({
+  it("subtracts cost, the marketplace fee and the SellBridge fee", () => {
+    expect(estimateProfit(10_000, 5000, schedule)).toEqual({
       feeCents: 1400,
-      profitCents: 3600,
-      marginPercent: 36,
+      platformFeeCents: 400,
+      profitCents: 3200,
+      marginPercent: 32,
     });
   });
 
   it("reports negative profit when the price does not cover costs", () => {
-    expect(estimateProfit(5000, 5000)?.profitCents).toBe(-700);
+    expect(estimateProfit(5000, 5000, schedule)?.profitCents).toBe(-900);
   });
 });
 
 describe("priceForMargin", () => {
-  it("prices so the profit is the asked share of the sale", () => {
-    const price = priceForMargin(5814, 30);
-    expect(price).toBe(10_383);
-    expect(estimateProfit(price, 5814)?.marginPercent).toBe(30);
+  it("prices so the profit is the asked share of the sale, every fee counted", () => {
+    const price = priceForMargin(5814, 30, schedule);
+    expect(price).toBe(11_180);
+    expect(estimateProfit(price, 5814, schedule)?.marginPercent).toBe(30);
   });
 
-  it("returns null when the fee leaves no room for the margin", () => {
-    expect(priceForMargin(5000, 86)).toBeNull();
+  it("returns null when the fees leave no room for the margin", () => {
+    expect(priceForMargin(5000, 82, schedule)).toBeNull();
   });
 });
 
@@ -52,7 +58,18 @@ describe("listing health rules", () => {
     expect(isLowStock(0)).toBe(false);
   });
 
-  it("labels the estimated fee as a percentage", () => {
-    expect(ESTIMATED_MARKETPLACE_FEE_PERCENT_LABEL).toBe("14%");
+  it("labels a fee in basis points as a percentage", () => {
+    expect(feePercentLabel(1400)).toBe("14%");
+    expect(feePercentLabel(1250)).toBe("12,5%");
+  });
+});
+
+describe("wholeMarginPercent", () => {
+  // Regression: 14.9% showed as "15%" while painted as a thin (under 15%) margin.
+  it("rounds down so the number agrees with the thin-margin color", () => {
+    expect(wholeMarginPercent(14.9)).toBe(14);
+    expect(isThinMargin(14.9)).toBe(true);
+    expect(wholeMarginPercent(15)).toBe(15);
+    expect(wholeMarginPercent(-3.4)).toBe(-4);
   });
 });

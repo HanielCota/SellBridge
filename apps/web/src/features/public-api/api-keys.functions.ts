@@ -13,9 +13,9 @@ export const getApiKeys = createServerFn({ method: "GET" })
 export const createApiKeyFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createApiKeyInputSchema)
-  .handler(async ({ context, data }) =>
-    issueApiKey({ tenantId: context.tenantId, userId: context.userId, request: data }),
-  );
+  .handler(async ({ context, data }) => {
+    return issueApiKey({ tenantId: context.tenantId, userId: context.userId, request: data });
+  });
 
 export const revokeApiKeyFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])

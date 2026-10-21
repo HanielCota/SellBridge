@@ -1,5 +1,6 @@
 import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
 import {
+  LISTING_MAX_PRICE_CENTS,
   priceForRule,
   toPaginated,
   type AdminProductValues,
@@ -7,10 +8,22 @@ import {
   type Pagination,
 } from "@sellbridge/shared/schemas";
 import type { ProductCsvError, ProductCsvRow } from "@sellbridge/shared/product-csv";
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
-import { categories, supplierCoverage, supplierProducts, suppliers } from "../schema/index.ts";
+import {
+  categories,
+  listings,
+  listingTargets,
+  member,
+  storeConnections,
+  supplierProducts,
+  suppliers,
+  user,
+} from "../schema/index.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
+import { reviewedImportValues } from "./supplier-panel-import-review.ts";
+import { publicSupplier } from "./sql/sellable.ts";
 
 export type AdminSupplier = typeof suppliers.$inferSelect;
 export type AdminSupplierProduct = typeof supplierProducts.$inferSelect;
@@ -21,9 +34,10 @@ export async function listAdminSuppliers(
   search: string | undefined,
   pagination: Pagination,
 ) {
-  const condition = search
+  const searchCondition = search
     ? matchesEveryWord(search, [suppliers.name, suppliers.niche, suppliers.city])
     : undefined;
+  const condition = and(publicSupplier(), searchCondition);
   const [total] = await database.select({ value: count() }).from(suppliers).where(condition);
   const items = await database
     .select()
@@ -39,17 +53,65 @@ export async function getAdminSupplier(database: DatabaseExecutor, supplierId: s
   const [supplier] = await database
     .select()
     .from(suppliers)
-    .where(eq(suppliers.id, supplierId))
+    .where(and(eq(suppliers.id, supplierId), publicSupplier()))
     .limit(1);
   if (!supplier) {
     throw notFoundError("Fornecedor não encontrado");
   }
-  const coverage = await database
-    .select({ state: supplierCoverage.state, city: supplierCoverage.city })
-    .from(supplierCoverage)
-    .where(eq(supplierCoverage.supplierId, supplierId))
-    .orderBy(asc(supplierCoverage.state), asc(supplierCoverage.city));
-  return { supplier, coverage };
+  return { supplier };
+}
+
+/** A shop that sells the supplier, with its owner, for the admin's "linked sellers" block. */
+export interface SupplierSellerStore {
+  storeConnectionId: string;
+  shopName: string;
+  marketplace: (typeof storeConnections.$inferSelect)["marketplace"];
+  status: (typeof storeConnections.$inferSelect)["status"];
+  tenantId: string;
+  ownerId: string | null;
+  ownerName: string | null;
+  /** Orders of the last 30 days with at least one item of the supplier, in this tenant. */
+  recentOrders: number;
+}
+
+const SELLER_ORDERS_DAYS = 30;
+
+/** Every live shop selling the supplier, grouped by tenant in the screen. */
+export async function listSupplierSellers(
+  database: Database,
+  supplierId: string,
+  now: Date = new Date(),
+): Promise<SupplierSellerStore[]> {
+  const since = new Date(now.getTime() - SELLER_ORDERS_DAYS * 86_400_000);
+  return database
+    .select({
+      storeConnectionId: storeConnections.id,
+      shopName: storeConnections.shopName,
+      marketplace: storeConnections.marketplace,
+      status: storeConnections.status,
+      tenantId: storeConnections.tenantId,
+      ownerId: user.id,
+      ownerName: user.name,
+      recentOrders: sql<number>`(select count(distinct o.id) from orders o
+        inner join order_items i on i.order_id = o.id
+        inner join supplier_products p on p.id = i.supplier_product_id
+        where o.tenant_id = ${storeConnections.tenantId}
+          and p.supplier_id = ${supplierId}
+          and o.ordered_at >= ${timestampOf(since)})`.mapWith(Number),
+    })
+    .from(storeConnections)
+    .leftJoin(
+      member,
+      and(eq(member.organizationId, storeConnections.tenantId), eq(member.role, "owner")),
+    )
+    .leftJoin(user, eq(user.id, member.userId))
+    .where(
+      and(
+        eq(storeConnections.supplierId, supplierId),
+        sql`${storeConnections.status} <> 'disconnected'`,
+      ),
+    )
+    .orderBy(asc(user.name), asc(storeConnections.shopName));
 }
 
 /** Serializes all admin writes for one supplier, including CSV preview confirmation. */
@@ -68,7 +130,7 @@ export async function saveAdminSupplier(
   database: Database,
   input: AdminSupplierValues & { supplierId?: string | undefined },
 ) {
-  const { supplierId, coverage, ...values } = input;
+  const { supplierId, ...values } = input;
   return await database.transaction(async (transaction) => {
     if (supplierId) {
       await lockSupplier(transaction, supplierId);
@@ -83,12 +145,38 @@ export async function saveAdminSupplier(
     if (!supplier) {
       throw notFoundError("Fornecedor não encontrado");
     }
-    await transaction.delete(supplierCoverage).where(eq(supplierCoverage.supplierId, supplier.id));
-    await transaction
-      .insert(supplierCoverage)
-      .values(coverage.map((region) => ({ supplierId: supplier.id, ...region })));
     return supplier;
   });
+}
+
+/**
+ * Pauses the live listings of the supplier's products that can no longer be sold (product or
+ * supplier inactive), for every reseller; returns how many. Paused listings sync zero stock, and
+ * coming back does not resume them: each reseller decides. Never touches a paused listing.
+ */
+async function pauseUnsellableListings(
+  transaction: DatabaseExecutor,
+  supplierId: string,
+): Promise<number> {
+  const unsellable = transaction
+    .select({ id: listings.id })
+    .from(listings)
+    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+    .where(
+      and(
+        eq(supplierProducts.supplierId, supplierId),
+        or(eq(supplierProducts.active, false), eq(suppliers.active, false)),
+      ),
+    );
+  const paused = await transaction
+    .update(listingTargets)
+    .set({ status: "paused" })
+    .where(
+      and(eq(listingTargets.status, "published"), inArray(listingTargets.listingId, unsellable)),
+    )
+    .returning({ id: listingTargets.id });
+  return paused.length;
 }
 
 export async function setAdminSupplierActive(
@@ -96,15 +184,17 @@ export async function setAdminSupplierActive(
   supplierId: string,
   active: boolean,
 ) {
-  const [supplier] = await database
-    .update(suppliers)
-    .set({ active })
-    .where(eq(suppliers.id, supplierId))
-    .returning();
-  if (!supplier) {
-    throw notFoundError("Fornecedor não encontrado");
-  }
-  return supplier;
+  return await database.transaction(async (transaction) => {
+    const [supplier] = await transaction
+      .update(suppliers)
+      .set({ active })
+      .where(eq(suppliers.id, supplierId))
+      .returning();
+    if (!supplier) {
+      throw notFoundError("Fornecedor não encontrado");
+    }
+    return { supplier, pausedTargets: await pauseUnsellableListings(transaction, supplierId) };
+  });
 }
 
 export async function listAdminSupplierProducts(
@@ -149,11 +239,61 @@ async function assertCategory(
   }
 }
 
+const STOCK_MOVED_MESSAGE =
+  "O estoque deste produto mudou depois que você abriu o formulário (venda ou importação). Recarregue e confira antes de salvar.";
+
+/**
+ * Saves an edit without undoing sales: an untouched shelf count is not written back, and a
+ * changed one only lands while the shelf still holds what the form showed.
+ */
+async function updateProduct(
+  transaction: DatabaseExecutor,
+  ids: { supplierId: string; productId: string },
+  values: AdminProductValues,
+  expectedStock: number | undefined,
+) {
+  const { stock, ...rest } = values;
+  const keepsShelf = expectedStock !== undefined && stock === expectedStock;
+  const [product] = await transaction
+    .update(supplierProducts)
+    .set(keepsShelf ? rest : values)
+    .where(
+      and(
+        eq(supplierProducts.id, ids.productId),
+        eq(supplierProducts.supplierId, ids.supplierId),
+        expectedStock === undefined || keepsShelf
+          ? undefined
+          : eq(supplierProducts.stock, expectedStock),
+      ),
+    )
+    .returning();
+  if (product || expectedStock === undefined) {
+    return product;
+  }
+  const [exists] = await transaction
+    .select({ id: supplierProducts.id })
+    .from(supplierProducts)
+    .where(
+      and(eq(supplierProducts.id, ids.productId), eq(supplierProducts.supplierId, ids.supplierId)),
+    );
+  if (exists) {
+    throw conflictError(STOCK_MOVED_MESSAGE);
+  }
+  return undefined;
+}
+
 export async function saveAdminSupplierProduct(
   database: Database,
-  input: AdminProductValues & { supplierId: string; productId?: string | undefined },
+  input: AdminProductValues & {
+    supplierId: string;
+    productId?: string | undefined;
+    expectedStock?: number | undefined;
+  },
 ) {
-  const { supplierId, productId, ...values } = input;
+  const { supplierId, productId, expectedStock, ...values } = input;
+  if (productId === undefined && values.stock < 0) {
+    throw validationError("Novos produtos não podem ter estoque negativo");
+  }
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, supplierId);
     await assertCategory(transaction, values.categoryId);
@@ -167,13 +307,7 @@ export async function saveAdminSupplierProduct(
       throw conflictError("Já existe um produto com este SKU neste fornecedor");
     }
     const [product] = productId
-      ? await transaction
-          .update(supplierProducts)
-          .set(values)
-          .where(
-            and(eq(supplierProducts.id, productId), eq(supplierProducts.supplierId, supplierId)),
-          )
-          .returning()
+      ? [await updateProduct(transaction, { supplierId, productId }, values, expectedStock)]
       : await transaction
           .insert(supplierProducts)
           .values({ supplierId, ...values })
@@ -204,7 +338,7 @@ export async function setAdminSupplierProductActive(
     if (!product) {
       throw notFoundError("Produto não encontrado neste fornecedor");
     }
-    return product;
+    return { product, pausedTargets: await pauseUnsellableListings(transaction, input.supplierId) };
   });
 }
 
@@ -255,13 +389,26 @@ function planImportRows(input: {
         suggestedPriceCents ??
         previous?.suggestedPriceCents ??
         Math.min(
-          2_147_483_647,
+          LISTING_MAX_PRICE_CENTS,
           priceForRule({ ...product, suggestedPriceCents: 0 }, { kind: "markup", percent: 50 }),
         ),
     });
   }
+  // Only what the import writes: a sale moving `reserved_stock` (or `updated_at`) between the
+  // preview and the confirmation must not invalidate it; a new shelf count must.
   plan.revision = JSON.stringify({
-    existing: input.existing,
+    existing: input.existing.map((product) => ({
+      sku: product.sku,
+      title: product.title,
+      description: product.description,
+      costCents: product.costCents,
+      stock: product.stock,
+      categoryId: product.categoryId,
+      imageUrls: product.imageUrls,
+      active: product.active,
+      suggestedPriceCents: product.suggestedPriceCents,
+      mercadoLivreAttributes: product.mercadoLivreAttributes,
+    })),
     categories: input.availableCategories.map((category) => [category.slug, category.id]),
     products: plan.products,
   });
@@ -301,18 +448,30 @@ export async function importSupplierProducts(
     supplierId: string;
     rows: readonly ProductCsvRow[];
     validatePreview: (plan: SupplierProductImportPlan) => void;
+    /** Set for the supplier's own import: rows go through review instead of being approved. */
+    reviewAt?: Date;
   },
 ) {
   return await database.transaction(async (transaction) => {
     await lockSupplier(transaction, input.supplierId);
+    // Sales lock products in id order; taking them in the same order first means an import
+    // and a sale wait for each other instead of deadlocking. "No key update" is enough for the
+    // upsert and does not collide with the key-share locks a new order item takes on insert.
+    await transaction
+      .select({ id: supplierProducts.id })
+      .from(supplierProducts)
+      .where(eq(supplierProducts.supplierId, input.supplierId))
+      .orderBy(asc(supplierProducts.id))
+      .for("no key update");
     const plan = await previewSupplierProductImport(transaction, input.supplierId, input.rows);
     input.validatePreview(plan);
     if (plan.errors.length > 0 || plan.products.length === 0) {
       throw validationError("Corrija os erros do CSV antes de importar");
     }
-    await transaction
+    const reviewed = await reviewedImportValues(transaction, input, plan.products);
+    const written = await transaction
       .insert(supplierProducts)
-      .values(plan.products)
+      .values(reviewed?.values ?? plan.products)
       .onConflictDoUpdate({
         target: [supplierProducts.supplierId, supplierProducts.sku],
         set: {
@@ -324,9 +483,19 @@ export async function importSupplierProducts(
           imageUrls: sql`excluded.image_urls`,
           active: sql`excluded.active`,
           suggestedPriceCents: sql`excluded.suggested_price_cents`,
+          // Item 18: the CSV's attributes win; blank cells (absent keys) keep the product's own.
+          mercadoLivreAttributes: sql`${supplierProducts.mercadoLivreAttributes} || excluded.mercado_livre_attributes`,
+          ...reviewed?.conflictSet,
           updatedAt: new Date(),
         },
-      });
-    return { created: plan.created, updated: plan.updated };
+      })
+      .returning({ id: supplierProducts.id });
+    const pausedTargets = await pauseUnsellableListings(transaction, input.supplierId);
+    return {
+      created: plan.created,
+      updated: plan.updated,
+      pausedTargets,
+      productIds: written.map((product) => product.id),
+    };
   });
 }

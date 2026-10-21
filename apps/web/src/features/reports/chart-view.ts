@@ -70,7 +70,9 @@ export interface ChartPoint {
   profit: number;
   /** What did not stay as profit: product cost, fees and refunds. */
   cost: number;
-  /** Profit over revenue, in percent; null when nothing was sold. */
+  /** Revenue of sales whose cost is unknown, kept apart from the costs and the margin. */
+  pending: number;
+  /** Profit over the revenue whose cost is known, in percent; null when there is none. */
   margin: number | null;
   /** The same stretch of the previous period, for the comparison line; null without one. */
   previousRevenue: number | null;
@@ -97,11 +99,13 @@ function runningTotals(points: readonly MetricPoint[]): MetricPoint[] {
   let orders = 0;
   let revenueCents = 0;
   let profitCents = 0;
+  let pendingCostRevenueCents = 0;
   return points.map((point) => {
     orders += point.orders;
     revenueCents += point.revenueCents;
     profitCents += point.profitCents;
-    return { date: point.date, orders, revenueCents, profitCents };
+    pendingCostRevenueCents += point.pendingCostRevenueCents;
+    return { date: point.date, orders, revenueCents, profitCents, pendingCostRevenueCents };
   });
 }
 
@@ -124,10 +128,11 @@ function trailingAverageOf(values: readonly (number | null)[], index: number): n
 
 const DAY_MILLISECONDS = 86_400_000;
 
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00Z`);
+/** Shifts a bucket's date by whole days, keeping an hourly bucket's time ("T14:00"). */
+function addDays(bucketDate: string, days: number): string {
+  const date = new Date(`${bucketDate.slice(0, 10)}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+  return `${date.toISOString().slice(0, 10)}${bucketDate.slice(10)}`;
 }
 
 /** Index of the bucket holding `isoDate`: the last one starting on or before it, or the first. */
@@ -149,7 +154,7 @@ function bucketSpanDays(buckets: readonly MetricPoint[]): number {
   if (!first || !second) {
     return 1;
   }
-  const milliseconds = Date.parse(second.date) - Date.parse(first.date);
+  const milliseconds = Date.parse(second.date.slice(0, 10)) - Date.parse(first.date.slice(0, 10));
   return Math.max(1, Math.round(milliseconds / DAY_MILLISECONDS));
 }
 
@@ -228,8 +233,9 @@ export function buildChartPoints(
       date: point.date,
       revenue: point.revenueCents,
       profit: point.profitCents,
-      cost: point.revenueCents - point.profitCents,
-      margin: marginOf(point.revenueCents, point.profitCents),
+      cost: point.revenueCents - point.pendingCostRevenueCents - point.profitCents,
+      pending: point.pendingCostRevenueCents,
+      margin: marginOf(point.revenueCents - point.pendingCostRevenueCents, point.profitCents),
       previousRevenue: previousPoint ? previousPoint.revenueCents : null,
       previousProfit: previousPoint ? previousPoint.profitCents : null,
       averageRevenue: cumulative ? null : trailingAverage(revenues, index),
@@ -257,20 +263,33 @@ export function groupByWeek(points: readonly MetricPoint[]): MetricPoint[] {
   const weeks = new Map<string, MetricPoint>();
   for (const point of points) {
     const key = mondayOf(point.date);
-    const week = weeks.get(key) ?? { date: point.date, orders: 0, revenueCents: 0, profitCents: 0 };
+    const week = weeks.get(key) ?? {
+      date: point.date,
+      orders: 0,
+      revenueCents: 0,
+      profitCents: 0,
+      pendingCostRevenueCents: 0,
+    };
     weeks.set(key, {
       date: week.date,
       orders: week.orders + point.orders,
       revenueCents: week.revenueCents + point.revenueCents,
       profitCents: week.profitCents + point.profitCents,
+      pendingCostRevenueCents: week.pendingCostRevenueCents + point.pendingCostRevenueCents,
     });
   }
   return [...weeks.values()];
 }
 
-/** Margin of the whole period, weighted by revenue (not an average of daily margins). */
+/**
+ * Margin of the whole period, weighted by revenue (not an average of daily margins), over the
+ * revenue whose cost is known.
+ */
 export function periodMargin(points: readonly MetricPoint[]): number | null {
-  const revenue = points.reduce((sum, point) => sum + point.revenueCents, 0);
+  const revenue = points.reduce(
+    (sum, point) => sum + point.revenueCents - point.pendingCostRevenueCents,
+    0,
+  );
   const profit = points.reduce((sum, point) => sum + point.profitCents, 0);
   return marginOf(revenue, profit);
 }
@@ -315,7 +334,8 @@ export function niceScale(
 ): { domain: [number, number]; ticks: number[] } {
   const max = Math.max(0, ...values);
   const min = Math.min(0, ...values);
-  const span = max > 0 ? max : -min;
+  // The larger side sets the step: sized by a tiny top, a deep loss would need thousands of ticks.
+  const span = Math.max(max, -min);
   if (span === 0) {
     return { domain: [0, 1], ticks: [0] };
   }
@@ -344,9 +364,10 @@ export interface FlowSummary {
   refundCents: number;
   commissionCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
-export type WaterfallTone = "revenue" | "cost" | "fee" | "refund" | "gain" | "profit";
+export type WaterfallTone = "revenue" | "pending" | "cost" | "fee" | "refund" | "gain" | "profit";
 
 export interface WaterfallStep {
   key: WaterfallTone;
@@ -363,6 +384,8 @@ export interface WaterfallStep {
  */
 export function buildWaterfall(summary: FlowSummary): WaterfallStep[] {
   const moves: { key: WaterfallTone; label: string; cents: number }[] = [
+    // Sales of unknown cost leave the profit first, whole: nothing of them is split below.
+    { key: "pending", label: "Custo pendente", cents: -summary.pendingCostRevenueCents },
     { key: "cost", label: "Custo dos produtos", cents: -summary.costCents },
     {
       key: "fee",

@@ -15,6 +15,10 @@ describe("foldAccents", () => {
 });
 
 describe("containsPattern", () => {
+  it("drops the NUL character Postgres refuses in text", () => {
+    expect(containsPattern(`a${String.fromCharCode(0)}b`)).toBe("%ab%");
+  });
+
   it("wraps the text and escapes the LIKE wildcards", () => {
     expect(containsPattern("100%_off\\")).toBe("%100\\%\\_off\\\\%");
   });

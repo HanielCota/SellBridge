@@ -1,0 +1,2 @@
+ALTER TABLE "order_items" ADD COLUMN "short_since" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "order_items_short_idx" ON "order_items" USING btree ("tenant_id") WHERE "order_items"."stock_state" = 'short';

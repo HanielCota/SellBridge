@@ -30,8 +30,14 @@ const NON_PUBLIC_RANGES: readonly [string, number, "ipv4" | "ipv6"][] = [
   ["2002::", 16, "ipv6"],
   ["100::", 64, "ipv6"],
   ["2001:db8::", 32, "ipv6"],
+  // IPv4-translated (SIIT, ::ffff:0:7f00:1 is 127.0.0.1): `BlockList` maps only ::ffff:0:0/96.
+  ["::ffff:0:0:0", 96, "ipv6"],
+  // IETF protocol assignments, Teredo among them, which also embeds an IPv4 address.
+  ["2001::", 23, "ipv6"],
   ["fc00::", 7, "ipv6"],
   ["fe80::", 10, "ipv6"],
+  // Deprecated site-local, still routed inside some networks.
+  ["fec0::", 10, "ipv6"],
   ["ff00::", 8, "ipv6"],
 ];
 

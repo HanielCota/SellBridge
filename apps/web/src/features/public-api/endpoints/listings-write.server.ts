@@ -54,7 +54,7 @@ export const updateListing = defineApiEndpoint({
   tag: TAG,
   summary: "Alterar preço ou pausar anúncio",
   description:
-    "Altera o preço de venda (precisa ser maior que o custo) e/ou pausa ou retoma o anúncio " +
+    "Altera o preço de venda (precisa cobrir o custo e todas as taxas) e/ou pausa ou retoma o anúncio " +
     "em todas as lojas. Informe ao menos um dos campos. As lojas recebem a mudança na próxima " +
     "sincronização. Responde com o anúncio atualizado.",
   scope: "listings:write",

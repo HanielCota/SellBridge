@@ -1,4 +1,4 @@
-import { emailSchema, signInSchema } from "@sellbridge/shared/schemas";
+import { emailSchema, internalPathSchema, signInSchema } from "@sellbridge/shared/schemas";
 import { useForm, useStore } from "@tanstack/react-form";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -9,9 +9,11 @@ import { liveFieldBindings, submitHandler } from "@/components/form/form-binding
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
 import { authClient } from "@/lib/auth-client";
+import { shareMeta } from "@/lib/share-meta";
 
 const loginSearchSchema = z.object({
-  redirect: z.string().startsWith("/").optional(),
+  /** Only a path on this site: `//host` or a scheme is dropped, never followed. */
+  redirect: internalPathSchema,
   /** Set by Better Auth when a social sign-in fails. */
   error: z.string().optional(),
   /** Set after a successful password reset. */
@@ -22,7 +24,12 @@ const passwordRequiredSchema = signInSchema.shape.password;
 
 export const Route = createFileRoute("/_auth/login")({
   validateSearch: loginSearchSchema,
-  head: () => ({ meta: [{ title: "Entrar | SellBridge" }] }),
+  head: () => ({
+    meta: shareMeta({
+      title: "Entrar | SellBridge",
+      description: "Acesse o SellBridge para acompanhar suas lojas, publicações e vendas.",
+    }),
+  }),
   component: LoginPage,
 });
 
@@ -127,11 +134,7 @@ function LoginForm() {
       </Link>
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <AuthSubmitButton
-            isPending={isSubmitting}
-            idleLabel="Entrar"
-            pendingLabel="Entrando..."
-          />
+          <AuthSubmitButton isPending={isSubmitting} idleLabel="Entrar" pendingLabel="Entrando…" />
         )}
       </form.Subscribe>
     </form>
@@ -174,6 +177,15 @@ function LoginPage() {
           className="font-medium text-brand-text underline-offset-4 hover:underline"
         >
           Criar conta
+        </Link>
+      </p>
+      <p className="text-center text-sm text-muted-foreground">
+        Tem produtos para fornecer?{" "}
+        <Link
+          to="/cadastro/fornecedor"
+          className="font-medium text-brand-text underline-offset-4 hover:underline"
+        >
+          Cadastrar como fornecedor
         </Link>
       </p>
     </div>

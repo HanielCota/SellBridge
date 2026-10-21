@@ -16,6 +16,9 @@ import { useQuery } from "@tanstack/react-query";
 import { SmartDate } from "@/components/data/smart-date";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supplierReputationQueryOptions } from "@/features/suppliers/suppliers.queries";
+import { formatPercent } from "@/lib/percent";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 import {
   formatAverage,
@@ -25,11 +28,13 @@ import {
   StarAverage,
 } from "./reputation";
 
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const precisePercent = new Intl.NumberFormat("pt-BR", {
   style: "percent",
   maximumFractionDigits: 1,
 });
+
+/** Dotted underline: the sign, as on the overview's "Ticket médio", that a term has a legend. */
+const TERM_UNDERLINE = "hinted-term";
 
 /** Aspects at or above this share of praise get the check; below, the warning. */
 const GOOD_ASPECT_SHARE = 0.8;
@@ -49,12 +54,26 @@ function ScoreHeadline({ reputation }: { reputation: SupplierReputation }) {
     );
   }
   return (
-    <p className="flex items-baseline gap-2">
-      <span className="text-4xl font-semibold tracking-tight tabular-nums">{reputation.score}</span>
-      <span className={cn("text-subhead font-medium", LEVEL_COLORS[reputation.level].text)}>
-        {SCORE_LEVEL_LABELS[reputation.level]}
-      </span>
-    </p>
+    <div className="space-y-1">
+      <p className="flex items-baseline gap-2">
+        <span className="text-4xl font-semibold tracking-tight tabular-nums">
+          {reputation.score}
+        </span>
+        <HintedText
+          label={TERM_HINTS.scoreLevel}
+          className={cn(
+            "text-subhead font-medium",
+            LEVEL_COLORS[reputation.level].text,
+            TERM_UNDERLINE,
+          )}
+        >
+          {SCORE_LEVEL_LABELS[reputation.level]}
+        </HintedText>
+      </p>
+      <p className="text-xs text-muted-foreground">
+        De 0 a 100, pelas avaliações de quem já vendeu os produtos deste fornecedor.
+      </p>
+    </div>
   );
 }
 
@@ -73,8 +92,8 @@ function ScoreColumn({ reputation }: { reputation: SupplierReputation }) {
       </div>
       {sentiment ? (
         <p className="text-xs text-muted-foreground">
-          {percent.format(sentiment.positive)} positivas · {percent.format(sentiment.neutral)}{" "}
-          neutras · {percent.format(sentiment.negative)} negativas
+          {formatPercent(sentiment.positive)} positivas · {formatPercent(sentiment.neutral)} neutras
+          · {formatPercent(sentiment.negative)} negativas
         </p>
       ) : null}
     </div>
@@ -86,18 +105,34 @@ function CheckRow({
   value,
   hint,
   ok,
+  legend,
 }: {
   label: string;
   value: string;
   hint?: string;
   ok: boolean | null;
+  /** Legend on the row's name, for names that need explaining. */
+  legend?: string;
 }) {
   const Icon = ok === false ? WarningCircleIcon : CheckCircleIcon;
   return (
     <li className="flex items-center justify-between gap-3 py-2.5 text-sm">
-      <span>{label}</span>
+      {legend ? (
+        <HintedText label={legend} className={TERM_UNDERLINE}>
+          {label}
+        </HintedText>
+      ) : (
+        <span>{label}</span>
+      )}
       <span className="flex items-center gap-1.5 tabular-nums">
-        {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
+        {hint ? (
+          <HintedText
+            label={TERM_HINTS.metricGoal}
+            className={cn("text-xs text-muted-foreground", TERM_UNDERLINE)}
+          >
+            {hint}
+          </HintedText>
+        ) : null}
         <span className="font-medium">{value}</span>
         {ok === null ? null : (
           <Icon
@@ -125,7 +160,8 @@ function BreakdownColumn({ reputation }: { reputation: SupplierReputation }) {
         <CheckRow
           key={aspect.aspect}
           label={REVIEW_ASPECT_LABELS[aspect.aspect]}
-          value={aspect.share === null ? "Poucas menções" : percent.format(aspect.share)}
+          legend={TERM_HINTS.reviewAspect}
+          value={aspect.share === null ? "Poucas menções" : formatPercent(aspect.share)}
           ok={aspect.share === null ? null : aspect.share >= GOOD_ASPECT_SHARE}
         />
       ))}

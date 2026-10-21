@@ -5,6 +5,7 @@ import {
   getWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
+  lockBillingTenant,
   setWebhookEndpointDisabled,
   type WebhookDeliverySummary,
   type WebhookEndpointSummary,
@@ -57,8 +58,9 @@ export async function listOrganizationWebhookEndpoints(
 }
 
 /**
- * The count is read before the insert, so two simultaneous creations could pass the cap by
- * one; the cap only keeps forgotten endpoints from piling up, so that is acceptable.
+ * Counted and created under the organization's lock: parallel requests (the API takes 120 a
+ * minute) would otherwise all read "9" and pass the cap together, and every endpoint multiplies
+ * the deliveries the worker sends for every event.
  */
 export async function createOrganizationWebhookEndpoint(input: {
   tenantId: string;
@@ -66,17 +68,20 @@ export async function createOrganizationWebhookEndpoint(input: {
   request: CreateWebhookEndpointRequest;
 }): Promise<IssuedWebhookEndpoint> {
   assertAcceptableWebhookUrl(input.request.url, allowsPrivateUrls());
-  if ((await countWebhookEndpoints(database, input.tenantId)) >= MAX_WEBHOOK_ENDPOINTS) {
-    throw conflictError(
-      `Sua organização já tem ${MAX_WEBHOOK_ENDPOINTS} endpoints de webhook. Exclua os que não usa antes de criar outro.`,
-    );
-  }
   const secret = generateWebhookSecret();
-  const endpoint = await createWebhookEndpoint(database, input.tenantId, {
-    url: input.request.url,
-    description: input.request.description,
-    eventTypes: input.request.eventTypes,
-    secretEnc: tokenCipher.encrypt(secret),
+  const endpoint = await database.transaction(async (transaction) => {
+    await lockBillingTenant(transaction, input.tenantId);
+    if ((await countWebhookEndpoints(transaction, input.tenantId)) >= MAX_WEBHOOK_ENDPOINTS) {
+      throw conflictError(
+        `Sua organização já tem ${MAX_WEBHOOK_ENDPOINTS} endpoints de webhook. Exclua os que não usa antes de criar outro.`,
+      );
+    }
+    return createWebhookEndpoint(transaction, input.tenantId, {
+      url: input.request.url,
+      description: input.request.description,
+      eventTypes: input.request.eventTypes,
+      secretEnc: tokenCipher.encrypt(secret),
+    });
   });
   logger.info("webhook_endpoint.created", {
     ...input.actor,

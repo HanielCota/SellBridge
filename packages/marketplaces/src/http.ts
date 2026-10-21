@@ -1,6 +1,7 @@
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "./errors.ts";
 import { defaultSleep } from "@sellbridge/shared/sleep";
+import { readBodyWithin } from "@sellbridge/shared/http-body";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -10,6 +11,11 @@ export interface RetryOptions {
   maxDelayMilliseconds: number;
   /** Each attempt is aborted after this long, so a hung connection cannot stall a job. */
   timeoutMilliseconds: number;
+  /**
+   * Largest body read into memory. The timeout bounds time, not bytes: a fast faulty reply could
+   * still fill the worker's memory within it. JSON answers are far smaller; a label passes more.
+   */
+  maxBodyBytes: number;
   /** Injected for tests; defaults to setTimeout. */
   sleep?: (milliseconds: number) => Promise<void>;
   /** Injected for tests; defaults to Math.random. */
@@ -21,7 +27,32 @@ const DEFAULT_RETRY: RetryOptions = {
   baseDelayMilliseconds: 500,
   maxDelayMilliseconds: 10_000,
   timeoutMilliseconds: 15_000,
+  maxBodyBytes: 2 * 1024 * 1024,
 };
+
+/** More attempts than this would hold a job for minutes on an outage; refuse the setting. */
+const MAX_RETRIES = 10;
+
+/**
+ * Fills each option the caller left out, one by one, and refuses a retry count that would hold
+ * a job for minutes (or, as NaN, never end the loop: `attempt >= NaN` is always false).
+ */
+export function resolveRetryOptions(partial: Partial<RetryOptions>): RetryOptions {
+  const options: RetryOptions = {
+    ...partial,
+    retries: partial.retries ?? DEFAULT_RETRY.retries,
+    baseDelayMilliseconds: partial.baseDelayMilliseconds ?? DEFAULT_RETRY.baseDelayMilliseconds,
+    maxDelayMilliseconds: partial.maxDelayMilliseconds ?? DEFAULT_RETRY.maxDelayMilliseconds,
+    timeoutMilliseconds: partial.timeoutMilliseconds ?? DEFAULT_RETRY.timeoutMilliseconds,
+    maxBodyBytes: partial.maxBodyBytes ?? DEFAULT_RETRY.maxBodyBytes,
+  };
+  if (!Number.isInteger(options.retries) || options.retries < 0 || options.retries > MAX_RETRIES) {
+    throw new RangeError(
+      `retries must be an integer from 0 to ${MAX_RETRIES}, got ${options.retries}`,
+    );
+  }
+  return options;
+}
 
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -74,6 +105,7 @@ interface FetchAttempt {
   readonly url: string;
   readonly init: RequestInit;
   readonly timeoutMilliseconds: number;
+  readonly maxBodyBytes: number;
   readonly isLastAttempt: boolean;
   /** False for a POST/PATCH: it may have gone through, so a job must not blindly repeat it. */
   readonly isIdempotent: boolean;
@@ -87,6 +119,13 @@ function attemptSignal(attempt: FetchAttempt): AbortSignal {
   return AbortSignal.any([timeout, attempt.init.signal]);
 }
 
+class BodyTooLargeError extends Error {
+  constructor(maxBytes: number) {
+    super(`Resposta do marketplace maior que ${maxBytes} bytes`);
+    this.name = "BodyTooLargeError";
+  }
+}
+
 /**
  * The body is read inside the attempt, under the same timeout: headers that arrive just before
  * the deadline followed by a stalled body are a timeout like any other, not a malformed reply.
@@ -97,7 +136,10 @@ async function fetchBuffered(attempt: FetchAttempt): Promise<Response> {
     ...attempt.init,
     signal: attemptSignal(attempt),
   });
-  const body = await response.arrayBuffer();
+  const body = await readBodyWithin(response, attempt.maxBodyBytes);
+  if (body === null) {
+    throw new BodyTooLargeError(attempt.maxBodyBytes);
+  }
   return new Response(body.byteLength > 0 ? body : null, {
     status: response.status,
     statusText: response.statusText,
@@ -113,6 +155,10 @@ async function attemptFetch(attempt: FetchAttempt): Promise<Response | null> {
   try {
     return await fetchBuffered(attempt);
   } catch (error) {
+    // Asking again returns the same oversized reply: a final answer, not a network blip.
+    if (error instanceof BodyTooLargeError) {
+      throw marketplaceError(error.message, { retryable: false, cause: error });
+    }
     if (attempt.init.signal?.aborted) {
       throw marketplaceError("Requisição ao marketplace cancelada", {
         retryable: false,
@@ -146,7 +192,7 @@ export async function fetchWithRetry(
   init: RequestInit = {},
   partialOptions: Partial<RetryOptions> = {},
 ): Promise<Response> {
-  const options: RetryOptions = { ...DEFAULT_RETRY, ...partialOptions };
+  const options = resolveRetryOptions(partialOptions);
   const sleep = options.sleep ?? defaultSleep;
   const isIdempotent = isIdempotentMethod(init.method);
 
@@ -157,6 +203,7 @@ export async function fetchWithRetry(
       url,
       init,
       timeoutMilliseconds: options.timeoutMilliseconds,
+      maxBodyBytes: options.maxBodyBytes,
       isLastAttempt: isLastAttempt || !isIdempotent,
       isIdempotent,
     });

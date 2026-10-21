@@ -1,5 +1,9 @@
-import { isThinMargin } from "@/features/listings/profit";
+import type { FeeSchedule } from "@sellbridge/shared/fee-model";
+import { formatCents } from "@sellbridge/shared/money";
+import { feePercentLabel, isThinMargin, type ProfitEstimate } from "@/features/listings/profit";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /**
  * Where a sale price goes, in the financial page's colors, so every screen that splits a price
@@ -8,7 +12,7 @@ import { cn } from "@/lib/utils";
 export const PROFIT_SPLIT_COLORS = {
   cost: "bg-finance-cost",
   fee: "bg-finance-fee",
-  profit: "bg-brand",
+  profit: "bg-brand-mark",
   loss: "bg-destructive",
 } as const;
 
@@ -68,17 +72,71 @@ export function ProfitSplitLine({
   label,
   value,
   valueClassName,
+  hint,
 }: {
   swatch: string;
   label: string;
   value: string;
   valueClassName?: string | undefined;
+  /** Legend on the line's name, for a term the reseller may not know. */
+  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
       <span className={cn("size-2 shrink-0 rounded-[3px]", swatch)} aria-hidden="true" />
-      <dt className="flex-1">{label}</dt>
+      <dt className="flex-1">
+        {hint ? (
+          <HintedText label={hint} className="hinted-term">
+            {label}
+          </HintedText>
+        ) : (
+          label
+        )}
+      </dt>
       <dd className={cn("text-muted-foreground tabular-nums", valueClassName)}>{value}</dd>
     </div>
   );
+}
+
+/** The marketplace line names the shipping too when the reseller pays it (decision D5). */
+function marketplaceFeeLabel(schedule: FeeSchedule): string {
+  const percent = feePercentLabel(schedule.marketplaceFeeBasisPoints);
+  return schedule.estimatedShippingCents > 0
+    ? `Taxa do marketplace (~${percent}) e frete`
+    : `Taxa do marketplace (~${percent})`;
+}
+
+/**
+ * Every fee of the sale, line by line, the same ones the financial page charges: the
+ * marketplace's, and SellBridge's only when it charges one.
+ */
+export function FeeLines({
+  estimate,
+  schedule,
+}: {
+  estimate: ProfitEstimate | null;
+  schedule: FeeSchedule;
+}) {
+  return (
+    <>
+      <ProfitSplitLine
+        swatch={PROFIT_SPLIT_COLORS.fee}
+        label={marketplaceFeeLabel(schedule)}
+        hint={TERM_HINTS.marketplaceFee}
+        value={estimate ? formatCents(estimate.feeCents) : "—"}
+      />
+      {schedule.platformFeeBasisPoints > 0 ? (
+        <ProfitSplitLine
+          swatch={PROFIT_SPLIT_COLORS.fee}
+          label={`Taxa da SellBridge (${feePercentLabel(schedule.platformFeeBasisPoints)})`}
+          value={estimate ? formatCents(estimate.platformFeeCents) : "—"}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Both fees together, for the bar: the marketplace's and SellBridge's. */
+export function totalFeeCents(estimate: ProfitEstimate): number {
+  return estimate.feeCents + estimate.platformFeeCents;
 }

@@ -1,4 +1,8 @@
 import type { ListingOverviewRow, ListingStoreStatus } from "@sellbridge/database/repositories";
+import {
+  unavailableListingLabel,
+  unavailableListingMessage,
+} from "@sellbridge/shared/catalog-availability";
 import { displayStoreName } from "@/features/stores/store-name";
 
 export type ListingHealthTone = "live" | "error" | "attention" | "busy" | "paused";
@@ -30,10 +34,18 @@ function whereLabel(stores: readonly ListingStoreStatus[]): string {
 }
 
 /**
- * Problems first: a failed store, then a supplier out of stock, then work in progress and
- * pauses. Only when nothing needs attention does the card say where the product is live.
+ * Problems first: a product the supplier no longer offers (whatever the stores say, it is the
+ * cause), a failed store, a supplier out of stock, then work in progress and pauses. Only when
+ * nothing needs attention does the card say where the product is live.
  */
 export function listingHealth(row: ListingOverviewRow): ListingHealth {
+  if (row.unavailable !== null) {
+    return {
+      tone: "attention",
+      label: unavailableListingLabel(row.unavailable),
+      reason: unavailableListingMessage(row.unavailable),
+    };
+  }
   const failed = storesWith(row.stores, ["error"]);
   if (failed.length > 0) {
     const reason = failed.find((store) => store.errorReason !== null)?.errorReason ?? null;
@@ -67,4 +79,17 @@ const RUN_STATES: Record<ListingHealthTone, ListingRunState> = {
 /** A failed store or a supplier out of stock both keep the product off, whatever was chosen. */
 export function listingRunState(row: ListingOverviewRow): ListingRunState {
   return RUN_STATES[listingHealth(row).tone];
+}
+
+/**
+ * The state the card names. A live or paused listing the supplier's catalog stops is paused by
+ * the rule, not broken: it reads "Pausado", like the tab that counts it, while keeping the
+ * problem's color. One that never went live (only failed or queued stores) keeps its run state.
+ */
+export function listingNamedState(row: ListingOverviewRow): ListingRunState {
+  const countsAsPaused = storesWith(row.stores, ["published", "paused"]).length > 0;
+  if (row.unavailable !== null && countsAsPaused) {
+    return "paused";
+  }
+  return listingRunState(row);
 }

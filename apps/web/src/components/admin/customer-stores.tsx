@@ -1,5 +1,14 @@
+import type { StoreStatus } from "@sellbridge/shared/schemas";
 import { useState } from "react";
-import { StoreStatusBadge } from "@/components/stores/store-status-badge";
+import { StorefrontIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  AdminStoreSupplierDialog,
+  type AdminStoreSupplierTarget,
+} from "@/components/admin/admin-store-supplier-dialog";
+import { MarketplaceMark } from "@/components/stores/marketplace-mark";
+import { storeHealth } from "@sellbridge/shared/store-attention";
+import { StoreHealthLine } from "@/components/stores/store-health";
+import { StoreStatusChip } from "@/components/stores/store-status-badge";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { adminDisconnectCustomerStore } from "@/features/admin/customers.functions";
@@ -9,8 +18,82 @@ import { useAdminAction } from "@/features/admin/use-admin-action";
 interface CustomerStore {
   id: string;
   shopName: string;
+  marketplace: string;
   marketplaceLabel: string;
-  status: "connected" | "expired" | "error" | "disconnected";
+  status: StoreStatus;
+  lastError: string | null;
+  lastSyncedAt: Date | null;
+  lastWebhookAt: Date | null;
+  /** The one supplier the shop sells; null while pending. */
+  supplier: { id: string; name: string } | null;
+}
+
+function StoreSupplierLine({ store }: { store: CustomerStore }) {
+  if (store.supplier === null) {
+    return (
+      <span className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400">
+        <WarningCircleIcon weight="fill" className="size-3.5" aria-hidden="true" />
+        Fornecedor pendente
+      </span>
+    );
+  }
+  return (
+    <span>
+      Vende <span className="font-medium text-foreground">{store.supplier.name}</span>
+    </span>
+  );
+}
+
+function NoStores() {
+  return (
+    <div className="flex items-center gap-3 px-2 py-2.5">
+      <span className="flex size-10 items-center justify-center rounded-full bg-muted">
+        <StorefrontIcon weight="duotone" className="size-5 text-muted-foreground" />
+      </span>
+      <p className="text-footnote text-muted-foreground">
+        <span className="block text-sm font-medium text-foreground">Nenhuma loja</span>O cliente
+        ainda não conectou um marketplace.
+      </p>
+    </div>
+  );
+}
+
+function StoreRow({
+  store,
+  onChangeSupplier,
+  onDisconnect,
+}: {
+  store: CustomerStore;
+  onChangeSupplier: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-2 py-2.5 transition-[background-color,box-shadow] duration-100 hover:row-lift">
+      <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-xl" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="truncate text-sm font-medium">{store.shopName}</p>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-footnote text-muted-foreground">
+          {store.marketplaceLabel}
+          <StoreStatusChip status={storeHealth(store)} />
+        </p>
+        <p className="text-footnote text-muted-foreground">
+          <StoreSupplierLine store={store} />
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center">
+        <Button size="sm" variant="outline" onClick={onChangeSupplier}>
+          {store.supplier === null ? "Escolher fornecedor" : "Trocar fornecedor"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDisconnect}>
+          Desconectar
+        </Button>
+      </div>
+      {/* Full width under the row, lined up with the text: the buttons never squeeze it. */}
+      <div className="basis-full pl-12">
+        <StoreHealthLine store={store} />
+      </div>
+    </li>
+  );
 }
 
 export function CustomerStores({
@@ -21,6 +104,7 @@ export function CustomerStores({
   stores: readonly CustomerStore[];
 }) {
   const [target, setTarget] = useState<CustomerStore | null>(null);
+  const [supplierTarget, setSupplierTarget] = useState<AdminStoreSupplierTarget | null>(null);
   const disconnect = useAdminAction(
     (storeConnectionId: string) =>
       adminDisconnectCustomerStore({ data: { userId, storeConnectionId } }),
@@ -28,27 +112,28 @@ export function CustomerStores({
     () => setTarget(null),
   );
   return (
-    <SectionCard title="Lojas conectadas">
+    <SectionCard
+      title="Lojas conectadas"
+      description="Por onde o cliente vende, o fornecedor de cada loja e como está cada conexão."
+    >
       {stores.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma loja conectada.</p>
+        <NoStores />
       ) : (
-        <ul className="divide-y">
+        <ul className="-mx-2 space-y-1">
           {stores.map((store) => (
-            <li
+            <StoreRow
               key={store.id}
-              className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="min-w-0 space-y-1">
-                <p className="truncate text-sm font-medium">{store.shopName}</p>
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {store.marketplaceLabel}
-                  <StoreStatusBadge status={store.status} />
-                </p>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => setTarget(store)}>
-                Desconectar
-              </Button>
-            </li>
+              store={store}
+              onChangeSupplier={() =>
+                setSupplierTarget({
+                  userId,
+                  storeId: store.id,
+                  storeName: store.shopName,
+                  currentSupplierId: store.supplier?.id ?? null,
+                })
+              }
+              onDisconnect={() => setTarget(store)}
+            />
           ))}
         </ul>
       )}
@@ -58,11 +143,12 @@ export function CustomerStores({
         title={`Desconectar ${target?.shopName ?? "loja"}?`}
         description="Os anúncios já publicados continuam no marketplace, mas o SellBridge deixa de sincronizar estoque, preço e pedidos desta loja."
         confirmLabel="Desconectar"
-        pendingLabel="Desconectando..."
+        pendingLabel="Desconectando…"
         destructive
         isPending={disconnect.isPending}
         onConfirm={() => (target ? disconnect.mutate(target.id) : undefined)}
       />
+      <AdminStoreSupplierDialog target={supplierTarget} onClose={() => setSupplierTarget(null)} />
     </SectionCard>
   );
 }

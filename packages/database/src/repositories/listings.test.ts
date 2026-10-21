@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { apiEvents, listingTargets } from "../schema/index.ts";
 import {
   createTestDatabase,
@@ -7,14 +8,12 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { findTargetsNeedingSync, markTargetSynced, markTargetSyncFailed } from "./listing-sync.ts";
 import {
   createListingWithTargets,
-  findTargetsNeedingSync,
   listListingTargets,
   markTargetFailed,
   markTargetPublished,
-  markTargetSynced,
-  markTargetSyncFailed,
 } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -25,6 +24,7 @@ let tenantA = "";
 let tenantB = "";
 let storeA = "";
 let productId = "";
+const productCleanups: (() => Promise<void>)[] = [];
 
 beforeAll(async () => {
   tenants = await createTestTenantPair(database);
@@ -42,6 +42,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await catalog.cleanup();
+  for (const cleanup of productCleanups) {
+    await cleanup();
+  }
   await database.$client.end();
 });
 
@@ -96,11 +99,19 @@ async function eventsOfTarget(listingTargetId: string) {
     .orderBy(apiEvents.sequence);
 }
 
+/** A fresh product per target: a store holds one listing per product. */
 async function createTarget(title: string) {
+  const product = await createTestSupplierProduct(database, {
+    sku: `ISO-${randomUUID().slice(0, 8)}`,
+    title,
+    costCents: 1000,
+    suggestedPriceCents: 2500,
+  });
+  productCleanups.push(product.cleanup);
   const created = await createListingWithTargets(
     database,
     tenantA,
-    { supplierProductId: productId, title, description: "Descrição", priceCents: 2500 },
+    { supplierProductId: product.productId, title, description: "Descrição", priceCents: 2500 },
     [storeA],
   );
   const [targetId] = created.targetIds;
@@ -219,8 +230,17 @@ describe("stock and price sync queue", () => {
   it("serves the oldest failed attempt first and clears the error on success", async () => {
     const older = await createPublishedTarget("Falhou primeiro", "EXT-OLD");
     const newer = await createPublishedTarget("Falhou depois", "EXT-NEWER");
-    await markTargetSyncFailed(database, older, "Tempo esgotado");
-    await markTargetSyncFailed(database, newer, "Tempo esgotado");
+    // Fixed clock, a second apart: two failures in the same millisecond tie on syncAttemptedAt
+    // and the queue falls back to the random id, which made this flaky on a fast CI runner.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-12T12:00:00Z"));
+      await markTargetSyncFailed(database, older, "Tempo esgotado");
+      vi.setSystemTime(new Date("2026-10-12T12:00:01Z"));
+      await markTargetSyncFailed(database, newer, "Tempo esgotado");
+    } finally {
+      vi.useRealTimers();
+    }
 
     const [olderPosition, newerPosition] = await syncQueuePositions([older, newer]);
     expect(olderPosition).toBeGreaterThanOrEqual(0);

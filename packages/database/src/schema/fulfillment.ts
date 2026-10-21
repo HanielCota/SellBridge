@@ -42,6 +42,11 @@ export const orderShipments = pgTable(
     trackingUrl: text(),
     supplierTokenHash: text(),
     supplierTokenExpiresAt: timestamp({ withTimezone: true }),
+    /** The marketplace's delivery estimate and dispatch deadline, as last read. */
+    estimatedDeliveryAt: timestamp({ withTimezone: true }),
+    dispatchDeadlineAt: timestamp({ withTimezone: true }),
+    /** Last time the marketplace's tracking was read; the periodic job reads the oldest first. */
+    trackedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -49,9 +54,13 @@ export const orderShipments = pgTable(
     uniqueIndex("order_shipments_order_supplier_idx").on(table.orderId, table.supplierId),
     uniqueIndex("order_shipments_token_idx").on(table.supplierTokenHash),
     index("order_shipments_tenant_status_idx").on(table.tenantId, table.status),
+    // The tracking job reads parcels still on their way, the least recently read first.
+    index("order_shipments_tracking_idx")
+      .on(table.trackedAt.asc().nullsFirst())
+      .where(sql`${table.status} in ('forwarded','accepted','picking','ready','shipped')`),
     check(
       "order_shipments_status_check",
-      sql`${table.status} in ('forwarded','accepted','picking','ready','shipped','delivered','cancelled')`,
+      sql`${table.status} in ('forwarded','accepted','picking','ready','shipped','delivered','cancelled','not_delivered','returned')`,
     ),
   ],
 );

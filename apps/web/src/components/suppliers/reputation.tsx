@@ -5,6 +5,8 @@ import {
   type SupplierReputation,
 } from "@sellbridge/shared/supplier-score";
 import { MedalIcon, StarIcon } from "@phosphor-icons/react";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 
 /** One colour per level, from red to green, like Mercado Livre's thermometer. */
@@ -76,12 +78,16 @@ export function StarAverage({
   );
 }
 
-export function HighlightBadge() {
+export function HighlightBadge({ focusable = true }: { focusable?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+    <HintedText
+      focusable={focusable}
+      label={TERM_HINTS.highlightedSupplier}
+      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+    >
       <MedalIcon weight="fill" className="size-3.5" aria-hidden="true" />
       Fornecedor destaque
-    </span>
+    </HintedText>
   );
 }
 
@@ -102,16 +108,47 @@ function metricsWarning(reputation: SupplierReputation): string | null {
   return null;
 }
 
+/** The score beside its level, so the number reads without hovering (proposal B, docs/PLANO-UX-ICONES.md). */
+function ScoreNumber({ score }: { score: number | null }) {
+  if (score === null) {
+    return null;
+  }
+  return <span className="text-xs text-muted-foreground tabular-nums">· {score}</span>;
+}
+
+// Cards stretch their link over the whole card (`after:inset-0`); `relative z-10` lifts the level
+// above it, so the pointer reaches the legend.
 function LevelLabel({ reputation }: { reputation: SupplierReputation }) {
   if (reputation.highlighted) {
-    return <HighlightBadge />;
+    return (
+      <span className="relative z-10 inline-flex items-center gap-1">
+        <HighlightBadge focusable={false} />
+        <ScoreNumber score={reputation.score} />
+      </span>
+    );
   }
   if (reputation.level === null) {
-    return <span className="text-xs text-muted-foreground">Novo fornecedor</span>;
+    return (
+      <HintedText
+        label={TERM_HINTS.newSupplier}
+        className="relative z-10 text-xs text-muted-foreground"
+        focusable={false}
+      >
+        Novo fornecedor
+      </HintedText>
+    );
   }
   return (
-    <span className={cn("text-xs font-medium", LEVEL_COLORS[reputation.level].text)}>
-      {SCORE_LEVEL_LABELS[reputation.level]}
+    <span className="relative z-10 inline-flex items-center gap-1">
+      <HintedText
+        label={TERM_HINTS.scoreLevel}
+        className={cn("text-xs font-medium", LEVEL_COLORS[reputation.level].text)}
+
+        focusable={false}
+      >
+        {SCORE_LEVEL_LABELS[reputation.level]}
+      </HintedText>
+      <ScoreNumber score={reputation.score} />
     </span>
   );
 }

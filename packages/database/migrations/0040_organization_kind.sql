@@ -1,0 +1,2 @@
+ALTER TABLE "organization" ADD COLUMN "kind" text DEFAULT 'seller' NOT NULL;--> statement-breakpoint
+ALTER TABLE "organization" ADD CONSTRAINT "organization_kind_check" CHECK ("organization"."kind" in ('seller', 'supplier'));

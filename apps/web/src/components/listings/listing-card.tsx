@@ -9,14 +9,21 @@ import { SoldOutFooter, SoldOutRibbon } from "@/components/catalog/sold-out";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { listingHealth, listingRunState } from "@/features/listings/listing-health";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
-import { useBulkListingActions } from "@/features/listings/use-listing-actions";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
+import {
+  useBulkListingActions,
+  useResendDescription,
+} from "@/features/listings/use-listing-actions";
+import { ToneStatus } from "@/components/data/tone-status";
 import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 import { EditPriceDialog } from "./edit-price-dialog";
 import { ListingMenu } from "./listing-actions";
 import { RUN_STATE_DOT } from "./run-state-style";
 import { SalesSparkline } from "./sales-sparkline";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
+import { Hint, HintedText } from "@/components/ui/hint";
 
 /** Every store and its status, for the tooltip of the status line. */
 function storesSummary(row: ListingOverviewRow): string {
@@ -26,14 +33,15 @@ function storesSummary(row: ListingOverviewRow): string {
 }
 
 /** Same lines as the catalog card: the price as the headline, cost and margin beneath. */
-function PriceLines({ row }: { row: ListingOverviewRow }) {
-  const margin = estimateProfit(row.priceCents, row.costCents)?.marginPercent;
+function PriceLines({ row, offSale }: { row: ListingOverviewRow; offSale: boolean }) {
+  const schedule = useFeeSchedule();
+  const margin = estimateProfit(row.priceCents, row.costCents, schedule)?.marginPercent;
   return (
     <div className="min-w-0 space-y-0.5 tabular-nums">
       <p
         className={cn(
           "text-lg leading-tight font-semibold tracking-tight",
-          row.stock <= 0 && "text-muted-foreground line-through decoration-destructive",
+          offSale && "text-muted-foreground line-through decoration-destructive",
         )}
       >
         {formatCents(row.priceCents)}
@@ -43,12 +51,11 @@ function PriceLines({ row }: { row: ListingOverviewRow }) {
         {margin === undefined ? null : (
           <>
             {" · "}
-            <span
-              className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}
-              title="Estimativa com o custo do fornecedor e a taxa média do marketplace"
-            >
-              margem {Math.round(margin)}%
-            </span>
+            <Hint label="Estimativa com o custo do fornecedor e a taxa média do marketplace">
+              <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
+                margem {wholeMarginPercent(margin)}%
+              </span>
+            </Hint>
           </>
         )}
       </p>
@@ -60,10 +67,13 @@ function PriceLines({ row }: { row: ListingOverviewRow }) {
 function SalesTrend({ row }: { row: ListingOverviewRow }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-      <p className="text-xs text-muted-foreground tabular-nums">
+      <HintedText
+        label={TERM_HINTS.unitsSold}
+        className="text-xs text-muted-foreground tabular-nums"
+      >
         {row.unitsSold.toLocaleString("pt-BR")} {row.unitsSold === 1 ? "venda" : "vendas"} em 30
         dias
-      </p>
+      </HintedText>
       <SalesSparkline dailySales={row.dailySales} muted={row.stock <= 0} />
     </div>
   );
@@ -86,6 +96,58 @@ function RetryButton({ listingId }: { listingId: string }) {
       />
       Reprocessar
     </Button>
+  );
+}
+
+/** The first live store whose description did not go through, or null when all have one. */
+function missingDescription(row: ListingOverviewRow): string | null {
+  const store = row.stores.find(
+    (candidate) => candidate.descriptionError !== null && candidate.status !== "error",
+  );
+  return store?.descriptionError ?? null;
+}
+
+function ResendDescriptionButton({ listingId }: { listingId: string }) {
+  const resend = useResendDescription();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-label="Reenviar descrição"
+      className="max-sm:w-full"
+      disabled={resend.isPending}
+      onClick={() => resend.mutate(listingId)}
+    >
+      <ArrowClockwiseIcon
+        weight="bold"
+        className={cn(resend.isPending && "animate-spin motion-reduce:animate-none")}
+        aria-hidden="true"
+      />
+      {/* Two cards side by side on a phone leave no room for the long label. */}
+      <span className="sm:hidden">Reenviar</span>
+      <span className="max-sm:hidden">Reenviar descrição</span>
+    </Button>
+  );
+}
+
+/**
+ * The listing is live, but the marketplace did not take its description: an attention line (the
+ * listing still sells), the marketplace's reason and the resend (13.b).
+ */
+function MissingDescription({ row }: { row: ListingOverviewRow }) {
+  const reason = missingDescription(row);
+  if (reason === null) {
+    return null;
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <ToneStatus tone="warning" label="Descrição não enviada" />
+        <ResendDescriptionButton listingId={row.listingId} />
+      </div>
+      <p className="text-xs wrap-anywhere text-muted-foreground">{reason}</p>
+    </div>
   );
 }
 
@@ -114,8 +176,36 @@ function StatusFooter({ row }: { row: ListingOverviewRow }) {
         {health.tone !== "error" && row.stock > 0 ? <ProductStockLine stock={row.stock} /> : null}
       </div>
       {health.reason ? <p className="text-xs text-destructive">{health.reason}</p> : null}
+      <MissingDescription row={row} />
     </div>
   );
+}
+
+/**
+ * Why nothing sells, in place of the status line. When the cost passed the price, the price
+ * editor is the fix, so it sits under the reason instead of only in the menu.
+ */
+function StoppedFooter({
+  row,
+  onAdjustPrice,
+}: {
+  row: ListingOverviewRow;
+  onAdjustPrice: () => void;
+}) {
+  const health = listingHealth(row);
+  const adjustPrice =
+    row.unavailable === "cost_above_price" ? (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="bg-background"
+        onClick={onAdjustPrice}
+      >
+        Ajustar preço
+      </Button>
+    ) : null;
+  return <SoldOutFooter label={health.label} detail={health.reason} action={adjustPrice} />;
 }
 
 /** Supplier, title, prices and sales, with the store status unless the sold-out footer replaces it. */
@@ -131,7 +221,9 @@ function ListingCardBody({
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
-        <p className="truncate text-xs text-muted-foreground">{row.supplierName}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {row.catalogKind === "seller" ? "Seu produto" : row.supplierName}
+        </p>
         <h2
           className={cn(
             "line-clamp-2 text-sm font-medium wrap-anywhere",
@@ -142,7 +234,7 @@ function ListingCardBody({
         </h2>
       </div>
       <div className="mt-auto space-y-3">
-        <PriceLines row={row} />
+        <PriceLines row={row} offSale={soldOut} />
         <SalesTrend row={row} />
       </div>
       {showsStatus ? <StatusFooter row={row} /> : null}
@@ -165,9 +257,12 @@ export function ListingCard({
 }) {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const openPriceEditor = () => setIsEditingPrice(true);
-  const soldOut = row.stock <= 0;
+  // Out of the supplier's stock or catalog: either way nothing sells, only the first is "Esgotado".
+  const outOfStock = row.stock <= 0;
+  const soldOut = outOfStock || row.unavailable !== null;
   // A store error outranks the stock: it keeps its own line and the retry button.
-  const showsSoldOutFooter = listingHealth(row).tone === "attention";
+  const health = listingHealth(row);
+  const showsSoldOutFooter = health.tone === "attention";
 
   /** The whole card toggles selection; its own controls (checkbox, menu, retry) keep their behavior. */
   function handleCardClick(event: React.MouseEvent<HTMLElement>) {
@@ -196,16 +291,18 @@ export function ListingCard({
         soldOut={soldOut}
         className="aspect-[16/10]"
       />
-      {soldOut ? <SoldOutRibbon placement="clearOfMenu" /> : null}
-      <Checkbox
-        aria-label={`Selecionar ${row.title}`}
-        checked={selected}
-        onCheckedChange={(checked) => onSelectedChange(checked === true)}
-        className="absolute top-3 left-3 size-5 bg-background"
-      />
+      {outOfStock ? <SoldOutRibbon placement="clearOfMenu" /> : null}
+      <Hint label={CONTROL_HINTS.selectListings} openOnTap={false}>
+        <Checkbox
+          aria-label={`Selecionar ${row.title}`}
+          checked={selected}
+          onCheckedChange={(checked) => onSelectedChange(checked === true)}
+          className="absolute top-3 left-3 size-5 bg-background"
+        />
+      </Hint>
       <ListingMenu row={row} onEditPrice={openPriceEditor} />
       <ListingCardBody row={row} soldOut={soldOut} showsStatus={!showsSoldOutFooter} />
-      {showsSoldOutFooter ? <SoldOutFooter /> : null}
+      {showsSoldOutFooter ? <StoppedFooter row={row} onAdjustPrice={openPriceEditor} /> : null}
       <EditPriceDialog open={isEditingPrice} onOpenChange={setIsEditingPrice} listing={row} />
     </article>
   );

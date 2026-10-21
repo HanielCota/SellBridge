@@ -1,22 +1,33 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import { and, eq, inArray } from "drizzle-orm";
 import type { OrderEventData } from "@sellbridge/shared/public-api";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { listings, listingTargets, orderItems, orders, supplierProducts } from "../schema/index.ts";
 import { reconciledOrderStatus } from "./fulfillment-status.ts";
 import { recordApiEvent } from "./api-events.ts";
+import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
+import { recordOrderStatusChange } from "./order-status-changes.ts";
+import { applyStockMoves, reserveShortItems } from "./stock-reservations.ts";
 
 export interface IncomingOrder {
   externalOrderId: string;
   status: (typeof orders.$inferInsert)["status"];
   totalCents: number;
   marketplaceFeeCents: number;
+  /** Money given back to the buyer so far; omitted when the source does not report it. */
+  refundedCents?: number | undefined;
   buyerName: string | null;
   orderedAt: Date;
   items: { externalListingId: string; title: string; quantity: number; unitPriceCents: number }[];
 }
 
-export type UpsertOrderResult = { status: "created" | "updated"; orderId: string };
+export type UpsertOrderResult = {
+  status: "created" | "updated";
+  orderId: string;
+  /** Stock moves for this order and recovered shortages; above zero, sync the marketplaces. */
+  stockMoves: number;
+};
+type OrderWriteResult = Omit<UpsertOrderResult, "stockMoves">;
 
 interface ResolvedListing {
   listingTargetId: string;
@@ -58,8 +69,6 @@ async function resolveListings(
   );
 }
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 interface OrderWrite {
   readonly transaction: Transaction;
   readonly tenantId: string;
@@ -98,9 +107,9 @@ function orderEventData(
 async function updateExistingOrder(
   write: OrderWrite,
   existing: typeof orders.$inferSelect,
-): Promise<UpsertOrderResult> {
+): Promise<OrderWriteResult> {
   if (existing.tenantId !== write.tenantId) {
-    throw conflictError("Pedido pertence a outro tenant");
+    throw conflictError("Pedido pertence a outra conta");
   }
   await write.transaction
     .update(orders)
@@ -113,6 +122,11 @@ async function updateExistingOrder(
     .where(eq(orders.id, existing.id));
   // Re-deliveries of the same status (retries, total changes) are not news to integrators.
   if (existing.status !== write.order.status) {
+    await recordOrderStatusChange(write.transaction, {
+      tenantId: write.tenantId,
+      orderId: existing.id,
+      status: write.order.status,
+    });
     await recordApiEvent(write.transaction, {
       tenantId: write.tenantId,
       type: "order.status_changed",
@@ -147,7 +161,8 @@ async function insertOrderItems(write: OrderWrite, orderId: string): Promise<voi
   );
 }
 
-async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
+/** Null when another write created the same order a moment earlier (see `writeOrder`). */
+async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> {
   const { order } = write;
   const [created] = await write.transaction
     .insert(orders)
@@ -162,12 +177,19 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
     })
+    .onConflictDoNothing({ target: [orders.storeConnectionId, orders.externalOrderId] })
     .returning({ id: orders.id });
   if (!created) {
-    // An insert that returns no row is an unexpected write failure, not a business conflict.
-    throw new Error("Não foi possível gravar o pedido");
+    return null;
   }
   await insertOrderItems(write, created.id);
+  // The first step is the sale itself, dated when it happened, not when the sync saw it.
+  await recordOrderStatusChange(write.transaction, {
+    tenantId: write.tenantId,
+    orderId: created.id,
+    status: order.status,
+    at: order.orderedAt,
+  });
   await recordApiEvent(write.transaction, {
     tenantId: write.tenantId,
     type: "order.created",
@@ -178,6 +200,50 @@ async function createOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     }),
   });
   return { status: "created", orderId: created.id };
+}
+
+/** Physical progress of an order: a late marketplace update never moves it back down this ladder. */
+const PROGRESS_RANK: Partial<Record<IncomingOrder["status"], number>> = {
+  shipped: 2,
+  delivered: 3,
+};
+
+/**
+ * Final statuses the marketplace cannot undo, applied before the parcels are read. A return is
+ * known from the shipments, not from the marketplace's order status, which stays "paid" (or
+ * partially refunded): a returned order keeps that status until it is cancelled. A cancellation is
+ * final on the marketplace: two notifications of one order run as separate jobs, and the "paid"
+ * one fetched before the buyer cancelled can land after the "cancelled" one; it must not reopen
+ * the order for forwarding and shipping.
+ */
+function keptFinalStatus(
+  current: (typeof orders.$inferSelect)["status"],
+  incoming: IncomingOrder["status"],
+): IncomingOrder["status"] {
+  if (current === "returned" && ["pending", "paid", "shipped", "delivered"].includes(incoming)) {
+    return "returned";
+  }
+  if (current === "cancelled" && ["pending", "paid"].includes(incoming)) {
+    return "cancelled";
+  }
+  return incoming;
+}
+
+/**
+ * Physical progress, applied after the parcels are read: a dispatched order never becomes
+ * "pending" again (a payment hold reported late), and a delivered one never goes back to
+ * "shipped". Going back to "paid" stays possible: a parcel that failed to arrive puts the order
+ * back in the work queue (see `reconciledOrderStatus`).
+ */
+function keptProgress(
+  current: (typeof orders.$inferSelect)["status"],
+  incoming: IncomingOrder["status"],
+): IncomingOrder["status"] {
+  if (current !== "shipped" && current !== "delivered") return incoming;
+  if (incoming === "pending") return current;
+  const incomingRank = PROGRESS_RANK[incoming];
+  if (incomingRank !== undefined && incomingRank < (PROGRESS_RANK[current] ?? 0)) return current;
+  return incoming;
 }
 
 async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
@@ -194,16 +260,51 @@ async function writeOrder(write: OrderWrite): Promise<UpsertOrderResult> {
     )
     .for("update");
   if (existing) {
-    const status = await reconciledOrderStatus(write.transaction, existing.id, write.order.status);
-    return updateExistingOrder({ ...write, order: { ...write.order, status } }, existing);
+    const status = keptProgress(
+      existing.status,
+      await reconciledOrderStatus(
+        write.transaction,
+        existing.id,
+        keptFinalStatus(existing.status, write.order.status),
+      ),
+    );
+    const updated = await updateExistingOrder(
+      { ...write, order: { ...write.order, status } },
+      existing,
+    );
+    const stockMoves = await applyStockMoves(write.transaction, existing.id, status);
+    await syncMarketplaceRefund(write.transaction, {
+      tenantId: write.tenantId,
+      orderId: existing.id,
+      status,
+      totalCents: write.order.totalCents,
+      refundedCents: write.order.refundedCents,
+    });
+    return { ...updated, stockMoves };
   }
-  return createOrder(write);
+  const created = await createOrder(write);
+  if (!created) {
+    // Two notifications of a new order: the other one inserted it first (no row existed to lock).
+    // Read it again, now locked, and apply this one as an update instead of failing on the key.
+    return writeOrder(write);
+  }
+  const stockMoves = await applyStockMoves(write.transaction, created.orderId, write.order.status);
+  await syncMarketplaceRefund(write.transaction, {
+    tenantId: write.tenantId,
+    orderId: created.orderId,
+    status: write.order.status,
+    totalCents: write.order.totalCents,
+    refundedCents: write.order.refundedCents,
+  });
+  return { ...created, stockMoves };
 }
 
 /**
  * Idempotent upsert of a marketplace order: the first delivery creates it with its items,
  * later deliveries (status changes, retries) only update status, totals and fee.
- * Items whose listing is not ours are kept with zero cost so revenue is never lost.
+ * Items whose listing is not ours are kept without a product, so revenue is never lost; the
+ * reports read them as unknown cost ("custo pendente") and leave the order out of the profit.
+ * Every write also brings the supplier stock in line with the new status (stock-reservations.ts).
  */
 export async function upsertMarketplaceOrder(
   database: Database,
@@ -217,7 +318,22 @@ export async function upsertMarketplaceOrder(
     storeConnectionId,
     order.items.map((item) => item.externalListingId),
   );
-  return database.transaction(async (transaction) =>
+  const result = await database.transaction(async (transaction) =>
     writeOrder({ transaction, tenantId, storeConnectionId, order, listingsByExternalId }),
   );
+  // Reclaim released units before the worker offers them on marketplaces. Retried terminal
+  // events also recover a reservation attempt that failed after the order committed.
+  const reserved = await reserveOrderShortages(database, result.orderId);
+  return { ...result, stockMoves: result.stockMoves + reserved };
+}
+
+async function reserveOrderShortages(database: Database, orderId: string): Promise<number> {
+  const items = await database
+    .select({ productId: orderItems.supplierProductId })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  const productIds = [
+    ...new Set(items.flatMap((item) => (item.productId ? [item.productId] : []))),
+  ];
+  return reserveShortItems(database, productIds);
 }

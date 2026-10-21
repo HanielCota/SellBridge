@@ -1,5 +1,5 @@
 import { getListingOverview, listListingOverview } from "@sellbridge/database/repositories";
-import { LISTING_FILTER_STATUSES, listingSortSchema } from "@sellbridge/shared/schemas";
+import { LISTING_FILTER_STATUSES, listingSortSchema, freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import {
@@ -17,7 +17,7 @@ const listingsQuerySchema = pageQuerySchema.extend({
     .enum(LISTING_FILTER_STATUSES)
     .optional()
     .describe("Só anúncios com ao menos uma loja neste status."),
-  search: z.string().trim().min(1).max(100).optional().describe("Busca no título do anúncio."),
+  search: freeText().trim().min(1).max(100).optional().describe("Busca no título do anúncio."),
   sort: listingSortSchema
     .default("recent")
     .describe("`recent`: mais novos primeiro; `best_selling`: mais vendidos em 30 dias."),

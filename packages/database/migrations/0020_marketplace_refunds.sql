@@ -1,0 +1,2 @@
+ALTER TABLE "order_adjustments" ADD COLUMN "marketplace_key" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "order_adjustments_marketplace_key_idx" ON "order_adjustments" USING btree ("order_id","marketplace_key");

@@ -25,7 +25,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 
 ## Features
 
-- **Suppliers by region** — onboarding by CEP (Brazilian postal code) and a catalog filtered to nearby wholesalers, with search, filters, and sorting.
+- **Suppliers from anywhere in Brazil** — onboarding asks for the holder (full name and CPF, one account per CPF) and the supplier of the first store; each store sells a single supplier, and the directory filters by the supplier's state and city.
 - **Connected stores** — OAuth with the marketplaces (real Mercado Livre connector, plus a simulated store for testing) and automatic token renewal.
 - **Bulk publishing** — publish one listing to one or many stores through a job queue, with trackable status and retries.
 - **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
@@ -98,7 +98,7 @@ The app UI is in Portuguese. In **Lojas conectadas** (connected stores), use **C
 
 ## Managing the supplier catalog
 
-Enable **Modo administrador** in the account menu and open **Fornecedores** (`/admin/fornecedores`). Create a supplier and its state/city coverage, then manage products on `/admin/fornecedores/$supplierId`. An empty coverage city covers the entire state. Product search and pagination are stored in the URL.
+Enable **Modo administrador** in the account menu and open **Fornecedores** (`/admin/fornecedores`). Create a supplier with the state and city it ships from, then manage products and see the stores that sell it on `/admin/fornecedores/$supplierId`. Product search and pagination are stored in the URL.
 
 The supplier page provides a downloadable UTF-8 CSV model. Files may use semicolons or commas (quote decimal commas in comma-delimited files), with at most 2 MiB and 1,000 products. The preview shows create/update counts and physical line numbers for every invalid row. All errors must be corrected before confirming. Confirmation revalidates the file and catalog revision, then upserts every row in one transaction using `(supplier_id, sku)`, preserving product IDs and listing/order references.
 
@@ -159,7 +159,7 @@ packages/config        base tsconfig
 - **Phase 4:** support with attachments (validated by content), history and status, and an admin view to reply/close; real Mercado Livre connector (OAuth with PKCE, publishing, stock/price, orders, notifications) behind the same interface; idempotent queued webhooks; periodic stock and price sync; "Simular venda" to test the flow end to end; E2E tests for critical flows.
 - **Phase 3:** dashboard with KPIs (sales, revenue, profit, average order value), comparison with the previous period, daily/weekly trend chart, filters by period and store, sales by store and best-selling products; finances with profit, fees, returns, and refunds per order and per period, a table with server-side sorting/filtering/pagination and CSV export; empty states and a getting-started checklist.
 - **Phase 2:** `marketplaces` package (single interface, mock connector, token encryption, HTTP with retry/backoff and rate limiting), stores connected via OAuth (mock), publishing to one or many stores through a BullMQ queue in the worker, trackable status and retries, automatic token renewal.
-- **Phase 1:** domain schema (region, suppliers, stores, listings, orders, webhooks, support), deterministic seeds, onboarding by CEP (cache + BrasilAPI + ViaCEP), suppliers filtered by region, and a catalog with search, filters, sorting, and pagination in the URL.
+- **Phase 1:** domain schema (region, suppliers, stores, listings, orders, webhooks, support), deterministic seeds, onboarding by CEP (later replaced by CPF and supplier choice, see docs/decisions.md 2026-10-15), suppliers filtered by region, and a catalog with search, filters, sorting, and pagination in the URL.
 - **Phase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, base layout (collapsible sidebar, light/dark mode), and authentication (sign-up, login, logout, one organization per user, admin role).
 
 ## Contributing

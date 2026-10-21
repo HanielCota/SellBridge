@@ -3,11 +3,21 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
 import { and, asc, count, desc, eq, ilike, inArray, lt, sql, type SQL } from "drizzle-orm";
 import type { ListingEventData } from "@sellbridge/shared/public-api";
-import type { Database, DatabaseExecutor } from "../client.ts";
+import type { CatalogAvailability } from "@sellbridge/shared/catalog-availability";
+import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { listings, listingTargets, storeConnections, supplierProducts } from "../schema/index.ts";
+import {
+  listings,
+  listingTargets,
+  storeConnections,
+  supplierProducts,
+  suppliers,
+} from "../schema/index.ts";
+import { notifyListingFailed } from "./notification-producers.ts";
+import { assertPrivateProductPublication } from "./private-product-publication.ts";
+import { publicationMayGoLive } from "./publication-completion.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -28,6 +38,54 @@ export function listingIdempotencyKey(listingId: string, storeConnectionId: stri
   return `${listingId}:${storeConnectionId}`;
 }
 
+/** The tenant's stores that already carry a listing of this product, by name. */
+export async function storesListingProduct(
+  executor: DatabaseExecutor,
+  tenantId: string,
+  supplierProductId: string,
+): Promise<{ storeId: string; storeName: string }[]> {
+  return executor
+    .selectDistinct({ storeId: storeConnections.id, storeName: storeConnections.shopName })
+    .from(listingTargets)
+    .innerJoin(listings, eq(listings.id, listingTargets.listingId))
+    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
+    .where(
+      and(eq(listingTargets.tenantId, tenantId), eq(listings.supplierProductId, supplierProductId)),
+    )
+    .orderBy(asc(storeConnections.shopName), asc(storeConnections.id));
+}
+
+/**
+ * One listing per product and store. The stores are locked first, always in the same order, so
+ * two publications of the same product wait for each other and the second one sees the first.
+ */
+async function assertNotListedYet(
+  transaction: Transaction,
+  tenantId: string,
+  supplierProductId: string,
+  storeConnectionIds: readonly string[],
+): Promise<void> {
+  await transaction
+    .select({ id: storeConnections.id })
+    .from(storeConnections)
+    .where(
+      and(
+        eq(storeConnections.tenantId, tenantId),
+        inArray(storeConnections.id, [...storeConnectionIds]),
+      ),
+    )
+    .orderBy(asc(storeConnections.id))
+    .for("update");
+  const listed = (await storesListingProduct(transaction, tenantId, supplierProductId)).find(
+    (store) => storeConnectionIds.includes(store.storeId),
+  );
+  if (listed) {
+    throw conflictError(
+      `Este produto já está publicado em ${listed.storeName}. Edite o anúncio existente em Publicações.`,
+    );
+  }
+}
+
 export async function createListingWithTargets(
   database: Database,
   tenantId: string,
@@ -39,7 +97,17 @@ export async function createListingWithTargets(
   }
   return database.transaction(async (transaction) => {
     const { billingEnabled, ...values } = input;
-    if (billingEnabled) await assertBillingCapacity(transaction, tenantId, "listings");
+    await assertNotListedYet(transaction, tenantId, values.supplierProductId, storeConnectionIds);
+    await assertPrivateProductPublication(
+      transaction,
+      tenantId,
+      values.supplierProductId,
+      storeConnectionIds,
+    );
+    if (billingEnabled) {
+      // One plan slot per destination store (item 16, N7).
+      await assertBillingCapacity(transaction, tenantId, "listings", storeConnectionIds.length);
+    }
     const [listing] = await transaction
       .insert(listings)
       .values({ ...values, tenantId })
@@ -149,6 +217,8 @@ export interface TargetForPublishing {
   listing: typeof listings.$inferSelect;
   product: typeof supplierProducts.$inferSelect;
   store: typeof storeConnections.$inferSelect;
+  availability: CatalogAvailability;
+  source: Pick<typeof suppliers.$inferSelect, "catalogKind" | "ownerTenantId">;
 }
 
 export async function getTargetForPublishing(
@@ -162,17 +232,34 @@ export async function getTargetForPublishing(
       listing: listings,
       product: supplierProducts,
       store: storeConnections,
+      supplierActive: suppliers.active,
+      source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
     })
     .from(listingTargets)
     .innerJoin(listings, eq(listings.id, listingTargets.listingId))
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
     .where(and(eq(listingTargets.tenantId, tenantId), eq(listingTargets.id, listingTargetId)))
     .limit(1);
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  return row;
+  const { supplierActive, ...target } = row;
+  return {
+    ...target,
+    // A product back in review or rejected in the supplier panel is not published (0039).
+    availability: {
+      productActive:
+        row.product.active &&
+        row.product.reviewStatus === "approved" &&
+        row.store.tenantId === tenantId &&
+        row.listing.tenantId === tenantId &&
+        (row.source.catalogKind === "supplier" || row.source.ownerTenantId === tenantId),
+      supplierActive,
+      priceCoversCost: row.listing.priceCents > row.product.costCents,
+    },
+  };
 }
 
 /**
@@ -187,7 +274,13 @@ export async function claimTargetForPublishing(
   const claimed = await database
     .update(listingTargets)
     .set({ status: "publishing", attempts: sql`${listingTargets.attempts} + 1` })
-    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "pending")))
+    .where(
+      and(
+        eq(listingTargets.id, listingTargetId),
+        eq(listingTargets.status, "pending"),
+        eq(listingTargets.pauseRequested, false),
+      ),
+    )
     .returning({ id: listingTargets.id });
   return claimed.length > 0;
 }
@@ -280,12 +373,24 @@ const FAILURE_STATUSES = ["pending", "publishing"] as const;
 export async function markTargetPublished(
   database: Database,
   listingTargetId: string,
-  result: { externalId: string; externalUrl: string | null },
+  result: { externalId: string; externalUrl: string | null; descriptionError?: string | null },
 ): Promise<void> {
   await database.transaction(async (transaction) => {
+    const mayPublish = await publicationMayGoLive(transaction, listingTargetId);
     const [updated] = await transaction
       .update(listingTargets)
-      .set({ ...result, status: "published", errorReason: null, publishedAt: new Date() })
+      .set({
+        externalId: result.externalId,
+        externalUrl: result.externalUrl,
+        status: sql`case when ${listingTargets.pauseRequested} or ${!mayPublish} then 'paused'::listing_target_status else 'published'::listing_target_status end`,
+        pauseRequested: sql`${listingTargets.pauseRequested} or ${!mayPublish}`,
+        errorReason: null,
+        publishedAt: new Date(),
+        // A refused description keeps the listing live, with the warning on its card (13.b).
+        descriptionError: result.descriptionError ?? null,
+        descriptionFailedAt: (result.descriptionError ?? null) === null ? null : new Date(),
+        descriptionAttempts: 0,
+      })
       .where(
         and(
           eq(listingTargets.id, listingTargetId),
@@ -316,7 +421,10 @@ export async function markTargetFailed(
   await database.transaction(async (transaction) => {
     const [updated] = await transaction
       .update(listingTargets)
-      .set({ status: options.final ? "error" : "pending", errorReason: reason })
+      .set({
+        status: sql`case when ${listingTargets.pauseRequested} or ${options.final} then 'error'::listing_target_status else 'pending'::listing_target_status end`,
+        errorReason: reason,
+      })
       .where(
         and(
           eq(listingTargets.id, listingTargetId),
@@ -324,90 +432,14 @@ export async function markTargetFailed(
         ),
       )
       .returning(listingEventColumns);
-    if (!options.final) {
+    if (!options.final && updated?.status !== "error") {
       return;
     }
     await recordListingEvent(transaction, "listing.failed", updated);
+    if (updated !== undefined) {
+      await notifyListingFailed(transaction, listingTargetId, new Date());
+    }
   });
-}
-
-export interface TargetNeedingSync {
-  targetId: string;
-  externalId: string;
-  stock: number;
-  priceCents: number;
-  store: typeof storeConnections.$inferSelect;
-}
-
-/** Stock to show on the marketplace: zero while the reseller has the listing paused. */
-const liveStock =
-  sql<number>`case when ${listingTargets.status} = 'paused' then 0 else ${supplierProducts.stock} end`.mapWith(
-    Number,
-  );
-
-/**
- * Live listings whose stock or price differs from what was last sent to the marketplace
- * (all tenants; used by the worker sync job). Never-attempted targets come first and the
- * rest follow the oldest attempt, so targets that keep failing cannot starve the others.
- */
-export async function findTargetsNeedingSync(
-  database: Database,
-  limit = 200,
-): Promise<TargetNeedingSync[]> {
-  const rows = await database
-    .select({
-      targetId: listingTargets.id,
-      externalId: listingTargets.externalId,
-      stock: liveStock,
-      priceCents: listings.priceCents,
-      store: storeConnections,
-    })
-    .from(listingTargets)
-    .innerJoin(listings, eq(listings.id, listingTargets.listingId))
-    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
-    .innerJoin(storeConnections, eq(storeConnections.id, listingTargets.storeConnectionId))
-    .where(
-      and(
-        sql`${listingTargets.status} in ('published', 'paused')`,
-        eq(storeConnections.status, "connected"),
-        sql`${listingTargets.externalId} is not null`,
-        sql`(${listingTargets.syncedStock} is distinct from ${liveStock}
-          or ${listingTargets.syncedPriceCents} is distinct from ${listings.priceCents})`,
-      ),
-    )
-    .orderBy(sql`${listingTargets.syncAttemptedAt} asc nulls first`, asc(listingTargets.id))
-    .limit(limit);
-  return rows.flatMap((row) => (row.externalId ? [{ ...row, externalId: row.externalId }] : []));
-}
-
-export async function markTargetSynced(
-  database: Database,
-  listingTargetId: string,
-  synced: { stock: number; priceCents: number },
-): Promise<void> {
-  const now = new Date();
-  await database
-    .update(listingTargets)
-    .set({
-      syncedStock: synced.stock,
-      syncedPriceCents: synced.priceCents,
-      syncedAt: now,
-      syncAttemptedAt: now,
-      syncError: null,
-    })
-    .where(eq(listingTargets.id, listingTargetId));
-}
-
-/** Records a failed sync attempt so the target moves to the back of the sync queue. */
-export async function markTargetSyncFailed(
-  database: Database,
-  listingTargetId: string,
-  reason: string,
-): Promise<void> {
-  await database
-    .update(listingTargets)
-    .set({ syncAttemptedAt: new Date(), syncError: reason })
-    .where(eq(listingTargets.id, listingTargetId));
 }
 
 /** Persisted before the remote POST; survives a worker crash or a lost response. */
@@ -419,7 +451,13 @@ export async function setTargetCreationStarted(
   const rows = await database
     .update(listingTargets)
     .set({ creationStartedAt: started ? new Date() : null })
-    .where(and(eq(listingTargets.id, listingTargetId), eq(listingTargets.status, "publishing")))
+    .where(
+      and(
+        eq(listingTargets.id, listingTargetId),
+        eq(listingTargets.status, "publishing"),
+        started ? eq(listingTargets.pauseRequested, false) : undefined,
+      ),
+    )
     .returning({ id: listingTargets.id });
   if (rows.length !== 1) throw conflictError("A publicação não está mais em processamento");
 }

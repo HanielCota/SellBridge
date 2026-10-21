@@ -1,11 +1,20 @@
-import { FlaskIcon, HandshakeIcon } from "@phosphor-icons/react";
+import { FlaskIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { SHOPEE_PATH, TIKTOK_PATH } from "./marketplace-logo-paths";
 
-/** The handshake from Mercado Livre's emblem; the wordmark is unreadable at tile size. */
+/** Mercado Livre's emblem, the handshake in its oval; the wordmark is unreadable at tile size. */
 function MercadoLivreLogo() {
-  return <HandshakeIcon weight="bold" className="size-[60%] text-[#2d3277]" />;
+  return (
+    <img
+      src="/marketplaces/mercado-livre.png"
+      alt=""
+      width={169}
+      height={120}
+      draggable={false}
+      className="h-auto w-[80%]"
+    />
+  );
 }
 
 function ShopeeLogo() {

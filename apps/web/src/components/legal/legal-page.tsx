@@ -27,7 +27,7 @@ export function LegalPage({ title, updatedAt, intro, sections, footer }: LegalPa
           Criar conta
         </Link>
       </header>
-      <main className="mx-auto max-w-2xl px-5 pb-20">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-2xl px-5 pb-20">
         <h1 className="text-3xl leading-tight font-medium tracking-tight">{title}</h1>
         <p className="mt-2 text-footnote text-muted-foreground">Última atualização: {updatedAt}</p>
         <p className="mt-6 text-body leading-relaxed font-light">{intro}</p>

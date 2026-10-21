@@ -1,8 +1,11 @@
 import { formatCents } from "@sellbridge/shared/money";
-import { ArrowUpRightIcon } from "@phosphor-icons/react";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { profitMargin } from "@/features/reports/dashboard-insights";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { displayStoreName } from "@/features/stores/store-name";
+import { formatPercent } from "@/lib/percent";
 
 interface StoreRow {
   storeConnectionId: string;
@@ -10,6 +13,7 @@ interface StoreRow {
   orders: number;
   revenueCents: number;
   profitCents: number;
+  pendingCostRevenueCents: number;
 }
 
 interface ProductRow {
@@ -18,15 +22,18 @@ interface ProductRow {
   revenueCents: number;
 }
 
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
+const SeeAllIcon = ACTION_ICONS.seeAll.icon;
 
 function BreakdownSection({
   title,
   to,
+  hint,
   children,
 }: {
   title: string;
   to: NonNullable<LinkProps["to"]>;
+  /** Tooltip naming where "Ver tudo" leads. */
+  hint: string;
   children: ReactNode;
 }) {
   // The link's hit area is stretched over the whole card (`after:inset-0`), so a click anywhere
@@ -37,13 +44,16 @@ function BreakdownSection({
         <h2 className="text-subhead font-medium text-muted-foreground transition-colors group-hover:text-foreground">
           {title}
         </h2>
-        <Link
-          to={to}
-          aria-label={`Abrir ${title.toLowerCase()}`}
-          className="-mr-1.5 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors group-hover:bg-foreground group-hover:text-background outline-none after:absolute after:inset-0"
-        >
-          <ArrowUpRightIcon className="size-3.5" weight="bold" aria-hidden="true" />
-        </Link>
+        <Hint label={hint} openOnTap={false}>
+          <Link
+            to={to}
+            aria-label={`Ver tudo em ${title.toLowerCase()}`}
+            className="-mr-1.5 flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors group-hover:bg-foreground group-hover:text-background outline-none after:absolute after:inset-0"
+          >
+            <span aria-hidden="true">Ver tudo</span>
+            <SeeAllIcon className="size-3.5" weight="bold" aria-hidden="true" />
+          </Link>
+        </Hint>
       </div>
       <div className="mt-5 flex flex-1 flex-col">{children}</div>
     </section>
@@ -56,9 +66,17 @@ function EmptyRows() {
   );
 }
 
+/** "12% de margem" over the revenue whose cost is known; "custo pendente" when none is known. */
+function marginText(store: StoreRow): string {
+  const margin = profitMargin(store);
+  if (margin !== null) {
+    return `${formatPercent(margin)} de margem`;
+  }
+  return store.pendingCostRevenueCents > 0 ? "custo pendente" : `${formatPercent(0)} de margem`;
+}
+
 function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: number }) {
   const share = totalRevenue > 0 ? store.revenueCents / totalRevenue : 0;
-  const margin = store.revenueCents > 0 ? store.profitCents / store.revenueCents : 0;
   const name = displayStoreName(store.storeName);
   return (
     <li className="space-y-2">
@@ -76,13 +94,13 @@ function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: nu
           />
         </div>
         <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-          {percent.format(share)}
+          {formatPercent(share)}
           <span className="sr-only"> da receita</span>
         </span>
       </div>
       <p className="text-xs text-muted-foreground tabular-nums">
         {store.orders} {store.orders === 1 ? "venda" : "vendas"} · lucro{" "}
-        {formatCents(store.profitCents)} · {percent.format(margin)} de margem
+        {formatCents(store.profitCents)} · {marginText(store)}
       </p>
     </li>
   );
@@ -93,7 +111,7 @@ export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
   const totalRevenue = stores.reduce((sum, store) => sum + store.revenueCents, 0);
   const totalOrders = stores.reduce((sum, store) => sum + store.orders, 0);
   return (
-    <BreakdownSection title="Vendas por loja" to="/lojas">
+    <BreakdownSection title="Vendas por loja" to="/lojas" hint="Ver todas as suas lojas">
       {stores.length === 0 ? (
         <EmptyRows />
       ) : (
@@ -118,7 +136,11 @@ export function StoreBreakdown({ stores }: { stores: StoreRow[] }) {
 
 export function TopProducts({ products }: { products: ProductRow[] }) {
   return (
-    <BreakdownSection title="Produtos mais vendidos" to="/publicacoes">
+    <BreakdownSection
+      title="Produtos mais vendidos"
+      to="/publicacoes"
+      hint="Ver todas as suas publicações"
+    >
       {products.length === 0 ? (
         <EmptyRows />
       ) : (
@@ -131,8 +153,8 @@ export function TopProducts({ products }: { products: ProductRow[] }) {
               <th scope="col" className="pb-2 font-normal">
                 Produto
               </th>
-              <th scope="col" className="w-12 pb-2 text-right font-normal max-sm:hidden">
-                Unid.
+              <th scope="col" className="w-20 pb-2 text-right font-normal max-sm:hidden">
+                Unidades
               </th>
               <th scope="col" className="w-24 pb-2 text-right font-normal">
                 Receita

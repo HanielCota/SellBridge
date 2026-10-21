@@ -16,23 +16,36 @@ export function formatCents(cents: Cents): string {
   return brlFormatter.format(assertCents(cents) / 100);
 }
 
+/** Largest amount a money column (Postgres `integer`) can hold: R$ 21.474.836,47. */
+export const MAX_STORED_CENTS = 2_147_483_647;
+
+/** "1.234,56": dots group thousands, the comma marks the cents. */
+const GROUPED_BRL = /^(-?)(\d{1,3}(?:\.\d{3})+)(?:,(\d{1,2}))?$/;
+/** "1234,5" or "12". */
+const PLAIN_BRL = /^(-?)(\d+)(?:,(\d{1,2}))?$/;
+/** "59.90": a dot followed by one or two digits can only be the decimal point. */
+const DOT_DECIMAL_BRL = /^(-?)(\d+)\.(\d{1,2})$/;
+
 /**
- * Parses user input such as "1.234,56", "1234,5" or "12" into cents.
- * Returns null when the text is not a valid amount.
+ * Parses user input such as "1.234,56", "1234,5", "59.90" or "12" into cents. Returns null
+ * when the text is not an amount or is larger than a money column holds.
  */
 export function parseBrlToCents(input: string): Cents | null {
-  const normalized = input
-    .replace(/[R$\s]/g, "")
-    .replaceAll(".", "")
-    .replace(",", ".");
-  if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) {
+  // Only a leading "R$" (after an optional minus) is a currency sign; "1R2" is not an amount.
+  const compact = input.replace(/\s/g, "").replace(/^(-?)R\$/, "$1");
+  const match =
+    GROUPED_BRL.exec(compact) ?? PLAIN_BRL.exec(compact) ?? DOT_DECIMAL_BRL.exec(compact);
+  if (match === null) {
     return null;
   }
-  const [integerPart = "0", fractionPart = ""] = normalized.split(".");
-  const sign = integerPart.startsWith("-") ? -1 : 1;
-  const absoluteInteger = Math.abs(Number.parseInt(integerPart, 10));
-  const fraction = Number.parseInt(fractionPart.padEnd(2, "0"), 10);
-  return sign * (absoluteInteger * 100 + fraction);
+  const [, minus = "", integerDigits = "0", fractionDigits = ""] = match;
+  const magnitude =
+    Number(integerDigits.replaceAll(".", "")) * 100 + Number(fractionDigits.padEnd(2, "0"));
+  if (!Number.isSafeInteger(magnitude) || magnitude > MAX_STORED_CENTS) {
+    return null;
+  }
+  // "-0,00" is zero, not -0 (which the formatter would print as "-R$ 0,00").
+  return minus === "-" && magnitude > 0 ? -magnitude : magnitude;
 }
 
 /** Cents as the text a BRL input shows ("1234,50"); an absent amount is an empty field. */

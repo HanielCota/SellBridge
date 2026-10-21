@@ -18,13 +18,13 @@ export const getWebhookEndpoints = createServerFn({ method: "GET" })
 export const createWebhookEndpointFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createWebhookEndpointInputSchema)
-  .handler(async ({ context, data }) =>
-    createOrganizationWebhookEndpoint({
+  .handler(async ({ context, data }) => {
+    return createOrganizationWebhookEndpoint({
       tenantId: context.tenantId,
       actor: { userId: context.userId },
       request: data,
-    }),
-  );
+    });
+  });
 
 export const deleteWebhookEndpointFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])

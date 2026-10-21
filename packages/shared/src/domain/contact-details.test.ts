@@ -35,4 +35,18 @@ describe("redactContactDetails", () => {
     const comment = "Chegou em 12/09, custou R$ 1.299,90 em 2x. Nota 10/10, ótima.Com certeza";
     expect(redactContactDetails(comment)).toBe(comment);
   });
+
+  it("sees through full-width and mathematical digits, a full-width @ and wide gaps", () => {
+    const fullWidth = String.fromCodePoint(
+      ..."11987654321".split("").map((digit) => 0xff10 + Number(digit)),
+    );
+    const mathematical = String.fromCodePoint(
+      ..."11987654321".split("").map((digit) => 0x1d7ce + Number(digit)),
+    );
+    const wideAt = String.fromCodePoint(0xff20);
+    expect(redactContactDetails(`Me chama no ${fullWidth}`)).toBe("Me chama no [removido]");
+    expect(redactContactDetails(`Ou no ${mathematical}`)).toBe("Ou no [removido]");
+    expect(redactContactDetails(`joao${wideAt}gmail.com`)).toBe("[removido]");
+    expect(redactContactDetails("Liga 11   98765   4321")).toBe("Liga [removido]");
+  });
 });

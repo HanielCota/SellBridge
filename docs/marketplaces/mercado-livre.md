@@ -30,7 +30,7 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 - Antes de criar, consulta `GET /users/{seller_id}/items/search?sku={idempotencyKey}` e `?seller_sku={sku}`. A primeira busca usa `seller_custom_field`, onde gravamos a chave estável do destino; a segunda usa o atributo `SELLER_SKU`. Cada resultado é consultado por `GET /items/{id}` e deve pertencer à loja.
 - Reutiliza somente o anúncio com `seller_custom_field` igual à chave desse destino. Outro destino do SellBridge pode compartilhar o SKU; um anúncio sem marcador exige conferência manual. Múltiplos anúncios com a mesma chave, anúncios encerrados e buscas incompletas bloqueiam a criação. Um anúncio ativo ou pausado recuperado recebe o preço e estoque atuais antes de ser salvo localmente.
 - O worker salva `listing_targets.creation_started_at` **antes** de `POST /items`. Uma falha ao salvar o marcador impede o POST. Rejeições definitivas (400/401/429) limpam o marcador; falhas de rede, timeout, 5xx ou resposta inválida o preservam. O HTTP nunca repete automaticamente um POST incerto.
-- Após uma queda ou falha ao salvar o id, o reprocessamento com esse marcador faz apenas conciliação. Se o índice ainda não retornar o anúncio, nenhuma nova criação é permitida; aguarde e reprocesse. Se a criação de fato não ocorreu, confira no Mercado Livre antes de criar um novo destino. Isso também bloqueia conservadoramente uma queda entre salvar o marcador e enviar o POST.
+- Toda tentativa, inclusive o Reprocessar, concilia antes de criar. Com o marcador presente e nenhum anúncio encontrado, a decisão depende da idade do marcador: até 10 minutos, a busca pode só não ter indexado o anúncio ainda, então nada é criado e a mensagem pede para aguardar e reprocessar; depois de 10 minutos, a ausência confirma que a criação não ocorreu, o marcador é limpo e o anúncio é criado (com um marcador novo). Isso cobre também uma queda entre salvar o marcador e enviar o POST.
 - Destinos antigos sem marcador persistido não permitem distinguir uma criação incerta anterior à migração; confira essas publicações antes de reprocessar. A garantia pressupõe que o marcador `seller_custom_field` não seja removido no marketplace.
 - A descrição continua opcional: falha é registrada e não provoca uma nova criação.
 - Referência: [Busca de itens, por SKU](https://developers.mercadolivre.com.br/pt_br/itens-e-buscas).
@@ -39,10 +39,35 @@ Consultado em 2026-10-12 na documentação oficial. As referências abaixo docum
 
 - `GET /orders/{id}`; busca: `GET /orders/search?seller={id}&order.date_created.from=…&sort=date_desc` (paginação `offset`/`limit`).
 - Campos usados: `id`, `status`, `date_created`, `total_amount`, `buyer.nickname`, `order_items[].item.id`, `.item.title`, `.quantity`, `.unit_price`, `.sale_fee`.
-- Status: `confirmed`, `payment_required`, `payment_in_process`, `partially_paid`, `paid`, `partially_refunded`, `pending_cancel`, `cancelled`, `invalid`.
+- Status (tabela oficial, lida em 2026-10-13) e como entram no SellBridge: `confirmed`, `payment_required`, `payment_in_process` e `partially_paid` → pendente; `paid` e `partially_refunded` → pago (o valor devolvido vira ajuste, item 04.b); `pending_cancel`, `cancelled` e `invalid` → cancelado. Um status fora da tabela fica pendente e gera o log `mercado_livre.unknown_order_status`.
+- `tags`: `fraud_risk_detected` significa "não envie, cancele"; o pedido fica pendente mesmo pago e nunca é liberado ao fornecedor. Uma venda marcada como "não concretizada" continua `confirmed` na API (o dinheiro é devolvido sozinho) e, por isso, fica pendente.
+- Exemplos de cada status em `packages/marketplaces/src/mercado-livre/fixtures/orders.ts`.
+- Reembolso: a soma de `payments[].transaction_amount_refunded` (valor já devolvido ao comprador, em reais) vira um único ajuste por pedido (`order_adjustments.marketplace_key = 'refund'`), sempre com o total mais recente. Num pedido que conta receita ele desconta do lucro; num pedido devolvido aparece em "Devoluções"; num cancelado é removido.
 - `sale_fee` é a tarifa **por unidade**, conforme [Provisões](https://developers.mercadolivre.com.br/pt_ar/provisoes). Somamos `round(sale_fee × 100) × quantity` por linha. Valores nulos/ausentes contribuem zero. Exemplo: 2 unidades com `sale_fee: 6` resultam em R$ 12,00.
 - Não somamos novamente o custo fixo: [Custos por vender](https://developers.mercadolivre.com.br/pt_br/servicos-gerenciamento-de-contatos/comissao-por-vender) confirma que ele já compõe a taxa. As taxas reais vêm do pedido; não estimamos com uma porcentagem fixa.
 - A semântica foi confirmada documentalmente e coberta por testes com múltiplas unidades/linhas; ainda é necessário comparar com uma venda real da conta antes da ativação em produção.
+
+## Envios (`gerenciamento-de-envios`)
+
+- O envio de um pedido é lido em duas etapas. A visão antiga de `GET /orders/{id}/shipments`, que devolvia o envio completo, foi descontinuada no fim de setembro de 2026. A atual (Hosted View) devolve só `[{ id, type }]`, sem ordem garantida, e `204` sem corpo enquanto o envio não existe. Pegamos o único `type: "forward"`: `return` e `return_to_buyer` são devoluções. Depois, `GET /shipments/{id}` com o cabeçalho `x-format-new: true`.
+- Status do envio (`GET /shipment_statuses`) e como entram no SellBridge:
+
+  | Mercado Livre                                                                                                | SellBridge                               |
+  | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+  | `pending`, `handling`, `ready_to_ship`, `stale_ready_to_ship`                                                | nada muda: valem as etapas do fornecedor |
+  | `shipped`, `stale_shipped`                                                                                   | Enviado                                  |
+  | `delivered`                                                                                                  | Entregue                                 |
+  | `not_delivered` com subestado `returned`, `returned_to_warehouse`, `returned_to_hub` ou `returned_to_agency` | Devolvido                                |
+  | `not_delivered` com qualquer outro subestado (ex.: `returning_to_sender`, `receiver_absent`, `lost`)         | Não entregue                             |
+  | `cancelled`                                                                                                  | Cancelado                                |
+
+- Pedido devolvido: quando todo envio de venda voltou ao vendedor ("Devolvido") ou quando o pacote de devolução do comprador (`type: "return"`) chega como `delivered`. Esse pacote só é consultado quando a lista do pedido tem um. O status do pedido no Mercado Livre continua "pago", então um pedido devolvido não volta a "pago" numa sincronização; só o cancelamento o muda. As unidades que já saíram não voltam sozinhas à prateleira do fornecedor: a devolução vai para o endereço do revendedor.
+- Entregue, Devolvido e Cancelado são finais: uma leitura atrasada não muda o envio de volta. "Não entregue" e "Devolvido" só vêm do marketplace; ninguém os escolhe à mão.
+- Exemplos de cada status em `packages/marketplaces/src/mercado-livre/fixtures/shipments.ts`.
+- A homologar com a conta de teste: se `GET /shipments/{id}` traz o endereço completo do destinatário (a visão antiga pedia `x-api-version: 2` para os dados pessoais). Sem endereço, a tela avisa ("O marketplace não informou o endereço completo") e o endereço é digitado à mão.
+- O envio é lido quando alguém pede (botão na Operação) e, desde o item 22.a, por uma tarefa do worker a cada 30 minutos (`shipment-tracking`): até 100 pedidos por vez, de lojas do Mercado Livre conectadas, com envio ainda a caminho, o lido há mais tempo primeiro. Uma leitura que falha vai para o fim da fila (`tracked_at`), e token recusado expira a loja.
+- Previsão e prazo: `lead_time.estimated_delivery_time.date` (entrega prevista) e `lead_time.estimated_handling_limit.date` (prazo de despacho), lidos de `GET /shipments/{id}` com `x-format-new: true` e guardados em `order_shipments`. Sem esses campos, ou com data ilegível, fica vazio; uma leitura sem eles não apaga a data já conhecida. Formato tirado da documentação oficial ("Mercado Envios", "Gerenciamento de envios"); a homologar com a conta de teste.
+- Os tópicos `shipments` e `post_purchase` (reclamações e devoluções) ainda não são assinados; a tarefa de 30 minutos cobre o rastreio enquanto isso.
 
 ## Notificações (`produto-receba-notificacoes`)
 
@@ -66,4 +91,5 @@ O conector fica desligado enquanto `MERCADO_LIVRE_CLIENT_ID` e `MERCADO_LIVRE_CL
 - Fotos: todo anúncio precisa de ao menos uma imagem (`pictures`). Hoje os produtos dos fornecedores não têm fotos, então a publicação real será recusada até o catálogo receber imagens.
 - Aplicar a migração `0013_ml_publication.sql` antes de iniciar o worker atualizado.
 - Preencher atributos reais da categoria no cadastro do produto.
+- Confirmar o endereço da página da venda usado na página do pedido: `https://www.mercadolivre.com.br/vendas/{id}/detalhe`.
 - Homologar a conta de teste nos dois fluxos, inclusive a conciliação após falha, e comparar a taxa com um pedido de quantidade maior que 1.

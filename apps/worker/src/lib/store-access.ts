@@ -9,10 +9,10 @@ interface StoreTokenSource {
   readonly accessTokenEnc: string | null;
 }
 
-/** Decrypts the access token of a store known to have one. */
+/** Throws when the stored token cannot be decrypted (wrong key or corrupted value). */
 export function decryptStoreCredentials(
   cipher: TokenCipher,
-  store: { readonly externalShopId: string; readonly accessTokenEnc: string },
+  store: StoreTokenSource & { readonly accessTokenEnc: string },
 ): StoreCredentials {
   return {
     externalShopId: store.externalShopId,
@@ -28,34 +28,32 @@ export function resolveStoreCredentials(
   if (!store.accessTokenEnc) {
     return null;
   }
-  return decryptStoreCredentials(cipher, {
-    externalShopId: store.externalShopId,
-    accessTokenEnc: store.accessTokenEnc,
-  });
+  return decryptStoreCredentials(cipher, { ...store, accessTokenEnc: store.accessTokenEnc });
 }
 
-/** Marks the store as expired: the seller has to reconnect it. */
-export async function expireStore(
-  database: Database,
-  storeId: string,
-  message: string,
-): Promise<void> {
-  await markStoreStatus(database, {
-    storeConnectionId: storeId,
-    status: "expired",
-    lastError: message,
-  });
+/** Rate limits are per store: each connection has its own marketplace quota. */
+export function storeRateKey(store: { readonly marketplace: string; readonly id: string }): string {
+  return `${store.marketplace}:${store.id}`;
 }
 
-/** Expires the store when the marketplace rejected its credentials; returns whether it did. */
+/**
+ * Expires the store when the marketplace rejected its credentials (the seller has to reconnect
+ * it); returns whether it did. Only while the token that was refused is still the saved one: a
+ * long sync run still holding the old token must not expire a store the seller reconnected
+ * meanwhile.
+ */
 export async function expireStoreOnAuthError(
   database: Database,
-  storeId: string,
+  store: { id: string; accessTokenEnc: string | null },
   error: unknown,
 ): Promise<boolean> {
   if (!isMarketplaceAuthError(error)) {
     return false;
   }
-  await expireStore(database, storeId, error.userMessage);
-  return true;
+  return markStoreStatus(database, {
+    storeConnectionId: store.id,
+    status: "expired",
+    lastError: error.userMessage,
+    ...(store.accessTokenEnc === null ? {} : { accessTokenEnc: store.accessTokenEnc }),
+  });
 }

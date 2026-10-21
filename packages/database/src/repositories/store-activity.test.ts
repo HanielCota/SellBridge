@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listingTargets } from "../schema/index.ts";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
+import { listingTargets, orders } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -9,7 +10,7 @@ import {
 } from "../testing/fixtures.ts";
 import { createListingWithTargets } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
-import { getStoreActivity } from "./store-activity.ts";
+import { getStoreActivity, getStoreLastSyncs } from "./store-activity.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -60,6 +61,46 @@ describe("store activity", () => {
       failedListings: 0,
       orders: 0,
       revenueCents: 0,
+      lastSyncedAt: null,
     });
+  });
+
+  it("dates the store's last sync by its most recently synced listing", async () => {
+    // The store's listing from the test above, synced 12 minutes ago.
+    const syncedAt = new Date(Date.now() - 12 * 60_000);
+    await database
+      .update(listingTargets)
+      .set({ status: "published", syncedAt })
+      .where(eq(listingTargets.storeConnectionId, storeA));
+    const activity = await getStoreActivity(database, tenantA, [storeA]);
+    expect(activity.get(storeA)?.lastSyncedAt?.getTime()).toBeGreaterThanOrEqual(
+      syncedAt.getTime(),
+    );
+    const lastSyncs = await getStoreLastSyncs(database, tenantA, [storeA, storeB]);
+    expect(lastSyncs.get(storeA)).toEqual(activity.get(storeA)?.lastSyncedAt);
+    // Another tenant's store never reads this tenant's listings.
+    expect(lastSyncs.has(storeB)).toBe(false);
+  });
+
+  // Regression: the store card counted 30 x 24 h back from now while the dashboard's "30 dias"
+  // starts at midnight (Brazil) 29 days ago, so the two disagreed for the same store.
+  it("counts sales from the start of the dashboard's 30-day window, not 30 x 24 h", async () => {
+    const windowStart = resolvePeriod({ period: "30d" }, new Date()).from;
+    const sale = (externalOrderId: string, orderedAt: Date) => ({
+      tenantId: tenantB,
+      storeConnectionId: storeB,
+      externalOrderId,
+      status: "paid" as const,
+      totalCents: 1000,
+      orderedAt,
+    });
+    await database
+      .insert(orders)
+      .values([
+        sale("WINDOW-START", windowStart),
+        sale("BEFORE-WINDOW", new Date(windowStart.getTime() - 1)),
+      ]);
+    const activity = await getStoreActivity(database, tenantB, [storeB]);
+    expect(activity.get(storeB)).toMatchObject({ orders: 1, revenueCents: 1000 });
   });
 });

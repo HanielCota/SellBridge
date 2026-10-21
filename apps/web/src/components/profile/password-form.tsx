@@ -1,4 +1,9 @@
-import { MIN_PASSWORD_LENGTH, newPasswordSchema } from "@sellbridge/shared/schemas";
+import {
+  MIN_PASSWORD_LENGTH,
+  newPasswordSchema,
+  PASSWORD_COMPROMISED_CODE,
+  PASSWORD_COMPROMISED_MESSAGE,
+} from "@sellbridge/shared/schemas";
 import { GoogleLogoIcon } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
@@ -74,6 +79,10 @@ function useChangePassword() {
     setIsSaving(false);
     if (result.error?.code === "INVALID_PASSWORD") {
       setErrors({ current: "Senha atual incorreta" });
+      return;
+    }
+    if (result.error?.code === PASSWORD_COMPROMISED_CODE) {
+      setErrors({ next: PASSWORD_COMPROMISED_MESSAGE });
       return;
     }
     if (result.error) {
@@ -153,7 +162,7 @@ function ChangePasswordForm() {
       <SignOutOthersOption checked={form.signOutOthers} onChange={form.setSignOutOthers} />
       <div>
         <Button type="submit" disabled={form.isEmpty || form.isSaving}>
-          {form.isSaving ? "Salvando..." : "Trocar senha"}
+          {form.isSaving ? "Salvando…" : "Trocar senha"}
         </Button>
       </div>
     </form>

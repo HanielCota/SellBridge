@@ -1,4 +1,15 @@
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { listingTargetStatusEnum } from "./enums.ts";
 import { storeConnections } from "./stores.ts";
@@ -23,7 +34,13 @@ export const listings = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("listings_tenant_idx").on(table.tenantId)],
+  (table) => [
+    index("listings_tenant_idx").on(table.tenantId),
+    /** "Already published?" per catalog product, and the duplicate check before publishing. */
+    index("listings_tenant_product_idx").on(table.tenantId, table.supplierProductId),
+    /** The foreign key: deactivating or deleting a product checks its listings. */
+    index("listings_product_idx").on(table.supplierProductId),
+  ],
 );
 
 export const listingTargets = pgTable(
@@ -40,6 +57,8 @@ export const listingTargets = pgTable(
       .notNull()
       .references(() => storeConnections.id, { onDelete: "cascade" }),
     status: listingTargetStatusEnum().notNull().default("pending"),
+    /** Durable seller intent, including a marketplace creation already in flight. */
+    pauseRequested: boolean().notNull().default(false),
     externalId: text(),
     externalUrl: text(),
     errorReason: text(),
@@ -56,6 +75,13 @@ export const listingTargets = pgTable(
     syncAttemptedAt: timestamp({ withTimezone: true }),
     /** Error of the last failed sync attempt, cleared on success. */
     syncError: text(),
+    /**
+     * Why the marketplace did not take the description (the listing is live without it); cleared
+     * once it goes through. The sync job retries it a few times, then only the reseller's resend.
+     */
+    descriptionError: text(),
+    descriptionFailedAt: timestamp({ withTimezone: true }),
+    descriptionAttempts: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })
       .defaultNow()
@@ -67,5 +93,8 @@ export const listingTargets = pgTable(
     index("listing_targets_listing_idx").on(table.listingId),
     uniqueIndex("listing_targets_idempotency_idx").on(table.idempotencyKey),
     uniqueIndex("listing_targets_listing_store_idx").on(table.listingId, table.storeConnectionId),
+    check("listing_targets_attempts_check", sql`${table.attempts} >= 0`),
+    /** Every incoming order maps the marketplace's listing ids of one store to our targets. */
+    index("listing_targets_store_external_idx").on(table.storeConnectionId, table.externalId),
   ],
 );

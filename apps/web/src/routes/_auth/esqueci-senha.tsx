@@ -73,7 +73,7 @@ function ForgotPasswordForm() {
           <AuthSubmitButton
             isPending={isSubmitting}
             idleLabel="Enviar link"
-            pendingLabel="Enviando..."
+            pendingLabel="Enviando…"
           />
         )}
       </form.Subscribe>

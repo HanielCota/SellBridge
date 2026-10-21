@@ -111,13 +111,36 @@ interface TestTargetInput {
   title: string;
 }
 
+/**
+ * A copy of the product (same supplier, cost and stock) under a fresh SKU: a store holds one
+ * listing per product, and tests create many targets from one fixture product.
+ */
+async function copyOfProduct(database: Database, productId: string): Promise<string> {
+  const [original] = await database
+    .select()
+    .from(schema.supplierProducts)
+    .where(eq(schema.supplierProducts.id, productId));
+  if (!original) {
+    throw new Error("produto não encontrado");
+  }
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...fields } = original;
+  const [copy] = await database
+    .insert(schema.supplierProducts)
+    .values({ ...fields, sku: `${original.sku}-${randomUUID().slice(0, 8)}` })
+    .returning({ id: schema.supplierProducts.id });
+  if (!copy) {
+    throw new Error("cópia do produto não criada");
+  }
+  return copy.id;
+}
+
 /** Creates a listing with a single pending target on the given store. */
 export async function createTestTarget(database: Database, input: TestTargetInput) {
   const created = await createListingWithTargets(
     database,
     input.tenantId,
     {
-      supplierProductId: input.productId,
+      supplierProductId: await copyOfProduct(database, input.productId),
       title: input.title,
       description: "Descrição do produto de teste",
       priceCents: 4990,

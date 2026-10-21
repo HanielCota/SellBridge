@@ -1,7 +1,7 @@
 import {
-  disconnectStore,
   EMPTY_STORE_ACTIVITY,
   getStoreActivity,
+  isStoreNameTaken,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
 import {
@@ -9,13 +9,16 @@ import {
   MARKETPLACE_LABELS,
   type MarketplaceId,
 } from "@sellbridge/marketplaces";
-import { validationError } from "@sellbridge/shared/errors";
-import { logger } from "@sellbridge/shared/logger";
+import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestUrl } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { appOriginFor } from "@/lib/server/app-origin";
 import { database } from "@/lib/server/database";
 import { connectors, oauthCallbackUrl } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { disconnectStoreForTenant } from "./disconnect-store.server";
+import { freeText } from "@sellbridge/shared/schemas";
 
 export interface MarketplaceOption {
   id: MarketplaceId;
@@ -48,15 +51,20 @@ export const listStores = createServerFn({ method: "GET" })
 
 export const disconnectStoreFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .validator(z.object({ storeConnectionId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    await disconnectStore(database, context.tenantId, data.storeConnectionId);
-    logger.info("store.disconnected", {
+  // Pausing is the safe default: a live listing without sync can sell stock that is gone.
+  .validator(z.object({ storeConnectionId: z.uuid(), pauseListings: z.boolean().default(true) }))
+  .handler(async ({ context, data }) =>
+    disconnectStoreForTenant({
       tenantId: context.tenantId,
       storeConnectionId: data.storeConnectionId,
-    });
-    return { ok: true };
-  });
+      pauseListings: data.pauseListings,
+    }),
+  );
+
+/** The mock callback on the trusted host this request came in on (see `appOriginFor`). */
+function mockCallbackUrl(): string {
+  return oauthCallbackUrl("mock", appOriginFor(getRequestUrl().href));
+}
 
 /**
  * Where the consent screen of the simulated marketplace sends the user back, or null when
@@ -68,7 +76,7 @@ export const getMockConsentCallback = createServerFn({ method: "GET" })
     if (!connectors.mock.isConfigured()) {
       return { callbackUrl: null };
     }
-    return { callbackUrl: oauthCallbackUrl("mock") };
+    return { callbackUrl: mockCallbackUrl() };
   });
 
 /**
@@ -79,17 +87,23 @@ export const approveMockAuthorization = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(
     z.object({
-      shopName: z.string().trim().min(3, "Informe o nome da loja").max(80),
+      shopName: freeText().trim().min(3, "Informe o nome da loja").max(80),
       state: z.string().min(1),
       redirectUri: z.url(),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     if (!connectors.mock.isConfigured()) {
       throw validationError("A loja simulada não está disponível");
     }
-    if (data.redirectUri !== oauthCallbackUrl("mock")) {
+    if (data.redirectUri !== mockCallbackUrl()) {
       throw validationError("Endereço de retorno não autorizado");
+    }
+    const shop = { tenantId: context.tenantId, shopName: data.shopName };
+    if (await isStoreNameTaken(database, shop)) {
+      throw conflictError(
+        `O nome "${data.shopName}" não está disponível: você já tem uma loja com ele`,
+      );
     }
     const url = new URL(data.redirectUri);
     url.searchParams.set("code", encodeMockAuthorizationCode(data.shopName));

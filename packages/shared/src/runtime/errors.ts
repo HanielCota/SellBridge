@@ -6,7 +6,9 @@ export type AppErrorCode =
   | "CONFLICT"
   | "EXTERNAL_PROVIDER"
   | "EXTERNAL_PROVIDER_AUTH"
-  | "CONFIGURATION";
+  | "CONFIGURATION"
+  /** Too many requests from the same account in a short time (HTTP 429). */
+  | "RATE_LIMITED";
 
 /** Extra, optional information attached to an error (composition instead of subclasses). */
 export interface AppErrorDetails {
@@ -69,6 +71,18 @@ export function conflictError(message: string): AppError {
   return new AppError("CONFLICT", message);
 }
 
+export function rateLimitedError(message: string): AppError {
+  return new AppError("RATE_LIMITED", message, { details: { retryable: true } });
+}
+
 export function configurationError(message: string): AppError {
   return new AppError("CONFIGURATION", message);
+}
+
+/** The message safe to show the user: the AppError's own, or the given fallback otherwise. */
+export function userMessageOr(error: unknown, fallback: string): string {
+  if (isAppError(error)) {
+    return error.userMessage;
+  }
+  return fallback;
 }

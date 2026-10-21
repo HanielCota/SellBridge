@@ -33,9 +33,10 @@ export function SegmentedControl<TValue extends string>({
   const [canAnimate, setCanAnimate] = useState(false);
 
   return (
+    // A fieldset is at least as wide as its content by default; min-w-0 lets it scroll instead.
     <fieldset
       ref={containerRef}
-      className="relative inline-flex h-10 w-fit max-w-full shrink-0 items-center overflow-x-auto rounded-full bg-card p-1 [scrollbar-width:none]"
+      className="relative inline-flex h-10 w-fit max-w-full min-w-0 shrink-0 items-center overflow-x-auto rounded-full bg-card p-1 [scrollbar-width:none]"
     >
       <legend className="sr-only">{legend}</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}

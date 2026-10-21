@@ -1,73 +1,165 @@
-import type { CustomerSummary } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
-import { customersSearchSchema, type CustomersSearch } from "@sellbridge/shared/schemas";
+import {
+  customersSearchSchema,
+  type CustomerSort,
+  type CustomersSearch,
+  type CustomerView,
+} from "@sellbridge/shared/schemas";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { UsersThreeIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import { CustomerAttentionTiles } from "@/components/admin/customer-attention-tiles";
+import { CustomerIssuesInbox } from "@/components/admin/customer-issues-inbox";
+import { CustomerJourneyBoard } from "@/components/admin/customer-journey-board";
+import { CustomerQuickView } from "@/components/admin/customer-quick-view";
+import { CustomerRowActions } from "@/components/admin/customer-row-actions";
+import {
+  CustomerHealthBadges,
+  CustomerScore,
+  CustomerStores,
+  supplierSummary,
+} from "@/components/admin/customer-cells";
+import { HealthRing } from "@/components/admin/health-ring";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
-import { SmartDate } from "@/components/data/smart-date";
+import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
-import { ToneStatus } from "@/components/data/tone-status";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Hint, HintedText } from "@/components/ui/hint";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { RankedCustomer } from "@/features/admin/customer-ranking";
 import type { adminListCustomers } from "@/features/admin/customers.functions";
-import { customersQueryOptions } from "@/features/admin/customers.queries";
+import {
+  customerIssuesQueryOptions,
+  customerJourneyQueryOptions,
+  customersQueryOptions,
+} from "@/features/admin/customers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { cn } from "@/lib/utils";
+import { attentionSummary } from "@/features/admin/customer-summary";
 
 export const Route = createFileRoute("/_app/admin/clientes/")({
   validateSearch: customersSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, customersQueryOptions(search)),
+  loader: ({ context, deps: search }) => {
+    if (search.view === "issues") {
+      return prefetchOnServer(
+        context.queryClient,
+        customerIssuesQueryOptions({
+          query: search.query,
+          issue: search.issue,
+          queue: search.queue,
+        }),
+      );
+    }
+    if (search.view === "journey") {
+      return prefetchOnServer(context.queryClient, customerJourneyQueryOptions(search.query));
+    }
+    return prefetchOnServer(context.queryClient, customersQueryOptions(search));
+  },
   head: () => ({ meta: [{ title: "Clientes (admin) | SellBridge" }] }),
   component: CustomersPage,
 });
 
-const columnHelper = createServerColumnHelper<CustomerSummary>();
+type CustomersPageData = Awaited<ReturnType<typeof adminListCustomers>>;
+
+const VIEW_TABS: FilterTab<CustomerView>[] = [
+  { value: "list", label: "Lista" },
+  { value: "issues", label: "Pendências" },
+  { value: "journey", label: "Jornada" },
+];
+
+const SORT_TABS: FilterTab<CustomerSort>[] = [
+  { value: "health", label: "Pior nota" },
+  { value: "revenue", label: "Receita" },
+  { value: "name", label: "Nome" },
+  { value: "recent", label: "Recentes" },
+];
+
+function useUpdateSearch() {
+  const navigate = useNavigate({ from: Route.fullPath });
+  return (patch: Partial<CustomersSearch>) =>
+    void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
+}
+
+/** The customer's name opens their quick view in place; the row stays where it was. */
+function CustomerToggle({ customer }: { customer: RankedCustomer }) {
+  const { open } = Route.useSearch();
+  const updateSearch = useUpdateSearch();
+  const isOpen = open === customer.id;
+  return (
+    <Hint label={CONTROL_HINTS.customerQuickView} openOnTap={false}>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => updateSearch({ open: isOpen ? undefined : customer.id })}
+        className="group/toggle flex min-w-52 items-center gap-1.5 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="min-w-0 space-y-0.5">
+          <span className="block truncate font-medium underline-offset-4 group-hover/toggle:underline">
+            {customer.name}
+          </span>
+          <span className="block truncate text-xs text-muted-foreground">{customer.email}</span>
+        </span>
+        <CaretDownIcon
+          weight="bold"
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            isOpen && "rotate-180",
+          )}
+        />
+      </button>
+    </Hint>
+  );
+}
+
+function CustomerActionsCell({ customer }: { customer: RankedCustomer }) {
+  const { session } = Route.useRouteContext();
+  return (
+    <div className="flex justify-end">
+      <CustomerRowActions customer={customer} isSelf={customer.id === session.user.id} />
+    </div>
+  );
+}
+
+const columnHelper = createServerColumnHelper<RankedCustomer>();
 const columns = columnHelper.columns([
+  columnHelper.display({
+    id: "health",
+    header: () => (
+      <HintedText label={TERM_HINTS.customerScore} className="hinted-term">
+        Nota
+      </HintedText>
+    ),
+    cell: (info) => <CustomerScore score={info.row.original.health.score} />,
+  }),
   columnHelper.accessor("name", {
     header: "Cliente",
-    cell: (info) => (
-      <div className="min-w-48 space-y-0.5">
-        <Link
-          to="/admin/clientes/$userId"
-          params={{ userId: info.row.original.id }}
-          className="font-medium underline-offset-4 hover:underline"
-        >
-          {info.getValue()}
-        </Link>
-        <p className="text-xs text-muted-foreground">{info.row.original.email}</p>
-      </div>
-    ),
+    cell: (info) => <CustomerToggle customer={info.row.original} />,
   }),
-  columnHelper.accessor("city", {
-    header: "Região",
-    cell: (info) =>
-      info.getValue() ? (
-        `${info.getValue()} - ${info.row.original.state ?? ""}`
-      ) : (
-        <span className="text-muted-foreground">Sem região</span>
-      ),
+  columnHelper.display({
+    id: "stores",
+    header: "Lojas e fornecedores",
+    cell: (info) => <CustomerStores customer={info.row.original} />,
   }),
-  columnHelper.accessor("connectedStores", { header: "Lojas" }),
-  columnHelper.accessor("publishedListings", {
-    header: "Publicações",
-    cell: (info) => (
-      <span className="tabular-nums">
-        {info.getValue()}
-        {info.row.original.failedListings > 0 ? (
-          <span className="ml-1.5 text-xs text-destructive">
-            {info.row.original.failedListings} com erro
-          </span>
-        ) : null}
-      </span>
-    ),
+  columnHelper.display({
+    id: "issues",
+    header: "Saúde",
+    cell: (info) => <CustomerHealthBadges customer={info.row.original} />,
   }),
   columnHelper.accessor("recentRevenueCents", {
     header: "Últimos 30 dias",
@@ -78,98 +170,154 @@ const columns = columnHelper.columns([
       </div>
     ),
   }),
-  columnHelper.accessor("banned", {
-    header: "Status",
-    cell: (info) => (
-      <span className="flex items-center gap-2">
-        <ToneStatus
-          tone={info.getValue() ? "danger" : "success"}
-          label={info.getValue() ? "Bloqueado" : "Ativo"}
-        />
-        {info.row.original.role === "admin" ? <Badge variant="secondary">Admin</Badge> : null}
-      </span>
-    ),
-  }),
-  columnHelper.accessor("createdAt", {
-    header: "Cadastro",
-    cell: (info) => <SmartDate date={info.getValue()} className="text-muted-foreground" />,
+  columnHelper.display({
+    id: "actions",
+    header: () => <span className="sr-only">Ações</span>,
+    cell: (info) => <CustomerActionsCell customer={info.row.original} />,
   }),
 ]);
 
-function MobileCustomerRow({ row }: { row: CustomerSummary }) {
+function MobileCustomerRow({ row }: { row: RankedCustomer }) {
   return (
-    <Link to="/admin/clientes/$userId" params={{ userId: row.id }} className="block space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <Link to="/admin/clientes/$userId" params={{ userId: row.id }} className="flex gap-3">
+      <HealthRing score={row.health.score} size="sm" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div>
           <p className="truncate font-medium">{row.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{row.email}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {supplierSummary(row).text} · {formatCents(row.recentRevenueCents)} em 30 dias
+          </p>
         </div>
-        <ToneStatus
-          tone={row.banned ? "danger" : "success"}
-          label={row.banned ? "Bloqueado" : "Ativo"}
-        />
+        <CustomerHealthBadges customer={row} withHints={false} />
       </div>
-      <p className="text-xs text-muted-foreground">
-        {row.city ? `${row.city} - ${row.state ?? ""}` : "Sem região"} · {row.connectedStores}{" "}
-        {row.connectedStores === 1 ? "loja" : "lojas"} · {formatCents(row.recentRevenueCents)} em 30
-        dias
-      </p>
     </Link>
   );
 }
 
 function useSearchTerm(search: CustomersSearch) {
-  const navigate = useNavigate({ from: Route.fullPath });
+  const updateSearch = useUpdateSearch();
   return useUrlSearchQuery({
     urlQuery: search.query,
-    commitQuery: (query) =>
-      void navigate({ search: (previous) => ({ ...previous, query, page: 1 }), replace: true }),
+    commitQuery: (query) => updateSearch({ query, page: 1, open: undefined }),
   });
 }
 
 function CustomersPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
-  const query = useQuery(customersQueryOptions(search));
+  const updateSearch = useUpdateSearch();
   const { term, setTerm } = useSearchTerm(search);
   return (
     <>
       <PageHeader
         title="Clientes"
-        description="Revendedores da plataforma. Abra um cliente para editar a conta ou entrar como ele."
+        description="Quem precisa de ajuda aparece primeiro. Resolva daqui ou abra o cliente para editar a conta."
       />
-      <SearchInput
-        label="Buscar clientes"
-        placeholder="Buscar por nome ou e-mail"
-        iconClassName="left-3.5"
-        inputClassName="pl-10"
-        value={term}
-        onValueChange={setTerm}
-      />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <FilterTabs
+          legend="Visão"
+          tabs={VIEW_TABS}
+          value={search.view}
+          onChange={(view) => updateSearch({ view, open: undefined })}
+        />
+        <SearchInput
+          label="Buscar clientes"
+          placeholder="Buscar por nome ou e-mail"
+          className="lg:w-80"
+          iconClassName="left-3.5"
+          inputClassName="pl-10"
+          value={term}
+          onValueChange={setTerm}
+        />
+      </div>
+      {search.view === "list" ? <ListView search={search} /> : null}
+      {search.view === "issues" ? <IssuesView search={search} /> : null}
+      {search.view === "journey" ? <JourneyView query={search.query} /> : null}
+    </>
+  );
+}
+
+const ALL_SUPPLIERS = "__all__";
+
+/** Only the customers selling one supplier, through a shop or the one picked in onboarding. */
+function SupplierFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | undefined;
+  options: readonly { id: string; name: string }[];
+  onChange: (supplier: string | undefined) => void;
+}) {
+  const current = options.find((option) => option.id === value);
+  return (
+    <Select
+      value={value ?? ALL_SUPPLIERS}
+      onValueChange={(next) => onChange(options.find((option) => option.id === next)?.id)}
+    >
+      <SelectTrigger className="w-full min-w-0 sm:w-56" aria-label="Filtrar por fornecedor">
+        <SelectValue>
+          <span className="truncate">{current?.name ?? "Todos os fornecedores"}</span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_SUPPLIERS}>Todos os fornecedores</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id}>
+            {option.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ListView({ search }: { search: CustomersSearch }) {
+  const query = useQuery(customersQueryOptions(search));
+  const updateSearch = useUpdateSearch();
+  return (
+    <>
+      {query.data ? (
+        <CustomerAttentionTiles counts={query.data.issueCounts} active={search.issue} />
+      ) : (
+        <Skeleton className="h-28 rounded-3xl" aria-label="Carregando pendências" />
+      )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {query.data ? attentionSummary(query.data) : " "}
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SupplierFilter
+            value={search.supplier}
+            options={query.data?.supplierOptions ?? []}
+            onChange={(supplier) => updateSearch({ supplier, page: 1, open: undefined })}
+          />
+          <FilterTabs
+            legend="Ordenar clientes"
+            tabs={SORT_TABS}
+            value={search.sort}
+            onChange={(sort) => updateSearch({ sort, page: 1 })}
+          />
+        </div>
+      </div>
       <CustomersTable
         query={query}
-        onPageChange={(page) =>
-          void navigate({ search: (previous) => ({ ...previous, page }), replace: true })
-        }
+        openId={search.open}
+        filtered={search.issue !== undefined}
+        onClearFilter={() => updateSearch({ issue: undefined, page: 1 })}
+        onPageChange={(page) => updateSearch({ page, open: undefined })}
       />
     </>
   );
 }
 
-function CustomersTable({
-  query,
-  onPageChange,
+function NoCustomers({
+  filtered,
+  onClearFilter,
 }: {
-  query: UseQueryResult<Awaited<ReturnType<typeof adminListCustomers>>>;
-  onPageChange: (page: number) => void;
+  filtered: boolean;
+  onClearFilter: () => void;
 }) {
-  if (query.isPending) {
-    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando clientes" />;
-  }
-  if (query.isError) {
-    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
-  }
-  if (query.data.items.length === 0) {
+  if (!filtered) {
     return (
       <EmptyState
         icon={UsersThreeIcon}
@@ -179,12 +327,54 @@ function CustomersTable({
     );
   }
   return (
+    <EmptyState
+      icon={UsersThreeIcon}
+      title="Ninguém com esse problema"
+      description="Bom sinal. Limpe o filtro para ver todos os clientes."
+      action={
+        <Button variant="outline" onClick={onClearFilter}>
+          Limpar filtro
+        </Button>
+      }
+    />
+  );
+}
+
+function CustomersTable({
+  query,
+  openId,
+  filtered,
+  onClearFilter,
+  onPageChange,
+}: {
+  query: UseQueryResult<CustomersPageData>;
+  openId: string | undefined;
+  filtered: boolean;
+  onClearFilter: () => void;
+  onPageChange: (page: number) => void;
+}) {
+  const { session } = Route.useRouteContext();
+  if (query.isPending) {
+    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando clientes" />;
+  }
+  if (query.isError) {
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  if (query.data.items.length === 0) {
+    return <NoCustomers filtered={filtered} onClearFilter={onClearFilter} />;
+  }
+  return (
     <DataTable
       columns={columns}
       data={query.data.items}
       getRowId={(row) => row.id}
       caption="Clientes da plataforma"
       renderMobileRow={(row) => <MobileCustomerRow row={row} />}
+      renderRowDetail={(row) =>
+        row.id === openId ? (
+          <CustomerQuickView customer={row} isSelf={row.id === session.user.id} />
+        ) : null
+      }
       footer={
         <PaginationBar
           page={query.data.page}
@@ -196,4 +386,46 @@ function CustomersTable({
       }
     />
   );
+}
+
+function IssuesView({ search }: { search: CustomersSearch }) {
+  const { session } = Route.useRouteContext();
+  const query = useQuery(
+    customerIssuesQueryOptions({
+      query: search.query,
+      issue: search.issue,
+      queue: search.queue,
+    }),
+  );
+  const updateSearch = useUpdateSearch();
+  if (query.isPending) {
+    return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando pendências" />;
+  }
+  if (query.isError) {
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  return (
+    <CustomerIssuesInbox
+      entries={query.data.entries}
+      total={query.data.total}
+      counts={query.data.issueCounts}
+      queueCounts={query.data.queueCounts}
+      queue={search.queue}
+      filter={search.issue}
+      adminId={session.user.id}
+      onQueueChange={(queue) => updateSearch({ queue })}
+      onFilterChange={(issue) => updateSearch({ issue })}
+    />
+  );
+}
+
+function JourneyView({ query: searchQuery }: { query: string | undefined }) {
+  const query = useQuery(customerJourneyQueryOptions(searchQuery));
+  if (query.isPending) {
+    return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando jornada" />;
+  }
+  if (query.isError) {
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  return <CustomerJourneyBoard columns={query.data} />;
 }

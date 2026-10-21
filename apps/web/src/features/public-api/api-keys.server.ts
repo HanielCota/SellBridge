@@ -2,8 +2,10 @@ import {
   type ApiKeySummary,
   createApiKey,
   listApiKeys,
+  lockBillingTenant,
   revokeApiKey,
 } from "@sellbridge/database/repositories";
+import type { DatabaseExecutor } from "@sellbridge/database/client";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -38,12 +40,13 @@ function futureExpiration(expiresAt: string | null, now: Date): Date | null {
   return date;
 }
 
-/**
- * The count is read before the insert, so two simultaneous creations could pass the cap by one;
- * the cap only keeps forgotten keys from piling up, so that is acceptable.
- */
-async function assertBelowActiveKeyLimit(tenantId: string, now: Date): Promise<void> {
-  const keys = await listApiKeys(database, tenantId);
+/** Read under the organization's lock (see `issueApiKey`), so parallel requests cannot pass it. */
+async function assertBelowActiveKeyLimit(
+  executor: DatabaseExecutor,
+  tenantId: string,
+  now: Date,
+): Promise<void> {
+  const keys = await listApiKeys(executor, tenantId);
   const activeCount = keys.filter((key) => apiKeyStatus(key, now) === "active").length;
   if (activeCount >= MAX_ACTIVE_API_KEYS) {
     throw conflictError(
@@ -59,16 +62,19 @@ export async function issueApiKey(input: {
 }): Promise<IssuedApiKey> {
   const now = new Date();
   const expiresAt = futureExpiration(input.request.expiresAt, now);
-  await assertBelowActiveKeyLimit(input.tenantId, now);
   const generated = generateApiKeySecret();
-  const key = await createApiKey(database, {
-    tenantId: input.tenantId,
-    name: input.request.name,
-    prefix: generated.prefix,
-    secretHash: generated.secretHash,
-    scopes: input.request.scopes,
-    createdByUserId: input.userId,
-    expiresAt,
+  const key = await database.transaction(async (transaction) => {
+    await lockBillingTenant(transaction, input.tenantId);
+    await assertBelowActiveKeyLimit(transaction, input.tenantId, now);
+    return createApiKey(transaction, {
+      tenantId: input.tenantId,
+      name: input.request.name,
+      prefix: generated.prefix,
+      secretHash: generated.secretHash,
+      scopes: input.request.scopes,
+      createdByUserId: input.userId,
+      expiresAt,
+    });
   });
   logger.info("api_key.created", {
     tenantId: input.tenantId,

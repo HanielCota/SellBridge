@@ -1,5 +1,6 @@
-import { GearSixIcon } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { CHART_KINDS, FACTORY_CHART_KIND, type ChartKind } from "@/features/reports/chart-view";
@@ -136,7 +137,7 @@ function KindOption({
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">{copy.label}</span>
-        <span className="block h-4 text-[11px] leading-4 text-muted-foreground">
+        <span className="block h-4 text-caption leading-4 text-muted-foreground">
           {isDefault ? "Padrão" : null}
         </span>
       </span>
@@ -277,6 +278,28 @@ function useMenuThatClosesWhenHidden() {
 }
 
 /** Gear next to the export: picks how the chart draws the period, and which one opens by default. */
+const ChartKindIcon = ACTION_ICONS.chartKind.icon;
+
+/** The menu button: icon and hint everywhere, the word too where the toolbar has room. */
+function ChartKindTrigger({ triggerRef }: { triggerRef: RefObject<HTMLButtonElement | null> }) {
+  return (
+    <Hint label={ACTION_ICONS.chartKind.hint} openOnTap={false}>
+      <PopoverTrigger
+        ref={triggerRef}
+        aria-label="Tipo de gráfico"
+        className="flex size-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border text-sm min-[1440px]:w-auto min-[1440px]:pr-4 min-[1440px]:pl-3.5 font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground"
+      >
+        <ChartKindIcon className="size-4" aria-hidden="true" />
+        {/* Below 1440px the word pushed the store filter to a second row (1280) and cut the period
+        track (768); the icon and its hint stand alone there. */}
+        <span aria-hidden="true" className="hidden min-[1440px]:inline">
+          Gráfico
+        </span>
+      </PopoverTrigger>
+    </Hint>
+  );
+}
+
 export function ChartKindMenu({
   kind,
   defaultKind,
@@ -294,14 +317,7 @@ export function ChartKindMenu({
   const { open, setOpen, trigger } = useMenuThatClosesWhenHidden();
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        ref={trigger}
-        aria-label="Tipo de gráfico"
-        title="Tipo de gráfico"
-        className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:border-foreground data-[state=open]:text-foreground"
-      >
-        <GearSixIcon className="size-4" aria-hidden="true" />
-      </PopoverTrigger>
+      <ChartKindTrigger triggerRef={trigger} />
       <PopoverContent
         align="end"
         collisionBoundary={boundary}

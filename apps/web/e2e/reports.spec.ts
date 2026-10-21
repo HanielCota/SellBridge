@@ -1,7 +1,30 @@
 import { expect, test } from "@playwright/test";
+import { simulateSale } from "./sales";
 import { DEMO_USER, gotoHydrated, signIn, signUp } from "./helpers";
 
 test.describe("dashboard", () => {
+  test("o calendário escolhe um período pelo mouse e pelo teclado", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.locator("label", { hasText: "Personalizado" }).click();
+    const picker = page.getByRole("dialog", { name: "Escolher período" });
+    const title = picker.getByRole("heading", { level: 2 });
+    const currentMonth = (await title.textContent()) ?? "";
+    await picker.getByRole("button", { name: "Mês anterior" }).click();
+    await expect(title).not.toHaveText(currentMonth);
+
+    await picker.getByRole("grid").locator('button[data-day$="-01"]').click();
+    await expect(picker.getByText("Escolha o último dia")).toBeVisible();
+    // Arrow keys move the focus along the grid: one day right, then a week down (the 9th).
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
+    await expect(picker.locator('button[data-day$="-09"]')).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(picker.getByText("9 dias")).toBeVisible();
+    await picker.getByRole("button", { name: "Aplicar" }).click();
+    await expect(page).toHaveURL(/period=custom/);
+  });
+
   test("mostra KPIs, gráfico e filtros por período e loja", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
@@ -14,9 +37,10 @@ test.describe("dashboard", () => {
     await expect(reading.getByText(/A receita (subiu|caiu|ficou igual)/)).toBeVisible();
     // Tiles beside the chart open the financial report.
     for (const label of ["receita", "pedidos", "ticket médio"]) {
+      // Every app link carries the tab's profile (see lib/profile-param.ts).
       await expect(page.getByRole("link", { name: `Ver ${label} no financeiro` })).toHaveAttribute(
         "href",
-        "/financeiro",
+        /^\/financeiro\?perfil=[a-z0-9-]+$/,
       );
     }
     await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
@@ -39,24 +63,68 @@ test.describe("dashboard", () => {
     await expect(page.getByText("Ana Casa & Beleza (loja simulada)")).toHaveCount(0);
   });
 
+  // Regression: one day drew a single daily bucket, two lone dots instead of a line.
+  test("Hoje mostra o dia hora a hora, comparado com o dia anterior", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard");
+    await page.locator("label", { hasText: "Hoje" }).click();
+    await expect(page.getByRole("radio", { name: "Hoje" })).toBeChecked();
+    await expect(page).toHaveURL(/period=today/);
+    await expect(page.getByText(/· comparado com o dia anterior/)).toBeVisible();
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.getByText("0h", { exact: true })).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+    // A line joins the hours: an area path with more than its starting point.
+    await expect(chart.locator(".recharts-area-curve").first()).toHaveAttribute("d", /L|C/);
+  });
+
+  // Regression: with many hours on a narrow axis the labels were thinned from the start, so late
+  // in the day (CI run 38993957541, 23h) "0h" disappeared. The phone width makes it happen at any
+  // hour: the hourly axis keeps where the day starts.
+  test("Hoje mostra onde o dia começa mesmo no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    await gotoHydrated(page, "/dashboard?period=today");
+    const chart = page.getByRole("figure", { name: "Gráfico: receita e lucro" });
+    await expect(async () => {
+      await page.reload();
+      await expect(chart.locator(".recharts-area-curve").first()).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 45_000 });
+
+    await expect(chart.getByText("0h", { exact: true })).toBeVisible();
+  });
+
   test("mostra checklist de primeiros passos para conta nova", async ({ page }) => {
     await signUp(page, "Revendedor Novo Dashboard");
     await gotoHydrated(page, "/dashboard");
     await expect(
       page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Informar CEP" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Completar cadastro" })).toBeVisible();
   });
 });
 
 test.describe("financeiro", () => {
   test("ordena, filtra, pagina e exporta CSV com os mesmos filtros", async ({ page }) => {
     await signIn(page, DEMO_USER);
+    // The dashboard's chart, with its tools; daily periods pick a day from the keyboard.
+    await gotoHydrated(page, "/financeiro?period=30d");
+    await expect(page.getByText("Lucro no período")).toBeVisible();
+    await expect(page.getByText(/^Você vendeu R\$/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
+    const chart = page.getByRole("figure", { name: /^Gráfico: receita e lucro/ });
+    await chart.locator(".recharts-surface").focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/day=\d{4}-\d{2}-\d{2}/);
+    await page.getByRole("button", { name: "Ver o período todo" }).click();
+    await expect(page).not.toHaveURL(/day=/);
+
     await gotoHydrated(page, "/financeiro?period=180d");
-    const summary = page.getByRole("region", { name: "Resumo do período" });
-    await expect(summary.getByText(/^Lucro líquido: R\$/)).toBeVisible();
-    await expect(summary.getByText(/em vendas$/)).toBeVisible();
-    await expect(summary.getByRole("term").filter({ hasText: "Seu lucro" })).toBeVisible();
     await expect(page.getByText(/pedidos · página 1 de/).filter({ visible: true })).toBeVisible();
 
     await page.getByLabel("Ordenar pedidos").click();
@@ -79,7 +147,7 @@ test.describe("financeiro", () => {
       page.getByLabel("Financeiro por pedido").getByRole("button").first(),
     ).toContainText(/Cancelado|Devolvido/);
 
-    const exportLink = page.getByRole("link", { name: "Exportar CSV" });
+    const exportLink = page.getByRole("link", { name: "Exportar CSV do período" });
     await expect(exportLink).toHaveAttribute("href", /stage=issue/);
     const downloadPromise = page.waitForEvent("download");
     await exportLink.click();
@@ -118,12 +186,66 @@ test.describe("financeiro", () => {
 test.describe("avisos", () => {
   test("o sino lista vendas recentes e zera os não lidos ao abrir", async ({ page }) => {
     await signIn(page, DEMO_USER);
-    await gotoHydrated(page, "/dashboard");
-    await page.getByRole("button", { name: /^Avisos/ }).click();
-    await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible();
+    // Its own sale first: "Limpar tudo" may have emptied the demo account's bell earlier.
+    await simulateSale(page);
+    await expect(async () => {
+      await gotoHydrated(page, "/dashboard");
+      await page.getByRole("button", { name: /^Avisos/ }).click();
+      await expect(page.getByText("Avisos", { exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Nova venda de R\$/ }).first()).toBeVisible({
+        timeout: 2000,
+      });
+    }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
+  });
+
+  test("keeps the sale badge clear of the product icon and its variant dot", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await simulateSale(page);
+    const sale = page.getByRole("link", { name: /Nova venda de R\$/ }).first();
+    await expect(async () => {
+      await gotoHydrated(page, "/dashboard");
+      await page.getByRole("button", { name: /^Avisos/ }).click();
+      await expect(sale).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+
+    // The mark is the product tile plus the sale badge overlaid on its bottom-right corner.
+    const [tile, badge] = await sale.locator(":scope > span:first-child > span").all();
+    if (tile === undefined || badge === undefined) {
+      throw new Error("Expected the sale mark to hold a product tile and a badge");
+    }
+    test.skip((await tile.locator("img").count()) > 0, "The sold product has a photo");
+    // The tile's variant dot would sit right under the badge.
+    await expect(tile.locator("span.rounded-full")).toHaveCount(0);
+
+    const iconBox = await tile.locator("svg").boundingBox();
+    const badgeBox = await badge.boundingBox();
+    if (iconBox === null || badgeBox === null) {
+      throw new Error("Expected the product icon and the badge to be rendered");
+    }
+    // The badge is a circle with a 2px ring: its edge must stay off the icon's box corner.
+    const ring = 2;
+    const radius = badgeBox.width / 2 + ring;
+    const centerX = badgeBox.x + badgeBox.width / 2;
+    const centerY = badgeBox.y + badgeBox.height / 2;
+    const cornerX = iconBox.x + iconBox.width;
+    const cornerY = iconBox.y + iconBox.height;
+    expect(Math.hypot(centerX - cornerX, centerY - cornerY)).toBeGreaterThan(radius);
+  });
+
+  test("one Escape closes the bell panel, even with the sound toggle's hint", async ({ page }) => {
+    await signIn(page, DEMO_USER);
+    await gotoHydrated(page, "/dashboard");
+    await page.getByRole("button", { name: /^Avisos/ }).click();
+    const soundToggle = page.getByRole("button", { name: "Som dos avisos" });
+    await expect(soundToggle).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(soundToggle).toBeHidden();
+    await expect(page.getByRole("button", { name: /^Avisos/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   test("conta nova não tem avisos", async ({ page }) => {
@@ -135,7 +257,7 @@ test.describe("avisos", () => {
 });
 
 test.describe("busca global", () => {
-  test("Ctrl+K encontra um pedido e leva até ele no financeiro", async ({ page }) => {
+  test("Ctrl+K opens the selected order directly in operations", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
     const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
@@ -153,7 +275,14 @@ test.describe("busca global", () => {
     await input.fill("MOCK-ORD-0000");
     const order = page.getByRole("option", { name: /^MOCK-ORD-0000/ }).first();
     await expect(order).toBeVisible();
+    const externalOrderId = (await order.innerText()).match(/MOCK-ORD-\d+/)?.[0];
+    if (externalOrderId === undefined) throw new Error("Missing search result order number");
+    const profile = new URL(page.url()).searchParams.get("perfil");
     await order.click();
-    await expect(page).toHaveURL(/\/financeiro\?query=MOCK-ORD-0000/);
+    await expect(page).toHaveURL(/\/pedidos\/[0-9a-f-]{36}(?:\?|$)/);
+    await expect(
+      page.getByRole("heading", { name: `Pedido ${externalOrderId}`, exact: true }),
+    ).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("perfil")).toBe(profile);
   });
 });

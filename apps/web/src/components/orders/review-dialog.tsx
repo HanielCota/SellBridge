@@ -14,10 +14,10 @@ import {
   type Icon,
   PackageIcon,
   SealCheckIcon,
-  StarIcon,
   TruckIcon,
 } from "@phosphor-icons/react";
 import { useId, useState } from "react";
+import { StarInput } from "@/components/form/star-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,8 +32,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSaveReview } from "@/features/orders/use-save-review";
 import { cn } from "@/lib/utils";
 
-const RATING_LABELS = ["Péssimo", "Ruim", "Regular", "Bom", "Excelente"] as const;
-
 export interface ReviewTarget {
   orderId: string;
   externalOrderId: string;
@@ -47,53 +45,6 @@ function knownTags(tags: readonly string[]): ReviewTag[] {
     const parsed = reviewTagSchema.safeParse(tag);
     return parsed.success ? [parsed.data] : [];
   });
-}
-
-/**
- * Five native radios drawn as stars, so arrow keys and screen readers work as usual;
- * hovering previews the rating before the click.
- */
-function StarInput({ value, onChange }: { value: number; onChange: (rating: number) => void }) {
-  const [hovered, setHovered] = useState(0);
-  const shown = hovered || value;
-  return (
-    <fieldset className="space-y-1.5">
-      <legend className="sr-only">Nota do fornecedor</legend>
-      <div className="flex gap-1" onPointerLeave={() => setHovered(0)}>
-        {RATING_LABELS.map((label, index) => {
-          const rating = index + 1;
-          return (
-            <label
-              key={label}
-              className="relative cursor-pointer rounded-lg p-1 transition-transform duration-100 ease-out has-focus-visible:ring-3 has-focus-visible:ring-ring/50 active:scale-90 motion-reduce:transition-none"
-              onPointerEnter={() => setHovered(rating)}
-            >
-              <input
-                type="radio"
-                name="rating"
-                value={rating}
-                checked={value === rating}
-                onChange={() => onChange(rating)}
-                // Transparent over the whole star, so the click lands on the native radio.
-                className="absolute inset-0 cursor-pointer appearance-none opacity-0"
-              />
-              <span className="sr-only">
-                {rating} {rating === 1 ? "estrela" : "estrelas"}: {label}
-              </span>
-              <StarIcon
-                weight={rating <= shown ? "fill" : "regular"}
-                className={cn("size-8", rating <= shown ? "text-amber-500" : "text-amber-500/70")}
-                aria-hidden="true"
-              />
-            </label>
-          );
-        })}
-      </div>
-      <p className="h-5 text-sm text-muted-foreground" aria-hidden="true">
-        {shown > 0 ? RATING_LABELS[shown - 1] : "Toque nas estrelas para dar a nota"}
-      </p>
-    </fieldset>
-  );
 }
 
 /**
@@ -293,7 +244,7 @@ function ReviewForm({ target, onDone }: { target: ReviewTarget; onDone: () => vo
       }}
     >
       <div>
-        <StarInput value={rating} onChange={changeRating} />
+        <StarInput legend="Nota do fornecedor" value={rating} onChange={changeRating} />
         {showRatingError ? (
           <p className="text-xs text-destructive">Escolha de 1 a 5 estrelas.</p>
         ) : null}
@@ -305,7 +256,7 @@ function ReviewForm({ target, onDone }: { target: ReviewTarget; onDone: () => vo
           Agora não
         </Button>
         <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "Enviando..." : "Enviar avaliação"}
+          {mutation.isPending ? "Enviando…" : "Enviar avaliação"}
         </Button>
       </DialogFooter>
     </form>

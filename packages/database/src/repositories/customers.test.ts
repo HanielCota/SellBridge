@@ -1,19 +1,28 @@
 import { randomUUID } from "node:crypto";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, orders, user } from "../schema/index.ts";
-import { createTestDatabase, createTestTenants } from "../testing/fixtures.ts";
-import { getCustomer, listCustomers } from "./customers.ts";
+import { member, orders, session, storeConnections, tickets, user } from "../schema/index.ts";
+import {
+  createTestDatabase,
+  createTestSupplierProduct,
+  createTestTenants,
+  testCpf,
+} from "../testing/fixtures.ts";
+import { getCustomer, getWeeklyOrderCounts, listCustomerSignals } from "./customers.ts";
+import { saveBillingHolder } from "./region.ts";
+import { assignStoreSupplier } from "./store-suppliers.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
 const marker = randomUUID().slice(0, 8);
 const userId = randomUUID();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
+let tenantId = "";
+const DAY = 86_400_000;
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
-  const tenantId = tenants.ids[0] ?? "";
+  tenantId = tenants.ids[0] ?? "";
   const now = new Date();
   await database.insert(user).values({
     id: userId,
@@ -54,6 +63,38 @@ beforeAll(async () => {
       marketplaceFeeCents: 0,
       orderedAt: now,
     },
+    {
+      tenantId,
+      storeConnectionId: store.id,
+      externalOrderId: `o3-${marker}`,
+      status: "delivered",
+      totalCents: 7_000,
+      marketplaceFeeCents: 0,
+      orderedAt: new Date(now.getTime() - 40 * DAY),
+    },
+  ]);
+  await database.insert(tickets).values([
+    { tenantId, createdById: userId, subject: "Aguardando", status: "open" },
+    { tenantId, createdById: userId, subject: "Respondido", status: "answered" },
+  ]);
+  await database.insert(session).values([
+    {
+      id: randomUUID(),
+      token: `own-${marker}`,
+      userId,
+      expiresAt: new Date(now.getTime() + DAY),
+      createdAt: now,
+      updatedAt: new Date(now.getTime() - 2 * DAY),
+    },
+    {
+      id: randomUUID(),
+      token: `admin-${marker}`,
+      userId,
+      impersonatedBy: randomUUID(),
+      expiresAt: new Date(now.getTime() + DAY),
+      createdAt: now,
+      updatedAt: now,
+    },
   ]);
 });
 
@@ -64,9 +105,9 @@ afterAll(async () => {
 
 describe("customers", () => {
   it("finds the customer by name or e-mail with its activity", async () => {
-    const page = await listCustomers(database, { search: marker }, { page: 1, pageSize: 10 });
-    expect(page.total).toBe(1);
-    const [customer] = page.items;
+    const customers = await listCustomerSignals(database, { search: marker });
+    expect(customers).toHaveLength(1);
+    const [customer] = customers;
     expect(customer).toMatchObject({
       id: userId,
       role: "user",
@@ -75,6 +116,83 @@ describe("customers", () => {
       recentOrders: 1,
       recentRevenueCents: 10_000,
     });
+  });
+
+  it("loads the signals behind the health score", async () => {
+    const [customer] = await listCustomerSignals(database, { search: marker });
+    expect(customer).toMatchObject({
+      hasHolder: false,
+      hasSupplier: false,
+      previousOrders: 1,
+      waitingTickets: 1,
+      stores: [
+        {
+          marketplace: "mock",
+          shopName: "Loja do cliente",
+          status: "connected",
+          supplierName: null,
+        },
+      ],
+    });
+    const lastSeen = customer?.lastSeenAt?.getTime() ?? 0;
+    expect(Date.now() - lastSeen).toBeGreaterThan(DAY);
+  });
+
+  it("shows the shop's supplier and filters customers by it", async () => {
+    const catalog = await createTestSupplierProduct(database, {
+      sku: `CUS-${marker}`,
+      title: "Produto do cliente",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    try {
+      const [before] = await listCustomerSignals(database, { search: marker });
+      const storeName = before?.stores[0]?.shopName ?? "";
+      const [store] = await database
+        .select({ id: storeConnections.id })
+        .from(storeConnections)
+        .where(eq(storeConnections.tenantId, tenantId));
+      await assignStoreSupplier(database, {
+        tenantId,
+        storeConnectionId: store?.id ?? "",
+        supplierId: catalog.supplierId,
+      });
+      await saveBillingHolder(database, tenantId, {
+        fullName: "Cliente Teste Silva",
+        cpf: testCpf(),
+      });
+
+      const [customer] = await listCustomerSignals(database, {
+        search: marker,
+        supplierId: catalog.supplierId,
+      });
+      expect(customer).toMatchObject({ hasHolder: true, hasSupplier: true });
+      expect(customer?.stores).toEqual([
+        expect.objectContaining({
+          shopName: storeName,
+          supplierName: `Fornecedor de teste CUS-${marker}`,
+        }),
+      ]);
+      expect(
+        await listCustomerSignals(database, {
+          search: marker,
+          supplierId: "00000000-0000-4000-8000-000000000000",
+        }),
+      ).toEqual([]);
+    } finally {
+      await database
+        .update(storeConnections)
+        .set({ supplierId: null })
+        .where(eq(storeConnections.tenantId, tenantId));
+      await catalog.cleanup();
+    }
+  });
+
+  it("counts orders per week, oldest first", async () => {
+    const weeks = await getWeeklyOrderCounts(database, tenantId, 8);
+    expect(weeks).toHaveLength(8);
+    expect(weeks.at(-1)).toBe(1);
+    expect(weeks.reduce((total, weekOrders) => total + weekOrders, 0)).toBe(2);
   });
 
   it("returns a single customer and null for unknown ids", async () => {

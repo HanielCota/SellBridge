@@ -1,9 +1,6 @@
+import { unavailableReason, type UnavailableReason } from "@sellbridge/shared/catalog-availability";
 import { notFoundError } from "@sellbridge/shared/errors";
-import {
-  assertSellablePrice,
-  pauseTransition,
-  RETRYABLE_TARGET_STATUS,
-} from "@sellbridge/shared/listing-rules";
+import { daysBefore } from "@sellbridge/shared/time";
 import {
   toPaginated,
   type ListingSort,
@@ -23,9 +20,15 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { hasActiveTargets } from "./active-targets.ts";
+import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { daysBefore } from "./time-window.ts";
+import {
+  listingCoversCostColumn,
+  listingSellableByProduct,
+  productListableColumn,
+} from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -36,6 +39,8 @@ export interface ListingStoreStatus {
   storeConnectionId: string;
   status: ListingTargetStatus;
   errorReason: string | null;
+  /** Why the marketplace did not take the description of this live listing; null when it did. */
+  descriptionError: string | null;
   attempts: number;
   externalUrl: string | null;
   publishedAt: Date | null;
@@ -45,6 +50,7 @@ export interface ListingStoreStatus {
 
 /** One product listing with its status in every store it was sent to. */
 export interface ListingOverviewRow {
+  catalogKind?: "supplier" | "seller";
   listingId: string;
   /** The supplier product the listing sells. */
   productId: string;
@@ -63,6 +69,8 @@ export interface ListingOverviewRow {
   /** Units sold per day over the sales window, oldest first. */
   dailySales: number[];
   stores: ListingStoreStatus[];
+  /** Why the supplier keeps the product off the marketplaces; null while it can be sold. */
+  unavailable: UnavailableReason | null;
 }
 
 /** How many listings have at least one store in each status (one listing can count twice). */
@@ -84,12 +92,27 @@ function hasTargetWith(status: ListingTargetStatus | undefined): SQL {
   return sql`exists (select 1 from ${listingTargets} where ${listingTargets.listingId} = ${listings.id}${targetFilter})`;
 }
 
+/**
+ * The status tab a listing belongs to. A live listing the supplier's catalog stops (inactive
+ * product or supplier, cost above the price) sells nothing: it counts as paused, the word its
+ * card shows, and leaves the live tab.
+ */
+function inStatusTab(status: ListingTargetStatus | undefined): SQL {
+  if (status === "published") {
+    return sql`(${hasTargetWith("published")} and ${listingSellableByProduct()})`;
+  }
+  if (status === "paused") {
+    return sql`(${hasTargetWith("paused")} or (${hasTargetWith("published")} and not ${listingSellableByProduct()}))`;
+  }
+  return hasTargetWith(status);
+}
+
 function listingConditions(tenantId: string, filters: ListingOverviewFilters): SQL | undefined {
   const conditions: SQL[] = [eq(listings.tenantId, tenantId)];
   if (filters.search) {
     conditions.push(ilike(listings.title, containsPattern(filters.search)));
   }
-  conditions.push(hasTargetWith(filters.status));
+  conditions.push(inStatusTab(filters.status));
   return and(...conditions);
 }
 
@@ -108,8 +131,8 @@ function salesWindowEndingAt(until: Date): SalesWindow {
 }
 
 function orderedWithin(salesWindow: SalesWindow): SQL {
-  return sql`${orders.orderedAt} > ${salesWindow.since.toISOString()}::timestamptz
-    and ${orders.orderedAt} <= ${salesWindow.until.toISOString()}::timestamptz`;
+  return sql`${orders.orderedAt} > ${timestampOf(salesWindow.since)}
+    and ${orders.orderedAt} <= ${timestampOf(salesWindow.until)}`;
 }
 
 /** Units sold in the sales window, as a correlated subquery so the page can sort by it. */
@@ -153,6 +176,14 @@ async function pageOfListingIds(
   return { ids: rows.map((row) => row.id), total: totals.at(0)?.total ?? 0 };
 }
 
+/** What `unavailableReason` needs; the query joins supplier_products and suppliers. */
+/** Shared with listing-actions.ts, which checks availability before a resume. */
+export const availabilityColumns = {
+  productActive: productListableColumn(),
+  supplierActive: suppliers.active,
+  priceCoversCost: listingCoversCostColumn(),
+};
+
 async function selectListingDetails(database: Database, ids: string[]) {
   return database
     .select({
@@ -162,12 +193,14 @@ async function selectListingDetails(database: Database, ids: string[]) {
       priceCents: listings.priceCents,
       costCents: supplierProducts.costCents,
       sku: supplierProducts.sku,
-      stock: supplierProducts.stock,
+      stock: availableStock,
       imageUrl: sql<string | null>`${supplierProducts.imageUrls}[1]`,
       categorySlug: categories.slug,
       categoryName: categories.name,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       createdAt: listings.createdAt,
+      ...availabilityColumns,
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
@@ -184,6 +217,7 @@ async function selectStoreStatuses(database: Database, ids: string[]) {
       storeConnectionId: listingTargets.storeConnectionId,
       status: listingTargets.status,
       errorReason: listingTargets.errorReason,
+      descriptionError: listingTargets.descriptionError,
       attempts: listingTargets.attempts,
       externalUrl: listingTargets.externalUrl,
       publishedAt: listingTargets.publishedAt,
@@ -266,19 +300,23 @@ async function loadOverviewRows(
   ]);
   const detailsById = new Map(details.map((row) => [row.listingId, row]));
   return ids.flatMap((id) => {
-    const detail = detailsById.get(id);
-    if (!detail) {
+    const found = detailsById.get(id);
+    if (!found) {
       return [];
     }
+    const { productActive, supplierActive, priceCoversCost, ...detail } = found;
+    const unavailable = unavailableReason({ productActive, supplierActive, priceCoversCost });
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));
-    return [{ ...detail, updatedAt, unitsSold: sumOf(dailySales), dailySales, stores }];
+    return [
+      { ...detail, updatedAt, unitsSold: sumOf(dailySales), dailySales, stores, unavailable },
+    ];
   });
 }
 
 function countWith(status: ListingTargetStatus): SQL<number> {
-  return sql<number>`count(*) filter (where ${hasTargetWith(status)})`.mapWith(Number);
+  return sql<number>`count(*) filter (where ${inStatusTab(status)})`.mapWith(Number);
 }
 
 /** Counts for the status tabs: the search applies, the status filter itself does not. */
@@ -342,87 +380,4 @@ export async function getListingOverview(
     throw notFoundError("Publicação não encontrada");
   }
   return row;
-}
-
-async function requireTenantListings(
-  database: Database,
-  tenantId: string,
-  listingIds: readonly string[],
-): Promise<void> {
-  const [row] = await database
-    .select({ total: count() })
-    .from(listings)
-    .where(and(eq(listings.tenantId, tenantId), inArray(listings.id, [...listingIds])));
-  if ((row?.total ?? 0) !== new Set(listingIds).size) {
-    throw notFoundError("Publicação não encontrada");
-  }
-}
-
-/**
- * Pauses or resumes the listings in every store where they are live. Paused listings
- * are kept at zero stock on the marketplace by the sync job. Returns the targets changed.
- */
-export async function setListingsPaused(
-  database: Database,
-  tenantId: string,
-  listingIds: readonly string[],
-  paused: boolean,
-): Promise<number> {
-  await requireTenantListings(database, tenantId, listingIds);
-  const transition = pauseTransition(paused);
-  const changed = await database
-    .update(listingTargets)
-    .set({ status: transition.to })
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, transition.from),
-      ),
-    )
-    .returning({ id: listingTargets.id });
-  return changed.length;
-}
-
-/** Changes the sale price; the sync job sends it to every store where the listing is live. */
-export async function updateListingPrice(
-  database: Database,
-  tenantId: string,
-  listingId: string,
-  priceCents: number,
-): Promise<void> {
-  const [row] = await database
-    .select({ costCents: supplierProducts.costCents })
-    .from(listings)
-    .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
-    .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)));
-  if (!row) {
-    throw notFoundError("Publicação não encontrada");
-  }
-  assertSellablePrice(priceCents, row.costCents);
-  await database
-    .update(listings)
-    .set({ priceCents })
-    .where(and(eq(listings.tenantId, tenantId), eq(listings.id, listingId)));
-}
-
-/** Puts every failed store of the given listings back in the queue; returns their ids. */
-export async function resetListingErrorsForRetry(
-  database: Database,
-  tenantId: string,
-  listingIds: readonly string[],
-): Promise<string[]> {
-  await requireTenantListings(database, tenantId, listingIds);
-  const reset = await database
-    .update(listingTargets)
-    .set({ status: "pending", errorReason: null })
-    .where(
-      and(
-        eq(listingTargets.tenantId, tenantId),
-        inArray(listingTargets.listingId, [...listingIds]),
-        eq(listingTargets.status, RETRYABLE_TARGET_STATUS),
-      ),
-    )
-    .returning({ id: listingTargets.id });
-  return reset.map((row) => row.id);
 }

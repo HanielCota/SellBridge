@@ -19,6 +19,26 @@ export const booleanFlagEnvironmentSchema = z
   .default("false")
   .transform((value) => ["true", "1"].includes(value.trim().toLowerCase()));
 
+export const nodeEnvironmentSchema = z
+  .enum(["development", "test", "production"])
+  .default("development");
+
+/** AES-256 key for the store tokens at rest: 32 bytes, base64-encoded. */
+export const tokenEncryptionKeyEnvironmentSchema = z
+  .string()
+  .refine((value) => Buffer.from(value, "base64").length === 32, {
+    message: "deve ser uma chave de 32 bytes em base64",
+  });
+
+/** Mock connector only: without it the simulated store is shown as not configured. */
+export const mockWebhookSecretEnvironmentSchema = z.string().min(16).optional();
+
+/**
+ * Chat webhook that receives error logs (item 32.a); unset keeps alerts off. HTTPS only: the
+ * alert carries the log line, already redacted, and must not travel in clear text.
+ */
+export const alertWebhookUrlEnvironmentSchema = z.url({ protocol: /^https$/ }).optional();
+
 export interface ParseEnvironmentOptions {
   /** Old variable name → new name. Setting an old name fails startup instead of being ignored. */
   renamedVariables?: Readonly<Record<string, string>>;

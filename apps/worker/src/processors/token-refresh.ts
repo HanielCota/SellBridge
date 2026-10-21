@@ -7,7 +7,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { type ConnectorRegistry, isMarketplaceAuthError } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
-import { isAppError } from "@sellbridge/shared/errors";
+import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 
 export interface TokenRefreshDependencies {
@@ -17,7 +17,7 @@ export interface TokenRefreshDependencies {
 }
 
 /** Refreshes tokens expiring within this window, before they actually expire. */
-export const REFRESH_WINDOW_MILLISECONDS = 30 * 60 * 1000;
+const REFRESH_WINDOW_MILLISECONDS = 30 * 60 * 1000;
 
 export interface TokenRefreshSummary {
   refreshed: number;
@@ -79,8 +79,12 @@ async function handleRefreshFailure(
     logger.warn("store.token_expired", { storeConnectionId: connection.id, expired, error });
     return expired ? "expired" : "superseded";
   }
-  const message = isAppError(error) ? error.userMessage : TRANSIENT_FAILURE_MESSAGE;
-  await recordStoreError(dependencies.database, connection.id, message);
+  const message = userMessageOr(error, TRANSIENT_FAILURE_MESSAGE);
+  await recordStoreError(dependencies.database, {
+    storeConnectionId: connection.id,
+    lastError: message,
+    refreshTokenEnc: attempt.refreshTokenEnc,
+  });
   logger.warn("store.token_refresh_failed", { storeConnectionId: connection.id, error });
   return "failed";
 }

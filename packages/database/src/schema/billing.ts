@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { bigint, boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 
 export const billingAccounts = pgTable("billing_accounts", {
@@ -11,7 +11,12 @@ export const billingAccounts = pgTable("billing_accounts", {
   status: text("status").notNull().default("free"),
   periodEnd: timestamp("period_end", { withTimezone: true }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-  lastEventCreated: integer("last_event_created").notNull().default(0),
+  /**
+   * When the applied state was read from Stripe, in Unix milliseconds (item 16.a). Rows written
+   * before held Stripe's `event.created` in seconds, always smaller, so the next read replaces
+   * them. bigint: milliseconds do not fit an int4.
+   */
+  lastEventCreated: bigint("last_event_created", { mode: "number" }).notNull().default(0),
 });
 
 export const billingEvents = pgTable("billing_events", {

@@ -1,24 +1,29 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
+import type { OrderFinance } from "@sellbridge/shared/finance";
 import { formatCents } from "@sellbridge/shared/money";
 import { orderMargin, orderSplit, type OrderSplitKind } from "@/features/reports/financial-rows";
+import { PENDING_COST_HINT, PENDING_HATCH_CLASS } from "@/components/reports/pending-cost";
+import { formatPercent } from "@/lib/percent";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 /** Same colors as the period summary, so a row's bar reads like the big one above it. */
 const SPLIT_COLORS: Record<OrderSplitKind, string> = {
+  pending: PENDING_HATCH_CLASS,
   cost: "bg-finance-cost",
   fee: "bg-finance-fee",
   refund: "bg-finance-refund",
-  profit: "bg-brand",
+  profit: "bg-brand-mark",
 };
 
 const SPLIT_LABELS: Record<OrderSplitKind, string> = {
+  pending: "Custo pendente",
   cost: "Produtos",
   fee: "Taxas",
   refund: "Reembolso",
   profit: "Lucro",
 };
-
-const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 
 /** Money with a real minus sign, and a plus when asked, so columns read as math. */
 export function signedCents(cents: number, { plus = false } = {}): string {
@@ -30,12 +35,12 @@ export function signedCents(cents: number, { plus = false } = {}): string {
 
 export function marginLabel(row: OrderFinancialRow): string | null {
   const margin = orderMargin(row);
-  return margin === null ? null : percent.format(margin);
+  return margin === null ? null : formatPercent(margin);
 }
 
-/** The order is out of the books (cancelled or returned): its amounts read as void. */
+/** The order is out of the books (unpaid, cancelled or returned): its amounts read as void. */
 export function isVoidOrder(row: OrderFinancialRow): boolean {
-  return row.status === "cancelled" || row.status === "returned";
+  return row.status === "pending" || row.status === "cancelled" || row.status === "returned";
 }
 
 /**
@@ -76,7 +81,7 @@ interface BreakdownEntry {
   color?: string;
 }
 
-function breakdownEntries(row: OrderFinancialRow): BreakdownEntry[] {
+function breakdownEntries(row: OrderFinance): BreakdownEntry[] {
   const entries: BreakdownEntry[] = [
     { label: "Produtos", cents: -row.costCents, color: SPLIT_COLORS.cost },
     { label: "Taxas", cents: -(row.feeCents + row.platformFeeCents), color: SPLIT_COLORS.fee },
@@ -86,8 +91,37 @@ function breakdownEntries(row: OrderFinancialRow): BreakdownEntry[] {
   return entries.filter((entry) => entry.cents !== 0);
 }
 
+/** A sale of unknown cost: the revenue, the products' cost that is missing, and no profit yet. */
+function PendingCostBreakdown({ row }: { row: OrderFinance }) {
+  return (
+    <div className="grid gap-2">
+      <dl className="grid gap-1.5 text-footnote">
+        <div className="flex justify-between gap-4">
+          <dt className="font-medium">Receita</dt>
+          <dd className="font-medium tabular-nums">{formatCents(row.revenueCents)}</dd>
+        </div>
+        <div className="flex justify-between gap-4 text-muted-foreground">
+          <dt className="flex items-center gap-2">
+            <span aria-hidden="true" className={cn("size-2 rounded-[3px]", PENDING_HATCH_CLASS)} />
+            Produtos
+          </dt>
+          <dd>custo pendente</dd>
+        </div>
+        <div className="mt-1 flex justify-between gap-4 border-t border-border pt-2">
+          <dt className="font-medium">Lucro</dt>
+          <dd className="font-medium text-muted-foreground">fora do lucro</dd>
+        </div>
+      </dl>
+      <p className="text-xs text-muted-foreground">{PENDING_COST_HINT}</p>
+    </div>
+  );
+}
+
 /** The order's arithmetic, line by line: what came in, each thing that went out, what was left. */
-export function OrderBreakdown({ row }: { row: OrderFinancialRow }) {
+export function OrderBreakdown({ row }: { row: OrderFinance }) {
+  if (row.costPending) {
+    return <PendingCostBreakdown row={row} />;
+  }
   return (
     <dl className="grid gap-1.5 text-footnote">
       <div className="flex justify-between gap-4">
@@ -98,7 +132,13 @@ export function OrderBreakdown({ row }: { row: OrderFinancialRow }) {
         <div key={entry.label} className="flex justify-between gap-4 text-muted-foreground">
           <dt className="flex items-center gap-2">
             <span aria-hidden="true" className={cn("size-1.5 rounded-full", entry.color)} />
-            {entry.label}
+            {entry.label === "Taxas" ? (
+              <HintedText label={TERM_HINTS.fees} className="hinted-term">
+                {entry.label}
+              </HintedText>
+            ) : (
+              entry.label
+            )}
           </dt>
           <dd className="tabular-nums">{signedCents(entry.cents, { plus: true })}</dd>
         </div>
@@ -124,11 +164,11 @@ export function OrderBreakdown({ row }: { row: OrderFinancialRow }) {
  * A cancelled or returned order still shows a real loss (a refund it paid) in red.
  */
 export function ProfitAmount({
-  row,
+  cents,
   plus = false,
   className,
 }: {
-  row: OrderFinancialRow;
+  cents: number;
   plus?: boolean;
   className?: string;
 }) {
@@ -136,13 +176,13 @@ export function ProfitAmount({
     <span
       className={cn(
         "font-semibold whitespace-nowrap tabular-nums",
-        row.profitCents > 0 && "text-brand-text",
-        row.profitCents < 0 && "text-destructive",
-        row.profitCents === 0 && "font-medium text-muted-foreground",
+        cents > 0 && "text-brand-text",
+        cents < 0 && "text-destructive",
+        cents === 0 && "font-medium text-muted-foreground",
         className,
       )}
     >
-      {signedCents(row.profitCents, { plus })}
+      {signedCents(cents, { plus })}
     </span>
   );
 }

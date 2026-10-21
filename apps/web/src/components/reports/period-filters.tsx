@@ -1,9 +1,14 @@
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { MAX_CUSTOM_DAYS, REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridge/shared/schemas";
+
+/** The fixed presets, plus "all" (no date limit) on screens of work to do, like operations. */
+type PeriodChoice = PeriodPreset | "all";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useCallback, useRef, useState, type ComponentProps } from "react";
-import { CalendarBlankIcon, CaretDownIcon } from "@phosphor-icons/react";
+import { useCallback, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { CaretDownIcon } from "@phosphor-icons/react";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 import { useActiveIndicator } from "@/components/data/use-active-indicator";
 import {
   TRACK_CLASSES,
@@ -32,7 +37,9 @@ import {
 const ALL_STORES = "__all__";
 
 /** Short labels for the segmented control (the long ones live in PERIOD_LABELS). */
-const SEGMENT_LABELS: Record<PeriodPreset, string> = {
+const SEGMENT_LABELS: Record<PeriodChoice, string> = {
+  all: "Tudo",
+  today: "Hoje",
   "7d": "7 dias",
   "30d": "30 dias",
   "90d": "90 dias",
@@ -40,38 +47,53 @@ const SEGMENT_LABELS: Record<PeriodPreset, string> = {
   custom: "Personalizado",
 };
 
-/** Phone labels, so all five fit inside the chart card without a hidden scroll. */
-const COMPACT_LABELS: Record<PeriodPreset, string> = {
+/**
+ * Phone labels, so every period fits inside the chart card without a hidden scroll. "Personalizado"
+ * is only its calendar icon there: with "Hoje" added, the word no longer fit on a 390px phone.
+ */
+const COMPACT_LABELS: Record<PeriodChoice, string> = {
+  all: "Tudo",
+  today: "Hoje",
   "7d": "7d",
   "30d": "30d",
   "90d": "90d",
   "180d": "6m",
-  custom: "Personalizado",
+  custom: "",
 };
 
-interface PeriodFiltersProps {
-  search: PeriodSearch;
+interface PeriodFiltersProps<Period extends PeriodChoice> {
+  search: Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period };
+  /** The periods offered, in order; reports use the fixed presets. */
+  presets?: readonly Period[];
   stores: { id: string; name: string }[];
   resolvedFrom: string;
   resolvedTo: string;
-  onChange: (patch: Partial<PeriodSearch>) => void;
+  onChange: (
+    patch: Partial<Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period }>,
+  ) => void;
 }
 
-export function PeriodFilters({
+export function PeriodFilters<Period extends PeriodChoice>({
   search,
+  presets,
   stores,
   resolvedFrom,
   resolvedTo,
   onChange,
-}: PeriodFiltersProps) {
+}: PeriodFiltersProps<Period>) {
   // Opens the calendar right away when the user picks "Personalizado", not on page load.
   const [openCalendar, setOpenCalendar] = useState(false);
+  const offered: readonly PeriodChoice[] = presets ?? PERIOD_PRESETS;
+  const isOffered = (value: PeriodChoice): value is Period => offered.includes(value);
+  const customPeriod = search.period === "custom" ? search.period : null;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodSegments
           period={search.period}
+          presets={offered}
           onPeriodChange={(period) => {
+            if (!isOffered(period)) return;
             setOpenCalendar(period === "custom");
             onChange(
               period === "custom"
@@ -86,31 +108,58 @@ export function PeriodFilters({
           onStoreChange={(store) => onChange({ store })}
         />
       </div>
-      {search.period === "custom" ? (
+      {customPeriod ? (
         <CustomRange
           key={`${resolvedFrom}-${resolvedTo}`}
           from={resolvedFrom}
           to={resolvedTo}
           defaultOpen={openCalendar}
           onOpenChange={setOpenCalendar}
-          onApply={(from, to) => onChange({ period: "custom", from, to })}
+          onApply={(from, to) => onChange({ period: customPeriod, from, to })}
         />
       ) : null}
     </div>
   );
 }
 
+/** The period's name: in full on wider screens, short on a phone. */
+function SegmentLabel({ preset }: { preset: PeriodChoice }) {
+  return (
+    <>
+      <span className="max-sm:hidden">{SEGMENT_LABELS[preset]}</span>
+      <span className="sm:hidden" aria-hidden="true">
+        {COMPACT_LABELS[preset]}
+      </span>
+    </>
+  );
+}
+
+const CustomPeriodIcon = ACTION_ICONS.customPeriod.icon;
+
+/** Keeps each option measurable by the sliding pill while it is mounted. */
+function registerOption(options: RefObject<Map<PeriodChoice, HTMLElement>>, preset: PeriodChoice) {
+  return (node: HTMLElement | null) => {
+    if (!node) {
+      options.current.delete(preset);
+      return;
+    }
+    options.current.set(preset, node);
+  };
+}
+
 /** One-click period choice: native radios styled as a segmented control. */
 function PeriodSegments({
   period,
+  presets,
   onPeriodChange,
 }: {
-  period: PeriodSearch["period"];
-  onPeriodChange: (period: PeriodPreset) => void;
+  period: PeriodChoice;
+  presets: readonly PeriodChoice[];
+  onPeriodChange: (period: PeriodChoice) => void;
 }) {
   const chosen = useOptimisticChoice(period);
   const containerRef = useRef<HTMLFieldSetElement>(null);
-  const optionRefs = useRef(new Map<PeriodPreset, HTMLElement>());
+  const optionRefs = useRef(new Map<PeriodChoice, HTMLElement>());
   const indicator = useActiveIndicator(chosen.value, containerRef, optionRefs);
   // Off until the first pick, so the pill lands in place on load instead of sliding in.
   const [canAnimate, setCanAnimate] = useState(false);
@@ -119,47 +168,43 @@ function PeriodSegments({
     <fieldset ref={containerRef} className={cn(TRACK_CLASSES, "w-full sm:inline-flex sm:w-auto")}>
       <legend className="sr-only">Período</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
-      {PERIOD_PRESETS.map((preset) => (
-        <label
+      {presets.map((preset) => (
+        <Hint
           key={preset}
-          ref={(node) => {
-            if (!node) {
-              optionRefs.current.delete(preset);
-              return;
-            }
-            optionRefs.current.set(preset, node);
-          }}
-          className={cn(
-            TRACK_OPTION_CLASSES,
-            "flex-1 px-2.5 sm:flex-none sm:px-3.5",
-            // Unchosen periods answer the pointer with a faint pill of their own.
-            "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
-            // Before the first measure (SSR, hydration) the chosen period paints its own pill.
-            !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
-            "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-          )}
+          label={preset === "custom" ? ACTION_ICONS.customPeriod.hint : undefined}
+          openOnTap={false}
         >
-          {preset === "custom" ? (
-            <CalendarBlankIcon className="size-3.5 max-sm:hidden" aria-hidden="true" />
-          ) : null}
-          <input
-            type="radio"
-            name="period"
-            value={preset}
-            checked={preset === chosen.value}
-            onChange={() => {
-              setCanAnimate(true);
-              chosen.choose(preset);
-              onPeriodChange(preset);
-            }}
-            aria-label={SEGMENT_LABELS[preset]}
-            className="sr-only"
-          />
-          <span className="max-sm:hidden">{SEGMENT_LABELS[preset]}</span>
-          <span className="sm:hidden" aria-hidden="true">
-            {COMPACT_LABELS[preset]}
-          </span>
-        </label>
+          <label
+            ref={registerOption(optionRefs, preset)}
+            className={cn(
+              TRACK_OPTION_CLASSES,
+              "flex-1 px-2.5 sm:flex-none sm:px-3.5",
+              // Unchosen periods answer the pointer with a faint pill of their own.
+              "not-has-checked:hover:bg-foreground/[0.06] has-checked:text-background has-checked:hover:text-background",
+              // Before the first measure (SSR, hydration) the chosen period paints its own pill.
+              !indicator && preset === chosen.value && TRACK_FALLBACK_PILL_CLASSES,
+              "has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+            )}
+          >
+            {preset === "custom" ? (
+              <CustomPeriodIcon className="size-4 sm:size-3.5" aria-hidden="true" />
+            ) : null}
+            <input
+              type="radio"
+              name="period"
+              value={preset}
+              checked={preset === chosen.value}
+              onChange={() => {
+                setCanAnimate(true);
+                chosen.choose(preset);
+                onPeriodChange(preset);
+              }}
+              aria-label={SEGMENT_LABELS[preset]}
+              className="sr-only"
+            />
+            <SegmentLabel preset={preset} />
+          </label>
+        </Hint>
       ))}
     </fieldset>
   );
@@ -171,7 +216,7 @@ function StoreSelect({
   onStoreChange,
 }: {
   store: PeriodSearch["store"];
-  stores: PeriodFiltersProps["stores"];
+  stores: PeriodFiltersProps<PeriodChoice>["stores"];
   onStoreChange: (store: string | undefined) => void;
 }) {
   return (
@@ -195,8 +240,6 @@ function StoreSelect({
     </Select>
   );
 }
-
-const MAX_CUSTOM_DAYS = 366;
 
 const rangeFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "numeric",
@@ -346,7 +389,7 @@ function RangeTrigger({
       className="flex h-10 w-full items-center gap-2.5 rounded-xl border border-field-border bg-field pr-3 pl-3.5 text-sm tabular-nums transition-[border-color,box-shadow,background-color,transform] duration-100 outline-none select-none hover:bg-[color-mix(in_oklch,var(--field),var(--foreground)_3%)] focus-visible:border-brand-strong focus-visible:ring-4 focus-visible:ring-brand/20 active:scale-[0.98] aria-expanded:border-brand-strong motion-reduce:active:scale-100 sm:w-auto sm:self-start"
       {...props}
     >
-      <CalendarBlankIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <CustomPeriodIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="truncate">{formatRange(from, to)}</span>
       <CaretDownIcon className="ml-auto size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>

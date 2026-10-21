@@ -7,7 +7,12 @@ import { SmartDate } from "@/components/data/smart-date";
 import { ToneStatus } from "@/components/data/tone-status";
 import { WebhookDeliveries } from "@/components/integrations/webhook-deliveries";
 import { Badge } from "@/components/ui/badge";
+import {
+  INTEGRATIONS_LOCKED_REASON,
+  useIntegrationsLocked,
+} from "@/components/integrations/integrations-lock";
 import { Button } from "@/components/ui/button";
+import { DisabledHint } from "@/components/ui/hint";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -46,13 +51,14 @@ function EventBadges({ eventTypes }: { eventTypes: readonly string[] }) {
 
 function EnabledSwitch({ endpoint }: { endpoint: WebhookEndpointRow }) {
   const mutation = useSetWebhookEndpointEnabled();
+  const locked = useIntegrationsLocked();
   const id = `webhook-enabled-${endpoint.id}`;
   return (
     <div className="flex items-center gap-2">
       <Switch
         id={id}
         checked={endpoint.disabledAt === null}
-        disabled={mutation.isPending}
+        disabled={locked || mutation.isPending}
         onCheckedChange={(enabled) => mutation.mutate({ endpointId: endpoint.id, enabled })}
       />
       <Label htmlFor={id} className="font-normal">
@@ -70,6 +76,7 @@ function EndpointRow({
   onDelete: (endpoint: WebhookEndpointRow) => void;
 }) {
   const isEnabled = endpoint.disabledAt === null;
+  const locked = useIntegrationsLocked();
   return (
     <li aria-label={endpoint.url} className="grid gap-4 px-5 py-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -91,14 +98,17 @@ function EndpointRow({
         </div>
         <div className="flex shrink-0 items-center gap-3 self-start">
           <EnabledSwitch endpoint={endpoint} />
-          <Button
-            variant="destructive"
-            size="sm"
-            aria-label={`Excluir o webhook ${endpoint.url}`}
-            onClick={() => onDelete(endpoint)}
-          >
-            Excluir
-          </Button>
+          <DisabledHint reason={locked ? INTEGRATIONS_LOCKED_REASON : undefined}>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={locked}
+              aria-label={`Excluir o webhook ${endpoint.url}`}
+              onClick={() => onDelete(endpoint)}
+            >
+              Excluir
+            </Button>
+          </DisabledHint>
         </div>
       </div>
       <WebhookDeliveries deliveries={endpoint.recentDeliveries} />

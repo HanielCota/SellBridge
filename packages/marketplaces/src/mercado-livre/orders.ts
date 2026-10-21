@@ -1,3 +1,4 @@
+import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
 import type { MarketplaceOrder, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
@@ -19,20 +20,75 @@ const ORDER_STATUS_MAP: Record<string, MarketplaceOrder["status"]> = {
   invalid: "cancelled",
 };
 
+/**
+ * Mercado Livre's order status, read with the tags that change what we may do with it:
+ * `fraud_risk_detected` means "do not ship", so the order is held as unpaid and never reaches
+ * the supplier. Statuses from the gerenciamento-de-vendas table; an unknown one is held too.
+ */
+function orderStatus(raw: MercadoLivreOrder): MarketplaceOrder["status"] {
+  const status = ORDER_STATUS_MAP[raw.status];
+  if (status === undefined) {
+    logger.warn("mercado_livre.unknown_order_status", {
+      externalOrderId: String(raw.id),
+      status: raw.status,
+    });
+    return "pending";
+  }
+  if (status === "paid" && raw.tags?.includes("fraud_risk_detected")) return "pending";
+  return status;
+}
+
 function toCents(amount: number): number {
   return Math.round(amount * 100);
+}
+
+/** Largest value of the integer cents columns the order is stored in. */
+const MAX_STORED_CENTS = 2_147_483_647;
+
+/** A total built from several lines (fee × quantity, refunds of several payments) must still fit. */
+function storedCents(cents: number, field: string): number {
+  if (cents > MAX_STORED_CENTS) {
+    // A final answer, not a retryable failure: asking again returns the same order, and the
+    // webhook job only stops retrying on a non-retryable marketplace error.
+    throw marketplaceError(
+      `Pedido do Mercado Livre com ${field} acima do armazenável: ${cents} centavos (máximo ${MAX_STORED_CENTS})`,
+      { retryable: false },
+    );
+  }
+  return cents;
+}
+
+/** Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again. */
+function feeCents(raw: MercadoLivreOrder): number {
+  // Rounded once per line, not per unit: a fee with more than two decimals would otherwise
+  // drift by up to half a cent times the quantity.
+  const total = raw.order_items.reduce(
+    (sum, line) => sum + toCents((line.sale_fee ?? 0) * line.quantity),
+    0,
+  );
+  return storedCents(total, "fee");
+}
+
+/**
+ * Each payment says how much of it went back (`transaction_amount_refunded`). No payments in the
+ * payload means "not reported": the last known refund stays.
+ */
+function refundedCents(raw: MercadoLivreOrder): number | undefined {
+  if (!raw.payments) return undefined;
+  const total = raw.payments.reduce(
+    (sum, payment) => sum + toCents(payment.transaction_amount_refunded ?? 0),
+    0,
+  );
+  return storedCents(total, "refund");
 }
 
 export function mapMercadoLivreOrder(raw: MercadoLivreOrder): MarketplaceOrder {
   return {
     externalOrderId: String(raw.id),
-    status: ORDER_STATUS_MAP[raw.status] ?? "pending",
+    status: orderStatus(raw),
     totalCents: toCents(raw.total_amount),
-    // Official "Provisões" docs: sale_fee is per unit; do not add fixed fees again.
-    marketplaceFeeCents: raw.order_items.reduce(
-      (total, line) => total + toCents(line.sale_fee ?? 0) * line.quantity,
-      0,
-    ),
+    marketplaceFeeCents: feeCents(raw),
+    refundedCents: refundedCents(raw),
     buyerName: raw.buyer?.nickname ?? null,
     orderedAt: new Date(raw.date_created),
     items: raw.order_items.map((line) => ({
@@ -86,7 +142,10 @@ export async function fetchOrder(
 ): Promise<MarketplaceOrder> {
   const match = /^\/?orders\/(\d+)$/.exec(resource);
   if (!match?.[1]) {
-    throw marketplaceError(`Recurso de pedido inválido: ${resource}`, { retryable: false });
+    // The resource comes from an unsigned notification; a long one stays out of the logs.
+    throw marketplaceError(`Recurso de pedido inválido: ${resource.slice(0, 100)}`, {
+      retryable: false,
+    });
   }
   const raw = await requestJson(context, {
     schema: orderSchema,

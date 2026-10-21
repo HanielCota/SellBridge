@@ -14,7 +14,7 @@ export interface FileStorage {
   delete(key: string): Promise<void>;
 }
 
-export function createLocalFileStorage(rootDirectory: string): FileStorage {
+function createLocalFileStorage(rootDirectory: string): FileStorage {
   const root = resolve(rootDirectory);
 
   function pathFor(key: string): string {

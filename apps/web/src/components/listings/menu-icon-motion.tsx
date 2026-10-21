@@ -1,4 +1,4 @@
-import { PlayIcon, TagIcon, FlaskIcon } from "@phosphor-icons/react";
+import { PlayIcon, TagIcon, FlaskIcon, type Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { useRef, type ReactNode, type RefObject } from "react";
 import { prefersReducedMotion } from "@/lib/rewind";
 
@@ -121,5 +121,18 @@ export function useFlaskMotion(): MenuIconMotion {
         ],
         { duration: 600, easing: EASE_OUT },
       ),
+  };
+}
+
+/** Any duotone icon that plays `keyframes` once when its item is highlighted. */
+export function useIconMotion(
+  Icon: PhosphorIcon,
+  keyframes: Keyframe[],
+  transformOrigin = "center",
+): MenuIconMotion {
+  const ref = useRef<SVGSVGElement>(null);
+  return {
+    icon: <Icon ref={ref} weight="duotone" aria-hidden="true" style={{ transformOrigin }} />,
+    onHighlight: () => play(ref.current, keyframes, { duration: 520, easing: EASE_OUT }),
   };
 }

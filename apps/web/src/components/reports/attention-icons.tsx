@@ -53,6 +53,23 @@ export function ListingAlertIcon({ className }: IconProps) {
   );
 }
 
+/** A payment card holding a "!": it shakes a "no" and the alert drops in. The plan payment failed. */
+export function PaymentCardAlertIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <g className="glyph glyph-shake" {...OUTLINE}>
+        <rect x="2.5" y="5" width="19" height="14" rx="2.5" {...WASH} />
+        <path d="M2.5 9.5h19" />
+        <path d="M6 15h3" />
+      </g>
+      <g className="glyph glyph-mark glyph-drop">
+        <path d="M16.5 12.4v2.2" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
+        <circle cx="16.5" cy="16.9" r="1.1" fill="currentColor" />
+      </g>
+    </svg>
+  );
+}
+
 /** A support headset: it rings, then its microphone lights up. Someone from the team answered. */
 export function SupportHeadsetIcon({ className }: IconProps) {
   return (
@@ -92,6 +109,50 @@ export function ReviewBubbleIcon({ className }: IconProps) {
         fill="currentColor"
         stroke="currentColor"
         strokeWidth={1}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** A rocket on its pad: it lifts off and the flame flickers. The first steps are not done. */
+export function OnboardingRocketIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <g className="glyph glyph-lift">
+        <g {...OUTLINE}>
+          <path d="M12 2.5c3 2 4.5 5.5 4.5 9.5l-2 3.5h-5l-2-3.5c0-4 1.5-7.5 4.5-9.5z" {...WASH} />
+          <circle cx="12" cy="9" r="1.6" />
+          <path d="M7.6 12.2 5 15l2.8 1.2M16.4 12.2 19 15l-2.8 1.2" />
+        </g>
+        <path
+          className="glyph glyph-mark glyph-flame"
+          d="M10.6 17.2h2.8L12 21.5z"
+          fill="currentColor"
+        />
+      </g>
+    </svg>
+  );
+}
+
+/** A chart line going downhill: it draws itself and the arrow lands. Sales are slipping. */
+export function SalesDropIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path d="M4 4v16h16" {...OUTLINE} />
+      <path d="M4 20 7.5 8.5l4 4 3-2.5 5 6.5V20z" fill="currentColor" fillOpacity={0.14} />
+      <path
+        className="glyph glyph-trace"
+        d="M7.5 8.5l4 4 3-2.5 5 6.5"
+        pathLength={1}
+        {...OUTLINE}
+      />
+      <path
+        className="glyph glyph-mark glyph-land"
+        d="M20 12.5V17h-4.5"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>

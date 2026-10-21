@@ -1,8 +1,8 @@
 import { tagsForRating } from "@sellbridge/shared/schemas";
 import { REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
+import { DAY_MILLISECONDS, daysBefore } from "@sellbridge/shared/time";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { daysBefore } from "../repositories/time-window.ts";
 import {
   orderItems,
   orders,
@@ -13,7 +13,6 @@ import {
 import { SUPPLIERS, type SupplierReputationProfile } from "./data.ts";
 import type { Random } from "./random.ts";
 
-const DAY_MILLISECONDS = 86_400_000;
 /** The newest deliveries stay unreviewed, so the demo has orders waiting for a review. */
 const UNREVIEWED_RECENT_DAYS = 10;
 const REVIEW_CHANCE = 0.8;

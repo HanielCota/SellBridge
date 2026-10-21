@@ -7,7 +7,7 @@ import { prefersReducedMotion, rewind } from "@/lib/rewind";
 export type StoreBridgeStatus = "idle" | "authorizing" | "connected" | "failed";
 
 /** How long the lit arc takes to pull back when the link fails; matches the shake in the CSS. */
-export const BRIDGE_REWIND_MS = 320;
+export const BRIDGE_REWIND_MILLISECONDS = 320;
 
 /** Same curve for the drawn arc and the pulse that rides it, in the 184×56 box below. */
 const ARC_PATH = "M62 22 Q92 -12 122 22";
@@ -32,7 +32,7 @@ export function StoreBridge({
     if (status !== "failed" || !link) {
       return undefined;
     }
-    const options = { duration: BRIDGE_REWIND_MS, easing: "cubic-bezier(0.4, 0, 1, 1)" };
+    const options = { duration: BRIDGE_REWIND_MILLISECONDS, easing: "cubic-bezier(0.4, 0, 1, 1)" };
     // With reduced motion the lit arc only faded in, so it only fades out.
     const animation = prefersReducedMotion()
       ? rewind(link, "opacity", "0", options)

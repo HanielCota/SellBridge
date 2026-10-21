@@ -1,18 +1,26 @@
-import type { RegionCatalogProduct } from "@sellbridge/database/repositories";
+import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { Link } from "@tanstack/react-router";
-import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { ACTION_ICONS, CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/hint";
 import { Checkbox } from "@/components/ui/checkbox";
-import { estimateProfit, isThinMargin } from "@/features/listings/profit";
+import { estimateProfit, isThinMargin, wholeMarginPercent } from "@/features/listings/profit";
+import { useFeeSchedule } from "@/features/reports/fee-schedule.queries";
 import { ProductStockLine } from "./product-stock-line";
 import { ProductVisual } from "./product-visual";
 import { SoldOutFooter, SoldOutRibbon } from "./sold-out";
 
 /** Suggested price as the headline; cost and the margin it leaves underneath. */
-function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldOut: boolean }) {
-  const margin = estimateProfit(product.suggestedPriceCents, product.costCents)?.marginPercent;
+function PriceLines({ product, soldOut }: { product: SellableCatalogProduct; soldOut: boolean }) {
+  const schedule = useFeeSchedule();
+  const margin = estimateProfit(
+    product.suggestedPriceCents,
+    product.costCents,
+    schedule,
+  )?.marginPercent;
   return (
     <div className="mt-auto space-y-0.5 tabular-nums">
       <p
@@ -30,7 +38,7 @@ function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldO
           <>
             {" · "}
             <span className={cn(isThinMargin(margin) && "text-amber-700 dark:text-amber-500")}>
-              margem {Math.round(margin)}%
+              margem {wholeMarginPercent(margin)}%
             </span>
           </>
         )}
@@ -39,12 +47,14 @@ function PriceLines({ product, soldOut }: { product: RegionCatalogProduct; soldO
   );
 }
 
-function CardBody({ product }: { product: RegionCatalogProduct }) {
+function CardBody({ product }: { product: SellableCatalogProduct }) {
   const soldOut = product.stock <= 0;
   return (
     <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="space-y-1">
-        <p className="truncate text-xs text-muted-foreground">{product.supplierName}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {product.catalogKind === "seller" ? "Seu produto" : product.supplierName}
+        </p>
         <h2 className={cn("line-clamp-2 text-sm font-medium", soldOut && "text-muted-foreground")}>
           {product.title}
         </h2>
@@ -55,19 +65,42 @@ function CardBody({ product }: { product: RegionCatalogProduct }) {
   );
 }
 
-function StockFooter({ product }: { product: RegionCatalogProduct }) {
+const PublishIcon = ACTION_ICONS.publish.icon;
+
+function StockFooter({ product }: { product: SellableCatalogProduct }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-      <ProductStockLine stock={product.stock} />
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+      {/* As tall as the publish button, so published cards keep the price row level. */}
+      <span className="flex min-h-8 items-center">
+        <ProductStockLine stock={product.stock} updatedAt={product.stockUpdatedAt} />
+      </span>
       {product.published ? null : (
-        <Button asChild variant="secondary" size="sm">
-          <Link to="/publicacoes/nova" search={{ productId: product.id }}>
-            <PackageIcon weight="bold" aria-hidden="true" />
-            Publicar
-          </Link>
-        </Button>
+        <Hint label={ACTION_ICONS.publish.hint} openOnTap={false}>
+          <Button asChild variant="secondary" size="sm">
+            <Link to="/publicacoes/nova" search={{ productId: product.id }}>
+              <PublishIcon weight="bold" aria-hidden="true" />
+              Publicar
+            </Link>
+          </Button>
+        </Hint>
       )}
     </div>
+  );
+}
+
+/** Marks a product already on sale; its legend says so for whoever does not read the badge. */
+function PublishedBadge() {
+  return (
+    <Hint label={TERM_HINTS.published}>
+      <span
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the badge's legend must be reachable by keyboard too
+        tabIndex={0}
+        className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-xs font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
+        Publicado
+      </span>
+    </Hint>
   );
 }
 
@@ -77,7 +110,7 @@ export function CatalogProductCard({
   selected,
   onSelectedChange,
 }: {
-  product: RegionCatalogProduct;
+  product: SellableCatalogProduct;
   selected: boolean;
   onSelectedChange: (selected: boolean) => void;
 }) {
@@ -112,19 +145,16 @@ export function CatalogProductCard({
       />
       {soldOut ? <SoldOutRibbon /> : null}
       {canSelect ? (
-        <Checkbox
-          aria-label={`Selecionar ${product.title}`}
-          checked={selected}
-          onCheckedChange={(checked) => onSelectedChange(checked === true)}
-          className="absolute top-3 left-3 size-5 bg-background"
-        />
+        <Hint label={CONTROL_HINTS.selectForBulk} openOnTap={false}>
+          <Checkbox
+            aria-label={`Selecionar ${product.title}`}
+            checked={selected}
+            onCheckedChange={(checked) => onSelectedChange(checked === true)}
+            className="absolute top-3 left-3 size-5 bg-background"
+          />
+        </Hint>
       ) : null}
-      {product.published ? (
-        <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-xs font-medium">
-          <CheckCircleIcon className="size-3.5 text-brand-text" weight="fill" aria-hidden="true" />
-          Publicado
-        </span>
-      ) : null}
+      {product.published ? <PublishedBadge /> : null}
       <CardBody product={product} />
       {soldOut ? <SoldOutFooter /> : null}
     </article>

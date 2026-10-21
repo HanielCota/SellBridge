@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 
-export const API_DOCS_URL = "/api/v1/docs";
-export const OPENAPI_URL = "/api/v1/openapi.json";
+const API_DOCS_URL = "/api/v1/docs";
+const OPENAPI_URL = "/api/v1/openapi.json";
 
 function DocumentationLinks() {
   return (

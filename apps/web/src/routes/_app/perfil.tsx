@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionCard } from "@/components/layout/section-card";
-import { roleLabel } from "@/components/layout/user-menu";
+import { accountLabel } from "@/features/auth/account-label";
+import { AccountDataSection } from "@/components/profile/account-data-section";
 import { AvatarEditor } from "@/components/profile/avatar-editor";
+import { NotificationPreferences } from "@/components/profile/notification-preferences";
 import { PasswordSection } from "@/components/profile/password-form";
 import { ProfileNameForm } from "@/components/profile/profile-name-form";
 import { SessionsList } from "@/components/profile/sessions-list";
@@ -22,22 +24,40 @@ const memberSince = new Intl.DateTimeFormat("pt-BR", {
 interface ProfileHeaderProps {
   name: string;
   email: string;
-  role: string;
+  /** "Revendedor", "Fornecedor" or the team role (`accountLabel`). */
+  label: string;
   createdAt: string;
 }
 
-function ProfileHeader({ name, email, role, createdAt }: ProfileHeaderProps) {
+function ProfileHeader({ name, email, label, createdAt }: ProfileHeaderProps) {
   return (
     <div className="min-w-0 space-y-1.5 text-center sm:text-left">
       <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
         <h1 className="truncate text-2xl leading-tight font-semibold tracking-tight">{name}</h1>
-        <Badge variant="secondary">{roleLabel(role)}</Badge>
+        <Badge variant="secondary">{label}</Badge>
       </div>
       <p className="truncate text-sm text-muted-foreground">{email}</p>
       <p className="text-footnote text-muted-foreground">
         Membro desde {memberSince.format(new Date(createdAt))}
       </p>
     </div>
+  );
+}
+
+/** A supplier only gets support notices here; new orders reach them by e-mail. */
+function NotificationsCard({ isSupplier }: { isSupplier: boolean }) {
+  return (
+    <SectionCard
+      title="Notificações"
+      description="Escolha onde você quer saber de cada coisa: no sino do app ou por e-mail."
+    >
+      <NotificationPreferences />
+      {isSupplier ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Pedidos novos chegam por e-mail, no endereço de pedidos da sua marca.
+        </p>
+      ) : null}
+    </SectionCard>
   );
 }
 
@@ -52,7 +72,7 @@ function ProfilePage() {
           <ProfileHeader
             name={user.name}
             email={user.email}
-            role={user.role}
+            label={accountLabel(user.role, session.profileKind)}
             createdAt={user.createdAt}
           />
         </AvatarEditor>
@@ -63,9 +83,12 @@ function ProfilePage() {
         <ProfileNameForm key={user.name} name={user.name} email={user.email} />
       </SectionCard>
 
+      <NotificationsCard isSupplier={session.profileKind === "supplier"} />
+
       {isImpersonating ? (
         <p className="rounded-2xl bg-muted/60 p-4 text-sm text-muted-foreground">
-          Senha e dispositivos conectados ficam ocultos enquanto você usa o app como este cliente.
+          Senha, dispositivos conectados e seus dados ficam ocultos enquanto você usa o app como
+          este cliente.
         </p>
       ) : (
         <>
@@ -80,6 +103,12 @@ function ProfilePage() {
             description="Onde sua conta está aberta. Desconecte o que você não reconhecer."
           >
             <SessionsList />
+          </SectionCard>
+          <SectionCard
+            title="Seus dados"
+            description="Uma cópia do que o SellBridge guarda sobre você, ou a exclusão de tudo (LGPD)."
+          >
+            <AccountDataSection />
           </SectionCard>
         </>
       )}

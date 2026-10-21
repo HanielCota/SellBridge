@@ -30,5 +30,7 @@ export const webhookEvents = pgTable(
     index("webhook_events_unprocessed_idx")
       .on(table.receivedAt)
       .where(sql`${table.processedAt} is null`),
+    /** Retention: finished events past 30 days are deleted by this date. */
+    index("webhook_events_received_idx").on(table.receivedAt),
   ],
 );

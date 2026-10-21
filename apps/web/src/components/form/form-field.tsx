@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HintedText } from "@/components/ui/hint";
 
 /** Extracts a readable message from TanStack Form errors (Standard Schema issues or strings). */
 export function firstErrorMessage(errors: readonly unknown[]): string | null {
@@ -20,6 +21,8 @@ export function firstErrorMessage(errors: readonly unknown[]): string | null {
 interface TextFieldProps extends Omit<ComponentProps<typeof Input>, "id" | "onChange" | "value"> {
   id: string;
   label: string;
+  /** A legend on the label, opened on hover or tap (the label stays the field's name). */
+  hint?: string | undefined;
   value: string;
   errors: readonly unknown[];
   onValueChange: (value: string) => void;
@@ -28,6 +31,7 @@ interface TextFieldProps extends Omit<ComponentProps<typeof Input>, "id" | "onCh
 export function TextField({
   id,
   label,
+  hint,
   value,
   errors,
   onValueChange,
@@ -37,7 +41,15 @@ export function TextField({
   const errorId = `${id}-error`;
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>
+        {hint === undefined ? (
+          label
+        ) : (
+          <HintedText label={hint} focusable={false} className="hinted-term">
+            {label}
+          </HintedText>
+        )}
+      </Label>
       <Input
         id={id}
         value={value}

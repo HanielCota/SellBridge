@@ -14,7 +14,11 @@ export interface SummaryFigures {
 export type FlowPart = "cost" | "fees" | "refunds" | "profit";
 
 export interface MoneyFlow {
-  /** Share of revenue (0–1) for each slice; slices that are zero are left out. */
+  /**
+   * Share (0–1) of the whole bar for each slice; slices that are zero are left out. The bar is
+   * revenue plus commissions (where the profit also comes from), so the slices always add up to
+   * 100: with commissions, "R$ x a cada R$ 100" reads per R$ 100 of that total, not of revenue.
+   */
   parts: { key: FlowPart; share: number; cents: number; perHundred: number }[];
   /** Commissions add to profit, so they are reported apart from the slices. */
   commissionCents: number;
@@ -166,4 +170,20 @@ export function explainRevenue(
         )
       : null;
   return { kind: "change", revenue, orders, ticket };
+}
+
+/**
+ * Profit over the revenue whose cost is known (0–1): sales of unknown cost are out of the profit,
+ * so they stay out of the margin too. Null when no revenue has a known cost.
+ */
+export function profitMargin(totals: {
+  revenueCents: number;
+  profitCents: number;
+  pendingCostRevenueCents: number;
+}): number | null {
+  const knownRevenue = totals.revenueCents - totals.pendingCostRevenueCents;
+  if (knownRevenue <= 0) {
+    return null;
+  }
+  return totals.profitCents / knownRevenue;
 }

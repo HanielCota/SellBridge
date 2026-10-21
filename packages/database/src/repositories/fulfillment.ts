@@ -1,15 +1,43 @@
+import { createFulfillmentParcels } from "./create-fulfillment-parcels.ts";
 import { syncOrderFromShipments } from "./fulfillment-status.ts";
-import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, exists, gt, ilike, inArray, notExists, or, sql } from "drizzle-orm";
-import { conflictError, notFoundError } from "@sellbridge/shared/errors";
+import * as timing from "./shipment-timing.ts";
 import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  notExists,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { conflictError, notFoundError, validationError } from "@sellbridge/shared/errors";
+import {
+  DISPATCHED_FULFILLMENT_STATUSES,
+  DELIVERY_CONFIRMED_BY,
   FULFILLMENT_NEXT,
+  type FulfillmentStatus,
   type forwardOrderSchema,
+  type MarketplaceTrackingStatus,
+  SETTLED_FULFILLMENT_STATUSES,
+  SHIPMENT_ACTORS,
+  type ShipmentOperator,
   type operationsSearchSchema,
   type shipmentUpdateSchema,
 } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import {
   orderItems,
   orders,
@@ -19,16 +47,22 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
+import { containsPattern } from "./sql/search-pattern.ts";
+import { type ForwardActor, supplierGroups } from "./supplier-groups.ts";
+import { hashSupplierToken, issueSupplierLink } from "./supplier-link.ts";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-const tokenExpiry = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+/** The operations list's filters; dates are already resolved to Brazil calendar days. */
+export interface OperationalSearch {
+  query: string;
+  stage: z.infer<typeof operationsSearchSchema>["stage"];
+  page: number;
+  store?: string | undefined;
+  /** Sale dates from (inclusive) and before (exclusive). */
+  orderedFrom?: Date | undefined;
+  orderedTo?: Date | undefined;
+}
 
-function operationalFilter(
-  database: Database,
-  tenantId: string,
-  search: z.infer<typeof operationsSearchSchema>,
-) {
+function operationalFilter(database: Database, tenantId: string, search: OperationalSearch) {
   const shipmentMatch = and(
     eq(orderShipments.orderId, orders.id),
     eq(orderShipments.tenantId, tenantId),
@@ -50,13 +84,16 @@ function operationalFilter(
               .from(orderShipments)
               .where(and(shipmentMatch, eq(orderShipments.status, stage))),
           );
-  const term = `%${search.query.replace(/[\\%_]/g, "\\$&")}%`;
+  const term = containsPattern(search.query);
   return and(
     eq(orders.tenantId, tenantId),
     stageFilter,
     search.query
       ? or(ilike(orders.externalOrderId, term), ilike(orders.buyerName, term))
       : undefined,
+    search.store ? eq(orders.storeConnectionId, search.store) : undefined,
+    search.orderedFrom ? gte(orders.orderedAt, search.orderedFrom) : undefined,
+    search.orderedTo ? lt(orders.orderedAt, search.orderedTo) : undefined,
   );
 }
 
@@ -66,9 +103,10 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
         .select({
           id: orderShipments.id,
           orderId: orderShipments.orderId,
-          status: orderShipments.status,
           supplierName: suppliers.name,
+          catalogKind: suppliers.catalogKind,
           trackingCode: orderShipments.trackingCode,
+          ...timing.shipmentTimingColumns,
         })
         .from(orderShipments)
         .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
@@ -76,47 +114,64 @@ async function operationalShipments(database: Database, tenantId: string, ids: s
     : [];
 }
 
+const OPERATIONS_PAGE_SIZE = 20;
+
+async function countOperationalOrders(database: Database, filter: SQL | undefined) {
+  const [row] = await database
+    .select({ total: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(filter);
+  return row?.total ?? 0;
+}
+
+async function operationalOrderRows(database: Database, filter: SQL | undefined, page: number) {
+  return database
+    .select({
+      id: orders.id,
+      externalOrderId: orders.externalOrderId,
+      status: orders.status,
+      buyerName: orders.buyerName,
+      orderedAt: orders.orderedAt,
+      storeName: storeConnections.shopName,
+      /** An item is short of supplier stock (the reseller has to sort it out). */
+      stockShort: sql<boolean>`exists (select 1 from ${orderItems} where ${orderItems.orderId} = ${orders.id} and ${orderItems.stockState} = 'short')`,
+    })
+    .from(orders)
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .where(filter)
+    .orderBy(desc(orders.orderedAt), asc(orders.id))
+    .limit(OPERATIONS_PAGE_SIZE)
+    .offset((page - 1) * OPERATIONS_PAGE_SIZE);
+}
+
 export async function listOperationalOrders(
   database: Database,
   tenantId: string,
-  search: z.infer<typeof operationsSearchSchema>,
+  search: OperationalSearch,
 ) {
   const filter = operationalFilter(database, tenantId, search);
-  const [rows, totals] = await Promise.all([
-    database
-      .select({
-        id: orders.id,
-        externalOrderId: orders.externalOrderId,
-        status: orders.status,
-        buyerName: orders.buyerName,
-        orderedAt: orders.orderedAt,
-        storeName: storeConnections.shopName,
-      })
-      .from(orders)
-      .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
-      .where(filter)
-      .orderBy(desc(orders.orderedAt), asc(orders.id))
-      .limit(20)
-      .offset((search.page - 1) * 20),
-    database
-      .select({ total: sql<number>`count(*)::int` })
-      .from(orders)
-      .where(filter),
-  ]);
+  const total = await countOperationalOrders(database, filter);
+  const totalPages = Math.ceil(total / OPERATIONS_PAGE_SIZE);
+  // The page lives in the address: after a forward or a shared link it can point past the end.
+  // The last page with orders is shown then, never an empty list without a pager.
+  const page = Math.min(search.page, Math.max(1, totalPages));
+  const now = new Date();
+  const rows = await operationalOrderRows(database, filter, page);
   const shipments = await operationalShipments(
     database,
     tenantId,
     rows.map((row) => row.id),
   );
-  const total = totals[0]?.total ?? 0;
   return {
     items: rows.map((row) => ({
       ...row,
-      shipments: shipments.filter((shipment) => shipment.orderId === row.id),
+      shipments: shipments
+        .filter((shipment) => shipment.orderId === row.id)
+        .map((shipment) => timing.withShipmentDelay(shipment, now)),
     })),
-    page: search.page,
+    page,
     total,
-    totalPages: Math.ceil(total / 20),
+    totalPages,
   };
 }
 
@@ -138,12 +193,38 @@ function fulfillmentItems(database: Database, tenantId: string, orderId: string)
       quantity: orderItems.quantity,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
       sku: supplierProducts.sku,
     })
     .from(orderItems)
     .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
     .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
     .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
+}
+
+/** The order's parcels for the operations dialog and the order page, oldest first. */
+function detailShipments(database: Database, tenantId: string, orderId: string) {
+  return database
+    .select({
+      id: orderShipments.id,
+      supplierId: orderShipments.supplierId,
+      supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
+      address: orderShipments.address,
+      items: orderShipments.items,
+      notes: orderShipments.notes,
+      carrier: orderShipments.carrier,
+      trackingCode: orderShipments.trackingCode,
+      trackingUrl: orderShipments.trackingUrl,
+      trackedAt: orderShipments.trackedAt,
+      ...timing.shipmentTimingColumns,
+      updatedAt: orderShipments.updatedAt,
+      supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
+    })
+    .from(orderShipments)
+    .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
+    .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
+    .orderBy(asc(orderShipments.createdAt));
 }
 
 export async function getFulfillmentDetail(database: Database, tenantId: string, orderId: string) {
@@ -154,25 +235,7 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
   if (!order) throw notFoundError("Pedido não encontrado");
   const [items, shipments, stores] = await Promise.all([
     fulfillmentItems(database, tenantId, orderId),
-    database
-      .select({
-        id: orderShipments.id,
-        supplierId: orderShipments.supplierId,
-        supplierName: suppliers.name,
-        status: orderShipments.status,
-        address: orderShipments.address,
-        items: orderShipments.items,
-        notes: orderShipments.notes,
-        carrier: orderShipments.carrier,
-        trackingCode: orderShipments.trackingCode,
-        trackingUrl: orderShipments.trackingUrl,
-        updatedAt: orderShipments.updatedAt,
-        supplierTokenExpiresAt: orderShipments.supplierTokenExpiresAt,
-      })
-      .from(orderShipments)
-      .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
-      .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
-      .orderBy(asc(orderShipments.createdAt)),
+    detailShipments(database, tenantId, orderId),
     database
       .select({ marketplace: storeConnections.marketplace })
       .from(storeConnections)
@@ -183,6 +246,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
         ),
       ),
   ]);
+  const [store] = stores;
+  if (!store) throw notFoundError("Loja do pedido não encontrada");
   const events = await eventsForShipments(
     database,
     shipments.map((row) => row.id),
@@ -193,49 +258,24 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       externalOrderId: order.externalOrderId,
       status: order.status,
       buyerName: order.buyerName,
-      marketplace: stores[0]?.marketplace ?? "mock",
+      marketplace: store.marketplace,
     },
     items,
     shipments: shipments.map((shipment) => ({
-      ...shipment,
+      ...timing.withShipmentDelay(shipment, new Date()),
       events: events.filter((event) => event.shipmentId === shipment.id),
     })),
   };
-}
-
-async function supplierGroups(tx: Transaction, tenantId: string, orderId: string) {
-  const items = await tx
-    .select({
-      orderItemId: orderItems.id,
-      title: orderItems.title,
-      quantity: orderItems.quantity,
-      sku: supplierProducts.sku,
-      supplierId: supplierProducts.supplierId,
-      active: suppliers.active,
-    })
-    .from(orderItems)
-    .leftJoin(supplierProducts, eq(supplierProducts.id, orderItems.supplierProductId))
-    .leftJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId)));
-  if (!items.length || items.some((item) => !item.supplierId || !item.active))
-    throw conflictError("Vincule todos os itens a fornecedores ativos antes de encaminhar");
-  const grouped = new Map<string, typeof items>();
-  for (const item of items) {
-    const supplierId = item.supplierId;
-    if (!supplierId) throw conflictError("Item sem fornecedor");
-    grouped.set(supplierId, [...(grouped.get(supplierId) ?? []), item]);
-  }
-  return grouped;
 }
 
 /** Lock the order before grouping items; retries cannot dispatch the same items twice. */
 export async function forwardOrder(
   database: Database,
   tenantId: string,
-  input: z.infer<typeof forwardOrderSchema>,
+  input: z.infer<typeof forwardOrderSchema> & { actor?: ForwardActor },
 ) {
-  return database.transaction(async (tx) => {
-    const [order] = await tx
+  return database.transaction(async (transaction) => {
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, tenantId)))
@@ -243,61 +283,101 @@ export async function forwardOrder(
     if (!order) throw notFoundError("Pedido não encontrado");
     if (order.status !== "paid")
       throw conflictError("Somente pedidos pagos podem ser encaminhados");
-    const existing = await tx
+    const existing = await transaction
       .select({ id: orderShipments.id })
       .from(orderShipments)
       .where(eq(orderShipments.orderId, order.id));
     if (existing.length) throw conflictError("Este pedido já foi encaminhado");
-    const grouped = await supplierGroups(tx, tenantId, order.id);
-    const links: { shipmentId: string; supplierId: string; token: string }[] = [];
-    for (const [supplierId, lines] of grouped) {
-      const token = randomBytes(32).toString("hex");
-      const [shipment] = await tx
-        .insert(orderShipments)
-        .values({
-          tenantId,
-          orderId: order.id,
-          supplierId,
-          address: input.address,
-          notes: input.notes,
-          items: lines.map(({ orderItemId, title, quantity, sku }) => ({
-            orderItemId,
-            title,
-            quantity,
-            sku: sku ?? "",
-          })),
-          supplierTokenHash: hashToken(token),
-          supplierTokenExpiresAt: tokenExpiry(),
-        })
-        .returning({ id: orderShipments.id });
-      if (!shipment) throw new Error("Não foi possível encaminhar o pedido");
-      await tx.insert(shipmentEvents).values({
-        shipmentId: shipment.id,
-        status: "forwarded",
-        actor: "Revendedor",
-        note: "Ordem de fornecimento criada. Compartilhe o link com o fornecedor.",
-      });
-      links.push({ shipmentId: shipment.id, supplierId, token });
-    }
-    return links;
+    const grouped = await supplierGroups(transaction, tenantId, order.id);
+    return createFulfillmentParcels(
+      {
+        transaction,
+        tenantId,
+        orderId: order.id,
+        address: input.address,
+        notes: input.notes,
+        actor: input.actor ?? "reseller",
+      },
+      grouped,
+    );
   });
 }
 
+/**
+ * Sends a cancelled parcel to its supplier again: same items and address, a new link (the old
+ * one stops working), and a fresh start at "forwarded". The cancellation stays in its history.
+ */
+export async function reforwardShipment(database: Database, tenantId: string, shipmentId: string) {
+  return database.transaction(async (transaction) => {
+    const [candidate] = await transaction
+      .select({ orderId: orderShipments.orderId })
+      .from(orderShipments)
+      .where(
+        and(
+          eq(orderShipments.id, shipmentId),
+          eq(orderShipments.tenantId, tenantId),
+          publicShipmentSource(),
+        ),
+      );
+    if (!candidate) throw notFoundError("Envio não encontrado");
+    // The order first, like every other fulfillment write.
+    const [order] = await transaction
+      .select({ status: orders.status })
+      .from(orders)
+      .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, tenantId)))
+      .for("update");
+    if (order?.status !== "paid")
+      throw conflictError("Somente pedidos pagos podem ser reencaminhados");
+    const link = issueSupplierLink();
+    const [shipment] = await transaction
+      .update(orderShipments)
+      .set({
+        status: "forwarded",
+        supplierTokenHash: link.hash,
+        supplierTokenExpiresAt: link.expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(orderShipments.id, shipmentId), eq(orderShipments.status, "cancelled")))
+      .returning({ id: orderShipments.id, supplierId: orderShipments.supplierId });
+    if (!shipment) throw conflictError("Só um envio cancelado pode ser reencaminhado");
+    // The same rule as the first forward: a supplier turned off by the admin gets no new parcel.
+    const [supplier] = await transaction
+      .select({ active: suppliers.active })
+      .from(suppliers)
+      .where(eq(suppliers.id, shipment.supplierId));
+    if (!supplier?.active)
+      throw conflictError("Este fornecedor foi desativado e não recebe mais pedidos");
+    await transaction.insert(shipmentEvents).values({
+      shipmentId,
+      status: "forwarded",
+      actor: SHIPMENT_ACTORS.reseller,
+      note: "Reencaminhado ao fornecedor. Compartilhe o novo link com ele.",
+    });
+    return { shipmentId, supplierId: shipment.supplierId, token: link.token };
+  });
+}
+
+function publicShipmentSource() {
+  return sql`exists (select 1 from ${suppliers} where ${suppliers.id} = ${orderShipments.supplierId}
+    and ${suppliers.catalogKind} = 'supplier')`;
+}
+
 export async function rotateSupplierLink(database: Database, tenantId: string, shipmentId: string) {
-  const token = randomBytes(32).toString("hex");
+  const link = issueSupplierLink();
   const [shipment] = await database
     .update(orderShipments)
-    .set({ supplierTokenHash: hashToken(token), supplierTokenExpiresAt: tokenExpiry() })
+    .set({ supplierTokenHash: link.hash, supplierTokenExpiresAt: link.expiresAt })
     .where(
       and(
         eq(orderShipments.id, shipmentId),
         eq(orderShipments.tenantId, tenantId),
+        publicShipmentSource(),
         inArray(orderShipments.status, ["forwarded", "accepted", "picking", "ready", "shipped"]),
       ),
     )
     .returning({ id: orderShipments.id });
   if (!shipment) throw notFoundError("Envio não encontrado ou encerrado");
-  return { shipmentId, token };
+  return { shipmentId, token: link.token };
 }
 
 export async function revokeSupplierLink(database: Database, tenantId: string, shipmentId: string) {
@@ -317,6 +397,8 @@ export async function getSupplierShipment(database: Database, token: string) {
       orderStatus: orders.status,
       marketplace: storeConnections.marketplace,
       supplierName: suppliers.name,
+      catalogKind: suppliers.catalogKind,
+      ...timing.supplierTimingColumns,
     })
     .from(orderShipments)
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
@@ -324,7 +406,8 @@ export async function getSupplierShipment(database: Database, token: string) {
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .where(
       and(
-        eq(orderShipments.supplierTokenHash, hashToken(token)),
+        publicShipmentSource(),
+        eq(orderShipments.supplierTokenHash, hashSupplierToken(token)),
         gt(orderShipments.supplierTokenExpiresAt, new Date()),
       ),
     );
@@ -340,44 +423,80 @@ export async function getSupplierShipment(database: Database, token: string) {
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, shipment.id))
     .orderBy(asc(shipmentEvents.createdAt));
+  // The buyer's address serves the delivery only: once the parcel is settled or the order is
+  // cancelled or returned, the link still shows what happened, but no longer where it went.
+  const over =
+    SETTLED_FULFILLMENT_STATUSES.includes(shipment.status) ||
+    ["cancelled", "returned"].includes(row.orderStatus);
   return {
     ...shipment,
+    address: over ? null : shipment.address,
     externalOrderId: row.externalOrderId,
     orderStatus: row.orderStatus,
     marketplace: row.marketplace,
     supplierName: row.supplierName,
+    ...timing.supplierDeadlines(shipment, row),
     events,
   };
 }
 
+/**
+ * History rows one parcel may hold. Steps are few (one per stage), but occurrences can be posted
+ * again and again through a supplier link that anyone holding it can call: without a ceiling, a
+ * script could bloat the history every page of the order loads in full.
+ */
+export const MAX_SHIPMENT_EVENTS = 100;
+
+async function assertRoomForNote(transaction: Transaction, shipmentId: string) {
+  const [row] = await transaction
+    .select({ events: count() })
+    .from(shipmentEvents)
+    .where(eq(shipmentEvents.shipmentId, shipmentId));
+  if ((row?.events ?? 0) >= MAX_SHIPMENT_EVENTS) {
+    throw conflictError(
+      `Este envio já tem ${MAX_SHIPMENT_EVENTS} registros no histórico, o máximo de ocorrências.`,
+    );
+  }
+}
+
 async function writeShipmentStatus(
-  tx: Transaction,
+  transaction: Transaction,
   shipment: typeof orderShipments.$inferSelect,
   input: z.infer<typeof shipmentUpdateSchema>,
-  actor: string,
+  by: ShipmentOperator,
 ) {
+  // A delivery the supplier declares about itself is not proof: it releases the reseller's review
+  // and, later, the supplier's payment. Only the marketplace or the reseller confirms it.
+  if (by === "supplier" && input.status === "delivered") throw conflictError(DELIVERY_CONFIRMED_BY);
   if (
     input.status !== shipment.status &&
     FULFILLMENT_NEXT[shipment.status] !== input.status &&
     !(
       input.status === "cancelled" &&
-      !["shipped", "delivered", "cancelled"].includes(shipment.status)
+      !DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) &&
+      shipment.status !== "cancelled"
     )
   ) {
     throw conflictError(
       "Etapa inválida. Atualize o pedido e siga a sequência de preparação e envio.",
     );
   }
-  if (["cancelled", "delivered"].includes(shipment.status))
+  if (SETTLED_FULFILLMENT_STATUSES.includes(shipment.status))
     throw conflictError("Este envio já foi encerrado");
   if (input.status === shipment.status && !input.note)
     throw conflictError("Informe uma ocorrência ou avance a etapa");
-  await tx
+  if (input.status === shipment.status) await assertRoomForNote(transaction, shipment.id);
+  const shipsNow = input.status === "shipped" && shipment.status !== "shipped";
+  if (shipsNow && (!input.carrier || !input.trackingCode))
+    throw validationError("Informe transportadora e código de rastreio");
+  await transaction
     .update(orderShipments)
     .set({
       status: input.status,
       updatedAt: new Date(),
-      ...(input.status === "shipped"
+      ...linkFieldsFor(input.status),
+      // Written when the parcel ships, or when an occurrence brings them; never blanked.
+      ...(shipsNow || (input.status === "shipped" && input.carrier && input.trackingCode)
         ? {
             carrier: input.carrier,
             trackingCode: input.trackingCode,
@@ -386,31 +505,62 @@ async function writeShipmentStatus(
         : {}),
     })
     .where(eq(orderShipments.id, shipment.id));
-  await tx
-    .insert(shipmentEvents)
-    .values({ shipmentId: shipment.id, status: input.status, actor, note: input.note });
+  await transaction.insert(shipmentEvents).values({
+    shipmentId: shipment.id,
+    status: input.status,
+    actor: SHIPMENT_ACTORS[by],
+    note: input.note,
+  });
+}
+
+/** Parcels the supplier has nothing more to do or see for. */
+const LINK_CLOSING_STATUSES: readonly FulfillmentStatus[] = ["delivered", "returned"];
+
+/**
+ * A delivered or returned parcel needs nothing more from the supplier: its link stops working
+ * instead of showing the buyer's address and label for the rest of its 30 days. A cancelled one
+ * keeps it, so the supplier still sees the cancellation it made; re-forwarding replaces it.
+ */
+function linkFieldsFor(status: FulfillmentStatus) {
+  return LINK_CLOSING_STATUSES.includes(status)
+    ? { supplierTokenHash: null, supplierTokenExpiresAt: null }
+    : {};
+}
+
+/**
+ * Who may write a shipment: the reseller (its tenant), the supplier by its link token, or the
+ * supplier signed in to its panel (its id). Only the tenant writes as the reseller.
+ */
+export type ShipmentAccess = { tenantId: string } | { token: string } | { supplierId: string };
+
+function shipmentAccessFilter(access: ShipmentAccess) {
+  if ("tenantId" in access) {
+    return eq(orderShipments.tenantId, access.tenantId);
+  }
+  if ("supplierId" in access) {
+    return and(eq(orderShipments.supplierId, access.supplierId), publicShipmentSource());
+  }
+  return and(
+    publicShipmentSource(),
+    eq(orderShipments.supplierTokenHash, hashSupplierToken(access.token)),
+    gt(orderShipments.supplierTokenExpiresAt, new Date()),
+  );
 }
 
 /** All writes lock the parent order first, so separate supplier parcels cannot race. */
 export async function updateShipment(
   database: Database,
   input: z.infer<typeof shipmentUpdateSchema>,
-  access: { tenantId: string } | { token: string },
+  access: ShipmentAccess,
 ) {
-  return database.transaction(async (tx) => {
-    const accessFilter =
-      "tenantId" in access
-        ? eq(orderShipments.tenantId, access.tenantId)
-        : and(
-            eq(orderShipments.supplierTokenHash, hashToken(access.token)),
-            gt(orderShipments.supplierTokenExpiresAt, new Date()),
-          );
-    const [candidate] = await tx
+  return database.transaction(async (transaction) => {
+    const accessFilter = shipmentAccessFilter(access);
+    const [candidate] = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.id, input.shipmentId), accessFilter));
     if (!candidate) throw notFoundError("Envio não encontrado");
-    const [order] = await tx
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, candidate.orderId), eq(orders.tenantId, candidate.tenantId)))
@@ -418,20 +568,122 @@ export async function updateShipment(
     if (!order) throw notFoundError("Pedido não encontrado");
     if (["cancelled", "returned", "pending"].includes(order.status) && input.status !== "cancelled")
       throw conflictError("O pedido não está liberado para envio");
-    const [shipment] = await tx
+    const [shipment] = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.id, candidate.id), accessFilter))
       .for("update");
     if (!shipment) throw notFoundError("Link revogado ou expirado");
     await writeShipmentStatus(
-      tx,
+      transaction,
       shipment,
       input,
-      "tenantId" in access ? "Revendedor" : "Fornecedor",
+      "tenantId" in access ? "reseller" : "supplier",
     );
-    await syncOrderFromShipments(tx, order);
+    await syncOrderFromShipments(transaction, order);
+    // An occurrence note keeps the step: nothing moved, so no stock to push.
+    return { statusChanged: input.status !== shipment.status };
   });
+}
+
+/**
+ * The marketplace's tracking, applied over the supplier's progress: null (the parcel has not left)
+ * changes nothing, and a settled shipment keeps its status: later readings lag behind. `status` is the raw marketplace value,
+ * kept in the history note.
+ */
+function trackedShipmentStatus(
+  current: FulfillmentStatus,
+  tracking: MarketplaceTrackingStatus | null,
+): FulfillmentStatus {
+  if (tracking === null || SETTLED_FULFILLMENT_STATUSES.includes(current)) return current;
+  return tracking;
+}
+
+/** What a marketplace reading writes besides the status; absent values keep what is stored. */
+function trackedValues(
+  shipping: {
+    carrier: string | null;
+    trackingCode: string | null;
+    estimatedDeliveryAt?: Date | null;
+    dispatchDeadlineAt?: Date | null;
+  },
+  shipment: typeof orderShipments.$inferSelect,
+) {
+  const now = new Date();
+  return {
+    carrier: shipping.carrier ?? shipment.carrier,
+    trackingCode: shipping.trackingCode ?? shipment.trackingCode,
+    estimatedDeliveryAt: shipping.estimatedDeliveryAt ?? shipment.estimatedDeliveryAt,
+    dispatchDeadlineAt: shipping.dispatchDeadlineAt ?? shipment.dispatchDeadlineAt,
+    trackedAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Parcels on their way, written as constants (not parameters) so the query matches the partial
+ * index `order_shipments_tracking_idx`.
+ */
+const ON_THE_WAY = sql.raw("('forwarded','accepted','picking','ready','shipped')");
+const otherShipments = alias(orderShipments, "other_shipments");
+
+/**
+ * Orders of connected Mercado Livre stores with their single parcel still on its way, the least
+ * recently read first, across tenants: the worker's tracking job reads each one with its store's
+ * token. Orders split between suppliers are left out: the marketplace has one parcel for them,
+ * and they are tracked by hand per supplier. Stores whose token already expired wait for the
+ * token refresh job.
+ */
+export async function listShipmentsToTrack(database: Database, options: { limit: number }) {
+  return database
+    .select({
+      tenantId: orderShipments.tenantId,
+      orderId: orderShipments.orderId,
+      externalOrderId: orders.externalOrderId,
+      storeConnectionId: storeConnections.id,
+      externalShopId: storeConnections.externalShopId,
+      accessTokenEnc: storeConnections.accessTokenEnc,
+    })
+    .from(orderShipments)
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(
+      storeConnections,
+      and(
+        eq(storeConnections.id, orders.storeConnectionId),
+        eq(storeConnections.tenantId, orders.tenantId),
+      ),
+    )
+    .where(
+      and(
+        sql`${orderShipments.status} in ${ON_THE_WAY}`,
+        inArray(orders.status, ["paid", "shipped"]),
+        eq(storeConnections.marketplace, "mercado_livre"),
+        eq(storeConnections.status, "connected"),
+        isNotNull(storeConnections.accessTokenEnc),
+        or(isNull(storeConnections.expiresAt), gt(storeConnections.expiresAt, new Date())),
+        notExists(
+          database
+            .select({ id: otherShipments.id })
+            .from(otherShipments)
+            .where(
+              and(
+                eq(otherShipments.orderId, orderShipments.orderId),
+                ne(otherShipments.id, orderShipments.id),
+              ),
+            ),
+        ),
+      ),
+    )
+    .orderBy(sql`${orderShipments.trackedAt} asc nulls first`)
+    .limit(options.limit);
+}
+
+/** Marks an order's parcels as just read, so a failing read goes to the back of the line. */
+export async function touchShipmentTracking(database: Database, tenantId: string, orderId: string) {
+  await database
+    .update(orderShipments)
+    .set({ trackedAt: new Date() })
+    .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)));
 }
 
 /** One marketplace parcel cannot be assigned to several suppliers' separate parcels. */
@@ -439,18 +691,29 @@ export async function applyMarketplaceShipment(
   database: Database,
   tenantId: string,
   orderId: string,
-  shipping: { status: string; carrier: string | null; trackingCode: string | null },
+  shipping: {
+    status: string;
+    trackingStatus: MarketplaceTrackingStatus | null;
+    /** The buyer's return parcel reached the seller: the order is returned. */
+    buyerReturnDelivered: boolean;
+    carrier: string | null;
+    trackingCode: string | null;
+    /** The marketplace's dates; a reading without them keeps the ones already known. */
+    estimatedDeliveryAt?: Date | null;
+    dispatchDeadlineAt?: Date | null;
+  },
 ) {
-  return database.transaction(async (tx) => {
-    const [order] = await tx
+  return database.transaction(async (transaction) => {
+    const [order] = await transaction
       .select()
       .from(orders)
       .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
       .for("update");
     if (!order) throw notFoundError("Pedido não encontrado");
-    if (["cancelled", "returned"].includes(order.status))
-      throw conflictError("Pedido cancelado ou devolvido");
-    const shipments = await tx
+    if (order.status === "cancelled") throw conflictError("Pedido cancelado");
+    // Settled: a later reading (the return seen again, a lagging "shipped") changes nothing.
+    if (order.status === "returned") return { changed: false };
+    const shipments = await transaction
       .select()
       .from(orderShipments)
       .where(and(eq(orderShipments.orderId, orderId), eq(orderShipments.tenantId, tenantId)))
@@ -461,33 +724,26 @@ export async function applyMarketplaceShipment(
       );
     const shipment = shipments[0];
     if (!shipment || shipment.status === "cancelled") throw conflictError("Envio cancelado");
-    const remoteStatus =
-      shipping.status === "delivered"
-        ? "delivered"
-        : shipping.status === "shipped"
-          ? "shipped"
-          : null;
-    const status =
-      shipment.status === "delivered" ? "delivered" : (remoteStatus ?? shipment.status);
-    await tx
+    const status = trackedShipmentStatus(shipment.status, shipping.trackingStatus);
+    await transaction
       .update(orderShipments)
-      .set({
-        status,
-        carrier: shipping.carrier ?? shipment.carrier,
-        trackingCode: shipping.trackingCode ?? shipment.trackingCode,
-        updatedAt: new Date(),
-      })
+      .set({ status, ...trackedValues(shipping, shipment), ...linkFieldsFor(status) })
       .where(eq(orderShipments.id, shipment.id));
-    if (
-      status !== shipment.status ||
-      (shipping.trackingCode && shipping.trackingCode !== shipment.trackingCode)
-    )
-      await tx.insert(shipmentEvents).values({
+    const newTrackingCode =
+      shipping.trackingCode && shipping.trackingCode !== shipment.trackingCode
+        ? shipping.trackingCode
+        : null;
+    if (status !== shipment.status || newTrackingCode)
+      await transaction.insert(shipmentEvents).values({
         shipmentId: shipment.id,
         status,
-        actor: "Mercado Livre",
-        note: `Consulta do marketplace: ${shipping.status}${shipping.trackingCode ? ` · ${shipping.trackingCode}` : ""}`,
+        actor: SHIPMENT_ACTORS.marketplace,
+        // The status label says what happened; the note only adds a tracking code that just arrived.
+        note: newTrackingCode ? `Código de rastreio ${newTrackingCode}` : "",
       });
-    await syncOrderFromShipments(tx, order);
+    await syncOrderFromShipments(transaction, order, {
+      buyerReturned: shipping.buyerReturnDelivered,
+    });
+    return { changed: status !== shipment.status || newTrackingCode !== null };
   });
 }

@@ -1,4 +1,5 @@
 import {
+  getOrderPage,
   getReviewTarget,
   listReviewableOrders,
   saveSupplierReview,
@@ -7,8 +8,11 @@ import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { orderReviewSearchSchema, supplierReviewInputSchema } from "@sellbridge/shared/schemas";
 import { canReviewOrder, REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { database } from "@/lib/server/database";
+import { environment } from "@/lib/server/environment";
 import { tenantMiddleware } from "@/lib/server/middleware";
+import { marketplaceOrderUrl } from "./marketplace-order-url";
 import { reviewableSince } from "./review-window";
 
 /** Orders of the tenant split by supplier, with their review and whether it can still change. */
@@ -42,4 +46,19 @@ export const saveSupplierReviewFn = createServerFn({ method: "POST" })
     }
     await saveSupplierReview(database, context.tenantId, data);
     return { ok: true };
+  });
+
+/** Everything the order page shows, for one order of the tenant (not found for any other). */
+export const getOrderPageFn = createServerFn({ method: "GET" })
+  .middleware([tenantMiddleware])
+  .validator(z.object({ orderId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    const page = await getOrderPage(database, context.tenantId, data.orderId, {
+      platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
+      now: new Date(),
+    });
+    return {
+      ...page,
+      marketplaceUrl: marketplaceOrderUrl(page.order.marketplace, page.order.externalOrderId),
+    };
   });

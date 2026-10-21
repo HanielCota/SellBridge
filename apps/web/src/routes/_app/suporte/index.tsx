@@ -1,12 +1,20 @@
 import type { TicketSummary } from "@sellbridge/database/repositories";
-import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import {
+  ticketsSearchSchema,
+  type TicketCategory,
+  type TicketsSearch,
+} from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LifebuoyIcon, PlusIcon } from "@phosphor-icons/react";
+import { HeadsetIcon, PlusIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
 import { PaginationBar } from "@/components/data/pagination-bar";
+import { SearchInput } from "@/components/data/search-input";
+import { TicketCategoryLabel, UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
+import { CUSTOMER_TICKET_STATUS_LABELS } from "@/features/support/customer-ticket-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,6 +22,10 @@ import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
+import { RESPONSE_PROMISE } from "@/features/support/response-time";
+import { noTicketsDescription } from "@/features/support/support-copy";
+import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
+import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -27,22 +39,51 @@ export const Route = createFileRoute("/_app/suporte/")({
 });
 
 const columnHelper = createServerColumnHelper<TicketSummary>();
+function TicketSubject({ ticket }: { ticket: TicketSummary }) {
+  return (
+    <div className="space-y-0.5">
+      <Link
+        to="/suporte/$ticketId"
+        params={{ ticketId: ticket.id }}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        {ticket.subject}
+      </Link>
+      <AccountTopicLabel category={ticket.category} className="block" />
+    </div>
+  );
+}
+
+/** The topic in the words this account saw when opening the ticket. */
+function AccountTopicLabel({
+  category,
+  className,
+}: {
+  category: TicketCategory;
+  className?: string | undefined;
+}) {
+  const { session } = Route.useRouteContext();
+  return (
+    <TicketCategoryLabel category={category} kind={session.profileKind} className={className} />
+  );
+}
+
+/** A reply you have not read outranks the status: it is what you came here for. */
+function TicketState({ ticket }: { ticket: TicketSummary }) {
+  if (ticket.hasUnread) {
+    return <UnreadDot />;
+  }
+  return <TicketStatusBadge status={ticket.status} labels={CUSTOMER_TICKET_STATUS_LABELS} />;
+}
+
 const columns = columnHelper.columns([
   columnHelper.accessor("subject", {
     header: "Assunto",
-    cell: (info) => (
-      <Link
-        to="/suporte/$ticketId"
-        params={{ ticketId: info.row.original.id }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
+    cell: (info) => <TicketSubject ticket={info.row.original} />,
   }),
   columnHelper.accessor("status", {
-    header: "Status",
-    cell: (info) => <TicketStatusBadge status={info.getValue()} />,
+    header: "Situação",
+    cell: (info) => <TicketState ticket={info.row.original} />,
   }),
   columnHelper.accessor("updatedAt", {
     header: "Última atualização",
@@ -57,9 +98,11 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
     <Link to="/suporte/$ticketId" params={{ ticketId: row.id }} className="block space-y-1.5">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 font-medium">{row.subject}</p>
-        <TicketStatusBadge status={row.status} />
+        <TicketState ticket={row} />
       </div>
-      <SmartDate date={row.updatedAt} className="text-xs text-muted-foreground" />
+      <p className="text-xs text-muted-foreground">
+        <AccountTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
+      </p>
     </Link>
   );
 }
@@ -68,7 +111,7 @@ function SupportHeader() {
   return (
     <PageHeader
       title="Suporte"
-      description="Abra chamados e acompanhe as respostas da nossa equipe."
+      description={`${RESPONSE_PROMISE}. Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
       actions={
         <Button asChild>
           <Link to="/suporte/novo">
@@ -83,17 +126,19 @@ function SupportHeader() {
 
 function NoTickets({
   isFiltered,
+  profileKind,
   onClearFilter,
 }: {
   isFiltered: boolean;
+  profileKind: ProfileKind;
   onClearFilter: () => void;
 }) {
   if (isFiltered) {
     return (
       <EmptyState
-        icon={LifebuoyIcon}
-        title="Nenhum chamado com este status"
-        description="Seus outros chamados continuam na lista completa."
+        icon={HeadsetIcon}
+        title="Nenhum chamado encontrado"
+        description="Ajuste a busca ou o status. Seus outros chamados continuam na lista completa."
         action={
           <Button variant="outline" onClick={onClearFilter}>
             Ver todos os chamados
@@ -104,9 +149,9 @@ function NoTickets({
   }
   return (
     <EmptyState
-      icon={LifebuoyIcon}
+      icon={HeadsetIcon}
       title="Você ainda não abriu chamados"
-      description="Abra um chamado sobre pedidos, lojas ou repasses. A resposta aparece aqui."
+      description={noTicketsDescription(profileKind)}
       action={
         <Button asChild>
           <Link to="/suporte/novo">Abrir chamado</Link>
@@ -147,7 +192,37 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
   );
 }
 
+function TicketFilters({
+  term,
+  onTermChange,
+  status,
+  onStatusChange,
+}: {
+  term: string;
+  onTermChange: (term: string) => void;
+  status: TicketsSearch["status"];
+  onStatusChange: (status: TicketsSearch["status"]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <SearchInput
+        label="Buscar chamados"
+        placeholder="Buscar pelo assunto"
+        className="flex-1"
+        value={term}
+        onValueChange={onTermChange}
+      />
+      <TicketStatusFilter
+        labels={CUSTOMER_TICKET_STATUS_LABELS}
+        value={status}
+        onChange={onStatusChange}
+      />
+    </div>
+  );
+}
+
 function SupportPage() {
+  const { session } = Route.useRouteContext();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const query = useQuery(myTicketsQueryOptions(search));
@@ -155,6 +230,11 @@ function SupportPage() {
   function updateSearch(patch: Partial<TicketsSearch>) {
     void navigate({ search: (previous) => ({ ...previous, page: 1, ...patch }), replace: true });
   }
+
+  const { term, setTerm } = useUrlSearchQuery({
+    urlQuery: search.query,
+    commitQuery: (nextQuery) => updateSearch({ query: nextQuery }),
+  });
 
   if (query.isPending) {
     return (
@@ -173,22 +253,24 @@ function SupportPage() {
     );
   }
 
-  const isFiltered = search.status !== undefined;
+  const isFiltered = search.status !== undefined || search.query !== undefined;
   const isEmpty = query.data.items.length === 0;
   return (
     <>
       <SupportHeader />
       {isEmpty && !isFiltered ? null : (
-        <TicketStatusFilter
-          value={search.status}
-          onChange={(status) => updateSearch({ status })}
-          className="w-full"
+        <TicketFilters
+          term={term}
+          onTermChange={setTerm}
+          status={search.status}
+          onStatusChange={(status) => updateSearch({ status })}
         />
       )}
       {isEmpty ? (
         <NoTickets
           isFiltered={isFiltered}
-          onClearFilter={() => updateSearch({ status: undefined })}
+          profileKind={session.profileKind}
+          onClearFilter={() => updateSearch({ status: undefined, query: undefined })}
         />
       ) : (
         <TicketsTable tickets={query.data} onPageChange={(page) => updateSearch({ page })} />

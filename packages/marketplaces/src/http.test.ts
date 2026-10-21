@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffDelay, fetchWithRetry, retryAfterMilliseconds } from "./http.ts";
+import {
+  backoffDelay,
+  fetchWithRetry,
+  resolveRetryOptions,
+  retryAfterMilliseconds,
+} from "./http.ts";
 
 function respond(status: number, headers: Record<string, string> = {}) {
   return new Response("{}", { status, headers });
@@ -188,6 +193,7 @@ describe("backoff helpers", () => {
       baseDelayMilliseconds: 100,
       maxDelayMilliseconds: 1000,
       timeoutMilliseconds: 1000,
+      maxBodyBytes: 1024,
       random: () => 1,
     };
     expect(backoffDelay(0, options)).toBe(100);
@@ -203,5 +209,45 @@ describe("backoff helpers", () => {
     ).toBe(5000);
     expect(retryAfterMilliseconds(respond(429, { "retry-after": "soon" }))).toBeNull();
     expect(retryAfterMilliseconds(respond(429))).toBeNull();
+  });
+});
+
+describe("retry option bounds", () => {
+  it.each([-1, 1.5, 11, Number.NaN])("refuses %s retries", (retries) => {
+    expect(() => resolveRetryOptions({ retries })).toThrow(RangeError);
+  });
+
+  it.each([0, 10])("accepts %s retries", (retries) => {
+    expect(resolveRetryOptions({ retries }).retries).toBe(retries);
+  });
+});
+
+describe("response size", () => {
+  it("refuses a body larger than the limit as a final answer, without retrying", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response("x".repeat(2048), { status: 200 }),
+    );
+    await expect(
+      fetchWithRetry(
+        fetchImplementation,
+        "https://api.test/x",
+        {},
+        { ...noSleep, maxBodyBytes: 1024 },
+      ),
+    ).rejects.toMatchObject({ details: { retryable: false } });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a body of exactly the limit", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response("x".repeat(1024), { status: 200 }),
+    );
+    const response = await fetchWithRetry(
+      fetchImplementation,
+      "https://api.test/x",
+      {},
+      { ...noSleep, maxBodyBytes: 1024 },
+    );
+    expect((await response.text()).length).toBe(1024);
   });
 });

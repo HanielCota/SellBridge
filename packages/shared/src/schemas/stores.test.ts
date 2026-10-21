@@ -11,6 +11,18 @@ describe("fitListingTitle", () => {
     expect(fitListingTitle(title)).toBe(title);
   });
 
+  it("cuts mid-word when the last space would leave a title below the minimum", () => {
+    const fitted = fitListingTitle(`Kit ${"A".repeat(70)}`);
+    expect(fitted).toHaveLength(LISTING_TITLE_MAX_LENGTH);
+    expect(fitted.startsWith("Kit AAAA")).toBe(true);
+  });
+
+  it("never cuts an emoji in half at the limit", () => {
+    const fitted = fitListingTitle(`${"a".repeat(LISTING_TITLE_MAX_LENGTH - 1)}🎁 extra`);
+    expect(fitted).toBe("a".repeat(LISTING_TITLE_MAX_LENGTH - 1));
+    expect(fitted.at(-1)).toBe("a");
+  });
+
   it("cuts a long title at the last word that fits", () => {
     const title =
       "Kit 3 Panelas Antiaderentes Com Tampa De Vidro Cabo Baquelite Indução Cooktop Gás";

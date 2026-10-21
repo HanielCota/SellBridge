@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { redactContactDetails } from "../domain/contact-details.ts";
+import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
+import { REDACTED, redactContactDetails } from "../domain/contact-details.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 
 export { redactContactDetails };
@@ -53,23 +54,36 @@ export function tagsForRating(rating: number): readonly ReviewTag[] {
   return REVIEW_TAGS.filter((tag) => tag.endsWith(suffix));
 }
 
+/** Cut back to the limit, never leaving half a "[removido]" marker at the end. */
+function fitRedactedComment(comment: string): string {
+  const fitted = comment.slice(0, REVIEW_COMMENT_MAX_LENGTH);
+  const markerStart = fitted.lastIndexOf("[");
+  const tail = fitted.slice(markerStart);
+  const halfMarker = markerStart >= 0 && tail !== REDACTED && REDACTED.startsWith(tail);
+  return halfMarker && fitted.length < comment.length
+    ? fitted.slice(0, markerStart).trimEnd()
+    : fitted;
+}
+
 export const supplierReviewInputSchema = z
   .object({
     orderId: z.uuid(),
     supplierId: z.uuid(),
     rating: z.number().int().min(1).max(5),
     tags: z.array(reviewTagSchema).max(REVIEW_TAGS.length),
-    comment: z.string().trim().max(REVIEW_COMMENT_MAX_LENGTH),
+    comment: freeText().trim().max(REVIEW_COMMENT_MAX_LENGTH),
   })
   .refine((review) => review.tags.every((tag) => tagsForRating(review.rating).includes(tag)), {
     message: "As marcações não combinam com a nota",
     path: ["tags"],
   })
   // Other resellers read the comment: contact details (e-mail, phone, store link) are removed.
+  // "[removido]" can be longer than what it replaces ("@ab"), so the stored text is cut back to
+  // the limit the reseller typed against.
   .transform((review) => ({
     ...review,
     tags: [...new Set(review.tags)],
-    comment: redactContactDetails(review.comment),
+    comment: fitRedactedComment(redactContactDetails(review.comment)),
   }));
 
 export type SupplierReviewInput = z.infer<typeof supplierReviewInputSchema>;
@@ -87,8 +101,8 @@ export const REVIEW_FILTER_LABELS: Record<ReviewFilter, string> = {
 /** Search params of the orders page: one row per order and supplier. */
 export const orderReviewSearchSchema = z.object({
   review: withFallback(reviewFilterSchema.default("pending"), "pending"),
-  query: optionalParameter(z.string().trim().max(100)),
-  page: withFallback(z.coerce.number().int().min(1).default(1), 1),
+  query: optionalParameter(searchQuery()),
+  page: withFallback(pageNumberSchema.default(1), 1),
   pageSize: withFallback(z.coerce.number().int().min(10).max(100).default(20), 20),
 });
 

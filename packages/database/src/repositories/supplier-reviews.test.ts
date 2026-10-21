@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders } from "../schema/index.ts";
+import { orderItems, orderStatusChanges, orders } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -36,7 +36,10 @@ const orderIds: Record<"delivered" | "cancelled" | "returned" | "otherTenant", s
   otherTenant: "",
 };
 
-async function insertOrder(tenantId: string, storeId: string, status: OrderStatus) {
+/** What paying left on the order's items: a never-paid order keeps them "pending". */
+const STOCK_AFTER: Record<string, "consumed" | "released"> = { cancelled: "released" };
+
+async function insertOrder(tenantId: string, storeId: string, status: OrderStatus, paid = true) {
   const [order] = await database
     .insert(orders)
     .values({
@@ -59,6 +62,7 @@ async function insertOrder(tenantId: string, storeId: string, status: OrderStatu
     quantity: 2,
     unitPriceCents: 2500,
     unitCostCents: 1200,
+    stockState: paid ? (STOCK_AFTER[status] ?? "consumed") : "pending",
   });
   return order.id;
 }
@@ -77,6 +81,8 @@ beforeAll(async () => {
   orderIds.delivered = await insertOrder(tenantA, storeA, "delivered");
   orderIds.cancelled = await insertOrder(tenantA, storeA, "cancelled");
   orderIds.returned = await insertOrder(tenantA, storeA, "returned");
+  // A boleto never paid: the marketplace cancels it, and it says nothing about the supplier.
+  await insertOrder(tenantA, storeA, "cancelled", false);
   orderIds.otherTenant = await insertOrder(tenantB, storeB, "delivered");
 });
 
@@ -141,6 +147,12 @@ describe("supplier reviews", () => {
       tags: ["dispatch:bad"],
       comment: "",
     });
+    // A buyer who never paid: the marketplace cancelled the cart, the supplier did nothing.
+    const abandoned = await insertOrder(tenantA, storeA, "cancelled");
+    await database.insert(orderStatusChanges).values([
+      { tenantId: tenantA, orderId: abandoned, status: "pending" },
+      { tenantId: tenantA, orderId: abandoned, status: "cancelled" },
+    ]);
     const stats = await getSupplierReputationStats(database, [catalog.supplierId], LONG_AGO);
     expect(stats.get(catalog.supplierId)).toMatchObject({
       reviewCount: 2,
@@ -171,10 +183,10 @@ describe("supplier reviews", () => {
 
 describe("supplier reputation query plan", () => {
   // Same shape as orderTotals in supplier-reviews.ts.
-  it("reaches the sold items of a page of suppliers through an index", async () => {
+  it("keeps product-index lookups available without fixing the optimizer's join order", async () => {
     const plan = await database.transaction(async (transaction) => {
       await transaction.execute(sql`set local enable_seqscan = off`);
-      return transaction.execute(sql`
+      const reputation = await transaction.execute(sql`
         explain select sp.supplier_id, count(distinct o.id)
         from orders o
         join order_items oi on oi.order_id = o.id
@@ -183,7 +195,14 @@ describe("supplier reputation query plan", () => {
           and o.ordered_at >= ${new Date(Date.now() - 90 * DAY).toISOString()}::timestamptz
         group by sp.supplier_id
       `);
+      // Tiny fixtures can favor starting from orders; the product lookup must remain indexed.
+      const lookup = await transaction.execute(sql`
+        explain select id from order_items
+        where supplier_product_id = ${catalog.productId}::uuid
+      `);
+      return { reputation, lookup };
     });
-    expect(JSON.stringify([...plan])).toContain("order_items_supplier_product_idx");
+    expect(JSON.stringify([...plan.reputation])).toMatch(/Index(?: Only)? Scan|Bitmap.*Scan/);
+    expect(JSON.stringify([...plan.lookup])).toContain("order_items_supplier_product_idx");
   });
 });

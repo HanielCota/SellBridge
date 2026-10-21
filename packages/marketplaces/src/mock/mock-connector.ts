@@ -25,15 +25,13 @@ import {
 } from "./codec.ts";
 import {
   assertCredentials,
+  assertDescriptionAccepted,
   assertPriceAccepted,
   assertPublishable,
   assertRefreshable,
+  descriptionErrorFor,
 } from "./scenarios.ts";
 
-/**
- * Fully functional simulated marketplace, used in development, tests and demos.
- * Behaviour is deterministic so tests can trigger each path (see scenarios.ts).
- */
 export interface MockConnectorConfig {
   appUrl: string;
   webhookSecret: string;
@@ -125,7 +123,11 @@ async function publishProduct(
   assertPublishable(input);
   // Same idempotency key → same listing id, so a retried job never duplicates the ad.
   const externalId = stableId("MOCK-ITEM", `${credentials.externalShopId}:${input.idempotencyKey}`);
-  return { externalId, externalUrl: `${context.config.appUrl}/oauth/mock/anuncio/${externalId}` };
+  return {
+    externalId,
+    externalUrl: `${context.config.appUrl}/oauth/mock/anuncio/${externalId}`,
+    descriptionError: descriptionErrorFor(input),
+  };
 }
 
 async function updateStockPrice(
@@ -197,6 +199,10 @@ function parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderE
   };
 }
 
+/**
+ * Fully functional simulated marketplace, used in development, tests and demos.
+ * Behaviour is deterministic so tests can trigger each path (see scenarios.ts).
+ */
 export function createMockConnector(config: MockConnectorConfig): MarketplaceConnector {
   const context: MockContext = {
     config,
@@ -212,6 +218,11 @@ export function createMockConnector(config: MockConnectorConfig): MarketplaceCon
     refreshTokens: async (refreshToken) => refreshTokens(context, refreshToken),
     publishProduct: async (credentials, input) => publishProduct(context, credentials, input),
     updateStockPrice: async (credentials, update) => updateStockPrice(context, credentials, update),
+    updateDescription: async (credentials, update) => {
+      assertCredentials(credentials);
+      await simulateLatency(context);
+      assertDescriptionAccepted(update.plainText);
+    },
     listOrders: async (credentials) => listOrders(context, credentials),
     fetchOrder: async (credentials, resource) => fetchOrder(context, credentials, resource),
     verifyWebhook: async (request) => verifyWebhook(config, request),

@@ -1,127 +1,134 @@
-import { createTicketSchema } from "@sellbridge/shared/schemas";
-import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
-import { fieldBindings, submitHandler } from "@/components/form/form-bindings";
-import { FormErrorAlert, PendingSubmitButton } from "@/components/form/form-feedback";
-import { TextField } from "@/components/form/form-field";
-import { TextareaField } from "@/components/form/textarea-field";
-import { PageHeader } from "@/components/layout/page-header";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { newTicketSearchSchema, type NewTicketSearch } from "@sellbridge/shared/schemas";
+import { supportTopicsFor } from "@sellbridge/shared/support-topics";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { FormErrorAlert } from "@/components/form/form-feedback";
+import { BackLink, PageHeader } from "@/components/layout/page-header";
 import { AttachmentInput } from "@/components/support/attachment-input";
-import { Button } from "@/components/ui/button";
+import { SituationStep, TopicStep } from "@/components/support/new-ticket/choice-steps";
+import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/description-step";
+import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
+import { useNewTicket } from "@/components/support/new-ticket/use-new-ticket";
+import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
 import { Card, CardContent } from "@/components/ui/card";
-import { postMultipart } from "@/features/support/upload";
-import { errorMessage } from "@/lib/errors";
+import { responsePromise } from "@/features/support/support-copy";
+import { getTicketAboutPreview } from "@/features/support/support.functions";
 
 export const Route = createFileRoute("/_app/suporte/novo")({
+  validateSearch: newTicketSearchSchema,
   head: () => ({ meta: [{ title: "Novo chamado | SellBridge" }] }),
   component: NewTicketPage,
 });
 
-const createdSchema = z.object({ ticketId: z.uuid() });
-
-interface NewTicketValues {
-  subject: string;
-  body: string;
-}
-
-function buildTicketFormData(value: NewTicketValues, files: readonly File[]): FormData {
-  const formData = new FormData();
-  formData.set("subject", value.subject);
-  formData.set("body", value.body);
-  for (const file of files) {
-    formData.append("files", file);
-  }
-  return formData;
-}
-
-function useNewTicketForm(files: readonly File[]) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const form = useForm({
-    defaultValues: { subject: "", body: "" },
-    validators: { onSubmit: createTicketSchema },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      try {
-        const response = await postMultipart(
-          "/api/suporte/chamados",
-          buildTicketFormData(value, files),
-        );
-        const created = createdSchema.parse(response);
-        toast.success("Chamado aberto. Responderemos em breve.");
-        await queryClient.invalidateQueries({ queryKey: ["tickets"] });
-        await navigate({ to: "/suporte/$ticketId", params: { ticketId: created.ticketId } });
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-      }
-    },
-  });
-
-  return { form, submitError };
-}
-
-function BackToSupportLink() {
+function ChoiceSteps({ flow, kind }: { flow: ReturnType<typeof useNewTicket>; kind: ProfileKind }) {
+  const { topic, situation } = flow;
   return (
-    <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
-      <Link to="/suporte">
-        <ArrowLeftIcon aria-hidden="true" />
-        Suporte
-      </Link>
-    </Button>
+    <>
+      {topic === undefined ? (
+        <TopicStep kind={kind} topics={supportTopicsFor(kind)} onPick={flow.pickTopic} />
+      ) : (
+        <AnsweredStep
+          number={1}
+          answer={topic.label}
+          changeLabel="Alterar o tema"
+          onChange={flow.changeTopic}
+        />
+      )}
+      {topic === undefined || !flow.needsSituation ? null : situation === undefined ? (
+        <SituationStep situations={topic.situations} onPick={flow.pickSituation} />
+      ) : (
+        <AnsweredStep
+          number={2}
+          answer={situation.label}
+          changeLabel="Alterar o que está acontecendo"
+          onChange={flow.changeSituation}
+        />
+      )}
+    </>
   );
 }
 
-function NewTicketForm() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const { form, submitError } = useNewTicketForm(files);
-
+function WritingSteps({ flow }: { flow: ReturnType<typeof useNewTicket> }) {
+  const { topic, situation, attachments } = flow;
+  if (topic === undefined || !flow.isReadyToWrite) {
+    return null;
+  }
   return (
-    <form noValidate className="grid gap-4" onSubmit={submitHandler(() => form.handleSubmit())}>
-      <FormErrorAlert message={submitError} />
-      <form.Field name="subject">
-        {(field) => <TextField id="subject" label="Assunto" {...fieldBindings(field)} />}
-      </form.Field>
-      <form.Field name="body">
-        {(field) => (
-          <TextareaField id="body" label="Descrição" rows={6} {...fieldBindings(field)} />
-        )}
-      </form.Field>
-      <AttachmentInput files={files} onChange={setFiles} error={fileError} onError={setFileError} />
-      <form.Subscribe selector={(state) => state.isSubmitting}>
-        {(isSubmitting) => (
-          <PendingSubmitButton
-            isPending={isSubmitting}
-            idleLabel="Abrir chamado"
-            pendingLabel="Enviando..."
-            className="justify-self-end"
-          />
-        )}
-      </form.Subscribe>
+    <>
+      <DescriptionStep
+        number={flow.needsSituation ? 3 : 2}
+        question={situation?.question ?? topic.question}
+        example={situation?.example ?? topic.example}
+        notice={situation?.notice ?? null}
+        value={flow.body}
+        isTooShort={flow.showTooShort}
+        onChange={flow.writeBody}
+        onPaste={attachments.pasteFiles}
+      />
+      <AttachmentInput
+        files={attachments.files}
+        rejected={attachments.rejected}
+        tip={situation?.attachmentTip ?? null}
+        onAdd={attachments.addFiles}
+        onRemove={attachments.removeFile}
+      />
+      <FormErrorAlert
+        message={
+          flow.sendError === null ? null : `${flow.sendError} O que você escreveu continua aqui.`
+        }
+      />
+      <SendFooter
+        promise={responsePromise(situation?.priority ?? "normal")}
+        isSending={flow.isSending}
+      />
+    </>
+  );
+}
+
+function NewTicketForm({ kind, search }: { kind: ProfileKind; search: NewTicketSearch }) {
+  const flow = useNewTicket(kind, search);
+  return (
+    <form noValidate className="grid gap-6" onSubmit={flow.send}>
+      <ChoiceSteps flow={flow} kind={kind} />
+      <WritingSteps flow={flow} />
     </form>
   );
 }
 
 function NewTicketPage() {
+  const { session } = Route.useRouteContext();
+  const search = Route.useSearch();
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <BackToSupportLink />
-      <PageHeader
-        title="Novo chamado"
-        description="Conte o que aconteceu e anexe prints ou comprovantes."
-      />
+      <PageHeader back={<BackLink to="/suporte" label="Suporte" />} title="Novo chamado" />
       <Card>
-        <CardContent>
-          <NewTicketForm />
+        <CardContent className="space-y-6">
+          <TicketAboutPreview />
+          <NewTicketForm kind={session.profileKind} search={search} />
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** What the ticket will be about, when the form was opened from an order, store or listing. */
+function TicketAboutPreview() {
+  const search = Route.useSearch();
+  const ids = { orderId: search.pedido, storeConnectionId: search.loja, listingId: search.anuncio };
+  const linked = Object.values(ids).some((id) => id !== undefined);
+  const preview = useQuery({
+    queryKey: ["tickets", "about-preview", ids],
+    queryFn: () => getTicketAboutPreview({ data: ids }),
+    enabled: linked,
+  });
+  if (!linked || preview.data === undefined || !hasTicketSubject(preview.data)) {
+    return null;
+  }
+  return (
+    <section className="space-y-2.5 rounded-2xl bg-muted/50 p-4" aria-label="Sobre">
+      <h2 className="text-sm text-muted-foreground">O chamado vai junto com</h2>
+      <TicketSubjectList subject={preview.data} />
+    </section>
   );
 }

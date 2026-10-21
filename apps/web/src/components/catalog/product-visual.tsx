@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   BabyIcon,
@@ -48,6 +49,27 @@ function variantColor(title: string): string | null {
   return suffix && suffix in COLOR_DOTS ? suffix : null;
 }
 
+/** A bare dot in the thumbnail's corner, or a labeled chip on the larger tile. */
+function VariantColorMark({ color, compact }: { color: string; compact: boolean }) {
+  if (compact) {
+    return (
+      <span
+        className="absolute right-1 bottom-1 size-2.5 rounded-full ring-2 ring-muted"
+        style={{ backgroundColor: COLOR_DOTS[color] }}
+      />
+    );
+  }
+  return (
+    <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background py-0.5 pr-2 pl-1 text-xs font-medium text-foreground">
+      <span
+        className="size-3 rounded-full ring-1 ring-foreground/20"
+        style={{ backgroundColor: COLOR_DOTS[color] }}
+      />
+      {color}
+    </span>
+  );
+}
+
 interface ProductVisualProps {
   imageUrl: string | null;
   title: string;
@@ -56,6 +78,11 @@ interface ProductVisualProps {
   soldOut?: boolean;
   /** Thumbnail size: a small icon, and the variant color as a bare dot instead of a label. */
   compact?: boolean;
+  /**
+   * Keeps the bottom-right corner free for a badge the caller overlays there: no variant dot,
+   * and the icon nudged toward the top-left so the badge never touches it.
+   */
+  reserveCorner?: boolean;
   className?: string;
 }
 
@@ -69,14 +96,18 @@ export function ProductVisual({
   categoryName,
   soldOut = false,
   compact = false,
+  reserveCorner = false,
   className,
 }: ProductVisualProps) {
-  if (imageUrl) {
+  // Supplier photos live on other servers: a dead link falls back to the tile, not a broken icon.
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  if (imageUrl && imageUrl !== failedImage) {
     return (
       <img
         src={imageUrl}
         alt=""
         loading="lazy"
+        onError={() => setFailedImage(imageUrl)}
         className={cn(
           "w-full bg-muted object-cover",
           soldOut && "brightness-75 grayscale",
@@ -95,21 +126,16 @@ export function ProductVisual({
       )}
       aria-hidden="true"
     >
-      <Icon className={cn(compact ? "size-5" : "size-9", soldOut && "opacity-40")} weight="light" />
-      {color && compact ? (
-        <span
-          className="absolute right-1 bottom-1 size-2.5 rounded-full ring-2 ring-muted"
-          style={{ backgroundColor: COLOR_DOTS[color] }}
-        />
-      ) : null}
-      {color && !compact ? (
-        <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 rounded-full bg-background py-0.5 pr-2 pl-1 text-xs font-medium text-foreground">
-          <span
-            className="size-3 rounded-full ring-1 ring-foreground/20"
-            style={{ backgroundColor: COLOR_DOTS[color] }}
-          />
-          {color}
-        </span>
+      <Icon
+        className={cn(
+          compact ? "size-5" : "size-9",
+          reserveCorner && "-translate-x-0.5 -translate-y-0.5",
+          soldOut && "opacity-40",
+        )}
+        weight="light"
+      />
+      {color && !(compact && reserveCorner) ? (
+        <VariantColorMark color={color} compact={compact} />
       ) : null}
     </div>
   );

@@ -106,6 +106,230 @@
       "when": 1791828410411,
       "tag": "0014_faithful_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791846736228,
+      "tag": "0015_customer_care_and_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791859419261,
+      "tag": "0016_ticket_orders_and_followers",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791892305302,
+      "tag": "0017_stock_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791906146137,
+      "tag": "0018_stock_shortages",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791921860339,
+      "tag": "0019_marketplace_shipment_statuses",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791923632170,
+      "tag": "0020_marketplace_refunds",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791933945529,
+      "tag": "0021_repair_public_api",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791943380605,
+      "tag": "0022_order_status_changes",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791975973250,
+      "tag": "0023_pending_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792022885802,
+      "tag": "0024_tenant_billing_holder",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792026698831,
+      "tag": "0025_store_supplier_and_unique_cpf",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792031235081,
+      "tag": "0026_tenant_starter_supplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792040269665,
+      "tag": "0027_oauth_state_supplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792098244117,
+      "tag": "0028_shipment_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792103198471,
+      "tag": "0029_supplier_contact_deadlines",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792107231627,
+      "tag": "0030_store_last_webhook",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792114410642,
+      "tag": "0031_boundary_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792168633054,
+      "tag": "0032_listing_description_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792169544986,
+      "tag": "0033_notification_channels",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792170869414,
+      "tag": "0034_drop_region_leftovers",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792176867126,
+      "tag": "0035_ticket_links_and_due",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792179373470,
+      "tag": "0036_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792181775034,
+      "tag": "0037_account_details_and_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792183571890,
+      "tag": "0038_global_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792193239356,
+      "tag": "0039_supplier_product_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792239888516,
+      "tag": "0040_organization_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792243312089,
+      "tag": "0041_supplier_organization",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792454034606,
+      "tag": "0042_seller_catalog_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792456295971,
+      "tag": "0043_product_source_choice",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792457686254,
+      "tag": "0044_publication_pause_intent",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792509854901,
+      "tag": "0045_bootstrap_product_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792522130003,
+      "tag": "0046_portuguese_category_labels",
+      "breakpoints": true
     }
   ]
 }

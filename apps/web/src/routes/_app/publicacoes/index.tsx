@@ -2,12 +2,14 @@ import type { ListingOverviewRow } from "@sellbridge/database/repositories";
 import {
   LISTING_SORT_LABELS,
   LISTING_SORTS,
-  listingsSearchSchema,
   type ListingsSearch,
+  listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MegaphoneIcon } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -29,7 +31,10 @@ import { listingsQueryOptions } from "@/features/listings/listings.queries";
 import { useSelection } from "@/hooks/use-selection";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { feeScheduleQueryOptions } from "@/features/reports/fee-schedule.queries";
 import { prefetchOnServer } from "@/lib/prefetch";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 /** The catalog's grid, so a product looks the same before and after it is published. */
 const GRID = "grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
@@ -39,10 +44,16 @@ export const Route = createFileRoute("/_app/publicacoes/")({
   validateSearch: listingsSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
-    prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+    Promise.all([
+      prefetchOnServer(context.queryClient, listingsQueryOptions(search)),
+      // The cards' margin and the price dialog count every fee the server charges.
+      prefetchOnServer(context.queryClient, feeScheduleQueryOptions),
+    ]),
   head: () => ({ meta: [{ title: "Publicações | SellBridge" }] }),
   component: ListingsPage,
 });
+
+const PublishIcon = ACTION_ICONS.publish.icon;
 
 function listingId(row: ListingOverviewRow): string {
   return row.listingId;
@@ -68,9 +79,14 @@ function ListingsPage() {
         title="Publicações"
         description="Seus produtos e onde cada um está no ar."
         actions={
-          <Button asChild>
-            <Link to="/catalogo">Publicar produtos</Link>
-          </Button>
+          <Hint label={CONTROL_HINTS.publishFromCatalog} openOnTap={false}>
+            <Button asChild>
+              <Link to="/catalogo">
+                <PublishIcon aria-hidden="true" />
+                Publicar produtos
+              </Link>
+            </Button>
+          </Hint>
         }
       />
       <ListingsToolbar />
@@ -140,11 +156,11 @@ function ListingsGrid() {
 
   if (query.isPending) {
     return (
-      <div className={GRID} aria-label="Carregando publicações">
+      <output className={GRID} aria-label="Carregando publicações">
         {Array.from({ length: SKELETON_CARDS }, (_, index) => (
           <Skeleton key={index} className="h-80 rounded-3xl" />
         ))}
-      </div>
+      </output>
     );
   }
   if (query.isError) {
@@ -159,7 +175,7 @@ function ListingsGrid() {
         description={
           isFiltered
             ? "Ajuste a busca ou escolha outro status."
-            : "Escolha produtos no catálogo da sua região e publique nas suas lojas."
+            : "Escolha produtos no catálogo e publique nas suas lojas."
         }
         action={
           isFiltered ? null : (
@@ -177,7 +193,7 @@ function ListingsGrid() {
 function ListingsCards({ data }: { data: ListingsPageData }) {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const selection = useSelection(listingId);
+  const selection = useSelection(listingId, { limit: MAX_LISTING_BATCH });
   const pageById = new Map(data.items.map((row) => [row.listingId, row]));
   // Prefer the fresh row from the current page so optimistic status changes show up.
   const selectedRows = [...selection.selected.values()].map(
@@ -191,7 +207,15 @@ function ListingsCards({ data }: { data: ListingsPageData }) {
             <ListingCard
               row={row}
               selected={selection.isSelected(row.listingId)}
-              onSelectedChange={(checked) => selection.toggle(row, checked)}
+              onSelectedChange={(checked) => {
+                if (checked && selection.selected.size >= MAX_LISTING_BATCH) {
+                  toast.info(`Dá para selecionar até ${MAX_LISTING_BATCH} publicações por vez`, {
+                    id: "selection-limit",
+                  });
+                  return;
+                }
+                selection.toggle(row, checked);
+              }}
             />
           </li>
         ))}

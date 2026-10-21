@@ -1,29 +1,69 @@
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
+import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
 import {
   countDoneSteps,
   findNextStep,
+  getSetupSteps,
+  remainingSetupMinutes,
   SETUP_STEPS,
+  setupEtaLabel,
+  setupPercent,
   type SetupProgress,
   type SetupStep,
 } from "@/features/onboarding/setup-progress";
 
 function ProgressBar({ progress }: { progress: SetupProgress }) {
   const done = countDoneSteps(progress);
+  const percent = setupPercent(progress);
   return (
     <div className="flex items-center gap-3">
       <progress
         className="h-1.5 flex-1 appearance-none overflow-hidden rounded-full bg-muted [&::-moz-progress-bar]:bg-brand [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-brand"
         aria-label="Configuração da conta"
+        aria-valuetext={`${percent}% · ${done} de ${SETUP_STEPS.length} passos`}
         max={SETUP_STEPS.length}
         value={done}
       />
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {done} de {SETUP_STEPS.length}
-      </span>
+      <span className="text-xs text-muted-foreground tabular-nums">{percent}%</span>
     </div>
+  );
+}
+
+const STEP_ACTION_CLASS_NAME = "h-auto min-h-9 w-fit max-w-full py-2 text-center whitespace-normal";
+
+/** The e-mail step resends the link; every other step opens its page. */
+function StepAction({ step, done = false }: { step: SetupStep; done?: boolean }) {
+  if (step.key === "hasVerifiedEmail") {
+    if (done) {
+      return (
+        <Button asChild variant="outline" className={STEP_ACTION_CLASS_NAME}>
+          <Link to="/perfil">Gerenciar e-mail</Link>
+        </Button>
+      );
+    }
+    return <ResendVerificationButton label={step.cta} className={STEP_ACTION_CLASS_NAME} />;
+  }
+  if (step.key === "hasHolder" || step.key === "hasSupplier") {
+    const isHolder = step.key === "hasHolder";
+    return (
+      <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
+        <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
+          {done ? (isHolder ? "Editar dados" : "Editar origem dos produtos") : step.cta}
+          <ArrowRightIcon aria-hidden="true" />
+        </Link>
+      </Button>
+    );
+  }
+  return (
+    <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
+      <Link to={step.to}>
+        {done ? (step.key === "hasStore" ? "Gerenciar lojas" : "Gerenciar anúncios") : step.cta}
+        <ArrowRightIcon aria-hidden="true" />
+      </Link>
+    </Button>
   );
 }
 
@@ -39,7 +79,7 @@ function StepCard({
   return (
     <li
       className={cn(
-        "flex flex-col gap-4 rounded-2xl p-5",
+        "flex min-w-0 flex-col gap-4 rounded-2xl p-5",
         state === "next" ? "bg-muted ring-1 ring-brand/60" : "bg-muted/50",
       )}
     >
@@ -64,16 +104,14 @@ function StepCard({
         <p className={cn("font-medium", state === "done" && "text-muted-foreground")}>
           {step.title}
         </p>
+        {state === "done" ? null : (
+          <p className="text-caption text-muted-foreground tabular-nums">
+            ~{step.estimatedMinutes} min
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">{step.description}</p>
       </div>
-      {state === "next" ? (
-        <Button asChild className="w-fit">
-          <Link to={step.to}>
-            {step.cta}
-            <ArrowRightIcon aria-hidden="true" />
-          </Link>
-        </Button>
-      ) : null}
+      <StepAction step={step} done={state === "done"} />
     </li>
   );
 }
@@ -103,13 +141,16 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
             Falta pouco para sua primeira venda
           </h2>
           <p className="text-sm text-muted-foreground">
-            Três passos e seus indicadores começam a aparecer aqui.
+            {SETUP_STEPS.length} passos e seus indicadores começam a aparecer aqui.
           </p>
         </div>
-        <ProgressBar progress={progress} />
+        <div className="space-y-2">
+          <ProgressBar progress={progress} />
+          <p className="text-xs text-muted-foreground">{setupEtaLabel(progress)}</p>
+        </div>
       </div>
-      <ol className="grid gap-3 md:grid-cols-3">
-        {SETUP_STEPS.map((step, index) => (
+      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {getSetupSteps(progress).map((step, index) => (
           <StepCard
             key={step.key}
             step={step}
@@ -134,17 +175,17 @@ export function SetupStrip({ progress }: { progress: SetupProgress }) {
       className="surface-card flex flex-col gap-3 rounded-3xl bg-card px-5 py-3 sm:flex-row sm:items-center"
     >
       <p className="text-sm">
-        <span className="text-muted-foreground">
-          Configuração {countDoneSteps(progress)} de {SETUP_STEPS.length} ·
+        <span className="text-muted-foreground tabular-nums">
+          Configuração {setupPercent(progress)}% · ~{remainingSetupMinutes(progress)} min ·
         </span>{" "}
         Próximo passo: <span className="font-medium">{next.title.toLowerCase()}</span>
       </p>
       <div className="flex-1 sm:max-w-48">
         <ProgressBar progress={progress} />
       </div>
-      <Button asChild size="sm" className="w-fit sm:ml-auto">
-        <Link to={next.to}>{next.cta}</Link>
-      </Button>
+      <div className="sm:ml-auto">
+        <StepAction step={next} />
+      </div>
     </aside>
   );
 }

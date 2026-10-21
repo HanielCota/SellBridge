@@ -1,4 +1,5 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { STOCK_STATES } from "@sellbridge/shared/stock-reservation";
 
 export const marketplaceEnum = pgEnum("marketplace", [
   "mock",
@@ -32,6 +33,9 @@ export const orderStatusEnum = pgEnum("order_status", [
   "returned",
 ]);
 
+/** What an order item did to the supplier's stock (see shared/domain/stock-reservation.ts). */
+export const orderItemStockStateEnum = pgEnum("order_item_stock_state", STOCK_STATES);
+
 export const orderAdjustmentTypeEnum = pgEnum("order_adjustment_type", [
   "refund",
   "return",
@@ -40,8 +44,53 @@ export const orderAdjustmentTypeEnum = pgEnum("order_adjustment_type", [
 
 export const ticketStatusEnum = pgEnum("ticket_status", ["open", "answered", "closed"]);
 
+/** Kept in step with `TICKET_CATEGORIES` in the shared ticket rules. */
+export const ticketCategoryEnum = pgEnum("ticket_category", [
+  "order",
+  "payment",
+  "store",
+  "listing",
+  "account",
+  "other",
+]);
+
+/** Kept in step with `TICKET_PRIORITIES`; declared from the least to the most urgent. */
+export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "normal", "high", "urgent"]);
+
+/** What changed on a ticket, for its history. Messages live in `ticket_messages`. */
+export const ticketEventTypeEnum = pgEnum("ticket_event_type", [
+  "status_changed",
+  "assigned",
+  "priority_changed",
+  "category_changed",
+  "rated",
+  "order_linked",
+  "order_unlinked",
+  "follower_added",
+]);
+
 export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
   "pending",
   "succeeded",
   "failed",
+]);
+
+/** Kept in step with `CUSTOMER_ISSUE_KINDS` in the shared admin schemas. */
+export const customerIssueKindEnum = pgEnum("customer_issue_kind", [
+  "store",
+  "listings",
+  "ticket",
+  "onboarding",
+  "cooling",
+]);
+
+/** Kept in step with `NOTIFICATION_CHANNELS` in `@sellbridge/shared/notification-events`. */
+export const notificationChannelEnum = pgEnum("notification_channel", ["in_app", "email", "push"]);
+
+/** `skipped`: the channel cannot deliver (push not configured); never retried. */
+export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", [
+  "pending",
+  "sent",
+  "failed",
+  "skipped",
 ]);

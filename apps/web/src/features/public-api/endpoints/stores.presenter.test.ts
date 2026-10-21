@@ -7,9 +7,11 @@ const store: StoreConnectionSummary = {
   marketplace: "mercado_livre",
   shopName: "Loja da Ana",
   externalShopId: "ML-123",
+  supplierId: null,
   status: "connected",
   lastError: "falha antiga",
   expiresAt: new Date("2026-04-01T00:00:00Z"),
+  lastWebhookAt: null,
   connectedAt: new Date("2026-01-02T10:00:00Z"),
 };
 
@@ -21,6 +23,7 @@ describe("presentStore", () => {
       name: "Loja da Ana",
       status: "connected",
       connectedAt: "2026-01-02T10:00:00.000Z",
+      supplierId: null,
     });
   });
 

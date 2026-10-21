@@ -6,24 +6,26 @@ import { attentionCountsQueryOptions } from "@/features/navigation/navigation.qu
 import { notificationsQueryOptions } from "@/features/notifications/notifications.queries";
 import { saveSupplierReviewFn } from "./orders.functions";
 
-/** Every cache a review changes: the order list, the pending counters and the scores. */
-const AFFECTED_KEYS = [
-  ["order-reviews"],
-  ["suppliers"],
-  ["supplier-reputation"],
-  attentionCountsQueryOptions().queryKey,
-  notificationsQueryOptions().queryKey,
-] as const;
+/** Every cache a review changes: the order lists and that order's page, the counters and scores. */
+const affectedKeys = (orderId: string) =>
+  [
+    ["order-reviews"],
+    ["order-page", orderId],
+    ["suppliers"],
+    ["supplier-reputation"],
+    attentionCountsQueryOptions().queryKey,
+    notificationsQueryOptions().queryKey,
+  ] as const;
 
 export function useSaveReview(onSaved: () => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (review: SupplierReviewInput) => saveSupplierReviewFn({ data: review }),
-    onSuccess: async () => {
+    onSuccess: async (_saved, review) => {
       toast.success("Avaliação enviada");
       onSaved();
       await Promise.all(
-        AFFECTED_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+        affectedKeys(review.orderId).map((queryKey) => queryClient.invalidateQueries({ queryKey })),
       );
     },
     onError: (error) => toast.error(errorMessage(error)),

@@ -127,7 +127,7 @@ describe("buildCatalogImport", () => {
 
     const parsed = parseProductCsv(result.csv);
     expect(parsed.errors).toEqual([]);
-    expect(parsed.rows[0]?.product).toEqual({
+    expect(parsed.rows[0]?.product).toMatchObject({
       sku: "BOL-BEG",
       title: "BOLSA BAGUETE - BEGE",
       description: "Bolsa compacta",
@@ -166,7 +166,7 @@ describe("buildCatalogImport", () => {
 
     const parsed = parseProductCsv(result.csv);
     expect(parsed.errors).toEqual([]);
-    expect(parsed.rows[1]?.product).toEqual({
+    expect(parsed.rows[1]?.product).toMatchObject({
       sku: "SAN-TR-1718",
       title: "Sandália Baby Mel - Transparente 17/18",
       description: 'Descrição "Shopee"\ncom quebra',

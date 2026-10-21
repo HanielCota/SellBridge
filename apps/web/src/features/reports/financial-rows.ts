@@ -1,6 +1,6 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import type { Cents } from "@sellbridge/shared/money";
-import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
+import { brazilDayKey, nearDayName } from "@/lib/relative-time";
 
 type OrderCosts = Pick<OrderFinancialRow, "costCents" | "feeCents" | "platformFeeCents">;
 type OrderMoneyFlows = Pick<OrderFinancialRow, "commissionCents" | "refundCents" | "returnCents">;
@@ -34,9 +34,10 @@ export function orderAdjustments(row: OrderMoneyFlows): readonly OrderAdjustment
   return adjustments.filter((adjustment) => adjustment.cents > 0);
 }
 
-type OrderSplitInput = OrderCosts & Pick<OrderFinancialRow, "refundCents" | "profitCents">;
+type OrderSplitInput = OrderCosts &
+  Pick<OrderFinancialRow, "refundCents" | "profitCents" | "revenueCents" | "costPending">;
 
-export type OrderSplitKind = "cost" | "fee" | "refund" | "profit";
+export type OrderSplitKind = "pending" | "cost" | "fee" | "refund" | "profit";
 
 export interface OrderSplitPart {
   kind: OrderSplitKind;
@@ -48,6 +49,10 @@ export interface OrderSplitPart {
  * left. Empty parts are dropped; a loss keeps only the outflows.
  */
 export function orderSplit(row: OrderSplitInput): readonly OrderSplitPart[] {
+  if (row.costPending) {
+    // Unknown cost: nothing to split, the whole sale is one neutral part.
+    return [{ kind: "pending", cents: row.revenueCents }];
+  }
   const parts: OrderSplitPart[] = [
     { kind: "cost", cents: row.costCents },
     { kind: "fee", cents: row.feeCents + row.platformFeeCents },
@@ -57,41 +62,17 @@ export function orderSplit(row: OrderSplitInput): readonly OrderSplitPart[] {
   return parts.filter((part) => part.cents > 0);
 }
 
-/** Profit over revenue, or null when nothing was sold (a cancelled or returned order). */
-export function orderMargin(row: Pick<OrderFinancialRow, "revenueCents" | "profitCents">) {
-  if (row.revenueCents <= 0) {
+/**
+ * Profit over revenue, or null when nothing was sold (a cancelled or returned order) or the cost
+ * is unknown.
+ */
+export function orderMargin(
+  row: Pick<OrderFinancialRow, "revenueCents" | "profitCents" | "costPending">,
+) {
+  if (row.costPending || row.revenueCents <= 0) {
     return null;
   }
   return row.profitCents / row.revenueCents;
-}
-
-/**
- * Splits 100 among the parts in proportion, as whole numbers that still add up to 100: the
- * leftover units go to the parts that lost the most in the rounding. All zeros when empty.
- */
-export function perHundred(values: readonly number[]): number[] {
-  const total = values.reduce((sum, value) => sum + value, 0);
-  if (total <= 0) {
-    return values.map(() => 0);
-  }
-  const exact = values.map((value) => (value / total) * 100);
-  const floors = exact.map((share) => Math.floor(share));
-  const leftover = 100 - floors.reduce((sum, share) => sum + share, 0);
-  const winners = new Set(
-    exact
-      .map((share, index) => ({ index, fraction: share - Math.floor(share) }))
-      .toSorted((first, second) => second.fraction - first.fraction)
-      .slice(0, leftover)
-      .map((entry) => entry.index),
-  );
-  return floors.map((share, index) => (winners.has(index) ? share + 1 : share));
-}
-
-const dayKeyFormat = new Intl.DateTimeFormat("en-CA", { timeZone: REPORT_TIME_ZONE });
-
-/** The calendar day of an instant in Brazil time, as "YYYY-MM-DD" (the timeseries' keys). */
-export function reportDayKey(date: Date): string {
-  return dayKeyFormat.format(date);
 }
 
 export interface OrderDay<TRow> {
@@ -104,7 +85,7 @@ export function groupOrdersByDay<TRow extends { orderedAt: Date }>(
   rows: readonly TRow[],
 ): OrderDay<TRow>[] {
   return rows.reduce<OrderDay<TRow>[]>((days, row) => {
-    const key = reportDayKey(row.orderedAt);
+    const key = brazilDayKey(row.orderedAt);
     const last = days.at(-1);
     if (last?.key === key) {
       last.rows.push(row);
@@ -113,6 +94,64 @@ export function groupOrdersByDay<TRow extends { orderedAt: Date }>(
     days.push({ key, rows: [row] });
     return days;
   }, []);
+}
+
+export interface RowGroup<TRow> {
+  key: string;
+  rows: TRow[];
+}
+
+/**
+ * Rows that share a key folded into one group, each group standing where its first row was, so
+ * a day's eighteen identical sales read as one line without reshuffling the rest.
+ */
+export function foldRows<TRow>(
+  rows: readonly TRow[],
+  keyOf: (row: TRow) => string,
+): RowGroup<TRow>[] {
+  const groups = new Map<string, TRow[]>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const group = groups.get(key);
+    if (group) {
+      group.push(row);
+      continue;
+    }
+    groups.set(key, [row]);
+  }
+  return [...groups].map(([key, grouped]) => ({ key, rows: grouped }));
+}
+
+export interface DaySplit {
+  /** The day started on the previous page. */
+  fromPrevious: boolean;
+  /** The day goes on on the next page. */
+  toNext: boolean;
+}
+
+/**
+ * Whether the page cut a day in two: it shows fewer of the day's sales than the day had. Sorted
+ * by date, only the page's first day can come from the page before and only its last can go on.
+ */
+export function daySplit({
+  salesOnPage,
+  salesInDay,
+  isFirstDay,
+  isLastDay,
+  page,
+  totalPages,
+}: {
+  salesOnPage: number;
+  salesInDay: number;
+  isFirstDay: boolean;
+  isLastDay: boolean;
+  page: number;
+  totalPages: number;
+}): DaySplit {
+  if (salesOnPage >= salesInDay) {
+    return { fromPrevious: false, toNext: false };
+  }
+  return { fromPrevious: isFirstDay && page > 1, toNext: isLastDay && page < totalPages };
 }
 
 const weekdayFormat = new Intl.DateTimeFormat("pt-BR", {
@@ -129,17 +168,13 @@ const weekdayWithYearFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 });
 
-const DAY_MILLISECONDS = 86_400_000;
-
 /** A day's heading in the statement: "Hoje", "Ontem", then "Quarta-feira, 8 de out.". */
 export function formatDayHeading(key: string, now: Date = new Date()): string {
-  const today = reportDayKey(now);
-  if (key === today) {
-    return "Hoje";
+  const nearName = nearDayName(key, now);
+  if (nearName !== null) {
+    return nearName;
   }
-  if (key === reportDayKey(new Date(now.getTime() - DAY_MILLISECONDS))) {
-    return "Ontem";
-  }
+  const today = brazilDayKey(now);
   const date = new Date(`${key}T12:00:00Z`);
   const format = key.slice(0, 4) === today.slice(0, 4) ? weekdayFormat : weekdayWithYearFormat;
   const label = format.format(date);

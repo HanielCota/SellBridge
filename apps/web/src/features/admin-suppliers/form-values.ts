@@ -1,6 +1,7 @@
 import type { AdminSupplier, AdminSupplierProduct } from "@sellbridge/database/repositories";
 import { formatCentsForInput } from "@sellbridge/shared/money";
 import { parseCsvMoney } from "@sellbridge/shared/product-csv";
+import { SUPPLIER_SLA_DEFAULTS } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
 
 export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
@@ -15,14 +16,7 @@ export function catalogFormErrors(error: z.ZodError): Record<string, string[]> {
   return errors;
 }
 
-export interface CoverageDraft {
-  state: string;
-  city: string;
-}
-export function supplierFormValues(detail?: {
-  supplier: AdminSupplier;
-  coverage: { state: string; city: string | null }[];
-}) {
+export function supplierFormValues(detail?: { supplier: AdminSupplier }) {
   const supplier = detail?.supplier;
   return {
     name: supplier?.name ?? "",
@@ -31,10 +25,34 @@ export function supplierFormValues(detail?: {
     city: supplier?.city ?? "",
     description: supplier?.description ?? "",
     logoUrl: supplier?.logoUrl ?? "",
-    coverage: detail?.coverage.map((region) => ({
-      state: region.state,
-      city: region.city ?? "",
-    })) ?? [{ state: "SP", city: "" }],
+    contactEmail: supplier?.contactEmail ?? "",
+    acceptWithinHours: String(
+      supplier?.acceptWithinHours ?? SUPPLIER_SLA_DEFAULTS.acceptWithinHours,
+    ),
+    dispatchWithinHours: String(
+      supplier?.dispatchWithinHours ?? SUPPLIER_SLA_DEFAULTS.dispatchWithinHours,
+    ),
+  };
+}
+
+/** Hours typed in the form: digits only, so "dois dias" is rejected instead of guessed. */
+function hoursInput(text: string): number | string {
+  const trimmed = text.trim();
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
+}
+
+/** What the supplier form sends to `adminSaveSupplierSchema`. */
+export function supplierFormInput(
+  values: ReturnType<typeof supplierFormValues>,
+  supplierId: string | undefined,
+) {
+  return {
+    ...values,
+    supplierId,
+    logoUrl: values.logoUrl.trim() || null,
+    contactEmail: values.contactEmail.trim() || null,
+    acceptWithinHours: hoursInput(values.acceptWithinHours),
+    dispatchWithinHours: hoursInput(values.dispatchWithinHours),
   };
 }
 
@@ -43,7 +61,8 @@ export function productFormValues(product?: AdminSupplierProduct) {
     sku: product?.sku ?? "",
     title: product?.title ?? "",
     description: product?.description ?? "",
-    cost: formatCentsForInput(product?.costCents ?? 0),
+    // A new product starts with no cost: "0,00" was saved as a real cost of zero.
+    cost: product === undefined ? "" : formatCentsForInput(product.costCents),
     suggestedPrice: formatCentsForInput(product?.suggestedPriceCents ?? 0),
     stock: String(product?.stock ?? 0),
     categoryId: product?.categoryId ?? "",
@@ -57,17 +76,19 @@ export function productFormValues(product?: AdminSupplierProduct) {
 export function productFormInput(
   values: ReturnType<typeof productFormValues>,
   supplierId: string,
-  productId: string | undefined,
+  product: Pick<AdminSupplierProduct, "id" | "stock"> | undefined,
 ) {
   return {
     supplierId,
-    productId,
+    productId: product?.id,
+    expectedStock: product?.stock,
     sku: values.sku,
     title: values.title,
     description: values.description,
     costCents: parseCsvMoney(values.cost),
     suggestedPriceCents: parseCsvMoney(values.suggestedPrice),
-    stock: /^\d+$/.test(values.stock) ? Number(values.stock) : null,
+    // Negative only when shipments outran the count; the schema refuses typing a new one.
+    stock: /^-?\d+$/.test(values.stock) ? Number(values.stock) : null,
     categoryId: values.categoryId || null,
     mercadoLivreAttributes: parseMercadoLivreAttributes(values.mercadoLivreAttributes),
     imageUrls: values.images

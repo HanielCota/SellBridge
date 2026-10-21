@@ -1,181 +1,160 @@
-import { formatCep, normalizeCep } from "@sellbridge/shared/cep";
-import { useForm } from "@tanstack/react-form";
+import type { OnboardingProfile } from "@sellbridge/database/repositories";
+import { internalPathSchema } from "@sellbridge/shared/schemas";
+import { isProductSourceSetupComplete } from "@sellbridge/shared/product-sources";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { optionalParameter } from "@sellbridge/shared/schemas";
-import { TextField } from "@/components/form/form-field";
-import { CurrentRegionCard } from "@/components/region/current-region-card";
-import { RegionPreview } from "@/components/region/region-preview";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/layout/page-header";
+import { HolderForm } from "@/components/onboarding/holder-form";
+import { ProductSourceChoice } from "@/components/onboarding/product-source-choice";
+import { EditOnboardingProfile } from "@/components/onboarding/edit-profile";
+import { StepProgress } from "@/components/region/billing-holder";
 import { Button } from "@/components/ui/button";
-import { getRegionOverview, updateTenantRegion } from "@/features/region/region.functions";
+import { getOnboardingProfile } from "@/features/onboarding/onboarding.functions";
+import { SETUP_STEPS } from "@/features/onboarding/setup-progress";
 import { setupProgressQueryOptions } from "@/features/reports/reports.queries";
-import { errorMessage } from "@/lib/errors";
-import { cepSearchParameter } from "@/lib/cep-search-parameter";
-import { cn } from "@/lib/utils";
 
 const onboardingSearchSchema = z.object({
-  redirect: optionalParameter(z.string().startsWith("/")),
-  /** CEP digitado na landing page; só preenche o campo enquanto não há região salva. */
-  cep: cepSearchParameter,
-});
-
-const cepFormSchema = z.object({
-  cep: z.string().refine((value) => normalizeCep(value) !== null, "Informe um CEP com 8 dígitos"),
+  redirect: internalPathSchema,
+  step: z.enum(["details", "supplier"]).optional(),
 });
 
 export const Route = createFileRoute("/_app/onboarding")({
   validateSearch: onboardingSearchSchema,
-  head: () => ({ meta: [{ title: "Sua região | SellBridge" }] }),
-  loader: () => getRegionOverview(),
+  head: () => ({ meta: [{ title: "Meu cadastro | SellBridge" }] }),
+  loader: () => getOnboardingProfile(),
   component: OnboardingPage,
 });
 
-function maskCep(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
-}
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Origem dos produtos" }] as const;
 
-type TenantRegion = Awaited<ReturnType<typeof getRegionOverview>>["region"];
-
-function ChangeRegionCard({ region }: { readonly region: TenantRegion }) {
-  return (
-    <section
-      aria-labelledby={region ? "change-region" : undefined}
-      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
-    >
-      {region ? (
-        <div className="space-y-1">
-          <h2 id="change-region" className="text-subhead font-semibold">
-            Trocar região
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Digite o novo CEP e veja o que muda no seu catálogo antes de salvar.
-          </p>
-        </div>
-      ) : null}
-      <RegionForm region={region} />
-    </section>
-  );
-}
+/** Minutes of the two steps of this page, from the setup estimates (item 26.c). */
+const SIGNUP_MINUTES = SETUP_STEPS.filter(
+  (step) => step.key === "hasHolder" || step.key === "hasSupplier",
+).reduce((total, step) => total + step.estimatedMinutes, 0);
 
 function OnboardingPage() {
-  const { region, suppliers } = Route.useLoaderData();
+  const profile = Route.useLoaderData();
+  const { step } = Route.useSearch();
+  if (step !== undefined) {
+    return <OnboardingStepEditor key={step} step={step} profile={profile} />;
+  }
+  if (
+    profile.holder !== null &&
+    isProductSourceSetupComplete(
+      profile.productSourceMode,
+      profile.starterSupplier?.active === true,
+    )
+  ) {
+    return <EditOnboardingProfile holder={profile.holder} profile={profile} />;
+  }
+  return <FirstVisit profile={profile} />;
+}
+
+/** Each dashboard card opens its own editable step, including a partially completed setup. */
+function OnboardingStepEditor({
+  step,
+  profile,
+}: {
+  step: "details" | "supplier";
+  profile: OnboardingProfile;
+}) {
+  const finish = useFinishOnboarding();
+  const router = useRouter();
+  const [saved, setSaved] = useState(false);
+  const navigate = useNavigate();
   return (
-    // Without a region there is nothing to compare, so the form stays a single narrow column.
-    <div className={cn("mx-auto w-full space-y-6", region ? "max-w-5xl" : "max-w-2xl")}>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {region ? "Alterar sua região" : "Onde você está?"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Usamos seu CEP para mostrar só fornecedores que entregam na sua região.
-        </p>
-      </div>
-      {region ? (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          <CurrentRegionCard region={region} suppliers={suppliers} />
-          {/* Sticky so the preview stays beside the supplier list while scrolling. */}
-          <div className="lg:sticky lg:top-24">
-            <ChangeRegionCard region={region} />
-          </div>
-        </div>
-      ) : (
-        <ChangeRegionCard region={null} />
-      )}
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <Button asChild variant="ghost">
+        <Link to="/dashboard">
+          <ArrowLeftIcon aria-hidden="true" />
+          Voltar ao painel
+        </Link>
+      </Button>
+      <PageHeader
+        title={step === "details" ? "Seus dados" : "Origem dos seus produtos"}
+        description="Confira os dados salvos. Você pode voltar e editar quando quiser."
+      />
+      <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
+        {step === "details" ? (
+          <HolderForm
+            holder={profile.holder}
+            submitLabel={saved ? "Dados salvos" : "Salvar dados"}
+            onSaved={async () => {
+              await router.invalidate();
+              setSaved(true);
+            }}
+          />
+        ) : (
+          <ProductSourceChoice
+            profile={profile}
+            onSaved={finish}
+            onBack={() => {
+              void navigate({ to: "/dashboard" });
+            }}
+          />
+        )}
+      </section>
     </div>
   );
 }
 
-function initialCep(region: TenantRegion, fromLanding: string | undefined): string {
-  if (region) {
-    return formatCep(region.cep);
-  }
-  return fromLanding ? formatCep(fromLanding) : "";
-}
-
-function useRegionForm(region: TenantRegion) {
+/** After saving, the next setup step: the stores while there is none, else the catalog. */
+function useFinishOnboarding() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const form = useForm({
-    defaultValues: { cep: initialCep(region, search.cep) },
-    validators: { onSubmit: cepFormSchema },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-      try {
-        await updateTenantRegion({ data: { cep: value.cep } });
-      } catch (error) {
-        setSubmitError(errorMessage(error));
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      // Impact previews were computed against the old region.
-      queryClient.removeQueries({ queryKey: ["region", "preview"] });
-      await router.invalidate();
-      const progress = await queryClient.fetchQuery({
-        ...setupProgressQueryOptions(),
-        staleTime: 0,
-      });
-      await navigate({ to: search.redirect ?? (progress.hasStore ? "/catalogo" : "/lojas") });
-    },
-  });
-  return { form, submitError };
+  return async function finish() {
+    await router.invalidate();
+    const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
+    await navigate({
+      to:
+        search.redirect ??
+        (search.step
+          ? "/dashboard"
+          : progress.hasStore
+            ? progress.productSourceMode === "own"
+              ? "/products"
+              : "/catalogo"
+            : "/lojas"),
+    });
+  };
 }
 
-function RegionForm({ region }: { readonly region: TenantRegion }) {
-  const { form, submitError } = useRegionForm(region);
+/**
+ * Saves the holder and product sources independently so returning resumes the unfinished step.
+ */
+function FirstVisit({ profile }: { profile: OnboardingProfile }) {
+  const finish = useFinishOnboarding();
+  const [step, setStep] = useState(profile.holder === null ? 0 : 1);
+  const [holder, setHolder] = useState(profile.holder);
   return (
-    <>
-      {submitError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      ) : null}
-      <form
-        noValidate
-        className="grid gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <PageHeader
+        title="Configure sua conta"
+        description={`Salve seus dados e escolha a origem dos produtos em cerca de ${SIGNUP_MINUTES} minutos.`}
+      />
+      <section
+        aria-label="Cadastro"
+        className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8"
       >
-        <form.Field name="cep">
-          {(field) => (
-            <TextField
-              id="cep"
-              label="CEP"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              placeholder="00000-000"
-              value={field.state.value}
-              errors={field.state.meta.errors}
-              onBlur={field.handleBlur}
-              onValueChange={(value) => field.handleChange(maskCep(value))}
-            />
-          )}
-        </form.Field>
-        <form.Subscribe selector={(state) => normalizeCep(state.values.cep)}>
-          {(cep) =>
-            // The saved CEP needs no preview; any other complete CEP shows what would change.
-            cep && cep !== region?.cep ? (
-              <RegionPreview cep={cep} hasRegion={region !== null} />
-            ) : null
-          }
-        </form.Subscribe>
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting} className="justify-self-start">
-              {isSubmitting ? "Consultando CEP..." : "Salvar região"}
-            </Button>
-          )}
-        </form.Subscribe>
-      </form>
-    </>
+        <StepProgress steps={SIGNUP_STEPS} current={step} />
+        {step === 0 ? (
+          <HolderForm
+            holder={holder}
+            submitLabel="Continuar"
+            onSaved={(saved) => {
+              setHolder(saved);
+              setStep(1);
+            }}
+          />
+        ) : (
+          <ProductSourceChoice profile={profile} onSaved={finish} onBack={() => setStep(0)} />
+        )}
+      </section>
+    </div>
   );
 }

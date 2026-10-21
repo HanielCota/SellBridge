@@ -1,8 +1,10 @@
 import { recordWebhookEvent, type RecordWebhookInput } from "@sellbridge/database/repositories";
 import { withDeadline } from "@sellbridge/shared/deadline";
+import { hasLoneSurrogate, parseJsonText, readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { marketplaceSchema } from "@sellbridge/shared/schemas";
 import { database } from "@/lib/server/database";
+import { withoutNul } from "@/lib/server/nul-character";
 import { connectors } from "@/lib/server/marketplaces";
 import { enqueueWebhookEvent } from "@/lib/server/queues";
 
@@ -32,13 +34,13 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
   if (!marketplace.success) {
     return reply(404, { error: "marketplace desconhecido" });
   }
-  const declaredLength = Number(request.headers.get("content-length") ?? "0");
-  if (declaredLength > MAX_BODY_BYTES) {
+  const rawBody = await readTextWithin(request, MAX_BODY_BYTES);
+  if (rawBody === null) {
     return reply(413, { error: "payload muito grande" });
   }
-  const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
-    return reply(413, { error: "payload muito grande" });
+  // Half of a UTF-16 pair on its own parses, but jsonb refuses it: a 400, not a 500.
+  if (hasLoneSurrogate(parseJsonText(rawBody))) {
+    return reply(400, { error: "notificação inválida" });
   }
 
   const verification = await connectors[marketplace.data].verifyWebhook({
@@ -46,14 +48,8 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     rawBody,
   });
   if (!verification.valid) {
-    await recordWebhookEvent(database, {
-      marketplace: marketplace.data,
-      externalEventId: null,
-      topic: null,
-      rawPayload: verification.payload,
-      signatureValid: false,
-      error: verification.reason,
-    });
+    // Logged, not stored: the endpoint is public, and storing every forged or garbage post
+    // would let anyone grow the events table without limit.
     logger.warn("webhook.rejected", { marketplace: marketplace.data, reason: verification.reason });
     return reply(401, { error: "notificação inválida" });
   }
@@ -62,7 +58,7 @@ export async function handleWebhook(request: Request, marketplaceParam: string |
     marketplace: marketplace.data,
     externalEventId: verification.event.externalEventId,
     topic: verification.event.topic,
-    rawPayload: verification.event.payload,
+    rawPayload: withoutNul(verification.event.payload),
     signatureValid: true,
   });
 }

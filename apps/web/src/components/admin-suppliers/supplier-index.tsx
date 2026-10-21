@@ -17,7 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { adminSuppliersQueryOptions } from "@/features/admin-suppliers/suppliers.queries";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
+import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
 import { SupplierForm } from "./supplier-form";
+import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
+import { Hint } from "@/components/ui/hint";
 
 const columnHelper = createServerColumnHelper<AdminSupplier>();
 const supplierColumns = columnHelper.columns([
@@ -48,6 +51,27 @@ const supplierColumns = columnHelper.columns([
     ),
   }),
 ]);
+
+const CreateIcon = ACTION_ICONS.createProduct.icon;
+
+/** Products suppliers sent through their panel wait here for the platform's review. */
+function ReviewQueueLink() {
+  const pending = useQuery(reviewQueueCountQueryOptions()).data ?? 0;
+  return (
+    <Hint label={CONTROL_HINTS.reviewQueue} openOnTap={false}>
+      <Button asChild variant="outline">
+        <Link to="/admin/fornecedores/analise">
+          Produtos em análise
+          {pending > 0 ? (
+            <span className="rounded-full bg-primary px-2 text-footnote font-semibold text-primary-foreground tabular-nums">
+              {pending}
+            </span>
+          ) : null}
+        </Link>
+      </Button>
+    </Hint>
+  );
+}
 
 interface SupplierIndexProps {
   search: AdminSupplierSearch;
@@ -123,9 +147,15 @@ export function SupplierIndex({ search, onSearch, onPageChange, onCreated }: Sup
         title="Fornecedores"
         description="Cadastre fornecedores, regiões atendidas e produtos do catálogo."
         actions={
-          <Button onClick={() => setCreating((current) => !current)}>
-            {creating ? "Fechar cadastro" : "Novo fornecedor"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ReviewQueueLink />
+            <Hint label={creating ? undefined : CONTROL_HINTS.createSupplier} openOnTap={false}>
+              <Button onClick={() => setCreating((current) => !current)}>
+                {creating ? null : <CreateIcon aria-hidden="true" />}
+                {creating ? "Fechar cadastro" : "Novo fornecedor"}
+              </Button>
+            </Hint>
+          </div>
         }
       />
       {creating ? <SupplierForm onSaved={(supplier) => onCreated(supplier.id)} /> : null}

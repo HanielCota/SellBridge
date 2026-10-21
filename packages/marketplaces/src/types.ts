@@ -40,16 +40,28 @@ export interface PublishProductInput {
 }
 
 export interface PublishOptions {
-  /** A previous creation may have succeeded; only reconcile, never create again. */
-  reconcileOnly: boolean;
+  /** When an earlier attempt began creating the item (it may have landed); null if none did. */
+  creationStartedAt: Date | null;
   beforeCreate: () => Promise<void>;
   /** Only called when the API definitively refused creation. */
   creationRejected: () => Promise<void>;
+  /** Reconciliation, past the settle window, found no item: the earlier creation never landed. */
+  creationAbsent: () => Promise<void>;
 }
 
 export interface PublishedListing {
   externalId: string;
   externalUrl: string | null;
+  /**
+   * Why the marketplace did not take the description, in the reseller's words; null when it
+   * did. The listing is live either way: a missing description never fails a publication.
+   */
+  descriptionError?: string | null;
+}
+
+export interface DescriptionUpdate {
+  externalId: string;
+  plainText: string;
 }
 
 export interface StockPriceUpdate {
@@ -70,6 +82,11 @@ export interface MarketplaceOrder {
   status: "pending" | "paid" | "shipped" | "delivered" | "cancelled" | "returned";
   totalCents: Cents;
   marketplaceFeeCents: Cents;
+  /**
+   * Money already given back to the buyer across the order's payments (latest total); undefined
+   * when the source did not report payments this time.
+   */
+  refundedCents?: Cents | undefined;
   buyerName: string | null;
   orderedAt: Date;
   items: MarketplaceOrderItem[];
@@ -124,6 +141,8 @@ export interface MarketplaceConnector {
     options?: PublishOptions,
   ): Promise<PublishedListing>;
   updateStockPrice(credentials: StoreCredentials, update: StockPriceUpdate): Promise<void>;
+  /** Replaces the description of a live listing (the resend of a description that failed). */
+  updateDescription(credentials: StoreCredentials, update: DescriptionUpdate): Promise<void>;
   listOrders(credentials: StoreCredentials, since: Date): Promise<MarketplaceOrder[]>;
   /** Loads one order referenced by a webhook `resource` (the payload itself is never trusted). */
   fetchOrder(credentials: StoreCredentials, resource: string): Promise<MarketplaceOrder>;

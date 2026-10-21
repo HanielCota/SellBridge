@@ -1,15 +1,17 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { storeConnections } from "../schema/index.ts";
+import { member, organization, user, storeConnections } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, testStoreInput } from "../testing/fixtures.ts";
 import {
   consumeOAuthState,
   createOAuthState,
+  findOAuthStateProfile,
   disconnectStore,
   findConnectedStores,
   listStoreConnections,
   markStoreStatus,
   recordStoreError,
+  recordStoreWebhook,
   updateStoreTokens,
   upsertStoreConnection,
 } from "./stores.ts";
@@ -52,6 +54,44 @@ describe("store connections are tenant-scoped", () => {
     expect(found.map((store) => store.id)).toEqual([storeA]);
   });
 
+  it("refuses a shop already connected to another organization, until it disconnects there", async () => {
+    const shopId = `shop-a-${tenantA}`;
+    await expect(
+      upsertStoreConnection(database, testStoreInput(tenantB, shopId)),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const otherShop = `shared-${tenantA}`;
+    const first = await upsertStoreConnection(database, testStoreInput(tenantA, otherShop));
+    await disconnectStore(database, tenantA, first.id);
+    const second = await upsertStoreConnection(database, testStoreInput(tenantB, otherShop));
+    expect(second.id).not.toBe(first.id);
+  });
+
+  it("refuses with a conflict the organization that loses a race for the same shop", async () => {
+    const shopId = `race-${tenantA}`;
+    const rival = createTestDatabase();
+    const released = signal();
+    const rivalInserted = signal();
+    // The rival's row is written but not committed: the check of tenant A cannot see it yet,
+    // so tenant A only finds out when its own insert hits the unique index.
+    const rivalTransaction = rival.transaction(async (transaction) => {
+      await transaction.insert(storeConnections).values(testStoreInput(tenantB, shopId));
+      rivalInserted.fire();
+      await released.promise;
+    });
+    try {
+      await rivalInserted.promise;
+      const outcome = settle(upsertStoreConnection(database, testStoreInput(tenantA, shopId)));
+      await waitForLockWait();
+      released.fire();
+      await rivalTransaction;
+      expect(await outcome).toMatchObject({ code: "CONFLICT" });
+    } finally {
+      released.fire();
+      await settle(rivalTransaction);
+      await rival.$client.end();
+    }
+  });
+
   it("reconnecting the same shop reuses the connection", async () => {
     const again = await upsertStoreConnection(
       database,
@@ -87,6 +127,7 @@ describe("oauth state", () => {
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
     ).toEqual({
       codeVerifier: null,
+      supplierId: null,
     });
     expect(
       await consumeOAuthState(database, { state, tenantId: tenantA, marketplace: "mock" }),
@@ -152,7 +193,11 @@ const rotatedTokens = {
 describe("token refresh compare-and-swap", () => {
   it("rotates the tokens while the refresh token is unchanged", async () => {
     const storeId = await connectShop(`shop-rotate-${tenantA}`);
-    await recordStoreError(database, storeId, "Instabilidade");
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh",
+    });
     const swapped = await updateStoreTokens(database, {
       storeConnectionId: storeId,
       previousRefreshTokenEnc: "enc-refresh",
@@ -165,6 +210,16 @@ describe("token refresh compare-and-swap", () => {
       refreshTokenEnc: "enc-refresh-new",
       lastError: null,
     });
+  });
+
+  it("keeps a late failure from an old refresh token off a reconnected store", async () => {
+    const storeId = await connectShop(`shop-late-failure-${tenantA}`);
+    await recordStoreError(database, {
+      storeConnectionId: storeId,
+      lastError: "Instabilidade",
+      refreshTokenEnc: "enc-refresh-before-reconnect",
+    });
+    expect(await storeRow(storeId)).toMatchObject({ status: "connected", lastError: null });
   });
 
   it("does not reconnect a store the seller disconnected during the refresh", async () => {
@@ -219,5 +274,135 @@ describe("token refresh compare-and-swap", () => {
     });
     expect(changed).toBe(false);
     expect(await storeRow(storeId)).toMatchObject({ status: "disconnected" });
+  });
+});
+
+async function settle(attempt: Promise<unknown>): Promise<unknown> {
+  try {
+    await attempt;
+    return { code: "CONNECTED" };
+  } catch (error) {
+    return error;
+  }
+}
+
+/** Waits until some insert into store_connections is blocked on a row lock (the unique index). */
+async function waitForLockWait(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await database.execute(sql`
+      select 1 from pg_stat_activity
+      where wait_event_type = 'Lock' and query ilike 'insert into "store_connections"%'`);
+    if (rows.length > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("o insert concorrente nunca esperou pelo índice único");
+}
+
+function doNothing(): void {}
+
+/** A promise the test settles by hand, to order steps across two connections. */
+function signal(): { promise: Promise<void>; fire: () => void } {
+  const handle = { resolve: doNothing };
+  const promise = new Promise<void>((resolve) => {
+    handle.resolve = resolve;
+  });
+  return { promise, fire: () => handle.resolve() };
+}
+
+describe("store webhook time", () => {
+  it("keeps the latest event time and lists it with the store", async () => {
+    const storeId = await connectShop(`shop-webhook-${tenantA}`);
+    const latest = new Date("2026-10-15T12:00:00.000Z");
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: latest });
+    // A retry of an older event arrives later: the store still shows the newest one.
+    await recordStoreWebhook(database, {
+      storeConnectionId: storeId,
+      receivedAt: new Date("2026-10-15T09:00:00.000Z"),
+    });
+    const listed = await listStoreConnections(database, tenantA);
+    expect(listed.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(latest);
+  });
+
+  it("leaves the store's updatedAt alone: the bell dates a store's problem by it", async () => {
+    const storeId = await connectShop(`shop-webhook-updated-${tenantA}`);
+    const before = new Date("2026-10-01T08:00:00.000Z");
+    await database
+      .update(storeConnections)
+      .set({ updatedAt: sql`${before.toISOString()}::timestamptz` })
+      .where(eq(storeConnections.id, storeId));
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: new Date() });
+    const [row] = await database
+      .select({
+        updatedAt: storeConnections.updatedAt,
+        lastWebhookAt: storeConnections.lastWebhookAt,
+      })
+      .from(storeConnections)
+      .where(eq(storeConnections.id, storeId));
+    expect(row?.lastWebhookAt).not.toBeNull();
+    expect(row?.updatedAt).toEqual(before);
+  });
+
+  it("writes a burst of events once a minute, not once per event", async () => {
+    const storeId = await connectShop(`shop-webhook-burst-${tenantA}`);
+    const first = new Date("2026-10-15T12:00:00.000Z");
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: first });
+    await recordStoreWebhook(database, {
+      storeConnectionId: storeId,
+      receivedAt: new Date("2026-10-15T12:00:30.000Z"),
+    });
+    const later = new Date("2026-10-15T12:01:30.000Z");
+    const afterBurst = await listStoreConnections(database, tenantA);
+    expect(afterBurst.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(first);
+    await recordStoreWebhook(database, { storeConnectionId: storeId, receivedAt: later });
+    const listed = await listStoreConnections(database, tenantA);
+    expect(listed.find((store) => store.id === storeId)?.lastWebhookAt).toEqual(later);
+  });
+});
+
+describe("OAuth callback profile", () => {
+  it("recovers only an unexpired transaction belonging to a current membership", async () => {
+    const userId = `oauth-${tenantA}`;
+    const state = `profile-${tenantA}`;
+    await database.insert(user).values({
+      id: userId,
+      name: "OAuth test",
+      email: `${userId}@example.com`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    try {
+      await database.insert(member).values({
+        id: userId,
+        userId,
+        organizationId: tenantB,
+        role: "owner",
+        createdAt: new Date(),
+      });
+      await createOAuthState(database, {
+        state,
+        tenantId: tenantB,
+        marketplace: "mock",
+        codeVerifier: null,
+        ttlMilliseconds: 60_000,
+      });
+      const [profile] = await database
+        .select({ slug: organization.slug })
+        .from(organization)
+        .where(eq(organization.id, tenantB));
+      const lookup = { state, marketplace: "mock" as const, userId };
+      expect(await findOAuthStateProfile(database, lookup)).toBe(profile?.slug);
+      expect(
+        await findOAuthStateProfile(database, { ...lookup, userId: "unrelated-user" }),
+      ).toBeNull();
+      expect(
+        await findOAuthStateProfile(database, { ...lookup, marketplace: "shopee" }),
+      ).toBeNull();
+      await database.delete(member).where(eq(member.userId, userId));
+      expect(await findOAuthStateProfile(database, lookup)).toBeNull();
+    } finally {
+      await database.delete(user).where(eq(user.id, userId));
+    }
   });
 });

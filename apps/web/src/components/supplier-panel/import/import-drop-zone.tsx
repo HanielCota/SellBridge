@@ -1,0 +1,125 @@
+import { FileCsvIcon, FileXlsIcon } from "@phosphor-icons/react";
+import { SUPPLIER_IMPORT_ACCEPT } from "@sellbridge/shared/supplier-panel-import-schemas";
+import { useEffect, useRef, useState, type DragEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { formatFileSize } from "@/lib/file-size";
+import { cn } from "@/lib/utils";
+import type { ChosenFile } from "@/features/supplier-panel/import/use-supplier-import";
+import { ACTION_ICONS } from "@/components/icons/action-icons";
+
+interface ImportDropZoneProps {
+  file: ChosenFile | null;
+  busy: boolean;
+  onChoose: (file: File | undefined) => void;
+}
+
+/** Choosing a spreadsheet is the Importar tab's own function, so it shares that icon. */
+const ChooseFileIcon = ACTION_ICONS.importProducts.icon;
+
+function FileKindIcon({ file }: { file: ChosenFile | null }) {
+  const props = { className: "size-6", weight: "light", "aria-hidden": true } as const;
+  if (file === null) {
+    return <ChooseFileIcon {...props} />;
+  }
+  if (file.name.toLowerCase().endsWith(".xlsx")) {
+    return <FileXlsIcon {...props} />;
+  }
+  return <FileCsvIcon {...props} />;
+}
+
+function DropZoneText({ file, busy }: { file: ChosenFile | null; busy: boolean }) {
+  return (
+    <>
+      <span className="flex size-12 items-center justify-center rounded-2xl bg-card text-muted-foreground">
+        <FileKindIcon file={file} />
+      </span>
+      <div className="max-w-md space-y-1">
+        <p className="text-subhead font-medium">
+          {file === null ? "Arraste a planilha aqui" : file.name}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {file === null
+            ? "Excel ou CSV, até 2 MB e 1.000 produtos"
+            : `${formatFileSize(file.size)}${busy ? " · Conferindo…" : ""}`}
+        </p>
+      </div>
+    </>
+  );
+}
+
+/** A file dropped beside the zone would make the browser open it and leave the page. */
+function useDropOutsideGuard() {
+  useEffect(() => {
+    function holdFile(event: globalThis.DragEvent) {
+      if (event.dataTransfer?.types.includes("Files") === true) {
+        event.preventDefault();
+      }
+    }
+    window.addEventListener("dragover", holdFile);
+    window.addEventListener("drop", holdFile);
+    return () => {
+      window.removeEventListener("dragover", holdFile);
+      window.removeEventListener("drop", holdFile);
+    };
+  }, []);
+}
+
+/**
+ * Drag a spreadsheet here or pick it. The whole area is the drop target; the button is the
+ * keyboard and touch path, since phones have no drag and drop.
+ */
+export function ImportDropZone({ file, busy, onChoose }: ImportDropZoneProps) {
+  const input = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  useDropOutsideGuard();
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (busy) {
+      return;
+    }
+    onChoose(event.dataTransfer.files[0]);
+  }
+
+  return (
+    <div
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      aria-busy={busy}
+      className={cn(
+        "flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-field-border bg-surface-grouped px-6 py-10 text-center transition-colors select-none motion-reduce:transition-none sm:py-14",
+        dragging && "border-brand bg-brand/5",
+      )}
+    >
+      <DropZoneText file={file} busy={busy} />
+      <input
+        ref={input}
+        type="file"
+        accept={SUPPLIER_IMPORT_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={busy}
+        onChange={(event) => {
+          onChoose(event.target.files?.[0]);
+          // Cleared so choosing the same file again (after fixing it) still fires a change.
+          if (input.current !== null) input.current.value = "";
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        disabled={busy}
+        onClick={() => input.current?.click()}
+      >
+        <ChooseFileIcon aria-hidden="true" />
+        {file === null ? "Escolher arquivo" : "Trocar arquivo"}
+      </Button>
+    </div>
+  );
+}

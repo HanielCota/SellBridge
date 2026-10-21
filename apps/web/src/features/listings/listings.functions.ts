@@ -1,9 +1,12 @@
+import { billingConfigured } from "@/features/billing/stripe.server";
 import {
-  getCatalogProductForRegion,
+  requestDescriptionResend,
+  getSellableCatalogProduct,
   getTargetForPublishing,
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
+  storesListingProduct,
 } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
@@ -11,17 +14,18 @@ import {
   createListingSchema,
   listingPriceCentsSchema,
   listingsSearchSchema,
+  MAX_LISTING_BATCH,
 } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
+import { requestStockSync } from "@/lib/server/stock-sync";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import {
   buildMockOrderWebhook,
   requireMockWebhookSecret,
   sendMockWebhook,
 } from "@/features/listings/mock-sale.server";
-import { requireTenantRegion } from "@/features/region/region.server";
 import {
   createListingForTenant,
   setListingsPausedForTenant,
@@ -33,12 +37,26 @@ export const getNewListingData = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ productId: z.uuid() }))
   .handler(async ({ context, data }) => {
-    const region = await requireTenantRegion(context.tenantId);
-    const [product, stores] = await Promise.all([
-      getCatalogProductForRegion(database, region, data.productId),
+    const [product, stores, listedOn] = await Promise.all([
+      getSellableCatalogProduct(database, data.productId, context.tenantId),
       listStoreConnections(database, context.tenantId),
+      storesListingProduct(database, context.tenantId, data.productId),
     ]);
-    return { product, stores: stores.filter((store) => store.status === "connected") };
+    // One listing per product and store: a store that already sells it is shown, not offered.
+    const listedIds = new Set(listedOn.map((store) => store.storeId));
+    const connected = stores.filter((store) => store.status === "connected");
+    // Each store sells a single supplier: only the ones selling this product's supplier qualify.
+    return {
+      product,
+      stores: connected
+        .filter(
+          (store) => product.catalogKind === "seller" || store.supplierId === product.supplierId,
+        )
+        .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
+      hasOtherStores:
+        product.catalogKind !== "seller" &&
+        connected.some((store) => store.supplierId !== product.supplierId),
+    };
   });
 
 export const createListing = createServerFn({ method: "POST" })
@@ -66,20 +84,45 @@ export const listListings = createServerFn({ method: "GET" })
     ),
   );
 
-const listingIdsSchema = z.object({ listingIds: z.array(z.uuid()).min(1).max(100) });
+const listingIdsSchema = z.object({
+  listingIds: z.array(z.uuid()).min(1).max(MAX_LISTING_BATCH),
+});
 
 /** Puts every failed store of the chosen listings back in the publishing queue. */
 export const retryListings = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(listingIdsSchema)
   .handler(async ({ context, data }) => {
-    const targetIds = await resetListingErrorsForRetry(database, context.tenantId, data.listingIds);
+    const targetIds = await resetListingErrorsForRetry(
+      database,
+      context.tenantId,
+      data.listingIds,
+      {
+        billingEnabled: billingConfigured(),
+      },
+    );
     await enqueueTargets(context.tenantId, targetIds);
     logger.info("listing.retry_requested", {
       tenantId: context.tenantId,
       targets: targetIds.length,
     });
     return { retried: targetIds.length };
+  });
+
+/**
+ * "Reenviar descrição": the chosen listings whose description the marketplace refused go back to
+ * the automatic resends, and the sync runs now instead of in up to 15 minutes (13.b).
+ */
+export const resendDescriptions = createServerFn({ method: "POST" })
+  .middleware([tenantMiddleware])
+  .validator(listingIdsSchema)
+  .handler(async ({ context, data }) => {
+    const resent = await requestDescriptionResend(database, context.tenantId, data.listingIds);
+    if (resent > 0) {
+      await requestStockSync("listing.description_resend_deferred");
+    }
+    logger.info("listing.description_resend_requested", { tenantId: context.tenantId, resent });
+    return { resent };
   });
 
 /** Pauses (zero stock on the marketplace) or resumes the chosen listings. */

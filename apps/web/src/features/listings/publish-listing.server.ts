@@ -1,10 +1,13 @@
 import { billingConfigured } from "@/features/billing/stripe.server";
 import {
+  assertBillingCapacity,
+  assertStoresSellSupplier,
   createListingWithTargets,
   type CreatedListing,
   findConnectedStores,
   type NewListingInput,
 } from "@sellbridge/database/repositories";
+import { withDeadline } from "@sellbridge/shared/deadline";
 import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -23,6 +26,19 @@ export async function assertConnectedStores(
   return uniqueStoreIds;
 }
 
+/** Each store sells a single supplier: refuses a store that does not sell every one given. */
+export async function assertStoresSellSuppliers(
+  tenantId: string,
+  storeIds: readonly string[],
+  supplierIds: readonly string[],
+): Promise<void> {
+  for (const supplierId of new Set(supplierIds)) {
+    await assertStoresSellSupplier(database, tenantId, storeIds, supplierId);
+  }
+}
+
+const ENQUEUE_DEADLINE_MILLISECONDS = 3000;
+
 /**
  * Queues pending targets for the worker. The targets are already saved as "pending", so if
  * Redis is unavailable the worker's recovery job queues them within minutes (see
@@ -33,7 +49,12 @@ export async function enqueueTargets(
   targetIds: readonly string[],
 ): Promise<void> {
   try {
-    await enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId })));
+    // ioredis keeps reconnecting for minutes while Redis is down; the button must not spin.
+    await withDeadline(
+      enqueuePublishJobs(targetIds.map((listingTargetId) => ({ tenantId, listingTargetId }))),
+      ENQUEUE_DEADLINE_MILLISECONDS,
+      "Fila de publicação",
+    );
   } catch (error) {
     logger.error("listing.enqueue_failed", { tenantId, targets: targetIds.length, error });
   }
@@ -66,6 +87,12 @@ export async function publishListings(
   drafts: readonly NewListingInput[],
   storeIds: readonly string[],
 ): Promise<string[]> {
+  // Each listing is its own transaction; checking the whole batch first keeps a batch that does
+  // not fit the plan from publishing its first few and failing on the rest.
+  if (billingConfigured()) {
+    // One plan slot per listing and destination store (item 16, N7).
+    await assertBillingCapacity(database, tenantId, "listings", drafts.length * storeIds.length);
+  }
   const targetIds: string[] = [];
   try {
     for (const draft of drafts) {

@@ -1,15 +1,16 @@
 import { Stripe } from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 const mocks = vi.hoisted(() => ({
   apply: vi.fn<(...input: unknown[]) => Promise<void>>(),
-  lock: vi.fn<(...input: unknown[]) => Promise<{ subscriptionId: string } | null>>(),
-  retrieve: vi.fn<(id: string) => Promise<unknown>>(),
-  list: vi.fn<(input: unknown) => Promise<unknown>>(),
+  find: vi.fn<(...input: unknown[]) => Promise<{ subscriptionId: string } | null>>(),
+  retrieve: vi.fn<(id: string, ...options: unknown[]) => Promise<unknown>>(),
+  list: vi.fn<(input: unknown, options?: unknown) => Promise<unknown>>(),
   transaction: vi.fn<(operation: (executor: object) => Promise<void>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   applyBillingEvent: mocks.apply,
-  lockBillingCustomer: mocks.lock,
+  findBillingCustomer: mocks.find,
 }));
 vi.mock("@/lib/server/database", () => ({ database: { transaction: mocks.transaction } }));
 vi.mock("@/lib/server/environment", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/lib/server/environment", () => ({
     STRIPE_WEBHOOK_SECRET: "whsec_test",
     STRIPE_PRO_PRICE_ID: "price_pro",
     STRIPE_BUSINESS_PRICE_ID: "price_business",
+    BILLING_PAST_DUE_GRACE_DAYS: 7,
   },
 }));
 vi.mock("./stripe.server", () => ({
@@ -32,7 +34,15 @@ const subscription = {
   customer: "cus_test",
   status: "active",
   cancel_at_period_end: false,
-  items: { data: [{ current_period_end: 1800000000, price: { id: "price_pro" } }] },
+  items: {
+    data: [
+      {
+        current_period_start: 1797408000,
+        current_period_end: 1800000000,
+        price: { id: "price_pro" },
+      },
+    ],
+  },
 };
 function request(
   type = "customer.subscription.updated",
@@ -57,7 +67,7 @@ function request(
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.lock.mockResolvedValue({ subscriptionId: "sub_test" });
+  mocks.find.mockResolvedValue({ subscriptionId: "sub_test" });
   mocks.retrieve.mockResolvedValue(subscription);
   mocks.list.mockResolvedValue({ data: [subscription] });
   mocks.transaction.mockImplementation(async (operation) => {
@@ -76,13 +86,70 @@ describe("signed billing webhook", () => {
       expect.objectContaining({ eventId: "evt_test", plan: "pro", status: "active" }),
     );
   });
+  // Regression (item 16.a, N5): Stripe was read inside the transaction, holding the account row
+  // and a pooled connection while the provider answered.
+  it("reads Stripe before opening the transaction", async () => {
+    let inTransaction = false;
+    const callsInTransaction: string[] = [];
+    mocks.transaction.mockImplementation(async (operation) => {
+      inTransaction = true;
+      await operation({});
+      inTransaction = false;
+    });
+    mocks.list.mockImplementation(async () => {
+      if (inTransaction) callsInTransaction.push("list");
+      return { data: [] };
+    });
+    mocks.retrieve.mockImplementation(async () => {
+      if (inTransaction) callsInTransaction.push("retrieve");
+      return subscription;
+    });
+    expect((await handleBillingWebhook(request())).status).toBe(200);
+    expect(mocks.apply).toHaveBeenCalledOnce();
+    expect(callsInTransaction).toEqual([]);
+  });
+  // Fetching outside the lock lets two deliveries race: the newest read wins, not the newest event.
+  it("orders states by when they were read from Stripe", async () => {
+    const before = Date.now();
+    let readAt = 0;
+    mocks.list.mockImplementation(async () => {
+      readAt = Date.now();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { data: [subscription] };
+    });
+    await handleBillingWebhook(request());
+    const [, applied] = mocks.apply.mock.calls[0] ?? [];
+    const observedAt = z.object({ observedAt: z.number() }).parse(applied).observedAt;
+    expect(observedAt).toBeGreaterThanOrEqual(before);
+    // Review of item 16: stamped after a slow answer, an older read beat a newer one.
+    expect(observedAt).toBeLessThanOrEqual(readAt);
+  });
+  // Regression: the client defaults (15 s, 2 retries) kept a webhook waiting up to ~90 s.
+  it("reads Stripe with a short timeout and one retry", async () => {
+    mocks.list.mockResolvedValue({ data: [] });
+    await handleBillingWebhook(request());
+    const limits = { timeout: 5_000, maxNetworkRetries: 1 };
+    expect(mocks.list).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_test" }),
+      limits,
+    );
+    expect(mocks.retrieve).toHaveBeenCalledWith("sub_test", {}, limits);
+  });
   it("uses the current subscription for delayed cancellation of an old one", async () => {
     mocks.list.mockResolvedValue({
       data: [
         {
           ...subscription,
           id: "sub_new",
-          items: { data: [{ current_period_end: 1800000000, price: { id: "price_business" } }] },
+          items: {
+            data: [
+              {
+                current_period_start: 1797408000,
+                current_period_end: 1800000000,
+                price: { id: "price_business" },
+              },
+            ],
+          },
         },
       ],
     });
@@ -109,7 +176,7 @@ describe("signed billing webhook", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
   it("ignores customers outside this application", async () => {
-    mocks.lock.mockResolvedValue(null);
+    mocks.find.mockResolvedValue(null);
     expect((await handleBillingWebhook(request())).status).toBe(200);
     expect(mocks.list).not.toHaveBeenCalled();
   });
@@ -165,6 +232,23 @@ describe("signed billing webhook", () => {
     expect(mocks.apply).toHaveBeenCalledWith(
       {},
       expect.objectContaining({ status: "canceled", periodEnd: new Date(1798000000 * 1000) }),
+    );
+  });
+  // Regression (item 16, N9): a failed renewal dropped the reseller to Gratuito at once.
+  it("keeps a past_due subscription paid until the grace after the failed renewal", async () => {
+    mocks.list.mockResolvedValue({ data: [{ ...subscription, status: "past_due" }] });
+    await handleBillingWebhook(
+      request("invoice.payment_failed", true, {
+        customer: "cus_test",
+        parent: { subscription_details: { subscription: "sub_test" } },
+      }),
+    );
+    expect(mocks.apply).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        status: "past_due",
+        periodEnd: new Date((1797408000 + 7 * 86_400) * 1000),
+      }),
     );
   });
 });

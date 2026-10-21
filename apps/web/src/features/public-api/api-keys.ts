@@ -1,12 +1,12 @@
 import type { ApiKeySummary } from "@sellbridge/database/repositories";
 import { type ApiScope, apiScopeSchema } from "@sellbridge/shared/public-api";
 import { z } from "zod";
+import { freeText } from "@sellbridge/shared/schemas";
 
 /** Enough for one key per integration and environment; past this, old keys should be revoked. */
 export const MAX_ACTIVE_API_KEYS = 20;
 
-export const apiKeyNameSchema = z
-  .string()
+const apiKeyNameSchema = freeText()
   .trim()
   .min(1, "Dê um nome para a chave")
   .max(60, "Use até 60 caracteres");
@@ -14,6 +14,8 @@ export const apiKeyNameSchema = z
 const apiKeyScopesSchema = z
   .array(apiScopeSchema)
   .min(1, "Escolha pelo menos uma permissão")
+  // More entries than there are scopes can only be repeats.
+  .max(apiScopeSchema.options.length)
   .transform((scopes) => [...new Set(scopes)]);
 
 /** What the server function accepts; whether `expiresAt` is in the future is checked there. */

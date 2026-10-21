@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Propostas: clientes ficha</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --background: oklch(0.97 0.002 260);
+        --foreground: oklch(0.145 0 0);
+        --card: oklch(1 0 0);
+        --muted: oklch(0.945 0.003 260);
+        --muted-foreground: oklch(0.47 0.008 260);
+        --brand: oklch(0.78 0.18 155);
+        --brand-text: oklch(0.5 0.13 152);
+        --brand-mark: oklch(0.62 0.16 152);
+        --primary-foreground: oklch(0.2 0.015 250);
+        --popover: oklch(1 0 0);
+        --border: oklch(0 0 0 / 0.08);
+        --mark: #ff2d2d;
+      }
+      :root.dark {
+        --background: oklch(0.165 0.003 260);
+        --foreground: oklch(0.97 0 0);
+        --card: oklch(0.215 0.004 260);
+        --muted: oklch(0.27 0.004 260);
+        --muted-foreground: oklch(0.72 0.005 260);
+        --brand: oklch(0.87 0.16 152);
+        --brand-text: oklch(0.87 0.16 152);
+        --brand-mark: oklch(0.87 0.16 152);
+        --primary-foreground: oklch(0.18 0.02 160);
+        --popover: oklch(0.24 0.004 260);
+        --border: oklch(1 0 0 / 0.07);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: "Manrope", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      svg {
+        display: block;
+      }
+      .page {
+        max-width: 1520px;
+        margin: 0 auto;
+        padding: 24px 24px 80px;
+      }
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .topbar h1 {
+        font-size: 22px;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .topbar p {
+        margin: 4px 0 0;
+        color: var(--muted-foreground);
+        font-size: 14px;
+      }
+      .toggle {
+        border: 0;
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--foreground);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 10px 16px;
+        cursor: pointer;
+      }
+      .proposal {
+        margin-top: 36px;
+      }
+      .proposal-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 4px;
+      }
+      .letter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--foreground);
+        color: var(--background);
+        font-weight: 800;
+        font-size: 18px;
+      }
+      .proposal-head h2 {
+        font-size: 18px;
+        margin: 0;
+      }
+      .note {
+        color: var(--muted-foreground);
+        font-size: 14px;
+        margin: 4px 0 14px;
+        max-width: 820px;
+        line-height: 1.5;
+      }
+      .frames {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+      .frames .mobile-col {
+        max-width: 390px;
+      }
+
+      .frame {
+        border-radius: 20px;
+        outline: 1px solid var(--border);
+        background: var(--background);
+        overflow: hidden;
+      }
+      .frame-label {
+        font-size: 12px;
+        color: var(--muted-foreground);
+        margin: 0 0 6px 4px;
+        font-weight: 600;
+      }
+      .desktop-fit {
+        overflow: hidden;
+      }
+      .desktop {
+        width: 1440px;
+        transform-origin: 0 0;
+      }
+      .mobile {
+        width: 390px;
+        position: relative;
+        height: 560px;
+      }
+
+      /* Header reproduction (top-nav.tsx) */
+      .hdr {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 32px;
+      }
+      .hdr .left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo {
+        width: 40px;
+        height: 40px;
+      }
+      .nav {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-radius: 999px;
+        background: var(--card);
+        padding: 6px;
+      }
+      .tab {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 16px;
+        border-radius: 999px;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--muted-foreground);
+        white-space: nowrap;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .tab:hover {
+        color: var(--foreground);
+      }
+      .tab.active {
+        background: var(--foreground);
+        color: var(--background);
+      }
+      .tab .ic {
+        font-size: 18px;
+      }
+      .right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-self: end;
+      }
+      .round {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--muted-foreground);
+        font-size: 14px;
+        font-weight: 500;
+        border: 0;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .round:hover {
+        color: var(--foreground);
+      }
+      .round .ic {
+        font-size: 20px;
+      }
+      .round.labelled {
+        padding: 0 16px 0 14px;
+      }
+      .badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 4px;
+        border-radius: 999px;
+        background: var(--brand);
+        color: var(--primary-foreground);
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 999px;
+        background: var(--card);
+        padding: 6px;
+      }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: oklch(0.87 0.16 152);
+        color: oklch(0.18 0.02 160);
+        font-weight: 700;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .chip .name {
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+      .chip .name b {
+        display: block;
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .chip .name span {
+        font-size: 14px;
+        color: var(--muted-foreground);
+      }
+      .caret {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted-foreground);
+        font-size: 18px;
+      }
+      .content {
+        padding: 20px 32px 28px;
+      }
+      .content h3 {
+        font-size: 56px;
+        letter-spacing: -0.03em;
+        margin: 0;
+        font-weight: 600;
+      }
+      .content p {
+        color: var(--muted-foreground);
+        margin: 6px 0 0;
+        font-size: 14px;
+      }
+
+      /* Mobile */
+      .m-hdr {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+      }
+      .m-hdr .group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sheet {
+        position: absolute;
+        inset: 76px auto 0 0;
+        border-top-right-radius: 20px;
+        width: 300px;
+        background: var(--card);
+        padding: 18px 14px;
+        box-shadow: 0 0 0 9999px oklch(0 0 0 / 0.5);
+      }
+      .sheet .close {
+        display: flex;
+        justify-content: flex-end;
+        color: var(--muted-foreground);
+        font-size: 22px;
+        margin-bottom: 18px;
+      }
+      .m-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 48px;
+        padding: 0 16px;
+        border-radius: 999px;
+        color: var(--muted-foreground);
+        font-size: 18px;
+        font-weight: 500;
+      }
+      .m-item.active {
+        background: var(--foreground);
+        color: var(--background);
+      }
+      .m-item .ic {
+        font-size: 22px;
+      }
+      .m-item .count {
+        margin-left: 2px;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: oklch(0.87 0.16 152 / 0.18);
+        color: var(--brand-text);
+        font-size: 13px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* B: soft background behind the icon */
+      .b .tab .ic,
+      .b .m-item .ic {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: var(--muted);
+        font-size: 16px;
+      }
+      .b .tab {
+        padding-left: 6px;
+      }
+      .b .tab.active .ic {
+        background: oklch(0.5 0 0 / 0.18);
+      }
+      .b .m-item {
+        padding-left: 8px;
+      }
+      .b .m-item .ic {
+        width: 34px;
+        height: 34px;
+        font-size: 19px;
+      }
+      .b .m-item.active .ic {
+        background: oklch(0.5 0 0 / 0.18);
+      }
+      .b .round.labelled .ic {
+        font-size: 18px;
+      }
+
+      /* C: icon above the label */
+      .c .tab {
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        height: 56px;
+        padding: 0 14px;
+        font-size: 13px;
+        border-radius: 18px;
+      }
+      .c .nav {
+        border-radius: 24px;
+      }
+      .c .tab .ic {
+        font-size: 20px;
+      }
+      .c .round.stacked {
+        flex-direction: column;
+        gap: 2px;
+        height: 68px;
+        min-width: 64px;
+        border-radius: 20px;
+        font-size: 12px;
+        padding: 0 8px;
+      }
+      .c .chip {
+        border-radius: 24px;
+      }
+      .c .m-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .c .m-item {
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        height: 84px;
+        border-radius: 18px;
+        background: var(--muted);
+        font-size: 15px;
+        padding: 0 8px;
+      }
+      .c .m-item.active {
+        background: var(--foreground);
+      }
+      .c .m-item .ic {
+        font-size: 24px;
+      }
+
+      /* Tooltip (components/ui/tooltip.tsx look) */
+      .tip {
+        position: fixed;
+        z-index: 50;
+        pointer-events: none;
+        max-width: 320px;
+        background: var(--foreground);
+        color: var(--background);
+        font-size: 12px;
+        line-height: 1.35;
+        padding: 6px 12px;
+        border-radius: 8px;
+        opacity: 0;
+        transform: translateY(2px) scale(0.97);
+        transition:
+          opacity 120ms,
+          transform 120ms;
+      }
+      .tip.on {
+        opacity: 1;
+        transform: none;
+      }
+      .tip::after {
+        content: "";
+        position: absolute;
+        left: var(--arrow, 50%);
+        bottom: -4px;
+        width: 10px;
+        height: 10px;
+        margin-left: -5px;
+        background: var(--foreground);
+        transform: rotate(45deg);
+        border-radius: 2px;
+      }
+      .tip.below::after {
+        bottom: auto;
+        top: -4px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        color: var(--muted-foreground);
+        font-size: 13px;
+        margin-top: 10px;
+      }
+      .legend b {
+        color: var(--foreground);
+        font-weight: 600;
+      }
+
+      .wrap {
+        padding: 8px 32px 32px;
+        font-size: 14px;
+        display: grid;
+        gap: 16px;
+      }
+      .card10 {
+        border-radius: 22px;
+        background: var(--card);
+        padding: 16px 18px;
+      }
+      .issue {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .issue .mk {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: oklch(0.6 0.12 230 / 0.2);
+        color: oklch(0.8 0.1 230);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .issue .tx {
+        flex: 1;
+      }
+      .issue .tx p {
+        margin: 2px 0 0;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+      .issue .tx a {
+        color: oklch(0.8 0.17 152);
+        font-size: 13px;
+      }
+      .ic {
+        display: inline-flex;
+      }
+      .ic svg {
+        width: 18px;
+        height: 18px;
+      }
+      .ibtn {
+        height: 32px;
+        min-width: 32px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 6px;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+      .pill10 {
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        padding: 0 14px;
+        display: inline-flex;
+        align-items: center;
+      }
+      .row2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .ring {
+        width: 36px;
+        height: 36px;
+        border-radius: 99px;
+        border: 3px solid oklch(0.78 0.16 75);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .ring.big {
+        width: 52px;
+        height: 52px;
+        font-size: 15px;
+        border-color: oklch(0.75 0.16 152);
+      }
+      .jc {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .muted {
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+      .mm {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        background: oklch(0.6 0.15 152 / 0.25);
+        display: inline-block;
+        margin-top: 6px;
+      }
+      .mob {
+        padding: 14px;
+        font-size: 14px;
+      }
+      .mob .wrap {
+        padding: 0;
+      }
+      .mob .row2 {
+        grid-template-columns: 1fr;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="topbar">
+        <div>
+          <h1>Administração · 1b. Clientes: Pendências, Jornada e ficha</h1>
+          <p>
+            Passe o mouse ou toque nos botões de assumir e adiar, nas notas e nas marcas de loja.
+          </p>
+        </div>
+        <button class="toggle" id="theme" type="button">Mudar para o modo claro</button>
+      </div>
+      <div id="root"></div>
+    </div>
+    <div class="tip" id="tip" role="tooltip"></div>
+    <script>
+      const ICONS = {
+        UserCheck: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,0,0,12.25,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.25-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm197.66,33.66-32,32a8,8,0,0,1-11.32,0l-16-16a8,8,0,0,1,11.32-11.32L216,148.69l26.34-26.35a8,8,0,0,1,11.32,11.32Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M152.5,156.54a72,72,0,1,0-89,0,124,124,0,0,0-48.69,35.74,12,12,0,0,0,18.38,15.44C46.88,191.42,71,172,108,172s61.12,19.42,74.81,35.72a12,12,0,1,0,18.38-15.44A123.89,123.89,0,0,0,152.5,156.54ZM60,100a48,48,0,1,1,48,48A48.05,48.05,0,0,1,60,100Zm192.49,36.49-32,32a12,12,0,0,1-17,0l-16-16a12,12,0,0,1,17-17L212,143l23.51-23.52a12,12,0,1,1,17,17Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M253.66,133.66l-32,32a8,8,0,0,1-11.32,0l-16-16a8,8,0,0,1,11.32-11.32L216,148.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17A8,8,0,0,0,24,208H192a8,8,0,0,0,6.13-13.15C183.18,177.07,164.6,164.44,144,157.68Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M168,100a60,60,0,1,1-60-60A60,60,0,0,1,168,100Z" opacity="0.2"></path><path d="M144,157.68a68,68,0,1,0-71.9,0c-20.65,6.76-39.23,19.39-54.17,37.17a8,8,0,0,0,12.25,10.3C50.25,181.19,77.91,168,108,168s57.75,13.19,77.87,37.15a8,8,0,0,0,12.25-10.3C183.18,177.07,164.6,164.44,144,157.68ZM56,100a52,52,0,1,1,52,52A52.06,52.06,0,0,1,56,100Zm197.66,33.66-32,32a8,8,0,0,1-11.32,0l-16-16a8,8,0,0,1,11.32-11.32L216,148.69l26.34-26.35a8,8,0,0,1,11.32,11.32Z"></path></svg>',
+        },
+        ClockCountdown: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M232,136.66A104.12,104.12,0,1,1,119.34,24,8,8,0,0,1,120.66,40,88.12,88.12,0,1,0,216,135.34,8,8,0,0,1,232,136.66ZM120,72v56a8,8,0,0,0,8,8h56a8,8,0,0,0,0-16H136V72a8,8,0,0,0-16,0Zm40-24a12,12,0,1,0-12-12A12,12,0,0,0,160,48Zm36,24a12,12,0,1,0-12-12A12,12,0,0,0,196,72Zm24,36a12,12,0,1,0-12-12A12,12,0,0,0,220,108Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M236,137A108.13,108.13,0,1,1,119,20,12,12,0,0,1,121,44,84.12,84.12,0,1,0,212,135,12,12,0,1,1,236,137ZM116,76v52a12,12,0,0,0,12,12h52a12,12,0,0,0,0-24H140V76a12,12,0,0,0-24,0Zm92,20a16,16,0,1,0-16-16A16,16,0,0,0,208,96ZM176,64a16,16,0,1,0-16-16A16,16,0,0,0,176,64Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208,96a12,12,0,1,1,12,12A12,12,0,0,1,208,96ZM196,72a12,12,0,1,0-12-12A12,12,0,0,0,196,72Zm28.66,56a8,8,0,0,0-8.63,7.31A88.12,88.12,0,1,1,120.66,40,8,8,0,0,0,119.34,24,104.12,104.12,0,1,0,232,136.66,8,8,0,0,0,224.66,128ZM128,56a72,72,0,1,1-72,72A72.08,72.08,0,0,1,128,56Zm-8,72a8,8,0,0,0,8,8h48a8,8,0,0,0,0-16H136V80a8,8,0,0,0-16,0Zm40-80a12,12,0,1,0-12-12A12,12,0,0,0,160,48Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z" opacity="0.2"></path><path d="M232,136.66A104.12,104.12,0,1,1,119.34,24,8,8,0,0,1,120.66,40,88.12,88.12,0,1,0,216,135.34,8,8,0,0,1,232,136.66ZM120,72v56a8,8,0,0,0,8,8h56a8,8,0,0,0,0-16H136V72a8,8,0,0,0-16,0Zm40-24a12,12,0,1,0-12-12A12,12,0,0,0,160,48Zm36,24a12,12,0,1,0-12-12A12,12,0,0,0,196,72Zm24,36a12,12,0,1,0-12-12A12,12,0,0,0,220,108Z"></path></svg>',
+        },
+        BellZ: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M152,144a8,8,0,0,1-8,8H112a8,8,0,0,1-6.65-12.44L129.05,104H112a8,8,0,0,1,0-16h32a8,8,0,0,1,6.65,12.44L127,136h17A8,8,0,0,1,152,144Zm69.84,48A15.8,15.8,0,0,1,208,200H167.19a40,40,0,0,1-78.38,0H48a16,16,0,0,1-13.8-24.06C39.75,166.38,48,139.34,48,104a80,80,0,1,1,160,0c0,35.33,8.26,62.38,13.81,71.94A15.89,15.89,0,0,1,221.84,192Zm-71.22,8H105.38a24,24,0,0,0,45.24,0ZM208,184c-7.73-13.27-16-43.95-16-80a64,64,0,1,0-128,0c0,36.06-8.28,66.74-16,80Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M156,140a12,12,0,0,1-12,12H112a12,12,0,0,1-10-18.66L121.58,104H112a12,12,0,1,1,0-24h32a12,12,0,0,1,10,18.66L134.42,128H144A12,12,0,0,1,156,140Zm69.33,46A19.77,19.77,0,0,1,208,196H171.82a44,44,0,0,1-87.64,0H48a19.77,19.77,0,0,1-17.31-10,20.08,20.08,0,0,1,.05-20.06C39.39,151,44,129.58,44,104a84,84,0,0,1,168,0c0,25.57,4.59,47,13.27,61.93A20.08,20.08,0,0,1,225.34,186ZM147.6,196H108.4a20,20,0,0,0,39.2,0Zm53.74-24C192.49,154,188,131.13,188,104a60,60,0,0,0-120,0c0,27.14-4.48,50-13.33,68Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216Zm16-64H112a8,8,0,0,1-6.65-12.44L129.05,104H112a8,8,0,0,1,0-16h32a8,8,0,0,1,6.65,12.44L127,136h17a8,8,0,0,1,0,16Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M208,192H48a8,8,0,0,1-6.88-12C47.71,168.6,56,139.81,56,104a72,72,0,0,1,144,0c0,35.82,8.3,64.6,14.9,76A8,8,0,0,1,208,192Z" opacity="0.2"></path><path d="M152,144a8,8,0,0,1-8,8H112a8,8,0,0,1-6.65-12.44L129.05,104H112a8,8,0,0,1,0-16h32a8,8,0,0,1,6.65,12.44L127,136h17A8,8,0,0,1,152,144Zm69.84,48A15.8,15.8,0,0,1,208,200H167.19a40,40,0,0,1-78.38,0H48a16,16,0,0,1-13.8-24.06C39.75,166.38,48,139.34,48,104a80,80,0,1,1,160,0c0,35.33,8.26,62.38,13.81,71.94A15.89,15.89,0,0,1,221.84,192Zm-71.22,8H105.38a24,24,0,0,0,45.24,0ZM208,184c-7.73-13.27-16-43.95-16-80a64,64,0,1,0-128,0c0,36.06-8.28,66.74-16,80Z"></path></svg>',
+        },
+        ArrowCounterClockwise: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M228,128a100,100,0,0,1-98.66,100H128a99.39,99.39,0,0,1-68.62-27.29,12,12,0,0,1,16.48-17.45,76,76,0,1,0-1.57-109c-.13.13-.25.25-.39.37L54.89,92H72a12,12,0,0,1,0,24H24a12,12,0,0,1-12-12V56a12,12,0,0,1,24,0V76.72L57.48,57.06A100,100,0,0,1,228,128Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L60.63,81.29l17,17A8,8,0,0,1,72,112H24a8,8,0,0,1-8-8V56A8,8,0,0,1,29.66,50.3L49.31,70,60.25,60A96,96,0,0,1,224,128Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M216,128a88,88,0,1,1-88-88A88,88,0,0,1,216,128Z" opacity="0.2"></path><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"></path></svg>',
+        },
+        Storefront: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M232,96a7.89,7.89,0,0,0-.3-2.2L217.35,43.6A16.07,16.07,0,0,0,202,32H54A16.07,16.07,0,0,0,38.65,43.6L24.31,93.8A7.89,7.89,0,0,0,24,96h0v16a40,40,0,0,0,16,32v72a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V144a40,40,0,0,0,16-32V96ZM54,48H202l11.42,40H42.61Zm50,56h48v8a24,24,0,0,1-48,0Zm-16,0v8a24,24,0,0,1-35.12,21.26,7.88,7.88,0,0,0-1.82-1.06A24,24,0,0,1,40,112v-8ZM200,208H56V151.2a40.57,40.57,0,0,0,8,.8,40,40,0,0,0,32-16,40,40,0,0,0,64,0,40,40,0,0,0,32,16,40.57,40.57,0,0,0,8-.8Zm4.93-75.8a8.08,8.08,0,0,0-1.8,1.05A24,24,0,0,1,168,112v-8h48v8A24,24,0,0,1,204.93,132.2Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M236,96a12,12,0,0,0-.44-3.3L221.2,42.51A20.08,20.08,0,0,0,202,28H54A20.08,20.08,0,0,0,34.8,42.51L20.46,92.7A12,12,0,0,0,20,96h0v16a43.94,43.94,0,0,0,16,33.92V216a12,12,0,0,0,12,12H208a12,12,0,0,0,12-12V145.92A43.94,43.94,0,0,0,236,112V96ZM57.05,52H199l9.14,32H47.91Zm91,56v4a20,20,0,0,1-40,0v-4ZM53,128.71A20,20,0,0,1,44,112v-4H84v4a20,20,0,0,1-20,20,19.76,19.76,0,0,1-9.07-2.2A11.54,11.54,0,0,0,53,128.71ZM196,204H60V155.81c1.32.12,2.65.19,4,.19a43.86,43.86,0,0,0,32-13.85,43.89,43.89,0,0,0,64,0A43.86,43.86,0,0,0,192,156c1.35,0,2.68-.07,4-.19Zm16-92a20,20,0,0,1-9,16.71,11.66,11.66,0,0,0-1.88,1.09A20,20,0,0,1,172,112v-4h40Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M231.69,93.81,217.35,43.6A16.07,16.07,0,0,0,202,32H54A16.07,16.07,0,0,0,38.65,43.6L24.31,93.81A7.94,7.94,0,0,0,24,96v16a40,40,0,0,0,16,32v72a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V144a40,40,0,0,0,16-32V96A7.94,7.94,0,0,0,231.69,93.81ZM88,112a24,24,0,0,1-35.12,21.26,7.88,7.88,0,0,0-1.82-1.06A24,24,0,0,1,40,112v-8H88Zm64,0a24,24,0,0,1-48,0v-8h48Zm64,0a24,24,0,0,1-11.07,20.2,8.08,8.08,0,0,0-1.8,1.05A24,24,0,0,1,168,112v-8h48Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,96v16a32,32,0,0,1-64,0V96H96v16a32,32,0,0,1-64,0V96L46.34,45.8A8,8,0,0,1,54,40H202a8,8,0,0,1,7.69,5.8Z" opacity="0.2"></path><path d="M231.69,93.81,217.35,43.6A16.07,16.07,0,0,0,202,32H54A16.07,16.07,0,0,0,38.65,43.6L24.31,93.81A7.94,7.94,0,0,0,24,96v16a40,40,0,0,0,16,32v72a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V144a40,40,0,0,0,16-32V96A7.94,7.94,0,0,0,231.69,93.81ZM54,48H202l11.42,40H42.61Zm98,56v8a24,24,0,0,1-48,0v-8ZM51.06,132.2A24,24,0,0,1,40,112v-8H88v8a24,24,0,0,1-35.12,21.26A7.88,7.88,0,0,0,51.06,132.2ZM200,208H56V151.2a40.57,40.57,0,0,0,8,.8,40,40,0,0,0,32-16,40,40,0,0,0,64,0,40,40,0,0,0,32,16,40.57,40.57,0,0,0,8-.8Zm16-96a24,24,0,0,1-11.07,20.2,8.08,8.08,0,0,0-1.8,1.05A24,24,0,0,1,168,112v-8h48Z"></path></svg>',
+        },
+        Headset: {
+          regular:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M201.89,54.66A103.43,103.43,0,0,0,128.79,24H128A104,104,0,0,0,24,128v56a24,24,0,0,0,24,24H64a24,24,0,0,0,24-24V144a24,24,0,0,0-24-24H40.36A88.12,88.12,0,0,1,190.54,65.93,87.39,87.39,0,0,1,215.65,120H192a24,24,0,0,0-24,24v40a24,24,0,0,0,24,24h24a24,24,0,0,1-24,24H136a8,8,0,0,0,0,16h56a40,40,0,0,0,40-40V128A103.41,103.41,0,0,0,201.89,54.66ZM64,136a8,8,0,0,1,8,8v40a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V136Zm128,56a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8h24v56Z"></path></svg>',
+          bold: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M204.73,51.85A108.07,108.07,0,0,0,20,128v56a28,28,0,0,0,28,28H64a28,28,0,0,0,28-28V144a28,28,0,0,0-28-28H44.84A84.05,84.05,0,0,1,128,44h.64a83.7,83.7,0,0,1,82.52,72H192a28,28,0,0,0-28,28v40a28,28,0,0,0,28,28h19.6A20,20,0,0,1,192,228H136a12,12,0,0,0,0,24h56a44.05,44.05,0,0,0,44-44V128A107.34,107.34,0,0,0,204.73,51.85ZM64,140a4,4,0,0,1,4,4v40a4,4,0,0,1-4,4H48a4,4,0,0,1-4-4V140Zm124,44V144a4,4,0,0,1,4-4h20v48H192A4,4,0,0,1,188,184Z"></path></svg>',
+          fill: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M232,128v80a40,40,0,0,1-40,40H136a8,8,0,0,1,0-16h56a24,24,0,0,0,24-24H192a24,24,0,0,1-24-24V144a24,24,0,0,1,24-24h23.65A88,88,0,0,0,66,65.54,87.29,87.29,0,0,0,40.36,120H64a24,24,0,0,1,24,24v40a24,24,0,0,1-24,24H48a24,24,0,0,1-24-24V128A104.11,104.11,0,0,1,201.89,54.66,103.41,103.41,0,0,1,232,128Z"></path></svg>',
+          duotone:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M80,144v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V128H64A16,16,0,0,1,80,144Zm112-16a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16h32V128Z" opacity="0.2"></path><path d="M201.89,54.66A104.08,104.08,0,0,0,24,128v56a24,24,0,0,0,24,24H64a24,24,0,0,0,24-24V144a24,24,0,0,0-24-24H40.36A88.12,88.12,0,0,1,190.54,65.93,87.39,87.39,0,0,1,215.65,120H192a24,24,0,0,0-24,24v40a24,24,0,0,0,24,24h24a24,24,0,0,1-24,24H136a8,8,0,0,0,0,16h56a40,40,0,0,0,40-40V128A103.41,103.41,0,0,0,201.89,54.66ZM64,136a8,8,0,0,1,8,8v40a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V136Zm128,56a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8h24v56Z"></path></svg>',
+        },
+      };
+      const HINT = {
+        assign: "Assumir: a pendência fica com você e sai da fila dos colegas",
+        snooze: "Adiar por alguns dias, quando depende do cliente",
+        score: "Nota 42: atenção (abaixo de 40 é crítico; de 70 para cima, bem)",
+        big: "Nota 100: bem (abaixo de 40 é crítico; de 70 para cima, bem)",
+        store: "Ana Casa & Beleza (loja simulada)",
+      };
+      const PROPOSALS = [
+        {
+          key: "now",
+          letter: "–",
+          title: "Como está hoje",
+          note: 'Em Pendências, "Assumir" tem só o nome na legenda e "Adiar" usa a dica do navegador. O relógio de "Adiar" é o mesmo ícone de "atrasado" no app. As notas na Jornada e na ficha não se explicam, e as marcas de loja na Jornada não dizem qual loja é.',
+        },
+        {
+          key: "a",
+          letter: "A",
+          title: "Legendas e um ícone próprio para adiar (recomendada)",
+          note: 'Legendas que dizem o que acontece em "Assumir" e "Adiar", com a legenda do app no lugar da do navegador. "Adiar" troca o relógio pelo sino com "z" (soneca), porque o relógio já quer dizer "atrasado". Nas notas, a mesma legenda da lista; nas marcas de loja, o nome da loja.',
+        },
+        {
+          key: "b",
+          letter: "B",
+          title: "Mantém o relógio",
+          note: 'Como A, mas "Adiar" continua com o relógio.',
+        },
+        {
+          key: "c",
+          letter: "C",
+          title: "Botões com texto",
+          note: 'Como A, e no computador os dois botões mostram o texto ("Assumir", "Adiar"); no celular ficam só com ícone e legenda.',
+        },
+      ];
+      const ic = (n) => `<span class="ic">${ICONS[n].regular}</span>`;
+      const tipOf = (k, t, nowTip = "") =>
+        k === "now"
+          ? nowTip
+            ? ` data-tip="${nowTip}" tabindex="0"`
+            : ""
+          : ` data-tip="${t}" tabindex="0"`;
+      function issue(k, mobile) {
+        const text = k === "c" && !mobile;
+        const snoozeIcon = k === "b" || k === "now" ? "ClockCountdown" : "BellZ";
+        return `<div class="card10"><div class="issue"><span class="mk">${ic("Headset")}</span><div class="tx">1 chamado aguardando resposta<p>O cliente espera um retorno da equipe.</p><a>Daniel Souza</a></div>
+    <span class="ibtn"${tipOf(k, HINT.assign, "Assumir")}>${ic("UserCheck")}${text ? "Assumir" : ""}</span><span class="ibtn"${tipOf(k, HINT.snooze)}>${ic(snoozeIcon)}${text ? "Adiar" : ""}</span><span class="pill10">Responder</span></div></div>`;
+      }
+      function others(k) {
+        return `<div class="row2"><div class="card10"><b>Configurando</b><div class="jc" style="margin-top:10px"><span class="ring"${tipOf(k, HINT.score)}>42</span>Daniel Souza</div><p class="muted">1 chamado aguardando resposta</p><span class="mm"${tipOf(k, HINT.store)}></span></div>
+    <div class="card10"><div class="jc"><span class="ring big"${tipOf(k, HINT.big)}>100</span><span><b style="font-size:18px">Ana Revendedora</b><br><span class="muted">demo@sellbridge.local · Ativo · Revendedor</span></span></div></div></div>`;
+      }
+      function desktop(k) {
+        return `<div class="wrap">${issue(k, false)}${others(k)}</div>`;
+      }
+      function mobile(k) {
+        return `<div class="mob"><div class="wrap">${issue(k, true)}${others(k)}</div></div>`;
+      }
+      function render() {
+        document.getElementById("root").innerHTML = PROPOSALS.map(
+          (p) => `
+    <section class="proposal ${p.key}" id="proposta-${p.key}">
+      <div class="proposal-head"><span class="letter">${p.letter}</span><h2>${p.title}</h2></div>
+      <p class="note">${p.note}</p>
+      <div class="frames">
+        <div><p class="frame-label">Computador · 1440 px (Pendências, Jornada e topo da ficha)</p><div class="frame desktop-fit"><div class="desktop">${desktop(p.key)}</div></div></div>
+        <div class="mobile-col"><p class="frame-label">Celular · 390 px</p><div class="frame" style="width:390px">${mobile(p.key)}</div></div>
+      </div>
+    </section>`,
+        ).join("");
+        fit();
+      }
+      function fit() {
+        document.querySelectorAll(".desktop-fit").forEach((box) => {
+          const inner = box.firstElementChild;
+          const scale = Math.min(1, box.clientWidth / 1440);
+          inner.style.transform = `scale(${scale})`;
+          box.style.height = `${inner.offsetHeight * scale}px`;
+        });
+      }
+      // Tooltip: 300 ms on hover, at once on focus, tap toggles, tap outside closes; flips below at the top edge.
+      const tip = document.getElementById("tip");
+      let timer = 0,
+        current = null;
+      function show(el) {
+        current = el;
+        tip.textContent = el.dataset.tip;
+        tip.classList.remove("below");
+        const r = el.getBoundingClientRect();
+        const w = tip.offsetWidth,
+          h = tip.offsetHeight;
+        const frame = (el.closest(".frame") ?? document.body).getBoundingClientRect();
+        let left = Math.max(
+          frame.left + 8,
+          Math.min(Math.min(window.innerWidth, frame.right) - w - 8, r.left + r.width / 2 - w / 2),
+        );
+        let top = r.top - h - 10;
+        if (top < 8) {
+          top = r.bottom + 10;
+          tip.classList.add("below");
+        }
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+        tip.style.setProperty("--arrow", `${r.left + r.width / 2 - left}px`);
+        tip.classList.add("on");
+      }
+      function hide() {
+        clearTimeout(timer);
+        current = null;
+        tip.classList.remove("on");
+      }
+      document.addEventListener("pointerover", (e) => {
+        if (e.pointerType === "touch") return;
+        const el = e.target.closest("[data-tip]");
+        if (el === current) return;
+        hide();
+        if (el) timer = setTimeout(() => show(el), 300);
+      });
+      document.addEventListener("pointerdown", (e) => {
+        if (e.pointerType !== "touch") return;
+        const el = e.target.closest("[data-tip]");
+        if (el && el !== current) {
+          hide();
+          show(el);
+          return;
+        }
+        hide();
+      });
+      document.addEventListener("focusin", (e) => {
+        const el = e.target.closest("[data-tip]");
+        if (el) show(el);
+      });
+      document.addEventListener("focusout", hide);
+      window.addEventListener("scroll", hide, { passive: true });
+      window.addEventListener("resize", fit);
+      const themeButton = document.getElementById("theme");
+      themeButton.addEventListener("click", () => {
+        const dark = document.documentElement.classList.toggle("dark");
+        themeButton.textContent = dark ? "Mudar para o modo claro" : "Mudar para o modo escuro";
+      });
+      render();
+      document.fonts.ready.then(fit);
+    </script>
+  </body>
+</html>

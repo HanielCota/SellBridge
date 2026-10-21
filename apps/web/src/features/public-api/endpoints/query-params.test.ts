@@ -39,5 +39,12 @@ describe("resolveApiPeriod", () => {
     expect(() => resolveApiPeriod({ from: "2024-01-01", to: "2026-03-01" }, now)).toThrow(
       /Período inválido/,
     );
+    // Year 0 or 10000 would reach the database as an out-of-range timestamp.
+    expect(() => resolveApiPeriod({ from: "0001-01-01", to: "0001-01-30" }, now)).toThrow(
+      /Período inválido/,
+    );
+    expect(() => resolveApiPeriod({ from: "9999-12-31", to: "9999-12-31" }, now)).toThrow(
+      /Período inválido/,
+    );
   });
 });

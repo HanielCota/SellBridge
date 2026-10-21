@@ -1,4 +1,6 @@
-import { applyBillingEvent, lockBillingCustomer } from "@sellbridge/database/repositories";
+import { applyBillingEvent, findBillingCustomer } from "@sellbridge/database/repositories";
+import { pastDueAccessEnd } from "@sellbridge/shared/billing";
+import { readTextWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
@@ -15,7 +17,13 @@ const subscriptionSchema = z.object({
   pause_collection: z.unknown().nullish(),
   items: z.object({
     data: z
-      .array(z.object({ current_period_end: z.number(), price: z.object({ id: z.string() }) }))
+      .array(
+        z.object({
+          current_period_start: z.number(),
+          current_period_end: z.number(),
+          price: z.object({ id: z.string() }),
+        }),
+      )
       .min(1),
   }),
 });
@@ -23,10 +31,8 @@ const subscriptionSchema = z.object({
 export async function handleBillingWebhook(request: Request) {
   if (!billingConfigured() || !environment.STRIPE_WEBHOOK_SECRET)
     return new Response("Billing unavailable", { status: 503 });
-  if (Number(request.headers.get("content-length")) > 1048576)
-    return new Response("Payload too large", { status: 413 });
-  const body = await request.text();
-  if (Buffer.byteLength(body) > 1048576) return new Response("Payload too large", { status: 413 });
+  const body = await readTextWithin(request, 1048576);
+  if (body === null) return new Response("Payload too large", { status: 413 });
   const stripe = stripeClient();
   let event;
   try {
@@ -52,7 +58,7 @@ export async function handleBillingWebhook(request: Request) {
     const object = billingEventReference(event.type, event.data.object);
     if (!object) return Response.json({ received: true });
     // Fetch current state: delayed or reordered deliveries cannot restore an old plan.
-    await synchronizeBillingEvent({ eventId: event.id, eventCreated: event.created, object });
+    await synchronizeBillingEvent({ eventId: event.id, object });
     return Response.json({ received: true });
   } catch (error) {
     logger.error("billing.webhook_failed", { eventId: event.id, error });
@@ -90,50 +96,81 @@ function billingEventReference(type: string, value: unknown) {
     : null;
 }
 
+/**
+ * Stripe is read before the transaction opens (item 16.a, N5), so no row or pooled connection
+ * waits on the provider. Two deliveries can then race; the account keeps the state read last
+ * (`observedAt`), which is at least as new as every event already delivered. A timeout fails the
+ * webhook, which Stripe sends again.
+ */
+const STRIPE_WEBHOOK_LIMITS = { timeout: 5_000, maxNetworkRetries: 1 } as const;
+
+async function currentSubscription(object: { id: string; customer: string }) {
+  const stripe = stripeClient();
+  const subscriptions = await stripe.subscriptions.list(
+    { customer: object.customer, status: "all", limit: 100 },
+    STRIPE_WEBHOOK_LIMITS,
+  );
+  const current = subscriptions.data.find(
+    (candidate) => !["canceled", "incomplete_expired"].includes(candidate.status),
+  );
+  return subscriptionSchema.parse(
+    current ?? (await stripe.subscriptions.retrieve(object.id, {}, STRIPE_WEBHOOK_LIMITS)),
+  );
+}
+
+function planOfPrice(priceId: string | undefined) {
+  if (priceId === environment.STRIPE_PRO_PRICE_ID) return "pro";
+  if (priceId === environment.STRIPE_BUSINESS_PRICE_ID) return "business";
+  return "free";
+}
+
+type StripeSubscription = z.infer<typeof subscriptionSchema>;
+
+/**
+ * Until when the plan is paid: the period end, cut by a cancellation or termination. A past_due
+ * subscription keeps it only for the grace after the failed renewal (item 16, N9).
+ */
+function paidUntil(subscription: StripeSubscription) {
+  const item = subscription.items.data[0];
+  if (!item) return null;
+  const periodEnd = new Date(
+    Math.min(
+      item.current_period_end,
+      subscription.cancel_at ?? item.current_period_end,
+      subscription.ended_at ?? item.current_period_end,
+    ) * 1000,
+  );
+  if (subscription.status !== "past_due") return periodEnd;
+  const periodStart = new Date(item.current_period_start * 1000);
+  return pastDueAccessEnd({ periodStart, periodEnd }, environment.BILLING_PAST_DUE_GRACE_DAYS);
+}
+
+function billingStateOf(subscription: StripeSubscription) {
+  const item = subscription.items.data[0];
+  return {
+    customerId: subscription.customer,
+    subscriptionId: subscription.id,
+    plan: planOfPrice(item?.price.id),
+    status: subscription.pause_collection ? "paused" : subscription.status,
+    periodEnd: paidUntil(subscription),
+    cancelAtPeriodEnd: subscription.cancel_at_period_end || subscription.cancel_at != null,
+  };
+}
+
 async function synchronizeBillingEvent(input: {
   eventId: string;
-  eventCreated: number;
   object: { id: string; customer: string };
 }) {
-  const stripe = stripeClient();
+  const account = await findBillingCustomer(database, input.object.customer);
+  if (!account) return;
+  // Stamped before the read: a slow answer must not outrank a read that started after it.
+  const observedAt = Date.now();
+  const subscription = await currentSubscription(input.object);
   await database.transaction(async (transaction) => {
-    const account = await lockBillingCustomer(transaction, input.object.customer);
-    if (!account) return;
-    const subscriptions = await stripe.subscriptions.list({
-      customer: input.object.customer,
-      status: "all",
-      limit: 100,
-    });
-    const current = subscriptions.data.find(
-      (candidate) => !["canceled", "incomplete_expired"].includes(candidate.status),
-    );
-    const subscription = subscriptionSchema.parse(
-      current ?? (await stripe.subscriptions.retrieve(input.object.id)),
-    );
-    const item = subscription.items.data[0];
-    const plan =
-      item?.price.id === environment.STRIPE_PRO_PRICE_ID
-        ? "pro"
-        : item?.price.id === environment.STRIPE_BUSINESS_PRICE_ID
-          ? "business"
-          : "free";
     await applyBillingEvent(transaction, {
       eventId: input.eventId,
-      eventCreated: input.eventCreated,
-      customerId: subscription.customer,
-      subscriptionId: subscription.id,
-      plan,
-      status: subscription.pause_collection ? "paused" : subscription.status,
-      periodEnd: item
-        ? new Date(
-            Math.min(
-              item.current_period_end,
-              subscription.cancel_at ?? item.current_period_end,
-              subscription.ended_at ?? item.current_period_end,
-            ) * 1000,
-          )
-        : null,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end || subscription.cancel_at != null,
+      observedAt,
+      ...billingStateOf(subscription),
     });
   });
 }

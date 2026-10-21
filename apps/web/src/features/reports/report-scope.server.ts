@@ -1,5 +1,10 @@
 import type { ReportScope } from "@sellbridge/database/repositories";
-import { resolvePeriod } from "@sellbridge/shared/period-range";
+import {
+  chartRanges,
+  dayRangeWithin,
+  resolvePeriod,
+  type ResolvedPeriod,
+} from "@sellbridge/shared/period-range";
 import type { PeriodSearch } from "@sellbridge/shared/schemas";
 import { environment } from "@/lib/server/environment";
 
@@ -13,4 +18,33 @@ export function buildReportScope(tenantId: string, search: PeriodSearch, now = n
     platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
   };
   return { period, scope };
+}
+
+/** The scopes of the chart's two series: today's hourly chart stops at the current hour. */
+export function chartScopes(
+  scope: ReportScope,
+  period: ResolvedPeriod,
+  now: Date,
+): { current: ReportScope; previous: ReportScope } {
+  const ranges = chartRanges(period, now);
+  return {
+    current: { ...scope, range: ranges.current },
+    previous: { ...scope, range: ranges.previous },
+  };
+}
+
+/**
+ * The scope cut down to one day the user picked on the profit chart. A day outside the period
+ * (an old link, a hand-edited URL) is ignored, and `day` comes back null so the page knows.
+ */
+export function narrowToDay(
+  scope: ReportScope,
+  period: ResolvedPeriod,
+  day: string | undefined,
+): { scope: ReportScope; day: string | null } {
+  const range = dayRangeWithin(period, day);
+  if (!range || !day) {
+    return { scope, day: null };
+  }
+  return { scope: { ...scope, range }, day };
 }

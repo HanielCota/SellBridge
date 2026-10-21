@@ -15,6 +15,8 @@ describe("presentFinancialSummary", () => {
         commissionCents: 300,
         platformFeeCents: 500,
         profitCents: 9000,
+        pendingCostOrders: 1,
+        pendingCostRevenueCents: 4000,
         averageTicketCents: 10_000,
       },
       { fromDate: "2026-03-01", toDate: "2026-03-07" },
@@ -23,6 +25,7 @@ describe("presentFinancialSummary", () => {
       period: { from: "2026-03-01", to: "2026-03-07" },
       orders: 2,
       cancelledOrders: 1,
+      pendingCostOrders: 1,
       averageTicketCents: 10_000,
       totals: {
         revenueCents: 20_000,
@@ -33,6 +36,7 @@ describe("presentFinancialSummary", () => {
         commissionsCents: 300,
         platformFeeCents: 500,
         profitCents: 9000,
+        pendingCostRevenueCents: 4000,
       },
     });
   });

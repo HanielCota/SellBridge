@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoHydrated, uniqueEmail } from "./helpers";
+import { DEMO_USER, gotoHydrated, uniqueEmail } from "./helpers";
 
 test("redireciona visitante sem sessão para o login", async ({ page }) => {
   await page.goto("/dashboard");
@@ -20,6 +20,7 @@ test("cadastra, sai e entra novamente", async ({ page }) => {
   await page.getByLabel("Nome").fill("Revendedora Teste");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill("senha-segura-123");
+  await page.getByLabel(/Li e aceito os termos de uso/).check();
   await page.getByRole("button", { name: "Criar conta" }).click();
   await expect(page).not.toHaveURL(/\/cadastro/);
 
@@ -59,6 +60,24 @@ test("cadastro só marca erro depois que o campo é deixado e mostra a regra da 
   );
 });
 
+test("cadastro mostra a força da senha enquanto ela é digitada", async ({ page }) => {
+  await gotoHydrated(page, "/cadastro");
+  const password = page.getByLabel("Senha", { exact: true });
+  const strength = page.locator("output[aria-live]");
+  await expect(strength).toBeHidden();
+
+  await password.fill("casa");
+  await expect(strength).toHaveText("Senha fraca");
+  await expect(page.getByText("Mínimo de 8 caracteres")).toBeVisible();
+
+  await password.fill("Casa7mar");
+  await expect(strength).toHaveText("Senha média");
+  await expect(page.getByText("Mínimo de 8 caracteres")).toBeHidden();
+
+  await password.fill("Casa7mar!");
+  await expect(strength).toHaveText("Senha forte");
+});
+
 test("pede link de redefinição de senha sem revelar se a conta existe", async ({ page }) => {
   await gotoHydrated(page, "/login");
   await page.getByRole("link", { name: "Esqueceu a senha?" }).click();
@@ -74,6 +93,17 @@ test("link de redefinição inválido oferece pedir um novo", async ({ page }) =
   await expect(page.getByText("Este link é inválido ou expirou.", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "Pedir um novo link" })).toBeVisible();
 });
+
+for (const redirect of ["//example.com/dashboard", "/\\example.com/dashboard"]) {
+  test(`o login ignora um redirect para outro site (${redirect})`, async ({ page }) => {
+    await gotoHydrated(page, `/login?redirect=${encodeURIComponent(redirect)}`);
+    await page.getByLabel("E-mail").fill(DEMO_USER.email);
+    await page.getByLabel("Senha", { exact: true }).fill(DEMO_USER.password);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    // The default destination, on this site: not example.com, nor a path made from it.
+    await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/dashboard(\?|$)/);
+  });
+}
 
 test("termos e privacidade são páginas públicas", async ({ page }) => {
   await page.goto("/termos");

@@ -1,4 +1,4 @@
-import { type AppErrorCode, isAppError } from "@sellbridge/shared/errors";
+import { type AppErrorCode, forbiddenError, isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 
 const STATUS_BY_CODE: Record<AppErrorCode, number> = {
@@ -10,6 +10,7 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   EXTERNAL_PROVIDER: 502,
   EXTERNAL_PROVIDER_AUTH: 502,
   CONFIGURATION: 500,
+  RATE_LIMITED: 429,
 };
 
 export function jsonResponse(status: number, body: unknown): Response {
@@ -29,5 +30,18 @@ export async function handleApi(event: string, run: () => Promise<Response>): Pr
     }
     logger.error(`${event}.failed`, { error });
     return jsonResponse(500, { error: "Erro inesperado. Tente novamente." });
+  }
+}
+
+/**
+ * Refuses a cookie-authenticated write sent by a page of another origin (a sibling subdomain
+ * posting a form with the user's cookies). Server functions get this from TanStack's CSRF
+ * middleware; plain API routes that change data call it first. Browsers send `Origin` on every
+ * POST and DELETE, so a missing one means a non-browser client, which carries no stolen cookie.
+ */
+export function assertSameOrigin(request: Request, applicationUrl: string): void {
+  const origin = request.headers.get("origin");
+  if (origin !== null && origin !== new URL(applicationUrl).origin) {
+    throw forbiddenError("Origem da solicitação não autorizada");
   }
 }

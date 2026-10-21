@@ -1,0 +1,5 @@
+ALTER TABLE "suppliers" ADD COLUMN "catalog_kind" text DEFAULT 'supplier' NOT NULL;--> statement-breakpoint
+ALTER TABLE "suppliers" ADD COLUMN "owner_tenant_id" text;--> statement-breakpoint
+ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_owner_tenant_id_organization_id_fk" FOREIGN KEY ("owner_tenant_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "suppliers_owner_tenant_id_unique" ON "suppliers" USING btree ("owner_tenant_id");--> statement-breakpoint
+ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_catalog_owner_check" CHECK (("suppliers"."catalog_kind" = 'supplier' and "suppliers"."owner_tenant_id" is null) or ("suppliers"."catalog_kind" = 'seller' and "suppliers"."owner_tenant_id" is not null and "suppliers"."organization_id" is null));

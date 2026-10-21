@@ -2,12 +2,16 @@ import { z } from "zod";
 import { validationError } from "../runtime/errors.ts";
 import {
   adminProductValuesSchema,
+  knownCostCentsSchema,
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
 } from "../schemas/admin-suppliers.ts";
+import { freeText } from "../schemas/common.ts";
+import { LISTING_MAX_PRICE_CENTS } from "../schemas/stores.ts";
+import { PRODUCT_CSV_ATTRIBUTE_COLUMNS, parseCsvAttributes } from "./product-csv-attributes.ts";
 
 export const PRODUCT_CSV_TEMPLATE =
-  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90\r\n";
+  "\uFEFFsku;titulo;descricao;custo;estoque;categoria;imagens;ativo;preco_sugerido;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm\r\nEXEMPLO-001;Produto de exemplo;Descrição do produto;12,90;10;;https://example.com/produto.jpg;sim;19,90;Marca Exemplo;MOD-01;7891234567895;350;10;15;20\r\n";
 const requiredColumns = ["sku", "titulo", "custo", "estoque"];
 const allowedColumns = [
   ...requiredColumns,
@@ -16,6 +20,7 @@ const allowedColumns = [
   "imagens",
   "ativo",
   "preco_sugerido",
+  ...PRODUCT_CSV_ATTRIBUTE_COLUMNS,
 ];
 export interface ProductCsvError {
   line: number;
@@ -56,7 +61,7 @@ export function parseCsvMoney(input: string): number | null {
   }
   const [integer = "0", fraction = ""] = input.trim().split(/[,.]/);
   const cents = Number(integer) * 100 + Number(fraction.padEnd(2, "0"));
-  if (!Number.isSafeInteger(cents) || cents > 2_147_483_647) {
+  if (!Number.isSafeInteger(cents) || cents > LISTING_MAX_PRICE_CENTS) {
     return null;
   }
   return cents;
@@ -83,7 +88,16 @@ function finishRecord(cursor: CsvCursor): CsvCursor {
   };
 }
 
+/**
+ * Far above the template's columns. Without a ceiling, one 2 MiB line of delimiters becomes
+ * millions of fields, each copying the ones before it, and the import blocks the server.
+ */
+const MAX_CSV_COLUMNS = 50;
+
 function readUnquoted(cursor: CsvCursor, character: string, delimiter: string): CsvCursor {
+  if (character === delimiter && cursor.fields.length >= MAX_CSV_COLUMNS) {
+    throw validationError(`Cada linha do CSV aceita no máximo ${MAX_CSV_COLUMNS} colunas`);
+  }
   if (character === delimiter) {
     return { ...cursor, fields: [...cursor.fields, cursor.field.trim()], field: "", closed: false };
   }
@@ -151,7 +165,8 @@ function parseActive(value: string): boolean | null | undefined {
 const csvRowSchema = adminProductValuesSchema
   .omit({ categoryId: true, suggestedPriceCents: true })
   .extend({
-    categorySlug: z.string().trim().max(100).nullable(),
+    costCents: knownCostCentsSchema,
+    categorySlug: freeText().trim().max(100).nullable(),
     suggestedPriceCents: adminProductValuesSchema.shape.suggestedPriceCents.optional(),
     active: z.boolean().optional(),
   });
@@ -165,7 +180,32 @@ const fieldLabels: Record<string, string> = {
   imageUrls: "Imagens",
   active: "Ativo",
   categorySlug: "Categoria",
+  mercadoLivreAttributes: "Atributos do Mercado Livre",
 };
+
+function rowCandidate(
+  values: Readonly<Record<string, string>>,
+  sku: string,
+  mercadoLivreAttributes: Record<string, string>,
+) {
+  const stock = values.estoque ?? "";
+  const suggestedPrice = values.preco_sugerido ?? "";
+  return {
+    sku,
+    title: values.titulo,
+    description: values.descricao ?? "",
+    costCents: parseCsvMoney(values.custo ?? ""),
+    stock: /^\d+$/.test(stock) ? Number(stock) : null,
+    categorySlug: values.categoria || null,
+    imageUrls: (values.imagens ?? "")
+      .split("|")
+      .map((url) => url.trim())
+      .filter(Boolean),
+    active: parseActive(values.ativo ?? ""),
+    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
+    mercadoLivreAttributes,
+  };
+}
 
 function validateRecord(
   record: CsvRecord,
@@ -181,32 +221,28 @@ function validateRecord(
   const values = Object.fromEntries(
     headers.map((header, index) => [header, record.fields[index] ?? ""]),
   );
-  const sku = values.sku ?? "";
+  // Same form the schema stores (trimmed, NFC), so "CAFÉ-01" twice in two encodings is caught.
+  const sku = (values.sku ?? "").trim().normalize("NFC");
   if (seen.has(sku)) {
     return { line: record.line, reason: `SKU duplicado no arquivo: ${sku}` };
   }
   seen.add(sku);
-  const stock = values.estoque ?? "";
-  const suggestedPrice = values.preco_sugerido ?? "";
-  const parsed = csvRowSchema.safeParse({
-    sku,
-    title: values.titulo,
-    description: values.descricao ?? "",
-    costCents: parseCsvMoney(values.custo ?? ""),
-    stock: /^\d+$/.test(stock) ? Number(stock) : null,
-    categorySlug: values.categoria || null,
-    imageUrls: (values.imagens ?? "")
-      .split("|")
-      .map((url) => url.trim())
-      .filter(Boolean),
-    active: parseActive(values.ativo ?? ""),
-    suggestedPriceCents: suggestedPrice ? parseCsvMoney(suggestedPrice) : undefined,
-  });
-  if (!parsed.success) {
-    const reason = parsed.error.issues
-      .map((issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`)
-      .join("; ");
-    return { line: record.line, reason };
+  const attributes = parseCsvAttributes(values);
+  const parsed = csvRowSchema.safeParse(
+    rowCandidate(values, sku, "attributes" in attributes ? attributes.attributes : {}),
+  );
+  // Every bad cell at once (schema fields, then Mercado Livre attributes), so one round of
+  // fixes clears the line instead of a new error showing up after each one.
+  const reasons = [
+    ...(parsed.success
+      ? []
+      : parsed.error.issues.map(
+          (issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`,
+        )),
+    ...("reason" in attributes ? [attributes.reason] : []),
+  ];
+  if (!parsed.success || reasons.length > 0) {
+    return { line: record.line, reason: reasons.join("; ") };
   }
   return { line: record.line, product: parsed.data };
 }
