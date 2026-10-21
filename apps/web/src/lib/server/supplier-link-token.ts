@@ -15,12 +15,8 @@ export async function readLabelForm(request: Request): Promise<URLSearchParams |
 /**
  * The supplier link's token for actions that leave the page (the marketplace label): sent in a
  * POST body, never in a URL, where browser history, proxies and access logs would keep a 30-day
- * key to the buyer's address. Null when the request carries none.
+ * key to the buyer's address. Null when the form carries none.
  */
-export async function readSupplierToken(request: Request): Promise<string | null> {
-  return tokenOf(await readLabelForm(request));
-}
-
 export function tokenOf(form: URLSearchParams | null): string | null {
   const token = form?.get("token") ?? null;
   return token === null || token === "" ? null : token;

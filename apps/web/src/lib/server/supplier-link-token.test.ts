@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { hasTokenInUrl, readSupplierToken } from "./supplier-link-token";
+import { hasTokenInUrl, readLabelForm, tokenOf } from "./supplier-link-token";
 
 const LABEL_URL = "https://sellbridge.test/api/pedidos/order-1/etiqueta";
 const TOKEN = "a".repeat(43);
@@ -16,14 +16,20 @@ function formPost(fields: Record<string, string>): Request {
   });
 }
 
-describe("readSupplierToken", () => {
+describe("reading the label form", () => {
   it("reads the token from a form posted by the supplier page", async () => {
-    await expect(readSupplierToken(formPost({ token: TOKEN }))).resolves.toBe(TOKEN);
+    expect(tokenOf(await readLabelForm(formPost({ token: TOKEN })))).toBe(TOKEN);
   });
 
   it("finds none in a GET, even with the token in the URL", async () => {
-    await expect(readSupplierToken(new Request(`${LABEL_URL}?token=${TOKEN}`))).resolves.toBeNull();
-    await expect(readSupplierToken(formPost({}))).resolves.toBeNull();
+    expect(tokenOf(await readLabelForm(new Request(`${LABEL_URL}?token=${TOKEN}`)))).toBeNull();
+    expect(tokenOf(await readLabelForm(formPost({})))).toBeNull();
+  });
+
+  it("keeps the panel's ids for the session check", async () => {
+    const form = await readLabelForm(formPost({ supplierId: "s-1", shipmentId: "p-1" }));
+    expect(form?.get("shipmentId")).toBe("p-1");
+    expect(tokenOf(form)).toBeNull();
   });
 });
 
