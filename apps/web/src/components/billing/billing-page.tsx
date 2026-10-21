@@ -3,7 +3,6 @@ import { formatCents } from "@sellbridge/shared/money";
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { billingNoticeCopy } from "@/features/billing/billing-notice";
@@ -166,14 +165,11 @@ export function BillingPage({ returned }: { returned?: string | undefined }) {
   const { data } = useSuspenseQuery(billingQueryOptions());
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold">Planos e assinatura</h1>
-          <p className="mt-2 text-muted-foreground">
-            Escolha o plano para suas lojas. Os planos pagos renovam automaticamente a cada mês.
-          </p>
-        </div>
-        <TalkToSupportButton search={{ categoria: "payment" }} />
+      <div>
+        <h1 className="text-3xl font-semibold">Planos e assinatura</h1>
+        <p className="mt-2 text-muted-foreground">
+          Escolha o plano para suas lojas. Os planos pagos renovam automaticamente a cada mês.
+        </p>
       </div>
       {returned === "sucesso" ? (
         <output className="block">

@@ -192,7 +192,9 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   await expect(supportButton).toBeVisible();
   // One reply, one number: the bell lists it without counting it, the corner bubble shows none.
   await expect(reseller.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
-  await expect(reseller.getByRole("link", { name: "Abrir chamado", exact: true })).toBeVisible();
+  await expect(
+    reseller.getByRole("link", { name: "Falar com o suporte", exact: true }),
+  ).toBeVisible();
   await supportButton.click();
   await reseller.getByRole("link", { name: new RegExp(subject) }).click();
   await expect(reseller.getByText("O repasse cai toda sexta-feira.")).toBeVisible();

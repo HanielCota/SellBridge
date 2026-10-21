@@ -16,7 +16,6 @@ import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { type DayTotal, OrderStatement } from "@/components/financials/order-statement";
 import { ProfitSummary } from "@/components/financials/profit-summary";
@@ -73,13 +72,7 @@ function FinancialPage() {
 
 /** The export lives in the chart's tools, as on the dashboard. */
 function FinancialHeader() {
-  return (
-    <PageHeader
-      title="Financeiro"
-      description="Lucro por pedido e por período."
-      actions={<TalkToSupportButton search={{ categoria: "payment" }} />}
-    />
-  );
+  return <PageHeader title="Financeiro" description="Lucro por pedido e por período." />;
 }
 
 function FinancialSkeleton() {
