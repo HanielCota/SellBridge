@@ -40,7 +40,7 @@ async function expectClearHeader(page: Page) {
   }
 }
 
-/** The seller capsule has no scroll cue: a tab past its edge is clipped (Financeiro, 1536px+). */
+/** The capsule has no scroll cue: a tab past its edge is clipped (Financeiro, 1536px+). */
 async function expectEveryTabVisible(page: Page) {
   for (const width of DESKTOP_WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
@@ -57,6 +57,14 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await expectClearHeader(page);
+  await expectEveryTabVisible(page);
+  // The seller tabs fold into one menu tab; its pages stay one click away.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  await nav.getByRole("button", { name: "Revendedor" }).click();
+  await page.getByRole("menuitem", { name: "Pedidos" }).click();
+  await expect(page).toHaveURL(/\/pedidos/);
+  await expect(nav.getByRole("link", { name: "Chamados" })).toBeVisible();
 });
 
 test("seller header stays clear with a long account name", async ({ page }) => {

@@ -30,6 +30,8 @@ import {
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { UserAvatar } from "./user-avatar";
+import { navTabClassName, TabBadge } from "./nav-tab-parts";
+import { ProfileTabsMenu } from "./profile-tabs-menu";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { SupportButton } from "./support-button";
@@ -38,6 +40,11 @@ import { accountLabel } from "@/features/auth/account-label";
 import { UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
+
+interface ProfileGroup {
+  label: string;
+  items: readonly NavItem[];
+}
 
 /**
  * Reserve the side controls before allocating space to the navigation capsule. Admin mode
@@ -131,14 +138,7 @@ function NavTab({
       to={item.to}
       aria-current={isActive ? "page" : undefined}
       onClick={onNavigate}
-      className={cn(
-        "relative flex h-10 items-center gap-2 rounded-full text-base whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
-        isActive
-          ? "font-medium text-background"
-          : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-        isActive && paintsOwnPill && "bg-foreground",
-        padding,
-      )}
+      className={navTabClassName({ isActive, paintsOwnPill, padding })}
     >
       {TabIcon ? <TabIcon className={cn("shrink-0", iconClassName)} aria-hidden="true" /> : null}
       {item.label}
@@ -155,31 +155,6 @@ function NavTab({
     <Hint label={withHint ? action?.hint : undefined} openOnTap={false}>
       {link}
     </Hint>
-  );
-}
-
-function TabBadge({
-  isError,
-  count,
-  description,
-}: {
-  isError: boolean;
-  count: number;
-  description: string;
-}) {
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-          isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text",
-        )}
-      >
-        {count}
-      </span>
-      <span className="sr-only">, {description}</span>
-    </>
   );
 }
 
@@ -241,27 +216,55 @@ function MobileNav({
   );
 }
 
+/** A click that opens a new tab leaves this page, and its pill, where they are. */
+function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
+    return;
+  }
+  choose();
+}
+
+/** The lit pill under the chosen tab; a tab registers under every page it stands for. */
+function useTabPill(activeTo: NavItem["to"] | null) {
+  const chosen = useOptimisticChoice(activeTo);
+  const containerRef = useRef<HTMLElement>(null);
+  const tabRefs = useRef(new Map<string | null, HTMLElement>());
+  const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
+  const canAnimate = useAnimateAfterFirstPaint(indicator !== null);
+  // The profile menu's tab registers for each of its pages, so the pill lands on it.
+  const registerTab = (targets: readonly NavItem[], node: HTMLElement | null) => {
+    for (const target of targets) {
+      if (!node) {
+        tabRefs.current.delete(target.to);
+        continue;
+      }
+      tabRefs.current.set(target.to, node);
+    }
+  };
+  return { chosen, containerRef, indicator, canAnimate, registerTab };
+}
+
 /**
  * The tab capsule. One lit pill glides to the page you pick, like the period and status
  * controls; it moves on the click, while the next page still loads.
  */
 function DesktopNav({
   items,
+  profileGroup,
   pathname,
   counts,
   layout,
 }: {
   items: NavItem[];
+  /** Team mode folds the profile's own tabs into one menu tab ahead of the team's. */
+  profileGroup: ProfileGroup | null;
   pathname: string;
   counts: BadgeCounts;
   layout: Layout;
 }) {
-  const activeTo = items.find((item) => isItemActive(item, pathname))?.to ?? null;
-  const chosen = useOptimisticChoice(activeTo);
-  const containerRef = useRef<HTMLElement>(null);
-  const tabRefs = useRef(new Map<string | null, HTMLElement>());
-  const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
-  const canAnimate = useAnimateAfterFirstPaint(indicator !== null);
+  const allItems = [...(profileGroup?.items ?? []), ...items];
+  const activeTo = allItems.find((item) => isItemActive(item, pathname))?.to ?? null;
+  const { chosen, containerRef, indicator, canAnimate, registerTab } = useTabPill(activeTo);
   return (
     <nav
       ref={containerRef}
@@ -274,6 +277,18 @@ function DesktopNav({
       {indicator && chosen.value !== null ? (
         <TrackPill box={indicator} canAnimate={canAnimate} className="inset-y-1.5" />
       ) : null}
+      {profileGroup ? (
+        <ProfileTabsMenu
+          label={profileGroup.label}
+          items={profileGroup.items}
+          activeTo={chosen.value}
+          counts={counts}
+          paintsOwnPill={indicator === null}
+          padding={layout.tab}
+          triggerRef={(node) => registerTab(profileGroup.items, node)}
+          onChoose={chosen.choose}
+        />
+      ) : null}
       {items.map((item) => (
         <NavTab
           key={item.to}
@@ -284,20 +299,8 @@ function DesktopNav({
           padding={layout.tab}
           withHint
           iconClassName={layout.tabIcon}
-          tabRef={(node) => {
-            if (!node) {
-              tabRefs.current.delete(item.to);
-              return;
-            }
-            tabRefs.current.set(item.to, node);
-          }}
-          onNavigate={(event) => {
-            // A click that opens a new tab leaves this page where it is.
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
-              return;
-            }
-            chosen.choose(item.to);
-          }}
+          tabRef={(node) => registerTab([item], node)}
+          onNavigate={(event) => chooseOnPlainClick(event, () => chosen.choose(item.to))}
         />
       ))}
     </nav>
@@ -381,17 +384,29 @@ interface TopNavProps {
   readonly profileKind: ProfileKind;
 }
 
+/** Tabs for the phone sheet (all of them) and for the desktop capsule (profile ones folded). */
+function navigationFor(user: SessionUser, adminMode: boolean, isSupplier: boolean) {
+  const profileItems = isSupplier ? SUPPLIER_NAV_ITEMS : NAV_ITEMS;
+  if (!adminMode) {
+    return { items: profileItems, desktopItems: profileItems, profileGroup: null };
+  }
+  const teamItems = ADMIN_NAV_ITEMS.filter(
+    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
+  );
+  return {
+    items: [...profileItems, ...teamItems],
+    desktopItems: teamItems,
+    profileGroup: { label: isSupplier ? "Fornecedor" : "Revendedor", items: profileItems },
+  };
+}
+
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
   const supportReplies = counts.supportReplies;
-  const teamItems = ADMIN_NAV_ITEMS.filter(
-    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
-  );
   const isSupplier = profileKind === "supplier";
-  const profileItems = isSupplier ? SUPPLIER_NAV_ITEMS : NAV_ITEMS;
-  const items = adminMode ? [...profileItems, ...teamItems] : profileItems;
+  const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);
   const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
@@ -412,7 +427,13 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
             <BrandIcon className="size-10" />
           </Link>
         </div>
-        <DesktopNav items={items} pathname={pathname} counts={counts} layout={layout} />
+        <DesktopNav
+          items={desktopItems}
+          profileGroup={profileGroup}
+          pathname={pathname}
+          counts={counts}
+          layout={layout}
+        />
         <div className="flex items-center gap-2 justify-self-end">
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier ? null : <CommandPalette />}
