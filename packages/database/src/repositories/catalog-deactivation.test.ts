@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { parseProductCsv } from "@sellbridge/shared/product-csv";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { listingTargets, supplierProducts, suppliers } from "../schema/index.ts";
+import { listings, listingTargets, supplierProducts, suppliers } from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestTenants,
@@ -19,6 +19,7 @@ import {
 } from "./admin-suppliers.ts";
 import { setListingsPaused } from "./listing-actions.ts";
 import { getListingOverview } from "./listing-overview.ts";
+import { getTargetForPublishing } from "./listings.ts";
 import { listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -285,5 +286,62 @@ describe("what the reseller sees", () => {
       active: true,
     });
     expect(await unavailableInBell(first.tenantId, listingOfFirst)).toEqual([]);
+  });
+});
+
+async function priceListing(listingId: string, priceCents: number) {
+  await database.update(listings).set({ priceCents }).where(eq(listings.id, listingId));
+}
+
+async function costProduct(productId: string, costCents: number) {
+  await database
+    .update(supplierProducts)
+    .set({ costCents })
+    .where(eq(supplierProducts.id, productId));
+}
+
+describe("a supplier raising the cost past the listing price", () => {
+  it("stops the sale, says why on the listing and in the bell, and resumes once the price pays", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const targetOfFirst = product.targets.get(first.tenantId) ?? "";
+    const listingOfFirst = await listingIdOf(targetOfFirst);
+    const listingOfSecond = await listingIdOf(product.targets.get(second.tenantId) ?? "");
+    await priceListing(listingOfFirst, 3990);
+    await priceListing(listingOfSecond, 9990);
+
+    await costProduct(product.productId, 4500);
+
+    expect((await getListingOverview(database, first.tenantId, listingOfFirst)).unavailable).toBe(
+      "cost_above_price",
+    );
+    const publishing = await getTargetForPublishing(database, first.tenantId, targetOfFirst);
+    expect(publishing.availability.priceCoversCost).toBe(false);
+    expect(await unavailableInBell(first.tenantId, listingOfFirst)).toEqual([
+      expect.objectContaining({ reason: "cost_above_price" }),
+    ]);
+    // The other reseller's price still pays the new cost: their listing keeps selling.
+    expect(await unavailableInBell(second.tenantId, listingOfSecond)).toEqual([]);
+
+    await priceListing(listingOfFirst, 5990);
+    expect(
+      (await getListingOverview(database, first.tenantId, listingOfFirst)).unavailable,
+    ).toBeNull();
+    expect(await unavailableInBell(first.tenantId, listingOfFirst)).toEqual([]);
+  });
+
+  it("treats a cost equal to the price as a loss and one cent below it as a sale", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const listingId = await listingIdOf(product.targets.get(first.tenantId) ?? "");
+    await priceListing(listingId, 3990);
+
+    await costProduct(product.productId, 3990);
+    expect((await getListingOverview(database, first.tenantId, listingId)).unavailable).toBe(
+      "cost_above_price",
+    );
+
+    await costProduct(product.productId, 3989);
+    expect((await getListingOverview(database, first.tenantId, listingId)).unavailable).toBeNull();
   });
 });

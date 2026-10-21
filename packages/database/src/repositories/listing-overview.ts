@@ -24,7 +24,7 @@ import { availableStock } from "./sql/available-stock.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
 import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
-import { productListableColumn } from "./sql/sellable.ts";
+import { listingCoversCostColumn, productListableColumn } from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -162,6 +162,7 @@ async function pageOfListingIds(
 export const availabilityColumns = {
   productActive: productListableColumn(),
   supplierActive: suppliers.active,
+  priceCoversCost: listingCoversCostColumn(),
 };
 
 async function selectListingDetails(database: Database, ids: string[]) {
@@ -284,8 +285,8 @@ async function loadOverviewRows(
     if (!found) {
       return [];
     }
-    const { productActive, supplierActive, ...detail } = found;
-    const unavailable = unavailableReason({ productActive, supplierActive });
+    const { productActive, supplierActive, priceCoversCost, ...detail } = found;
+    const unavailable = unavailableReason({ productActive, supplierActive, priceCoversCost });
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));

@@ -1,5 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
-import { supplierProducts, suppliers } from "../../schema/index.ts";
+import { listings, supplierProducts, suppliers } from "../../schema/index.ts";
 
 /** Public supplier reads must never expose a seller's private inventory source. */
 export function publicSupplier(): SQL {
@@ -33,6 +33,28 @@ export function productListableColumn(): SQL<boolean> {
  */
 export function sellableOnMarketplace(): SQL {
   return sql`(${productListable()} and ${suppliers.active})`;
+}
+
+/**
+ * The listing's price still pays the supplier's current cost. Needs `listings` and
+ * `supplier_products` in the FROM clause.
+ */
+export function listingCoversCost(): SQL {
+  return sql`(${listings.priceCents} > ${supplierProducts.costCents})`;
+}
+
+/** `listingCoversCost` as a column, for `CatalogAvailability.priceCoversCost`. */
+export function listingCoversCostColumn(): SQL<boolean> {
+  return sql<boolean>`${listingCoversCost()}`.mapWith(Boolean);
+}
+
+/**
+ * Mirrors `unavailableReason` being null for a live listing: a sellable product whose cost the
+ * listing's price still covers. Stock synced to the marketplace drops to zero otherwise, which
+ * is how a listing pauses there. Needs `listings`, `supplier_products` and `suppliers`.
+ */
+export function listingSellable(): SQL {
+  return sql`(${sellableOnMarketplace()} and ${listingCoversCost()})`;
 }
 
 /**
