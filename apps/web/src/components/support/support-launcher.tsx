@@ -39,9 +39,10 @@ export function SupportLauncher() {
     return null;
   }
   const topic = launcherTopic(pathname);
-  // Its own landmark: the bubble sits outside <main>, and every piece of the page needs one.
+  // Outside <main>, so it needs a landmark of its own: content outside every landmark is lost
+  // to screen-reader users skipping between regions (axe "region").
   return (
-    <aside aria-label="Atalho do suporte">
+    <aside aria-label="Suporte">
       <Link
         to="/suporte/novo"
         search={topic === undefined ? {} : { categoria: topic }}
