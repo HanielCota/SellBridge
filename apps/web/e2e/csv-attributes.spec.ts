@@ -57,7 +57,7 @@ async function importProductWithAttributes(page: Page) {
     `${SKU};${TITLE};Escova de cerdas macias para cabelos finos;19,90;8;Escova Bela;EB-10;7891234567895;350;6;12;25`,
   ].join("\n");
   await page
-    .getByLabel("Arquivo CSV (UTF-8)")
+    .getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx")
     .setInputFiles({ name: "atributos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByRole("button", { name: "Gerar prévia" }).click();
   await expect(
