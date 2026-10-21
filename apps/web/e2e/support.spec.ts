@@ -26,9 +26,8 @@ async function openTicket(page: Page, body: string): Promise<string> {
   await gotoHydrated(page, "/suporte/novo");
   await describeLateOrder(page, body);
   await page.getByRole("button", { name: "Enviar chamado" }).click();
-  const subject = lateOrderSubject(body);
-  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
-  return subject;
+  await expect(page.getByRole("heading", { name: "O pedido atrasou", exact: true })).toBeVisible();
+  return lateOrderSubject(body);
 }
 
 async function openAsStaff(page: Page, subject: string) {
@@ -78,10 +77,13 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   ).toBeVisible();
   await reseller.getByRole("button", { name: "Enviar chamado" }).click();
 
-  await expect(reseller.getByRole("heading", { name: subject })).toBeVisible();
-  const resellerHeader = reseller.getByRole("heading", { name: subject }).locator("..");
-  await expect(resellerHeader.getByText("Aguardando suporte")).toBeVisible();
-  await expect(reseller.getByText(/Resposta prevista até/)).toBeVisible();
+  // The customer reads the topic as the title; their own words stay in the message below.
+  await expect(
+    reseller.getByRole("heading", { name: "O pedido atrasou", exact: true }),
+  ).toBeVisible();
+  await expect(reseller.getByText("Esperando o suporte.")).toBeVisible();
+  // A promise in business days, never an hour that may pass overnight.
+  await expect(reseller.getByText(/Respondemos em até 1 dia útil/)).toBeVisible();
   await expect(reseller.getByRole("link", { name: /comprovante\.pdf/ })).toBeVisible();
   // Without a photo the reseller's own message shows their initials, like the top bar does.
   const resellerMessages = reseller.getByRole("list", { name: "Mensagens do chamado" });
@@ -92,7 +94,7 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await expect(admin.getByLabel("Contexto do cliente").getByText(/^e2e-/)).toBeVisible();
   await expect(admin.getByLabel("Atendimento").getByText(/^Vence em/)).toBeVisible();
   const adminMessages = admin.getByRole("list", { name: "Mensagens do chamado" });
-  await expect(adminMessages.getByText("O pedido SIM-123 ainda não foi entregue")).toBeVisible();
+  await expect(adminMessages.getByText(body)).toBeVisible();
   await expect(adminMessages.getByText("RS", { exact: true })).toBeVisible();
 
   const download = admin.waitForEvent("download");
@@ -122,12 +124,12 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await reseller.reload({ waitUntil: "networkidle" });
   await expect(reseller.getByText("Verificamos com o fornecedor: o envio sai hoje.")).toBeVisible();
   await expect(reseller.getByText("Fornecedor confirmou atraso na coleta.")).toBeHidden();
-  await expect(resellerHeader.getByText("Encerrado", { exact: true })).toBeVisible();
-  await expect(reseller.getByText("Responder reabre o chamado")).toBeVisible();
+  await expect(reseller.getByText("Encerrado.", { exact: true })).toBeVisible();
+  await expect(reseller.getByText(/Escreva abaixo e o chamado reabre/)).toBeVisible();
   await reseller.getByLabel("Sua resposta").fill("Ainda não chegou, podem verificar de novo?");
-  await reseller.getByRole("button", { name: "Enviar resposta" }).click();
-  await expect(reseller.getByText("Resposta enviada")).toBeVisible();
-  await expect(resellerHeader.getByText("Aguardando suporte")).toBeVisible();
+  await reseller.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(reseller.getByText("Mensagem enviada")).toBeVisible();
+  await expect(reseller.getByText("Esperando o suporte.")).toBeVisible();
 
   await resellerContext.close();
   await adminContext.close();
@@ -165,8 +167,10 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
   // Reading the reply clears the count on the button.
   await expect(reseller.getByRole("button", { name: "Suporte", exact: true })).toBeVisible();
 
-  await reseller.getByRole("button", { name: "Encerrar chamado" }).click();
-  await expect(reseller.getByText("Como foi o atendimento?")).toBeVisible();
+  await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
+  await reseller.getByRole("button", { name: "Sim, resolveu" }).click();
+  // Closes once the undo window is over.
+  await expect(reseller.getByText("Como foi o atendimento?")).toBeVisible({ timeout: 15_000 });
   // The radio is visually hidden behind its star, so it is checked without the visibility wait.
   await reseller.getByRole("radio", { name: "5 estrelas: Excelente" }).check({ force: true });
   await reseller.getByLabel("Comentário (opcional)").fill("Resposta rápida.");
@@ -175,6 +179,50 @@ test("botão de suporte avisa a resposta nova, e o revendedor encerra e avalia",
 
   await admin.reload({ waitUntil: "networkidle" });
   await expect(admin.getByLabel("Atendimento").getByText("“Resposta rápida.”")).toBeVisible();
+
+  await resellerContext.close();
+  await adminContext.close();
+});
+
+test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aberto", async ({ browser }) => {
+  const resellerContext = await browser.newContext({ locale: "pt-BR" });
+  const reseller = await resellerContext.newPage();
+  await signUp(reseller, "Revendedor Veredito");
+  const subject = await openTicket(reseller, `A entrega parou no caminho ${Date.now()}`);
+  const ticketUrl = reseller.url();
+
+  const { context: adminContext, page: admin } = await adminPage(browser);
+  await openAsStaff(admin, subject);
+  await admin
+    .getByLabel("Resposta do suporte")
+    .fill("O pedido sai hoje do centro de distribuição.");
+  await admin.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(admin.getByText("Resposta enviada ao revendedor")).toBeVisible();
+
+  await gotoHydrated(reseller, ticketUrl);
+  await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
+  await expect(reseller.getByText(/Sem resposta até \d{2}\/\d{2}, encerramos/)).toBeVisible();
+
+  // A wrong tap on "Sim, resolveu" can be undone before anything changes.
+  await reseller.getByRole("button", { name: "Sim, resolveu" }).click();
+  await reseller.getByRole("button", { name: "Desfazer" }).click();
+  await reseller.waitForTimeout(6000);
+  await reseller.reload({ waitUntil: "networkidle" });
+  await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
+
+  // "Não" reaches support at once: the ticket goes back to the queue, no typing required.
+  await reseller.getByRole("button", { name: "Não", exact: true }).click();
+  await expect(reseller.getByText("Avisamos o suporte que ainda não resolveu")).toBeVisible();
+  const messages = reseller.getByRole("list", { name: "Mensagens do chamado" });
+  await expect(messages.getByText("Ainda não resolveu.")).toBeVisible();
+  await expect(reseller.getByText("Esperando o suporte.")).toBeVisible();
+  await expect(
+    reseller.getByPlaceholder("Conte o que ainda falta resolver (opcional)…"),
+  ).toBeFocused();
+
+  await admin.reload({ waitUntil: "networkidle" });
+  const adminHeader = admin.getByRole("heading", { name: subject }).locator("..");
+  await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
 
   await resellerContext.close();
   await adminContext.close();

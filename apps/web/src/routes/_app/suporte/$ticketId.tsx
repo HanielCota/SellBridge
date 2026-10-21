@@ -1,30 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackLink } from "@/components/layout/page-header";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircleIcon, PackageIcon } from "@phosphor-icons/react";
-import { useRef, type RefObject } from "react";
+import { PackageIcon } from "@phosphor-icons/react";
+import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
+import { CustomerTicketHeader } from "@/components/support/customer-ticket-header";
 import { OrderLinkPicker } from "@/components/support/order-link-picker";
 import { ReplyForm, type ReplyComposerHandle } from "@/components/support/reply-form";
 import { ResolvedPrompt } from "@/components/support/resolved-prompt";
-import { TicketActionsMenu } from "@/components/support/ticket-actions-menu";
-import { TicketCategoryLabel } from "@/components/support/ticket-badges";
-import { TicketContextPanel } from "@/components/support/ticket-context-panel";
 import { RatingStars, TicketRatingForm } from "@/components/support/ticket-rating";
-import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { TicketThread } from "@/components/support/ticket-thread";
 import { IconAction } from "@/components/support/composer-parts";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { quickRepliesFor } from "@/features/support/quick-replies";
-import {
-  closeMyTicket,
-  type getMyTicket,
-  markMyTicketRead,
-} from "@/features/support/support.functions";
+import type { CustomerTicketFacts } from "@/features/support/customer-ticket-state";
+import { type getMyTicket, markMyTicketRead } from "@/features/support/support.functions";
 import { myTicketQueryOptions } from "@/features/support/support.queries";
 import { useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
+import { useCloseWithUndo, useNotSolved } from "@/features/support/use-ticket-verdict";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
@@ -38,18 +31,6 @@ export const Route = createFileRoute("/_app/suporte/$ticketId")({
 type TicketDetail = Awaited<ReturnType<typeof getMyTicket>>;
 type ThreadMessage = TicketDetail["messages"][number];
 
-function useCloseTicket(ticketId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => closeMyTicket({ data: { ticketId } }),
-    onSuccess: async () => {
-      toast.success("Chamado encerrado. Se precisar, é só responder que ele reabre.");
-      await queryClient.invalidateQueries({ queryKey: ["tickets"] });
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-}
-
 function TicketPage() {
   const { ticketId } = Route.useParams();
   const query = useQuery(myTicketQueryOptions(ticketId));
@@ -57,9 +38,8 @@ function TicketPage() {
 
   if (query.isPending) {
     return (
-      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mx-auto w-full max-w-3xl">
         <Skeleton className="h-96 rounded-3xl" aria-label="Carregando chamado" />
-        <Skeleton className="hidden h-72 rounded-3xl lg:block" />
       </div>
     );
   }
@@ -93,32 +73,37 @@ function lastSupportAnswerId(detail: TicketDetail): string | null {
   return last.id;
 }
 
-function TicketHeader({ detail }: { detail: TicketDetail }) {
+/** The page's state line needs a few facts the thread loader already has. */
+function ticketFacts(detail: TicketDetail): CustomerTicketFacts {
   const { ticket } = detail;
-  return (
-    <header className="space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">{ticket.subject}</h1>
-          <TicketStatusBadge status={ticket.status} />
-        </div>
-        <TicketActionsMenu
-          ticket={ticket}
-          followers={detail.followers}
-          notifyMe={detail.notifyMe}
-        />
-      </div>
-      <TicketCategoryLabel category={ticket.category} className="block" />
-    </header>
+  const lastClose = detail.events.findLast(
+    (event) => event.type === "status_changed" && event.toValue === "closed",
   );
+  return {
+    status: ticket.status,
+    priority: ticket.priority,
+    awaitingSince: ticket.awaitingSince,
+    updatedAt: ticket.updatedAt,
+    closedAutomatically: lastClose?.automatic === true,
+    emailsOn: detail.notifyMe,
+  };
 }
+
+const PLACEHOLDERS: Record<TicketDetail["ticket"]["status"], string> = {
+  open: "Quer acrescentar algo? Escreva aqui…",
+  answered: "Escreva sua resposta…",
+  closed: "Escreva aqui para reabrir o chamado…",
+};
+const AFTER_NOT_SOLVED_PLACEHOLDER = "Conte o que ainda falta resolver (opcional)…";
 
 function TicketComposer({
   ticket,
   composerRef,
+  placeholder,
 }: {
   ticket: TicketDetail["ticket"];
   composerRef: RefObject<ReplyComposerHandle | null>;
+  placeholder: string;
 }) {
   const queryClient = useQueryClient();
   return (
@@ -126,8 +111,8 @@ function TicketComposer({
       endpoint={`/api/suporte/chamados/${ticket.id}/mensagens`}
       isClosed={ticket.status === "closed"}
       draftKey={ticket.id}
-      quickReplies={quickRepliesFor(ticket.category)}
       composerRef={composerRef}
+      placeholder={placeholder}
       tools={
         <OrderLinkPicker
           ticketId={ticket.id}
@@ -139,37 +124,24 @@ function TicketComposer({
         />
       }
       onSent={async () => {
-        toast.success("Resposta enviada");
+        toast.success("Mensagem enviada");
         await queryClient.invalidateQueries({ queryKey: ["tickets"] });
       }}
     />
   );
 }
 
-function CloseTicketBar({ closeTicket }: { closeTicket: ReturnType<typeof useCloseTicket> }) {
-  return (
-    <div className="flex flex-col items-start gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
-      <p className="text-sm text-muted-foreground">Seu problema foi resolvido?</p>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={closeTicket.isPending}
-        aria-busy={closeTicket.isPending}
-        onClick={() => closeTicket.mutate()}
-      >
-        <CheckCircleIcon aria-hidden="true" />
-        {closeTicket.isPending ? "Encerrando…" : "Encerrar chamado"}
-      </Button>
-    </div>
-  );
-}
-
 function TicketView({ detail }: { detail: TicketDetail }) {
-  const closeTicket = useCloseTicket(detail.ticket.id);
-  const composer = useRef<ReplyComposerHandle>(null);
   const { ticket, messages } = detail;
-  const isClosed = ticket.status === "closed";
+  const composer = useRef<ReplyComposerHandle>(null);
+  const [askedForDetails, setAskedForDetails] = useState(false);
+  const closeTicket = useCloseWithUndo(ticket.id);
+  const notSolved = useNotSolved(ticket.id, () => {
+    setAskedForDetails(true);
+    composer.current?.focus();
+  });
   const promptOn = lastSupportAnswerId(detail);
+  const placeholder = askedForDetails ? AFTER_NOT_SOLVED_PLACEHOLDER : PLACEHOLDERS[ticket.status];
 
   function footerFor(message: ThreadMessage) {
     if (message.id !== promptOn) {
@@ -177,36 +149,32 @@ function TicketView({ detail }: { detail: TicketDetail }) {
     }
     return (
       <ResolvedPrompt
-        isClosing={closeTicket.isPending}
-        onSolved={() => closeTicket.mutate()}
-        onNotSolved={() => composer.current?.startWith("Ainda não resolveu")}
+        isBusy={closeTicket.isBusy || notSolved.isPending}
+        onSolved={closeTicket.schedule}
+        onNotSolved={() => notSolved.mutate()}
       />
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <BackLink to="/suporte" label="Suporte" />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="min-w-0 space-y-6">
-          <TicketHeader detail={detail} />
-          <TicketThread
-            messages={messages}
-            events={detail.events}
-            seenAt={detail.seenByOtherSideAt}
-            messageFooter={footerFor}
-          />
-          <TicketRating ticket={ticket} />
-          <TicketComposer ticket={ticket} composerRef={composer} />
-          {isClosed ? null : <CloseTicketBar closeTicket={closeTicket} />}
-        </div>
-        <TicketContextPanel
-          ticket={ticket}
-          orders={detail.orders}
-          followers={detail.followers}
-          subject={detail.subject}
-        />
-      </div>
+      <CustomerTicketHeader
+        ticket={ticket}
+        facts={ticketFacts(detail)}
+        subject={detail.subject}
+        orders={detail.orders}
+        followers={detail.followers}
+        notifyMe={detail.notifyMe}
+      />
+      <TicketThread
+        messages={messages}
+        events={detail.events}
+        seenAt={detail.seenByOtherSideAt}
+        messageFooter={footerFor}
+      />
+      <TicketRating ticket={ticket} />
+      <TicketComposer ticket={ticket} composerRef={composer} placeholder={placeholder} />
     </div>
   );
 }

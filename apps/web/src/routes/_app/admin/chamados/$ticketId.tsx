@@ -20,7 +20,7 @@ import {
   type ComposerMode,
 } from "@/components/support/admin-composer";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
-import { LinkedOrdersCard } from "@/components/support/ticket-context-panel";
+import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
 import { TicketThread } from "@/components/support/ticket-thread";
 
 import { Skeleton } from "@/components/ui/skeleton";

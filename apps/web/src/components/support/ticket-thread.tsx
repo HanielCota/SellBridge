@@ -315,13 +315,15 @@ function MessageItem({
   onQuote?: ((message: ThreadMessage) => void) | undefined;
   footer: ReactNode;
 }) {
+  // Like any chat app: whoever is reading sees their own side on the right, tinted.
+  const isMine = tagSupport ? !message.isAdmin : message.isAdmin;
   return (
-    <li className={cn("flex gap-3", message.isAdmin && "flex-row-reverse")}>
+    <li className={cn("flex gap-3", isMine && "flex-row-reverse")}>
       <AuthorAvatar message={message} />
       <article
         className={cn(
           "group/message max-w-[min(42rem,85%)] min-w-0 space-y-1.5 rounded-2xl border px-4 py-3",
-          message.isAdmin && "border-primary/30 bg-primary/5",
+          isMine && "border-primary/30 bg-primary/5",
           message.isInternal && "border-dashed border-amber-500/50 bg-amber-500/5",
         )}
       >

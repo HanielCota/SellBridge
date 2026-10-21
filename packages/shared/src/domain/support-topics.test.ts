@@ -3,6 +3,7 @@ import { PROFILE_KINDS, type ProfileKind } from "./profile-kind.ts";
 import {
   OTHER_SITUATION_ID,
   SUPPORT_TOPICS,
+  customerTicketTitle,
   findSupportTopic,
   minimumDescriptionLength,
   planSupportTicket,
@@ -152,5 +153,24 @@ describe("supportTicketSubject", () => {
     expect(subject).not.toContain("\n");
     expect(subject.length).toBeLessThanOrEqual(120);
     expect(subject.endsWith("…")).toBe(true);
+  });
+});
+
+describe("customerTicketTitle", () => {
+  it("shows only the heading of a guided subject, not the customer's own words", () => {
+    const { subject } = planSupportTicket({
+      kind: "seller",
+      category: "order",
+      situationId: OTHER_SITUATION_ID,
+      about: undefined,
+      description: "NAO TA INDO OQUE EU SOLICITE VEJA ISTO, preciso de ajuda",
+    });
+    const topic = findSupportTopic("seller", "order");
+    expect(customerTicketTitle(subject)).toBe(topic?.label);
+  });
+
+  it("keeps a subject typed before the guided form whole", () => {
+    expect(customerTicketTitle("Pedido 123 não chegou")).toBe("Pedido 123 não chegou");
+    expect(customerTicketTitle("Dúvida: como publicar")).toBe("Dúvida: como publicar");
   });
 });

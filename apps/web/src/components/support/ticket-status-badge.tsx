@@ -7,6 +7,13 @@ const TONES: Record<TicketStatus, StatusTone> = {
   closed: "muted",
 };
 
-export function TicketStatusBadge({ status }: { status: TicketStatus }) {
-  return <ToneStatus tone={TONES[status]} label={TICKET_STATUS_LABELS[status]} />;
+/** `labels`: the team's words by default; customer screens pass their own. */
+export function TicketStatusBadge({
+  status,
+  labels = TICKET_STATUS_LABELS,
+}: {
+  status: TicketStatus;
+  labels?: Record<TicketStatus, string>;
+}) {
+  return <ToneStatus tone={TONES[status]} label={labels[status]} />;
 }
