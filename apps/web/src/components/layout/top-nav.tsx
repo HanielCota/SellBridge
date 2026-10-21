@@ -30,7 +30,7 @@ import {
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { UserAvatar } from "./user-avatar";
-import { navTabClassName, TabBadge } from "./nav-tab-parts";
+import { chooseOnPlainClick, navTabClassName, TabBadge } from "./nav-tab-parts";
 import { ProfileTabsMenu } from "./profile-tabs-menu";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
@@ -214,14 +214,6 @@ function MobileNav({
       </SheetContent>
     </Sheet>
   );
-}
-
-/** A click that opens a new tab leaves this page, and its pill, where they are. */
-function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void): void {
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
-    return;
-  }
-  choose();
 }
 
 /** The lit pill under the chosen tab; a tab registers under every page it stands for. */

@@ -67,6 +67,25 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
   await expect(nav.getByRole("link", { name: "Chamados" })).toBeVisible();
 });
 
+test("opening a profile page in a new tab leaves the admin pill on the current tab", async ({
+  page,
+}) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  const tickets = nav.getByRole("link", { name: "Chamados" });
+  await tickets.click();
+  await expect(page).toHaveURL(/\/admin\/chamados/);
+  await expect(tickets).toHaveAttribute("aria-current", "page");
+  await nav.getByRole("button", { name: "Revendedor" }).click();
+  const newTab = page.context().waitForEvent("page");
+  await page.getByRole("menuitem", { name: "Pedidos" }).click({ modifiers: ["ControlOrMeta"] });
+  await (await newTab).close();
+  await expect(page).toHaveURL(/\/admin\/chamados/);
+  await expect(tickets).toHaveAttribute("aria-current", "page");
+});
+
 test("seller header stays clear with a long account name", async ({ page }) => {
   await signUp(page, "Seller with a deliberately long account display name");
   await gotoHydrated(page, "/dashboard");

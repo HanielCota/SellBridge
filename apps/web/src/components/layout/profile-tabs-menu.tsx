@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BADGE_DESCRIPTIONS, type NavBadge, type NavItem } from "@/features/navigation/nav-items";
-import { navTabClassName, TabBadge } from "./nav-tab-parts";
+import { chooseOnPlainClick, navTabClassName, TabBadge } from "./nav-tab-parts";
 
 /**
  * In team mode the seller (or supplier) tabs fold into one tab: with the team's five tabs the
@@ -85,7 +85,7 @@ function ProfileTabsMenuItem({
         to={item.to}
         aria-current={isActive ? "page" : undefined}
         className={isActive ? "font-medium" : undefined}
-        onClick={() => onChoose(item.to)}
+        onClick={(event) => chooseOnPlainClick(event, () => onChoose(item.to))}
       >
         <span className="flex-1">{item.label}</span>
         {item.badge !== undefined && count > 0 ? (

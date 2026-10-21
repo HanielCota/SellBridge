@@ -1,4 +1,13 @@
+import type { MouseEvent } from "react";
 import { cn } from "@/lib/utils";
+
+/** A click that opens a new tab leaves this page, and its pill, where they are. */
+export function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
+    return;
+  }
+  choose();
+}
 
 /** Shared look of a header tab, whether it is a link or the profile menu's trigger. */
 export function navTabClassName({
