@@ -39,7 +39,7 @@ export function sellableOnMarketplace(): SQL {
  * The listing's price still pays the supplier's current cost. Needs `listings` and
  * `supplier_products` in the FROM clause.
  */
-export function listingCoversCost(): SQL {
+function listingCoversCost(): SQL {
   return sql`(${listings.priceCents} > ${supplierProducts.costCents})`;
 }
 

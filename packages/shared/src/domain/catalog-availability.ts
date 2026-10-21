@@ -1,8 +1,8 @@
 /**
- * Whether a supplier product can still be offered by a reseller. The database mirrors this in
- * `sellableOnMarketplace` (repositories/sql/sellable.ts): stock synced to the marketplaces
- * drops to zero while any check fails. Where the reseller lives plays no part: any reseller
- * sells any supplier in Brazil.
+ * Whether a reseller's listing of a supplier product can still sell. The database mirrors this in
+ * `listingSellable` (repositories/sql/sellable.ts), built on `sellableOnMarketplace` for the
+ * product checks: stock synced to the marketplaces drops to zero while any check fails. Where the
+ * reseller lives plays no part: any reseller sells any supplier in Brazil.
  */
 export interface CatalogAvailability {
   productActive: boolean;
