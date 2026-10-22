@@ -4,10 +4,12 @@ import { PopoverContent } from "@/components/ui/popover";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import { formatAbsoluteTime } from "@/lib/relative-time";
 import { marginLabel, OrderBreakdown, OrderSplitBar } from "./order-parts";
+import { SupplierCreditLines, useSupplierCredits } from "./supplier-credit";
 
 /** One order's arithmetic, opened from a statement row: what came in, went out and was left. */
 export function OrderDetail({ row }: { row: OrderFinancialRow }) {
   const margin = marginLabel(row);
+  const supplierCredits = useSupplierCredits(row.id);
   return (
     <PopoverContent
       aria-label={`Cálculo do pedido ${row.externalOrderId}`}
@@ -32,6 +34,7 @@ export function OrderDetail({ row }: { row: OrderFinancialRow }) {
       </div>
       <OrderSplitBar row={row} />
       <OrderBreakdown row={row} />
+      <SupplierCreditLines credits={supplierCredits} />
     </PopoverContent>
   );
 }

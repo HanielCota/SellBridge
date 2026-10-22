@@ -8,6 +8,7 @@ import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { SmartDate } from "@/components/data/smart-date";
 import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
+import { SupplierCreditLines } from "@/components/financials/supplier-credit";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
@@ -197,6 +198,7 @@ function OrderAside({ page }: { page: OrderPageData }) {
     >
       <PageSection id="order-money" title="Dinheiro" card>
         <OrderBreakdown row={page.finance} />
+        <SupplierCreditLines credits={page.supplierCredits} className="mt-3" />
       </PageSection>
       <PageSection id="order-progress" title="Andamento do pedido" card>
         <OrderProgress history={page.history} />
