@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hasErrorCode } from "@sellbridge/shared/errors";
+import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import type {
   CatalogDraftValues,
   CatalogListSearch,
@@ -250,6 +251,39 @@ describe("saveSupplierPanelDraft", () => {
 });
 
 describe("review flow", () => {
+  // Texts saved before the contact rule (or written past the form) are checked again here.
+  it("refuses to submit or approve a product whose saved texts carry a contact", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: readyValues("CONTACT"),
+    });
+    await database
+      .update(supplierProducts)
+      .set({ description: "Compre direto: WhatsApp 11 98765-4321" })
+      .where(eq(supplierProducts.id, productId));
+    const refused = await expectAppError(
+      submitSupplierPanelProduct(database, { supplierId, productId }),
+      "VALIDATION",
+    );
+    expect(String(refused)).toContain(SUPPLIER_TEXT_CONTACT_REFUSED);
+
+    const submitted = await readyInReview("CONTACT-2");
+    await database
+      .update(supplierProducts)
+      .set({ mercadoLivreAttributes: { BRAND: "insta: atelie.moda" } })
+      .where(eq(supplierProducts.id, submitted.id));
+    await expectAppError(
+      approveSupplierPanelProduct(database, {
+        supplierId,
+        productId: submitted.id,
+        reviewerId: REVIEWER,
+      }),
+      "VALIDATION",
+    );
+  });
+
   it("refuses to submit a draft with blocking issues", async () => {
     const productId = randomUUID();
     await saveSupplierPanelDraft(database, {

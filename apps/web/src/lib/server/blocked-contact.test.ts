@@ -1,4 +1,8 @@
-import { CONTACT_DETAILS_REFUSED, shipmentUpdateSchema } from "@sellbridge/shared/schemas";
+import {
+  CONTACT_DETAILS_REFUSED,
+  shipmentUpdateSchema,
+  SUPPLIER_TEXT_CONTACT_REFUSED,
+} from "@sellbridge/shared/schemas";
 import { describe, expect, it } from "vitest";
 import { blockedContactFields } from "./blocked-contact";
 
@@ -39,6 +43,12 @@ describe("blockedContactFields", () => {
     expect(blockedContactFields(error, input)).toEqual([
       { field: "trackingUrl", kinds: ["phone", "link"] },
     ]);
+  });
+
+  it("also names a contact refused in the supplier's brand or products", () => {
+    const input = { name: "Ateliê zap 11 98765-4321" };
+    const error = inputError([{ message: SUPPLIER_TEXT_CONTACT_REFUSED, path: ["name"] }]);
+    expect(blockedContactFields(error, input)).toEqual([{ field: "name", kinds: ["phone"] }]);
   });
 
   it("ignores every other error", () => {

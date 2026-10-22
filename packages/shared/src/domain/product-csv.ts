@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONTACT_REFUSAL_MESSAGES } from "../schemas/contact-guard.ts";
 import { validationError } from "../runtime/errors.ts";
 import {
   adminProductValuesSchema,
@@ -183,6 +184,11 @@ const fieldLabels: Record<string, string> = {
   mercadoLivreAttributes: "Atributos do Mercado Livre",
 };
 
+/** A contact refusal says what is not allowed; any other bad cell keeps the short wording. */
+function issueReason(message: string): string {
+  return CONTACT_REFUSAL_MESSAGES.includes(message) ? message : "valor inválido";
+}
+
 function rowCandidate(
   values: Readonly<Record<string, string>>,
   sku: string,
@@ -237,7 +243,8 @@ function validateRecord(
     ...(parsed.success
       ? []
       : parsed.error.issues.map(
-          (issue) => `${fieldLabels[String(issue.path[0])] ?? "Linha"}: valor inválido`,
+          (issue) =>
+            `${fieldLabels[String(issue.path[0])] ?? "Linha"}: ${issueReason(issue.message)}`,
         )),
     ...("reason" in attributes ? [attributes.reason] : []),
   ];
