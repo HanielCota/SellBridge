@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Operations, operationsQuery } from "@/components/fulfillment/operations";
+import { OrderTracking } from "@/components/tracking/order-tracking";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
@@ -29,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import type { listOrderReviews } from "@/features/orders/orders.functions";
 import { orderReviewsQueryOptions } from "@/features/orders/orders.queries";
+import { parcelsInTransitQueryOptions } from "@/features/tracking/order-tracking.queries";
 import { displayStoreName } from "@/features/stores/store-name";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -54,10 +56,15 @@ export const Route = createFileRoute("/_app/pedidos/")({
   validateSearch: ordersSearchSchema,
   loaderDeps: ({ search }) => search,
   // Only the visible tab is loaded, and with the same key its list reads.
-  loader: ({ context, deps: search }) =>
-    search.view === "reviews"
-      ? prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)))
-      : prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search))),
+  loader: ({ context, deps: search }) => {
+    if (search.view === "reviews") {
+      return prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)));
+    }
+    if (search.view === "tracking") {
+      return prefetchOnServer(context.queryClient, parcelsInTransitQueryOptions());
+    }
+    return prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search)));
+  },
   head: () => ({ meta: [{ title: "Pedidos | SellBridge" }] }),
   component: OrdersPage,
 });
@@ -74,6 +81,7 @@ function useOrdersNavigation() {
 const VIEW_TABS: readonly FilterTab<OrdersSearch["view"]>[] = [
   { value: "operations", label: "Operação" },
   { value: "reviews", label: "Avaliações" },
+  { value: "tracking", label: "Rastreio" },
 ];
 
 function OrdersPage() {
@@ -104,12 +112,19 @@ function OrdersPage() {
       />
       {search.view === "operations" ? (
         <Operations search={search} onChange={updateOperations} />
-      ) : (
+      ) : null}
+      {search.view === "reviews" ? (
         <>
           <OrderFilters />
           <OrderList onReview={setTarget} />
         </>
-      )}
+      ) : null}
+      {search.view === "tracking" ? (
+        <OrderTracking
+          trackOrder={search.trackOrder}
+          onTrackOrder={(trackOrder) => updateOperations({ trackOrder })}
+        />
+      ) : null}
       <ReviewDialog
         target={target}
         onOpenChange={(open) => {
