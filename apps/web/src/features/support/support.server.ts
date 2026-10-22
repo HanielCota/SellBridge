@@ -27,10 +27,6 @@ import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
-import {
-  assertAllowedWhileImpersonating,
-  assertVisitKeepsTicketClosed,
-} from "@/lib/server/impersonation-rules";
 import { requireStaffSession, requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
 import {
@@ -78,12 +74,6 @@ export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantRequest(request);
-    assertAllowedWhileImpersonating({
-      impersonatedBy: session.impersonatedBy,
-      customerId: session.userId,
-      functionName: "support.createTicket",
-      method: "POST",
-    });
     const formData = await readUploadForm(request, session.userId);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),
@@ -195,11 +185,7 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantRequest(request);
     const ticketId = parseId(ticketIdParam, "Chamado");
-    const ticket = await requireTicketForMessage(ticketId, session.tenantId);
-    assertVisitKeepsTicketClosed({
-      impersonatedBy: session.impersonatedBy,
-      ticketStatus: ticket.status,
-    });
+    await requireTicketForMessage(ticketId, session.tenantId);
     const reply = await readReply(request, session.userId);
     const attachments = await storeAttachments(fileStorage, session.tenantId, reply.files);
     await saveWithAttachments(fileStorage, attachments, () =>

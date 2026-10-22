@@ -178,11 +178,8 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             ticket={ticket}
             relatedTickets={detail.relatedTickets}
             relatedTotal={detail.relatedTotal}
-            access={{
-              isSelf: ticket.createdById === session.user.id,
-              canManageCustomers: hasStaffPermission(session.user.role, "customers.manage"),
-              canImpersonate: hasStaffPermission(session.user.role, "customers.impersonate"),
-            }}
+            isSelf={ticket.createdById === session.user.id}
+            canManageCustomers={hasStaffPermission(session.user.role, "customers.manage")}
           />
           <LinkedOrdersCard orders={detail.orders} subject={detail.subject} />
           <TicketHistory events={detail.events} />
