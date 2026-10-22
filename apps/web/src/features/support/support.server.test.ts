@@ -226,6 +226,39 @@ describe("a ticket opened during a visit to the customer's account", () => {
   });
 });
 
+/** The team inside the customer's account, replying to a ticket in this state. */
+function visitTicket(status: string) {
+  mocks.requireTenantRequest.mockResolvedValue({
+    tenantId: "tenant-a",
+    userId: "reseller-visited",
+    profileKind: "seller",
+    impersonatedBy: "agent-1",
+  });
+  mocks.findTicketForMessage.mockResolvedValue({ status });
+}
+
+describe("a reply during a visit to the customer's account", () => {
+  it("cannot reopen a closed ticket, so the team cannot keep the account open", async () => {
+    visitTicket("closed");
+    expect((await tenantReply()).status).toBe(403);
+    expect(mocks.addTicketMessage).not.toHaveBeenCalled();
+    expect(mocks.put).not.toHaveBeenCalled();
+  });
+
+  it("still answers a ticket that is not closed", async () => {
+    visitTicket("answered");
+    expect((await tenantReply()).status).toBe(201);
+    expect(mocks.addTicketMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the customer's own reply", () => {
+  it("reopens a closed ticket", async () => {
+    mocks.findTicketForMessage.mockResolvedValue({ status: "closed" });
+    expect((await tenantReply()).status).toBe(201);
+  });
+});
+
 describe("new ticket notice", () => {
   it("queues the e-mail to the support team once the ticket is saved", async () => {
     mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });

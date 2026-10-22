@@ -84,3 +84,20 @@ export function assertVisitKeepsOrdersEmail(input: {
     "Durante o acesso como cliente, o e-mail de pedidos fica com o e-mail da conta do fornecedor",
   );
 }
+
+/**
+ * A customer's message reopens a closed ticket, and an open ticket lets agents and supervisors
+ * into the account. During a visit the team would reopen it in the customer's name and keep the
+ * door open after the ticket that justified the visit is closed, so that reply is refused.
+ */
+export function assertVisitKeepsTicketClosed(input: {
+  impersonatedBy: string | null;
+  ticketStatus: string;
+}): void {
+  if (input.impersonatedBy === null || input.ticketStatus !== "closed") {
+    return;
+  }
+  throw forbiddenError(
+    "Durante o acesso como cliente, não é possível reabrir um chamado encerrado",
+  );
+}

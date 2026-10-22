@@ -27,7 +27,10 @@ import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
-import { assertAllowedWhileImpersonating } from "@/lib/server/impersonation-rules";
+import {
+  assertAllowedWhileImpersonating,
+  assertVisitKeepsTicketClosed,
+} from "@/lib/server/impersonation-rules";
 import { requireStaffSession, requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
 import {
@@ -192,7 +195,11 @@ export function handleTenantReply(request: Request, ticketIdParam: string | unde
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantRequest(request);
     const ticketId = parseId(ticketIdParam, "Chamado");
-    await requireTicketForMessage(ticketId, session.tenantId);
+    const ticket = await requireTicketForMessage(ticketId, session.tenantId);
+    assertVisitKeepsTicketClosed({
+      impersonatedBy: session.impersonatedBy,
+      ticketStatus: ticket.status,
+    });
     const reply = await readReply(request, session.userId);
     const attachments = await storeAttachments(fileStorage, session.tenantId, reply.files);
     await saveWithAttachments(fileStorage, attachments, () =>
