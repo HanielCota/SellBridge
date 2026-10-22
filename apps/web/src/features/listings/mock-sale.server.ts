@@ -26,6 +26,21 @@ export function requireMockWebhookSecret(): string {
   return mockWebhookSecret;
 }
 
+/**
+ * A made-up address (São Paulo's "Marco Zero" postal code), so a simulated sale shows the forward
+ * form filled the way a real marketplace order will.
+ */
+const SIMULATED_SHIPPING_ADDRESS = {
+  recipient: "Comprador simulado",
+  street: "Rua das Flores",
+  number: "123",
+  complement: "Apto 45",
+  neighborhood: "Centro",
+  city: "São Paulo",
+  state: "SP",
+  postalCode: "01001-000",
+};
+
 /** Raw JSON body of an "orders" webhook for one paid unit of the listing. */
 export function buildMockOrderWebhook(sale: MockSaleInput): string {
   const resource = encodeMockOrderResource({
@@ -34,6 +49,7 @@ export function buildMockOrderWebhook(sale: MockSaleInput): string {
     totalCents: sale.priceCents,
     marketplaceFeeCents: percentOfCents(sale.priceCents, ESTIMATED_MARKETPLACE_FEE_BPS),
     buyerName: "Comprador simulado",
+    shippingAddress: SIMULATED_SHIPPING_ADDRESS,
     orderedAt: new Date().toISOString(),
     items: [
       {
