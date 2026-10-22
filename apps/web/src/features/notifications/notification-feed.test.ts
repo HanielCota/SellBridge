@@ -1,6 +1,6 @@
 import type { NotificationEvent } from "@sellbridge/database/repositories";
 import { describe, expect, it } from "vitest";
-import { buildNotificationFeed, MAX_NOTIFICATIONS } from "./notification-feed";
+import { buildNotificationFeed, MAX_NOTIFICATIONS, NEWS_SLOTS } from "./notification-feed";
 
 function supportReply(minutesAgo: number, entityId = `ticket-${minutesAgo}`): NotificationEvent {
   return {
@@ -89,5 +89,14 @@ describe("buildNotificationFeed", () => {
     expect(feed.events.filter((event) => event.kind === "stock_shortage")).toHaveLength(
       problems.length,
     );
+  });
+  it("keeps the news slots when open problems almost fill the bell", () => {
+    const problems = Array.from({ length: MAX_NOTIFICATIONS - 2 }, (_, index) =>
+      openShortage(index),
+    );
+    const news = Array.from({ length: 8 }, (_, index) => sale(index));
+    const feed = buildNotificationFeed([...problems, ...news], null);
+    expect(feed.events.filter((event) => event.kind === "sale")).toHaveLength(NEWS_SLOTS);
+    expect(feed.events).toHaveLength(problems.length + NEWS_SLOTS);
   });
 });

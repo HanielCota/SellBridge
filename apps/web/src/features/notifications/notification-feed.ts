@@ -19,8 +19,8 @@ const COUNTED_ELSEWHERE: ReadonlySet<NotificationEvent["kind"]> = new Set(["supp
 
 export interface NotificationFeed<TEvent extends NotificationEvent = NotificationEvent> {
   /**
-   * Newest first, at most `MAX_NOTIFICATIONS`. More only when open problems alone pass it: then
-   * every open problem plus the `NEWS_SLOTS` newest other events.
+   * Newest first, at most `MAX_NOTIFICATIONS`. More only when open problems leave fewer than
+   * `NEWS_SLOTS` places: then every open problem plus the `NEWS_SLOTS` newest other events.
    */
   events: TEvent[];
   /** Events in the feed that happened after the user last opened it, minus support replies. */
