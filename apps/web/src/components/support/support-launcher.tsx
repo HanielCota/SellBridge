@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
+import { watchCoveredControls } from "@/features/support/launcher-clearance";
 import { launcherTopic } from "@/features/support/launcher-topic";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +18,34 @@ const LAUNCHER_LABEL_MILLISECONDS = 10_000;
 
 const LauncherIcon = ACTION_ICONS.supportChat.icon;
 
-function useLabelOnArrival(): boolean {
+/** Folds the label once it sits over a control of the page; nothing to watch once folded. */
+function watchWhileLabelled(
+  bubble: HTMLAnchorElement | null,
+  showsLabel: boolean,
+  fold: () => void,
+): () => void {
+  const page = document.getElementById("main-content");
+  if (!showsLabel || bubble === null || page === null) {
+    return () => {};
+  }
+  return watchCoveredControls(bubble, page, fold);
+}
+
+/**
+ * The label folds after a while, or at once when it would sit over a control of the page. The
+ * bubble comes as an element, not a ref, so the watch starts whenever it is rendered (it is not
+ * on the support pages).
+ */
+function useLabelOnArrival(bubble: HTMLAnchorElement | null): boolean {
   const [showsLabel, setShowsLabel] = useState(true);
   useEffect(() => {
     const timer = window.setTimeout(() => setShowsLabel(false), LAUNCHER_LABEL_MILLISECONDS);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(
+    () => watchWhileLabelled(bubble, showsLabel, () => setShowsLabel(false)),
+    [bubble, showsLabel],
+  );
   return showsLabel;
 }
 
@@ -33,7 +56,8 @@ function useLabelOnArrival(): boolean {
  */
 export function SupportLauncher() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const showsLabel = useLabelOnArrival();
+  const [bubble, setBubble] = useState<HTMLAnchorElement | null>(null);
+  const showsLabel = useLabelOnArrival(bubble);
   const hidden = HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`));
   if (hidden) {
     return null;
@@ -44,6 +68,7 @@ export function SupportLauncher() {
   return (
     <aside aria-label="Suporte">
       <Link
+        ref={setBubble}
         to="/suporte/novo"
         search={topic === undefined ? {} : { categoria: topic }}
         aria-label="Falar com o suporte"
