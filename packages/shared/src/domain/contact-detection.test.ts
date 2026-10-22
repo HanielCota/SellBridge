@@ -188,6 +188,17 @@ describe("findContactDetails", () => {
     }
   });
 
+  it("reads words cut by a reading window as the whole words they are", () => {
+    const after = "z ".repeat(300);
+    // "face" starts a window at 1800; "Sho" ends one at 2000; the EAN crosses 1800.
+    const interfaceAtEdge = `${"x ".repeat(897)}yInterface - modelo sem fio ${after}`;
+    const shopAtEdge = `${"x ".repeat(988)}Vendido na Instagram Shop ${after}`;
+    const eanAtEdge = `${"x".repeat(1792)} EAN 7891234567895 ${after}`;
+    expect(findContactDetails(interfaceAtEdge)).toEqual([]);
+    expect(findContactDetails(shopAtEdge)).toEqual([]);
+    expect(findContactDetails(eanAtEdge)).toEqual([]);
+  });
+
   it("reads a 20,000-character description quickly", () => {
     const started = performance.now();
     findContactDetails("a.".repeat(10_000));

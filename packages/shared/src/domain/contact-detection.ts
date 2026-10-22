@@ -148,7 +148,34 @@ function kindsInWindow(window: string): ReadonlySet<ContactKind> {
   return new Set(KIND_ORDER.filter((kind) => found[kind]));
 }
 
-/** Overlapping slices of `text` of at most `CONTACT_SCAN_LIMIT` characters each. */
+/**
+ * How far a window edge moves to land between words. A word cut in half reads as something else
+ * ("interface" cut to "face - modelo" names a network and a user), so each edge moves to the
+ * nearest space within this distance. Both edges together take at most twice this from the
+ * overlap, which still leaves 100 characters for a contact written across two windows.
+ */
+const WORD_EDGE_REACH = 50;
+
+/** `start`, moved forward to just after a space when one is near; otherwise left as it is. */
+function wordStart(text: string, start: number): number {
+  if (start === 0) {
+    return 0;
+  }
+  const offset = text.slice(start, start + WORD_EDGE_REACH).search(/\s/u);
+  return offset === -1 ? start : start + offset + 1;
+}
+
+/** `end`, moved back to a space when one is near; otherwise left as it is. */
+function wordEnd(text: string, end: number): number {
+  if (end >= text.length) {
+    return text.length;
+  }
+  const reachStart = end - WORD_EDGE_REACH;
+  const offset = text.slice(reachStart, end).search(/\s\S*$/u);
+  return offset === -1 ? end : reachStart + offset;
+}
+
+/** Overlapping slices of `text` of at most `CONTACT_SCAN_LIMIT` characters each, cut between words. */
 function readingWindows(text: string): string[] {
   const readable = text.slice(0, LONGEST_SCANNED_TEXT);
   const step = CONTACT_SCAN_LIMIT - WINDOW_OVERLAP;
@@ -156,7 +183,9 @@ function readingWindows(text: string): string[] {
     { length: Math.max(1, Math.ceil((readable.length - WINDOW_OVERLAP) / step)) },
     (_, index) => index * step,
   );
-  return starts.map((start) => readable.slice(start, start + CONTACT_SCAN_LIMIT));
+  return starts.map((start) =>
+    readable.slice(wordStart(readable, start), wordEnd(readable, start + CONTACT_SCAN_LIMIT)),
+  );
 }
 
 /** The kinds of contact in `text`, each once, in `KIND_ORDER`; empty when there is none. */
