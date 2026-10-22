@@ -4,6 +4,7 @@ import type { DatabaseExecutor } from "../client.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { syncMarketplaceRefund } from "./marketplace-refunds.ts";
 import { recordOrderStatusChange } from "./order-status-changes.ts";
+import { openReturnClaims } from "./return-claims-open.ts";
 import { applyStockMoves } from "./stock-reservations.ts";
 
 type OrderStatus = (typeof orders.$inferSelect)["status"];
@@ -64,6 +65,8 @@ export async function syncOrderFromShipments(
     totalCents: order.totalCents,
   });
   await recordOrderStatusChange(database, { tenantId: order.tenantId, orderId: order.id, status });
+  // The reseller paid each supplier for goods that came back: each one gets a claim to answer.
+  if (status === "returned") await openReturnClaims(database, order);
   await recordApiEvent(database, {
     tenantId: order.tenantId,
     type: "order.status_changed",
