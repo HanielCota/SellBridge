@@ -17,6 +17,7 @@ import { errorMessage } from "@/lib/errors";
 import { ProductCsvImport } from "./product-csv-import";
 import { ProductList } from "./product-list";
 import { SupplierForm } from "./supplier-form";
+import { SupplierFlagsSection } from "./supplier-flags-section";
 import { sellersSummary, SupplierSellers } from "./supplier-sellers";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
 import { BackLink } from "@/components/layout/page-header";
@@ -138,6 +139,7 @@ export function SupplierDetail({
   return (
     <div className="space-y-6">
       <SupplierHeader supplier={query.data.supplier} sellers={query.data.sellers} />
+      <SupplierFlagsSection supplierId={supplierId} />
       <SupplierForm key={supplierId} detail={query.data} />
       <SupplierSellers stores={query.data.sellers} />
       <ProductList

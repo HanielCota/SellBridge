@@ -37,6 +37,28 @@ describe("audit copy", () => {
     ).toBe("Mudou a prioridade para Urgente");
   });
 
+  it("names the reason of a supplier flag applied or revoked", () => {
+    expect(
+      describeAuditEntry({
+        ...base,
+        source: "catalog",
+        action: "supplier.flag_applied",
+        details: { flagId: "f-1", reason: "slow_support" },
+      }),
+    ).toBe("Aplicou uma flag ao fornecedor: Atraso para responder");
+    expect(
+      describeAuditEntry({
+        ...base,
+        source: "catalog",
+        action: "supplier.flag_applied",
+        details: { flagId: "f-1", reason: "unknown" },
+      }),
+    ).toBe("Aplicou uma flag ao fornecedor");
+    expect(
+      describeAuditEntry({ ...base, source: "catalog", action: "supplier.flag_revoked" }),
+    ).toBe("Retirou uma flag do fornecedor");
+  });
+
   it("falls back to a neutral line for an action it does not know", () => {
     expect(describeAuditEntry({ ...base, source: "catalog", action: "catalog.unknown" })).toBe(
       "Alteração no catálogo",
