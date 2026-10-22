@@ -86,9 +86,21 @@ function characterCount(value: string): number {
 
 const NOTE_TOO_LONG = `Use até ${SUPPLIER_FLAG_NOTE_MAX_LENGTH} caracteres.`;
 
+/** Spaces of every kind and the zero-width characters, which `trim` keeps. */
+const INVISIBLE_CHARACTERS = /[\s\u180E\u200B-\u200D\u2060\uFEFF]/g;
+
+/**
+ * A note with nothing visible is no note: "other" with only a zero-width space pasted in must be
+ * refused like an empty one. Emoji joined by U+200D still have visible text and stay as typed.
+ */
+function emptyWhenInvisible(value: string): string {
+  return value.replace(INVISIBLE_CHARACTERS, "") === "" ? "" : value;
+}
+
 function flagNote() {
   return freeText()
     .trim()
+    .overwrite(emptyWhenInvisible)
     .refine((value) => characterCount(value) <= SUPPLIER_FLAG_NOTE_MAX_LENGTH, NOTE_TOO_LONG);
 }
 

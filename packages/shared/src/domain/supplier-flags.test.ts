@@ -107,6 +107,20 @@ describe("applySupplierFlagSchema", () => {
     expect(parsed.error?.issues[0]?.path).toEqual(["note"]);
   });
 
+  it("refuses 'other' with a note made only of invisible characters", () => {
+    const note = "​⁠ ﻿";
+    expect(
+      applySupplierFlagSchema.safeParse({ supplierId: SUPPLIER, reason: "other", note }).success,
+    ).toBe(false);
+  });
+
+  it("keeps a note whose emoji join with invisible characters", () => {
+    const note = "👨‍👩‍👧";
+    expect(
+      applySupplierFlagSchema.parse({ supplierId: SUPPLIER, reason: "other", note }).note,
+    ).toBe(note);
+  });
+
   it("accepts a note of exactly 500 characters", () => {
     const note = "a".repeat(SUPPLIER_FLAG_NOTE_MAX_LENGTH);
     expect(
@@ -152,6 +166,16 @@ describe("revokeSupplierFlagSchema", () => {
         revokeNote: " Aplicada por engano ",
       }).revokeNote,
     ).toBe("Aplicada por engano");
+  });
+
+  it("refuses a revoke note made only of invisible characters", () => {
+    expect(
+      revokeSupplierFlagSchema.safeParse({
+        supplierId: SUPPLIER,
+        flagId: FLAG,
+        revokeNote: "​​",
+      }).success,
+    ).toBe(false);
   });
 
   it("refuses a revoke note of 501 characters", () => {
