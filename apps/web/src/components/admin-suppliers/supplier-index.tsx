@@ -18,7 +18,6 @@ import { adminSuppliersQueryOptions } from "@/features/admin-suppliers/suppliers
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
-import { EnterSupplierButton } from "./enter-supplier-button";
 import { SupplierForm } from "./supplier-form";
 import { ACTION_ICONS, CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -50,11 +49,6 @@ const supplierColumns = columnHelper.columns([
         label={information.getValue() ? "Ativo" : "Desativado"}
       />
     ),
-  }),
-  columnHelper.display({
-    id: "account",
-    header: "Acesso",
-    cell: (information) => <EnterSupplierButton supplier={information.row.original} />,
   }),
 ]);
 
@@ -115,23 +109,20 @@ function SupplierTable({
       caption="Fornecedores da plataforma"
       getRowId={(row) => row.id}
       renderMobileRow={(row) => (
-        <div className="flex items-start justify-between gap-3">
-          <Link
-            to="/admin/fornecedores/$supplierId"
-            params={{ supplierId: row.id }}
-            className="block min-w-0 flex-1 space-y-2"
-          >
-            <p className="font-medium">{row.name}</p>
-            <p className="text-sm text-muted-foreground">
-              {row.niche} · {row.city} - {row.state}
-            </p>
-            <ToneStatus
-              tone={row.active ? "success" : "muted"}
-              label={row.active ? "Ativo" : "Desativado"}
-            />
-          </Link>
-          <EnterSupplierButton supplier={row} />
-        </div>
+        <Link
+          to="/admin/fornecedores/$supplierId"
+          params={{ supplierId: row.id }}
+          className="block space-y-2"
+        >
+          <p className="font-medium">{row.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {row.niche} · {row.city} - {row.state}
+          </p>
+          <ToneStatus
+            tone={row.active ? "success" : "muted"}
+            label={row.active ? "Ativo" : "Desativado"}
+          />
+        </Link>
       )}
       footer={
         <PaginationBar

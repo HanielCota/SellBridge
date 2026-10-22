@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { catalogDraftValuesSchema } from "../domain/supplier-panel-catalog-schemas.ts";
+import { SUPPLIER_TEXT_CONTACT_REFUSED } from "./contact-guard.ts";
 import {
+  adminProductValuesSchema,
   adminSaveProductSchema,
   adminSupplierValuesSchema,
   MAX_PRODUCT_STOCK,
@@ -148,6 +150,54 @@ describe("product money messages", () => {
   it("explains a cost that is not a number", () => {
     expect(draftMessageOf({ costCents: Number.NaN })).toBe(
       "O custo precisa ser um valor em reais, como 25,90 (recebido: um valor que não é número)",
+    );
+  });
+});
+
+/** The contact refusal among the issues of a parse, if any. */
+const refusal = (result: {
+  error?: { issues: readonly { message: string; path: PropertyKey[] }[] };
+}) => result.error?.issues.find((issue) => issue.message === SUPPLIER_TEXT_CONTACT_REFUSED);
+
+describe("contact details in what resellers read about a supplier", () => {
+  it.each([
+    ["name", "Ateliê Zap 11 98765-4321"],
+    ["niche", "Moda insta: atelie.moda"],
+    ["description", "Chama no WhatsApp: wa.me/5511987654321"],
+    ["city", "São Paulo fulano@gmail.com"],
+  ] as const)("refuses a contact in the brand %s", (field, text) => {
+    const result = adminSupplierValuesSchema.safeParse({ ...values, [field]: text });
+    expect(refusal(result)?.path).toEqual([field]);
+  });
+
+  it("keeps the order e-mail, which resellers never see", () => {
+    expect(adminSupplierValuesSchema.safeParse(values).success).toBe(true);
+  });
+
+  it.each([
+    ["title", { title: "Vestido linho - chama 11 98765-4321" }, ["title"]],
+    [
+      "description",
+      { description: `${"Tecido macio. ".repeat(300)} insta: atelie.moda` },
+      ["description"],
+    ],
+    [
+      "attribute",
+      { mercadoLivreAttributes: { BRAND: "fulano arroba gmail ponto com" } },
+      ["mercadoLivreAttributes", "BRAND"],
+    ],
+  ] as const)(
+    "refuses a contact in the product %s, saved or as a draft",
+    (_field, change, path) => {
+      for (const schema of [adminProductValuesSchema, catalogDraftValuesSchema]) {
+        expect(refusal(schema.safeParse({ ...product, ...change }))?.path).toEqual(path);
+      }
+    },
+  );
+
+  it("tells the supplier what is not allowed, in plain words", () => {
+    expect(SUPPLIER_TEXT_CONTACT_REFUSED).toBe(
+      "Por segurança, telefone, e-mail e redes sociais não podem aparecer na marca nem nos produtos.",
     );
   });
 });

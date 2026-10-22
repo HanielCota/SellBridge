@@ -9,6 +9,16 @@ export const CONTACT_DETAILS_REASON = "contact_details";
 export const CONTACT_DETAILS_REFUSED =
   "Por segurança, telefone, e-mail e redes sociais não podem ser enviados por aqui. Converse pelas mensagens do pedido.";
 
+/** For the supplier's brand and products, which every reseller reads. */
+export const SUPPLIER_TEXT_CONTACT_REFUSED =
+  "Por segurança, telefone, e-mail e redes sociais não podem aparecer na marca nem nos produtos.";
+
+/** Every message a contact refusal carries; the server logs the issues that have one. */
+export const CONTACT_REFUSAL_MESSAGES: readonly string[] = [
+  CONTACT_DETAILS_REFUSED,
+  SUPPLIER_TEXT_CONTACT_REFUSED,
+];
+
 /** Sites that open a chat, a profile or a short link to either, by their exact host. */
 const CONTACT_HOSTS = new Set([
   "wa.me",
@@ -75,20 +85,36 @@ function contactLink(url: URL): boolean {
   return contactHost(url.hostname) || kinds.length > 0 || PHONE_PARAMETER.test(rest);
 }
 
+function refuseWith(message: string) {
+  return (text: string, context: z.RefinementCtx): void => {
+    const kinds = findContactDetails(text);
+    if (kinds.length === 0) {
+      return;
+    }
+    context.addIssue({
+      code: "custom",
+      message,
+      params: { reason: CONTACT_DETAILS_REASON, kinds },
+    });
+  };
+}
+
 /**
  * Refuses free text that carries a phone, e-mail, chat link or social network user. Reseller
  * and supplier must not be able to reach each other outside the platform (the user's rule).
  */
-export function refuseContactDetails(text: string, context: z.RefinementCtx): void {
-  const kinds = findContactDetails(text);
-  if (kinds.length === 0) {
-    return;
-  }
-  context.addIssue({
-    code: "custom",
-    message: CONTACT_DETAILS_REFUSED,
-    params: { reason: CONTACT_DETAILS_REASON, kinds },
-  });
+export const refuseContactDetails = refuseWith(CONTACT_DETAILS_REFUSED);
+
+/** The same rule for the supplier's brand and product texts, with words for the supplier. */
+export const refuseSupplierTextContact = refuseWith(SUPPLIER_TEXT_CONTACT_REFUSED);
+
+/**
+ * The first of `texts` (by key) that carries a contact, or null. For texts saved before the
+ * rule existed, checked again when the product goes to review or is approved.
+ */
+export function firstTextWithContact(texts: Readonly<Record<string, string>>): string | null {
+  const found = Object.entries(texts).find(([, text]) => findContactDetails(text).length > 0);
+  return found === undefined ? null : found[0];
 }
 
 /** The same for a link field, where links are expected: only chat and profile hosts are refused. */

@@ -7,6 +7,7 @@ import {
   openedShelfCountSchema,
 } from "../schemas/admin-suppliers.ts";
 import { freeText, pageNumberSchema, searchQuery } from "../schemas/common.ts";
+import { refuseSupplierTextContact } from "../schemas/contact-guard.ts";
 import { optionalParameter, withFallback } from "../schemas/fallback.ts";
 import {
   PRODUCT_REVIEW_STATUSES,
@@ -40,7 +41,7 @@ export const catalogListInputSchema = supplierScopeSchema.extend(catalogListSear
  * photos, which must be https for the supplier (staff may still save http links).
  */
 export const catalogDraftValuesSchema = adminProductValuesSchema.extend({
-  title: freeText().trim().max(300),
+  title: freeText().trim().max(300).superRefine(refuseSupplierTextContact),
   stock: editedShelfCountSchema,
   imageUrls: supplierImageUrlsSchema,
 });

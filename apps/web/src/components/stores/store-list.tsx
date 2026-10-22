@@ -207,7 +207,7 @@ function PublishAction({ store, storeName }: { store: StoreWithActivity; storeNa
       {/* Only this store's supplier: products of another one could not be published here. */}
       <Link
         to="/catalogo"
-        search={{ supplier: store.supplierId ?? undefined }}
+        search={{ store: store.id }}
         aria-label={`Publicar produtos em ${storeName}`}
       >
         <PackageIcon weight="bold" aria-hidden="true" />
