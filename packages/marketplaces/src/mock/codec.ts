@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { parseJsonText } from "@sellbridge/shared/http-body";
 import { z } from "zod";
 import { marketplaceError } from "../errors.ts";
+import { marketplaceShippingAddressSchema } from "../shipping-address.ts";
 import type { MarketplaceOrder } from "../types.ts";
 
 /**
@@ -24,6 +25,8 @@ const mockOrderSchema = z.object({
   marketplaceFeeCents: z.number().int().nonnegative(),
   refundedCents: z.number().int().nonnegative().default(0),
   buyerName: z.string().nullable(),
+  /** The simulated sale carries a made-up address, so the forward form shows it filled. */
+  shippingAddress: marketplaceShippingAddressSchema.optional(),
   orderedAt: z.string(),
   items: z
     .array(
