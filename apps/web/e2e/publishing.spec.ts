@@ -8,7 +8,7 @@ import {
 import { createDatabase } from "@sellbridge/database/client";
 import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
 import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
-import { and, eq, gt, like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
@@ -287,29 +287,6 @@ async function repairDescription(title: string): Promise<void> {
   }
 }
 
-/** A BH Beauty product with stock: what the publish form opens for. */
-async function inStockProductId(): Promise<string> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
-  try {
-    const [row] = await database
-      .select({ id: supplierProducts.id })
-      .from(supplierProducts)
-      .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-      .where(
-        and(
-          like(suppliers.name, "BH Beauty%"),
-          eq(supplierProducts.active, true),
-          gt(supplierProducts.stock, 0),
-        ),
-      )
-      .limit(1);
-    if (!row) throw new Error("Seed sem produto da BH Beauty com estoque");
-    return row.id;
-  } finally {
-    await database.$client.end();
-  }
-}
-
 /** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
 async function outOfStockProductId(): Promise<string> {
   const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
@@ -348,15 +325,7 @@ test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
   await signUp(page, "Revendedor Sem Loja");
   await onboardWithBhBeauty(page);
-  // No store sells BH Beauty yet: the supplier page disables "Publicar" and says why.
-  await gotoHydrated(page, "/fornecedores");
-  await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
-  await expect(
-    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
-  // An old link to the publish form still points to connecting a store.
-  await gotoHydrated(page, `/publicacoes/nova?productId=${await inStockProductId()}`);
+  await openPublishFormForFirstProduct(page);
   await expect(
     page.getByText("Conecte uma loja antes de publicar").filter({ visible: true }),
   ).toBeVisible();

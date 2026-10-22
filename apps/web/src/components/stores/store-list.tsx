@@ -222,7 +222,11 @@ function PublishAction({
       {/* Only this store's supplier: products of another one could not be published here. */}
       <Link
         to={ownProducts && store.supplierId === null ? "/products" : "/catalogo"}
-        search={ownProducts && store.supplierId === null ? {} : { store: store.id }}
+        search={
+          ownProducts && store.supplierId === null
+            ? {}
+            : { supplier: store.supplierId ?? undefined }
+        }
         aria-label={`Publicar produtos em ${storeName}`}
       >
         <PackageIcon weight="bold" aria-hidden="true" />
