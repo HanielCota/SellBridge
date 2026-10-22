@@ -5,7 +5,7 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
 } from "@sellbridge/shared/schemas";
-import { describeAdminEvent } from "@/features/admin/admin-actions";
+import { contactKindsLabel, describeAdminEvent } from "@/features/admin/admin-actions";
 
 type AuditDetails = AuditEntry["details"];
 type DescribedEntry = Pick<AuditEntry, "source" | "action" | "details" | "subjectLabel">;
@@ -42,6 +42,9 @@ function plural(count: number, one: string, other: string): string {
 }
 
 function describeCatalog(action: string, details: AuditDetails): string {
+  if (action === "contact_blocked") {
+    return `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`;
+  }
   if (action === "catalog.csv_imported") {
     const created = plural(countDetail(details, "created"), "criado", "criados");
     const updated = plural(countDetail(details, "updated"), "atualizado", "atualizados");
@@ -91,3 +94,19 @@ export const AUDIT_SOURCE_LABELS: Record<AuditEntry["source"], string> = {
   catalog: "Catálogo",
   support: "Suporte",
 };
+
+/**
+ * Who did it. A refused contact is the customer's own try (or the supplier's, through its link),
+ * so it has no team member; any other entry without one lost its author.
+ */
+export function auditActorLabel(
+  entry: Pick<AuditEntry, "action" | "actorName" | "source">,
+): string {
+  if (entry.actorName !== null) {
+    return entry.actorName;
+  }
+  if (entry.action !== "contact_blocked") {
+    return "Usuário removido";
+  }
+  return entry.source === "catalog" ? "Fornecedor pelo link" : "O próprio cliente";
+}

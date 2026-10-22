@@ -36,6 +36,12 @@ describe("redactContactDetails", () => {
     expect(redactContactDetails(comment)).toBe(comment);
   });
 
+  it("keeps order numbers and tracking codes, which say which sale the review is about", () => {
+    const comment =
+      "Pedido 2000012345678901 (MLB1234567890) chegou com o rastreio AA123456789BR, venda #SIM-9F936BC5";
+    expect(redactContactDetails(comment)).toBe(comment);
+  });
+
   it("sees through full-width and mathematical digits, a full-width @ and wide gaps", () => {
     const fullWidth = String.fromCodePoint(
       ..."11987654321".split("").map((digit) => 0xff10 + Number(digit)),
