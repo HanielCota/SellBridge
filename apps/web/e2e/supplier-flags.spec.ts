@@ -1,6 +1,7 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
 import { member, supplierFlags, suppliers, user } from "@sellbridge/database/schema";
+import { applySupplierFlag, revokeSupplierFlag } from "@sellbridge/database/repositories";
 import { eq, inArray } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import {
@@ -261,4 +262,52 @@ test("admin vê as flags na ficha e a ação na auditoria", async ({ page }) => 
     }),
   ).toBeVisible();
   await expect(page.getByRole("cell", { name: "Retirou uma flag do fornecedor" })).toBeVisible();
+});
+
+test("uma retirada recusada atualiza a lista e não reaparece na próxima flag", async ({
+  browser,
+}) => {
+  const [admin] = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, ADMIN_USER.email));
+  if (admin === undefined) throw new Error("admin do seed não encontrado");
+  await applySupplierFlag(database, {
+    supplierId,
+    reason: "stale_catalog",
+    note: "",
+    createdBy: admin.id,
+  });
+  const newest = await applySupplierFlag(database, {
+    supplierId,
+    reason: "slow_support",
+    note: "",
+    createdBy: admin.id,
+  });
+
+  const { context, page } = await teamMemberPage(browser, "Supervisora Atrasada", "supervisor");
+  await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
+  await expect(page.getByRole("button", { name: "Retirar flag" })).toHaveCount(2);
+  // Another team member revokes the newest flag while this page still shows it.
+  await revokeSupplierFlag(database, {
+    supplierId,
+    flagId: newest.id,
+    revokedBy: admin.id,
+    revokeNote: "Retirada em outra aba.",
+    now: new Date(),
+  });
+
+  await page.getByRole("button", { name: "Retirar flag" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Retirar flag?" });
+  await dialog.getByLabel("Por que retirar?").fill(REVOKE_NOTE);
+  await dialog.getByRole("button", { name: "Retirar flag" }).click();
+  await expect(dialog.getByText("Esta flag já foi retirada.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "Retirar flag" })).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Retirar flag" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Esta flag já foi retirada.")).toHaveCount(0);
+  await context.close();
 });

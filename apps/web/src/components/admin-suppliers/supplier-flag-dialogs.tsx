@@ -63,13 +63,18 @@ function useFlagMutation<TInput>(
   onDone: () => void,
 ) {
   const queryClient = useQueryClient();
+  const refreshFlags = async () =>
+    await queryClient.invalidateQueries({ queryKey: supplierFlagsQueryKey(supplierId) });
   return useMutation({
     mutationFn: async (data: TInput) => await action({ data }),
     onSuccess: async () => {
       toast.success(successMessage);
-      await queryClient.invalidateQueries({ queryKey: supplierFlagsQueryKey(supplierId) });
+      await refreshFlags();
       onDone();
     },
+    // A refusal (another team member already revoked it, or it expired meanwhile) means the
+    // list on screen is stale: reload it so the flag no longer offers an action that fails.
+    onError: refreshFlags,
   });
 }
 
@@ -180,6 +185,38 @@ export function ApplyFlagDialog({
   );
 }
 
+/** The revoke dialog's note, its error and the call; `close` forgets all three. */
+function useRevokeFlag(supplierId: string, flagId: string | null, onClose: () => void) {
+  const [revokeNote, setRevokeNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const clearAndClose = () => {
+    setRevokeNote("");
+    setError(null);
+    onClose();
+  };
+  const revoke = useFlagMutation(
+    supplierId,
+    teamRevokeSupplierFlag,
+    "Flag retirada.",
+    clearAndClose,
+  );
+  const close = () => {
+    // The next flag's dialog must not open with the previous attempt's refusal.
+    revoke.reset();
+    clearAndClose();
+  };
+  const confirm = () => {
+    const parsed = revokeSupplierFlagSchema.safeParse({ supplierId, flagId, revokeNote });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Confira a observação.");
+      return;
+    }
+    setError(null);
+    revoke.mutate(parsed.data);
+  };
+  return { revokeNote, setRevokeNote, error, revoke, close, confirm };
+}
+
 /** "Retirar flag": asks why; the note stays with the team, the supplier never sees it. */
 export function RevokeFlagDialog({
   supplierId,
@@ -190,24 +227,11 @@ export function RevokeFlagDialog({
   flagId: string | null;
   onClose: () => void;
 }) {
-  const [revokeNote, setRevokeNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const close = () => {
-    setRevokeNote("");
-    setError(null);
-    onClose();
-  };
-  const revoke = useFlagMutation(supplierId, teamRevokeSupplierFlag, "Flag retirada.", close);
-
-  function confirm() {
-    const parsed = revokeSupplierFlagSchema.safeParse({ supplierId, flagId, revokeNote });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Confira a observação.");
-      return;
-    }
-    setError(null);
-    revoke.mutate(parsed.data);
-  }
+  const { revokeNote, setRevokeNote, error, revoke, close, confirm } = useRevokeFlag(
+    supplierId,
+    flagId,
+    onClose,
+  );
 
   return (
     <ConfirmDialog
