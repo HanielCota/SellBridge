@@ -86,6 +86,50 @@ test("opening a profile page in a new tab leaves the admin pill on the current t
   await expect(tickets).toHaveAttribute("aria-current", "page");
 });
 
+// Regression (main CI after #85 and #87): the Chamados count arrived after the page, widened
+// its tab, and the pill glided for 400 ms from under that count to Equipe. axe caught the count
+// on the white pill (contrast 1.2) whenever it ran inside that glide.
+test("the admin pill lands at once on its tab when a count beside it appears", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await gotoHydrated(page, "/admin/equipe");
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  await expect(nav.getByRole("link", { name: "Equipe" })).toHaveAttribute("aria-current", "page");
+  const pillGap = async () =>
+    nav.evaluate((element) => {
+      const pill = element.querySelector(":scope > span[aria-hidden='true']");
+      const active = element.querySelector("a[aria-current='page']");
+      if (pill === null || active === null) {
+        return null;
+      }
+      return Math.abs(pill.getBoundingClientRect().left - active.getBoundingClientRect().left);
+    });
+  // The pill first lands where the page opened; only a later layout change is under test.
+  await expect.poll(pillGap).toBeLessThanOrEqual(1);
+  const gap = await nav.evaluate(async (element) => {
+    const pill = element.querySelector(":scope > span[aria-hidden='true']");
+    const active = element.querySelector("a[aria-current='page']");
+    const tickets = [...element.querySelectorAll("a")].find((link) =>
+      link.textContent.startsWith("Chamados"),
+    );
+    if (pill === null || active === null || tickets === undefined) {
+      return null;
+    }
+    const count = document.createElement("span");
+    count.textContent = "99";
+    count.style.width = "40px";
+    count.style.display = "inline-block";
+    tickets.append(count);
+    for (let frame = 0; frame < 4; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return Math.abs(pill.getBoundingClientRect().left - active.getBoundingClientRect().left);
+  });
+  expect(gap).not.toBeNull();
+  expect(gap).toBeLessThanOrEqual(1);
+});
+
 test("seller header stays clear with a long account name", async ({ page }) => {
   await signUp(page, "Seller with a deliberately long account display name");
   await gotoHydrated(page, "/dashboard");
