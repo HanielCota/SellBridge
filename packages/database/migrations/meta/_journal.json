@@ -330,6 +330,13 @@
       "when": 1792522130003,
       "tag": "0046_portuguese_category_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792677898382,
+      "tag": "0047_supplier_flags",
+      "breakpoints": true
     }
   ]
 }

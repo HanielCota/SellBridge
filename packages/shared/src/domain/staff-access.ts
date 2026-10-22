@@ -24,11 +24,22 @@ export type StaffPermission =
   /** Customer accounts: profile, region, stores, ban, sessions, roles, impersonation. */
   | "customers.manage"
   /** The platform-wide trail of what the team did (item 28.b): accounts, catalog, support. */
-  | "audit.view";
+  | "audit.view"
+  /** Sees a supplier's flags (MVP function 6): active ones and the history. */
+  | "suppliers.view_flags"
+  /** Applies and revokes a supplier's flags. */
+  | "suppliers.flag";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
-  agent: ["support.answer", "support.triage"],
-  supervisor: ["support.answer", "support.triage", "support.assign_others", "support.metrics"],
+  agent: ["support.answer", "support.triage", "suppliers.view_flags"],
+  supervisor: [
+    "support.answer",
+    "support.triage",
+    "support.assign_others",
+    "support.metrics",
+    "suppliers.view_flags",
+    "suppliers.flag",
+  ],
   admin: [
     "support.answer",
     "support.triage",
@@ -36,6 +47,8 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.metrics",
     "customers.manage",
     "audit.view",
+    "suppliers.view_flags",
+    "suppliers.flag",
   ],
 };
 
