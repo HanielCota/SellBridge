@@ -50,7 +50,7 @@ export function TeamNoticesCard({ supplierId }: { supplierId: string }) {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Avisos da equipe</h2>
         <p className="text-sm text-muted-foreground">
-          A equipe SellBridge registrou um problema com a sua loja.{" "}
+          A equipe SellBridge registrou um problema na sua conta de fornecedor.{" "}
           <HintedText label={COUNTER_HINT} className="hinted-term">
             {supplierFlagCountLabel(notices.length)}
           </HintedText>
