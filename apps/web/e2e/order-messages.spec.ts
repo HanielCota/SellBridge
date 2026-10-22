@@ -14,11 +14,10 @@ import {
   shipmentEvents,
   organization,
   storeConnections,
-  supplierProducts,
-  suppliers,
   user,
 } from "@sellbridge/database/schema";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { forwardableProduct } from "./catalog-fixtures";
 import { requireEnvironmentVariable } from "./environment";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 
@@ -42,19 +41,8 @@ async function forwardedOrder() {
   const [store] = tenant
     ? await database.select().from(storeConnections).where(eq(storeConnections.tenantId, tenant.id))
     : [];
-  const [row] = await database
-    .select({ product: supplierProducts })
-    .from(supplierProducts)
-    .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
-    .where(
-      and(
-        eq(suppliers.active, true),
-        eq(suppliers.catalogKind, "supplier"),
-        eq(supplierProducts.active, true),
-      ),
-    )
-    .limit(1);
-  if (!tenant || !store || !row) throw new Error("Seed demo missing");
+  const product = await forwardableProduct(database);
+  if (!tenant || !store || !product) throw new Error("Seed demo missing");
   const [order] = await database
     .insert(orders)
     .values({
@@ -72,11 +60,11 @@ async function forwardedOrder() {
   await database.insert(orderItems).values({
     tenantId: tenant.id,
     orderId: order.id,
-    supplierProductId: row.product.id,
-    title: row.product.title,
+    supplierProductId: product.id,
+    title: product.title,
     quantity: 1,
     unitPriceCents: 9900,
-    unitCostCents: row.product.costCents,
+    unitCostCents: product.costCents,
   });
   const [link] = await forwardOrder(database, tenant.id, {
     orderId: order.id,
