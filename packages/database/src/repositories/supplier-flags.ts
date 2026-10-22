@@ -20,6 +20,7 @@ import { publicSupplier } from "./sql/sellable.ts";
 
 /** Same arithmetic as the table's check: 90 × 24 hours, whatever the session time zone. */
 const VALIDITY_INTERVAL = sql.raw(`interval '${SUPPLIER_FLAG_VALIDITY_DAYS * 24} hours'`);
+const MILLISECOND_NOW = sql.raw(`date_trunc('milliseconds', now())`);
 
 export interface TeamSupplierFlag {
   id: string;
@@ -89,8 +90,10 @@ export async function applySupplierFlag(
       note: input.note,
       createdBy: input.createdBy,
       // One `now()` per statement: both columns get the same instant, as the check requires.
-      createdAt: sql`now()`,
-      expiresAt: sql`now() + ${VALIDITY_INTERVAL}`,
+      // Cut to milliseconds: Postgres keeps microseconds and a JS Date does not, so an untrimmed
+      // flag stayed active in SQL for up to 1 ms after the app already counted it as expired.
+      createdAt: sql`${MILLISECOND_NOW}`,
+      expiresAt: sql`${MILLISECOND_NOW} + ${VALIDITY_INTERVAL}`,
     })
     .returning({ id: supplierFlags.id, expiresAt: supplierFlags.expiresAt });
   if (created === undefined) {
