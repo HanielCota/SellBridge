@@ -13,34 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { saveOnboardingHolder } from "@/features/onboarding/onboarding.functions";
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { holderDefaults, holderInput } from "@/components/onboarding/holder-values";
 
 const appRoute = getRouteApi("/_app");
-
-interface HolderFormValues {
-  fullName: string;
-  cpf: string;
-  phone: string;
-  isCompany: boolean;
-  cnpj: string;
-  companyName: string;
-}
-
-function holderDefaults(holder: BillingHolder | null, accountName: string): HolderFormValues {
-  return {
-    fullName: holder?.fullName ?? accountName,
-    cpf: holder === null ? "" : formatCpf(holder.cpf),
-    phone: holder === null || holder.phone === null ? "" : formatPhone(holder.phone),
-    isCompany: holder?.company !== null && holder !== null,
-    cnpj: holder?.company ? formatCnpj(holder.company.cnpj) : "",
-    companyName: holder?.company?.companyName ?? "",
-  };
-}
-
-/** The form's fields as the server takes them: the company only when the box is ticked. */
-function holderInput(value: HolderFormValues) {
-  const company = value.isCompany ? { cnpj: value.cnpj, companyName: value.companyName } : null;
-  return { fullName: value.fullName, cpf: value.cpf, phone: value.phone, company };
-}
 
 function useHolderForm(
   holder: BillingHolder | null,

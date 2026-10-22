@@ -60,6 +60,58 @@ describe("billingHolderSchema", () => {
         .success,
     ).toBe(false);
   });
+
+  // L2-2: what reaches the server never mixes selling as a person and as a company.
+  describe("holder type", () => {
+    const company = { cnpj: "11.222.333/0001-81", companyName: "Ana Modas Ltda" };
+
+    it("refuses a CNPJ without the legal name", () => {
+      const { companyName: _companyName, ...cnpjOnly } = company;
+      for (const candidate of [cnpjOnly, { ...company, companyName: "   " }]) {
+        expect(billingHolderSchema.safeParse({ ...HOLDER, company: candidate }).success).toBe(
+          false,
+        );
+      }
+      expect(
+        billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, companyName: null } })
+          .success,
+      ).toBe(false);
+    });
+
+    it("refuses a legal name without the CNPJ", () => {
+      for (const cnpj of ["", "   ", null]) {
+        expect(
+          billingHolderSchema.safeParse({ ...HOLDER, company: { ...company, cnpj } }).success,
+        ).toBe(false);
+      }
+    });
+
+    it("asks whether the holder sells as a company", () => {
+      const { company: _company, ...withoutCompany } = HOLDER;
+      expect(billingHolderSchema.safeParse(withoutCompany).success).toBe(false);
+    });
+
+    it("refuses company fields sent beside a CPF-only holder", () => {
+      for (const stray of [
+        { cnpj: company.cnpj },
+        { companyName: company.companyName },
+        { isCompany: true },
+      ]) {
+        expect(billingHolderSchema.safeParse({ ...HOLDER, ...stray, company: null }).success).toBe(
+          false,
+        );
+      }
+    });
+
+    it("refuses extra fields inside the company", () => {
+      const mixed = { ...company, cpf: HOLDER.cpf };
+      expect(billingHolderSchema.safeParse({ ...HOLDER, company: mixed }).success).toBe(false);
+    });
+
+    it("saves company null for who sells with a CPF", () => {
+      expect(billingHolderSchema.parse(HOLDER).company).toBeNull();
+    });
+  });
 });
 
 describe("termsAcceptanceSchema", () => {
