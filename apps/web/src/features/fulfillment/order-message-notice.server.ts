@@ -1,13 +1,13 @@
 import {
   findOrderMessageContext,
-  previousOrderMessageAt,
+  orderMessageTimes,
   queueOrderMessageNotices,
   type OrderMessageContext,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { supplierOrderMessageEmail } from "@sellbridge/shared/order-message-email";
 import { SHIPMENT_ACTORS, type ShipmentOperator } from "@sellbridge/shared/schemas";
-import { shouldEmailOrderMessage } from "@sellbridge/shared/order-message-email-throttle";
+import { shouldEmailLatestOrderMessage } from "@sellbridge/shared/order-message-email-throttle";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { sendEmail } from "@/lib/server/mailer";
@@ -53,12 +53,13 @@ export async function noticeOrderMessage(input: {
     if (context === null) {
       return;
     }
-    const previousMessageAt = await previousOrderMessageAt(database, {
+    const messageTimes = await orderMessageTimes(database, {
       shipmentId: input.shipmentId,
       actor: SHIPMENT_ACTORS[input.author],
     });
-    // One e-mail per window: the message is in the conversation (and the store's bell) anyway.
-    if (!shouldEmailOrderMessage({ previousMessageAt, now: new Date() })) {
+    // At most one e-mail per window, and one again once a window passed since the last: the
+    // message is in the conversation (and the store's bell) anyway.
+    if (!shouldEmailLatestOrderMessage(messageTimes)) {
       logger.info("fulfillment.order_message_email_throttled", {
         shipmentId: input.shipmentId,
         author: input.author,

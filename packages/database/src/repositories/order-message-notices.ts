@@ -1,5 +1,5 @@
 import { orderMessageContent } from "@sellbridge/shared/notification-events";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
@@ -62,13 +62,14 @@ export async function queueOrderMessageNotices(
 }
 
 /**
- * When the author last wrote on the parcel before the message just saved (the newest one), or
- * null: what `shouldEmailOrderMessage` needs to keep one e-mail per window.
+ * When the author wrote each message on the parcel, oldest first: what
+ * `shouldEmailLatestOrderMessage` replays to keep one e-mail per window. A parcel holds at most
+ * 100 events, so this stays small.
  */
-export async function previousOrderMessageAt(
+export async function orderMessageTimes(
   database: Database,
   input: { shipmentId: string; actor: string },
-): Promise<Date | null> {
+): Promise<Date[]> {
   // A message keeps the status of the event before it; the forward and the steps do not.
   const ranked = database
     .select({
@@ -85,7 +86,7 @@ export async function previousOrderMessageAt(
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, input.shipmentId))
     .as("ranked");
-  const latest = await database
+  const rows = await database
     .select({ at: ranked.at })
     .from(ranked)
     .where(
@@ -95,7 +96,6 @@ export async function previousOrderMessageAt(
         sql`${ranked.status} = ${ranked.previousStatus}`,
       ),
     )
-    .orderBy(desc(ranked.at))
-    .limit(2);
-  return latest.at(1)?.at ?? null;
+    .orderBy(asc(ranked.at));
+  return rows.map((row) => row.at);
 }
