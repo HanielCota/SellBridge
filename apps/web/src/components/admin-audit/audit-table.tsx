@@ -10,7 +10,11 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AUDIT_SOURCE_LABELS, describeAuditEntry } from "@/features/admin-audit/audit-copy";
+import {
+  AUDIT_SOURCE_LABELS,
+  auditActorLabel,
+  describeAuditEntry,
+} from "@/features/admin-audit/audit-copy";
 import { errorMessage } from "@/lib/errors";
 
 /** Each source keeps its own dot, so a long trail reads by area at a glance. */
@@ -85,7 +89,7 @@ const columns = columnHelper.columns([
     header: "Quem",
     cell: (info) => (
       <span className={info.getValue() === null ? "text-muted-foreground" : undefined}>
-        {info.getValue() ?? "Usuário removido"}
+        {auditActorLabel(info.row.original)}
       </span>
     ),
   }),

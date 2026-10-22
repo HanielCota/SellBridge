@@ -20,6 +20,8 @@ import { TextareaField } from "@/components/form/textarea-field";
 import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
+import { contactWarning } from "@/features/fulfillment/contact-warning";
+import { dispatchFieldsFor } from "@/features/fulfillment/dispatch-fields";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import {
   FULFILLMENT_TONES,
@@ -137,7 +139,7 @@ function ShipmentToolbar({
             >
               <ShipmentActionIcon action="printOrder" />
               {shipment.catalogKind === "seller"
-                ? "Print packing list"
+                ? "Imprimir lista de separação"
                 : "Imprimir ordem de fornecimento"}
             </Button>
           </ShipmentActionHint>
@@ -182,6 +184,29 @@ function DispatchFields({ update }: { update: ShipmentUpdate }) {
 
 const EMPTY_OCCURRENCE = "Escreva a ocorrência antes de registrar";
 
+/** The occurrence note: empty is refused, and a contact in it never leaves the form. */
+function useOccurrence(update: ShipmentUpdate, shipment: ShipmentView) {
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const contactInNote = contactWarning(update.note);
+  // A contact is pointed out when leaving the field or sending, not on every key: a long order
+  // number looks like a phone until it is typed in full.
+  const sendWithNote = (status: FulfillmentStatus) => {
+    if (contactInNote !== null) {
+      setNoteError(contactInNote);
+      return;
+    }
+    update.mutation.mutate({ status, note: update.note });
+  };
+  const registerOccurrence = () => {
+    if (!update.note.trim()) {
+      setNoteError(EMPTY_OCCURRENCE);
+      return;
+    }
+    sendWithNote(shipment.status);
+  };
+  return { noteError, setNoteError, contactInNote, registerOccurrence, sendWithNote };
+}
+
 function ShipmentActions({
   update,
   shipment,
@@ -193,16 +218,10 @@ function ShipmentActions({
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
 }) {
-  const [noteError, setNoteError] = useState<string | null>(null);
+  const { noteError, setNoteError, contactInNote, registerOccurrence, sendWithNote } =
+    useOccurrence(update, shipment);
   const pending = update.mutation.isPending;
   const operator = actsAs;
-  const registerOccurrence = () => {
-    if (!update.note.trim()) {
-      setNoteError(EMPTY_OCCURRENCE);
-      return;
-    }
-    update.mutation.mutate({ status: shipment.status, note: update.note });
-  };
   return (
     <div className="space-y-3">
       {/* Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */}
@@ -214,6 +233,7 @@ function ShipmentActions({
         label="Ocorrência ou observação"
         value={update.note}
         error={noteError}
+        onBlur={() => setNoteError(contactInNote)}
         onChange={(value) => {
           update.setNote(value);
           setNoteError(null);
@@ -225,7 +245,7 @@ function ShipmentActions({
             next={next}
             operator={operator}
             disabled={pending}
-            onAdvance={() => update.mutation.mutate({ status: next, note: update.note })}
+            onAdvance={() => sendWithNote(next)}
           />
         ) : null}
         <ShipmentActionHint action="occurrence" operator={operator}>
@@ -352,9 +372,11 @@ function useShipmentUpdate(
       const parsed = shipmentUpdateSchema.safeParse({
         shipmentId: shipment.id,
         status: change.status,
-        carrier,
-        trackingCode,
-        trackingUrl,
+        ...dispatchFieldsFor(shipment.status, change.status, {
+          carrier,
+          trackingCode,
+          trackingUrl,
+        }),
         note: change.note,
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira os dados");

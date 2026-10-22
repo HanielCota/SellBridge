@@ -7,6 +7,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { recordCatalogWrite } from "@/features/admin-audit/catalog-audit.server";
+import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { adminMiddleware, supplierPanelMiddleware } from "@/lib/server/middleware";
 import {
   loadPanelProductForm,
@@ -33,7 +34,7 @@ export const supplierPanelGetProductForm = createServerFn({ method: "GET" })
   .handler(async ({ data }) => await loadPanelProductForm(data));
 
 export const supplierPanelSaveDraft = createServerFn({ method: "POST" })
-  .middleware([supplierPanelMiddleware])
+  .middleware([supplierPanelMiddleware, blockedContactLogging("supplier_panel")])
   .validator(catalogSaveDraftSchema)
   .handler(async ({ data }) => await writePanelDraft(data));
 

@@ -68,9 +68,11 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
   await page.getByLabel("Só com estoque").click();
   await expect(page).toHaveURL(/inStock=true/);
-  await page.getByRole("link", { name: "Publicar" }).first().click();
-  await expect(page.getByText("Nenhuma loja vende BH Beauty Distribuidora")).toBeVisible();
-  await page.getByRole("link", { name: "Conectar uma loja para este fornecedor" }).click();
+  await expect(
+    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
+  await page.getByRole("link", { name: "Vender este fornecedor" }).click();
 
   // The new shop comes with that supplier picked, so connecting it unblocks publishing.
   await expect(page).toHaveURL(/\/lojas/);

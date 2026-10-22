@@ -26,11 +26,32 @@ export const ADMIN_ACTIONS = [
   "issue_snoozed",
   "issue_unsnoozed",
   "team_invited",
+  "contact_blocked",
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
 function isAdminAction(action: string): action is AdminAction {
   return ADMIN_ACTIONS.some((known) => known === action);
+}
+
+const CONTACT_KIND_LABELS: Readonly<Record<string, string>> = {
+  phone: "telefone",
+  email: "e-mail",
+  link: "link de contato",
+  social: "rede social",
+};
+
+/** "telefone e e-mail", from the comma list the blocked-contact audit stores. */
+export function contactKindsLabel(details: AdminEventDetails | null): string {
+  const kinds = typeof details?.kinds === "string" ? details.kinds.split(",") : [];
+  const labels = kinds.flatMap((kind) => {
+    const label = CONTACT_KIND_LABELS[kind];
+    return label === undefined ? [] : [label];
+  });
+  if (labels.length === 0) {
+    return "um contato";
+  }
+  return new Intl.ListFormat("pt-BR", { type: "conjunction" }).format(labels);
 }
 
 function issueLabel(details: AdminEventDetails | null): string {
@@ -107,6 +128,8 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       ? `Reenviou o convite para a equipe${as}`
       : `Convidou para a equipe${as}`;
   },
+  // Not the team's doing: the customer tried to send a contact and the server refused it.
+  contact_blocked: (details) => `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`,
 };
 
 /** One line of the customer's timeline, in the admin's words. */

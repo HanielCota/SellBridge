@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { refuseSupplierTextContact } from "./contact-guard.ts";
 import { freeText, pageNumberSchema, searchQuery } from "./common.ts";
 import { stateSchema } from "../domain/brazilian-states.ts";
 import { formatCents } from "../domain/money.ts";
@@ -121,11 +122,23 @@ const supplierContactEmailSchema = z
  */
 export const adminSupplierValuesSchema = z
   .object({
-    name: freeText().trim().min(1, "Informe o nome").max(150),
-    niche: freeText().trim().min(1, "Informe o nicho").max(100),
-    description: freeText().trim().max(10_000),
+    name: freeText()
+      .trim()
+      .min(1, "Informe o nome")
+      .max(150)
+      .superRefine(refuseSupplierTextContact),
+    niche: freeText()
+      .trim()
+      .min(1, "Informe o nicho")
+      .max(100)
+      .superRefine(refuseSupplierTextContact),
+    description: freeText().trim().max(10_000).superRefine(refuseSupplierTextContact),
     state: stateSchema,
-    city: freeText().trim().min(1, "Informe a cidade").max(120),
+    city: freeText()
+      .trim()
+      .min(1, "Informe a cidade")
+      .max(120)
+      .superRefine(refuseSupplierTextContact),
     logoUrl: imageUrlSchema.nullable(),
     contactEmail: supplierContactEmailSchema,
     acceptWithinHours: supplierDeadlineSchema,
@@ -148,8 +161,12 @@ export const adminSetSupplierActiveSchema = adminSupplierIdSchema.extend({ activ
 
 export const adminProductValuesSchema = z.object({
   sku: freeText().trim().min(1, "Informe o SKU").max(100),
-  title: freeText().trim().min(1, "Informe o título").max(300),
-  description: freeText().trim().max(20_000),
+  title: freeText()
+    .trim()
+    .min(1, "Informe o título")
+    .max(300)
+    .superRefine(refuseSupplierTextContact),
+  description: freeText().trim().max(20_000).superRefine(refuseSupplierTextContact),
   costCents: productPriceCentsSchema("O custo"),
   suggestedPriceCents: productPriceCentsSchema("O preço sugerido"),
   stock: productStockSchema,
@@ -158,7 +175,11 @@ export const adminProductValuesSchema = z.object({
   mercadoLivreAttributes: z
     .record(
       z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, "Informe o código do atributo, como BRAND"),
-      freeText().trim().min(1, "Informe o valor do atributo").max(255),
+      freeText()
+        .trim()
+        .min(1, "Informe o valor do atributo")
+        .max(255)
+        .superRefine(refuseSupplierTextContact),
     )
     .refine(
       (attributes) => Object.keys(attributes).length <= MAX_MERCADO_LIVRE_ATTRIBUTES,

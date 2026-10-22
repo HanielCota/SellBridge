@@ -1,4 +1,5 @@
 import type { ProductCsvError } from "./product-csv.ts";
+import { CONTACT_REFUSAL_MESSAGES } from "../schemas/contact-guard.ts";
 import {
   columnGuide,
   columnGuideByLabel,
@@ -76,7 +77,12 @@ export function shownValue(value: string): string {
   return `${trimmed.slice(0, MAX_SHOWN_VALUE - 1)}…`;
 }
 
-function cellIssue(guide: ImportColumnGuide, context: RowContext, problem: string): ImportIssue {
+function cellIssue(
+  guide: ImportColumnGuide,
+  context: RowContext,
+  problem: string,
+  expected: string = guide.format,
+): ImportIssue {
   const index = context.header.indexOf(guide.column);
   const received = shownValue(context.record?.fields[index] ?? "");
   const letter = context.letters[index] ?? null;
@@ -85,11 +91,15 @@ function cellIssue(guide: ImportColumnGuide, context: RowContext, problem: strin
     column: guide.column,
     columnLetter: letter,
     received,
-    expected: guide.format,
+    expected,
     problem,
-    message: `${problem} na ${place} (recebido: "${received}"); esperado: ${lowerFirst(guide.format)}.`,
+    message: `${problem} na ${place} (recebido: "${received}"); esperado: ${lowerFirst(expected)}.`,
   };
 }
+
+/** A cell refused for carrying a contact: every reseller would read it on the product. */
+const CONTACT_PROBLEM = "Tem telefone, e-mail ou rede social";
+const CONTACT_EXPECTED = "Sem telefone, e-mail nem redes sociais (por segurança)";
 
 function rowIssue(message: string): ImportIssue {
   return {
@@ -119,6 +129,9 @@ function partIssue(part: string, context: RowContext): ImportIssue {
   const guide = columnGuideByLabel(label);
   if (guide === null) {
     return rowIssue(part);
+  }
+  if (CONTACT_REFUSAL_MESSAGES.some((message) => part.endsWith(message))) {
+    return cellIssue(guide, context, CONTACT_PROBLEM, CONTACT_EXPECTED);
   }
   return cellIssue(guide, context, "Valor inválido");
 }

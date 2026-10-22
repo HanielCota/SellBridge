@@ -122,7 +122,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     await dialog.getByLabel(label, { exact: true }).fill(value);
   }
   await expect(dialog.getByText("Você envia este item")).toBeVisible();
-  await dialog.getByRole("button", { name: "Prepare shipments", exact: true }).click();
+  await dialog.getByRole("button", { name: "Preparar envios", exact: true }).click();
   const own = dialog
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Seu envio", exact: true }) });
@@ -160,7 +160,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     fullPage: true,
   });
   const popupPromise = page.waitForEvent("popup");
-  await own.getByRole("button", { name: "Print packing list", exact: true }).click();
+  await own.getByRole("button", { name: "Imprimir lista de separação", exact: true }).click();
   const popup = await popupPromise;
   await expect(popup.getByRole("heading", { name: "Lista de separação" })).toBeVisible();
   await expect(popup.getByText("Private packing item", { exact: true })).toBeVisible();
