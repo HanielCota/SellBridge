@@ -27,6 +27,7 @@ import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
 import { recordImpersonatedCall } from "@/lib/server/impersonation";
+import { assertAllowedWhileImpersonating } from "@/lib/server/impersonation-rules";
 import { requireStaffSession, requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
 import {
@@ -74,6 +75,12 @@ export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantRequest(request);
+    assertAllowedWhileImpersonating({
+      impersonatedBy: session.impersonatedBy,
+      customerId: session.userId,
+      functionName: "support.createTicket",
+      method: "POST",
+    });
     const formData = await readUploadForm(request, session.userId);
     const input = createTicketSchema.safeParse({
       category: textField(formData, "category"),

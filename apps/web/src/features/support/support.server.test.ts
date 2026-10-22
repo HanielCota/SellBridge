@@ -209,6 +209,23 @@ describe("support reply notices", () => {
   });
 });
 
+describe("a ticket opened during a visit to the customer's account", () => {
+  it("is refused, so the team cannot create the open ticket that lets it in", async () => {
+    mocks.requireTenantRequest.mockResolvedValue({
+      tenantId: "tenant-a",
+      userId: "reseller-visited",
+      profileKind: "seller",
+      impersonatedBy: "agent-1",
+    });
+    const form = messageForm(
+      { category: "payment", situation: "payout-missing", body: "O repasse da semana não caiu." },
+      false,
+    );
+    expect((await handleCreateTicket(post("/api/suporte/chamados", form))).status).toBe(403);
+    expect(mocks.createTicket).not.toHaveBeenCalled();
+  });
+});
+
 describe("new ticket notice", () => {
   it("queues the e-mail to the support team once the ticket is saved", async () => {
     mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
