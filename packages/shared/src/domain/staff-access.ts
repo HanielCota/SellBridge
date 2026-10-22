@@ -1,7 +1,8 @@
 /**
  * The SellBridge team. `agent` answers tickets, `supervisor` also runs the queue (hands tickets
  * to others, sees the metrics) and `admin` does everything, including customer accounts.
- * Only `admin` is an admin for the Better Auth admin plugin (ban, impersonate, set roles).
+ * In the Better Auth admin plugin only `admin` bans and sets roles; every team role may
+ * impersonate, and `impersonation-access.ts` limits agents and supervisors to open tickets.
  */
 export const STAFF_ROLES = ["agent", "supervisor", "admin"] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
@@ -21,8 +22,10 @@ export type StaffPermission =
   | "support.assign_others"
   /** Sees the support metrics (volume, response times, satisfaction). */
   | "support.metrics"
-  /** Customer accounts: profile, region, stores, ban, sessions, roles, impersonation. */
+  /** Customer accounts: profile, region, stores, ban, sessions, roles; enters any account. */
   | "customers.manage"
+  /** Enters a customer's account as them; without `customers.manage`, only with an open ticket. */
+  | "customers.impersonate"
   /** The platform-wide trail of what the team did (item 28.b): accounts, catalog, support. */
   | "audit.view"
   /** Sees a supplier's flags (MVP function 6): active ones and the history. */
@@ -36,7 +39,7 @@ export type StaffPermission =
   | "reviews.moderate";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
-  agent: ["support.answer", "support.triage", "suppliers.view_flags"],
+  agent: ["support.answer", "support.triage", "suppliers.view_flags", "customers.impersonate"],
   supervisor: [
     "support.answer",
     "support.triage",
@@ -45,6 +48,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "suppliers.view_flags",
     "suppliers.flag",
     "reviews.moderate",
+    "customers.impersonate",
   ],
   admin: [
     "support.answer",
@@ -52,6 +56,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.assign_others",
     "support.metrics",
     "customers.manage",
+    "customers.impersonate",
     "audit.view",
     "suppliers.view_flags",
     "suppliers.flag",
