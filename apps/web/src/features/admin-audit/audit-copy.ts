@@ -60,6 +60,9 @@ function describeCatalog(action: string, details: AuditDetails): string {
   if (action === "supplier.flag_applied") {
     return describeFlagApplied(details);
   }
+  if (action === "supplier.deactivated" && textDetail(details, "cause") === "third_flag") {
+    return "Desativou o fornecedor na 3ª flag";
+  }
   if (action === "contact_blocked") {
     return `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`;
   }
