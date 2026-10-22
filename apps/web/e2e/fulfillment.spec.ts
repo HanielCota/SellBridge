@@ -15,6 +15,7 @@ import {
   suppliers,
 } from "@sellbridge/database/schema";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { forwardableProduct } from "./catalog-fixtures";
 import { requireEnvironmentVariable } from "./environment";
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 let orderId = "";
@@ -29,7 +30,7 @@ test.beforeAll(async () => {
     .select()
     .from(storeConnections)
     .where(eq(storeConnections.tenantId, tenant.id));
-  const [product] = await database.select().from(supplierProducts).limit(1);
+  const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [order] = await database
     .insert(orders)
@@ -436,9 +437,12 @@ test("a parcel past its delivery estimate shows as late in operations, the order
   page,
 }) => {
   const { order, link, externalOrderId } = await forwardedOrder("E2E-LATE");
+  // The bell lists the 10 delays that started first. The shared demo seller carries parcels
+  // late on accept or dispatch from other runs, so a parcel late for three days fell out of the
+  // list; a delivery estimate older than any of them keeps this one in it, whatever is there.
   await database
     .update(orderShipments)
-    .set({ status: "shipped", estimatedDeliveryAt: new Date(Date.now() - 3 * 86_400_000) })
+    .set({ status: "shipped", estimatedDeliveryAt: new Date("2000-01-03T12:00:00Z") })
     .where(eq(orderShipments.id, link.shipmentId));
   try {
     await signIn(page, DEMO_USER);

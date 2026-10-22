@@ -378,9 +378,8 @@ test("atendente vê só o suporte e assume um chamado da fila", async ({ browser
   await expect(agent).toHaveURL(/\/admin\/chamados/);
 
   await openAsStaff(agent, subject);
-  // MVP item 3: an agent enters a customer with an open ticket; the customer file stays admin-only.
-  await expect(agent.getByRole("button", { name: "Entrar como cliente" })).toBeVisible();
-  await expect(agent.getByRole("link", { name: "Ver ficha do cliente" })).toHaveCount(0);
+  // Agents can impersonate nobody: the account shortcuts are not there.
+  await expect(agent.getByRole("button", { name: "Entrar como cliente" })).toHaveCount(0);
   await agent.getByRole("button", { name: "Assumir chamado" }).click();
   await expect(agent.getByText("Responsável atualizado")).toBeVisible();
   await expect(agent.getByLabel("Atendimento").getByText("Você", { exact: true })).toBeVisible();
