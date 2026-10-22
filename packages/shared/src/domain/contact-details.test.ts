@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactContactDetails } from "./contact-details.ts";
+import { REDACTED, redactContactDetails } from "./contact-details.ts";
 
 describe("redactContactDetails", () => {
   it("removes e-mails", () => {
@@ -40,6 +40,11 @@ describe("redactContactDetails", () => {
     const comment =
       "Pedido 2000012345678901 (MLB1234567890) chegou com o rastreio AA123456789BR, venda #SIM-9F936BC5";
     expect(redactContactDetails(comment)).toBe(comment);
+  });
+
+  it("still removes phones glued to a word or typed one after the other", () => {
+    expect(redactContactDetails("zap11987654321")).toBe(`zap${REDACTED}`);
+    expect(redactContactDetails("fone 11987654321 11912345678")).toBe(`fone ${REDACTED}`);
   });
 
   it("sees through full-width and mathematical digits, a full-width @ and wide gaps", () => {

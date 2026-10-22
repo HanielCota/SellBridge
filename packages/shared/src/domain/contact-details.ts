@@ -39,20 +39,31 @@ const HANDLE = /(?<![\p{L}\p{N}_.])@[\p{L}\p{N}_.]{2,}/gu;
  * without area code ("(11) 98765-4321", "+55 11 98765 4321", "98765-4321"), CPF and CNPJ
  * ("123.456.789-09", "12.345.678/0001-90"). Prices ("R$ 1.299,90") and dates stay short of it.
  */
-const DIGIT_RUN = /(?<![\p{L}\d])(?:\+\s?)?\(?\d(?:[\s()./-]{0,3}\d){7,}(?![\p{L}\d])/gu;
+const DIGIT_RUN = String.raw`(?:\+\s?)?\(?\d(?:[\s()./-]{0,3}\d){7,}`;
 
 /**
- * More digits than a CNPJ (14) is an order number ("2000012345678901"): it says which sale the
- * review is about, so it stays. Digits glued to letters (MLB…, tracking codes) never match.
+ * Codes that say which sale the review is about: tracking codes ("AA123456789BR"), listings
+ * ("MLB1234567890") and simulated sales ("SIM-9F936BC5"). They are kept whole; any other digits
+ * glued to a word ("zap11987654321") are still a phone.
  */
-const LONGEST_REDACTED_DIGITS = 14;
+const KEPT_CODE = String.raw`[A-Z]{2}\d{9}[A-Z]{2}(?![\p{L}\d])|MLB\d+|SIM-[A-Z0-9]+`;
+
+const KEPT_CODE_OR_DIGIT_RUN = new RegExp(`(${KEPT_CODE})|${DIGIT_RUN}`, "giu");
+
+/**
+ * An order number ("2000012345678901") is typed as one block of more digits than a CNPJ (14).
+ * Digits with separators are never one: two phones in a row ("11987654321 11912345678") are not.
+ */
+const ORDER_NUMBER = /^\d{15,}$/u;
 
 /** A date like "12/09/2026" or "12/09": kept, so the digit rule can skip it. */
 const DATE = /^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/u;
 
-function redactDigitRun(match: string): string {
-  const digits = match.replace(/\D/g, "").length;
-  return DATE.test(match.trim()) || digits > LONGEST_REDACTED_DIGITS ? match : REDACTED;
+function redactDigitRun(match: string, keptCode: string | undefined): string {
+  if (keptCode !== undefined || DATE.test(match.trim()) || ORDER_NUMBER.test(match)) {
+    return match;
+  }
+  return REDACTED;
 }
 
 /**
@@ -69,5 +80,5 @@ export function redactContactDetails(text: string): string {
     .replace(LINK, REDACTED)
     .replace(DOMAIN, REDACTED)
     .replace(HANDLE, REDACTED)
-    .replace(DIGIT_RUN, redactDigitRun);
+    .replace(KEPT_CODE_OR_DIGIT_RUN, redactDigitRun);
 }
