@@ -10,6 +10,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
 
 const {
   assertAllowedWhileImpersonating,
+  assertVisitKeepsOrdersEmail,
   BLOCKED_WHILE_IMPERSONATING,
   isRecordedImpersonatedCall,
   QUIET_WHILE_IMPERSONATING,
@@ -73,6 +74,10 @@ describe("what an admin may do inside a customer's account", () => {
     "checkoutBilling",
     "manageBilling",
     "saveOnboardingHolder",
+    // The supplier's company data and the e-mail that receives its orders.
+    "updateOwnBrandFn",
+    // The customer's rating of the support the visiting agent gave.
+    "rateMyTicket",
   ];
 
   it.each(blocked)("refuses %s with a sentence that says why", (name) => {
@@ -88,6 +93,8 @@ describe("what an admin may do inside a customer's account", () => {
 
   it("lets the admin run the day-to-day work and reads", () => {
     expect(refusal(asAdmin("forwardOrderFn"))).toBeNull();
+    // Fixing a supplier's catalog is what the visit is for.
+    expect(refusal(asAdmin("supplierPanelSaveDraft"))).toBeNull();
     expect(refusal(asAdmin("updateListingPriceFn"))).toBeNull();
     expect(refusal(asAdmin("listStoreConnectionsFn", "GET"))).toBeNull();
   });
@@ -116,5 +123,32 @@ describe("what lands in the customer's timeline", () => {
     expect(isRecordedImpersonatedCall(asAdmin("markNotificationsSeenFn"))).toBe(false);
     expect(isRecordedImpersonatedCall(asAdmin("markMyTicketRead"))).toBe(false);
     expect(isRecordedImpersonatedCall(asCustomer("forwardOrderFn"))).toBe(false);
+  });
+});
+
+describe("a supplier's first brand registered during a visit", () => {
+  const visit = { impersonatedBy: "agent-1", loginEmail: "Marca@Exemplo.com" };
+
+  it("lets the team register it with the orders going to the account's own e-mail", () => {
+    expect(() =>
+      assertVisitKeepsOrdersEmail({ ...visit, ordersEmail: "marca@exemplo.com" }),
+    ).not.toThrow();
+    expect(() => assertVisitKeepsOrdersEmail({ ...visit, ordersEmail: null })).not.toThrow();
+  });
+
+  it("refuses sending the supplier's orders to another address", () => {
+    expect(() =>
+      assertVisitKeepsOrdersEmail({ ...visit, ordersEmail: "outro@exemplo.com" }),
+    ).toThrow("e-mail da conta do fornecedor");
+  });
+
+  it("leaves the supplier free to choose in their own session", () => {
+    expect(() =>
+      assertVisitKeepsOrdersEmail({
+        impersonatedBy: null,
+        loginEmail: "marca@exemplo.com",
+        ordersEmail: "pedidos@exemplo.com",
+      }),
+    ).not.toThrow();
   });
 });
