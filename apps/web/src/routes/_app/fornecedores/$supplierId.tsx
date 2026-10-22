@@ -34,6 +34,7 @@ import {
   supplierCatalogQueryOptions,
   supplierReputationQueryOptions,
 } from "@/features/suppliers/suppliers.queries";
+import { PUBLISH_NEEDS_STORE_HINT } from "@/features/suppliers/supplier-publish-access";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -71,7 +72,7 @@ function CatalogPage() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { supplier } = query.data;
+  const { supplier, canPublish } = query.data;
   return (
     <>
       <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
@@ -85,14 +86,21 @@ function CatalogPage() {
         description={`${supplier.niche} · ${supplier.city} - ${supplier.state}. ${supplier.description}`}
         actions={
           // Same destination as the Lojas tab (adding a store), so the same icon.
-          <Hint label={CONTROL_HINTS.sellSupplier} openOnTap={false}>
-            <Button asChild>
-              <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
-                <StoresIcon weight="bold" aria-hidden="true" />
-                Vender este fornecedor
-              </Link>
-            </Button>
-          </Hint>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Hint label={CONTROL_HINTS.sellSupplier} openOnTap={false}>
+              <Button asChild>
+                <Link to="/lojas" search={{ fornecedor: supplier.id }} hash="adicionar-loja">
+                  <StoresIcon weight="bold" aria-hidden="true" />
+                  Vender este fornecedor
+                </Link>
+              </Button>
+            </Hint>
+            {canPublish ? null : (
+              <p className="max-w-xs text-sm text-muted-foreground sm:text-right">
+                {PUBLISH_NEEDS_STORE_HINT}
+              </p>
+            )}
+          </div>
         }
       />
       <ReputationPanel supplierId={supplier.id} />
@@ -288,7 +296,7 @@ function CatalogResults() {
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
-  const { products } = query.data;
+  const { products, canPublish } = query.data;
   if (products.items.length === 0) {
     return (
       <EmptyState
@@ -304,7 +312,7 @@ function CatalogResults() {
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {products.items.map((product) => (
           <li key={product.id}>
-            <SupplierProductCard product={product} />
+            <SupplierProductCard product={product} canPublish={canPublish} />
           </li>
         ))}
       </ul>
