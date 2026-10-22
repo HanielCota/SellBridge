@@ -8,12 +8,12 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
+import { listReviewsForModeration } from "./review-moderation.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import {
   countPendingReviews,
   getReviewTarget,
   getSupplierReputationStats,
-  listSupplierReviewsForModeration,
   listReviewableOrders,
   saveSupplierReview,
 } from "./supplier-reviews.ts";
@@ -171,10 +171,11 @@ describe("supplier reviews", () => {
       tags: ["dispatch:bad"],
       comment: "Atrasou por culpa da transportadora",
     });
-    const reviews = await listSupplierReviewsForModeration(database, catalog.supplierId, {
-      page: 1,
-      pageSize: 20,
-    });
+    const reviews = await listReviewsForModeration(
+      database,
+      { supplierId: catalog.supplierId, withCommentOnly: false },
+      { page: 1, pageSize: 20 },
+    );
     expect(reviews.total).toBe(2);
     expect(reviews.items).toEqual([
       expect.objectContaining({
@@ -183,6 +184,8 @@ describe("supplier reviews", () => {
         comment: "Atrasou por culpa da transportadora",
         externalOrderId: expect.stringMatching(/^REV-/),
         storeName: `Loja rev-${tenantB}`,
+        supplierId: catalog.supplierId,
+        supplierName: "Fornecedor de teste REV-1",
       }),
       expect.objectContaining({
         rating: 5,
@@ -193,17 +196,57 @@ describe("supplier reviews", () => {
   });
 
   it("pages the moderation list and keeps reviews of other suppliers out", async () => {
-    const second = await listSupplierReviewsForModeration(database, catalog.supplierId, {
-      page: 2,
-      pageSize: 1,
-    });
+    const second = await listReviewsForModeration(
+      database,
+      { supplierId: catalog.supplierId, withCommentOnly: false },
+      { page: 2, pageSize: 1 },
+    );
     expect(second.items.map((review) => review.comment)).toEqual(["Chegou antes do prazo"]);
     expect(second.total).toBe(2);
-    const otherSupplier = await listSupplierReviewsForModeration(database, randomUUID(), {
-      page: 1,
-      pageSize: 20,
-    });
+    const otherSupplier = await listReviewsForModeration(
+      database,
+      { supplierId: randomUUID(), withCommentOnly: false },
+      { page: 1, pageSize: 20 },
+    );
     expect(otherSupplier.items).toEqual([]);
+  });
+
+  it("lists reviews of every supplier, with the supplier's name, when none is given", async () => {
+    const everyone = await listReviewsForModeration(
+      database,
+      { withCommentOnly: false },
+      { page: 1, pageSize: 100 },
+    );
+    const ours = everyone.items.filter((review) => review.supplierId === catalog.supplierId);
+    expect(ours.map((review) => review.supplierName)).toEqual([
+      "Fornecedor de teste REV-1",
+      "Fornecedor de teste REV-1",
+    ]);
+    expect(everyone.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it("leaves blank and whitespace-only comments out when only commented reviews are asked", async () => {
+    await saveSupplierReview(database, tenantB, {
+      orderId: orderIds.otherTenant,
+      supplierId: catalog.supplierId,
+      rating: 3,
+      tags: ["dispatch:bad"],
+      // Line breaks and tabs only: the screen shows "Sem comentário.", so the filter drops it.
+      comment: " \n\t ",
+    });
+    const commented = await listReviewsForModeration(
+      database,
+      { supplierId: catalog.supplierId, withCommentOnly: true },
+      { page: 1, pageSize: 20 },
+    );
+    expect(commented.items.map((review) => review.comment)).toEqual(["Chegou antes do prazo"]);
+    expect(commented.total).toBe(1);
+    const all = await listReviewsForModeration(
+      database,
+      { supplierId: catalog.supplierId, withCommentOnly: false },
+      { page: 1, pageSize: 20 },
+    );
+    expect(all.total).toBe(2);
   });
 
   it("hides contact details left in old comments, even from the team", async () => {
@@ -214,10 +257,11 @@ describe("supplier reviews", () => {
       tags: ["dispatch:bad"],
       comment: "Atrasou. Fale comigo: (11) 98765-4321 ou loja@exemplo.com",
     });
-    const reviews = await listSupplierReviewsForModeration(database, catalog.supplierId, {
-      page: 1,
-      pageSize: 20,
-    });
+    const reviews = await listReviewsForModeration(
+      database,
+      { supplierId: catalog.supplierId, withCommentOnly: true },
+      { page: 1, pageSize: 20 },
+    );
     expect(reviews.items.map((review) => review.comment)).toContain(
       "Atrasou. Fale comigo: [removido] ou [removido]",
     );

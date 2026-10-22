@@ -235,3 +235,56 @@ test("o admin lê o comentário; o atendente é recusado e o supervisor lê, no 
   expect(asReseller.body).not.toContain(COMMENT);
   await reseller.close();
 });
+
+/** Opens the account menu and says whether the team's "Avaliações" item is in it. */
+async function menuHasReviews(page: Page): Promise<boolean> {
+  await page.getByRole("button", { name: "Menu do usuário" }).click();
+  const found = await page.getByRole("menuitem", { name: "Avaliações" }).count();
+  await page.keyboard.press("Escape");
+  return found > 0;
+}
+
+test("o supervisor abre Avaliações pelo menu e lê os comentários de todos os fornecedores", async ({
+  browser,
+}) => {
+  const supervisor = await teamPage(browser, "supervisor");
+  const { page } = supervisor;
+  let listCall = "";
+  page.on("response", async (response) => {
+    const text = await response.text().catch(() => "");
+    if (response.url().includes("/_serverFn/") && text.includes(COMMENT)) {
+      listCall = response.url();
+    }
+  });
+  await enableAdminMode(page);
+  await page.getByRole("button", { name: "Menu do usuário" }).click();
+  await page.getByRole("menuitem", { name: "Avaliações" }).click();
+  await expect(page).toHaveURL(/\/admin\/avaliacoes/);
+  await expect(page.getByRole("heading", { name: "Avaliações", level: 1 })).toBeVisible();
+
+  // "Só com comentário" starts on, and the review names the supplier, the store and the order.
+  await expect(page.getByLabel("Só com comentário")).toBeChecked();
+  const list = page.getByRole("region", { name: "Avaliações dos revendedores" });
+  const review = list.getByRole("listitem").filter({ hasText: COMMENT });
+  await expect(review.getByText(SUPPLIER)).toBeVisible();
+  await expect(review.getByText(`${storeName} · pedido ${ORDER}`)).toBeVisible();
+  await expect(review.getByText("Atrasou o despacho")).toBeVisible();
+  await expect.poll(() => listCall).not.toBe("");
+
+  // The box follows the address, which changes once the navigation settles.
+  await page.getByLabel("Só com comentário").click();
+  await expect(page).toHaveURL(/withComment=false/);
+  await expect(page.getByLabel("Só com comentário")).not.toBeChecked();
+
+  // The agent: no menu item, the address sends them to the inbox, the function answers 403.
+  const agent = await teamPage(browser, "agent");
+  await enableAdminMode(agent.page);
+  expect(await menuHasReviews(agent.page)).toBe(false);
+  await gotoHydrated(agent.page, "/admin/avaliacoes");
+  await expect(agent.page).toHaveURL(/\/admin\/chamados/);
+  const refused = await callFromPage(agent.page, listCall);
+  expect(refused.status).toBe(403);
+  expect(refused.body).not.toContain(COMMENT);
+  await agent.context.close();
+  await supervisor.context.close();
+});

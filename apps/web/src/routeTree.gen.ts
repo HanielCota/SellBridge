@@ -33,6 +33,7 @@ import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
+import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
@@ -216,6 +217,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const AppAdminAuditoriaRoute = AppAdminAuditoriaRouteImport.update({
   id: '/auditoria',
   path: '/auditoria',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminAvaliacoesRoute = AppAdminAvaliacoesRouteImport.update({
+  id: '/avaliacoes',
+  path: '/avaliacoes',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
@@ -603,6 +609,7 @@ export interface FileRoutesByFullPath {
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
@@ -690,6 +697,7 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
@@ -783,6 +791,7 @@ export interface FileRoutesById {
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
+  '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
@@ -875,6 +884,7 @@ export interface FileRouteTypes {
     | '/admin/clientes'
     | '/fornecedor/painel'
     | '/admin/auditoria'
+    | '/admin/avaliacoes'
     | '/admin/equipe'
     | '/admin/products'
     | '/fornecedores/$supplierId'
@@ -962,6 +972,7 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/api/health'
     | '/admin/auditoria'
+    | '/admin/avaliacoes'
     | '/admin/equipe'
     | '/admin/products'
     | '/fornecedores/$supplierId'
@@ -1054,6 +1065,7 @@ export interface FileRouteTypes {
     | '/_app/admin/clientes'
     | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
+    | '/_app/admin/avaliacoes'
     | '/_app/admin/equipe'
     | '/_app/admin/products'
     | '/_app/fornecedores/$supplierId'
@@ -1334,6 +1346,13 @@ declare module '@tanstack/react-router' {
       path: '/auditoria'
       fullPath: '/admin/auditoria'
       preLoaderRoute: typeof AppAdminAuditoriaRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/avaliacoes': {
+      id: '/_app/admin/avaliacoes'
+      path: '/avaliacoes'
+      fullPath: '/admin/avaliacoes'
+      preLoaderRoute: typeof AppAdminAvaliacoesRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/admin/clientes': {
@@ -1819,6 +1838,7 @@ const AppAdminClientesRouteRouteWithChildren =
 interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
+  AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
   AppAdminEquipeRoute: typeof AppAdminEquipeRoute
   AppAdminProductsRoute: typeof AppAdminProductsRoute
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
@@ -1834,6 +1854,7 @@ interface AppAdminRouteRouteChildren {
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
+  AppAdminAvaliacoesRoute: AppAdminAvaliacoesRoute,
   AppAdminEquipeRoute: AppAdminEquipeRoute,
   AppAdminProductsRoute: AppAdminProductsRoute,
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,

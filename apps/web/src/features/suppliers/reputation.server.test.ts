@@ -11,7 +11,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   getDirectorySupplier: async () => ({ id: supplierId }),
   getSupplierReputationStats: async () =>
     new Map([[supplierId, { ...emptyReputationStats(), reviewCount: 1, ratingSum: 2 }]]),
-  listSupplierReviewsForModeration: async () => ({ items: [commentedReview] }),
+  listReviewsForModeration: async () => ({ items: [commentedReview] }),
 }));
 
 const { loadSupplierReputation } = await import("./reputation.server");
