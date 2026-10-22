@@ -437,7 +437,7 @@ function sellableCatalogConditions(tenantId: string, filters: SellableCatalogFil
   if (filters.categorySlug) {
     conditions.push(eq(categories.slug, filters.categorySlug));
   }
-  if (filters.supplierId !== undefined) {
+  if (filters.supplierId) {
     conditions.push(eq(suppliers.id, filters.supplierId));
   }
   if (filters.inStockOnly) {

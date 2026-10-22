@@ -1,13 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  completeOnboarding,
-  DEMO_USER,
-  gotoHydrated,
-  pickSupplier,
-  signIn,
-  signUp,
-  testCpf,
-} from "./helpers";
+import { DEMO_USER, gotoHydrated, pickSupplier, signIn, signUp, testCpf } from "./helpers";
 
 const PHONE = "(11) 98765-4321";
 
@@ -95,39 +87,14 @@ test.describe("busca de fornecedores", () => {
     await expect(page.getByText(/sua região|seu CEP/)).toHaveCount(0);
   });
 
-  // MVP function 1: the catalog shows only one supplier, the store's (or the starter one).
-  test("sem fornecedor escolhido, o catálogo pede um em vez de mostrar outros", async ({
-    page,
-  }) => {
-    await signUp(page, "Catálogo Sem Fornecedor");
+  test("sem endereço, abre o catálogo com produtos de todos os fornecedores", async ({ page }) => {
+    await signUp(page, "Catálogo Sem Endereço");
     await gotoHydrated(page, "/catalogo");
     await expect(page).toHaveURL(/\/catalogo/);
     await expect(
-      page.getByRole("heading", {
-        name: "Escolha um fornecedor para ver os produtos",
-        exact: true,
-      }),
+      page.getByText("Produtos de fornecedores de todo o Brasil.", { exact: false }),
     ).toBeVisible();
-    await expect(page.getByRole("article")).toHaveCount(0);
-  });
-
-  test("sem loja, mostra só o fornecedor inicial, mesmo com outra loja na URL", async ({
-    page,
-  }) => {
-    await signUp(page, "Catálogo Fornecedor Inicial");
-    await completeOnboarding(page, "BH Beauty Distribuidora");
-    await gotoHydrated(page, `/catalogo?store=${crypto.randomUUID()}`);
-    await expect(
-      page.getByText("Produtos de BH Beauty Distribuidora, o fornecedor que você escolheu.", {
-        exact: false,
-      }),
-    ).toBeVisible();
-    await expect(
-      page.getByText("Para publicar estes produtos, conecte uma loja primeiro."),
-    ).toBeVisible();
-    const cards = page.getByRole("article");
-    await expect(cards.first()).toBeVisible();
-    await expect(cards.filter({ hasNotText: "BH Beauty Distribuidora" })).toHaveCount(0);
+    await expect(page.getByRole("article").first()).toBeVisible();
   });
 });
 
@@ -182,21 +149,14 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("heading", { level: 3, name: /Vestido/ }).first()).toBeVisible();
   });
 
-  test("mostra um fornecedor de outro estado e pede uma loja dele antes de publicar", async ({
-    page,
-  }) => {
-    // The demo account is in Belo Horizonte and no store of it sells Rio Pet (Rio de Janeiro).
+  test("publica de um fornecedor de outro estado", async ({ page }) => {
+    // The demo account is in Belo Horizonte; Rio Pet is in Rio de Janeiro.
     await gotoHydrated(page, "/fornecedores");
     await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
     await expect(page.getByRole("heading", { name: "Rio Pet Atacado" })).toBeVisible();
     await expect(page.getByText(/não entrega/)).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-    await expect(
-      page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Publicar" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
-    await expect(page.getByRole("link", { name: "Vender este fornecedor" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Publicar" }).first()).toBeVisible();
   });
 
   test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
