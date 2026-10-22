@@ -18,7 +18,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
-  { label: "Meus produtos", to: "/products" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
   { label: "Pedidos", to: "/pedidos" },

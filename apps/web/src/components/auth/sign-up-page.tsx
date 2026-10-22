@@ -29,8 +29,7 @@ const authLayoutRoute = getRouteApi("/_auth");
 /** What the page says to each profile; the form fields are the same for both. */
 const PAGE_COPY: Record<ProfileKind, { description: string }> = {
   seller: {
-    description:
-      "Conecte suas lojas e venda seus próprios produtos ou produtos de fornecedores de todo o Brasil.",
+    description: "Conecte suas lojas e venda produtos de fornecedores de todo o Brasil.",
   },
   supplier: {
     description: "Cadastre seus produtos uma vez e venda por revendedores de todo o Brasil.",

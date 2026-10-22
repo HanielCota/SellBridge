@@ -79,9 +79,10 @@ function ProductBackLink({
   return (
     <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
       {product.catalogKind === "seller" ? (
-        <Link to="/products" search={{ product: product.id }}>
+        // Own products left the seller menu in the MVP; their old listings still open here.
+        <Link to="/catalogo">
           <ArrowLeftIcon aria-hidden="true" />
-          Meus produtos
+          Catálogo
         </Link>
       ) : (
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
@@ -109,7 +110,16 @@ function NewListingPage() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { product, stores, hasOtherStores } = query.data;
+  const { product, stores, hasOtherStores, ownProductClosed } = query.data;
+  if (ownProductClosed) {
+    return (
+      <>
+        <ProductBackLink product={product} />
+        <PageHeader title="Nova publicação" />
+        <OwnProductClosedState />
+      </>
+    );
+  }
   return (
     <>
       <ProductBackLink product={product} />
@@ -144,6 +154,22 @@ function NewListingPage() {
         <ListingForm product={product} stores={stores} />
       )}
     </>
+  );
+}
+
+/** MVP (2026-10-22): an own product opened by URL or an old link is refused before the form. */
+function OwnProductClosedState() {
+  return (
+    <EmptyState
+      icon={StorefrontIcon}
+      title="Produtos próprios não podem mais ser publicados"
+      description="Agora o SellBridge vende só produtos de fornecedor. Os anúncios que você já tem continuam no ar."
+      action={
+        <Button asChild>
+          <Link to="/catalogo">Ir ao Catálogo</Link>
+        </Button>
+      }
+    />
   );
 }
 

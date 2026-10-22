@@ -15,6 +15,15 @@ export const productSourceChoiceSchema = z
 
 export type ProductSourceChoice = z.infer<typeof productSourceChoiceSchema>;
 
+/**
+ * What the onboarding accepts in the MVP: the platform sells only supplier products, so even a
+ * direct call cannot switch an account back to own or mixed products (the modes stay for data).
+ */
+export const supplierSourceChoiceSchema = productSourceChoiceSchema.refine(
+  (choice) => choice.mode === "suppliers",
+  { path: ["mode"], error: "Escolha um fornecedor para vender os produtos dele." },
+);
+
 export const PRODUCT_SOURCE_LABELS: Record<ProductSourceMode, string> = {
   own: "Meus próprios produtos",
   suppliers: "Produtos de fornecedores",
@@ -26,7 +35,7 @@ export function isProductSourceSetupComplete(
   hasActiveSupplier: boolean,
   hasLegacyStoreSupplier = false,
 ): boolean {
-  if (mode === "own") return true;
-  if (mode === null) return hasActiveSupplier || hasLegacyStoreSupplier;
+  // The MVP sells only supplier products: an old own-only account picks a supplier too.
+  if (mode === null || mode === "own") return hasActiveSupplier || hasLegacyStoreSupplier;
   return hasActiveSupplier;
 }

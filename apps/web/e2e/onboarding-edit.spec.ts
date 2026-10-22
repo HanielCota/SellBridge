@@ -33,7 +33,7 @@ test("completed details remain editable while supplier setup is unfinished", asy
   test.setTimeout(120_000);
   await signUp(page, "Editable Setup Customer");
   await fillBillingHolder(page);
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   await gotoHydrated(page, "/dashboard");
   await expectSetupActionsInsideCards(page);
   await page.getByRole("link", { name: "Editar dados", exact: true }).click();
@@ -67,7 +67,7 @@ test("completed details remain editable while supplier setup is unfinished", asy
   await page.getByRole("link", { name: "Editar dados", exact: true }).click();
   await expect(name).toHaveValue("Saved Customer Name");
   await gotoHydrated(page, "/onboarding");
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
 });
 
 test("supplier edits can be cancelled and saved without resetting completed details", async ({
@@ -79,7 +79,7 @@ test("supplier edits can be cancelled and saved without resetting completed deta
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
   await gotoHydrated(page, "/dashboard");
   await expectSetupActionsInsideCards(page);
-  await page.getByRole("link", { name: "Editar origem dos produtos", exact: true }).click();
+  await page.getByRole("link", { name: "Trocar fornecedor", exact: true }).click();
   await expect(page).toHaveURL(/step=supplier/);
   const selected = page.getByRole("radio", { name: /BH Beauty Distribuidora/ });
   await expect(selected).toBeChecked();
@@ -94,9 +94,9 @@ test("supplier edits can be cancelled and saved without resetting completed deta
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("link", { name: "Voltar ao painel" }).click();
   await expect(page).toHaveURL(/step=supplier/);
-  await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
   await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
-  await page.getByRole("link", { name: "Editar origem dos produtos", exact: true }).click();
+  await page.getByRole("link", { name: "Trocar fornecedor", exact: true }).click();
   await expect(page.getByRole("radio", { name: new RegExp(otherName) })).toBeChecked();
   await gotoHydrated(page, "/onboarding?step=details");
   await expect(page.getByLabel("Nome completo", { exact: true })).not.toHaveValue("");

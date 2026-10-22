@@ -91,10 +91,12 @@ function draft(id = productId) {
 }
 
 describe("private product publication", () => {
-  it("allows an owned product in assigned and supplier-free stores", async () => {
+  // MVP (coordinator decision, 2026-10-22): a new publication of an own product is refused,
+  // even by a direct call; listings created before the rule are kept (created below directly).
+  it("refuses a new publication of an owned product, even in its owner's stores", async () => {
     await expect(
       assertStoresSellSupplier(database, tenants.tenantA, [storeId, ownStoreId], sourceId),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({ code: "CONFLICT" });
     const listing = await createListingWithTargets(database, tenants.tenantA, draft(), [
       storeId,
       ownStoreId,

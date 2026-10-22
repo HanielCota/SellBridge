@@ -1,5 +1,4 @@
 import type { BillingHolder, OnboardingProfile } from "@sellbridge/database/repositories";
-import { PRODUCT_SOURCE_LABELS } from "@sellbridge/shared/product-sources";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,7 +19,7 @@ export function EditOnboardingProfile({
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <PageHeader
         title="Meu cadastro"
-        description="Confira seus dados e a origem dos seus produtos quando quiser."
+        description="Confira seus dados e o fornecedor dos seus produtos quando quiser."
       />
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <section
@@ -54,10 +53,12 @@ function ProductSourceSummary({ profile }: { profile: OnboardingProfile }) {
     >
       <div className="space-y-1">
         <h2 id="product-sources" className="text-subhead font-semibold">
-          Origem dos seus produtos
+          Seu fornecedor
         </h2>
         <p className="text-sm text-muted-foreground">
-          {PRODUCT_SOURCE_LABELS[profile.productSourceMode ?? "suppliers"]}
+          {supplier === null
+            ? "Você ainda não escolheu um fornecedor."
+            : "Quem guarda o estoque e envia os produtos da sua próxima loja."}
         </p>
       </div>
       {supplier === null ? null : (
@@ -77,7 +78,7 @@ function ProductSourceSummary({ profile }: { profile: OnboardingProfile }) {
       </p>
       <Button asChild variant="outline">
         <Link to="/onboarding" search={{ step: "supplier" }}>
-          Editar origem dos produtos
+          {supplier === null ? "Escolher fornecedor" : "Trocar fornecedor"}
         </Link>
       </Button>
     </section>

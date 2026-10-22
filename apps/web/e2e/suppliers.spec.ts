@@ -38,10 +38,10 @@ test.describe("cadastro do revendedor", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
 
     // No address: the second step picks the supplier, from any state.
-    await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+    await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
     await expect(page.getByLabel("CEP")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Salvar origem dos produtos", exact: true }),
+      page.getByRole("button", { name: "Salvar fornecedor", exact: true }),
     ).toBeDisabled();
 
     // Going back keeps the saved data.
@@ -51,7 +51,7 @@ test.describe("cadastro do revendedor", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await pickSupplier(page, "Rio Pet Atacado");
-    await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
+    await page.getByRole("button", { name: "Salvar fornecedor" }).click();
 
     // After the profile the guide sends to the next step (stores).
     await expect(page).toHaveURL(/\/lojas/);
@@ -69,7 +69,7 @@ test.describe("cadastro do revendedor", () => {
     await page.getByLabel("CPF").fill(cpf);
     await page.getByLabel("Telefone com DDD").fill(PHONE);
     await page.getByRole("button", { name: "Continuar" }).click();
-    await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+    await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
 
     await page.context().clearCookies();
     await signUp(page, "Segunda Conta");

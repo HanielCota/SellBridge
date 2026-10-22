@@ -1,7 +1,5 @@
 import {
-  activateSellerProduct,
   archiveSellerProduct,
-  duplicateSellerProduct,
   listSellerProducts,
   listAdminCatalogProducts,
   actOnAdminSellerProduct,
@@ -21,6 +19,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { adminMiddleware, tenantMiddleware } from "@/lib/server/middleware";
+import { assertOwnProductsClosed } from "./own-products-closed";
 import {
   assertOwnerProductWrite,
   loadSellerProductForm,
@@ -39,18 +38,17 @@ export const sellerProductFormFn = createServerFn({ method: "GET" })
 export const sellerSaveProductFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(sellerSaveProductSchema)
-  .handler(async ({ context, data }) => {
+  // The input is still validated; own products are closed (MVP, 2026-10-22).
+  .handler(async ({ context }) => {
     assertOwnerProductWrite(context);
-    return writeSellerProduct(context.tenantId, data);
+    assertOwnProductsClosed("save", context.tenantId);
   });
 export const sellerActivateProductFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(sellerProductRefSchema)
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context }) => {
     assertOwnerProductWrite(context);
-    const product = await activateSellerProduct(database, context.tenantId, data.productId);
-    await propagateSellerProduct(product.id);
-    return product;
+    assertOwnProductsClosed("activate", context.tenantId);
   });
 export const sellerArchiveProductFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
@@ -64,9 +62,10 @@ export const sellerArchiveProductFn = createServerFn({ method: "POST" })
 export const sellerDuplicateProductFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(sellerDuplicateProductSchema)
-  .handler(async ({ context, data }) => {
+  // Keeps the copy's shape for the editor; the call always refuses while own products are closed.
+  .handler(async ({ context }): Promise<{ id: string }> => {
     assertOwnerProductWrite(context);
-    return duplicateSellerProduct(database, context.tenantId, data);
+    return assertOwnProductsClosed("duplicate", context.tenantId);
   });
 
 export const adminProductListSearchSchema = sellerProductListSearchSchema

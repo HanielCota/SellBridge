@@ -29,13 +29,18 @@ const ALL_DONE: SetupProgress = {
 
 // Item 26.c (I1–I4): the setup shows how far along it is and how long is left.
 describe("setup progress", () => {
-  it("opens the private product panel for own-only sellers", () => {
+  // MVP: own products are hidden from sellers; every account publishes from the catalog.
+  it("sends every account, old own-only ones included, to the catalog to publish", () => {
     const progress = { ...ALL_DONE, hasPublishedListing: false, productSourceMode: "own" as const };
-    expect(findNextStep(progress)?.to).toBe("/products");
-    expect(getSetupSteps(progress).find((step) => step.key === "hasPublishedListing")?.cta).toBe(
-      "Abrir meus produtos",
-    );
+    expect(findNextStep(progress)?.to).toBe("/catalogo");
     expect(findNextStep({ ...progress, productSourceMode: "both" })?.to).toBe("/catalogo");
+    expect(getSetupSteps().some((step) => step.to === "/products")).toBe(false);
+  });
+
+  it("names the supplier step in plain words", () => {
+    const step = SETUP_STEPS.find((candidate) => candidate.key === "hasSupplier");
+    expect(step?.title).toBe("Escolha seu fornecedor");
+    expect(step?.description).not.toMatch(/próprios/);
   });
   it("estimates every step", () => {
     for (const step of SETUP_STEPS) {

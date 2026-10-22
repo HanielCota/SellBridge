@@ -10,9 +10,9 @@ describe("Portuguese navigation search", () => {
   });
 
   it("matches task keywords and requires every search word", () => {
-    const command = { label: "Meus produtos", keywords: "cadastrar próprios estoque" };
-    expect(matchesCommand(command, "CADASTRAR proprios")).toBe(true);
-    expect(matchesCommand(command, "produtos pedidos")).toBe(false);
+    const command = { label: "Catálogo", keywords: "produtos fornecedor estoque" };
+    expect(matchesCommand(command, "FORNECEDOR estoque")).toBe(true);
+    expect(matchesCommand(command, "fornecedor pedidos")).toBe(false);
     expect(matchesCommand(command, " ")).toBe(true);
   });
 });
