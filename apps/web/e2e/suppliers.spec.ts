@@ -182,14 +182,21 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("heading", { level: 3, name: /Vestido/ }).first()).toBeVisible();
   });
 
-  test("publica de um fornecedor de outro estado", async ({ page }) => {
-    // The demo account is in Belo Horizonte; Rio Pet is in Rio de Janeiro.
+  test("mostra um fornecedor de outro estado e pede uma loja dele antes de publicar", async ({
+    page,
+  }) => {
+    // The demo account is in Belo Horizonte and no store of it sells Rio Pet (Rio de Janeiro).
     await gotoHydrated(page, "/fornecedores");
     await page.getByRole("link", { name: "Rio Pet Atacado" }).click();
     await expect(page.getByRole("heading", { name: "Rio Pet Atacado" })).toBeVisible();
     await expect(page.getByText(/não entrega/)).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Publicar" }).first()).toBeVisible();
+    await expect(
+      page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Publicar" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
+    await expect(page.getByRole("link", { name: "Vender este fornecedor" })).toBeVisible();
   });
 
   test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
