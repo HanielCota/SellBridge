@@ -61,3 +61,4 @@ export * from "./supplier-panel-home.ts";
 export * from "./supplier-panel-home-photos.ts";
 export * from "./seller-catalog.ts";
 export * from "./seller-product-admin.ts";
+export * from "./blocked-contacts.ts";

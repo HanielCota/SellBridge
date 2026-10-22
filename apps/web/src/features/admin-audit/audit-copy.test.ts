@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAuditEntry } from "./audit-copy";
+import { auditActorLabel, describeAuditEntry } from "./audit-copy";
 
 const base = { details: null, subjectLabel: null };
 
@@ -35,6 +35,33 @@ describe("audit copy", () => {
         details: { from: "normal", to: "urgent" },
       }),
     ).toBe("Mudou a prioridade para Urgente");
+  });
+
+  it("names a refused contact by its kinds, on an account or a supplier link", () => {
+    const details = { channel: "seller_app", field: "notes", kinds: "phone,email", tenantId: null };
+    expect(
+      describeAuditEntry({ ...base, source: "account", action: "contact_blocked", details }),
+    ).toBe("Tentou enviar telefone e e-mail no pedido (bloqueado)");
+    expect(
+      describeAuditEntry({
+        ...base,
+        source: "catalog",
+        action: "contact_blocked",
+        details: { ...details, kinds: "social" },
+      }),
+    ).toBe("Tentou enviar rede social no pedido (bloqueado)");
+  });
+
+  it("names who tried to send a contact: the customer or the supplier's link, not a removed user", () => {
+    const blocked = { action: "contact_blocked", actorName: null };
+    expect(auditActorLabel({ ...blocked, source: "account" })).toBe("O próprio cliente");
+    expect(auditActorLabel({ ...blocked, source: "catalog" })).toBe("Fornecedor pelo link");
+    expect(auditActorLabel({ action: "impersonated", actorName: null, source: "account" })).toBe(
+      "Usuário removido",
+    );
+    expect(auditActorLabel({ action: "impersonated", actorName: "Ana", source: "account" })).toBe(
+      "Ana",
+    );
   });
 
   it("falls back to a neutral line for an action it does not know", () => {

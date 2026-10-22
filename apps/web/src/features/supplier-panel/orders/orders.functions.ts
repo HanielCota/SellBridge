@@ -8,6 +8,7 @@ import {
 } from "@sellbridge/shared/supplier-panel-orders-schema";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { supplierPanelMiddleware } from "@/lib/server/middleware";
 import {
   acceptSupplierShipments,
@@ -33,7 +34,7 @@ export const getSupplierPanelShipmentFn = createServerFn({ method: "GET" })
   .handler(async ({ data }) => await loadSupplierShipment(data));
 
 export const updateSupplierPanelShipmentFn = createServerFn({ method: "POST" })
-  .middleware([supplierPanelMiddleware])
+  .middleware([supplierPanelMiddleware, blockedContactLogging("supplier_panel")])
   .validator(z.object({ supplierId: supplierIdSchema, update: shipmentUpdateSchema }))
   .handler(async ({ data }) => await writeSupplierShipmentUpdate(data));
 
