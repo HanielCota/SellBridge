@@ -82,7 +82,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   closeMyTicket: "encerrou um chamado",
   rateMyTicket: "avaliou um chamado",
   saveOnboardingSupplier: "escolheu o fornecedor inicial",
-  saveOnboardingProductSources: "alterou a origem dos produtos",
+  saveOnboardingProductSources: "alterou o fornecedor do cadastro",
   // Routes outside the server functions, named "area.action".
   "support.createTicket": "abriu um chamado",
   "support.reply": "respondeu um chamado",

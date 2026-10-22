@@ -51,7 +51,7 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
     return (
       <Button asChild variant={done ? "outline" : "default"} className={STEP_ACTION_CLASS_NAME}>
         <Link to="/onboarding" search={{ step: isHolder ? "details" : "supplier" }}>
-          {done ? (isHolder ? "Editar dados" : "Editar origem dos produtos") : step.cta}
+          {done ? (isHolder ? "Editar dados" : "Trocar fornecedor") : step.cta}
           <ArrowRightIcon aria-hidden="true" />
         </Link>
       </Button>
@@ -150,7 +150,7 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {getSetupSteps(progress).map((step, index) => (
+        {getSetupSteps().map((step, index) => (
           <StepCard
             key={step.key}
             step={step}
