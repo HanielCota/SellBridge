@@ -1,15 +1,12 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 function DashboardActions() {
-  const navigate = useNavigate();
   return (
     <div className="flex flex-wrap gap-3">
-      <Button
-        onClick={() => void navigate({ to: "/products", search: { product: crypto.randomUUID() } })}
-      >
-        Cadastrar produto
+      <Button asChild>
+        <Link to="/catalogo">Ver catálogo</Link>
       </Button>
       <Button variant="outline" asChild>
         <Link to="/onboarding">Editar meu cadastro</Link>

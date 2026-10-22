@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+
+// MVP (function 1): the seller's own-product screens are hidden; data and server functions stay
+// for phase 2, so these screen tests are skipped until the feature comes back.
+test.skip(true, "Own products are hidden from sellers in the MVP (phase 2).");
 import { fillBillingHolder, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 const TITLE = "Seller-owned cotton accessory";
