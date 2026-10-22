@@ -62,6 +62,7 @@
     "./mailer": "./src/email/mailer.ts",
     "./email-layout": "./src/email/layout.ts",
     "./supplier-order-email": "./src/email/supplier-order-email.ts",
+    "./order-message-email": "./src/email/order-message-email.ts",
     "./notification-content": "./src/domain/notification-content.ts",
     "./notification-events": "./src/domain/notification-events.ts",
     "./team-invite": "./src/domain/team-invite.ts",

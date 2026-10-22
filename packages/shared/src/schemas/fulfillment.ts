@@ -55,6 +55,12 @@ export type ShipmentOperator = Exclude<keyof typeof SHIPMENT_ACTORS, "marketplac
 /** Why the supplier link stops at dispatch; said by the server and shown on the link alike. */
 export const DELIVERY_CONFIRMED_BY =
   "Quem confirma a entrega é a loja que fez a venda, ou o rastreio do Mercado Livre quando a venda é de lá.";
+/**
+ * Events one parcel keeps, steps and messages alike: the supplier link can be called by anyone
+ * holding it, and without a ceiling a script could bloat the history every order page loads.
+ */
+export const SHIPMENT_EVENTS_LIMIT = 100;
+export const SHIPMENT_EVENTS_FULL = `Este pedido chegou ao limite de ${SHIPMENT_EVENTS_LIMIT} registros e não recebe mais mensagens. Se precisar combinar algo, fale com o suporte.`;
 export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   forwarded: "Aguardando fornecedor",
   accepted: "Aceito",

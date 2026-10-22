@@ -106,6 +106,16 @@ function listingUnavailable(
   };
 }
 
+/** The supplier wrote in an order's messages: one entry per order, opening its page. */
+function orderMessage(event: Extract<NotificationEvent, { kind: "order_message" }>) {
+  return {
+    id: `order-message:${event.entityId}:${event.at.getTime()}`,
+    title: "Nova mensagem do fornecedor",
+    detail: `Pedido ${event.externalOrderId} · ${event.supplierName}`,
+    href: `/pedidos/${event.entityId}`,
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -144,6 +154,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...shipmentLate(event) };
     case "listing_unavailable":
       return { ...base, ...listingUnavailable(event) };
+    case "order_message":
+      return { ...base, ...orderMessage(event) };
     case "review_pending":
       return {
         ...base,

@@ -11,6 +11,7 @@ export const NOTIFICATION_EVENTS = [
   "listing_failed",
   "support_reply",
   "ticket_created",
+  "order_message",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -67,6 +68,12 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Resposta do suporte",
     description: "A equipe respondeu um chamado seu.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  order_message: {
+    audience: "reseller",
+    label: "Mensagem do fornecedor",
+    description: "O fornecedor escreveu nas mensagens de um pedido.",
     defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -250,5 +257,26 @@ export function newTicketContent(ticket: NewTicketNotice): NotificationContent {
     actionLabel: "Abrir o chamado",
     actionPath: `/admin/chamados/${ticket.ticketId}`,
     footnote: "Você recebe este aviso por fazer parte da equipe de suporte do SellBridge.",
+  };
+}
+
+export interface OrderMessageNotice {
+  orderId: string;
+  externalOrderId: string;
+}
+
+/** The supplier wrote about an order. The text stays in the app, like support replies. */
+export function orderMessageContent(notice: OrderMessageNotice): NotificationContent {
+  return {
+    subject: `Nova mensagem no pedido #${notice.externalOrderId}`,
+    preview: "O fornecedor escreveu nas mensagens do pedido.",
+    heading: "Você tem uma nova mensagem",
+    paragraphs: [
+      `O fornecedor escreveu nas mensagens do pedido #${notice.externalOrderId}.`,
+      "Abra o pedido no SellBridge para ler e responder.",
+    ],
+    actionLabel: "Abrir o pedido",
+    actionPath: `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
   };
 }
