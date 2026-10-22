@@ -220,3 +220,20 @@ describe("presentNotificationFeed", () => {
     expect(presented).toMatchObject({ unread: 1, seenAt: null });
   });
 });
+
+describe("an order message in the bell", () => {
+  it("says the supplier wrote and opens the order, without the message", () => {
+    const presented = presentNotification({
+      kind: "order_message",
+      entityId: "order-1",
+      at,
+      externalOrderId: "2000012345",
+      supplierName: "Ateliê Divinópolis",
+    });
+    expect(presented).toMatchObject({
+      title: "Nova mensagem do fornecedor",
+      detail: "Pedido 2000012345 · Ateliê Divinópolis",
+      href: "/pedidos/order-1",
+    });
+  });
+});

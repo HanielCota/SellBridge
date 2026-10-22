@@ -74,8 +74,10 @@ function useSendMessage(
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? EMPTY_MESSAGE);
       await onUpdate(parsed.data);
     },
-    onSuccess: () => {
-      setText("");
+    // The list refreshes before this runs: clear only what was sent, never a next message the
+    // person started typing in between.
+    onSuccess: (_result, sent) => {
+      setText((current) => (current === sent ? "" : current));
       toast.success("Mensagem enviada");
     },
     // The text stays in the field, so a refused message can be fixed and sent again.

@@ -1,15 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
-import { forwardOrder, updateShipment } from "@sellbridge/database/repositories";
+import {
+  forwardOrder,
+  listNotificationEvents,
+  updateShipment,
+} from "@sellbridge/database/repositories";
+import { CONTACT_DETAILS_REFUSED } from "@sellbridge/shared/schemas";
 import {
   orderItems,
   orderShipments,
   orders,
+  shipmentEvents,
   organization,
   storeConnections,
   supplierProducts,
   suppliers,
+  user,
 } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
@@ -100,17 +107,22 @@ test("revendedor e fornecedor conversam pelas mensagens do pedido", async ({ bro
   await resellerMessages.getByLabel("Mensagem para o fornecedor").fill(question);
   await resellerMessages.getByRole("button", { name: "Enviar mensagem" }).click();
   await expect(resellerMessages.getByText(question)).toBeVisible();
-  await expect(resellerMessages.getByText("Você")).toBeVisible();
+  await expect(resellerMessages.getByText("Você", { exact: true })).toBeVisible();
 
   const supplierContext = await browser.newContext({ locale: "pt-BR" });
   const supplier = await supplierContext.newPage();
   await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
   const supplierMessages = supplier.getByRole("region", { name: "Mensagens do pedido" });
   await expect(supplierMessages.getByText(question)).toBeVisible();
-  await expect(supplierMessages.getByText("Revendedor")).toBeVisible();
+  await expect(supplierMessages.getByText("Revendedor", { exact: true })).toBeVisible();
   await supplierMessages.getByLabel("Mensagem para o revendedor").fill(answer);
   await supplierMessages.getByRole("button", { name: "Enviar mensagem" }).click();
   await expect(supplierMessages.getByText(answer)).toBeVisible();
+  await supplierMessages
+    .getByLabel("Mensagem para o revendedor")
+    .fill("segue no insta @loja.atacado.oficial");
+  await supplierMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(supplierMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
   // A message is not a step: the history keeps only the steps.
   await expect(supplier.getByRole("list", { name: "Histórico do envio" })).not.toContainText(
     answer,
@@ -119,8 +131,37 @@ test("revendedor e fornecedor conversam pelas mensagens do pedido", async ({ bro
 
   await gotoHydrated(page, `/pedidos/${order.id}`);
   await expect(resellerMessages.getByText(answer)).toBeVisible();
-  await page.getByRole("button", { name: /Avisos/ }).click();
-  await expect(page.getByText("Nova mensagem do fornecedor").first()).toBeVisible();
+
+  // Trying to take the talk outside: the phone never leaves the form, and nothing is saved.
+  await resellerMessages
+    .getByLabel("Mensagem para o fornecedor")
+    .fill("me chama no zap: onze nove nove oito sete seis cinco quatro três dois um");
+  await resellerMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(resellerMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
+  await expect(
+    resellerMessages.getByRole("listitem").filter({ hasText: "me chama no zap" }),
+  ).toHaveCount(0);
+  const saved = await database
+    .select({ note: shipmentEvents.note })
+    .from(shipmentEvents)
+    .where(eq(shipmentEvents.shipmentId, link.shipmentId));
+  expect(saved.some((event) => event.note.includes("zap") || event.note.includes("@loja"))).toBe(
+    false,
+  );
+  // The store's bell feed gets the supplier's message. Checked on the feed itself: the shared demo
+  // store has over 20 open problems, and the bell keeps those first and cuts everything else.
+  const [account] = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, DEMO_USER.email));
+  const feed = await listNotificationEvents(database, {
+    tenantId: order.tenantId,
+    userId: account?.id ?? "",
+    reviewableSince: new Date(0),
+  });
+  expect(feed.events).toContainEqual(
+    expect.objectContaining({ kind: "order_message", entityId: order.id }),
+  );
 });
 
 test("o fornecedor não escreve no envio de outro pedido nem por link expirado", async ({
