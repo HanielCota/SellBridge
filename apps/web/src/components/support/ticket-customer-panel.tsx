@@ -7,7 +7,6 @@ import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useImpersonate } from "@/features/admin/use-impersonate";
-import { enterAccountAction, type EnterAccountAction } from "@/features/support/enter-account";
 import { copyToClipboard } from "@/lib/clipboard";
 import { UserAvatar } from "@/components/layout/user-avatar";
 
@@ -20,66 +19,55 @@ function PanelAction({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-/** The customer file is an admin page; agents and supervisors do not see the shortcut. */
-function CustomerFileLink({ userId }: { userId: string }) {
-  return (
-    <PanelAction label="Ver ficha do cliente">
-      <Button asChild variant="outline" size="icon-sm" aria-label="Ver ficha do cliente">
-        <Link to="/admin/clientes/$userId" params={{ userId }}>
-          <IdentificationCardIcon aria-hidden="true" />
-        </Link>
-      </Button>
-    </PanelAction>
-  );
-}
-
-function EnterAccountButton({ userId, action }: { userId: string; action: EnterAccountAction }) {
+/** Opening the customer file and signing in as them are admin tools. */
+function AccountShortcuts({ userId, isSelf }: { userId: string; isSelf: boolean }) {
   const { impersonate, pendingUserId } = useImpersonate();
   return (
-    <PanelAction label={action.hint}>
-      <Button
-        variant="outline"
-        size="icon-sm"
-        aria-label={action.label}
-        disabled={pendingUserId !== null}
-        onClick={() => void impersonate(userId, action.path)}
-      >
-        <SignInIcon aria-hidden="true" />
-      </Button>
-    </PanelAction>
+    <>
+      <PanelAction label="Ver ficha do cliente">
+        <Button asChild variant="outline" size="icon-sm" aria-label="Ver ficha do cliente">
+          <Link to="/admin/clientes/$userId" params={{ userId }}>
+            <IdentificationCardIcon aria-hidden="true" />
+          </Link>
+        </Button>
+      </PanelAction>
+      {isSelf ? null : (
+        <PanelAction label="Entrar como cliente para fazer o ajuste na conta">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Entrar como cliente"
+            disabled={pendingUserId !== null}
+            onClick={() => void impersonate(userId)}
+          >
+            <SignInIcon aria-hidden="true" />
+          </Button>
+        </PanelAction>
+      )}
+    </>
   );
-}
-
-export interface CustomerAccess {
-  isSelf: boolean;
-  canManageCustomers: boolean;
-  canImpersonate: boolean;
 }
 
 function CustomerActions({
-  ticket,
-  access,
+  userId,
+  email,
+  isSelf,
+  canManageCustomers,
 }: {
-  ticket: TicketThread["ticket"];
-  access: CustomerAccess;
+  userId: string;
+  email: string;
+  isSelf: boolean;
+  canManageCustomers: boolean;
 }) {
-  const enterAccount = enterAccountAction({
-    tenantKind: ticket.tenantKind,
-    ticketStatus: ticket.status,
-    ...access,
-  });
   return (
     <div className="flex gap-1.5">
-      {access.canManageCustomers ? <CustomerFileLink userId={ticket.createdById} /> : null}
-      {enterAccount === null ? null : (
-        <EnterAccountButton userId={ticket.createdById} action={enterAccount} />
-      )}
+      {canManageCustomers ? <AccountShortcuts userId={userId} isSelf={isSelf} /> : null}
       <PanelAction label="Copiar e-mail">
         <Button
           variant="outline"
           size="icon-sm"
           aria-label="Copiar e-mail do cliente"
-          onClick={() => void copyToClipboard(ticket.createdByEmail, "E-mail copiado")}
+          onClick={() => void copyToClipboard(email, "E-mail copiado")}
         >
           <CopyIcon aria-hidden="true" />
         </Button>
@@ -90,10 +78,12 @@ function CustomerActions({
 
 function CustomerCard({
   ticket,
-  access,
+  isSelf,
+  canManageCustomers,
 }: {
   ticket: TicketThread["ticket"];
-  access: CustomerAccess;
+  isSelf: boolean;
+  canManageCustomers: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -109,7 +99,12 @@ function CustomerCard({
         </div>
       </div>
       <p className="truncate text-sm text-muted-foreground">{ticket.createdByEmail}</p>
-      <CustomerActions ticket={ticket} access={access} />
+      <CustomerActions
+        userId={ticket.createdById}
+        email={ticket.createdByEmail}
+        isSelf={isSelf}
+        canManageCustomers={canManageCustomers}
+      />
     </div>
   );
 }
@@ -164,19 +159,21 @@ export function TicketCustomerPanel({
   ticket,
   relatedTickets,
   relatedTotal,
-  access,
+  isSelf,
+  canManageCustomers,
 }: {
   ticket: TicketThread["ticket"];
   relatedTickets: readonly TicketSummary[];
   relatedTotal: number;
-  access: CustomerAccess;
+  isSelf: boolean;
+  canManageCustomers: boolean;
 }) {
   return (
     <aside
       className="surface-card space-y-5 rounded-3xl bg-card p-5"
       aria-label="Contexto do cliente"
     >
-      <CustomerCard ticket={ticket} access={access} />
+      <CustomerCard ticket={ticket} isSelf={isSelf} canManageCustomers={canManageCustomers} />
       <div className="border-t pt-4">
         <RelatedTickets
           tenantName={ticket.tenantName}

@@ -19,7 +19,6 @@ import { authAccessControl, authRoles } from "../auth-roles.ts";
 import { ACCOUNT_ACTION_PATHS, assertMayActOnAccount } from "./account-protection.ts";
 import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.ts";
 import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
-import { guardImpersonation, roleOf, startedVisitDetails } from "./impersonation-hook.ts";
 import { IMPERSONATION_SECONDS, isImpersonationOver } from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
@@ -73,7 +72,8 @@ function identityOf(user: {
   emailVerified: boolean;
   role?: unknown;
 }): AccountIdentity {
-  return { email: user.email, emailVerified: user.emailVerified, role: roleOf(user) };
+  const role = typeof user.role === "string" ? user.role : null;
+  return { email: user.email, emailVerified: user.emailVerified, role };
 }
 
 /**
@@ -126,7 +126,6 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
     throw new APIError("NOT_FOUND", { message: "Rota indisponível" });
   }
   await guardProtectedAccounts(context);
-  await guardImpersonation(context);
   if (context.path === "/sign-up/email") {
     assertSignUpName(context.body);
     return;
@@ -294,7 +293,6 @@ async function recordSessionStart(session: { userId: string }): Promise<void> {
       adminId: impersonator,
       userId: session.userId,
       action: "impersonated",
-      details: await startedVisitDetails(impersonator, session.userId),
     });
   } catch (error) {
     logger.warn("admin.audit_record_failed", { userId: session.userId, error });
