@@ -1,74 +1,85 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findOrderMessageContext: vi.fn<() => Promise<unknown>>(),
-  orderMessageTimes: vi.fn<() => Promise<Date[]>>(),
-  queueOrderMessageNotices: vi.fn<() => Promise<number>>(),
-  sendEmail: vi.fn<() => Promise<void>>(),
+  orderMessageMoments: vi.fn<() => Promise<unknown[]>>(),
+  deliverOrderMessageNotice: vi.fn<(delivery: unknown, input: unknown) => Promise<void>>(),
+  enqueueOrderMessageFollowUp: vi.fn<(input: unknown) => Promise<void>>(),
 }));
 
 vi.mock("@sellbridge/database/repositories", () => ({
-  findOrderMessageContext: mocks.findOrderMessageContext,
-  orderMessageTimes: mocks.orderMessageTimes,
-  queueOrderMessageNotices: mocks.queueOrderMessageNotices,
+  orderMessageMoments: mocks.orderMessageMoments,
+  deliverOrderMessageNotice: mocks.deliverOrderMessageNotice,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/environment", () => ({
   environment: { APP_URL: "https://app.sellbridge.test" },
 }));
-vi.mock("@/lib/server/mailer", () => ({ sendEmail: mocks.sendEmail }));
+vi.mock("@/lib/server/mailer", () => ({ sendEmail: vi.fn<() => Promise<void>>() }));
+vi.mock("@/lib/server/queues", () => ({
+  enqueueOrderMessageFollowUp: mocks.enqueueOrderMessageFollowUp,
+}));
 
 const { noticeOrderMessage } = await import("./order-message-notice.server");
 
-const CONTEXT = {
-  tenantId: "tenant-a",
-  orderId: "order-1",
-  externalOrderId: "2000012345",
-  forwardedAt: new Date("2026-10-22T12:00:00Z"),
-  supplierEmail: "pedidos@fornecedor.test",
-  supplierHasAccount: false,
-};
 const START = new Date("2026-10-22T13:00:00Z").getTime();
 const MINUTE = 60_000;
 
-/**
- * The author's messages at these minutes, each noticed as it is saved: the database then holds it
- * and every earlier one.
- */
+/** The author's messages at these minutes, each noticed as it is saved, at that time. */
 async function writes(author: "reseller" | "supplier", minutes: readonly number[]) {
-  for (const [index] of minutes.entries()) {
-    const saved = minutes.slice(0, index + 1).map((minute) => new Date(START + minute * MINUTE));
-    mocks.orderMessageTimes.mockResolvedValueOnce(saved);
+  for (const [index, minute] of minutes.entries()) {
+    vi.setSystemTime(START + minute * MINUTE);
+    const saved = minutes
+      .slice(0, index + 1)
+      .map((savedMinute) => ({ at: new Date(START + savedMinute * MINUTE), author }));
+    mocks.orderMessageMoments.mockResolvedValueOnce(saved);
     await noticeOrderMessage({ shipmentId: "parcel-1", author, messageKey: `m${index}` });
   }
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.clearAllMocks();
-  mocks.findOrderMessageContext.mockResolvedValue(CONTEXT);
-  mocks.sendEmail.mockResolvedValue(undefined);
-  mocks.queueOrderMessageNotices.mockResolvedValue(1);
+  mocks.deliverOrderMessageNotice.mockResolvedValue(undefined);
+  mocks.enqueueOrderMessageFollowUp.mockResolvedValue(undefined);
 });
 
-describe("noticeOrderMessage keeps one e-mail per author and parcel every 15 minutes", () => {
-  it("e-mails the supplier once for three messages sent within a minute", async () => {
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("noticeOrderMessage", () => {
+  it("e-mails the first message and holds the rest of a burst for the window's end", async () => {
     await writes("reseller", [0, 0.4, 0.7]);
-    expect(mocks.sendEmail).toHaveBeenCalledTimes(1);
+    expect(mocks.deliverOrderMessageNotice).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueOrderMessageFollowUp).toHaveBeenCalledTimes(2);
+    expect(mocks.enqueueOrderMessageFollowUp).toHaveBeenLastCalledWith({
+      shipmentId: "parcel-1",
+      author: "reseller",
+      runAt: new Date(START + 15 * MINUTE),
+    });
   });
 
-  it("e-mails again for a message 15 minutes after the last e-mail", async () => {
-    await writes("reseller", [0, 0.5, 15.5]);
-    expect(mocks.sendEmail).toHaveBeenCalledTimes(2);
+  it("schedules the last message of a short burst instead of losing it", async () => {
+    // 10:00 "Oi"; 10:05 "O cliente pediu para trocar o endereço."; then nothing.
+    await writes("reseller", [0, 5]);
+    expect(mocks.deliverOrderMessageNotice).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueOrderMessageFollowUp).toHaveBeenCalledWith({
+      shipmentId: "parcel-1",
+      author: "reseller",
+      runAt: new Date(START + 15 * MINUTE),
+    });
   });
 
-  it("keeps a steady conversation reaching the supplier: a message every 10 minutes", async () => {
-    await writes("reseller", [0, 10, 20, 30, 40, 50, 60]);
-    // E-mails at 0, 20, 40 and 60: never one alone, never two in the same 15 minutes.
-    expect(mocks.sendEmail).toHaveBeenCalledTimes(4);
+  it("notices the store the same way when the supplier writes", async () => {
+    await writes("supplier", [0]);
+    expect(mocks.deliverOrderMessageNotice).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ author: "supplier", shipmentId: "parcel-1" }),
+    );
   });
 
-  it("keeps the store's e-mail to the same pace when the supplier writes in a row", async () => {
-    await writes("supplier", [0, 0.2]);
-    expect(mocks.queueOrderMessageNotices).toHaveBeenCalledTimes(1);
+  it("never undoes the message when the notice fails", async () => {
+    mocks.deliverOrderMessageNotice.mockRejectedValueOnce(new Error("Resend fora"));
+    await expect(writes("reseller", [0])).resolves.toBeUndefined();
   });
 });

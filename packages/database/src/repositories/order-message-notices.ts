@@ -1,4 +1,9 @@
 import { orderMessageContent } from "@sellbridge/shared/notification-events";
+import type {
+  OrderMessageAuthor,
+  OrderMessageMoment,
+} from "@sellbridge/shared/order-message-email-throttle";
+import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
@@ -61,15 +66,19 @@ export async function queueOrderMessageNotices(
   });
 }
 
+const AUTHOR_BY_ACTOR: Readonly<Record<string, OrderMessageAuthor>> = {
+  [SHIPMENT_ACTORS.reseller]: "reseller",
+  [SHIPMENT_ACTORS.supplier]: "supplier",
+};
+
 /**
- * When the author wrote each message on the parcel, oldest first: what
- * `shouldEmailLatestOrderMessage` replays to keep one e-mail per window. A parcel holds at most
- * 100 events, so this stays small.
+ * Every message of the parcel, both sides, oldest first: what `planOrderMessageEmail` replays to
+ * keep one e-mail per window. A parcel holds at most 100 events, so this stays small.
  */
-export async function orderMessageTimes(
+export async function orderMessageMoments(
   database: Database,
-  input: { shipmentId: string; actor: string },
-): Promise<Date[]> {
+  shipmentId: string,
+): Promise<OrderMessageMoment[]> {
   // A message keeps the status of the event before it; the forward and the steps do not.
   const ranked = database
     .select({
@@ -84,18 +93,15 @@ export async function orderMessageTimes(
       ),
     })
     .from(shipmentEvents)
-    .where(eq(shipmentEvents.shipmentId, input.shipmentId))
+    .where(eq(shipmentEvents.shipmentId, shipmentId))
     .as("ranked");
   const rows = await database
-    .select({ at: ranked.at })
+    .select({ at: ranked.at, actor: ranked.actor })
     .from(ranked)
-    .where(
-      and(
-        eq(ranked.actor, input.actor),
-        sql`btrim(${ranked.note}) <> ''`,
-        sql`${ranked.status} = ${ranked.previousStatus}`,
-      ),
-    )
+    .where(and(sql`btrim(${ranked.note}) <> ''`, sql`${ranked.status} = ${ranked.previousStatus}`))
     .orderBy(asc(ranked.at));
-  return rows.map((row) => row.at);
+  return rows.flatMap((row) => {
+    const author = AUTHOR_BY_ACTOR[row.actor];
+    return author === undefined ? [] : [{ at: row.at, author }];
+  });
 }

@@ -1,51 +1,92 @@
 import { describe, expect, it } from "vitest";
 import {
   ORDER_MESSAGE_EMAIL_WINDOW_MINUTES,
-  shouldEmailLatestOrderMessage,
+  planOrderMessageEmail,
+  type OrderMessageAuthor,
+  type OrderMessageMoment,
 } from "./order-message-email-throttle.ts";
 
 const MINUTE = 60_000;
-const START = new Date("2026-10-22T15:00:00Z");
+const START = new Date("2026-10-22T13:00:00Z").getTime();
 
-function at(minutes: number): Date {
-  return new Date(START.getTime() + minutes * MINUTE);
+function at(minute: number): Date {
+  return new Date(START + minute * MINUTE);
 }
 
-/** Which of the author's messages, sent at these minutes, get an e-mail as each one arrives. */
-function emailed(minutes: readonly number[]): number[] {
-  return minutes.filter((_, index) =>
-    shouldEmailLatestOrderMessage(minutes.slice(0, index + 1).map(at)),
-  );
+/**
+ * Plays a conversation the way the app does: each message is planned when saved, and each
+ * scheduled follow-up is planned again when its time comes. Returns the minutes the store's
+ * messages were e-mailed to the supplier.
+ */
+function emailMinutes(store: readonly number[], supplier: readonly number[] = []): number[] {
+  const messages: OrderMessageMoment[] = [
+    ...store.map((minute) => ({ at: at(minute), author: "reseller" as OrderMessageAuthor })),
+    ...supplier.map((minute) => ({ at: at(minute), author: "supplier" as OrderMessageAuthor })),
+  ];
+  const sent: number[] = [];
+  const followUps = new Set<number>();
+  const moments = [...new Set([...store, ...supplier])].toSorted((left, right) => left - right);
+  const last = Math.max(...moments) + 2 * ORDER_MESSAGE_EMAIL_WINDOW_MINUTES;
+  for (let minute = 0; minute <= last; minute += 0.1) {
+    const now = Math.round(minute * 10) / 10;
+    const due = [...followUps].filter((followUp) => followUp <= now);
+    for (const followUp of due) {
+      followUps.delete(followUp);
+      const plan = planOrderMessageEmail({
+        messages,
+        author: "reseller",
+        trigger: "follow_up",
+        now: at(followUp),
+      });
+      if (plan.sendNow) sent.push(followUp);
+    }
+    for (const written of store.filter((storeMinute) => storeMinute === now)) {
+      const plan = planOrderMessageEmail({
+        messages,
+        author: "reseller",
+        trigger: "message",
+        now: at(written),
+      });
+      if (plan.sendNow) sent.push(written);
+      if (plan.followUpAt !== null) followUps.add((plan.followUpAt.getTime() - START) / MINUTE);
+    }
+  }
+  return [...new Set(sent)];
 }
 
-describe("shouldEmailLatestOrderMessage", () => {
-  it("sends one e-mail for three messages within a minute", () => {
-    expect(emailed([0, 0.3, 0.8])).toEqual([0]);
+describe("planOrderMessageEmail", () => {
+  it("sends one e-mail for three messages within a minute, then the waiting one at the window's end", () => {
+    expect(emailMinutes([0, 0.3, 0.8])).toEqual([0, 15]);
   });
 
-  it("sends another e-mail once the author was quiet for the whole window", () => {
-    expect(emailed([0, 0.5, 0.5 + ORDER_MESSAGE_EMAIL_WINDOW_MINUTES])).toEqual([0, 15.5]);
+  it("never loses the last message of a short burst", () => {
+    // 10:00 "Oi" and 10:05 "O cliente pediu para trocar o endereço.", then nothing.
+    expect(emailMinutes([0, 5])).toEqual([0, 15]);
   });
 
-  it("keeps quiet one minute before the window ends", () => {
-    expect(emailed([0, ORDER_MESSAGE_EMAIL_WINDOW_MINUTES - 1])).toEqual([0]);
-  });
-
-  it("keeps e-mailing a steady conversation, never twice within a window", () => {
-    const everyTenMinutes = [0, 10, 20, 30, 40, 50, 60];
-    const sent = emailed(everyTenMinutes);
-    expect(sent.length).toBeGreaterThanOrEqual(3);
-    expect(sent.length).toBeLessThanOrEqual(5);
+  it("keeps a steady conversation reaching the supplier, at most once per window", () => {
+    const sent = emailMinutes([0, 10, 20, 30, 40, 50, 60]);
+    expect(sent.length).toBeGreaterThanOrEqual(4);
     const gaps = sent.slice(1).map((minute, index) => minute - (sent[index] ?? minute));
     expect(gaps.every((gap) => gap >= ORDER_MESSAGE_EMAIL_WINDOW_MINUTES)).toBe(true);
   });
 
-  it("sends one e-mail for two messages written in the same instant", () => {
-    expect(emailed([0, 0])).toEqual([0]);
+  it("e-mails again right away once the window passed", () => {
+    expect(emailMinutes([0, 20])).toEqual([0, 20]);
   });
 
-  it("e-mails the first message of a parcel", () => {
-    expect(shouldEmailLatestOrderMessage([START])).toBe(true);
-    expect(shouldEmailLatestOrderMessage([])).toBe(false);
+  it("drops the waiting e-mail when the other side answered in the conversation", () => {
+    expect(emailMinutes([0, 5], [8])).toEqual([0]);
+  });
+
+  it("sends a single e-mail for two messages saved in the same instant", () => {
+    // Indistinguishable in time, so neither opens a window alone: one e-mail, at its end.
+    expect(emailMinutes([0, 0])).toEqual([15]);
+  });
+
+  it("does nothing before the author wrote", () => {
+    expect(
+      planOrderMessageEmail({ messages: [], author: "reseller", trigger: "message", now: at(0) }),
+    ).toEqual({ sendNow: false, followUpAt: null });
   });
 });

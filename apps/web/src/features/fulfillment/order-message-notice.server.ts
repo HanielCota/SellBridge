@@ -1,76 +1,43 @@
-import {
-  findOrderMessageContext,
-  orderMessageTimes,
-  queueOrderMessageNotices,
-  type OrderMessageContext,
-} from "@sellbridge/database/repositories";
+import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
-import { supplierOrderMessageEmail } from "@sellbridge/shared/order-message-email";
-import { SHIPMENT_ACTORS, type ShipmentOperator } from "@sellbridge/shared/schemas";
-import { shouldEmailLatestOrderMessage } from "@sellbridge/shared/order-message-email-throttle";
+import {
+  planOrderMessageEmail,
+  type OrderMessageAuthor,
+} from "@sellbridge/shared/order-message-email-throttle";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { sendEmail } from "@/lib/server/mailer";
-
-/** The panel's order list, filtered to the order: it opens only after the supplier signs in. */
-function supplierPanelUrl(context: OrderMessageContext): string | null {
-  if (!context.supplierHasAccount) {
-    return null;
-  }
-  const path = `/fornecedor/painel/pedidos?query=${encodeURIComponent(context.externalOrderId)}`;
-  return new URL(path, environment.APP_URL).toString();
-}
-
-async function emailSupplier(context: OrderMessageContext): Promise<void> {
-  if (context.supplierEmail === null) {
-    logger.info("fulfillment.order_message_no_supplier_email", { orderId: context.orderId });
-    return;
-  }
-  const email = supplierOrderMessageEmail(
-    {
-      externalOrderId: context.externalOrderId,
-      forwardedAt: context.forwardedAt,
-      panelUrl: supplierPanelUrl(context),
-    },
-    environment.APP_URL,
-  );
-  await sendEmail({ to: context.supplierEmail, ...email });
-}
+import { enqueueOrderMessageFollowUp } from "@/lib/server/queues";
 
 /**
- * Tells the other side a message arrived: the store's people by bell and e-mail (their own
- * choices), the supplier by its order e-mail only (no bell for suppliers in the MVP), at most once
- * per author and parcel every 15 minutes. Runs after the message is saved and never undoes it: a
- * failure is logged with ids only, never the text.
+ * Tells the other side a message arrived, at most once per author and parcel every 15 minutes
+ * and at least once while messages wait: a message inside the window is e-mailed by a job at the
+ * window's end, unless the other side answers first. Runs after the message is saved and never
+ * undoes it: a failure is logged with ids only, never the text.
  */
 export async function noticeOrderMessage(input: {
   shipmentId: string;
-  author: ShipmentOperator;
+  author: OrderMessageAuthor;
   messageKey: string;
 }): Promise<void> {
   try {
-    const context = await findOrderMessageContext(database, input.shipmentId);
-    if (context === null) {
-      return;
-    }
-    const messageTimes = await orderMessageTimes(database, {
-      shipmentId: input.shipmentId,
-      actor: SHIPMENT_ACTORS[input.author],
+    const messages = await orderMessageMoments(database, input.shipmentId);
+    const plan = planOrderMessageEmail({
+      messages,
+      author: input.author,
+      trigger: "message",
+      now: new Date(),
     });
-    // At most one e-mail per window, and one again once a window passed since the last: the
-    // message is in the conversation (and the store's bell) anyway.
-    if (!shouldEmailLatestOrderMessage(messageTimes)) {
-      logger.info("fulfillment.order_message_email_throttled", {
+    if (plan.sendNow) {
+      await deliverOrderMessageNotice({ database, sendEmail, appUrl: environment.APP_URL }, input);
+    }
+    if (plan.followUpAt !== null) {
+      await enqueueOrderMessageFollowUp({
         shipmentId: input.shipmentId,
         author: input.author,
+        runAt: plan.followUpAt,
       });
-      return;
     }
-    if (input.author === "supplier") {
-      await queueOrderMessageNotices(database, { context, messageKey: input.messageKey });
-      return;
-    }
-    await emailSupplier(context);
   } catch (error) {
     logger.warn("fulfillment.order_message_notice_failed", {
       shipmentId: input.shipmentId,

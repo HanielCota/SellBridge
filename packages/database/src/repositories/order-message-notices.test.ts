@@ -12,7 +12,7 @@ import {
 } from "../testing/fixtures.ts";
 import { forwardOrder } from "./fulfillment.ts";
 import { orderMessageEvents } from "./notification-reply-events.ts";
-import { findOrderMessageContext, orderMessageTimes } from "./order-message-notices.ts";
+import { findOrderMessageContext, orderMessageMoments } from "./order-message-notices.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -149,12 +149,12 @@ function minutesFromNow(minutes: number): Date {
   return new Date(Date.now() + minutes * 60_000);
 }
 
-describe("orderMessageTimes", () => {
-  it("lists the author's messages oldest first, without the forward or the other side", async () => {
+describe("orderMessageMoments", () => {
+  it("lists both sides' messages oldest first, without the forward", async () => {
     const { shipmentId } = await forwardedParcel();
     // After the forward, which was just written: a message never comes before it.
     const first = minutesFromNow(1);
-    const second = minutesFromNow(21);
+    const reply = minutesFromNow(2);
     await database.insert(shipmentEvents).values([
       {
         shipmentId,
@@ -168,27 +168,24 @@ describe("orderMessageTimes", () => {
         actor: SHIPMENT_ACTORS.supplier,
         note: "resposta",
         status: "forwarded",
-        createdAt: minutesFromNow(2),
+        createdAt: reply,
       },
       {
         shipmentId,
-        actor: SHIPMENT_ACTORS.reseller,
-        note: "segunda",
-        status: "forwarded",
-        createdAt: second,
+        actor: SHIPMENT_ACTORS.supplier,
+        note: "Aceito",
+        status: "accepted",
+        createdAt: minutesFromNow(3),
       },
     ]);
-    const times = await orderMessageTimes(database, {
-      shipmentId,
-      actor: SHIPMENT_ACTORS.reseller,
-    });
-    expect(times.map((time) => time.getTime())).toEqual([first.getTime(), second.getTime()]);
+    expect(await orderMessageMoments(database, shipmentId)).toEqual([
+      { at: first, author: "reseller" },
+      { at: reply, author: "supplier" },
+    ]);
   });
 
-  it("has nothing for an author who never wrote", async () => {
+  it("has nothing for a parcel without messages", async () => {
     const { shipmentId } = await forwardedParcel();
-    expect(
-      await orderMessageTimes(database, { shipmentId, actor: SHIPMENT_ACTORS.supplier }),
-    ).toEqual([]);
+    expect(await orderMessageMoments(database, shipmentId)).toEqual([]);
   });
 });
