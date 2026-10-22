@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
 import { forwardOrderFn } from "@/features/fulfillment/fulfillment.functions";
+import { marketplaceAddressNote } from "@/features/fulfillment/marketplace-address-note";
 import { getMarketplaceShippingFn } from "@/features/fulfillment/marketplace.functions";
 import { errorMessage } from "@/lib/errors";
 import { AddressImportBar } from "./label-import";
@@ -79,7 +80,8 @@ export function ForwardForm({
           through its first submit button; this disabled one comes first, so only a click sends. */}
       <button type="submit" disabled hidden aria-hidden="true" />
       <ForwardItems detail={detail} />
-      <AddressImportBar
+      <AddressSource
+        order={detail.order}
         onAddress={(found) => setAddress((previous) => ({ ...previous, ...found }))}
         marketplaceImport={detail.order.marketplace === "mercado_livre" ? loadAddress : null}
       />
@@ -108,6 +110,23 @@ export function ForwardForm({
       />
       <PreparationExplanation ownsItems={ownsItems} />
     </form>
+  );
+}
+
+/**
+ * Where the address came from. When the marketplace sent it with the order, a note says so; the
+ * label reader and the import are the fallback for orders that came without one
+ * (docs/marketplaces/order-shipping-address.md).
+ */
+function AddressSource({
+  order,
+  ...importBar
+}: { order: Detail["order"] } & ComponentProps<typeof AddressImportBar>) {
+  if (order.marketplaceAddress === null) {
+    return <AddressImportBar {...importBar} />;
+  }
+  return (
+    <p className="text-sm text-muted-foreground">{marketplaceAddressNote(order.marketplace)}</p>
   );
 }
 
@@ -147,16 +166,9 @@ function useForwardForm(
   detail: Detail,
   onForwarded: (links: Awaited<ReturnType<typeof forwardOrderFn>>) => Promise<void>,
 ) {
-  const [address, setAddress] = useState<DeliveryAddress>({
-    recipient: detail.order.buyerName ?? "",
-    street: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    state: "",
-    postalCode: "",
-  });
+  const [address, setAddress] = useState<DeliveryAddress>(
+    () => detail.order.marketplaceAddress ?? emptyAddress(detail.order.buyerName),
+  );
   const [notes, setNotes] = useState("");
   const loadAddress = useMutation({
     mutationFn: () => getMarketplaceShippingFn({ data: { orderId: detail.order.id } }),
@@ -180,6 +192,19 @@ function useForwardForm(
     onError: (error) => toast.error(errorMessage(error)),
   });
   return { address, setAddress, notes, setNotes, loadAddress, forward };
+}
+
+function emptyAddress(buyerName: string | null): DeliveryAddress {
+  return {
+    recipient: buyerName ?? "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    postalCode: "",
+  };
 }
 
 function ForwardItems({ detail }: { detail: Detail }) {
