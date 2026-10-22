@@ -5,6 +5,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { adminSupplierValuesSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
+import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { database } from "@/lib/server/database";
 import { accountMiddleware } from "@/lib/server/middleware";
 import { assertVisitKeepsOrdersEmail } from "@/lib/server/impersonation-rules";
@@ -35,7 +36,7 @@ async function loginEmailOf(userId: string): Promise<string> {
 }
 
 export const createOwnBrandFn = createServerFn({ method: "POST" })
-  .middleware([accountMiddleware])
+  .middleware([accountMiddleware, blockedContactLogging("supplier_panel")])
   .validator(adminSupplierValuesSchema)
   .handler(async ({ context, data }) => {
     assertSupplierProfile(context.profileKind);
@@ -50,7 +51,7 @@ export const createOwnBrandFn = createServerFn({ method: "POST" })
   });
 
 export const updateOwnBrandFn = createServerFn({ method: "POST" })
-  .middleware([accountMiddleware])
+  .middleware([accountMiddleware, blockedContactLogging("supplier_panel")])
   .validator(adminSupplierValuesSchema)
   .handler(async ({ context, data }) => {
     assertSupplierProfile(context.profileKind);

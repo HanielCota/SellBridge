@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUPPLIER_TEXT_CONTACT_REFUSED } from "../schemas/contact-guard.ts";
 import {
   MAX_PRODUCT_CSV_BYTES,
   MAX_PRODUCT_CSV_ROWS,
@@ -161,5 +162,21 @@ ${";".repeat(2_000_000)}`),
   it("caps cost and suggested price at the listing ceiling", () => {
     expect(parseCsvMoney("1000000,00")).toBe(100_000_000);
     expect(parseCsvMoney("1000000,01")).toBeNull();
+  });
+});
+
+describe("contact details in a spreadsheet row", () => {
+  it("refuses only the row with a contact and says why, keeping the rest of the file", () => {
+    const parsed = parseProductCsv(
+      [
+        "sku;titulo;descricao;custo;estoque",
+        "OK-1;Vaso de cerâmica;Pintado à mão;20,00;5",
+        "BAD-1;Vaso de barro;Chama no WhatsApp 11 98765-4321;20,00;5",
+      ].join("\n"),
+    );
+    expect(parsed.rows.map((row) => row.product.sku)).toEqual(["OK-1"]);
+    expect(parsed.errors).toEqual([
+      { line: 3, reason: `Descrição: ${SUPPLIER_TEXT_CONTACT_REFUSED}` },
+    ]);
   });
 });

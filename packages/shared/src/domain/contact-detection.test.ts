@@ -179,6 +179,22 @@ describe("findContactDetails", () => {
     expect(performance.now() - started).toBeLessThan(150);
   });
 
+  it("reads a long product description to the end, also across the reading windows", () => {
+    const filler = "Tecido de algodão macio, lavar à mão. ".repeat(500);
+    expect(findContactDetails(`${filler} WhatsApp 11 98765-4321`)).toEqual(["phone"]);
+    for (const at of [1990, 2000, 3795, 3800]) {
+      const text = `${"a ".repeat(at / 2)}11 98765-4321 ${"b ".repeat(400)}`;
+      expect(findContactDetails(text)).toContain("phone");
+    }
+  });
+
+  it("reads a 20,000-character description quickly", () => {
+    const started = performance.now();
+    findContactDetails("a.".repeat(10_000));
+    findContactDetails("insta ".repeat(3_400));
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
   it("finds nothing in an empty text", () => {
     expect(findContactDetails("")).toEqual([]);
     expect(findContactDetails("   ")).toEqual([]);

@@ -15,6 +15,7 @@ import {
   submitTransition,
   type RejectionReason,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
+import { firstTextWithContact, SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import { categories, supplierProducts, suppliers } from "../schema/index.ts";
@@ -63,6 +64,21 @@ async function lockExistingProduct(
     throw notFoundError(`Produto ${ref.productId} não encontrado neste fornecedor`);
   }
   return product;
+}
+
+/**
+ * Every reseller reads a product once it is approved, so its texts must carry no contact. The
+ * form refuses them already; this catches texts saved before the rule or past the form.
+ */
+function assertTextsWithoutContact(product: SupplierPanelProductRow): void {
+  const field = firstTextWithContact({
+    title: product.title,
+    description: product.description,
+    ...product.mercadoLivreAttributes,
+  });
+  if (field !== null) {
+    throw validationError(`${SUPPLIER_TEXT_CONTACT_REFUSED} Corrija o campo "${field}".`);
+  }
 }
 
 async function categorySlugOf(
@@ -232,6 +248,7 @@ export async function submitSupplierPanelProduct(
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
     const stored = await lockExistingProduct(transaction, ref);
+    assertTextsWithoutContact(stored);
     const categorySlug = await categorySlugOf(transaction, stored.categoryId);
     const transition = submitTransition(stored.reviewStatus, blockingCount(stored, categorySlug));
     if (!transition.allowed) {
@@ -256,6 +273,9 @@ async function decideReview(
 ): Promise<SupplierPanelProduct> {
   return await database.transaction(async (transaction) => {
     const stored = await lockExistingProduct(transaction, input);
+    if (input.decision === "approve") {
+      assertTextsWithoutContact(stored);
+    }
     const transition = reviewTransition(stored.reviewStatus, input.decision);
     if (!transition.allowed) {
       throw conflictError(transition.message);

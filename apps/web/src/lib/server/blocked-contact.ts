@@ -1,5 +1,5 @@
 import {
-  CONTACT_DETAILS_REFUSED,
+  CONTACT_REFUSAL_MESSAGES,
   type ContactKind,
   findContactDetails,
 } from "@sellbridge/shared/schemas";
@@ -56,7 +56,7 @@ function kindsIn(value: unknown): ContactKind[] {
  */
 export function blockedContactFields(error: unknown, input: unknown): BlockedContactField[] {
   return inputIssuesOf(error)
-    .filter((issue) => issue.message === CONTACT_DETAILS_REFUSED)
+    .filter((issue) => CONTACT_REFUSAL_MESSAGES.includes(issue.message))
     .map((issue) => ({
       field: issue.path.join("."),
       kinds: kindsIn(valueAt(input, issue.path)),

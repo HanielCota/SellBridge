@@ -15,17 +15,22 @@ export type ContactKind = "phone" | "email" | "link" | "social";
 const KIND_ORDER: readonly ContactKind[] = ["phone", "email", "link", "social"];
 
 /**
- * Past this many characters only the start is read. Every field that uses the detector is
- * shorter, so its own length check refuses the rest; the patterns stay fast on any input.
+ * The text is read in windows of this many characters, so the patterns stay fast on any input
+ * (a 100 KB note took 20 s in one piece). Windows overlap by `WINDOW_OVERLAP`, longer than any
+ * contact, so one written across two windows is still found whole in the second.
  */
 export const CONTACT_SCAN_LIMIT = 2000;
+const WINDOW_OVERLAP = 200;
+
+/**
+ * Past this many characters nothing more is read. The longest field that uses the detector (a
+ * product description) holds 20,000; its own length check refuses anything longer.
+ */
+const LONGEST_SCANNED_TEXT = 25_000;
 
 /** Compatibility forms folded ("１１" and "＠" read as "11" and "@"), invisible characters gone. */
 function foldedText(text: string): string {
-  return text
-    .slice(0, CONTACT_SCAN_LIMIT)
-    .normalize("NFKC")
-    .replace(/\p{Cf}/gu, "");
+  return text.normalize("NFKC").replace(/\p{Cf}/gu, "");
 }
 
 /** Lowercase and without accents, for the rules that read words. */
@@ -131,9 +136,8 @@ function hasSocialUser(folded: string): boolean {
   );
 }
 
-/** The kinds of contact in `text`, each once, in `KIND_ORDER`; empty when there is none. */
-export function findContactDetails(text: string): ContactKind[] {
-  const folded = foldedText(text);
+function kindsInWindow(window: string): ReadonlySet<ContactKind> {
+  const folded = foldedText(window);
   const plain = plainText(folded);
   const found: Record<ContactKind, boolean> = {
     phone: hasPhone(plain),
@@ -141,5 +145,22 @@ export function findContactDetails(text: string): ContactKind[] {
     link: hasLink(folded, plain),
     social: hasSocialUser(folded),
   };
-  return KIND_ORDER.filter((kind) => found[kind]);
+  return new Set(KIND_ORDER.filter((kind) => found[kind]));
+}
+
+/** Overlapping slices of `text` of at most `CONTACT_SCAN_LIMIT` characters each. */
+function readingWindows(text: string): string[] {
+  const readable = text.slice(0, LONGEST_SCANNED_TEXT);
+  const step = CONTACT_SCAN_LIMIT - WINDOW_OVERLAP;
+  const starts = Array.from(
+    { length: Math.max(1, Math.ceil((readable.length - WINDOW_OVERLAP) / step)) },
+    (_, index) => index * step,
+  );
+  return starts.map((start) => readable.slice(start, start + CONTACT_SCAN_LIMIT));
+}
+
+/** The kinds of contact in `text`, each once, in `KIND_ORDER`; empty when there is none. */
+export function findContactDetails(text: string): ContactKind[] {
+  const found = new Set(readingWindows(text).flatMap((window) => [...kindsInWindow(window)]));
+  return KIND_ORDER.filter((kind) => found.has(kind));
 }
