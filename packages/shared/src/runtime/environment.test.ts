@@ -4,6 +4,7 @@ import {
   alertWebhookUrlEnvironmentSchema,
   logLevelEnvironmentSchema,
   parseEnvironment,
+  shopeeShowcaseUnitsEnvironmentSchema,
 } from "./environment.ts";
 
 const schema = z.object({ DATABASE_URL: z.url(), PORT: z.coerce.number().default(3000) });
@@ -70,5 +71,26 @@ describe("alertWebhookUrlEnvironmentSchema", () => {
     expect(() =>
       parseEnvironment(alertSchema, { ALERT_WEBHOOK_URL: "http://hooks.example.test/x" }),
     ).toThrow(/ALERT_WEBHOOK_URL/);
+  });
+});
+
+describe("shopeeShowcaseUnitsEnvironmentSchema", () => {
+  const showcaseSchema = z.object({ SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema });
+  const parse = (value: string | undefined) =>
+    parseEnvironment(showcaseSchema, { SHOPEE_SHOWCASE_UNITS: value }).SHOPEE_SHOWCASE_UNITS;
+
+  it("defaults to 1000 units when unset or blank", () => {
+    expect(parse(undefined)).toBe(1000);
+    expect(parse("")).toBe(1000);
+  });
+
+  it("accepts whole numbers from 0 to 100000", () => {
+    expect(parse("0")).toBe(0);
+    expect(parse("1500")).toBe(1500);
+    expect(parse("100000")).toBe(100_000);
+  });
+
+  it.each(["-1", "1.5", "100001", "mil", "NaN"])("refuses %s", (value) => {
+    expect(() => parse(value)).toThrow(/SHOPEE_SHOWCASE_UNITS/);
   });
 });

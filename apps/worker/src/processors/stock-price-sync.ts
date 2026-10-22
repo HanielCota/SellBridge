@@ -22,6 +22,8 @@ export interface StockPriceSyncDependencies {
   acquireRateLimit: (key: string) => Promise<void>;
   /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
   safetyUnits: number;
+  /** Units Shopee listings show on top of the real ones (SHOPEE_SHOWCASE_UNITS). */
+  showcaseUnits: number;
   /** How long one run may take; defaults to `SYNC_RUN_BUDGET_MILLISECONDS` (tests shorten it). */
   runBudgetMilliseconds?: number;
   /** Targets fetched per batch; defaults to `SYNC_BATCH_SIZE` (tests shrink it). */
@@ -154,7 +156,7 @@ async function syncBatch(
   const targets = await findTargetsNeedingSync(
     dependencies.database,
     run.batchSize,
-    dependencies.safetyUnits,
+    { safetyUnits: dependencies.safetyUnits, showcaseUnits: dependencies.showcaseUnits },
     run.startedAt,
   );
   const summary = await syncStoresInParallel(dependencies, groupByStore(targets), run.deadline);

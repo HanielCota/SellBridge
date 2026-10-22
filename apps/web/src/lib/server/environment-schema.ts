@@ -4,6 +4,7 @@ import {
   logLevelEnvironmentSchema,
   mockWebhookSecretEnvironmentSchema,
   nodeEnvironmentSchema,
+  shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { z } from "zod";
@@ -54,6 +55,8 @@ const serverEnvironmentShape = z.object({
   MIN_MARGIN_PERCENT: z.coerce.number().int().min(0).max(90).default(0),
   /** Units the sync keeps off the marketplaces (the worker's own); none of them may be published. */
   STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
+  /** Units the worker adds to Shopee listings (the worker's own); screens show the real units. */
+  SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
     .string()

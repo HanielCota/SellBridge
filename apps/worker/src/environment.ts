@@ -5,6 +5,7 @@ import {
   mockWebhookSecretEnvironmentSchema,
   nodeEnvironmentSchema,
   parseEnvironment,
+  shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
@@ -31,6 +32,8 @@ const workerEnvironmentSchema = z.object({
    * that lag behind reality. 0 (the default) offers everything that is sellable.
    */
   STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
+  /** Units Shopee listings show on top of the real ones while there are real units to sell. */
+  SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
   /** When set, exposes GET /health on this port (container probes, E2E readiness). */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
   /**

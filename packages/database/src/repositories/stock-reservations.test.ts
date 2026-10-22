@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orderShipments, orders, supplierProducts } from "../schema/index.ts";
+import {
+  listingTargets,
+  orderItems,
+  orderShipments,
+  orders,
+  storeConnections,
+  supplierProducts,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -429,13 +436,86 @@ describe("units leaving and coming back", () => {
     const product = await sharedProduct(5);
     await sell(product.first, orderOf(product.first, product.sku, { status: "paid", quantity: 2 }));
     const stockSent = async (safetyUnits: number) => {
-      const targets = await findTargetsNeedingSync(database, 100_000, safetyUnits);
+      const targets = await findTargetsNeedingSync(database, 100_000, {
+        safetyUnits,
+        showcaseUnits: 0,
+      });
       return targets
         .filter((target) => target.externalId.startsWith(`EXT-${product.sku}`))
         .map((target) => target.stock);
     };
     expect(await stockSent(2)).toEqual([1, 1]);
     expect(await stockSent(10)).toEqual([0, 0]);
+  });
+});
+
+/** The first reseller sells on Shopee; the second keeps the simulated store. */
+async function onShopeeAndMock(stock: number) {
+  const product = await sharedProduct(stock);
+  await database
+    .update(storeConnections)
+    .set({ marketplace: "shopee" })
+    .where(eq(storeConnections.id, product.first.storeId));
+  const shopeeExternalId = `EXT-${product.sku}-${product.first.tenantId}`;
+  const mockExternalId = `EXT-${product.sku}-${product.second.tenantId}`;
+  const stockSent = async (units: { safetyUnits: number; showcaseUnits: number }) => {
+    const targets = await findTargetsNeedingSync(database, 100_000, units);
+    const byExternalId = new Map(targets.map((target) => [target.externalId, target.stock]));
+    return { shopee: byExternalId.get(shopeeExternalId), mock: byExternalId.get(mockExternalId) };
+  };
+  return { product, shopeeExternalId, stockSent };
+}
+
+describe("Shopee showcase units", () => {
+  it("adds the showcase to Shopee only, on top of the real units", async () => {
+    const { stockSent } = await onShopeeAndMock(50);
+    expect(await stockSent({ safetyUnits: 0, showcaseUnits: 1000 })).toEqual({
+      shopee: 1050,
+      mock: 50,
+    });
+    expect(await stockSent({ safetyUnits: 0, showcaseUnits: 0 })).toEqual({ shopee: 50, mock: 50 });
+  });
+
+  it("sends 0 to Shopee once the real units run out, whatever the showcase", async () => {
+    const { product, stockSent } = await onShopeeAndMock(2);
+    await sell(product.first, orderOf(product.first, product.sku, { status: "paid", quantity: 2 }));
+    expect(await stockSent({ safetyUnits: 0, showcaseUnits: 1000 })).toEqual({
+      shopee: 0,
+      mock: 0,
+    });
+  });
+
+  it("counts the showcase after the safety margin", async () => {
+    const { stockSent } = await onShopeeAndMock(5);
+    expect(await stockSent({ safetyUnits: 4, showcaseUnits: 1000 })).toEqual({
+      shopee: 1001,
+      mock: 1,
+    });
+    expect(await stockSent({ safetyUnits: 5, showcaseUnits: 1000 })).toEqual({
+      shopee: 0,
+      mock: 0,
+    });
+  });
+
+  it("sends 0 to a paused Shopee listing", async () => {
+    const { shopeeExternalId, stockSent } = await onShopeeAndMock(50);
+    await database
+      .update(listingTargets)
+      .set({ pauseRequested: true })
+      .where(eq(listingTargets.externalId, shopeeExternalId));
+    expect((await stockSent({ safetyUnits: 0, showcaseUnits: 1000 })).shopee).toBe(0);
+  });
+
+  it("keeps a huge shelf count within the stock column instead of failing the whole sync", async () => {
+    const { product, stockSent } = await onShopeeAndMock(1);
+    await database
+      .update(supplierProducts)
+      .set({ stock: 2_147_483_600 })
+      .where(eq(supplierProducts.id, product.productId));
+    expect(await stockSent({ safetyUnits: 0, showcaseUnits: 100_000 })).toEqual({
+      shopee: 2_147_483_647,
+      mock: 2_147_483_600,
+    });
   });
 });
 

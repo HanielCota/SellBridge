@@ -60,6 +60,7 @@ function processor(waitAt: "rate" | "publish" = "publish") {
   const dependencies = {
     ...environment,
     safetyUnits: 0,
+    showcaseUnits: 0,
     acquireRateLimit: async () => {
       if (waitAt === "rate") await wait();
     },

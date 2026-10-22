@@ -22,7 +22,6 @@ import {
 } from "@sellbridge/shared/store-supplier";
 import { hasErrorCode, userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { publishListingJobSchema } from "@sellbridge/shared/queues";
 import { UnrecoverableError } from "bullmq";
 import {
@@ -31,7 +30,7 @@ import {
   storeRateKey,
 } from "../lib/store-access.ts";
 import type { JobContext } from "../lib/job-context.ts";
-import { reconcilePublicationStock } from "./publication-stock.ts";
+import { reconcilePublicationStock, unitsToSend } from "./publication-stock.ts";
 
 export interface PublishDependencies {
   database: Database;
@@ -41,6 +40,8 @@ export interface PublishDependencies {
   acquireRateLimit: (key: string) => Promise<void>;
   /** Sellable units never offered on marketplaces (STOCK_SAFETY_UNITS). */
   safetyUnits: number;
+  /** Units Shopee listings show on top of the real ones (SHOPEE_SHOWCASE_UNITS). */
+  showcaseUnits: number;
 }
 
 /** `not_pending`: another job owns the target, or it already failed or is paused. */
@@ -79,13 +80,16 @@ function publishingCredentials(
   return resolveStoreCredentials(dependencies.cipher, row.store);
 }
 
-function toPublishProductInput(row: TargetForPublishing, safetyUnits: number): PublishProductInput {
+function toPublishProductInput(
+  row: TargetForPublishing,
+  dependencies: PublishDependencies,
+): PublishProductInput {
   return {
     idempotencyKey: row.target.idempotencyKey,
     title: row.listing.title,
     description: row.listing.description,
     priceCents: row.listing.priceCents,
-    stock: offeredUnits(row.product.stock, row.product.reservedStock, safetyUnits),
+    stock: unitsToSend(row, dependencies),
     sku: row.product.sku,
     imageUrls: row.product.imageUrls,
     mercadoLivreAttributes: row.product.mercadoLivreAttributes,
@@ -115,7 +119,7 @@ async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListin
   try {
     return await connector.publishProduct(
       attempt.credentials,
-      toPublishProductInput(row, dependencies.safetyUnits),
+      toPublishProductInput(row, dependencies),
       {
         creationStartedAt: row.target.creationStartedAt,
         beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
@@ -158,11 +162,7 @@ async function publishClaimedTarget(attempt: PublishAttempt): Promise<PublishOut
     tenantId: attempt.tenantId,
     targetId: attempt.listingTargetId,
     sent: {
-      stock: offeredUnits(
-        attempt.row.product.stock,
-        attempt.row.product.reservedStock,
-        attempt.dependencies.safetyUnits,
-      ),
+      stock: unitsToSend(attempt.row, attempt.dependencies),
       priceCents: attempt.row.listing.priceCents,
     },
   });
