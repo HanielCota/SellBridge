@@ -260,15 +260,16 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
   const linkContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const linkPage = await linkContext.newPage();
   await gotoHydrated(linkPage, supplierUrl);
-  const occurrence = linkPage.getByRole("textbox", { name: /^Ocorrência ou observação/ });
-  await occurrence.fill("Me manda um e-mail: fornecedor arroba gmail ponto com");
-  await linkPage.getByRole("button", { name: "Registrar ocorrência" }).click();
-  await expect(linkPage.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
-  await shot(linkPage, "fornecedor-link-ocorrencia");
-  await occurrence.fill(SAFE_NOTE);
+  const linkMessages = linkPage.getByRole("region", { name: "Mensagens do pedido" });
+  const linkMessage = linkMessages.getByLabel("Mensagem para o revendedor");
+  await linkMessage.fill("Me manda um e-mail: fornecedor arroba gmail ponto com");
+  await linkMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(linkMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
+  await shot(linkPage, "fornecedor-link-mensagem");
+  await linkMessage.fill(SAFE_NOTE);
   await tamperNextPost(linkPage, SAFE_NOTE, "insta: fornecedor.oficial");
-  await linkPage.getByRole("button", { name: "Registrar ocorrência" }).click();
-  await expect(linkPage.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
+  await linkMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(linkMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
   expect(await savedNotesWith("fornecedor.oficial")).toBe(0);
   await linkContext.close();
 
@@ -280,15 +281,16 @@ test("the supplier cannot send a contact back, by the link or by the panel", asy
     .getByRole("button", { name: `Pedido ${externalOrderId}` })
     .first()
     .click();
-  const panelNote = panel.getByRole("textbox", { name: /^Ocorrência ou observação/ });
-  await panelNote.fill("tiktok: @fornecedor_oficial");
-  await panelNote.blur();
-  await expect(panel.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
-  await shot(panel, "fornecedor-painel-ocorrencia");
-  await panelNote.fill(SAFE_NOTE);
+  const panelMessages = panel.getByRole("region", { name: "Mensagens do pedido" });
+  const panelMessage = panelMessages.getByLabel("Mensagem para o revendedor");
+  await panelMessage.fill("tiktok: @fornecedor_oficial");
+  await panelMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(panelMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
+  await shot(panel, "fornecedor-painel-mensagem");
+  await panelMessage.fill(SAFE_NOTE);
   await tamperNextPost(panel, SAFE_NOTE, "tiktok: @fornecedor_oficial");
-  await panel.getByRole("button", { name: "Registrar ocorrência" }).click();
-  await expect(panel.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
+  await panelMessages.getByRole("button", { name: "Enviar mensagem" }).click();
+  await expect(panelMessages.getByText(CONTACT_DETAILS_REFUSED)).toBeVisible();
   expect(await savedNotesWith("fornecedor_oficial")).toBe(0);
   await panelContext.close();
 });
