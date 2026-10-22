@@ -1,5 +1,6 @@
 import type {
   applySupplierFlag,
+  getFlaggableSupplierName,
   listTeamSupplierFlags,
   recordCatalogEvent,
   revokeSupplierFlag,
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   apply: vi.fn<typeof applySupplierFlag>(),
   revoke: vi.fn<typeof revokeSupplierFlag>(),
   list: vi.fn<typeof listTeamSupplierFlags>(),
+  supplierName: vi.fn<typeof getFlaggableSupplierName>(),
   record: vi.fn<typeof recordCatalogEvent>(),
   info: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
@@ -18,6 +20,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   applySupplierFlag: mocks.apply,
   revokeSupplierFlag: mocks.revoke,
   listTeamSupplierFlags: mocks.list,
+  getFlaggableSupplierName: mocks.supplierName,
   recordCatalogEvent: mocks.record,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
@@ -37,6 +40,7 @@ beforeEach(() => {
   mocks.revoke.mockResolvedValue({ id: flagId });
   mocks.list.mockResolvedValue({ flags: [], activeCount: 0, needsAttention: false });
   mocks.record.mockResolvedValue();
+  mocks.supplierName.mockResolvedValue("Cerâmica do Teste");
 });
 
 describe("applying a supplier flag", () => {
@@ -101,5 +105,17 @@ describe("listing a supplier's flags for the team", () => {
     );
     expect(agentView.canManage).toBe(false);
     expect(supervisorView.canManage).toBe(true);
+  });
+
+  it("hands over the supplier's name and flags, nothing else of its record", async () => {
+    const view = await loadTeamSupplierFlags({ userId: "agent-1", role: "agent" }, supplierId);
+    expect(Object.keys(view).toSorted()).toEqual([
+      "activeCount",
+      "canManage",
+      "flags",
+      "needsAttention",
+      "supplierName",
+    ]);
+    expect(view.supplierName).toBe("Cerâmica do Teste");
   });
 });

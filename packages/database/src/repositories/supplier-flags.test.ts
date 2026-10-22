@@ -6,6 +6,7 @@ import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import {
   applySupplierFlag,
   listActiveSupplierFlags,
+  getFlaggableSupplierName,
   listTeamSupplierFlags,
   revokeSupplierFlag,
 } from "./supplier-flags.ts";
@@ -198,6 +199,16 @@ describe("supplier flags", () => {
     await expect(
       applySupplierFlag(database, { supplierId, reason: "other", note: " ", createdBy: staffId() }),
     ).rejects.toMatchObject({ cause: { constraint_name: "supplier_flags_note_check" } });
+  });
+
+  it("reads only the supplier's name for the team's flags page", async () => {
+    const supplierId = await createSupplier();
+    expect(await getFlaggableSupplierName(database, supplierId)).toBe(
+      "Fornecedor de teste das flags",
+    );
+    await expect(
+      getFlaggableSupplierName(database, "00000000-0000-4000-8000-000000000000"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("refuses a flag for a supplier that does not exist", async () => {

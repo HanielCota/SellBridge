@@ -97,21 +97,28 @@ function FlagsHeader({
   );
 }
 
+/** What the server hands over for one supplier: its name, its flags and what the viewer may do. */
+export interface SupplierFlagsData {
+  flags: readonly TeamSupplierFlag[];
+  activeCount: number;
+  needsAttention: boolean;
+  canManage: boolean;
+}
+
 /**
- * MVP function 6: the supplier's flags on its admin record. Every team member sees them; only
- * admins and supervisors apply or revoke (the server checks `suppliers.flag` again).
+ * The flags themselves, from data already loaded. "Aplicar flag" and "Retirar flag" only appear
+ * with `canManage`; an agent gets a read-only list (and the server refuses the calls anyway).
  */
-export function SupplierFlagsSection({ supplierId }: { supplierId: string }) {
-  const query = useQuery(supplierFlagsQueryOptions(supplierId));
+export function SupplierFlagsPanel({
+  supplierId,
+  data,
+}: {
+  supplierId: string;
+  data: SupplierFlagsData;
+}) {
   const [applying, setApplying] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  if (query.isPending) {
-    return <Skeleton className="h-32 rounded-3xl" aria-label="Carregando flags" />;
-  }
-  if (query.isError) {
-    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
-  }
-  const { flags, activeCount, needsAttention, canManage } = query.data;
+  const { flags, activeCount, needsAttention, canManage } = data;
   const active = flags.filter((flag) => flag.status === "active");
   const past = flags.filter((flag) => flag.status !== "active");
   return (
@@ -151,4 +158,19 @@ export function SupplierFlagsSection({ supplierId }: { supplierId: string }) {
       ) : null}
     </section>
   );
+}
+
+/**
+ * MVP function 6: the supplier's flags, on its admin record and on the team's flags page
+ * (`/admin/fornecedores/<id>/flags`). Loads them itself; see `SupplierFlagsPanel`.
+ */
+export function SupplierFlagsSection({ supplierId }: { supplierId: string }) {
+  const query = useQuery(supplierFlagsQueryOptions(supplierId));
+  if (query.isPending) {
+    return <Skeleton className="h-32 rounded-3xl" aria-label="Carregando flags" />;
+  }
+  if (query.isError) {
+    return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  return <SupplierFlagsPanel supplierId={supplierId} data={query.data} />;
 }

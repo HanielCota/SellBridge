@@ -1,5 +1,6 @@
 import {
   applySupplierFlag,
+  getFlaggableSupplierName,
   listTeamSupplierFlags,
   revokeSupplierFlag,
 } from "@sellbridge/database/repositories";
@@ -29,9 +30,13 @@ function assertMayFlag(actor: StaffActor): void {
   }
 }
 
+/** The supplier's name and flags, nothing else of its record (the flags page is for all staff). */
 export async function loadTeamSupplierFlags(actor: StaffActor, supplierId: string) {
-  const result = await listTeamSupplierFlags(database, supplierId, new Date());
-  return { ...result, canManage: hasStaffPermission(actor.role, "suppliers.flag") };
+  const [supplierName, result] = await Promise.all([
+    getFlaggableSupplierName(database, supplierId),
+    listTeamSupplierFlags(database, supplierId, new Date()),
+  ]);
+  return { supplierName, ...result, canManage: hasStaffPermission(actor.role, "suppliers.flag") };
 }
 
 export async function applyFlag(actor: StaffActor, input: ApplySupplierFlagInput) {

@@ -50,18 +50,30 @@ export interface SupplierPanelFlag {
   expiresAt: Date;
 }
 
-async function assertFlaggableSupplier(
+/**
+ * Only the name: the flags page is open to the whole team, while the rest of the supplier record
+ * (contact e-mail, deadlines, catalog) stays with admins.
+ */
+export async function getFlaggableSupplierName(
   database: DatabaseExecutor,
   supplierId: string,
-): Promise<void> {
+): Promise<string> {
   const [supplier] = await database
-    .select({ id: suppliers.id })
+    .select({ name: suppliers.name })
     .from(suppliers)
     .where(and(eq(suppliers.id, supplierId), publicSupplier()))
     .limit(1);
   if (supplier === undefined) {
     throw notFoundError(`Fornecedor não encontrado: ${supplierId}.`);
   }
+  return supplier.name;
+}
+
+async function assertFlaggableSupplier(
+  database: DatabaseExecutor,
+  supplierId: string,
+): Promise<void> {
+  await getFlaggableSupplierName(database, supplierId);
 }
 
 export async function applySupplierFlag(
