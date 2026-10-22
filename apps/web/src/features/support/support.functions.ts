@@ -6,6 +6,7 @@ import {
   countUnreadSupportReplies,
   getSupportMetrics,
   describeTicketAbout,
+  findReturnClaimByTicket,
   getTicketSubject,
   getTicketThread,
   linkTicketOrder,
@@ -23,6 +24,7 @@ import {
   setTicketPriority,
   setTicketStatus,
 } from "@sellbridge/database/repositories";
+import type { ReturnClaimView } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
   addTicketFollowerSchema,
@@ -56,6 +58,18 @@ const LINKABLE_ORDERS_LIMIT = 8;
 const ticketIdInput = z.object({ ticketId: z.uuid() });
 /** The last message on screen when the thread was marked read. */
 const readInput = z.object({ ticketId: z.uuid(), lastMessageId: z.uuid() });
+
+/**
+ * The claim as the ticket's customer reads it: the supplier must never learn who the reseller
+ * is, so the reseller's name stays with the team.
+ */
+function customerReturnClaim(claim: ReturnClaimView | null) {
+  if (claim === null) {
+    return null;
+  }
+  const { sellerName: _sellerName, decidedByName: _decidedByName, ...visible } = claim;
+  return visible;
+}
 
 /** An admin looking around as the customer must not clear the customer's unread replies. */
 async function isImpersonating(): Promise<boolean> {
@@ -97,10 +111,11 @@ export const getMyTicket = createServerFn({ method: "GET" })
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     const thread = await getTicketThread(database, data.ticketId, context.tenantId);
-    const [orders, followers, subject] = await Promise.all([
+    const [orders, followers, subject, returnClaim] = await Promise.all([
       listTicketOrders(database, thread.ticket.id),
       listTicketFollowers(database, thread.ticket.id),
       getTicketSubject(database, thread.ticket.id),
+      findReturnClaimByTicket(database, thread.ticket.id),
     ]);
     const me = followers.find((follower) => follower.userId === context.userId);
     return {
@@ -108,6 +123,7 @@ export const getMyTicket = createServerFn({ method: "GET" })
       orders,
       followers,
       subject,
+      returnClaim: customerReturnClaim(returnClaim),
       viewerId: context.userId,
       notifyMe: me?.notify ?? false,
     };
@@ -247,11 +263,15 @@ export const staffGetTicket = createServerFn({ method: "GET" })
       ),
       listTicketOrders(database, thread.ticket.id),
     ]);
-    const subject = await getTicketSubject(database, thread.ticket.id);
+    const [subject, returnClaim] = await Promise.all([
+      getTicketSubject(database, thread.ticket.id),
+      findReturnClaimByTicket(database, thread.ticket.id),
+    ]);
     return {
       ...thread,
       orders,
       subject,
+      returnClaim,
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),
