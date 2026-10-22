@@ -65,6 +65,7 @@
     "./order-message-email": "./src/email/order-message-email.ts",
     "./notification-content": "./src/domain/notification-content.ts",
     "./notification-events": "./src/domain/notification-events.ts",
+    "./order-message-email-throttle": "./src/domain/order-message-email-throttle.ts",
     "./team-invite": "./src/domain/team-invite.ts",
     "./supplier-panel-catalog-status": "./src/domain/supplier-panel-catalog-status.ts",
     "./supplier-panel-catalog-completeness": "./src/domain/supplier-panel-catalog-completeness.ts",

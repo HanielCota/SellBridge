@@ -12,7 +12,7 @@ import {
 } from "../testing/fixtures.ts";
 import { forwardOrder } from "./fulfillment.ts";
 import { orderMessageEvents } from "./notification-reply-events.ts";
-import { findOrderMessageContext } from "./order-message-notices.ts";
+import { findOrderMessageContext, previousOrderMessageAt } from "./order-message-notices.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -142,5 +142,53 @@ describe("findOrderMessageContext", () => {
 
   it("finds nothing for an unknown parcel", async () => {
     expect(await findOrderMessageContext(database, randomUUID())).toBeNull();
+  });
+});
+
+function minutesFromNow(minutes: number): Date {
+  return new Date(Date.now() + minutes * 60_000);
+}
+
+describe("previousOrderMessageAt", () => {
+  it("finds the author's message before the newest one, ignoring the other side", async () => {
+    const { shipmentId } = await forwardedParcel();
+    // After the forward, which was just written: a message never comes before it.
+    const first = minutesFromNow(1);
+    await database.insert(shipmentEvents).values([
+      {
+        shipmentId,
+        actor: SHIPMENT_ACTORS.reseller,
+        note: "primeira",
+        status: "forwarded",
+        createdAt: first,
+      },
+      {
+        shipmentId,
+        actor: SHIPMENT_ACTORS.supplier,
+        note: "resposta",
+        status: "forwarded",
+        createdAt: minutesFromNow(2),
+      },
+      {
+        shipmentId,
+        actor: SHIPMENT_ACTORS.reseller,
+        note: "segunda",
+        status: "forwarded",
+        createdAt: minutesFromNow(21),
+      },
+    ]);
+    const previous = await previousOrderMessageAt(database, {
+      shipmentId,
+      actor: SHIPMENT_ACTORS.reseller,
+    });
+    expect(previous?.getTime()).toBe(first.getTime());
+  });
+
+  it("has nothing before the author's first message", async () => {
+    const { shipmentId } = await forwardedParcel();
+    await write(shipmentId, SHIPMENT_ACTORS.supplier, "única");
+    expect(
+      await previousOrderMessageAt(database, { shipmentId, actor: SHIPMENT_ACTORS.supplier }),
+    ).toBeNull();
   });
 });

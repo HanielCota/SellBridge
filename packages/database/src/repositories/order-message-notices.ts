@@ -1,7 +1,7 @@
 import { orderMessageContent } from "@sellbridge/shared/notification-events";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
-import { orders, orderShipments, suppliers } from "../schema/index.ts";
+import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
 import { notifyWorkspace } from "./notification-producers.ts";
 
 /** What a "new message" notice needs about a parcel, on either side. */
@@ -59,4 +59,43 @@ export async function queueOrderMessageNotices(
       externalOrderId: context.externalOrderId,
     }),
   });
+}
+
+/**
+ * When the author last wrote on the parcel before the message just saved (the newest one), or
+ * null: what `shouldEmailOrderMessage` needs to keep one e-mail per window.
+ */
+export async function previousOrderMessageAt(
+  database: Database,
+  input: { shipmentId: string; actor: string },
+): Promise<Date | null> {
+  // A message keeps the status of the event before it; the forward and the steps do not.
+  const ranked = database
+    .select({
+      at: shipmentEvents.createdAt,
+      actor: shipmentEvents.actor,
+      note: shipmentEvents.note,
+      status: shipmentEvents.status,
+      previousStatus: sql<
+        string | null
+      >`lag(${shipmentEvents.status}) over (order by ${shipmentEvents.createdAt}, ${shipmentEvents.id})`.as(
+        "previous_status",
+      ),
+    })
+    .from(shipmentEvents)
+    .where(eq(shipmentEvents.shipmentId, input.shipmentId))
+    .as("ranked");
+  const latest = await database
+    .select({ at: ranked.at })
+    .from(ranked)
+    .where(
+      and(
+        eq(ranked.actor, input.actor),
+        sql`btrim(${ranked.note}) <> ''`,
+        sql`${ranked.status} = ${ranked.previousStatus}`,
+      ),
+    )
+    .orderBy(desc(ranked.at))
+    .limit(2);
+  return latest.at(1)?.at ?? null;
 }

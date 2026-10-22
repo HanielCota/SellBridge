@@ -1,11 +1,13 @@
 import {
   findOrderMessageContext,
+  previousOrderMessageAt,
   queueOrderMessageNotices,
   type OrderMessageContext,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { supplierOrderMessageEmail } from "@sellbridge/shared/order-message-email";
-import type { ShipmentOperator } from "@sellbridge/shared/schemas";
+import { SHIPMENT_ACTORS, type ShipmentOperator } from "@sellbridge/shared/schemas";
+import { shouldEmailOrderMessage } from "@sellbridge/shared/order-message-email-throttle";
 import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { sendEmail } from "@/lib/server/mailer";
@@ -37,8 +39,9 @@ async function emailSupplier(context: OrderMessageContext): Promise<void> {
 
 /**
  * Tells the other side a message arrived: the store's people by bell and e-mail (their own
- * choices), the supplier by its order e-mail only (no bell for suppliers in the MVP). Runs after
- * the message is saved and never undoes it: a failure is logged with ids only, never the text.
+ * choices), the supplier by its order e-mail only (no bell for suppliers in the MVP), at most once
+ * per author and parcel every 15 minutes. Runs after the message is saved and never undoes it: a
+ * failure is logged with ids only, never the text.
  */
 export async function noticeOrderMessage(input: {
   shipmentId: string;
@@ -48,6 +51,18 @@ export async function noticeOrderMessage(input: {
   try {
     const context = await findOrderMessageContext(database, input.shipmentId);
     if (context === null) {
+      return;
+    }
+    const previousMessageAt = await previousOrderMessageAt(database, {
+      shipmentId: input.shipmentId,
+      actor: SHIPMENT_ACTORS[input.author],
+    });
+    // One e-mail per window: the message is in the conversation (and the store's bell) anyway.
+    if (!shouldEmailOrderMessage({ previousMessageAt, now: new Date() })) {
+      logger.info("fulfillment.order_message_email_throttled", {
+        shipmentId: input.shipmentId,
+        author: input.author,
+      });
       return;
     }
     if (input.author === "supplier") {
