@@ -2,6 +2,7 @@ import { CircleNotchIcon } from "@phosphor-icons/react";
 import type { ClipboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
 import { STEP_HEADING_IDS, StepHeading } from "./step-parts";
 
 export const DESCRIPTION_FIELD_ID = "new-ticket-body";
@@ -63,6 +64,7 @@ export function SendFooter({ promise, isSending }: { promise: string; isSending:
       <div className="text-sm">
         <p className="font-medium">O que acontece depois</p>
         <p className="text-muted-foreground">{promise}</p>
+        <OutOfHoursNotice />
       </div>
       {/* Never disabled: a click with something missing points to it instead. */}
       <Button

@@ -1,4 +1,5 @@
 import type { TicketStatus } from "@sellbridge/shared/schemas";
+import { isWithinSupportHours, SUPPORT_HOURS } from "@sellbridge/shared/support-hours";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -69,12 +70,30 @@ export function formatDeadline(date: Date, now: Date = new Date()): string {
   return `${day} às ${time}`;
 }
 
+const { opensAtHour, closesAtHour } = SUPPORT_HOURS;
+
+/** The one line about when support answers, the same on every customer screen. */
+export const SUPPORT_HOURS_TEXT = `Atendimento todos os dias, das ${opensAtHour}h às ${closesAtHour}h (horário de Brasília).`;
+
 /**
- * The one response promise every customer screen makes. Business days, never hours: the team's
- * target is counted in calendar hours for now, and an hour promised at night would be broken by
- * morning.
+ * Outside the hours, when answers start again, so a ticket opened at night does not wait for an
+ * answer that night; null while the team is at work. Tickets can be opened at any time.
  */
-export const RESPONSE_PROMISE = "Respondemos em até 1 dia útil";
+export function outOfHoursNotice(now: Date): string | null {
+  if (isWithinSupportHours(now)) {
+    return null;
+  }
+  return `Estamos fora do horário. Respondemos a partir das ${opensAtHour}h.`;
+}
+
+/** The hours and, outside them, the notice, for screens with a single line of text. */
+export function supportHoursText(now: Date): string {
+  const notice = outOfHoursNotice(now);
+  if (notice === null) {
+    return SUPPORT_HOURS_TEXT;
+  }
+  return `${SUPPORT_HOURS_TEXT} ${notice}`;
+}
 
 /** "1 chamado com resposta nova", "3 chamados com resposta nova": counts tickets, not messages. */
 export function unreadRepliesText(tickets: number): string {

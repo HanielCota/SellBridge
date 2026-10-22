@@ -22,8 +22,9 @@ import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
-import { RESPONSE_PROMISE } from "@/features/support/response-time";
+import { supportHoursText } from "@/features/support/response-time";
 import { noTicketsDescription } from "@/features/support/support-copy";
+import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
@@ -108,10 +109,11 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
 }
 
 function SupportHeader() {
+  const now = useNow();
   return (
     <PageHeader
       title="Suporte"
-      description={`${RESPONSE_PROMISE}. Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
+      description={`${supportHoursText(now)} Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
       actions={
         <Button asChild>
           <Link to="/suporte/novo">

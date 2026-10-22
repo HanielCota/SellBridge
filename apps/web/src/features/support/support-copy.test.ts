@@ -16,10 +16,15 @@ describe("noTicketsDescription", () => {
 });
 
 describe("responsePromise", () => {
-  it("promises business days, not hours", () => {
+  it("states the support hours, never a business-day promise", () => {
     expect(responsePromise("normal")).toBe(
-      "Respondemos em até 1 dia útil. A resposta chega por e-mail e no sino.",
+      "Atendimento todos os dias, das 8h às 18h (horário de Brasília). A resposta chega por e-mail e no sino.",
     );
+  });
+
+  it("leaves the out-of-hours notice to its own line", () => {
+    expect(responsePromise("normal")).not.toContain("fora do horário");
+    expect(responsePromise("high")).not.toContain("fora do horário");
   });
 
   it("tells an urgent case it goes first", () => {

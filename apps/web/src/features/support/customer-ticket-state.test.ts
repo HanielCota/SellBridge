@@ -17,18 +17,32 @@ function facts(overrides: Partial<CustomerTicketFacts>): CustomerTicketFacts {
 }
 
 describe("customerTicketState", () => {
-  it("promises one business day, never an hour, while support is within its target", () => {
+  it("states the support hours, never an hour, while support is within its target", () => {
     const state = customerTicketState(facts({}), NOW);
     expect(state).toEqual({
       tone: "waiting",
       headline: "Esperando o suporte",
-      detail: "Respondemos em até 1 dia útil. A resposta chega aqui e por e-mail.",
+      detail:
+        "Atendimento todos os dias, das 8h às 18h (horário de Brasília). A resposta chega aqui e por e-mail.",
     });
   });
 
   it("only promises the e-mail when the customer gets it", () => {
     const state = customerTicketState(facts({ emailsOn: false }), NOW);
-    expect(state.detail).toBe("Respondemos em até 1 dia útil.");
+    expect(state.detail).toBe("Atendimento todos os dias, das 8h às 18h (horário de Brasília).");
+  });
+
+  it("says when answers start again while waiting outside the hours", () => {
+    // 23:30 UTC is 20:30 in Brasília; the ticket is 1 h old, well within its target.
+    const night = new Date("2026-10-21T23:30:00Z");
+    const state = customerTicketState(
+      facts({ awaitingSince: new Date(night.getTime() - HOUR), emailsOn: false }),
+      night,
+    );
+    expect(state.tone).toBe("waiting");
+    expect(state.detail).toBe(
+      "Atendimento todos os dias, das 8h às 18h (horário de Brasília). Estamos fora do horário. Respondemos a partir das 8h.",
+    );
   });
 
   it("admits the delay instead of showing a deadline that already passed", () => {

@@ -97,8 +97,10 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
     reseller.getByRole("heading", { name: "O pedido atrasou", exact: true }),
   ).toBeVisible();
   await expect(reseller.getByText("Esperando o suporte.")).toBeVisible();
-  // A promise in business days, never an hour that may pass overnight.
-  await expect(reseller.getByText(/Respondemos em até 1 dia útil/)).toBeVisible();
+  // The support hours, the same line on every customer screen.
+  await expect(
+    reseller.getByText(/Atendimento todos os dias, das 8h às 18h \(horário de Brasília\)/),
+  ).toBeVisible();
   await expect(reseller.getByRole("link", { name: /comprovante\.pdf/ })).toBeVisible();
   // Without a photo the reseller's own message shows their initials, like the top bar does.
   const resellerMessages = reseller.getByRole("list", { name: "Mensagens do chamado" });
