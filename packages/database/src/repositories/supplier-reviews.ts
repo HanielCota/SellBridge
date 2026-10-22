@@ -203,49 +203,70 @@ export async function getSupplierReputationStats(
   );
 }
 
-export interface PublicSupplierReview {
+/** One review as moderation reads it: the comment, with the order and the store behind it. */
+export interface ModeratedSupplierReview {
   id: string;
   rating: number;
   tags: string[];
   comment: string;
+  externalOrderId: string;
+  storeName: string;
   createdAt: Date;
 }
 
+const moderatedReviewRowSchema = z.object({
+  id: z.string(),
+  rating: sqlIntegerSchema,
+  tags: z.array(z.string()),
+  comment: z.string(),
+  external_order_id: z.string(),
+  shop_name: z.string(),
+  created_at: z.coerce.date(),
+});
+
+function toModeratedReview(row: z.infer<typeof moderatedReviewRowSchema>): ModeratedSupplierReview {
+  return {
+    id: row.id,
+    rating: row.rating,
+    tags: row.tags,
+    // Reviews saved before comments were cleaned on save may still carry contact details.
+    comment: redactContactDetails(row.comment),
+    externalOrderId: row.external_order_id,
+    storeName: row.shop_name,
+    createdAt: row.created_at,
+  };
+}
+
 /**
- * Latest written reviews of a supplier; the reviewing tenant is never exposed. Comments are read
- * by every other reseller, so contact details are removed here too, for reviews saved before the
- * comment was cleaned on save.
+ * Every review of a supplier, newest first, for the SellBridge team only (`reviews.moderate`).
+ * Comments are never shown to other resellers nor to the supplier: a reseller may blame the
+ * supplier for the marketplace's logistics, so only moderation reads them.
  */
-export async function listRecentSupplierReviews(
+export async function listSupplierReviewsForModeration(
   database: Database,
   supplierId: string,
-  limit = 5,
-): Promise<PublicSupplierReview[]> {
-  const rows = await database.execute(sql`
-    select id, rating, tags, comment, created_at
-    from supplier_reviews
-    where supplier_id = ${supplierId}::uuid and comment <> ''
-    order by created_at desc
-    limit ${limit}
-  `);
-  return z
-    .array(
-      z.object({
-        id: z.string(),
-        rating: sqlIntegerSchema,
-        tags: z.array(z.string()),
-        comment: z.string(),
-        created_at: z.coerce.date(),
-      }),
-    )
+  pagination: Pagination,
+): Promise<Paginated<ModeratedSupplierReview>> {
+  const [rows, totals] = await Promise.all([
+    database.execute(sql`
+      select r.id, r.rating, r.tags, r.comment, o.external_order_id, sc.shop_name, r.created_at
+      from supplier_reviews r
+      join orders o on o.id = r.order_id
+      join store_connections sc on sc.id = o.store_connection_id
+      where r.supplier_id = ${supplierId}::uuid
+      order by r.created_at desc, r.id
+      limit ${pagination.pageSize} offset ${(pagination.page - 1) * pagination.pageSize}
+    `),
+    database.execute(sql`
+      select count(*) as total from supplier_reviews where supplier_id = ${supplierId}::uuid
+    `),
+  ]);
+  const total = z.object({ total: sqlIntegerSchema }).parse(totals[0]).total;
+  const items = z
+    .array(moderatedReviewRowSchema)
     .parse([...rows])
-    .map((row) => ({
-      id: row.id,
-      rating: row.rating,
-      tags: row.tags,
-      comment: redactContactDetails(row.comment),
-      createdAt: row.created_at,
-    }));
+    .map(toModeratedReview);
+  return toPaginated(items, total, pagination);
 }
 
 export interface OrderReview {

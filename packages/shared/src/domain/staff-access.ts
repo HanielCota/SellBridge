@@ -28,7 +28,12 @@ export type StaffPermission =
   /** Sees a supplier's flags (MVP function 6): active ones and the history. */
   | "suppliers.view_flags"
   /** Applies and revokes a supplier's flags. */
-  | "suppliers.flag";
+  | "suppliers.flag"
+  /**
+   * Reads the comments resellers leave on supplier reviews. Only moderation reads them: a
+   * reseller may blame the supplier for the marketplace's logistics.
+   */
+  | "reviews.moderate";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
   agent: ["support.answer", "support.triage", "suppliers.view_flags"],
@@ -39,6 +44,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.metrics",
     "suppliers.view_flags",
     "suppliers.flag",
+    "reviews.moderate",
   ],
   admin: [
     "support.answer",
@@ -49,6 +55,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "audit.view",
     "suppliers.view_flags",
     "suppliers.flag",
+    "reviews.moderate",
   ],
 };
 

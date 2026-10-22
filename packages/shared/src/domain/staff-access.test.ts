@@ -52,4 +52,12 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("user", "support.answer")).toBe(false);
     expect(hasStaffPermission(null, "support.answer")).toBe(false);
   });
+
+  it("lets only supervisors and admins read review comments", () => {
+    expect(hasStaffPermission("admin", "reviews.moderate")).toBe(true);
+    expect(hasStaffPermission("supervisor", "reviews.moderate")).toBe(true);
+    expect(hasStaffPermission("agent", "reviews.moderate")).toBe(false);
+    expect(hasStaffPermission("user", "reviews.moderate")).toBe(false);
+    expect(hasStaffPermission(null, "reviews.moderate")).toBe(false);
+  });
 });

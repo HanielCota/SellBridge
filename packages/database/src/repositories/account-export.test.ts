@@ -1,7 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orders, orderItems, tenantProfile, ticketMessages, tickets } from "../schema/index.ts";
+import {
+  orders,
+  orderItems,
+  supplierReviews,
+  tenantProfile,
+  ticketMessages,
+  tickets,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
+  createTestSupplierProduct,
   createTestTenantPair,
   createTestUsers,
   testCpf,
@@ -13,6 +21,7 @@ import { upsertStoreConnection } from "./stores.ts";
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
 let users: Awaited<ReturnType<typeof createTestUsers>>;
+let catalog: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 let tenantA = "";
 let tenantB = "";
 let userId = "";
@@ -44,6 +53,19 @@ async function addOrder(tenantId: string, storeId: string, externalOrderId: stri
     unitPriceCents: 2495,
     unitCostCents: 1200,
   });
+  return order.id;
+}
+
+/** A review of the order's supplier, written by the order's tenant. */
+async function addReview(tenantId: string, orderId: string, comment: string) {
+  await database.insert(supplierReviews).values({
+    tenantId,
+    orderId,
+    supplierId: catalog.supplierId,
+    rating: 2,
+    tags: ["dispatch:bad"],
+    comment,
+  });
 }
 
 beforeAll(async () => {
@@ -59,8 +81,16 @@ beforeAll(async () => {
   });
   const storeA = await upsertStoreConnection(database, testStoreInput(tenantA, `exp-a-${tenantA}`));
   const storeB = await upsertStoreConnection(database, testStoreInput(tenantB, `exp-b-${tenantB}`));
-  await addOrder(tenantA, storeA.id, `EXP-A-${tenantA}`);
-  await addOrder(tenantB, storeB.id, `EXP-B-${tenantB}`);
+  catalog = await createTestSupplierProduct(database, {
+    sku: `EXP-${tenantA}`,
+    title: "Sérum facial",
+    costCents: 1200,
+    suggestedPriceCents: 2495,
+  });
+  const orderA = await addOrder(tenantA, storeA.id, `EXP-A-${tenantA}`);
+  const orderB = await addOrder(tenantB, storeB.id, `EXP-B-${tenantB}`);
+  await addReview(tenantA, orderA, "Chegou com a caixa amassada");
+  await addReview(tenantB, orderB, "Comentário de outra loja");
   const [ticket] = await database
     .insert(tickets)
     .values({ tenantId: tenantA, createdById: userId, subject: "Dúvida sobre repasse" })
@@ -83,6 +113,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await tenants.cleanup();
   await users.cleanup();
+  await catalog.cleanup();
   await database.$client.end();
 });
 
@@ -113,5 +144,19 @@ describe("collectAccountExport", () => {
     expect(text).not.toContain("enc-access");
     expect(text).not.toContain("Nota da equipe");
     expect(text).not.toContain(`EXP-B-${tenantB}`);
+  });
+
+  it("keeps the author's own review comments and nobody else's", async () => {
+    const exported = await collectAccountExport(database, { userId, tenantId: tenantA });
+    expect(exported.supplierReviews).toEqual([
+      expect.objectContaining({
+        externalOrderId: `EXP-A-${tenantA}`,
+        supplierName: `Fornecedor de teste EXP-${tenantA}`,
+        rating: 2,
+        tags: ["dispatch:bad"],
+        comment: "Chegou com a caixa amassada",
+      }),
+    ]);
+    expect(JSON.stringify(exported)).not.toContain("Comentário de outra loja");
   });
 });

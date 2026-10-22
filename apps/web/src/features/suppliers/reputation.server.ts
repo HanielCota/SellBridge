@@ -1,4 +1,7 @@
-import { getSupplierReputationStats } from "@sellbridge/database/repositories";
+import {
+  getDirectorySupplier,
+  getSupplierReputationStats,
+} from "@sellbridge/database/repositories";
 import {
   computeSupplierReputation,
   emptyReputationStats,
@@ -19,4 +22,16 @@ export async function loadReputations(
   const from = new Date(Date.now() - SCORE_WINDOW_DAYS * DAY_MILLISECONDS);
   const stats = await getSupplierReputationStats(database, supplierIds, from);
   return (supplierId) => computeSupplierReputation(stats.get(supplierId) ?? emptyReputationStats());
+}
+
+/**
+ * Score, rating and reasons of any active supplier, as every reseller reads them. Review
+ * comments are left out on purpose: only moderation reads them (`reviews.moderate`).
+ */
+export async function loadSupplierReputation(
+  supplierId: string,
+): Promise<{ reputation: SupplierReputation }> {
+  const supplier = await getDirectorySupplier(database, supplierId);
+  const reputationOf = await loadReputations([supplier.id]);
+  return { reputation: reputationOf(supplier.id) };
 }

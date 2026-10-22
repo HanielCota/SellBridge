@@ -18,6 +18,7 @@ import { ProductCsvImport } from "./product-csv-import";
 import { ProductList } from "./product-list";
 import { SupplierForm } from "./supplier-form";
 import { SupplierFlagsSection } from "./supplier-flags-section";
+import { SupplierReviewsSection } from "./supplier-reviews-section";
 import { sellersSummary, SupplierSellers } from "./supplier-sellers";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
 import { BackLink } from "@/components/layout/page-header";
@@ -142,6 +143,7 @@ export function SupplierDetail({
       <SupplierFlagsSection supplierId={supplierId} />
       <SupplierForm key={supplierId} detail={query.data} />
       <SupplierSellers stores={query.data.sellers} />
+      <SupplierReviewsSection supplierId={supplierId} />
       <ProductList
         supplierId={supplierId}
         categories={query.data.categories}
