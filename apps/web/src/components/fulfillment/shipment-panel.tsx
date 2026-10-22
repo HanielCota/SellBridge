@@ -21,6 +21,7 @@ import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
+import { dispatchFieldsFor } from "@/features/fulfillment/dispatch-fields";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import {
   FULFILLMENT_TONES,
@@ -371,9 +372,11 @@ function useShipmentUpdate(
       const parsed = shipmentUpdateSchema.safeParse({
         shipmentId: shipment.id,
         status: change.status,
-        carrier,
-        trackingCode,
-        trackingUrl,
+        ...dispatchFieldsFor(shipment.status, change.status, {
+          carrier,
+          trackingCode,
+          trackingUrl,
+        }),
         note: change.note,
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira os dados");
