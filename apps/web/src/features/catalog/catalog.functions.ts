@@ -1,10 +1,7 @@
 import {
   getPublishBatchStatus,
   getSellableProducts,
-  listActiveSuppliers,
-  listSellableCatalog,
-  listSellableCategories,
-  listStoreConnections,
+  listStoreCatalog,
 } from "@sellbridge/database/repositories";
 import { type BulkPublishSkip, planBulkPublish } from "@sellbridge/shared/bulk-publish-plan";
 import { validationError } from "@sellbridge/shared/errors";
@@ -17,6 +14,7 @@ import {
   priceForRule,
   sellableCatalogSearchSchema,
 } from "@sellbridge/shared/schemas";
+import { MARKETPLACE_LABELS } from "@sellbridge/marketplaces";
 import { createServerFn } from "@tanstack/react-start";
 import {
   assertConnectedStores,
@@ -34,29 +32,38 @@ export const getSellableCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(sellableCatalogSearchSchema)
   .handler(async ({ context, data }) => {
-    const [products, categories, suppliers, stores] = await Promise.all([
-      listSellableCatalog(
-        database,
-        context.tenantId,
-        {
+    // The store and its supplier are decided here (MVP function 1): a store id from the URL that
+    // is not one of the account's own is ignored, and a store without a supplier lists nothing.
+    const catalog = await listStoreCatalog(
+      database,
+      context.tenantId,
+      {
+        storeId: data.store,
+        filters: {
           search: data.query,
           categorySlug: data.category,
-          supplierId: data.supplier,
           inStockOnly: data.inStock,
           unpublishedOnly: data.unpublished,
           sort: data.sort,
         },
-        { page: data.page, pageSize: data.pageSize },
-      ),
-      listSellableCategories(database, context.tenantId),
-      listActiveSuppliers(database, {}),
-      listStoreConnections(database, context.tenantId),
-    ]);
+      },
+      { page: data.page, pageSize: data.pageSize },
+    );
     return {
-      products,
-      categories,
-      suppliers: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
-      stores: stores
+      products: catalog.products,
+      categories: catalog.categories,
+      scope: catalog.scope,
+      supplier: catalog.supplier,
+      pausedSupplier: catalog.pausedSupplier,
+      /** The store picker: every store that still counts, and whether it has a supplier yet. */
+      scopeStores: catalog.stores.map((store) => ({
+        id: store.id,
+        shopName: store.shopName,
+        marketplaceLabel: MARKETPLACE_LABELS[store.marketplace],
+        hasSupplier: store.supplierId !== null,
+      })),
+      // Bulk publishing still goes only to connected stores (and checks their supplier).
+      stores: catalog.stores
         .filter((store) => store.status === "connected")
         .map((store) => ({
           id: store.id,

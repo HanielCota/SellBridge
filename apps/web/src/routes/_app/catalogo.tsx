@@ -12,6 +12,12 @@ import { PackageIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { BulkPublishDialog } from "@/components/catalog/bulk-publish-dialog";
+import {
+  CatalogStorePicker,
+  catalogDescription,
+  NoStoreNotice,
+  NoSupplierState,
+} from "@/components/catalog/catalog-store-scope";
 import { CatalogProductCard } from "@/components/catalog/catalog-product-card";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
@@ -79,7 +85,7 @@ function CatalogSearchInput() {
   return (
     <SearchInput
       label="Buscar produto"
-      placeholder="Buscar por produto, código ou fornecedor"
+      placeholder="Buscar por produto ou código"
       className="min-w-0 flex-1 sm:min-w-60"
       maxLength={100}
       value={term}
@@ -153,11 +159,39 @@ function FilterCheckbox({
   );
 }
 
+/** The store picker and its grid cell, left out entirely with fewer than 2 stores (no empty gap). */
+function StorePickerSlot({ data }: { data: CatalogData }) {
+  const updateSearch = useUpdateSearch();
+  if (data.scopeStores.length < 2) {
+    return null;
+  }
+  return (
+    <div className="col-span-2 sm:col-span-1">
+      <CatalogStorePicker
+        stores={data.scopeStores}
+        value={data.scope.storeId}
+        onChange={(store) => updateSearch({ store })}
+      />
+    </div>
+  );
+}
+
 function CatalogFilters({ data }: { data: CatalogData }) {
   const search = Route.useSearch();
   const updateSearch = useUpdateSearch();
+  // With no supplier to show, the search and filters would do nothing: only the store picker stays.
+  if (data.supplier === null) {
+    return (
+      <CatalogStorePicker
+        stores={data.scopeStores}
+        value={data.scope.storeId}
+        onChange={(store) => updateSearch({ store })}
+      />
+    );
+  }
   return (
     <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:gap-3">
+      <StorePickerSlot data={data} />
       <div className="col-span-2 flex sm:flex-1">
         <CatalogSearchInput />
       </div>
@@ -170,13 +204,6 @@ function CatalogFilters({ data }: { data: CatalogData }) {
           label: category.name,
         }))}
         onChange={(category) => updateSearch({ category })}
-      />
-      <FilterSelect
-        label="Fornecedor"
-        value={search.supplier}
-        allLabel="Fornecedores"
-        options={data.suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name }))}
-        onChange={(supplier) => updateSearch({ supplier })}
       />
       <FilterSelect
         label="Ordenar"
@@ -254,7 +281,6 @@ function hasActiveFilters(search: SellableCatalogSearch): boolean {
   return (
     search.query !== undefined ||
     search.category !== undefined ||
-    search.supplier !== undefined ||
     search.inStock !== undefined ||
     search.unpublished !== undefined
   );
@@ -268,7 +294,7 @@ function NoProducts() {
       <EmptyState
         icon={PackageIcon}
         title="Nenhum produto no catálogo ainda"
-        description="Ainda não há fornecedores com produtos ativos."
+        description="Este fornecedor ainda não tem produtos ativos."
       />
     );
   }
@@ -284,7 +310,6 @@ function NoProducts() {
             updateSearch({
               query: undefined,
               category: undefined,
-              supplier: undefined,
               inStock: undefined,
               unpublished: undefined,
             })
@@ -309,6 +334,11 @@ function CatalogResults({ data }: { data: CatalogData }) {
   // A page past the end (old link, products gone) jumps to the last page that has products.
   if (items.length === 0 && total > 0 && search.page > totalPages) {
     return <Navigate from={Route.fullPath} search={{ ...search, page: totalPages }} replace />;
+  }
+  if (data.supplier === null) {
+    return (
+      <NoSupplierState scope={data.scope} pausedSupplierName={data.pausedSupplier?.name ?? null} />
+    );
   }
   return (
     <>
@@ -351,24 +381,44 @@ function CatalogSkeleton() {
   );
 }
 
+/** The scope's supplier page: the same supplier the catalog shows, never the whole directory. */
+function SupplierPageLink({ data }: { data: CatalogData | undefined }) {
+  const supplier = data?.supplier ?? null;
+  if (supplier === null) {
+    return null;
+  }
+  return (
+    <Hint label={ACTION_ICONS.suppliers.hint} openOnTap={false}>
+      <Button asChild variant="outline">
+        <Link to="/fornecedores/$supplierId" params={{ supplierId: supplier.id }}>
+          <SuppliersIcon aria-hidden="true" />
+          Ver fornecedor
+        </Link>
+      </Button>
+    </Hint>
+  );
+}
+
+function headerDescription(data: CatalogData | undefined): string {
+  if (data === undefined) {
+    return "Selecione vários produtos para publicar de uma vez.";
+  }
+  const store = data.scopeStores.find((option) => option.id === data.scope.storeId);
+  return catalogDescription(data.scope, data.supplier?.name ?? null, store?.shopName ?? null);
+}
+
 function CatalogPage() {
   const query = useCatalogQuery();
   return (
     <>
       <PageHeader
         title="Catálogo"
-        description="Produtos de fornecedores de todo o Brasil. Selecione vários para publicar de uma vez."
-        actions={
-          <Hint label={ACTION_ICONS.suppliers.hint} openOnTap={false}>
-            <Button asChild variant="outline">
-              <Link to="/fornecedores">
-                <SuppliersIcon aria-hidden="true" />
-                Ver por fornecedor
-              </Link>
-            </Button>
-          </Hint>
-        }
+        description={headerDescription(query.data)}
+        actions={<SupplierPageLink data={query.data} />}
       />
+      {query.data?.scope.kind === "starter" && query.data.supplier !== null ? (
+        <NoStoreNotice />
+      ) : null}
       {query.isPending ? <CatalogSkeleton /> : null}
       {query.isError ? (
         <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -376,7 +426,8 @@ function CatalogPage() {
       {query.isSuccess ? (
         <>
           <CatalogFilters data={query.data} />
-          <CatalogResults data={query.data} />
+          {/* Keyed by store: a selection made for another store's supplier never carries over. */}
+          <CatalogResults key={query.data.scope.storeId ?? "starter"} data={query.data} />
         </>
       ) : null}
     </>

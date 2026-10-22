@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, pickSupplier, signIn, signUp, testCpf } from "./helpers";
+import {
+  completeOnboarding,
+  DEMO_USER,
+  gotoHydrated,
+  pickSupplier,
+  signIn,
+  signUp,
+  testCpf,
+} from "./helpers";
 
 const PHONE = "(11) 98765-4321";
 
@@ -87,14 +95,39 @@ test.describe("busca de fornecedores", () => {
     await expect(page.getByText(/sua região|seu CEP/)).toHaveCount(0);
   });
 
-  test("sem endereço, abre o catálogo com produtos de todos os fornecedores", async ({ page }) => {
-    await signUp(page, "Catálogo Sem Endereço");
+  // MVP function 1: the catalog shows only one supplier, the store's (or the starter one).
+  test("sem fornecedor escolhido, o catálogo pede um em vez de mostrar outros", async ({
+    page,
+  }) => {
+    await signUp(page, "Catálogo Sem Fornecedor");
     await gotoHydrated(page, "/catalogo");
     await expect(page).toHaveURL(/\/catalogo/);
     await expect(
-      page.getByText("Produtos de fornecedores de todo o Brasil.", { exact: false }),
+      page.getByRole("heading", {
+        name: "Escolha um fornecedor para ver os produtos",
+        exact: true,
+      }),
     ).toBeVisible();
-    await expect(page.getByRole("article").first()).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(0);
+  });
+
+  test("sem loja, mostra só o fornecedor inicial, mesmo com outra loja na URL", async ({
+    page,
+  }) => {
+    await signUp(page, "Catálogo Fornecedor Inicial");
+    await completeOnboarding(page, "BH Beauty Distribuidora");
+    await gotoHydrated(page, `/catalogo?store=${crypto.randomUUID()}`);
+    await expect(
+      page.getByText("Produtos de BH Beauty Distribuidora, o fornecedor que você escolheu.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Para publicar estes produtos, conecte uma loja primeiro."),
+    ).toBeVisible();
+    const cards = page.getByRole("article");
+    await expect(cards.first()).toBeVisible();
+    await expect(cards.filter({ hasNotText: "BH Beauty Distribuidora" })).toHaveCount(0);
   });
 });
 
