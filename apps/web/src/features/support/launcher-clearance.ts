@@ -36,7 +36,8 @@ function coversPageControl(bubble: HTMLElement, page: HTMLElement): boolean {
 
 /**
  * Calls `onCovered` once the bubble sits over a control of the page, checking again whenever
- * the page scrolls, resizes or gets new content (a list that loads after the bubble). Returns
+ * the page or a container inside it scrolls (scroll does not bubble, so it is caught on the way
+ * down), resizes or gets new content (a list that loads after the bubble). Returns
  * the cleanup. The expanded bubble covered "Próxima" and "Operar pedido" at the bottom of the
  * screen, so a tap meant for them opened support instead.
  */
@@ -59,13 +60,13 @@ export function watchCoveredControls(
   };
   const mutations = new MutationObserver(schedule);
   mutations.observe(page, { childList: true, subtree: true });
-  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("scroll", schedule, { capture: true, passive: true });
   window.addEventListener("resize", schedule);
   schedule();
   return () => {
     window.cancelAnimationFrame(frame);
     mutations.disconnect();
-    window.removeEventListener("scroll", schedule);
+    window.removeEventListener("scroll", schedule, { capture: true });
     window.removeEventListener("resize", schedule);
   };
 }
