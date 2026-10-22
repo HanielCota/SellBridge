@@ -142,9 +142,17 @@ test("a bolha recolhe quando uma tabela rolada de lado leva um botão para baixo
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, DEMO_USER);
+  // The dashboard's own buttons can sit under the label and fold it first; only the strip shows.
+  // An adopted sheet adds no node, so hydration is untouched.
+  await page.addInitScript(() => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync("#main-content > :not(#e2e-strip) { display: none !important; }");
+    document.adoptedStyleSheets = [sheet];
+  });
   await gotoHydrated(page, "/dashboard");
   const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
-  await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
+  const label = bubble.getByText("Falar com o suporte");
+  await expect(label).toBeVisible();
   const box = await bubble.boundingBox();
   if (box === null) {
     throw new Error("bolha sem posição");
@@ -168,15 +176,19 @@ test("a bolha recolhe quando uma tabela rolada de lado leva um botão para baixo
       strip.append(row);
       document.getElementById("main-content")?.append(strip);
     }, spot);
+  const strip = page.locator("#e2e-strip");
 
+  await placeStrip({ left: box.x + 8, top: box.y + 8 });
+  await expect(strip).toBeAttached();
+  // Nothing sits under the label yet, so it stays up.
+  await expect(label).toBeVisible();
+
+  // Placed again if a late client render replaces the page under it.
   await expect(async () => {
     await placeStrip({ left: box.x + 8, top: box.y + 8 });
-    await expect(page.locator("#e2e-strip")).toBeAttached({ timeout: 1_000 });
-  }).toPass({ timeout: 5_000 });
-  // Nothing sits under the label yet, so it stays up.
-  await page.waitForTimeout(500);
-  await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
-
-  await page.locator("#e2e-strip").evaluate((strip) => strip.scrollTo({ left: 1000 }));
-  await expect(bubble.getByText("Falar com o suporte")).toBeHidden({ timeout: 3_000 });
+    await strip.evaluate((element) => element.scrollTo({ left: 1000 }), undefined, {
+      timeout: 1_000,
+    });
+    await expect(label).toBeHidden({ timeout: 1_000 });
+  }).toPass({ timeout: 3_000 });
 });
