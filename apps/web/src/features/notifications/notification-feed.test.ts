@@ -23,6 +23,16 @@ function sale(minutesAgo: number): NotificationEvent {
   };
 }
 
+function openShortage(daysAgo: number): NotificationEvent {
+  return {
+    kind: "stock_shortage",
+    entityId: `short-${daysAgo}`,
+    externalOrderId: `MLB-${daysAgo}`,
+    productTitle: "Vestido",
+    at: new Date(Date.UTC(2026, 9, 4, 12) - daysAgo * 86_400_000),
+  };
+}
+
 describe("buildNotificationFeed", () => {
   it("orders events of every kind newest first", () => {
     const feed = buildNotificationFeed([supportReply(30), supportReply(5), supportReply(10)], null);
@@ -65,5 +75,19 @@ describe("buildNotificationFeed", () => {
     const feed = buildNotificationFeed([...newer, shortage], null);
     expect(feed.events).toHaveLength(MAX_NOTIFICATIONS);
     expect(feed.events.at(-1)?.entityId).toBe("order-short");
+  });
+  it("keeps room for the newest sales and replies when open problems alone fill the bell", () => {
+    const problems = Array.from({ length: MAX_NOTIFICATIONS + 3 }, (_, index) =>
+      openShortage(index),
+    );
+    const news = Array.from({ length: 8 }, (_, index) => sale(index));
+    const feed = buildNotificationFeed([...problems, ...news], null);
+    const kept = feed.events
+      .filter((event) => event.kind === "sale")
+      .map((event) => event.entityId);
+    expect(kept).toEqual(["order-0", "order-1", "order-2", "order-3", "order-4"]);
+    expect(feed.events.filter((event) => event.kind === "stock_shortage")).toHaveLength(
+      problems.length,
+    );
   });
 });
