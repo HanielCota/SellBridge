@@ -31,6 +31,7 @@ import {
   setListingsPausedForTenant,
   updateListingPriceForTenant,
 } from "./listing-commands.server";
+import { chooseNewListingStores } from "./new-listing-stores";
 import { enqueueTargets } from "./publish-listing.server";
 
 export const getNewListingData = createServerFn({ method: "GET" })
@@ -44,19 +45,7 @@ export const getNewListingData = createServerFn({ method: "GET" })
     ]);
     // One listing per product and store: a store that already sells it is shown, not offered.
     const listedIds = new Set(listedOn.map((store) => store.storeId));
-    const connected = stores.filter((store) => store.status === "connected");
-    // Each store sells a single supplier: only the ones selling this product's supplier qualify.
-    return {
-      product,
-      stores: connected
-        .filter(
-          (store) => product.catalogKind === "seller" || store.supplierId === product.supplierId,
-        )
-        .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
-      hasOtherStores:
-        product.catalogKind !== "seller" &&
-        connected.some((store) => store.supplierId !== product.supplierId),
-    };
+    return { product, ...chooseNewListingStores(product, stores, listedIds) };
   });
 
 export const createListing = createServerFn({ method: "POST" })

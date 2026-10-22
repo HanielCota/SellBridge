@@ -267,4 +267,23 @@ describe("owned publication lifecycle", () => {
     expect(worker.updateStockPrice.mock.calls.map((call) => call[1].stock)).toEqual([6, 0]);
     expect(await target(item.targetId)).toMatchObject({ status: "paused", syncedStock: 0 });
   });
+
+  // MVP (coordinator decision, 2026-10-22): own products take no new publications, but a listing
+  // published before the rule keeps its stock and price in sync.
+  it("keeps syncing the stock of an own-product listing published before the rule", async () => {
+    const item = await publication();
+    const worker = processor();
+    worker.release.resolve();
+    expect(await worker.run(item.job)).toBe("published");
+    await database
+      .update(schema.supplierProducts)
+      .set({ stock: 5 })
+      .where(eq(schema.supplierProducts.id, item.productId));
+    await reconcilePublicationStock(worker.dependencies, {
+      tenantId: tenants.first,
+      targetId: item.targetId,
+    });
+    expect(worker.updateStockPrice.mock.calls.at(-1)?.[1].stock).toBe(5);
+    expect(await target(item.targetId)).toMatchObject({ status: "published", syncedStock: 5 });
+  });
 });

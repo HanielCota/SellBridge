@@ -8,6 +8,7 @@ import {
   adminSellerProductScopeSchema,
 } from "@sellbridge/shared/seller-catalog-schemas";
 import { database } from "@/lib/server/database";
+import { assertOwnProductsClosed } from "./own-products-closed";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { fileStorage } from "@/lib/server/storage";
@@ -20,6 +21,18 @@ import {
   productImageStorageKey,
   productImageUrl,
 } from "@/features/supplier-panel/catalog/product-image-key";
+
+/**
+ * MVP (2026-10-22): a reseller can no longer upload images of own products. This route refuses
+ * every call on its own, so the refusal never depends on the session's shape.
+ */
+export function refuseSellerProductImage(request: Request) {
+  return handleApi("seller_products.image_upload", async () => {
+    assertSameOrigin(request, environment.APP_URL);
+    const session = await requireTenantRequest(request);
+    return assertOwnProductsClosed("image_upload", session.tenantId);
+  });
+}
 
 /** The URL fixes the access mode; submitted source identifiers are never trusted. */
 export function handleSellerProductImage(request: Request, admin: boolean) {
