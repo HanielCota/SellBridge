@@ -61,6 +61,7 @@ const processPublish = createPublishListingProcessor({
   cipher,
   acquireRateLimit,
   safetyUnits: environment.STOCK_SAFETY_UNITS,
+  showcaseUnits: environment.SHOPEE_SHOWCASE_UNITS,
 });
 const processTokenRefresh = createTokenRefreshProcessor({ database, connectors, cipher });
 const stockPriceSyncQueue = new Queue(QUEUE_NAMES.stockPriceSync, { connection });
@@ -123,6 +124,7 @@ const processStockPriceSync = createStockPriceSyncProcessor({
   cipher,
   acquireRateLimit,
   safetyUnits: environment.STOCK_SAFETY_UNITS,
+  showcaseUnits: environment.SHOPEE_SHOWCASE_UNITS,
 });
 const processWebhookDeliveries = createWebhookDeliveryProcessor({
   database,

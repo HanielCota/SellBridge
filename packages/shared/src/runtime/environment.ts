@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  SHOPEE_SHOWCASE_DEFAULT_UNITS,
+  SHOPEE_SHOWCASE_MAX_UNITS,
+} from "../domain/marketplace-units.ts";
 import { configurationError } from "./errors.ts";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
@@ -38,6 +42,17 @@ export const mockWebhookSecretEnvironmentSchema = z.string().min(16).optional();
  * alert carries the log line, already redacted, and must not travel in clear text.
  */
 export const alertWebhookUrlEnvironmentSchema = z.url({ protocol: /^https$/ }).optional();
+
+/**
+ * SHOPEE_SHOWCASE_UNITS: units Shopee listings show on top of the real ones (worker and web).
+ * A whole number from 0 (off) to 100000; a negative or fractional value fails startup.
+ */
+export const shopeeShowcaseUnitsEnvironmentSchema = z.coerce
+  .number()
+  .int()
+  .min(0)
+  .max(SHOPEE_SHOWCASE_MAX_UNITS)
+  .default(SHOPEE_SHOWCASE_DEFAULT_UNITS);
 
 export interface ParseEnvironmentOptions {
   /** Old variable name → new name. Setting an old name fails startup instead of being ignored. */

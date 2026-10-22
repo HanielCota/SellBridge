@@ -39,6 +39,7 @@
     "./support-hours": "./src/domain/support-hours.ts",
     "./support-topics": "./src/domain/support-topics.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",
+    "./marketplace-units": "./src/domain/marketplace-units.ts",
     "./catalog-availability": "./src/domain/catalog-availability.ts",
     "./catalog-scope": "./src/domain/catalog-scope.ts",
     "./store-supplier": "./src/domain/store-supplier.ts",

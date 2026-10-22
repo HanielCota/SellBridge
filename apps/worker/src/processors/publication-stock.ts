@@ -6,6 +6,7 @@ import {
 } from "@sellbridge/database/repositories";
 import { unavailableReason } from "@sellbridge/shared/catalog-availability";
 import { userMessageOr } from "@sellbridge/shared/errors";
+import { marketplaceUnits } from "@sellbridge/shared/marketplace-units";
 import { offeredUnits } from "@sellbridge/shared/stock-reservation";
 import { storeSupplierRefusal } from "@sellbridge/shared/store-supplier";
 import { resolveStoreCredentials, storeRateKey } from "../lib/store-access.ts";
@@ -13,8 +14,9 @@ import type { StockPriceSyncDependencies } from "./stock-price-sync.ts";
 
 type Dependencies = Pick<
   StockPriceSyncDependencies,
-  "database" | "connectors" | "cipher" | "acquireRateLimit" | "safetyUnits"
+  "database" | "connectors" | "cipher" | "acquireRateLimit" | "safetyUnits" | "showcaseUnits"
 >;
+type SentUnitsSettings = Pick<Dependencies, "safetyUnits" | "showcaseUnits">;
 interface StockValues {
   stock: number;
   priceCents: number;
@@ -25,7 +27,20 @@ interface PublicationScope {
   sent?: StockValues;
 }
 
-function liveUnits(row: TargetForPublishing, safetyUnits: number) {
+/**
+ * The stock a marketplace receives for the product: what can really be sold, plus the Shopee
+ * showcase while that is above 0. Mirrors `liveStock` in the database package; SellBridge
+ * screens keep showing the real units.
+ */
+export function unitsToSend(row: TargetForPublishing, settings: SentUnitsSettings): number {
+  return marketplaceUnits({
+    marketplace: row.store.marketplace,
+    realUnits: offeredUnits(row.product.stock, row.product.reservedStock, settings.safetyUnits),
+    showcaseUnits: settings.showcaseUnits,
+  });
+}
+
+function liveUnits(row: TargetForPublishing, settings: SentUnitsSettings) {
   if (
     row.target.status !== "published" ||
     row.target.pauseRequested ||
@@ -38,14 +53,14 @@ function liveUnits(row: TargetForPublishing, safetyUnits: number) {
     storeSupplierRefusal(row.store.supplierId, row.product.supplierId) === "other_supplier"
   )
     return 0;
-  return offeredUnits(row.product.stock, row.product.reservedStock, safetyUnits);
+  return unitsToSend(row, settings);
 }
 
 async function readState(dependencies: Dependencies, scope: PublicationScope) {
   const row = await getTargetForPublishing(dependencies.database, scope.tenantId, scope.targetId);
   return {
     row,
-    stock: liveUnits(row, dependencies.safetyUnits),
+    stock: liveUnits(row, dependencies),
     priceCents: row.listing.priceCents,
   };
 }
