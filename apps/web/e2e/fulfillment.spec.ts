@@ -330,8 +330,8 @@ test("a supplier's tap on Cancelar envio asks first and needs a reason", async (
     await expect(confirm).toHaveCount(0);
     await expect(history.getByRole("listitem").first()).not.toContainText("Cancelado");
 
-    // The occurrence typed before opens as the reason; erased, the dialog refuses to go on.
-    await supplier.getByLabel("Ocorrência ou observação").fill("Sem estoque da cor pedida");
+    // The step note typed before opens as the reason; erased, the dialog refuses to go on.
+    await supplier.getByLabel("Observação da etapa (opcional)").fill("Sem estoque da cor pedida");
     await cancel.click();
     const reason = confirm.getByLabel("Motivo do cancelamento");
     await expect(reason).toHaveValue("Sem estoque da cor pedida");
@@ -373,20 +373,16 @@ test("the reseller confirms before cancelling a supplier's parcel", async ({ pag
   }
 });
 
-test("Registrar ocorrência says what is missing instead of staying grey", async ({ browser }) => {
+test("an empty order message says what is missing instead of staying grey", async ({ browser }) => {
   const { order, link } = await forwardedOrder("E2E-OCC");
   const context = await browser.newContext();
   const supplier = await context.newPage();
   try {
     await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
-    const register = supplier.getByRole("button", { name: "Registrar ocorrência" });
-    await expect(register).toBeEnabled();
-    await register.click();
-    await expect(supplier.getByRole("alert")).toHaveText("Escreva a ocorrência antes de registrar");
-    await expect(supplier.getByLabel("Ocorrência ou observação")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
+    const send = supplier.getByRole("button", { name: "Enviar mensagem" });
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect(supplier.getByText("Escreva a mensagem antes de enviar")).toBeVisible();
   } finally {
     await context.close();
     await database.delete(orders).where(eq(orders.id, order.id));

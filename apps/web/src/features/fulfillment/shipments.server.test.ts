@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   loadShipping: vi.fn<(tenantId: string, orderId: string) => Promise<unknown>>(),
   enqueue: vi.fn<() => Promise<void>>(),
   warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+  noticeOrderMessage: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   updateShipment: mocks.updateShipment,
@@ -16,6 +17,7 @@ vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.warn } }));
 vi.mock("./marketplace.server", () => ({ loadMarketplaceShipping: mocks.loadShipping }));
+vi.mock("./order-message-notice.server", () => ({ noticeOrderMessage: mocks.noticeOrderMessage }));
 import { refreshMarketplaceShipment, writeShipmentUpdate } from "./shipments.server";
 
 const update = {
@@ -45,6 +47,27 @@ describe("shipment writes and stock sync", () => {
     mocks.updateShipment.mockResolvedValue({ statusChanged: false });
     await writeShipmentUpdate({ ...update, note: "Cliente ausente" }, { token: "token-de-teste" });
     expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("tells the other side about a message that keeps the status", async () => {
+    mocks.updateShipment.mockResolvedValue({ statusChanged: false });
+    await writeShipmentUpdate({ ...update, note: "Cliente ausente" }, { token: "token-de-teste" });
+    await writeShipmentUpdate({ ...update, note: "Pode reenviar?" }, { tenantId: "tenant-1" });
+    expect(mocks.noticeOrderMessage).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ shipmentId: update.shipmentId, author: "supplier" }),
+    );
+    expect(mocks.noticeOrderMessage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ shipmentId: update.shipmentId, author: "reseller" }),
+    );
+  });
+
+  it("sends no message notice for a status change or a blank note", async () => {
+    await writeShipmentUpdate({ ...update, note: "Saiu hoje" }, { token: "token-de-teste" });
+    mocks.updateShipment.mockResolvedValue({ statusChanged: false });
+    await writeShipmentUpdate({ ...update, note: "   " }, { token: "token-de-teste" });
+    expect(mocks.noticeOrderMessage).not.toHaveBeenCalled();
   });
 
   it("asks for a stock sync after the marketplace tracking is refreshed", async () => {

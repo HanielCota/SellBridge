@@ -34,6 +34,8 @@ import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-h
 import { Field } from "./shipment-field";
 export { Field } from "./shipment-field";
 import { OwnShipmentActions } from "./own-shipment-actions";
+import { OrderMessages } from "./order-messages";
+import { splitShipmentEvents } from "@/features/fulfillment/order-messages";
 
 export interface ShipmentView {
   catalogKind?: "seller" | "supplier";
@@ -101,7 +103,10 @@ export function ShipmentPanel({
           actsAs={actsAs}
         />
       )}
-      <ShipmentHistory shipment={shipment} />
+      {shipment.catalogKind === "seller" ? null : (
+        <OrderMessages shipment={shipment} reader={actsAs} canWrite={!closed} onUpdate={onUpdate} />
+      )}
+      <ShipmentHistory shipment={shipment} reader={actsAs} />
     </section>
   );
 }
@@ -182,10 +187,11 @@ function DispatchFields({ update }: { update: ShipmentUpdate }) {
   );
 }
 
-const EMPTY_OCCURRENCE = "Escreva a ocorrência antes de registrar";
-
-/** The occurrence note: empty is refused, and a contact in it never leaves the form. */
-function useOccurrence(update: ShipmentUpdate, shipment: ShipmentView) {
+/**
+ * The note that goes with the next step or the cancel: a contact in it never leaves the form.
+ * Talking to the other side is in "Mensagens do pedido".
+ */
+function useStepNote(update: ShipmentUpdate) {
   const [noteError, setNoteError] = useState<string | null>(null);
   const contactInNote = contactWarning(update.note);
   // A contact is pointed out when leaving the field or sending, not on every key: a long order
@@ -197,14 +203,7 @@ function useOccurrence(update: ShipmentUpdate, shipment: ShipmentView) {
     }
     update.mutation.mutate({ status, note: update.note });
   };
-  const registerOccurrence = () => {
-    if (!update.note.trim()) {
-      setNoteError(EMPTY_OCCURRENCE);
-      return;
-    }
-    sendWithNote(shipment.status);
-  };
-  return { noteError, setNoteError, contactInNote, registerOccurrence, sendWithNote };
+  return { noteError, setNoteError, contactInNote, sendWithNote };
 }
 
 function ShipmentActions({
@@ -218,8 +217,7 @@ function ShipmentActions({
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
 }) {
-  const { noteError, setNoteError, contactInNote, registerOccurrence, sendWithNote } =
-    useOccurrence(update, shipment);
+  const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const pending = update.mutation.isPending;
   const operator = actsAs;
   return (
@@ -230,7 +228,7 @@ function ShipmentActions({
       ) : null}
       {next === "shipped" ? <DispatchFields update={update} /> : null}
       <Field
-        label="Ocorrência ou observação"
+        label="Observação da etapa (opcional)"
         value={update.note}
         error={noteError}
         onBlur={() => setNoteError(contactInNote)}
@@ -248,12 +246,6 @@ function ShipmentActions({
             onAdvance={() => sendWithNote(next)}
           />
         ) : null}
-        <ShipmentActionHint action="occurrence" operator={operator}>
-          <Button variant="outline" disabled={pending} onClick={registerOccurrence}>
-            <ShipmentActionIcon action="occurrence" />
-            Registrar ocorrência
-          </Button>
-        </ShipmentActionHint>
         {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
           <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
         )}
@@ -458,12 +450,22 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   );
 }
 
-/** Newest first on a rail, like the customer timeline: each step in its status color. */
-function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
+/**
+ * Newest first on a rail, like the customer timeline: each step in its status color. Messages
+ * live in "Mensagens do pedido", so no note shows twice.
+ */
+function ShipmentHistory({
+  shipment,
+  reader,
+}: {
+  shipment: ShipmentView;
+  reader: ShipmentOperator;
+}) {
+  const { steps } = splitShipmentEvents(shipment.events, reader);
   return (
     <div className="border-t pt-4">
       <DotTimeline label="Histórico do envio">
-        {shipmentTimeline(shipment.events).map((event) => (
+        {shipmentTimeline(steps).map((event) => (
           <DotTimelineItem
             key={event.id}
             dotClassName={TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]]}

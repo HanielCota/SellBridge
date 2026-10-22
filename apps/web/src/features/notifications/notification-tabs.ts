@@ -36,6 +36,7 @@ const TAB_OF_KIND: Record<NotificationKind, Exclude<NotificationTab, "all">> = {
   shipment_late: "problems",
   listing_unavailable: "problems",
   support_reply: "messages",
+  order_message: "messages",
   review_pending: "messages",
 };
 

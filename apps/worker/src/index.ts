@@ -1,4 +1,5 @@
 import { createDatabase } from "@sellbridge/database/client";
+import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/database/repositories";
 import { createConnectorRegistry, getMercadoLivreShipping } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
@@ -28,6 +29,7 @@ import { createStockPriceSyncProcessor } from "./processors/stock-price-sync.ts"
 import { createTicketAutoCloseProcessor } from "./processors/ticket-auto-close.ts";
 import { createTokenRefreshProcessor } from "./processors/token-refresh.ts";
 import { createNotificationDeliveryProcessor } from "./processors/notification-delivery.ts";
+import { createOrderMessageFollowUpProcessor } from "./processors/order-message-follow-up.ts";
 import { createWebhookDeliveryProcessor } from "./processors/webhook-delivery.ts";
 import { createShipmentTrackingProcessor } from "./processors/shipment-tracking.ts";
 import { createWebhookEventProcessor } from "./processors/webhook-event.ts";
@@ -243,6 +245,16 @@ const notificationDeliveryWorker = new Worker(
   async () => processNotificationDeliveries(),
   { connection, concurrency: 1 },
 );
+const processOrderMessageFollowUp = createOrderMessageFollowUpProcessor({
+  loadMessages: async (shipmentId) => orderMessageMoments(database, shipmentId),
+  deliver: async (notice) =>
+    deliverOrderMessageNotice({ database, sendEmail, appUrl: environment.APP_URL }, notice),
+});
+const orderMessageFollowUpWorker = new Worker(
+  QUEUE_NAMES.orderMessageFollowUp,
+  async (job) => processOrderMessageFollowUp(toJobContext(job)),
+  { connection, concurrency: environment.WORKER_CONCURRENCY },
+);
 
 // Up before the schedulers below: with Redis down they wait forever, and the probe must say so.
 const healthServer = environment.WORKER_HEALTH_PORT
@@ -295,6 +307,7 @@ const workers = [
   shipmentTrackingWorker,
   autoForwardWorker,
   notificationDeliveryWorker,
+  orderMessageFollowUpWorker,
 ];
 for (const worker of workers) {
   worker.on("failed", (job, error) => {

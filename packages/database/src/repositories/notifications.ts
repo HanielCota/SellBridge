@@ -20,7 +20,14 @@ import { isCountedOrder } from "./sql/counted-orders.ts";
 import { listingCoversCostColumn, listingSellable, productListableColumn } from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
-import { listUnreadSupportReplies } from "./support.ts";
+import {
+  orderMessageEvents,
+  supportReplyEvents,
+  type OrderMessageEvent,
+  type SupportReplyEvent,
+} from "./notification-reply-events.ts";
+
+export type { OrderMessageEvent, SupportReplyEvent };
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
@@ -67,11 +74,6 @@ export interface StoreProblemEvent extends EventBase {
   storeName: string;
 }
 
-export interface SupportReplyEvent extends EventBase {
-  kind: "support_reply";
-  subject: string;
-}
-
 /** Delivered orders whose supplier the reseller has not reviewed yet, as a single entry. */
 export interface ReviewPendingEvent extends EventBase {
   kind: "review_pending";
@@ -109,6 +111,7 @@ export type NotificationEvent =
   | ListingErrorEvent
   | StoreProblemEvent
   | SupportReplyEvent
+  | OrderMessageEvent
   | ReviewPendingEvent
   | StockShortageEvent
   | ShipmentCancelledEvent
@@ -367,19 +370,6 @@ async function storeProblemEvents(
 }
 
 /** Tickets with a support reply this user has not opened yet: opening the thread clears it. */
-async function supportReplyEvents(
-  database: Database,
-  reader: NotificationReader,
-): Promise<SupportReplyEvent[]> {
-  const rows = await listUnreadSupportReplies(database, reader.tenantId, reader.userId, PER_KIND);
-  return rows.map((row) => ({
-    kind: "support_reply" as const,
-    entityId: row.ticketId,
-    subject: row.subject,
-    at: row.repliedAt,
-  }));
-}
-
 async function reviewPendingEvents(
   database: Database,
   tenantId: string,
@@ -434,6 +424,7 @@ export async function listNotificationEvents(
     listingErrors,
     stores,
     support,
+    messages,
     reviews,
     read,
   ] = await Promise.all([
@@ -444,7 +435,8 @@ export async function listNotificationEvents(
     listingUnavailableEvents(database, input.tenantId),
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
-    supportReplyEvents(database, input),
+    supportReplyEvents(database, input, PER_KIND),
+    orderMessageEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     readState(database, input),
   ]);
@@ -457,6 +449,7 @@ export async function listNotificationEvents(
     ...listingErrors,
     ...stores,
     ...support,
+    ...messages,
     ...reviews,
   ];
   const { clearedAt } = read;

@@ -2,6 +2,9 @@ import {
   enqueueWebhookEventJob,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
+  ORDER_MESSAGE_FOLLOW_UP_JOB_OPTIONS,
+  orderMessageFollowUpJobId,
+  type OrderMessageFollowUpJob,
   QUEUE_NAMES,
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
@@ -61,4 +64,24 @@ export async function enqueueStockPriceSync(): Promise<void> {
     connection: { url: environment.REDIS_URL },
   });
   await stockPriceSyncQueue.add(STOCK_SYNC_JOB_NAME, {}, STOCK_SYNC_JOB_OPTIONS);
+}
+
+let orderMessageFollowUpQueue: Queue | null = null;
+
+/**
+ * Holds a "new message" e-mail back to the end of its window (`planOrderMessageEmail`). The job
+ * id names the parcel, author and window end, so messages of one window share a single job.
+ */
+export async function enqueueOrderMessageFollowUp(
+  input: OrderMessageFollowUpJob & { runAt: Date },
+): Promise<void> {
+  orderMessageFollowUpQueue ??= new Queue(QUEUE_NAMES.orderMessageFollowUp, {
+    connection: { url: environment.REDIS_URL },
+  });
+  const job = { shipmentId: input.shipmentId, author: input.author };
+  await orderMessageFollowUpQueue.add("order-message-follow-up", job, {
+    ...ORDER_MESSAGE_FOLLOW_UP_JOB_OPTIONS,
+    jobId: orderMessageFollowUpJobId(job, input.runAt),
+    delay: Math.max(0, input.runAt.getTime() - Date.now()),
+  });
 }
