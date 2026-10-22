@@ -6,7 +6,8 @@ import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { RecentTickets } from "@/components/support/recent-tickets";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
-import { RESPONSE_PROMISE, unreadRepliesText } from "@/features/support/response-time";
+import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
+import { SUPPORT_HOURS_TEXT, unreadRepliesText } from "@/features/support/response-time";
 
 const SupportIcon = ACTION_ICONS.support.icon;
 
@@ -51,7 +52,8 @@ export function SupportButton({ unread, className }: { unread: number; className
               <h2 id="support-panel-title" className="text-sm font-semibold">
                 Precisa de ajuda?
               </h2>
-              <p className="text-xs text-muted-foreground">{RESPONSE_PROMISE}, direto por aqui.</p>
+              <p className="text-xs text-muted-foreground">{SUPPORT_HOURS_TEXT}</p>
+              <OutOfHoursNotice className="text-xs" />
             </div>
             <Button asChild size="sm" className="w-full">
               <Link to="/suporte/novo" onClick={close}>

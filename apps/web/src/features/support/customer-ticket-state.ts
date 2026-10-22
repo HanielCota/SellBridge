@@ -4,7 +4,7 @@ import {
   autoCloseAt,
   responseTiming,
 } from "@sellbridge/shared/ticket-rules";
-import { RESPONSE_PROMISE } from "@/features/support/response-time";
+import { supportHoursText } from "@/features/support/response-time";
 
 const TIME_ZONE = "America/Sao_Paulo";
 const dayAndMonth = new Intl.DateTimeFormat("pt-BR", {
@@ -52,7 +52,7 @@ function waitingState(facts: CustomerTicketFacts, now: Date): CustomerTicketStat
     };
   }
   const byEmail = facts.emailsOn ? " A resposta chega aqui e por e-mail." : "";
-  return { tone: "waiting", headline, detail: `${RESPONSE_PROMISE}.${byEmail}` };
+  return { tone: "waiting", headline, detail: `${supportHoursText(now)}${byEmail}` };
 }
 
 function answeredState(facts: CustomerTicketFacts): CustomerTicketState {
