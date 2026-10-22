@@ -95,16 +95,8 @@ function impersonatedActionLabel(details: AdminEventDetails | null): string {
   return label ?? "fez uma alteração";
 }
 
-/** "Entrou como o fornecedor pelo chamado #6CFB95": who was entered and, for the team, why. */
-function visitLabel(details: AdminEventDetails | null): string {
-  const who = details?.profileKind === "supplier" ? "o fornecedor" : "o cliente";
-  const ticket = details?.ticketCode;
-  const reason = typeof ticket === "string" ? ` pelo chamado #${ticket}` : "";
-  return `Entrou como ${who}${reason}`;
-}
-
 const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => string> = {
-  impersonated: (details) => visitLabel(details),
+  impersonated: () => "Entrou como o cliente",
   impersonation_ended: () => "Saiu da conta do cliente",
   acted_as_customer: (details) => `Como o cliente: ${impersonatedActionLabel(details)}`,
   email_changed: () => "Trocou o e-mail (aguarda confirmação)",

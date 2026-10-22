@@ -42,7 +42,6 @@
     "./store-supplier": "./src/domain/store-supplier.ts",
     "./store-attention": "./src/domain/store-attention.ts",
     "./staff-access": "./src/domain/staff-access.ts",
-    "./impersonation-access": "./src/domain/impersonation-access.ts",
     "./platform-owner": "./src/domain/platform-owner.ts",
     "./account-profile": "./src/domain/account-profile.ts",
     "./supplier-score": "./src/domain/supplier-score.ts",

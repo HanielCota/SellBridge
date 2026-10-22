@@ -21,8 +21,6 @@ export * from "./webhooks.ts";
 export * from "./orders.ts";
 export * from "./support.ts";
 export * from "./support-create.ts";
-export * from "./impersonation-target.ts";
-export * from "./supplier-account.ts";
 export * from "./order-message-notices.ts";
 export * from "./order-message-delivery.ts";
 export * from "./customers.ts";
