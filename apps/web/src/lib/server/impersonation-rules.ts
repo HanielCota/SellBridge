@@ -27,6 +27,9 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   // A ticket opened in the customer's name would keep the account open to the team after the
   // ticket that justified the visit is closed. Named "area.action": it is an HTTP route.
   "support.createTicket": "abrir um chamado em nome do cliente",
+  // The rating feeds the team's satisfaction metrics: an agent inside the account would grade
+  // their own service in the customer's name.
+  rateMyTicket: "avaliar o atendimento",
 };
 
 /** Writes too small to land in the customer's timeline (read markers). */

@@ -76,6 +76,8 @@ describe("what an admin may do inside a customer's account", () => {
     "saveOnboardingHolder",
     // The supplier's company data and the e-mail that receives its orders.
     "updateOwnBrandFn",
+    // The customer's rating of the support the visiting agent gave.
+    "rateMyTicket",
   ];
 
   it.each(blocked)("refuses %s with a sentence that says why", (name) => {
