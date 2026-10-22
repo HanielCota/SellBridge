@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.queries";
 import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
+import { TeamNoticesCard } from "./team-notices-card";
 
 interface SupplierHomeProps {
   supplierId: string;
@@ -49,6 +50,7 @@ export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
   return (
     <div className="space-y-6">
       {header}
+      <TeamNoticesCard supplierId={supplierId} />
       <SupplierQuickLinks />
       {query.data === undefined ? (
         <HomeQueueSkeleton />
