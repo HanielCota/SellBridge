@@ -166,7 +166,9 @@ describe("contact details between reseller and supplier", () => {
   });
 
   it("answers a malformed tracking link with a message, not a crash", () => {
-    const result = shipmentUpdateSchema.safeParse({ ...input, trackingUrl: "https://xn--wa-me/x" });
+    // Zod runs the refinements even after `z.url()` refused the text, so they must not parse it
+    // blindly. A space in the host is unparseable in every URL parser.
+    const result = shipmentUpdateSchema.safeParse({ ...input, trackingUrl: "https://wa me/x" });
     expect(result.success).toBe(false);
   });
 
