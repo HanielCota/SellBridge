@@ -1,5 +1,9 @@
 import { MapPinIcon } from "@phosphor-icons/react";
-import { BRAZILIAN_STATES, stateSchema } from "@sellbridge/shared/brazilian-states";
+import {
+  BRAZILIAN_STATES,
+  stateSchema,
+  type BrazilianState,
+} from "@sellbridge/shared/brazilian-states";
 import { BrazilFlag } from "@/components/icons/brazil-flag";
 import { StateFlag } from "@/components/icons/state-flags";
 import {
@@ -23,7 +27,7 @@ function StateIcon({ state }: { state: string }) {
   }
   const parsedState = stateSchema.safeParse(state);
   if (!parsedState.success) {
-    return <MapPinIcon aria-hidden="true" />;
+    return <MapPinIcon aria-hidden="true" className="size-4" />;
   }
   return <StateFlag state={parsedState.data} aria-hidden="true" className="size-4" />;
 }
@@ -32,7 +36,7 @@ function StateIcon({ state }: { state: string }) {
  * Every state, in alphabetical order, even the ones without suppliers yet: a reseller looks for
  * their own state, and a missing one reads as a broken list. An empty one shows the empty state.
  */
-export const STATE_OPTIONS: readonly string[] = BRAZILIAN_STATES.toSorted((first, second) =>
+export const STATE_OPTIONS: readonly BrazilianState[] = BRAZILIAN_STATES.toSorted((first, second) =>
   first.localeCompare(second),
 );
 
