@@ -218,6 +218,30 @@ describe("decideReturnClaim", () => {
     expect(view?.items).toEqual([{ title: "Tênis - Preto 40", sku: "RET-PANEL", quantity: 2 }]);
   });
 
+  it("keeps a single decision when two people decide at the same time", async () => {
+    const { order, claim } = await returnedOrderClaim(panelSupplier.productId);
+
+    const outcomes = await Promise.allSettled([
+      decideReturnClaim(database, {
+        decision: { claimId: claim.id, decision: "credit", amountCents: claim.supplierCostCents },
+        actorId: staffId,
+      }),
+      decideReturnClaim(database, {
+        decision: { claimId: claim.id, decision: "refuse", reason: "Produto voltou usado" },
+        actorId: staffId,
+      }),
+    ]);
+
+    const settled = outcomes.filter((outcome) => outcome.status === "fulfilled");
+    const rejected = outcomes.filter((outcome) => outcome.status === "rejected");
+    expect(settled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({ code: "CONFLICT" });
+    const credits = await listSupplierCredits(database, tenants.tenantA, [order.id]);
+    expect(credits).toHaveLength(1);
+    expect(credits[0]?.status).toBe(settled[0]?.value.status);
+  });
+
   it("records a refusal with its reason, and only for the reseller who sold it", async () => {
     const { order, claim } = await returnedOrderClaim(panelSupplier.productId);
     await decideReturnClaim(database, {
