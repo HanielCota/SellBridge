@@ -46,11 +46,13 @@ function CreditAmountField({
   typed,
   problem,
   onType,
+  disabled,
 }: {
   maximumCents: number;
   typed: string;
   problem: string | null;
   onType: (value: string) => void;
+  disabled: boolean;
 }) {
   const fieldId = useId();
   return (
@@ -60,15 +62,18 @@ function CreditAmountField({
       </label>
       <div
         className={cn(
-          "flex h-10 items-center gap-2 rounded-xl border border-field-border bg-field px-3.5 focus-within:border-brand-strong focus-within:ring-4 focus-within:ring-brand/20",
-          problem !== null && "border-destructive",
+          "flex h-10 items-center gap-2 rounded-xl border border-field-border bg-field px-3.5 sm:max-w-xs focus-within:border-brand-strong focus-within:ring-4 focus-within:ring-brand/20",
+          problem !== null &&
+            "border-destructive focus-within:border-destructive focus-within:ring-destructive/15",
         )}
       >
-        <span className="text-sm text-muted-foreground">R$</span>
+        <span className="text-body text-muted-foreground sm:text-subhead">R$</span>
         <input
           id={fieldId}
           inputMode="numeric"
+          enterKeyHint="done"
           autoComplete="off"
+          disabled={disabled}
           aria-invalid={problem !== null}
           aria-describedby={`${fieldId}-hint`}
           value={typed}
@@ -77,8 +82,16 @@ function CreditAmountField({
             const pasted = readPastedCurrency(event.clipboardData.getData("text"));
             if (pasted !== null) onType(pasted);
           }}
-          onChange={(event) => onType(maskCurrencyInput(event.currentTarget.value))}
-          className="min-w-0 flex-1 bg-transparent text-subhead tabular-nums outline-none"
+          onChange={(event) => {
+            const field = event.currentTarget;
+            onType(maskCurrencyInput(field.value));
+            // The mask rewrites the whole value; keep typing at the end, like a card machine.
+            requestAnimationFrame(() =>
+              field.setSelectionRange(field.value.length, field.value.length),
+            );
+          }}
+          // 16px or more on phones, or iOS zooms the page in when the field takes focus.
+          className="min-w-0 flex-1 bg-transparent text-body tabular-nums outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:text-subhead"
         />
       </div>
       <p
@@ -112,6 +125,7 @@ function CreditForm({ claim, onRefuse }: { claim: ReturnClaimView; onRefuse: () 
         typed={typed}
         problem={problem}
         onType={setTyped}
+        disabled={decide.isPending}
       />
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={problem !== null || decide.isPending}>
