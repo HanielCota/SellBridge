@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { member, storeConnections, user } from "@sellbridge/database/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
@@ -10,9 +9,9 @@ import {
   signIn,
   signUp,
 } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 /** Shops this spec inserted, removed at the end. */
 const insertedShopIds: string[] = [];
 /** About three hours ago, minus a margin so the label stays "há 3 horas" through a slow run. */

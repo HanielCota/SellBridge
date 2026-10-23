@@ -1,13 +1,13 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { member, orders, storeConnections, user, webhookEvents } from "@sellbridge/database/schema";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces";
 import { and, eq } from "drizzle-orm";
 import { DEMO_USER } from "./helpers";
 import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
 let storeId = "";
 let shopId = "";

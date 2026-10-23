@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { member, storeConnections, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { completeOnboarding, gotoHydrated, signUp } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const failure = "Falha ao renovar o acesso da loja; tentaremos de novo";
 
 test.afterAll(async () => {

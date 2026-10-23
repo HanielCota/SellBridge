@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import {
   forwardOrder,
   listNotificationEvents,
@@ -18,11 +17,11 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
-import { requireEnvironmentVariable } from "./environment";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /* MVP item 5, PR 2: the store and the supplier talk about an order inside SellBridge. */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const created: string[] = [];
 
 test.afterAll(async () => {
