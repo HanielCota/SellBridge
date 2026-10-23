@@ -2,8 +2,8 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { termsAcceptances, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
 import { e2eDatabase } from "./database";
+import { fillBillingAddress, gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
 
 const database = e2eDatabase();
 
@@ -73,6 +73,7 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("11987654321");
   await expect(page.getByLabel("Telefone com DDD")).toHaveValue("(11) 98765-4321");
+  await fillBillingAddress(page);
   await page.getByLabel("Vendo como empresa (CNPJ)").check();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000182");
   await page.getByLabel("Razão social").fill("Revendedora Empresa Ltda");
