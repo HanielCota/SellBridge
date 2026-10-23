@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { member, organization, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { gotoHydrated, signUp } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 /** The password `signUp` creates accounts with. */
 const PASSWORD = "senha-segura-123";
 

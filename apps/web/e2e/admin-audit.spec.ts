@@ -1,12 +1,11 @@
 import { type Browser, expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /* Item 28.b: what the team did, in one trail at /admin/auditoria, for admins only. */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const RUN = Date.now();
 const SUPPLIER = `Fornecedor auditoria ${RUN}`;
 const PRODUCT = `Produto auditado ${RUN}`;

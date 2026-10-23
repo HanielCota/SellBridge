@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { DELIVERY_CONFIRMED_BY } from "@sellbridge/shared/schemas";
 import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { and, eq } from "drizzle-orm";
@@ -16,8 +15,8 @@ import {
 } from "@sellbridge/database/schema";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
-import { requireEnvironmentVariable } from "./environment";
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+import { e2eDatabase } from "./database";
+const database = e2eDatabase();
 let orderId = "";
 const externalId = `E2E-FUL-${randomUUID()}`;
 test.beforeAll(async () => {

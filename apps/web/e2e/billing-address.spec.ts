@@ -1,8 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { member, tenantProfile, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 import {
   ADMIN_USER,
   enableAdminMode,
@@ -13,7 +12,11 @@ import {
   signUp,
 } from "./helpers";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
+
+test.afterAll(async () => {
+  await database.$client.end();
+});
 
 const MASKED_ADDRESS = "•••, ••• · São Paulo/SP";
 const PHONE_DIGITS = "11987654321";
