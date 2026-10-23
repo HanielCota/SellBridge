@@ -1,17 +1,18 @@
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { member, suppliers, user } from "@sellbridge/database/schema";
 import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, signUpAsSupplier } from "./helpers";
-import { e2eDatabase } from "./database";
 
 /*
  * Every reseller reads a supplier's brand and products, so none of it may carry a phone, e-mail
  * or social network (the user's rule): on the form, on the server past the form, and per row in
  * a spreadsheet, whose other rows still import.
  */
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 /** Set to save the screenshots for the report. */
 const evidenceDirectory = process.env.EVIDENCE_DIR;
 const emails: string[] = [];

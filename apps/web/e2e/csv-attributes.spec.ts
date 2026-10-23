@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts, suppliers } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   completeOnboarding,
@@ -10,14 +12,13 @@ import {
   signUp,
   waitForHydration,
 } from "./helpers";
-import { e2eDatabase } from "./database";
 
 /*
  * Item 18: a product imported by CSV with brand, model and barcode publishes without a missing
  * attribute error. "[exige atributos]" makes the simulated marketplace refuse the listing
  * without BRAND, MODEL and GTIN, as a Mercado Livre category that requires them does.
  */
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const SUPPLIER = "BH Beauty Distribuidora";
 const RUN = Date.now();
 const SKU = `CSV-ATTR-${RUN}`;

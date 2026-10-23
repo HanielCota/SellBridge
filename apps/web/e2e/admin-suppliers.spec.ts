@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { suppliers } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const supplierName = `Fornecedor CSV E2E ${Date.now()}`;
 test.afterAll(async () => {
   await database.delete(suppliers).where(eq(suppliers.name, supplierName));

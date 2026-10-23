@@ -1,8 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Browser } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { createListingWithTargets, markTargetFailed } from "@sellbridge/database/repositories";
-import { member, organization, storeConnections, user } from "@sellbridge/database/schema";
+import {
+  member,
+  organization,
+  storeConnections,
+  supplierProducts,
+  user,
+} from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   enableAdminMode,
@@ -11,10 +19,8 @@ import {
   signUp,
   waitForHydration,
 } from "./helpers";
-import { e2eDatabase } from "./database";
-import { forwardableProduct } from "./catalog-fixtures";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 
 test.afterAll(async () => {
   await database.$client.end();
@@ -30,8 +36,10 @@ async function customerWithListingIssue(browser: Browser) {
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
     .where(eq(user.email, email));
-  // A product of an active supplier: the listing's issue must be its failure, not the catalog.
-  const product = await forwardableProduct(database);
+  const [product] = await database
+    .select({ id: supplierProducts.id })
+    .from(supplierProducts)
+    .limit(1);
   if (!customer || !product)
     throw new Error("Issue fixture requires a customer and catalog product");
   const [store] = await database

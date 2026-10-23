@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
+import { requireEnvironmentVariable } from "./environment";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const externalId = `E2E-PAGE-${randomUUID()}`;
 const deliveredId = `E2E-RATE-${randomUUID()}`;
 const lateId = `E2E-LATE-${randomUUID()}`;

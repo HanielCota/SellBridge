@@ -1,15 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { member, suppliers, supplierProducts, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
-import { supplierAccounts } from "./supplier-accounts";
+import { requireEnvironmentVariable } from "./environment";
+import { DEMO_USER, gotoHydrated, signIn, signUpAsSupplier } from "./helpers";
 
-const database = e2eDatabase();
-const accounts = supplierAccounts(database);
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 
 test.afterAll(async () => {
-  await accounts.removeAll();
   await database.$client.end();
 });
 
@@ -33,7 +31,7 @@ async function giveBrand(email: string, name: string): Promise<void> {
 }
 
 test("fornecedor recém-cadastrado vai direto para o cadastro da marca", async ({ page }) => {
-  await accounts.signUp(page, "Ateliê Sem Marca");
+  await signUpAsSupplier(page, "Ateliê Sem Marca");
 
   await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { name: "Cadastre sua marca" })).toBeVisible();
@@ -45,7 +43,7 @@ test("fornecedor recém-cadastrado vai direto para o cadastro da marca", async (
 });
 
 test("fornecedor com marca abre o próprio painel com os dados carregados", async ({ page }) => {
-  const email = await accounts.signUp(page, "Ateliê Com Marca");
+  const email = await signUpAsSupplier(page, "Ateliê Com Marca");
   await giveBrand(email, "Ateliê Com Marca");
 
   await gotoHydrated(page, "/fornecedor/painel");
@@ -68,7 +66,7 @@ for (const mobile of [false, true]) {
     page,
   }) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    const email = await accounts.signUp(page, "Supplier navigation fixture");
+    const email = await signUpAsSupplier(page, "Supplier navigation fixture");
     await giveBrand(email, "Supplier navigation fixture");
     await gotoHydrated(page, "/fornecedor/painel");
     const create = page.getByRole("link", { name: "Cadastrar produto", exact: true });
@@ -92,7 +90,7 @@ for (const mobile of [false, true]) {
 }
 
 test("supplier draft keeps its saved address and fields after a reload", async ({ page }) => {
-  const email = await accounts.signUp(page, "Supplier saved draft fixture");
+  const email = await signUpAsSupplier(page, "Supplier saved draft fixture");
   await giveBrand(email, "Supplier saved draft fixture");
   await gotoHydrated(page, "/fornecedor/painel/produtos?product=novo");
   await page.getByRole("button", { name: /2\..*Dados obrigatórios/ }).click();
@@ -120,7 +118,7 @@ test("supplier draft keeps its saved address and fields after a reload", async (
 });
 
 test("supplier keeps unsaved input when leaving the draft is cancelled", async ({ page }) => {
-  const email = await accounts.signUp(page, "Supplier unsaved draft fixture");
+  const email = await signUpAsSupplier(page, "Supplier unsaved draft fixture");
   await giveBrand(email, "Supplier unsaved draft fixture");
   await gotoHydrated(page, "/fornecedor/painel/produtos?product=novo");
   await page.getByRole("button", { name: /2\..*Dados obrigatórios/ }).click();
@@ -138,7 +136,7 @@ test("supplier keeps unsaved input when leaving the draft is cancelled", async (
 });
 
 test("fornecedor não usa as rotas de revendedor", async ({ page }) => {
-  await accounts.signUp(page, "Ateliê Sem Acesso");
+  await signUpAsSupplier(page, "Ateliê Sem Acesso");
 
   const response = await page.request.get("/api/financeiro/exportar");
 

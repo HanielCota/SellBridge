@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { ensureSellerCatalog, upsertStoreConnection } from "@sellbridge/database/repositories";
 import {
   member,
@@ -12,10 +13,10 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
+import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, signUp } from "./helpers";
-import { e2eDatabase } from "./database";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const externalId = `OWN-FUL-${randomUUID()}`;
 let tenantId = "";
 let sourceId = "";

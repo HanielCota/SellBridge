@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const externalId = `E2E-LABEL-${randomUUID()}`;
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 let orderId = "";
