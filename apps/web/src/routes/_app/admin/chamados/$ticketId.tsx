@@ -178,6 +178,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
           />
           <TicketCustomerPanel
             ticket={ticket}
+            contact={detail.customerContact}
             relatedTickets={detail.relatedTickets}
             relatedTotal={detail.relatedTotal}
             isSelf={ticket.createdById === session.user.id}

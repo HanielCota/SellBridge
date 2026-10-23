@@ -16,6 +16,7 @@
     "./supplier-panel-import-schemas": "./src/domain/supplier-panel-import-schemas.ts",
     "./supplier-panel-import-table": "./src/domain/supplier-panel-import-table.ts",
     "./brazilian-states": "./src/domain/brazilian-states.ts",
+    "./billing-address": "./src/domain/billing-address.ts",
     "./cpf": "./src/domain/cpf.ts",
     "./account-documents": "./src/domain/account-documents.ts",
     "./terms": "./src/domain/terms.ts",

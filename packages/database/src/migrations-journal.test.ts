@@ -1,43 +1,53 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 /*
- * The migrator applies only the entries whose `when` is newer than the last one a database
- * recorded. An entry merged with an older `when` than the one before it is skipped for good on
- * every database already migrated (the 0007/0008 bug), so the journal must only move forward.
- * These checks read the files alone, without a database.
+ * The drizzle migrator applies only migrations whose `when` is later than the last one applied,
+ * so an entry merged with an older `when` than one already in production is skipped in silence.
+ * These checks need no database: two branches that each add the next migration collide here,
+ * and the second one has to be generated again (`pnpm database:generate`) on top of the first.
  */
-
 const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 const journal = z
   .object({ entries: z.array(z.object({ idx: z.number(), tag: z.string(), when: z.number() })) })
   .parse(JSON.parse(readFileSync(`${migrationsFolder}/meta/_journal.json`, "utf8")));
 
-/** 0008 was written before 0007 and repaired by hand (see migrations.test.ts, M2). */
-const REPAIRED_OUT_OF_ORDER_TAGS = new Set(["0008_public_api"]);
+/** Shipped with an older `when` than 0007; databases that skipped it are repaired since. */
+const LEGACY_OUT_OF_ORDER_TAGS = new Set(["0008_public_api"]);
 
-describe("migration journal", () => {
-  it("numbers the entries in order, without gaps, as their files are named", () => {
-    journal.entries.forEach((entry, position) => {
-      expect(entry.idx).toBe(position);
-      expect(entry.tag.startsWith(`${String(entry.idx).padStart(4, "0")}_`)).toBe(true);
-      expect(existsSync(`${migrationsFolder}/${entry.tag}.sql`)).toBe(true);
-    });
+function indexPrefix(index: number): string {
+  return String(index).padStart(4, "0");
+}
+
+describe("migrations journal", () => {
+  it("numbers the entries in order, one per position, matching their tags", () => {
+    const mismatched = journal.entries.filter(
+      (entry, position) =>
+        entry.idx !== position || !entry.tag.startsWith(`${indexPrefix(position)}_`),
+    );
+
+    expect(mismatched).toEqual([]);
   });
 
-  it("gives every entry a newer timestamp than the one before it", () => {
-    const backwards = journal.entries
-      .slice(1)
-      .filter((entry, position) => {
-        const previous = journal.entries[position];
-        if (previous === undefined || REPAIRED_OUT_OF_ORDER_TAGS.has(entry.tag)) {
-          return false;
-        }
-        return entry.when <= previous.when;
-      })
-      .map((entry) => entry.tag);
-    expect(backwards).toEqual([]);
+  it("gives every migration a later timestamp than all the ones before it", () => {
+    const outOfOrder = journal.entries.filter((entry, position) => {
+      if (position === 0 || LEGACY_OUT_OF_ORDER_TAGS.has(entry.tag)) {
+        return false;
+      }
+      const latestBefore = Math.max(...journal.entries.slice(0, position).map((item) => item.when));
+      return entry.when <= latestBefore;
+    });
+
+    expect(outOfOrder.map((entry) => entry.tag)).toEqual([]);
+  });
+
+  it("has an SQL file for every entry and no SQL file outside the journal", () => {
+    const sqlFiles = readdirSync(migrationsFolder)
+      .filter((name) => name.endsWith(".sql"))
+      .toSorted();
+
+    expect(sqlFiles).toEqual(journal.entries.map((entry) => `${entry.tag}.sql`).toSorted());
   });
 });

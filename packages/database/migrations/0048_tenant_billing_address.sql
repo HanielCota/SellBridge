@@ -1,0 +1,1 @@
+ALTER TABLE "tenant_profile" ADD COLUMN "billing_address" jsonb;
