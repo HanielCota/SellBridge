@@ -64,6 +64,18 @@ async function callImpersonate(page: Page, userId: string) {
   }, userId);
 }
 
+/** Account deletion over the API with the right password: refused while inside an account. */
+async function tryDeleteAccount(page: Page): Promise<number> {
+  return page.evaluate(async (password) => {
+    const response = await fetch("/api/auth/delete-user", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    return response.status;
+  }, SIGN_UP_PASSWORD);
+}
+
 test("atendente entra no painel do fornecedor pelo chamado e volta ao chamado", async ({
   browser,
   page,
@@ -80,15 +92,7 @@ test("atendente entra no painel do fornecedor pelo chamado e volta ao chamado", 
 
   // Deleting the account stays off during the visit, even straight over the API with the
   // right password: were the block missing, this call would delete the supplier's account.
-  const deletion = await agent.page.evaluate(async (password) => {
-    const response = await fetch("/api/auth/delete-user", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    return response.status;
-  }, SIGN_UP_PASSWORD);
-  expect(deletion).toBe(403);
+  expect(await tryDeleteAccount(agent.page)).toBe(403);
 
   // The panel sends a supplier without a brand on to its brand page: act once that page is live.
   await expect(agent.page).toHaveURL(/\/fornecedor\/painel\/marca/);
@@ -156,6 +160,35 @@ test("supervisor entra na conta do revendedor e o admin vê a visita na auditori
   await enableAdminMode(admin);
   await gotoHydrated(admin, `/admin/clientes/${await userIdOf(resellerEmail)}`);
   await expect(admin.getByText(/Entrou como o cliente pelo chamado #[0-9A-F]{6}/)).toBeVisible();
+  await adminContext.close();
+});
+
+test("admin entra como fornecedor pela ficha do cliente e volta à ficha", async ({
+  browser,
+  page,
+}) => {
+  const supplierEmail = await signUpAsSupplier(page, `Fornecedor Ficha ${Date.now()}`);
+  const customerPath = `/admin/clientes/${await userIdOf(supplierEmail)}`;
+
+  const adminContext = await browser.newContext({ locale: "pt-BR" });
+  const admin = await adminContext.newPage();
+  await signIn(admin, ADMIN_USER);
+  await enableAdminMode(admin);
+  await gotoHydrated(admin, customerPath);
+  await admin.getByRole("button", { name: "Entrar como cliente" }).click();
+
+  // A supplier's account opens in its panel, never in the reseller's dashboard.
+  await expect(admin).toHaveURL(/\/fornecedor\/painel/);
+  const banner = admin.getByRole("complementary", { name: "Acesso como cliente" });
+  await expect(banner).toBeVisible();
+  expect(await tryDeleteAccount(admin)).toBe(403);
+
+  // The panel sends a supplier without a brand on to its brand page: leave once that page is live.
+  await expect(admin).toHaveURL(/\/fornecedor\/painel\/marca/);
+  await waitForHydration(admin);
+  await banner.getByRole("button", { name: "Voltar ao admin" }).click();
+  await expect(admin).toHaveURL(new RegExp(customerPath));
+  await expect(admin.getByText("Entrou como o fornecedor").first()).toBeVisible();
   await adminContext.close();
 });
 
