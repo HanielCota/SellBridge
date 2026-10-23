@@ -7,6 +7,7 @@ import {
   shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
+import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
 import { z } from "zod";
 
 /** The value .env.example ships with: fine locally, never in production. */
@@ -93,6 +94,11 @@ const serverEnvironmentShape = z.object({
    * on in production only, so tests and local sign-ups never depend on the outside service.
    */
   LEAKED_PASSWORD_CHECK: z.enum(["auto", "on", "off"]).default("auto"),
+  /**
+   * Who writes the automatic first answer in support. "deepseek" is not wired yet: it reports
+   * "not configured" and the local FAQ answers instead.
+   */
+  SUPPORT_ASSISTANT_PROVIDER: z.enum(SUPPORT_ASSISTANT_PROVIDERS).default("faq"),
 });
 
 const STRIPE_REQUIRED_KEYS = [
