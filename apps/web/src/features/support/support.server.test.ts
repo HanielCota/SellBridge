@@ -252,3 +252,45 @@ describe("new ticket notice", () => {
     expect(mocks.createTicket).not.toHaveBeenCalled();
   });
 });
+
+function planForm(assistantAnswerId: string): FormData {
+  return messageForm(
+    {
+      category: "account",
+      situation: "plan",
+      body: "Quero mudar para o plano anual.",
+      assistantAnswerId,
+    },
+    false,
+  );
+}
+
+describe("support assistant answer on a new ticket", () => {
+  it("keeps the answer the customer read for the team", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    const response = await handleCreateTicket(
+      post("/api/suporte/chamados", planForm("seller-plan")),
+    );
+    expect(response.status).toBe(201);
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        assistantNote: expect.stringMatching(/^Como mudar o plano ou o cartão\n1\. /),
+      }),
+    );
+  });
+
+  it("opens the ticket without a note when the answer id is not this profile's", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    const response = await handleCreateTicket(
+      post("/api/suporte/chamados", planForm("supplier-import")),
+    );
+    expect(response.status).toBe(201);
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ assistantNote: undefined }),
+    );
+  });
+});

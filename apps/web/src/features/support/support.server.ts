@@ -11,6 +11,9 @@ import {
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
 import { planSupportTicket } from "@sellbridge/shared/support-topics";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { formatAssistantNote } from "@sellbridge/shared/support-assistant";
+import { findFaqAnswer } from "@sellbridge/shared/support-assistant-faq";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -69,7 +72,26 @@ async function readTicketAbout(formData: FormData, tenantId: string): Promise<Ti
   return about.data;
 }
 
-/** POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body, files). */
+/**
+ * The team's copy of the automatic answer the customer read before asking for a person. An id
+ * this profile does not know (a stale form) is logged and left out: the ticket still opens.
+ */
+function assistantNoteFor(profile: ProfileKind, answerId: string | undefined): string | undefined {
+  if (answerId === undefined) {
+    return undefined;
+  }
+  const answer = findFaqAnswer(profile, answerId);
+  if (answer === undefined) {
+    logger.warn("support.assistant_answer_unknown", { profile, answerId });
+    return undefined;
+  }
+  return formatAssistantNote(answer);
+}
+
+/**
+ * POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body,
+ * assistantAnswerId, files).
+ */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
@@ -80,6 +102,7 @@ export function handleCreateTicket(request: Request) {
       situation: textField(formData, "situation"),
       about: textField(formData, "about"),
       body: textField(formData, "body"),
+      assistantAnswerId: textField(formData, "assistantAnswerId"),
     });
     if (!input.success) {
       throw validationError(firstIssue(input.error));
@@ -103,6 +126,7 @@ export function handleCreateTicket(request: Request) {
         subject: plan.subject,
         body: input.data.body,
         attachments,
+        assistantNote: assistantNoteFor(session.profileKind, input.data.assistantAnswerId),
       }),
     );
     await linkTicketAbout(database, {
@@ -111,7 +135,11 @@ export function handleCreateTicket(request: Request) {
       actorId: session.userId,
       about,
     });
-    logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
+    logger.info("support.ticket_created", {
+      tenantId: session.tenantId,
+      ticketId,
+      assistantAnswerId: input.data.assistantAnswerId ?? null,
+    });
     // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
     void notifyTeamOfNewTicket(ticketId);
     await recordImpersonatedCall({
