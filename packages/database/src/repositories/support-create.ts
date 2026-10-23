@@ -1,8 +1,30 @@
 import { conflictError } from "@sellbridge/shared/errors";
 import type { TicketCategory, TicketPriority } from "@sellbridge/shared/ticket-rules";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { ticketMessages, tickets } from "../schema/index.ts";
 import { insertAttachments, type NewAttachment } from "./support.ts";
+
+/** The answer was read before the ticket existed: it sorts right before the first message. */
+const ASSISTANT_NOTE_LEAD_MILLISECONDS = 1;
+
+/**
+ * The assistant's answer, kept for the team only. Written on the customer's behalf (`isAdmin`
+ * false) and hidden from them (`isInternal` true): the pair `isAssistantMessage` looks for.
+ * It never counts as a reply, so response times and unread dots stay as they were.
+ */
+async function insertAssistantNote(
+  transaction: Transaction,
+  note: { ticketId: string; userId: string; body: string; shownAt: Date },
+): Promise<void> {
+  await transaction.insert(ticketMessages).values({
+    ticketId: note.ticketId,
+    authorId: note.userId,
+    isAdmin: false,
+    isInternal: true,
+    body: note.body,
+    createdAt: note.shownAt,
+  });
+}
 
 /**
  * Opens a ticket with its first message and files. The priority comes from what the customer
@@ -18,6 +40,8 @@ export async function createTicket(
     subject: string;
     body: string;
     attachments: readonly NewAttachment[];
+    /** What the support assistant answered before the customer asked for a person. */
+    assistantNote?: string | undefined;
     now?: Date;
   },
 ): Promise<{ ticketId: string }> {
@@ -53,6 +77,14 @@ export async function createTicket(
       throw conflictError("Não foi possível registrar a mensagem");
     }
     await insertAttachments(transaction, ticket.id, message.id, input.attachments);
+    if (input.assistantNote !== undefined) {
+      await insertAssistantNote(transaction, {
+        ticketId: ticket.id,
+        userId: input.userId,
+        body: input.assistantNote,
+        shownAt: new Date(now.getTime() - ASSISTANT_NOTE_LEAD_MILLISECONDS),
+      });
+    }
     return { ticketId: ticket.id };
   });
 }

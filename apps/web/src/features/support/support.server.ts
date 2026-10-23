@@ -11,6 +11,11 @@ import {
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
 import { planSupportTicket } from "@sellbridge/shared/support-topics";
+import {
+  formatAssistantNote,
+  type SupportAssistantQuestion,
+} from "@sellbridge/shared/support-assistant";
+import { matchFaqAnswer } from "@sellbridge/shared/support-assistant-faq";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -73,7 +78,59 @@ async function readTicketAbout(formData: FormData, tenantId: string): Promise<Ti
   return about.data;
 }
 
-/** POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body, files). */
+/**
+ * The team's copy of the automatic answer the customer read before asking for a person. The id
+ * from the form is only trusted when the server, asked the same question, gives that same
+ * answer: a stale or edited form is logged and left out, and the ticket still opens.
+ */
+function assistantNoteFor(
+  profile: SupportAssistantQuestion["profile"],
+  input: CreateTicketForm,
+): string | undefined {
+  const answerId = input.assistantAnswerId;
+  if (answerId === undefined) {
+    return undefined;
+  }
+  const question: SupportAssistantQuestion = {
+    profile,
+    topic: input.category,
+    subtopic: input.situation,
+    text: input.body,
+  };
+  const answer = matchFaqAnswer(question);
+  if (answer === undefined || answer.id !== answerId) {
+    logger.warn("support.assistant_answer_mismatch", {
+      profile: question.profile,
+      topic: question.topic,
+      answerId,
+      expectedAnswerId: answer?.id ?? null,
+    });
+    return undefined;
+  }
+  return formatAssistantNote(answer);
+}
+
+type CreateTicketForm = ReturnType<typeof parseCreateTicketForm>;
+
+/** The new-ticket form fields, checked: a bad field answers 400 with its message. */
+function parseCreateTicketForm(formData: FormData) {
+  const input = createTicketSchema.safeParse({
+    category: textField(formData, "category"),
+    situation: textField(formData, "situation"),
+    about: textField(formData, "about"),
+    body: textField(formData, "body"),
+    assistantAnswerId: textField(formData, "assistantAnswerId"),
+  });
+  if (!input.success) {
+    throw validationError(firstIssue(input.error));
+  }
+  return input.data;
+}
+
+/**
+ * POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body,
+ * assistantAnswerId, files).
+ */
 export function handleCreateTicket(request: Request) {
   return handleApi("support.create_ticket", async () => {
     assertSameOrigin(request, environment.APP_URL);
@@ -85,21 +142,13 @@ export function handleCreateTicket(request: Request) {
       method: "POST",
     });
     const formData = await readUploadForm(request, session.userId);
-    const input = createTicketSchema.safeParse({
-      category: textField(formData, "category"),
-      situation: textField(formData, "situation"),
-      about: textField(formData, "about"),
-      body: textField(formData, "body"),
-    });
-    if (!input.success) {
-      throw validationError(firstIssue(input.error));
-    }
+    const input = parseCreateTicketForm(formData);
     const plan = planSupportTicket({
       kind: session.profileKind,
-      category: input.data.category,
-      situationId: input.data.situation,
-      about: input.data.about,
-      description: input.data.body,
+      category: input.category,
+      situationId: input.situation,
+      about: input.about,
+      description: input.body,
     });
     const about = await readTicketAbout(formData, session.tenantId);
     const files = await validateAttachments(formData);
@@ -108,11 +157,12 @@ export function handleCreateTicket(request: Request) {
       createTicket(database, {
         tenantId: session.tenantId,
         userId: session.userId,
-        category: input.data.category,
+        category: input.category,
         priority: plan.priority,
         subject: plan.subject,
-        body: input.data.body,
+        body: input.body,
         attachments,
+        assistantNote: assistantNoteFor(session.profileKind, input),
       }),
     );
     await linkTicketAbout(database, {
@@ -121,7 +171,11 @@ export function handleCreateTicket(request: Request) {
       actorId: session.userId,
       about,
     });
-    logger.info("support.ticket_created", { tenantId: session.tenantId, ticketId });
+    logger.info("support.ticket_created", {
+      tenantId: session.tenantId,
+      ticketId,
+      assistantAnswerId: input.assistantAnswerId ?? null,
+    });
     // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
     void notifyTeamOfNewTicket(ticketId);
     await recordImpersonatedCall({
