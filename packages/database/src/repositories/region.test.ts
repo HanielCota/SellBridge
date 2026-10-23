@@ -6,7 +6,7 @@ const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 
 beforeAll(async () => {
-  tenants = await createTestTenants(database, 4);
+  tenants = await createTestTenants(database, 5);
 });
 
 afterAll(async () => {
@@ -26,7 +26,29 @@ describe("billing holder", () => {
       ...holder,
       phone: null,
       company: null,
+      address: null,
     });
+  });
+
+  it("saves the billing address and keeps it when a save leaves it out", async () => {
+    const tenantE = tenants.ids[4];
+    if (!tenantE) {
+      throw new Error("tenant de teste não criado");
+    }
+    const address = {
+      cep: "01310100",
+      street: "Avenida Paulista",
+      number: "s/n",
+      complement: "",
+      neighborhood: "Bela Vista",
+      city: "São Paulo",
+      state: "SP" as const,
+    };
+    const holder = { fullName: "Diana Lopes Melo", cpf: testCpf(), address };
+    await saveBillingHolder(database, tenantE, holder);
+    expect((await findBillingHolder(database, tenantE))?.address).toEqual(address);
+    await saveBillingHolder(database, tenantE, { fullName: holder.fullName, cpf: holder.cpf });
+    expect((await findBillingHolder(database, tenantE))?.address).toEqual(address);
   });
 
   // Item 26.a (L2): phone, and CNPJ and legal name for who sells as a company.
@@ -42,7 +64,7 @@ describe("billing holder", () => {
       company: { cnpj: "11222333000181", companyName: "Alice Modas Ltda" },
     };
     await saveBillingHolder(database, tenantA, holder);
-    expect(await findBillingHolder(database, tenantA)).toEqual(holder);
+    expect(await findBillingHolder(database, tenantA)).toEqual({ ...holder, address: null });
     await saveBillingHolder(database, tenantA, { ...holder, company: null });
     expect((await findBillingHolder(database, tenantA))?.company).toBeNull();
     expect((await findBillingHolder(database, tenantC))?.phone).toBeNull();
