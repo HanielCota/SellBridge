@@ -78,6 +78,8 @@ describe("what an admin may do inside a customer's account", () => {
     "updateOwnBrandFn",
     // The customer's rating of the support the visiting agent gave.
     "rateMyTicket",
+    // "Sim, resolveu" in the customer's name would record a confirmation they never gave.
+    "closeMyTicket",
   ];
 
   it.each(blocked)("refuses %s with a sentence that says why", (name) => {

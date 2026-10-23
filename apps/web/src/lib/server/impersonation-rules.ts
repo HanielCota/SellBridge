@@ -30,6 +30,9 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   // The rating feeds the team's satisfaction metrics: an agent inside the account would grade
   // their own service in the customer's name.
   rateMyTicket: "avaliar o atendimento",
+  // "Sim, resolveu" records that the customer confirmed the fix; the team closes the
+  // ticket from its own inbox instead.
+  closeMyTicket: "encerrar o chamado em nome do cliente",
 };
 
 /** Writes too small to land in the customer's timeline (read markers). */
