@@ -52,17 +52,17 @@
       "breakpoints": true
     },
     {
-      "idx": 7,
-      "version": "7",
-      "when": 1791748800000,
-      "tag": "0007_review_followups",
-      "breakpoints": true
-    },
-    {
       "idx": 8,
       "version": "7",
       "when": 1791725626634,
       "tag": "0008_public_api",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791748800000,
+      "tag": "0007_review_followups",
       "breakpoints": true
     },
     {
@@ -336,6 +336,13 @@
       "version": "7",
       "when": 1792677898382,
       "tag": "0047_supplier_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792711253044,
+      "tag": "0049_tenant_billing_address",
       "breakpoints": true
     }
   ]
