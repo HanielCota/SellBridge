@@ -8,6 +8,7 @@ import { database } from "@/lib/server/database";
 import { environment } from "@/lib/server/environment";
 import { carrierTrackingProviderName } from "@/lib/server/environment-schema";
 import {
+  carrierEventsOf,
   isCorreiosCode,
   normalizeTrackingInput,
   type CarrierTrackingResult,
@@ -31,10 +32,6 @@ async function trackCode(code: string, handedOverAt: Date | null): Promise<Carri
   }
 }
 
-function eventsOf(result: CarrierTrackingResult | null) {
-  return result?.state === "found" ? result.events : null;
-}
-
 /** The Correios code a parcel can be read by; null without a code or for another carrier. */
 function correiosCodeOf(row: TrackedParcelRow): string | null {
   if (row.trackingCode === null) {
@@ -49,7 +46,11 @@ function parcelView(
   tracked: CarrierTrackingResult | null,
   now: Date,
 ): TrackedParcelView {
-  const explanation = explainTracking({ parcel: row, carrierEvents: eventsOf(tracked), now });
+  const explanation = explainTracking({
+    parcel: row,
+    carrierEvents: carrierEventsOf(tracked),
+    now,
+  });
   return {
     shipmentId: row.shipmentId,
     orderId: row.orderId,
@@ -114,7 +115,7 @@ export async function searchTracking(
   }
   if (isCorreiosCode(code)) {
     const tracked = await trackCode(code, null);
-    const events = eventsOf(tracked);
+    const events = carrierEventsOf(tracked);
     const explanation =
       events === null
         ? null

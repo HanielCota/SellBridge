@@ -75,6 +75,26 @@ export function carrierEventsOldestFirst(
   return events.toSorted((left, right) => left.at.getTime() - right.at.getTime());
 }
 
+/**
+ * The events the explanation reads from a provider's answer. A code the carrier does not know
+ * yet has simply not been scanned: no events, so the wait for the first scan is explained. Null
+ * when the carrier could not be read (no answer, not connected or unreachable).
+ */
+export function carrierEventsOf(
+  result: CarrierTrackingResult | null,
+): readonly CarrierTrackingEvent[] | null {
+  if (result === null) {
+    return null;
+  }
+  if (result.state === "found") {
+    return result.events;
+  }
+  if (result.state === "not_found") {
+    return [];
+  }
+  return null;
+}
+
 /** Longest thing worth searching: an order number or a code with some spaces typed in. */
 export const TRACKING_QUERY_MAX_LENGTH = 60;
 
