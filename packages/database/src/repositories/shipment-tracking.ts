@@ -18,7 +18,13 @@ function trackedParcelCondition(filter: TrackedParcelFilter): SQL | undefined {
   if (filter.kind === "order") {
     return eq(orders.id, filter.orderId);
   }
-  return sql`(${normalizedTrackingCode} = ${filter.trackingCode} or upper(${orders.externalOrderId}) = upper(${filter.externalOrderId}))`;
+  const byOrderNumber = sql`upper(${orders.externalOrderId}) = upper(${filter.externalOrderId})`;
+  // Text that is only typing noise ("." or "-") normalizes to nothing: it names no code, and
+  // compared as is it would match every parcel whose code is made of noise too.
+  if (filter.trackingCode === "") {
+    return byOrderNumber;
+  }
+  return sql`(${normalizedTrackingCode} = ${filter.trackingCode} or ${byOrderNumber})`;
 }
 
 /** Most parcels one search may show: one order rarely has more than a few suppliers. */

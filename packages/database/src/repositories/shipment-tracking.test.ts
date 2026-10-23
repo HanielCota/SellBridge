@@ -99,4 +99,14 @@ describe("tracked parcels stay inside the reseller's account", () => {
     expect(ofTenantA).toEqual([]);
     expect(ofTenantB.map((parcel) => parcel.trackingCode)).toEqual([typedCodeOfTenantB]);
   });
+
+  it("finds no parcel by a search that is only typing noise", async () => {
+    await shippedParcel(tenants.tenantB, `8${runDigits}`, "-");
+    const parcels = await listTrackedParcels(database, tenants.tenantB, {
+      kind: "search",
+      trackingCode: "",
+      externalOrderId: ".",
+    });
+    expect(parcels).toEqual([]);
+  });
 });
