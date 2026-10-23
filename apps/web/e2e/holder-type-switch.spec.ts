@@ -78,7 +78,7 @@ test("saving as CPF after typing a CNPJ sends no company", async ({ page }) => {
   const save = waitForHolderSave(page);
   await page.getByRole("button", { name: "Continuar" }).click();
   expectNoCompanyIn((await save).postData() ?? "");
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
 
   await gotoHydrated(page, "/onboarding?step=details");
   await expect(companyBox(page)).not.toBeChecked();
@@ -93,7 +93,7 @@ test("a saved company is removed when the seller switches to CPF", async ({ page
   await fillPerson(page);
   await fillCompany(page);
   await page.getByRole("button", { name: "Continuar" }).click();
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
 
   await gotoHydrated(page, "/onboarding?step=details");
   await expect(cnpjField(page)).toHaveValue(CNPJ.formatted);

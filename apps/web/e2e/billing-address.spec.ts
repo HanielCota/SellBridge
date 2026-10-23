@@ -45,7 +45,7 @@ test("asks for the billing address and keeps it hidden behind the eye", async ({
   await expect(page.getByLabel("CEP")).toHaveValue("01310-100");
   await page.getByLabel("Número").fill("s/n");
   await fillBillingHolder(page, "Revendedor Endereço Silva");
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
 
   await gotoHydrated(page, "/onboarding?step=details");
   const address = page.getByTestId("billing-address");
@@ -70,7 +70,7 @@ test("an account saved before the address existed is asked for it", async ({ pag
   test.setTimeout(120_000);
   const email = await signUp(page, "Revendedor Antigo");
   await fillBillingHolder(page, "Revendedor Antigo Souza");
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   await database
     .update(tenantProfile)
     .set({ billingAddress: null })
@@ -94,7 +94,7 @@ async function openTicketAsReseller(browser: Browser) {
   const page = await context.newPage();
   const email = await signUp(page, "Revendedor Contato");
   await fillBillingHolder(page, "Revendedor Contato Lima");
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   const body = `Loja sem vendas ${Date.now()}`;
   await gotoHydrated(page, "/suporte/novo");
   await page.getByRole("button", { name: /^Pedido ou entrega/ }).click();
