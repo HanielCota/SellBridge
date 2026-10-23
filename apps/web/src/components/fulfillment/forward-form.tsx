@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { contactWarning } from "@/features/fulfillment/contact-warning";
 import { forwardOrderFn } from "@/features/fulfillment/fulfillment.functions";
+import { addressImportNeeded } from "@/features/fulfillment/address-import-needed";
 import { marketplaceAddressNote } from "@/features/fulfillment/marketplace-address-note";
 import { getMarketplaceShippingFn } from "@/features/fulfillment/marketplace.functions";
 import { errorMessage } from "@/lib/errors";
@@ -115,18 +116,21 @@ export function ForwardForm({
 
 /**
  * Where the address came from. When the marketplace sent it with the order, a note says so; the
- * label reader and the import are the fallback for orders that came without one
+ * label reader and the import stay for orders that came without one or with an incomplete one
  * (docs/marketplaces/order-shipping-address.md).
  */
 function AddressSource({
   order,
   ...importBar
 }: { order: Detail["order"] } & ComponentProps<typeof AddressImportBar>) {
-  if (order.marketplaceAddress === null) {
-    return <AddressImportBar {...importBar} />;
-  }
+  const filledByMarketplace = order.marketplaceAddress !== null;
   return (
-    <p className="text-sm text-muted-foreground">{marketplaceAddressNote(order.marketplace)}</p>
+    <>
+      {filledByMarketplace ? (
+        <p className="text-sm text-muted-foreground">{marketplaceAddressNote(order.marketplace)}</p>
+      ) : null}
+      {addressImportNeeded(order.marketplaceAddress) ? <AddressImportBar {...importBar} /> : null}
+    </>
   );
 }
 

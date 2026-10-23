@@ -1,17 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { createDatabase } from "@sellbridge/database/client";
 import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
-import { sealShippingAddress } from "@sellbridge/marketplaces";
+import { type MarketplaceShippingAddress, sealShippingAddress } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { forwardableProduct } from "./catalog-fixtures";
 import { requireEnvironmentVariable } from "./environment";
 
 const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const cipher = createTokenCipher(requireEnvironmentVariable("TOKEN_ENCRYPTION_KEY"));
-const externalId = `E2E-ADDRESS-${randomUUID()}`;
+const completeExternalId = `E2E-ADDRESS-${randomUUID()}`;
+const incompleteExternalId = `E2E-ADDRESS-${randomUUID()}`;
 const address = {
   recipient: "Ana Souza",
   street: "Rua das Palmeiras",
@@ -22,9 +23,9 @@ const address = {
   state: "SP",
   postalCode: "13010-000",
 };
-let orderId = "";
+const createdOrderIds: string[] = [];
 
-test.beforeAll(async () => {
+async function insertOrder(externalOrderId: string, shippingAddress: MarketplaceShippingAddress) {
   const [tenant] = await database
     .select()
     .from(organization)
@@ -41,47 +42,65 @@ test.beforeAll(async () => {
     .values({
       tenantId: tenant.id,
       storeConnectionId: store.id,
-      externalOrderId: externalId,
+      externalOrderId,
       status: "paid",
       totalCents: 9900,
       buyerName: "Comprador",
-      shippingAddressEnc: sealShippingAddress(cipher, address),
+      shippingAddressEnc: sealShippingAddress(cipher, shippingAddress),
       orderedAt: new Date(),
     })
     .returning();
   if (!order) throw new Error("Order missing");
-  orderId = order.id;
+  createdOrderIds.push(order.id);
   await database.insert(orderItems).values({
     tenantId: tenant.id,
-    orderId,
+    orderId: order.id,
     supplierProductId: product.id,
     title: product.title,
     quantity: 1,
     unitPriceCents: 9900,
     unitCostCents: product.costCents,
   });
-});
+}
 
-test.afterAll(async () => {
-  if (orderId) await database.delete(orders).where(eq(orders.id, orderId));
-  await database.$client.end();
-});
-
-test("opens the forward form filled with the address the marketplace sent", async ({ page }) => {
+async function openForwardDialog(page: Page, externalOrderId: string) {
   await signIn(page, DEMO_USER);
   await gotoHydrated(page, "/pedidos");
-  await page.getByLabel("Buscar por pedido ou comprador").fill(externalId);
+  await page.getByLabel("Buscar por pedido ou comprador").fill(externalOrderId);
   await expect(page.getByRole("button", { name: "Operar pedido" })).toHaveCount(1);
   await page.getByRole("button", { name: "Operar pedido" }).click();
   const dialog = page.getByRole("dialog", { name: "Operar pedido" });
   await expect(dialog.getByText(/^Endereço preenchido pelo pedido d/)).toBeVisible();
+  return dialog;
+}
+
+test.beforeAll(async () => {
+  await insertOrder(completeExternalId, address);
+  await insertOrder(incompleteExternalId, { ...address, neighborhood: "" });
+});
+
+test.afterAll(async () => {
+  if (createdOrderIds.length > 0)
+    await database.delete(orders).where(inArray(orders.id, createdOrderIds));
+  await database.$client.end();
+});
+
+test("opens the forward form filled with the address the marketplace sent", async ({ page }) => {
+  const dialog = await openForwardDialog(page, completeExternalId);
   for (const [label, value] of Object.entries(EXPECTED_FIELDS))
     await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value);
-  // The label reader is the fallback for orders that came without an address.
+  // The label reader is the fallback for orders that came without a complete address.
   await expect(dialog.getByRole("button", { name: "Preencher com a etiqueta" })).toHaveCount(0);
   // Still the reseller's to correct before forwarding.
   await dialog.getByLabel("Número", { exact: true }).fill("122");
   await expect(dialog.getByLabel("Número", { exact: true })).toHaveValue("122");
+});
+
+test("keeps the label reader when the marketplace address is incomplete", async ({ page }) => {
+  const dialog = await openForwardDialog(page, incompleteExternalId);
+  await expect(dialog.getByLabel("Rua", { exact: true })).toHaveValue(address.street);
+  await expect(dialog.getByLabel("Bairro", { exact: true })).toHaveValue("");
+  await expect(dialog.getByRole("button", { name: "Preencher com a etiqueta" })).toBeVisible();
 });
 
 const EXPECTED_FIELDS = {
