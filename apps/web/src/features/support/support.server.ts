@@ -80,12 +80,19 @@ async function readTicketAbout(formData: FormData, tenantId: string): Promise<Ti
  * answer: a stale or edited form is logged and left out, and the ticket still opens.
  */
 function assistantNoteFor(
-  question: SupportAssistantQuestion,
-  answerId: string | undefined,
+  profile: SupportAssistantQuestion["profile"],
+  input: CreateTicketForm,
 ): string | undefined {
+  const answerId = input.assistantAnswerId;
   if (answerId === undefined) {
     return undefined;
   }
+  const question: SupportAssistantQuestion = {
+    profile,
+    topic: input.category,
+    subtopic: input.situation,
+    text: input.body,
+  };
   const answer = matchFaqAnswer(question);
   if (answer === undefined || answer.id !== answerId) {
     logger.warn("support.assistant_answer_mismatch", {
@@ -98,6 +105,8 @@ function assistantNoteFor(
   }
   return formatAssistantNote(answer);
 }
+
+type CreateTicketForm = ReturnType<typeof parseCreateTicketForm>;
 
 /** The new-ticket form fields, checked: a bad field answers 400 with its message. */
 function parseCreateTicketForm(formData: FormData) {
@@ -143,15 +152,7 @@ export function handleCreateTicket(request: Request) {
         subject: plan.subject,
         body: input.body,
         attachments,
-        assistantNote: assistantNoteFor(
-          {
-            profile: session.profileKind,
-            topic: input.category,
-            subtopic: input.situation,
-            text: input.body,
-          },
-          input.assistantAnswerId,
-        ),
+        assistantNote: assistantNoteFor(session.profileKind, input),
       }),
     );
     await linkTicketAbout(database, {
