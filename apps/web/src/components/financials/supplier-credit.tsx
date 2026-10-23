@@ -1,6 +1,6 @@
 import type { OrderFinancialRow, SupplierCredit } from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
-import { supplierCreditShortText, supplierCreditText } from "@sellbridge/shared/return-claims";
+import { supplierCreditSummaryText, supplierCreditText } from "@sellbridge/shared/return-claims";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { ClaimStatusLine } from "@/components/support/return-claim-parts";
@@ -61,17 +61,33 @@ export function SupplierCreditLines({
   );
 }
 
-/** What the row says under its amount: the sale it came from, or why it is out of the math. */
+/** Where the supplier credit stands for every order a line stands for, or null when it varies. */
+function useCreditSummary(rows: readonly OrderFinancialRow[]): string | null {
+  const creditsByOrder = useContext(SupplierCreditsContext);
+  if (rows.some((row) => row.status !== "returned")) {
+    return null;
+  }
+  return supplierCreditSummaryText(rows.map((row) => creditsByOrder.get(row.id) ?? NO_CREDITS));
+}
+
+/**
+ * What a line says under its amount: the sale it came from, or why it is out of the math. A line
+ * can stand for several identical orders (`rows`), so a returned line speaks for all of them.
+ */
 export function AmountNote({
-  row,
+  rows,
   revenueCents,
 }: {
-  row: OrderFinancialRow;
+  rows: readonly OrderFinancialRow[];
   revenueCents: number;
 }) {
-  const [credit] = useSupplierCredits(row.id);
-  if (row.status === "returned" && credit !== undefined) {
-    return <span>{supplierCreditShortText(credit)}</span>;
+  const creditSummary = useCreditSummary(rows);
+  const [row] = rows;
+  if (row === undefined) {
+    return null;
+  }
+  if (creditSummary !== null) {
+    return <span>{creditSummary}</span>;
   }
   if (isVoidOrder(row)) {
     return (

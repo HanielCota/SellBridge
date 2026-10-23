@@ -111,7 +111,7 @@ function RowAmount({ row }: { row: OrderFinancialRow }) {
     <span className="shrink-0 space-y-0.5 text-right">
       <RowProfit row={row} profitCents={row.profitCents} />
       <span className="block text-xs text-muted-foreground tabular-nums">
-        <AmountNote row={row} revenueCents={row.revenueCents} />
+        <AmountNote rows={[row]} revenueCents={row.revenueCents} />
       </span>
     </span>
   );
@@ -333,7 +333,7 @@ function GroupRow({ rows, showStore }: { rows: readonly OrderFinancialRow[]; sho
         <span className="shrink-0 space-y-0.5 text-right">
           <RowProfit row={first} profitCents={profit} />
           <span className="block text-xs text-muted-foreground tabular-nums">
-            <AmountNote row={first} revenueCents={revenue} />
+            <AmountNote rows={rows} revenueCents={revenue} />
           </span>
         </span>
         <CaretDownIcon

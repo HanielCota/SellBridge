@@ -60,6 +60,32 @@ export function supplierCreditShortText(outcome: ReturnClaimOutcome): string {
 }
 
 /**
+ * The few words under a statement line that stands for one or more orders, each with one claim
+ * per supplier. One order's outcome must not speak for the others: when they ended differently,
+ * or one has no claim, there are no words and the reader opens the line to see each one.
+ */
+export function supplierCreditSummaryText(
+  outcomesByOrder: readonly (readonly ReturnClaimOutcome[])[],
+): string | null {
+  if (outcomesByOrder.length === 0 || outcomesByOrder.some((outcomes) => outcomes.length === 0)) {
+    return null;
+  }
+  const outcomes = outcomesByOrder.flat();
+  const [first] = outcomes;
+  if (first === undefined || outcomes.some((outcome) => outcome.status !== first.status)) {
+    return null;
+  }
+  if (first.status !== "credited") {
+    return supplierCreditShortText(first);
+  }
+  const creditedCents = outcomes.reduce(
+    (total, outcome) => total + (outcome.creditedCents ?? 0),
+    0,
+  );
+  return supplierCreditShortText({ ...first, creditedCents });
+}
+
+/**
  * The amount the team credits: at least one cent and never more than the supplier's cost of
  * the returned items, which is what the reseller paid for them.
  */

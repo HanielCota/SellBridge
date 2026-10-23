@@ -5,6 +5,7 @@ import {
   decideReturnClaimSchema,
   returnClaimSubject,
   supplierCreditShortText,
+  supplierCreditSummaryText,
   supplierCreditText,
 } from "./return-claims.ts";
 
@@ -45,6 +46,36 @@ describe("supplierCreditShortText", () => {
     expect(
       supplierCreditShortText({ status: "refused", creditedCents: null, refusalReason: "uso" }),
     ).toBe("sem crédito do fornecedor");
+  });
+});
+
+const inReview = { status: "in_review", creditedCents: null, refusalReason: null } as const;
+const refused = { status: "refused", creditedCents: null, refusalReason: "uso" } as const;
+
+function credited(cents: number) {
+  return { status: "credited", creditedCents: cents, refusalReason: null } as const;
+}
+
+describe("supplierCreditSummaryText", () => {
+  it("adds up the credit of every order the line stands for", () => {
+    expect(supplierCreditSummaryText([[credited(1000)], [credited(2500)]])).toMatch(
+      /^R\$\s35,00 creditado$/,
+    );
+  });
+
+  it("says nothing when the orders of a line ended differently", () => {
+    expect(supplierCreditSummaryText([[credited(5000)], [inReview], [refused]])).toBeNull();
+    expect(supplierCreditSummaryText([[credited(5000), refused]])).toBeNull();
+  });
+
+  it("says nothing when an order of the line has no claim", () => {
+    expect(supplierCreditSummaryText([[inReview], []])).toBeNull();
+    expect(supplierCreditSummaryText([])).toBeNull();
+  });
+
+  it("keeps the short words when every order reads the same", () => {
+    expect(supplierCreditSummaryText([[inReview], [inReview]])).toBe("crédito em análise");
+    expect(supplierCreditSummaryText([[refused]])).toBe("sem crédito do fornecedor");
   });
 });
 
