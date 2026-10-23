@@ -84,7 +84,10 @@ export const ticketMessages = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     isAdmin: boolean().notNull().default(false),
-    /** Support-only note: never shown to the reseller and never changes the ticket status. */
+    /**
+     * Support-only note: never shown to the reseller and never changes the ticket status. With
+     * `isAdmin` false it is the support assistant's answer the customer read before sending.
+     */
     isInternal: boolean().notNull().default(false),
     body: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

@@ -25,6 +25,7 @@ import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace
 import { errorMessage } from "@/lib/errors";
 import { ForwardForm } from "./forward-form";
 import { ShipmentPanel } from "./shipment-panel";
+import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
 
@@ -99,6 +100,7 @@ function ShipmentList({
           }}
         />
       ) : null}
+      {shipment.trackingCode === null ? null : <TrackParcelLink orderId={detail.order.id} />}
       {shipment.catalogKind === "seller" ? null : (
         <SupplierLink
           shipmentId={shipment.id}
@@ -127,6 +129,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["order-reviews"] }),
       client.invalidateQueries({ queryKey: ["financials"] }),
       client.invalidateQueries({ queryKey: ["dashboard"] }),
+      client.invalidateQueries({ queryKey: ["order-tracking", orderId] }),
+      client.invalidateQueries({ queryKey: ["parcels-in-transit"] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {

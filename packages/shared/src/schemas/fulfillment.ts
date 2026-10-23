@@ -169,7 +169,12 @@ export const operationsSearchSchema = z.object({
  * an order (or sharing the link) keeps them. The reviews tab keeps its own `query` and `page`.
  */
 export const operationsUrlSearchSchema = z.object({
-  view: withFallback(z.enum(["operations", "reviews"]).default("operations"), "operations"),
+  view: withFallback(
+    z.enum(["operations", "reviews", "tracking"]).default("operations"),
+    "operations",
+  ),
+  /** The order the tracking tab opens on (from the order dialog); codes never go in the URL. */
+  trackOrder: optionalParameter(z.uuid()),
   opQuery: optionalParameter(searchQuery()),
   stage: withFallback(z.enum(OPERATION_STAGES).default("all"), "all"),
   period: withFallback(z.enum(OPERATION_PERIODS).default("all"), "all"),

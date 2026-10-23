@@ -41,6 +41,7 @@ import {
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { isAssistantMessage } from "@sellbridge/shared/support-assistant";
 import { customerContactForStaff } from "@/features/admin/customer-contact";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
@@ -272,6 +273,9 @@ export const staffGetTicket = createServerFn({ method: "GET" })
     ]);
     return {
       ...thread,
+      // The assistant's answer opens the thread on its own card, outside the conversation.
+      messages: thread.messages.filter((message) => !isAssistantMessage(message)),
+      assistantAnswer: thread.messages.find(isAssistantMessage) ?? null,
       orders,
       subject,
       returnClaim,
