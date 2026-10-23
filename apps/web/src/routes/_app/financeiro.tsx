@@ -18,6 +18,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { type DayTotal, OrderStatement } from "@/components/financials/order-statement";
+import { SupplierCreditsProvider } from "@/components/financials/supplier-credit";
 import { ProfitSummary } from "@/components/financials/profit-summary";
 import { Button } from "@/components/ui/button";
 import {
@@ -136,16 +137,18 @@ function FinancialContent() {
       />
       <section aria-labelledby="extrato-heading" className="space-y-4 pt-2">
         <OrderFilters day={day} />
-        <FinancialOrders
-          orders={orders}
-          hasFilters={hasFilters}
-          day={day}
-          // A narrowed list would not add up to the whole day, so its headings go without totals.
-          dayTotals={hasFilters ? null : new Map(days.map((total) => [total.date, total]))}
-          byDay={search.sort === "orderedAt"}
-          showStore={stores.length > 1}
-          onPageChange={(page) => updateSearch({ page })}
-        />
+        <SupplierCreditsProvider credits={query.data.supplierCredits}>
+          <FinancialOrders
+            orders={orders}
+            hasFilters={hasFilters}
+            day={day}
+            // A narrowed list would not add up to the whole day, so its headings go without totals.
+            dayTotals={hasFilters ? null : new Map(days.map((total) => [total.date, total]))}
+            byDay={search.sort === "orderedAt"}
+            showStore={stores.length > 1}
+            onPageChange={(page) => updateSearch({ page })}
+          />
+        </SupplierCreditsProvider>
       </section>
     </>
   );

@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { member, user } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import {
   enableAdminMode,
   gotoHydrated,
@@ -10,9 +12,8 @@ import {
   waitForHydration,
 } from "./helpers";
 import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
-import { e2eDatabase } from "./database";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const FOREIGN_PROFILE = "loja-de-outra-pessoa";
 const EXPORT_URL = "/api/financeiro/exportar?period=30d";
 

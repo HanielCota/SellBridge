@@ -1,15 +1,16 @@
 import { expect, request, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { suppliers } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { ADMIN_USER, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
 /**
  * Product photos sent from the device: stored under the supplier and served on a public link,
  * because the marketplaces fetch a listing's photos without a session.
  */
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 let supplierId = "";
 
 /** A valid 1×1 PNG: the server checks the file's signature and dimensions, not its name. */

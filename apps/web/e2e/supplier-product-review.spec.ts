@@ -1,14 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { supplierProducts, suppliers } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
 /**
  * Supplier panel review flow: a product a supplier sent stays out of the resellers' catalog
  * until an admin approves it, and a rejection keeps it out with the reason on the product.
  */
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const stamp = Date.now();
 const titles = {
   live: `Comedouro aprovado ${stamp}`,

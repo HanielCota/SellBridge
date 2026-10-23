@@ -22,6 +22,7 @@ import {
 import { AssistantAnswerNote } from "@/components/support/assistant-answer-note";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
 import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
+import { ReturnClaimDecision } from "@/components/support/return-claim-decision";
 import { TicketThread } from "@/components/support/ticket-thread";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -155,6 +156,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
       {reopenedByVerdict(detail) ? <NotSolvedBanner /> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
+          <ReturnClaimDecision claim={detail.returnClaim} viewerRole={session.user.role} />
           <AssistantAnswerNote answer={detail.assistantAnswer} />
           <TicketThread
             messages={messages}
@@ -176,36 +178,26 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             }}
           />
         </div>
-        <AdminTicketSidebar detail={detail} />
+        <div className="space-y-4">
+          <TicketTriagePanel
+            ticket={ticket}
+            viewer={{ userId: session.user.id, role: session.user.role }}
+          />
+          <TicketCustomerPanel
+            ticket={ticket}
+            contact={detail.customerContact}
+            relatedTickets={detail.relatedTickets}
+            relatedTotal={detail.relatedTotal}
+            access={{
+              isSelf: ticket.createdById === session.user.id,
+              canManageCustomers: hasStaffPermission(session.user.role, "customers.manage"),
+              canImpersonate: hasStaffPermission(session.user.role, "customers.impersonate"),
+            }}
+          />
+          <LinkedOrdersCard orders={detail.orders} subject={detail.subject} />
+          <TicketHistory events={detail.events} />
+        </div>
       </div>
-    </div>
-  );
-}
-
-/** The side column of a ticket: triage, the customer, linked orders and the history. */
-function AdminTicketSidebar({ detail }: { readonly detail: AdminTicketDetail }) {
-  const { session } = Route.useRouteContext();
-  const { ticket } = detail;
-
-  return (
-    <div className="space-y-4">
-      <TicketTriagePanel
-        ticket={ticket}
-        viewer={{ userId: session.user.id, role: session.user.role }}
-      />
-      <TicketCustomerPanel
-        ticket={ticket}
-        contact={detail.customerContact}
-        relatedTickets={detail.relatedTickets}
-        relatedTotal={detail.relatedTotal}
-        access={{
-          isSelf: ticket.createdById === session.user.id,
-          canManageCustomers: hasStaffPermission(session.user.role, "customers.manage"),
-          canImpersonate: hasStaffPermission(session.user.role, "customers.impersonate"),
-        }}
-      />
-      <LinkedOrdersCard orders={detail.orders} subject={detail.subject} />
-      <TicketHistory events={detail.events} />
     </div>
   );
 }

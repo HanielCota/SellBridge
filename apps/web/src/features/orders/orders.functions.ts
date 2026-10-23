@@ -2,6 +2,7 @@ import {
   getOrderPage,
   getReviewTarget,
   listReviewableOrders,
+  listSupplierCredits,
   saveSupplierReview,
 } from "@sellbridge/database/repositories";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
@@ -57,8 +58,13 @@ export const getOrderPageFn = createServerFn({ method: "GET" })
       platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
       now: new Date(),
     });
+    const supplierCredits =
+      page.order.status === "returned"
+        ? await listSupplierCredits(database, context.tenantId, [page.order.id])
+        : [];
     return {
       ...page,
+      supplierCredits,
       marketplaceUrl: marketplaceOrderUrl(page.order.marketplace, page.order.externalOrderId),
     };
   });

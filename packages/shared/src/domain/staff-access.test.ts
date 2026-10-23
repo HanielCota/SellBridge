@@ -60,4 +60,11 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("user", "reviews.moderate")).toBe(false);
     expect(hasStaffPermission(null, "reviews.moderate")).toBe(false);
   });
+
+  it("lets only supervisors and admins decide a supplier credit for a returned order", () => {
+    expect(hasStaffPermission("agent", "support.credit_returns")).toBe(false);
+    expect(hasStaffPermission("supervisor", "support.credit_returns")).toBe(true);
+    expect(hasStaffPermission("admin", "support.credit_returns")).toBe(true);
+    expect(hasStaffPermission("user", "support.credit_returns")).toBe(false);
+  });
 });

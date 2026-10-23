@@ -56,10 +56,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // The tenant's orders and shipments go first; the supplier ("Fornecedor TRK-1") was left
-  // behind on every run and showed up as a public supplier in the reseller's picker.
   await tenants.cleanup();
-  await catalog.cleanup();
   await database.$client.end();
 });
 

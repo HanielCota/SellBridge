@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { createListingWithTargets } from "@sellbridge/database/repositories";
 import {
   listingTargets,
@@ -10,9 +11,9 @@ import {
 } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 const SUPPLIER = "BH Beauty Distribuidora";
 
 test.afterAll(async () => {
