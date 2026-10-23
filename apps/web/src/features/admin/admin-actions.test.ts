@@ -28,3 +28,17 @@ describe("describeAdminEvent", () => {
     expect(describeAdminEvent("something_new", null)).toBe("Ação do administrador");
   });
 });
+
+describe("visits to a customer's account", () => {
+  it("names a supplier visit and the ticket it was for", () => {
+    expect(
+      describeAdminEvent("impersonated", { profileKind: "supplier", ticketCode: "6CFB95" }),
+    ).toBe("Entrou como o fornecedor pelo chamado #6CFB95");
+  });
+
+  it("names a reseller visit without a ticket, as an admin may enter any account", () => {
+    expect(describeAdminEvent("impersonated", { profileKind: "seller", ticketCode: null })).toBe(
+      "Entrou como o cliente",
+    );
+  });
+});
