@@ -17,6 +17,8 @@ import {
   isMarketplaceError,
   isRetryableError,
   type MarketplaceId,
+  type MarketplaceOrder,
+  sealShippingAddress,
 } from "@sellbridge/marketplaces";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
@@ -203,6 +205,18 @@ async function requestAutoForwardSafely(
   }
 }
 
+/**
+ * The order as stored: the buyer's address, when the marketplace sent one, goes in encrypted
+ * (docs/marketplaces/order-shipping-address.md); its fields are never logged.
+ */
+function incomingOrder(cipher: TokenCipher, order: MarketplaceOrder) {
+  const { shippingAddress, ...fields } = order;
+  if (shippingAddress === undefined) {
+    return fields;
+  }
+  return { ...fields, shippingAddressEnc: sealShippingAddress(cipher, shippingAddress) };
+}
+
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
   // Decrypted here, inside the caller's try, so a bad token is recorded on the event.
@@ -218,7 +232,7 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     dependencies.database,
     store.tenantId,
     store.id,
-    order,
+    incomingOrder(dependencies.cipher, order),
   );
   await markWebhookProcessed(dependencies.database, sync.webhookEventId);
   if (result.stockMoves > 0) {

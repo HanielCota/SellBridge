@@ -1,10 +1,10 @@
 import { expect, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 /** Marks the account's e-mail as confirmed, as opening the link sent on sign-up would. */
 export async function confirmEmail(email: string): Promise<void> {

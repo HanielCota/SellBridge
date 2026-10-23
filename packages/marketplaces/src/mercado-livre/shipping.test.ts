@@ -1,7 +1,11 @@
 import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
 import { SHIPMENT_LEAD_TIME, shipmentBase } from "./fixtures/shipments.ts";
-import { getMercadoLivreLabel, getMercadoLivreShipping } from "./shipping.ts";
+import {
+  getMercadoLivreLabel,
+  getMercadoLivreShipping,
+  readMercadoLivreShippingAddress,
+} from "./shipping.ts";
 const store = { externalShopId: "99", accessToken: "test-token" };
 const order = { seller: { id: 99 } };
 const shipment = { ...shipmentBase, id: 123 };
@@ -42,6 +46,23 @@ describe("Mercado Livre shipping", () => {
     const headers = new Headers(request.mock.calls[2]?.[1]?.headers);
     expect(headers.get("authorization")).toBe("Bearer test-token");
     expect(headers.get("x-format-new")).toBe("true");
+  });
+  it("reads the buyer's address from the sale shipment without the return lookups", async () => {
+    const { request, config } = setup();
+    expect(await readMercadoLivreShippingAddress(config, store, "55")).toMatchObject({
+      kind: "available",
+      address: { recipient: "Maria Silva", state: "SP", postalCode: "01001000" },
+    });
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+  it("answers not provided when the sale shipment has no address", async () => {
+    const { config } = setup({ receiver_address: null, destination: undefined }, [
+      { id: 123, type: "forward" },
+    ]);
+    expect(await readMercadoLivreShippingAddress(config, store, "55")).toEqual({
+      kind: "unavailable",
+      reason: "not_provided",
+    });
   });
   it("reads a blank tracking number and carrier as absent", async () => {
     const { config } = setup({ tracking_number: "", tracking_method: " " }, [

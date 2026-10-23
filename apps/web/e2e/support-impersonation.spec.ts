@@ -1,8 +1,7 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { member, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 import {
   ADMIN_USER,
   SIGN_UP_PASSWORD,
@@ -15,7 +14,7 @@ import {
 } from "./helpers";
 
 /* MVP item 3: agents and supervisors enter a customer's account only for an open ticket. */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 test.afterAll(async () => {
   await database.$client.end();

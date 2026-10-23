@@ -1,4 +1,6 @@
 export * from "./types.ts";
+export * from "./shipping-address.ts";
+export { openShippingAddress, sealShippingAddress } from "./shipping-address-seal.ts";
 export * from "./errors.ts";
 export * from "./http.ts";
 export * from "./registry.ts";

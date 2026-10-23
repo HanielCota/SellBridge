@@ -1,11 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts } from "@sellbridge/database/schema";
 import { eq, sql } from "drizzle-orm";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
   "base64",

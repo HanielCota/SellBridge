@@ -5,12 +5,12 @@ import {
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
-import { createDatabase } from "@sellbridge/database/client";
 import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
 import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
 import { and, eq, gt, like } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
@@ -254,7 +254,7 @@ async function requestDescriptionSync(): Promise<void> {
 }
 
 async function exhaustDescriptionRetries(title: string): Promise<void> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     await requestDescriptionSync();
     await expect
@@ -276,7 +276,7 @@ async function exhaustDescriptionRetries(title: string): Promise<void> {
 }
 
 async function repairDescription(title: string): Promise<void> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     await database
       .update(listings)
@@ -289,7 +289,7 @@ async function repairDescription(title: string): Promise<void> {
 
 /** A BH Beauty product with stock: what the publish form opens for. */
 async function inStockProductId(): Promise<string> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     const [row] = await database
       .select({ id: supplierProducts.id })
@@ -312,7 +312,7 @@ async function inStockProductId(): Promise<string> {
 
 /** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
 async function outOfStockProductId(): Promise<string> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     const [row] = await database
       .select({ id: supplierProducts.id })

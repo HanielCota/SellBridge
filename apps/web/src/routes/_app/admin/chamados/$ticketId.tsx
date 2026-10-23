@@ -182,8 +182,8 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
   );
 }
 
-/** Triage, customer, linked orders and history beside the thread. */
-function AdminTicketSidebar({ detail }: { detail: AdminTicketDetail }) {
+/** The side column of a ticket: triage, the customer, linked orders and the history. */
+function AdminTicketSidebar({ detail }: { readonly detail: AdminTicketDetail }) {
   const { session } = Route.useRouteContext();
   const { ticket } = detail;
 

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import {
   createListingWithTargets,
   markTargetPublished,
@@ -24,9 +23,9 @@ import {
   signUp,
 } from "./helpers";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const stamp = Date.now();
 const supplierName = `Fornecedor desativado E2E ${stamp}`;
 const productTitle = `Luminária desativada ${stamp}`;

@@ -261,6 +261,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       status: order.status,
       buyerName: order.buyerName,
       marketplace: store.marketplace,
+      /** Encrypted; the web app opens it for the forward form only (never sent as is). */
+      shippingAddressEnc: order.shippingAddressEnc,
     },
     items,
     shipments: shipments.map((shipment) => ({

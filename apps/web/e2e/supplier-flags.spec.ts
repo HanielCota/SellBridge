@@ -1,9 +1,7 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { member, supplierFlags, suppliers, user } from "@sellbridge/database/schema";
 import { applySupplierFlag, revokeSupplierFlag } from "@sellbridge/database/repositories";
 import { eq, inArray } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   DEMO_USER,
@@ -14,13 +12,14 @@ import {
   signUp,
   signUpAsSupplier,
 } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /*
  * MVP function 6: manual supplier flags. Supervisors apply and revoke on the team's flags page,
  * agents only read, the supplier sees its own active flags on the home without who applied them,
  * and nobody outside the team gets the page or its server functions.
  */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const run = Date.now();
 const SUPPLIER_NAME = `Ateliê Flags E2E ${run}`;
 const OTHER_SUPPLIER_NAME = `Outro Ateliê Flags E2E ${run}`;

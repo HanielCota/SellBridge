@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { deliveryAddressSchema, type MarketplaceTrackingStatus } from "@sellbridge/shared/schemas";
+import { type ShippingAddressReading, shippingAddressReading } from "../shipping-address.ts";
 import type { StoreCredentials } from "../types.ts";
 import { marketplaceError } from "../errors.ts";
 import { fetchWithRetry } from "../http.ts";
@@ -193,6 +194,18 @@ export async function getMercadoLivreShipping(
 ) {
   const { context, refs, shipping } = await loadSaleShipment(config, store, orderId);
   return { ...shipping, buyerReturnDelivered: await buyerReturnDelivered(context, store, refs) };
+}
+/**
+ * The buyer's address from the sale shipment, read by the same calls as `getMercadoLivreShipping`
+ * (order, its shipments, the sale shipment) without the return lookups.
+ */
+export async function readMercadoLivreShippingAddress(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderId: string,
+): Promise<ShippingAddressReading> {
+  const { shipping } = await loadSaleShipment(config, store, orderId);
+  return shippingAddressReading(shipping.address);
 }
 export async function getMercadoLivreLabel(
   config: MercadoLivreConfig,
