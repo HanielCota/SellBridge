@@ -1,18 +1,15 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
-  deactivatingFlagNotice,
-  flagDeactivatesSupplier,
-  reachedFlagLimit,
+  needsTeamAttention,
   SUPPLIER_FLAG_VALIDITY_DAYS,
   supplierFlagStatus,
   type SupplierFlagReason,
   type SupplierFlagStatus,
 } from "@sellbridge/shared/supplier-flags";
-import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { DatabaseExecutor } from "../client.ts";
 import { supplierFlags, suppliers, user } from "../schema/index.ts";
-import { setAdminSupplierActive } from "./admin-suppliers.ts";
 import { publicSupplier } from "./sql/sellable.ts";
 
 /**
@@ -41,19 +38,8 @@ export interface TeamSupplierFlag {
 export interface TeamSupplierFlags {
   flags: TeamSupplierFlag[];
   activeCount: number;
-  /** 3 or more active flags: the supplier is out unless the team reactivated it. */
-  reachedLimit: boolean;
-}
-
-export interface AppliedSupplierFlag {
-  id: string;
-  expiresAt: Date;
-  /** Active flags, counting the one just applied. */
-  activeCount: number;
-  /** This flag was the 3rd active one and put the supplier out. */
-  supplierDeactivated: boolean;
-  /** Live listings paused by that deactivation (0 when it did not happen). */
-  pausedTargets: number;
+  /** 3 or more active flags: the team should look at the supplier. Nothing else happens. */
+  needsAttention: boolean;
 }
 
 /** What the supplier sees of one of its active flags. */
@@ -65,116 +51,38 @@ export interface SupplierPanelFlag {
   expiresAt: Date;
 }
 
-export interface FlaggableSupplier {
-  name: string;
-  active: boolean;
-}
-
 /**
- * Only the name and whether it is active: the flags page is open to the whole team, while the
- * rest of the supplier record (contact e-mail, deadlines, catalog) stays with admins.
+ * Only the name: the flags page is open to the whole team, while the rest of the supplier record
+ * (contact e-mail, deadlines, catalog) stays with admins.
  */
-export async function getFlaggableSupplier(
+export async function getFlaggableSupplierName(
   database: DatabaseExecutor,
   supplierId: string,
-): Promise<FlaggableSupplier> {
+): Promise<string> {
   const [supplier] = await database
-    .select({ name: suppliers.name, active: suppliers.active })
+    .select({ name: suppliers.name })
     .from(suppliers)
     .where(and(eq(suppliers.id, supplierId), publicSupplier()))
     .limit(1);
   if (supplier === undefined) {
     throw notFoundError(`Fornecedor não encontrado: ${supplierId}.`);
   }
-  return supplier;
+  return supplier.name;
 }
 
-/**
- * Locks the supplier's row for the rest of the transaction: two team members applying at once
- * must not both see 2 active flags and both skip the 3rd-flag confirmation.
- */
-async function lockFlaggableSupplier(
-  transaction: DatabaseExecutor,
+async function assertFlaggableSupplier(
+  database: DatabaseExecutor,
   supplierId: string,
-): Promise<FlaggableSupplier> {
-  const [supplier] = await transaction
-    .select({ name: suppliers.name, active: suppliers.active })
-    .from(suppliers)
-    .where(and(eq(suppliers.id, supplierId), publicSupplier()))
-    .for("update");
-  if (supplier === undefined) {
-    throw notFoundError(`Fornecedor não encontrado: ${supplierId}.`);
-  }
-  return supplier;
+): Promise<void> {
+  await getFlaggableSupplierName(database, supplierId);
 }
 
-async function countActiveFlags(transaction: DatabaseExecutor, supplierId: string) {
-  const [active] = await transaction
-    .select({ value: count() })
-    .from(supplierFlags)
-    .where(
-      and(
-        eq(supplierFlags.supplierId, supplierId),
-        isNull(supplierFlags.revokedAt),
-        gt(supplierFlags.expiresAt, sql`${MILLISECOND_NOW}`),
-      ),
-    );
-  return active?.value ?? 0;
-}
-
-interface NewSupplierFlag {
-  supplierId: string;
-  reason: SupplierFlagReason;
-  note: string;
-  createdBy: string;
-}
-
-/**
- * Applies a flag. When it is the 3rd active one of an active supplier (three strikes), it also
- * deactivates the supplier in the same transaction, but only with `confirmDeactivation`: without
- * it the flag is refused, so a team member whose screen still showed 1 flag never puts a supplier
- * out without having been asked.
- */
 export async function applySupplierFlag(
   database: DatabaseExecutor,
-  input: NewSupplierFlag & { confirmDeactivation?: boolean },
-): Promise<AppliedSupplierFlag> {
-  return await database.transaction(async (transaction) => {
-    const supplier = await lockFlaggableSupplier(transaction, input.supplierId);
-    const activeFlagCount = await countActiveFlags(transaction, input.supplierId);
-    const deactivates = flagDeactivatesSupplier({
-      activeFlagCount,
-      supplierActive: supplier.active,
-    });
-    if (deactivates && input.confirmDeactivation !== true) {
-      throw conflictError(
-        `${deactivatingFlagNotice(activeFlagCount)}. Confirme o desligamento para aplicar.`,
-      );
-    }
-    const created = await insertSupplierFlag(transaction, input);
-    if (!deactivates) {
-      return {
-        ...created,
-        activeCount: activeFlagCount + 1,
-        supplierDeactivated: false,
-        pausedTargets: 0,
-      };
-    }
-    const { pausedTargets } = await setAdminSupplierActive(transaction, input.supplierId, false);
-    return {
-      ...created,
-      activeCount: activeFlagCount + 1,
-      supplierDeactivated: true,
-      pausedTargets,
-    };
-  });
-}
-
-async function insertSupplierFlag(
-  transaction: DatabaseExecutor,
-  input: NewSupplierFlag,
+  input: { supplierId: string; reason: SupplierFlagReason; note: string; createdBy: string },
 ): Promise<{ id: string; expiresAt: Date }> {
-  const [created] = await transaction
+  await assertFlaggableSupplier(database, input.supplierId);
+  const [created] = await database
     .insert(supplierFlags)
     .values({
       supplierId: input.supplierId,
@@ -221,7 +129,7 @@ export async function listTeamSupplierFlags(
     .orderBy(desc(supplierFlags.createdAt), desc(supplierFlags.id));
   const flags = rows.map((row) => ({ ...row, status: supplierFlagStatus(row, now) }));
   const activeCount = flags.filter((flag) => flag.status === "active").length;
-  return { flags, activeCount, reachedLimit: reachedFlagLimit(activeCount) };
+  return { flags, activeCount, needsAttention: needsTeamAttention(activeCount) };
 }
 
 /** The supplier's own active flags, most recent first. */
@@ -267,34 +175,12 @@ async function explainUnrevokable(
   throw conflictError("Esta flag já venceu e não conta mais.");
 }
 
-interface FlagRevocation {
-  supplierId: string;
-  flagId: string;
-  revokedBy: string;
-  revokeNote: string;
-  now: Date;
-}
-
-/**
- * Revokes an active flag of this supplier; one already revoked or expired is refused. Takes the
- * same supplier lock as `applySupplierFlag`: a revoke committing between the apply's count and its
- * commit would leave a supplier put out with only 2 active flags.
- */
+/** Revokes an active flag of this supplier; one already revoked or expired is refused. */
 export async function revokeSupplierFlag(
   database: DatabaseExecutor,
-  input: FlagRevocation,
+  input: { supplierId: string; flagId: string; revokedBy: string; revokeNote: string; now: Date },
 ): Promise<{ id: string }> {
-  return await database.transaction(async (transaction) => {
-    await lockFlaggableSupplier(transaction, input.supplierId);
-    return await revokeLockedFlag(transaction, input);
-  });
-}
-
-async function revokeLockedFlag(
-  transaction: DatabaseExecutor,
-  input: FlagRevocation,
-): Promise<{ id: string }> {
-  const [revoked] = await transaction
+  const [revoked] = await database
     .update(supplierFlags)
     .set({ revokedAt: input.now, revokedBy: input.revokedBy, revokeNote: input.revokeNote })
     .where(
@@ -307,7 +193,7 @@ async function revokeLockedFlag(
     )
     .returning({ id: supplierFlags.id });
   if (revoked === undefined) {
-    return await explainUnrevokable(transaction, input);
+    return await explainUnrevokable(database, input);
   }
   return revoked;
 }

@@ -690,10 +690,6 @@ Telefone, e-mail, WhatsApp e redes sociais são recusados no servidor em instru�
 
 Motivos fixos, validade de 90 dias, contador "X de 3", contestação por chamado e nenhuma punição automática. A rota `/admin/fornecedores/:id/flags` fica aberta a toda a equipe; só admin e supervisor aplicam ou retiram.
 
-## 2026-10-22: Regras de ouro e terceira flag (PR #108)
-
-Cinco regras de ouro do fornecedor (`@sellbridge/shared/supplier-golden-rules`); cada motivo de flag aponta a regra que quebra ("Outro" não tem regra). Três flags e fora: a flag que seria a 3ª ativa de um fornecedor ativo pede confirmação a quem aplica e, confirmada, desativa o fornecedor pelo mesmo mecanismo da ficha (`setAdminSupplierActive`, que pausa os anúncios), na mesma transação. Nada acontece sozinho; só um administrador reativa.
-
 ## 2026-10-22: Lugares fixos para novidades no sino (PR #93)
 
 O sino reserva 5 lugares fixos para novidades quando os problemas abertos lotam o sino.

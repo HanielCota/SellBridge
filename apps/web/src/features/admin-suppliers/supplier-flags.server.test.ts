@@ -1,6 +1,6 @@
 import type {
   applySupplierFlag,
-  getFlaggableSupplier,
+  getFlaggableSupplierName,
   listTeamSupplierFlags,
   recordCatalogEvent,
   revokeSupplierFlag,
@@ -11,8 +11,7 @@ const mocks = vi.hoisted(() => ({
   apply: vi.fn<typeof applySupplierFlag>(),
   revoke: vi.fn<typeof revokeSupplierFlag>(),
   list: vi.fn<typeof listTeamSupplierFlags>(),
-  supplier: vi.fn<typeof getFlaggableSupplier>(),
-  stockSync: vi.fn<(failureEvent: string) => Promise<boolean>>(),
+  supplierName: vi.fn<typeof getFlaggableSupplierName>(),
   record: vi.fn<typeof recordCatalogEvent>(),
   info: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
@@ -21,40 +20,27 @@ vi.mock("@sellbridge/database/repositories", () => ({
   applySupplierFlag: mocks.apply,
   revokeSupplierFlag: mocks.revoke,
   listTeamSupplierFlags: mocks.list,
-  getFlaggableSupplier: mocks.supplier,
+  getFlaggableSupplierName: mocks.supplierName,
   recordCatalogEvent: mocks.record,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
-vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.stockSync }));
 vi.mock("@sellbridge/shared/logger", () => ({
-  logger: { info: mocks.info, error: mocks.error, warn: mocks.info },
+  logger: { info: mocks.info, error: mocks.error, warn: mocks.error },
 }));
 import { applyFlag, loadTeamSupplierFlags, revokeFlag } from "./supplier-flags.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
 const flagId = "1b6f3a8e-2c4d-4e5f-8a9b-0c1d2e3f4a5b";
-const apply = {
-  supplierId,
-  reason: "slow_support" as const,
-  note: "Chamado parado há 5 dias",
-  confirmDeactivation: false,
-};
+const apply = { supplierId, reason: "slow_support" as const, note: "Chamado parado há 5 dias" };
 const revoke = { supplierId, flagId, revokeNote: "Aplicada por engano" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.apply.mockResolvedValue({
-    id: flagId,
-    expiresAt: new Date("2026-12-01T00:00:00Z"),
-    activeCount: 1,
-    supplierDeactivated: false,
-    pausedTargets: 0,
-  });
-  mocks.stockSync.mockResolvedValue(true);
+  mocks.apply.mockResolvedValue({ id: flagId, expiresAt: new Date("2026-12-01T00:00:00Z") });
   mocks.revoke.mockResolvedValue({ id: flagId });
-  mocks.list.mockResolvedValue({ flags: [], activeCount: 0, reachedLimit: false });
+  mocks.list.mockResolvedValue({ flags: [], activeCount: 0, needsAttention: false });
   mocks.record.mockResolvedValue();
-  mocks.supplier.mockResolvedValue({ name: "Cerâmica do Teste", active: true });
+  mocks.supplierName.mockResolvedValue("Cerâmica do Teste");
 });
 
 describe("applying a supplier flag", () => {
@@ -80,39 +66,6 @@ describe("applying a supplier flag", () => {
         details: { flagId, reason: "slow_support" },
       },
     );
-  });
-
-  it("records the 3rd strike as a supplier deactivation and pushes the paused stock", async () => {
-    mocks.apply.mockResolvedValue({
-      id: flagId,
-      expiresAt: new Date("2026-12-01T00:00:00Z"),
-      activeCount: 3,
-      supplierDeactivated: true,
-      pausedTargets: 4,
-    });
-    await applyFlag(
-      { userId: "supervisor-1", role: "supervisor" },
-      { ...apply, confirmDeactivation: true },
-    );
-
-    expect(mocks.apply).toHaveBeenCalledWith(
-      {},
-      expect.objectContaining({ confirmDeactivation: true }),
-    );
-    expect(mocks.record).toHaveBeenCalledWith(
-      {},
-      expect.objectContaining({
-        action: "supplier.deactivated",
-        details: { pausedTargets: 4, cause: "third_flag", flagId },
-      }),
-    );
-    expect(mocks.stockSync).toHaveBeenCalledTimes(1);
-  });
-
-  it("leaves the supplier alone below the 3rd strike", async () => {
-    await applyFlag({ userId: "admin-1", role: "admin" }, apply);
-    expect(mocks.record).toHaveBeenCalledTimes(1);
-    expect(mocks.stockSync).not.toHaveBeenCalled();
   });
 
   it("keeps the note out of the logs", async () => {
@@ -160,8 +113,7 @@ describe("listing a supplier's flags for the team", () => {
       "activeCount",
       "canManage",
       "flags",
-      "reachedLimit",
-      "supplierActive",
+      "needsAttention",
       "supplierName",
     ]);
     expect(view.supplierName).toBe("Cerâmica do Teste");
