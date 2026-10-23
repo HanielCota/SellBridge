@@ -1,12 +1,11 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { termsAcceptances, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 async function acceptedVersions(email: string): Promise<string[]> {
   const rows = await database

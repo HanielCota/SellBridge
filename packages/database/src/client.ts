@@ -4,8 +4,16 @@ import * as schema from "./schema/index.ts";
 
 export type Database = ReturnType<typeof createDatabase>;
 
-export function createDatabase(databaseUrl: string, options: { maxConnections?: number } = {}) {
-  const client = postgres(databaseUrl, { max: options.maxConnections ?? 10 });
+interface DatabaseOptions {
+  maxConnections?: number;
+  /** Names the connections in `pg_stat_activity`, so a caller's share of the pool shows there. */
+  applicationName?: string;
+}
+
+export function createDatabase(databaseUrl: string, options: DatabaseOptions = {}) {
+  const connection =
+    options.applicationName === undefined ? {} : { application_name: options.applicationName };
+  const client = postgres(databaseUrl, { max: options.maxConnections ?? 10, connection });
   return drizzle({ client, schema, casing: "snake_case" });
 }
 
