@@ -247,6 +247,20 @@ describe("supplier flags", () => {
     expect(third).toMatchObject({ activeCount: 3, supplierDeactivated: false });
   });
 
+  it("names a reactivated supplier's next flag without counting past 3", async () => {
+    const supplierId = await createSupplier();
+    await applyTwoFlags(supplierId);
+    await applySupplierFlag(database, {
+      ...flagInput(supplierId, "stale_catalog"),
+      confirmDeactivation: true,
+    });
+    await database.update(suppliers).set({ active: true }).where(eq(suppliers.id, supplierId));
+
+    await expect(applySupplierFlag(database, flagInput(supplierId, "order_error"))).rejects.toThrow(
+      "O fornecedor foi reativado com 3 flags ativas",
+    );
+  });
+
   it("refuses 'other' without a note at the database too", async () => {
     const supplierId = await createSupplier();
     await expect(

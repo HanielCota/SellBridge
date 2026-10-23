@@ -1,5 +1,6 @@
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
+  deactivatingFlagNotice,
   flagDeactivatesSupplier,
   reachedFlagLimit,
   SUPPLIER_FLAG_VALIDITY_DAYS,
@@ -147,7 +148,7 @@ export async function applySupplierFlag(
     });
     if (deactivates && input.confirmDeactivation !== true) {
       throw conflictError(
-        `Esta seria a flag ${activeFlagCount + 1} de 3 e desliga o fornecedor. Confirme o desligamento para aplicar.`,
+        `${deactivatingFlagNotice(activeFlagCount)}. Confirme o desligamento para aplicar.`,
       );
     }
     const created = await insertSupplierFlag(transaction, input);

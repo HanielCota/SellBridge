@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DAY_MILLISECONDS } from "./time.ts";
 import {
   applySupplierFlagSchema,
+  deactivatingFlagNotice,
   flagDeactivatesSupplier,
   reachedFlagLimit,
   revokeSupplierFlagSchema,
@@ -89,6 +90,13 @@ describe("three strikes", () => {
 
   it("has nothing to deactivate when the supplier is already off", () => {
     expect(flagDeactivatesSupplier({ activeFlagCount: 2, supplierActive: false })).toBe(false);
+  });
+
+  it("never counts past 3 when warning about a reactivated supplier", () => {
+    expect(deactivatingFlagNotice(2)).toBe("Esta é a flag 3 de 3: o fornecedor será desligado");
+    expect(deactivatingFlagNotice(3)).toBe(
+      "O fornecedor foi reativado com 3 flags ativas: esta flag o desliga de novo",
+    );
   });
 });
 

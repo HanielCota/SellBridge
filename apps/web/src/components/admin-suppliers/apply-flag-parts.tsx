@@ -1,5 +1,5 @@
 import type { AppliedSupplierFlag } from "@sellbridge/database/repositories";
-import type { SupplierFlagReason } from "@sellbridge/shared/supplier-flags";
+import { deactivatingFlagNotice, type SupplierFlagReason } from "@sellbridge/shared/supplier-flags";
 import { goldenRuleForReason, goldenRuleLabel } from "@sellbridge/shared/supplier-golden-rules";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,7 +45,7 @@ export function DeactivationConfirm({
 }) {
   return (
     <Alert variant="destructive">
-      <AlertTitle>Esta é a flag {activeCount + 1} de 3: o fornecedor será desligado</AlertTitle>
+      <AlertTitle>{deactivatingFlagNotice(activeCount)}</AlertTitle>
       <AlertDescription className="space-y-3">
         <p>
           Os produtos dele saem do catálogo e os anúncios dos revendedores são pausados. Só um

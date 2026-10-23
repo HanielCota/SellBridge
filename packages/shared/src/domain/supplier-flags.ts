@@ -88,6 +88,18 @@ export function flagDeactivatesSupplier(supplier: {
   return supplier.supplierActive && reachedFlagLimit(supplier.activeFlagCount + 1);
 }
 
+/**
+ * What the team reads before the flag that puts the supplier out. A supplier reactivated with 3
+ * active flags would otherwise read "flag 4 de 3".
+ */
+export function deactivatingFlagNotice(activeFlagCount: number): string {
+  const next = activeFlagCount + 1;
+  if (next <= SUPPLIER_FLAG_LIMIT) {
+    return `Esta é a flag ${next} de ${SUPPLIER_FLAG_LIMIT}: o fornecedor será desligado`;
+  }
+  return `O fornecedor foi reativado com ${activeFlagCount} flags ativas: esta flag o desliga de novo`;
+}
+
 /** Most recent first; a tie keeps the order it came in. Returns a new array. */
 export function newestFlagsFirst<Flag extends { createdAt: Date }>(flags: readonly Flag[]): Flag[] {
   return flags.toSorted((first, second) => second.createdAt.getTime() - first.createdAt.getTime());
