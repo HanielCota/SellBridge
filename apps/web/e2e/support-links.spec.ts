@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { organization, orders } from "@sellbridge/database/schema";
 import { desc, eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 test.afterAll(async () => {
   await database.$client.end();

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
-import { encodeMockOrderResource } from "@sellbridge/marketplaces";
+import { encodeMockOrderResource, openShippingAddress } from "@sellbridge/marketplaces";
 import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,6 +119,43 @@ describe("webhook-event processor", () => {
       .from(schema.orderItems)
       .where(eq(schema.orderItems.tenantId, tenantId));
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
+  });
+
+  it("stores the address sent with the order encrypted, and keeps it on a later update", async () => {
+    const externalOrderId = `SIM-${randomUUID()}`;
+    const address = {
+      recipient: "Ana Souza",
+      street: "Rua das Palmeiras",
+      number: "120",
+      complement: "",
+      neighborhood: "Centro",
+      city: "Campinas",
+      state: "SP",
+      postalCode: "13010-000",
+    };
+    const withAddress = encodeMockOrderResource({
+      externalOrderId,
+      status: "paid",
+      totalCents: 4990,
+      marketplaceFeeCents: 700,
+      buyerName: "Comprador",
+      shippingAddress: address,
+      orderedAt: new Date().toISOString(),
+      items: [
+        { externalListingId: "MOCK-ITEM-WH", title: "Anúncio", quantity: 1, unitPriceCents: 4990 },
+      ],
+    });
+    await processWebhook(job(await recordEvent({ shopId, resource: withAddress })));
+    const withoutAddress = orderResource("MOCK-ITEM-WH", "paid", externalOrderId);
+    expect(await processWebhook(job(await recordEvent({ shopId, resource: withoutAddress })))).toBe(
+      "order_updated",
+    );
+    const [row] = await database
+      .select({ sealed: schema.orders.shippingAddressEnc })
+      .from(schema.orders)
+      .where(eq(schema.orders.externalOrderId, externalOrderId));
+    expect(row?.sealed).not.toContain("Palmeiras");
+    expect(openShippingAddress(environment.cipher, row?.sealed ?? null)).toEqual(address);
   });
 });
 

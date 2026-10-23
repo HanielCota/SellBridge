@@ -1,4 +1,5 @@
 import { marketplaceError } from "./errors.ts";
+import { SHIPPING_ADDRESS_NOT_SUPPORTED } from "./shipping-address.ts";
 import type { MarketplaceConnector, MarketplaceId, WebhookVerification } from "./types.ts";
 
 /**
@@ -32,5 +33,6 @@ export function createUnavailableConnector(
       payload: null,
     }),
     parseStoredOrderEvent: () => null,
+    readShippingAddress: async () => SHIPPING_ADDRESS_NOT_SUPPORTED,
   };
 }

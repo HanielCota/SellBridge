@@ -1,4 +1,5 @@
 import type { Cents } from "@sellbridge/shared/money";
+import type { MarketplaceShippingAddress, ShippingAddressReading } from "./shipping-address.ts";
 
 export type MarketplaceId = "mock" | "mercado_livre" | "shopee" | "tiktok_shop";
 
@@ -88,6 +89,11 @@ export interface MarketplaceOrder {
    */
   refundedCents?: Cents | undefined;
   buyerName: string | null;
+  /**
+   * Where the parcel goes, when the marketplace sends it with the order (validated with
+   * `marketplaceShippingAddressSchema`); undefined when it does not. Stored encrypted.
+   */
+  shippingAddress?: MarketplaceShippingAddress | undefined;
   orderedAt: Date;
   items: MarketplaceOrderItem[];
 }
@@ -149,4 +155,12 @@ export interface MarketplaceConnector {
   verifyWebhook(request: WebhookRequest): Promise<WebhookVerification>;
   /** Reads the order reference of a stored webhook event; null when the topic is not about orders. */
   parseStoredOrderEvent(topic: string, rawPayload: unknown): StoredOrderEvent | null;
+  /**
+   * Optional: reads an order's shipping address with its own call, for marketplaces that do not
+   * send it with the order. Absent means "unavailable" (docs/marketplaces/order-shipping-address.md).
+   */
+  readShippingAddress?(
+    credentials: StoreCredentials,
+    externalOrderId: string,
+  ): Promise<ShippingAddressReading>;
 }

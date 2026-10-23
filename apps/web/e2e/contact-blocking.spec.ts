@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import {
   adminAuditEvents,
   member,
@@ -17,15 +16,15 @@ import {
 } from "@sellbridge/database/schema";
 import { CONTACT_DETAILS_REFUSED } from "@sellbridge/shared/schemas";
 import { and, eq, gt, ilike, inArray, sql } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { DEMO_USER, gotoHydrated, SIGN_UP_PASSWORD, signIn, signUpAsSupplier } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /*
  * The user's rule: reseller and supplier never get each other's phone, e-mail or social network.
  * The instructions, the occurrences and the tracking fields refuse them on the form and on the
  * server, also when the request is changed on its way past the form, and the try is audited.
  */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const stamp = randomUUID().slice(0, 8);
 const externalOrderId = `E2E-CONTATO-${stamp}`;
 /** Set to save the screenshots for the report; the widths then follow the report's. */

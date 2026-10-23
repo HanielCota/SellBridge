@@ -17,6 +17,8 @@ export interface IncomingOrder {
   /** Money given back to the buyer so far; omitted when the source does not report it. */
   refundedCents?: number | undefined;
   buyerName: string | null;
+  /** Encrypted shipping address; omitted or null keeps the one already stored. */
+  shippingAddressEnc?: string | null | undefined;
   orderedAt: Date;
   items: { externalListingId: string; title: string; quantity: number; unitPriceCents: number }[];
 }
@@ -118,6 +120,8 @@ async function updateExistingOrder(
       totalCents: write.order.totalCents,
       marketplaceFeeCents: write.order.marketplaceFeeCents,
       deliveredAt: deliveredAtOnUpdate(existing, write.order.status),
+      // A later delivery without the address (a status-only update) never erases it.
+      shippingAddressEnc: write.order.shippingAddressEnc ?? existing.shippingAddressEnc,
     })
     .where(eq(orders.id, existing.id));
   // Re-deliveries of the same status (retries, total changes) are not news to integrators.
@@ -174,6 +178,7 @@ async function createOrder(write: OrderWrite): Promise<OrderWriteResult | null> 
       totalCents: order.totalCents,
       marketplaceFeeCents: order.marketplaceFeeCents,
       buyerName: order.buyerName,
+      shippingAddressEnc: order.shippingAddressEnc ?? null,
       orderedAt: order.orderedAt,
       deliveredAt: order.status === "delivered" ? order.orderedAt : null,
     })

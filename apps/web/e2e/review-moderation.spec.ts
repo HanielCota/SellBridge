@@ -1,5 +1,4 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import {
   member,
   orderItems,
@@ -11,7 +10,7 @@ import {
   user,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 import {
   ADMIN_USER,
   DEMO_USER,
@@ -26,7 +25,7 @@ import {
  * MVP function 4: the comment of a supplier review is read only by moderation (admins and
  * supervisors). Other resellers and the supplier keep the rating and the reasons.
  */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const RUN = Date.now();
 const SUPPLIER = `Fornecedor moderação ${RUN}`;
 const ORDER = `MOD-${RUN}`;

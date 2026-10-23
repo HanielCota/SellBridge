@@ -1,5 +1,4 @@
 import {
-  getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
   reforwardShipment,
@@ -20,6 +19,7 @@ import { z } from "zod";
 import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { database } from "@/lib/server/database";
 import { publicMiddleware, tenantMiddleware } from "@/lib/server/middleware";
+import { loadFulfillmentDetail } from "./fulfillment-detail.server";
 import { forwardAndNotify } from "./forward.server";
 import { writeShipmentUpdate } from "./shipments.server";
 
@@ -40,7 +40,7 @@ export const listOperationsFn = createServerFn({ method: "GET" })
 export const getFulfillmentFn = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(idSchema)
-  .handler(({ context, data }) => getFulfillmentDetail(database, context.tenantId, data.orderId));
+  .handler(({ context, data }) => loadFulfillmentDetail(context.tenantId, data.orderId));
 export const forwardOrderFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware, blockedContactLogging("seller_app")])
   .validator(forwardOrderSchema)
