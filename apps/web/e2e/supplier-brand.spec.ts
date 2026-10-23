@@ -1,13 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { member, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
-import { gotoHydrated, signUpAsSupplier } from "./helpers";
+import { gotoHydrated } from "./helpers";
+import { e2eDatabase } from "./database";
+import { supplierAccounts } from "./supplier-accounts";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
+const accounts = supplierAccounts(database);
 
 test.afterAll(async () => {
+  await accounts.removeAll();
   await database.$client.end();
 });
 
@@ -35,7 +37,7 @@ test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page 
       browserErrors.push(message.text());
     }
   });
-  const email = await signUpAsSupplier(page, "Olaria Nova");
+  const email = await accounts.signUp(page, "Olaria Nova");
   await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
 
   await page.getByLabel("Nome da marca").fill("Olaria Nova");
@@ -55,7 +57,7 @@ test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page 
 });
 
 test("fornecedor edita os dados da marca", async ({ page }) => {
-  const email = await signUpAsSupplier(page, "Olaria Editada");
+  const email = await accounts.signUp(page, "Olaria Editada");
   await page.getByLabel("Nome da marca").fill("Olaria Editada");
   await page.getByLabel("O que você vende (nicho)").fill("Cozinha");
   await page.getByLabel("Cidade de onde você envia").fill("Cunha");
