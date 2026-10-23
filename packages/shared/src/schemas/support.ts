@@ -80,6 +80,22 @@ export const createTicketSchema = z.object({
   /** What the ticket is about when opened from an order, store or listing ("Pedido 123"). */
   about: optionalFormText(120),
   body: ticketBodySchema,
+  /** The automatic answer the customer read before pressing "Ainda preciso de ajuda". */
+  assistantAnswerId: optionalFormText(40),
+});
+
+/** What the support assistant reads: the same topic, situation and text the ticket would carry. */
+export const askSupportAssistantSchema = z.object({
+  category: ticketCategorySchema,
+  situation: optionalFormText(40),
+  body: ticketBodySchema,
+});
+
+/** "Resolveu meu problema": only ids, never the customer's text. */
+export const supportAssistantOutcomeSchema = z.object({
+  category: ticketCategorySchema,
+  situation: optionalFormText(40),
+  answerId: z.string().trim().min(1).max(40),
 });
 
 /** Prefills the new-ticket form from a page that links to it (an error card, a listing). */
