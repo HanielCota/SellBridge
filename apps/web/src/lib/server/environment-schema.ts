@@ -9,6 +9,10 @@ import {
 } from "@sellbridge/shared/environment";
 import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
 import { z } from "zod";
+import {
+  CARRIER_TRACKING_PROVIDERS,
+  type CarrierTrackingProviderName,
+} from "@/features/tracking/carrier-tracking";
 
 /** The value .env.example ships with: fine locally, never in production. */
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
@@ -95,6 +99,11 @@ const serverEnvironmentShape = z.object({
    */
   LEAKED_PASSWORD_CHECK: z.enum(["auto", "on", "off"]).default("auto"),
   /**
+   * Where the order tracking reads the carrier's events: "off" (no carrier connected yet) or
+   * "simulated" (demonstration events, development only). Unset: simulated outside production.
+   */
+  CARRIER_TRACKING_PROVIDER: z.enum(CARRIER_TRACKING_PROVIDERS).optional(),
+  /**
    * Who writes the automatic first answer in support. "deepseek" is not wired yet: it reports
    * "not configured" and the local FAQ answers instead.
    */
@@ -137,12 +146,35 @@ function checkProductionBilling(value: ServerEnvironmentShape, context: z.Refine
   }
 }
 
+/** Made-up carrier events must never reach a real customer as if they were the carrier's. */
+function checkProductionCarrierTracking(value: ServerEnvironmentShape, context: z.RefinementCtx) {
+  if (value.CARRIER_TRACKING_PROVIDER !== "simulated") {
+    return;
+  }
+  context.addIssue({
+    code: "custom",
+    path: ["CARRIER_TRACKING_PROVIDER"],
+    message: 'recebeu "simulated", que é só para desenvolvimento; em produção use "off"',
+  });
+}
+
 export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value, context) => {
   if (value.NODE_ENV !== "production") {
     return;
   }
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
+  checkProductionCarrierTracking(value, context);
 });
+
+/** The configured provider, or the default: simulated in development and tests, off in production. */
+export function carrierTrackingProviderName(
+  environment: Pick<ServerEnvironmentShape, "NODE_ENV" | "CARRIER_TRACKING_PROVIDER">,
+): CarrierTrackingProviderName {
+  if (environment.CARRIER_TRACKING_PROVIDER !== undefined) {
+    return environment.CARRIER_TRACKING_PROVIDER;
+  }
+  return environment.NODE_ENV === "production" ? "off" : "simulated";
+}
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;
