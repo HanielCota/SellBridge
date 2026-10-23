@@ -9,6 +9,7 @@ import {
   listListingTargets,
   listOrderFinancials,
   listStoreConnections,
+  listSupplierCredits,
   type ReportScope,
 } from "@sellbridge/database/repositories";
 import {
@@ -169,6 +170,10 @@ export const getFinancials = createServerFn({ method: "GET" })
       listOrderFinancials(database, picked.scope, statementQuery(data, picked.day)),
       listStoreConnections(database, context.tenantId),
     ]);
+    const returnedOrderIds = orders.items
+      .filter((row) => row.status === "returned")
+      .map((row) => row.id);
+    const supplierCredits = await listSupplierCredits(database, context.tenantId, returnedOrderIds);
     return {
       period: {
         fromDate: period.fromDate,
@@ -190,6 +195,8 @@ export const getFinancials = createServerFn({ method: "GET" })
       previousTimeseries,
       monthly,
       orders,
+      /** Where the supplier's credit stands for each returned order on this page. */
+      supplierCredits,
       stores: stores.map((store) => ({ id: store.id, name: store.shopName })),
     };
   });

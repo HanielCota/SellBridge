@@ -22,6 +22,7 @@ import {
 import { AssistantAnswerNote } from "@/components/support/assistant-answer-note";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
 import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
+import { ReturnClaimDecision } from "@/components/support/return-claim-decision";
 import { TicketThread } from "@/components/support/ticket-thread";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -155,6 +156,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
       {reopenedByVerdict(detail) ? <NotSolvedBanner /> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
+          <ReturnClaimDecision claim={detail.returnClaim} viewerRole={session.user.role} />
           <AssistantAnswerNote answer={detail.assistantAnswer} />
           <TicketThread
             messages={messages}

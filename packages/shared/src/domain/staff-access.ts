@@ -22,6 +22,8 @@ export type StaffPermission =
   | "support.assign_others"
   /** Sees the support metrics (volume, response times, satisfaction). */
   | "support.metrics"
+  /** Decides whether the supplier credits the reseller for a returned order: money, so no agents. */
+  | "support.credit_returns"
   /** Customer accounts: profile, region, stores, ban, sessions, roles; enters any account. */
   | "customers.manage"
   /** Enters a customer's account as them; without `customers.manage`, only with an open ticket. */
@@ -48,6 +50,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "suppliers.view_flags",
     "suppliers.flag",
     "reviews.moderate",
+    "support.credit_returns",
     "customers.impersonate",
   ],
   admin: [
@@ -55,6 +58,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "support.triage",
     "support.assign_others",
     "support.metrics",
+    "support.credit_returns",
     "customers.manage",
     "customers.impersonate",
     "audit.view",

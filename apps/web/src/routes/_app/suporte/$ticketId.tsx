@@ -9,6 +9,7 @@ import { CustomerTicketHeader } from "@/components/support/customer-ticket-heade
 import { OrderLinkPicker } from "@/components/support/order-link-picker";
 import { ReplyForm, type ReplyComposerHandle } from "@/components/support/reply-form";
 import { ResolvedPrompt } from "@/components/support/resolved-prompt";
+import { ReturnClaimCard } from "@/components/support/return-claim-card";
 import { RatingStars, TicketRatingForm } from "@/components/support/ticket-rating";
 import { TicketThread } from "@/components/support/ticket-thread";
 import { IconAction } from "@/components/support/composer-parts";
@@ -179,6 +180,9 @@ function TicketView({ detail }: { detail: TicketDetail }) {
         followers={detail.followers}
         notifyMe={detail.notifyMe}
       />
+      {detail.returnClaim === null ? null : (
+        <ReturnClaimCard claim={detail.returnClaim} viewer={session.profileKind} />
+      )}
       <TicketThread
         messages={messages}
         events={detail.events}
