@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useRef, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TruckIcon } from "@phosphor-icons/react";
 import { SHIPMENT_DELAY_LABELS } from "@sellbridge/shared/shipment-delay";
 import { ToneStatus } from "@/components/data/tone-status";
@@ -14,10 +14,10 @@ import {
   TRACKING_QUERY_MAX_LENGTH,
   trackingQuerySchema,
 } from "@/features/tracking/carrier-tracking";
-import { searchTrackingFn } from "@/features/tracking/order-tracking.functions";
 import {
   orderTrackingQueryOptions,
   parcelsInTransitQueryOptions,
+  trackingSearchQueryOptions,
 } from "@/features/tracking/order-tracking.queries";
 import type { TrackingSearchResult } from "@/features/tracking/tracking-views";
 import { errorMessage } from "@/lib/errors";
@@ -37,18 +37,29 @@ export function OrderTracking({
   onTrackOrder: (orderId: string | undefined) => void;
 }) {
   const [searched, setSearched] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const sectionRef = useRef<HTMLElement>(null);
+  const search = (query: string) => {
+    onTrackOrder(undefined);
+    setSearched(query);
+    // The same text again is a "look again": the carrier may have scanned the parcel since.
+    if (query === searched) {
+      void queryClient.invalidateQueries({ queryKey: trackingSearchQueryOptions(query).queryKey });
+    }
+  };
   const showOrder = (orderId: string) => {
     setSearched(null);
     onTrackOrder(orderId);
+    // The result opens above the list: without this, a tap on a phone seems to do nothing.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    sectionRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
   };
   return (
-    <section className="space-y-4" aria-label="Rastreio dos pedidos">
-      <TrackingSearchForm
-        onSearch={(query) => {
-          onTrackOrder(undefined);
-          setSearched(query);
-        }}
-      />
+    <section ref={sectionRef} className="space-y-4" aria-label="Rastreio dos pedidos">
+      <TrackingSearchForm onSearch={search} />
       {searched === null ? null : <SearchResult query={searched} />}
       {searched === null && trackOrder !== undefined ? <OrderResult orderId={trackOrder} /> : null}
       <InTransitList onOpen={showOrder} />
@@ -105,10 +116,7 @@ function ResultSkeleton() {
 }
 
 function SearchResult({ query }: { query: string }) {
-  const search = useQuery({
-    queryKey: ["tracking-search", query],
-    queryFn: () => searchTrackingFn({ data: { query } }),
-  });
+  const search = useQuery(trackingSearchQueryOptions(query));
   if (search.isPending) {
     return <ResultSkeleton />;
   }

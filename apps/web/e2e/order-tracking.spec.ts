@@ -124,14 +124,26 @@ test("reseller tracks an order by code, by order number, by hand and from the or
   await expect(manual).toBeVisible();
   await expect(manual.getByText(/Demonstração/)).toBeVisible();
 
+  // The same text again looks again: the carrier may have scanned the parcel since.
+  const lookAgain = page.waitForRequest(
+    (request) => request.method() === "POST" && (request.postData() ?? "").includes(manualCode),
+  );
+  await page.getByRole("button", { name: "Rastrear" }).click();
+  await lookAgain;
+  await expect(manual).toBeVisible();
+
   await searchBox.fill("AB12");
   await page.getByRole("button", { name: "Rastrear" }).click();
   await expect(page.getByText(/Confira o que foi digitado/)).toBeVisible();
 
-  // The orders on their way can be opened with a tap.
+  // The orders on their way can be opened with a tap, and on a phone the result comes into view.
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const inTransit = page.getByRole("listitem").filter({ hasText: `Pedido ${externalId}` });
   await inTransit.getByRole("button", { name: "Ver rastreio" }).click();
-  await expect(parcel).toBeVisible();
+  await expect(searchBox).toBeInViewport();
+  await expect(parcel.getByRole("heading", { name: `Pedido ${externalId}` })).toBeInViewport();
+  await page.setViewportSize({ width: 1280, height: 720 });
   await expect(page).toHaveURL(new RegExp(`trackOrder=${orderId}`));
 
   await page.getByRole("button", { name: "Operação" }).click();

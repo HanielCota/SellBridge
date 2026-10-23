@@ -103,10 +103,14 @@ function OrdersPage() {
   const router = useRouter();
   // The tab and the operations filters live in the address: coming back from an order keeps them.
   const updateOperations = useCallback(
-    (patch: Partial<OrdersSearch>) => {
+    (patch: Partial<OrdersSearch>, resetScroll = true) => {
       // A search typed just before opening an order lands late: it must not pull the page back.
       if (!/^\/pedidos\/?$/.test(router.latestLocation.pathname)) return;
-      void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
+      void navigate({
+        search: (previous) => ({ ...previous, ...patch }),
+        replace: true,
+        resetScroll,
+      });
     },
     [navigate, router],
   );
@@ -134,7 +138,8 @@ function OrdersPage() {
       {search.view === "tracking" ? (
         <OrderTracking
           trackOrder={search.trackOrder}
-          onTrackOrder={(trackOrder) => updateOperations({ trackOrder })}
+          // The tab scrolls its result into view itself; a jump to the page top would undo it.
+          onTrackOrder={(trackOrder) => updateOperations({ trackOrder }, false)}
         />
       ) : null}
       <ReviewDialog
