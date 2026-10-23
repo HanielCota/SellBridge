@@ -135,7 +135,7 @@ export function TrackingParcel({ parcel }: { parcel: TrackedParcelView }) {
   const owner = parcel.catalogKind === "seller" ? "Seu envio" : parcel.supplierName;
   return (
     <section
-      className="surface-card space-y-4 rounded-2xl bg-card p-5"
+      className="surface-card space-y-4 rounded-3xl bg-card p-5"
       aria-label={`Rastreio do pedido ${parcel.externalOrderId}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">

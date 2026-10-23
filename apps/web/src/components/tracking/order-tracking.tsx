@@ -81,7 +81,7 @@ function TrackingSearchForm({ onSearch }: { onSearch: (query: string) => void })
     onSearch(parsed.data.query);
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-end" noValidate>
+    <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-start" noValidate>
       <div className="sm:max-w-md sm:flex-1">
         <Field
           label="Código de rastreio ou número do pedido"
@@ -93,14 +93,15 @@ function TrackingSearchForm({ onSearch }: { onSearch: (query: string) => void })
           autoCorrect="off"
           autoComplete="off"
           spellCheck={false}
+          enterKeyHint="search"
           onChange={(value) => {
             setTerm(value);
             setError(null);
           }}
         />
       </div>
-      {/* As tall as the field beside it on wider screens. */}
-      <Button type="submit" className="h-10">
+      {/* Level with the input below the label (14px line + 8px gap), even under an error. */}
+      <Button type="submit" className="h-10 sm:mt-5.5">
         Rastrear
       </Button>
     </form>
@@ -110,7 +111,7 @@ function TrackingSearchForm({ onSearch }: { onSearch: (query: string) => void })
 function ResultSkeleton() {
   return (
     <output aria-busy="true" aria-label="Consultando rastreio">
-      <Skeleton className="h-56 rounded-2xl" />
+      <Skeleton className="h-56 rounded-3xl" />
     </output>
   );
 }
@@ -142,7 +143,7 @@ function OrderResult({ orderId }: { orderId: string }) {
 /** A short, announced message in place of a result. */
 function ResultMessage({ children }: { children: string }) {
   return (
-    <output className="surface-card block rounded-2xl bg-card px-5 py-4 text-sm">{children}</output>
+    <output className="surface-card block rounded-3xl bg-card px-5 py-4 text-sm">{children}</output>
   );
 }
 
@@ -180,7 +181,7 @@ function TrackingResult({ result, query }: { result: TrackingSearchResult; query
 function ManualTracking({ result }: { result: Extract<TrackingSearchResult, { kind: "manual" }> }) {
   return (
     <section
-      className="surface-card space-y-4 rounded-2xl bg-card p-5"
+      className="surface-card space-y-4 rounded-3xl bg-card p-5"
       aria-label={`Rastreio do código ${result.code}`}
     >
       <div>
@@ -220,7 +221,7 @@ function InTransitRowView({
           <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[row.delay]} />
         )}
       </div>
-      <Button variant="outline" size="sm" onClick={() => onOpen(row.orderId)}>
+      <Button variant="outline" onClick={() => onOpen(row.orderId)}>
         Ver rastreio
       </Button>
     </li>
