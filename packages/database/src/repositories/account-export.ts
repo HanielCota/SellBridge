@@ -11,6 +11,8 @@ import {
   orders,
   session,
   storeConnections,
+  supplierReviews,
+  suppliers,
   ticketMessages,
   tickets,
   user,
@@ -161,6 +163,28 @@ async function exportTickets(database: Database, tenantId: string) {
   }));
 }
 
+/**
+ * The account's own supplier reviews, comment included: only moderation reads comments in the
+ * app, so this download is the one place the author gets them back.
+ */
+async function exportSupplierReviews(database: Database, tenantId: string) {
+  return database
+    .select({
+      externalOrderId: orders.externalOrderId,
+      supplierName: suppliers.name,
+      rating: supplierReviews.rating,
+      tags: supplierReviews.tags,
+      comment: supplierReviews.comment,
+      createdAt: supplierReviews.createdAt,
+      updatedAt: supplierReviews.updatedAt,
+    })
+    .from(supplierReviews)
+    .innerJoin(orders, eq(orders.id, supplierReviews.orderId))
+    .innerJoin(suppliers, eq(suppliers.id, supplierReviews.supplierId))
+    .where(eq(supplierReviews.tenantId, tenantId))
+    .orderBy(asc(supplierReviews.createdAt));
+}
+
 /** API keys by name and prefix only: the secret hash stays behind. */
 async function exportApiKeys(database: Database, tenantId: string) {
   return database
@@ -245,13 +269,14 @@ export async function collectAccountExport(database: Database, owner: Account) {
     exportOrders(database, owner.tenantId),
     exportTickets(database, owner.tenantId),
   ]);
-  const [keys, sessions, preferences, billing, logins, webhooks] = await Promise.all([
+  const [keys, sessions, preferences, billing, logins, webhooks, reviews] = await Promise.all([
     exportApiKeys(database, owner.tenantId),
     exportSessions(database, owner.userId),
     exportNotificationPreferences(database, owner.userId),
     exportBilling(database, owner.tenantId),
     exportLogins(database, owner.userId),
     exportWebhookEndpoints(database, owner.tenantId),
+    exportSupplierReviews(database, owner.tenantId),
   ]);
   return {
     format: ACCOUNT_EXPORT_FORMAT,
@@ -262,6 +287,7 @@ export async function collectAccountExport(database: Database, owner: Account) {
     listings: listingRows,
     orders: orderRows,
     tickets: ticketRows,
+    supplierReviews: reviews,
     apiKeys: keys,
     sessions,
     notificationPreferences: preferences,

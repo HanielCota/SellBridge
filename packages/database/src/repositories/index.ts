@@ -27,6 +27,7 @@ export * from "./order-message-delivery.ts";
 export * from "./customers.ts";
 export * from "./notifications.ts";
 export * from "./global-search.ts";
+export * from "./review-moderation.ts";
 export * from "./supplier-reviews.ts";
 export * from "./supplier-flags.ts";
 export * from "./api-keys.ts";

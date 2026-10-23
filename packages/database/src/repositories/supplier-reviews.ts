@@ -1,5 +1,4 @@
 import {
-  redactContactDetails,
   REVIEW_ASPECTS,
   reviewTagSchema,
   toPaginated,
@@ -201,51 +200,6 @@ export async function getSupplierReputationStats(
       ),
     ]),
   );
-}
-
-export interface PublicSupplierReview {
-  id: string;
-  rating: number;
-  tags: string[];
-  comment: string;
-  createdAt: Date;
-}
-
-/**
- * Latest written reviews of a supplier; the reviewing tenant is never exposed. Comments are read
- * by every other reseller, so contact details are removed here too, for reviews saved before the
- * comment was cleaned on save.
- */
-export async function listRecentSupplierReviews(
-  database: Database,
-  supplierId: string,
-  limit = 5,
-): Promise<PublicSupplierReview[]> {
-  const rows = await database.execute(sql`
-    select id, rating, tags, comment, created_at
-    from supplier_reviews
-    where supplier_id = ${supplierId}::uuid and comment <> ''
-    order by created_at desc
-    limit ${limit}
-  `);
-  return z
-    .array(
-      z.object({
-        id: z.string(),
-        rating: sqlIntegerSchema,
-        tags: z.array(z.string()),
-        comment: z.string(),
-        created_at: z.coerce.date(),
-      }),
-    )
-    .parse([...rows])
-    .map((row) => ({
-      id: row.id,
-      rating: row.rating,
-      tags: row.tags,
-      comment: redactContactDetails(row.comment),
-      createdAt: row.created_at,
-    }));
 }
 
 export interface OrderReview {

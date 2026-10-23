@@ -185,20 +185,31 @@ function TagPicker({
   );
 }
 
+/**
+ * Only moderation reads the comment (a reseller may blame the supplier for the marketplace's
+ * logistics), so the reader is told who that is before typing, right under the label.
+ */
 function CommentField({ value, onChange }: { value: string; onChange: (comment: string) => void }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="review-comment">Comentário (opcional)</Label>
+      <div className="space-y-0.5">
+        <Label htmlFor="review-comment">Comentário (opcional)</Label>
+        <p id="review-comment-hint" className="text-xs text-muted-foreground">
+          Só a equipe SellBridge lê este comentário. Conte o que aconteceu com o pedido.
+        </p>
+      </div>
       <Textarea
         id="review-comment"
         value={value}
         maxLength={REVIEW_COMMENT_MAX_LENGTH}
-        placeholder="Ajuda outros revendedores: prazo, qualidade, atendimento…"
-        aria-describedby="review-comment-hint"
+        aria-describedby="review-comment-hint review-comment-count"
         onChange={(event) => onChange(event.target.value)}
       />
-      <p id="review-comment-hint" className="text-xs text-muted-foreground">
-        Aparece sem o nome da sua loja. {value.length}/{REVIEW_COMMENT_MAX_LENGTH}
+      <p
+        id="review-comment-count"
+        className="text-right text-xs text-muted-foreground tabular-nums"
+      >
+        {value.length}/{REVIEW_COMMENT_MAX_LENGTH}
       </p>
     </div>
   );
