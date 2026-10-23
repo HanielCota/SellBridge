@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ArrowFatUpIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
+import { ArrowFatUpIcon, CaretDownIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { type ComponentProps, type KeyboardEvent, type ReactNode, useState } from "react";
 import { keyboardDefaultsForType } from "@/lib/input-keyboard";
 import { firstErrorMessage } from "./form-field";
@@ -188,5 +188,77 @@ export function FloatingPasswordField({
         </>
       }
     />
+  );
+}
+
+interface FloatingSelectFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  errors: readonly unknown[];
+  options: readonly string[];
+  onValueChange: (value: string) => void;
+  onBlur?: (() => void) | undefined;
+  /** Autofill token, e.g. "address-level1" for the state. */
+  autoComplete?: string | undefined;
+}
+
+/**
+ * Native select in the floating field's shape: the label always sits up top, since a select
+ * shows a value or the empty choice. Native, so phones open their own picker.
+ */
+export function FloatingSelectField({
+  id,
+  label,
+  value,
+  errors,
+  options,
+  onValueChange,
+  onBlur,
+  autoComplete,
+}: FloatingSelectFieldProps) {
+  const message = firstErrorMessage(errors);
+  const footnoteId = `${id}-footnote`;
+  return (
+    <div className="grid gap-1.5">
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onValueChange(event.target.value)}
+          onBlur={onBlur}
+          autoComplete={autoComplete}
+          aria-invalid={message ? true : undefined}
+          aria-describedby={message ? footnoteId : undefined}
+          className={cn(
+            "h-14 w-full cursor-pointer appearance-none rounded-xl border border-field-border bg-field pt-5 pr-9 pb-1.5 pl-4 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
+            "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
+            "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
+            // The open list is drawn by the OS: give its rows the app's surface in both themes.
+            "[&>option]:bg-popover [&>option]:text-popover-foreground",
+            // The empty choice reads as a placeholder, not as a picked value.
+            value === "" ? "text-muted-foreground" : null,
+          )}
+        >
+          <option value="">Escolha</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <label
+          htmlFor={id}
+          className="pointer-events-none absolute top-[1.15rem] left-4 -translate-y-1/2 text-xs text-muted-foreground"
+        >
+          {label}
+        </label>
+        <CaretDownIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+        />
+      </div>
+      <FieldFootnote id={footnoteId} message={message} />
+    </div>
   );
 }

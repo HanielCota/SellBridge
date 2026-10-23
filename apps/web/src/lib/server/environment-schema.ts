@@ -7,6 +7,7 @@ import {
   shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
+import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
 import { z } from "zod";
 import {
   CARRIER_TRACKING_PROVIDERS,
@@ -102,6 +103,11 @@ const serverEnvironmentShape = z.object({
    * "simulated" (demonstration events, development only). Unset: simulated outside production.
    */
   CARRIER_TRACKING_PROVIDER: z.enum(CARRIER_TRACKING_PROVIDERS).optional(),
+  /**
+   * Who writes the automatic first answer in support. "deepseek" is not wired yet: it reports
+   * "not configured" and the local FAQ answers instead.
+   */
+  SUPPORT_ASSISTANT_PROVIDER: z.enum(SUPPORT_ASSISTANT_PROVIDERS).default("faq"),
 });
 
 const STRIPE_REQUIRED_KEYS = [

@@ -65,7 +65,7 @@ describe("onboarding profile", () => {
     await saveBillingHolder(database, tenantId, holder);
 
     const profile = await findOnboardingProfile(database, tenantId);
-    expect(profile.holder).toEqual({ ...holder, phone: null, company: null });
+    expect(profile.holder).toEqual({ ...holder, phone: null, company: null, address: null });
     expect(profile.starterSupplier).toMatchObject({
       id: catalog.supplierId,
       state: "ZZ",

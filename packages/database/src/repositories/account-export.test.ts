@@ -127,6 +127,7 @@ describe("collectAccountExport", () => {
       cpf: holderCpf,
       phone: null,
       company: null,
+      address: null,
     });
     expect(exported.stores).toHaveLength(1);
     expect(exported.orders).toEqual([

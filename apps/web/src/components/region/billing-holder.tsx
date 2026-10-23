@@ -1,7 +1,10 @@
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-/** The client's wording: the holder data goes on invoices and charges, so it must be right. */
+/**
+ * The client's wording: the holder data goes on invoices and charges, so it must be right. The
+ * address is the billing one, never the supplier's shipping.
+ */
 export function BillingNotice({ className }: { className?: string }) {
   return (
     <p
@@ -11,8 +14,8 @@ export function BillingNotice({ className }: { className?: string }) {
       )}
     >
       <ReceiptIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      Os dados informados neste cadastro serão utilizados para emissão de notas fiscais e cobranças.
-      Confira se estão corretos.
+      Usamos estes dados só para emitir notas fiscais e fazer cobranças. O endereço é o da cobrança:
+      não tem relação com a entrega dos pedidos dos fornecedores. Confira se está tudo certo.
     </p>
   );
 }
