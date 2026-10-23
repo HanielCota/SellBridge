@@ -9,7 +9,6 @@ import {
 import { SUPPORT_FAQ } from "./support-assistant-answers.ts";
 import {
   createFaqSupportAssistant,
-  findFaqAnswer,
   matchFaqAnswer,
   normalizeQuestionText,
 } from "./support-assistant-faq.ts";
@@ -69,8 +68,6 @@ describe("faq support assistant", () => {
     expect(matchFaqAnswer(question({ profile: "supplier", text: "a planilha deu erro" }))?.id).toBe(
       "supplier-import",
     );
-    expect(findFaqAnswer("supplier", "seller-plan")).toBeUndefined();
-    expect(findFaqAnswer("seller", "seller-plan")?.title).toBe("Como mudar o plano ou o cartão");
   });
 });
 
@@ -107,7 +104,7 @@ describe("curated answers", () => {
 
 describe("assistant note for the team", () => {
   it("lists the title and numbered steps", () => {
-    const answer = findFaqAnswer("seller", "password");
+    const answer = matchFaqAnswer(question({ text: "esqueci a senha" }));
     expect(answer).toBeDefined();
     if (answer === undefined) {
       return;

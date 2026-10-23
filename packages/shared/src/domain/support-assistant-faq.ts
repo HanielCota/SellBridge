@@ -1,4 +1,3 @@
-import type { ProfileKind } from "./profile-kind.ts";
 import {
   alwaysNeedsHuman,
   type SupportAnswer,
@@ -43,11 +42,6 @@ export function matchFaqAnswer(question: SupportAssistantQuestion): SupportAnswe
     return bySituation(entries, `${question.topic}:${question.subtopic ?? ""}`)?.answer;
   }
   return byKeyword(entries, question.text)?.answer;
-}
-
-/** The answer a ticket form refers to by id, for the team's copy of what the customer saw. */
-export function findFaqAnswer(profile: ProfileKind, answerId: string): SupportAnswer | undefined {
-  return SUPPORT_FAQ[profile].find((entry) => entry.answer.id === answerId)?.answer;
 }
 
 /** The local, rule-based assistant: no network, same answer for the same question. */

@@ -11,9 +11,11 @@ import {
 import { notFoundError, validationError } from "@sellbridge/shared/errors";
 import { assertCanReply } from "@sellbridge/shared/ticket-rules";
 import { planSupportTicket } from "@sellbridge/shared/support-topics";
-import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { formatAssistantNote } from "@sellbridge/shared/support-assistant";
-import { findFaqAnswer } from "@sellbridge/shared/support-assistant-faq";
+import {
+  formatAssistantNote,
+  type SupportAssistantQuestion,
+} from "@sellbridge/shared/support-assistant";
+import { matchFaqAnswer } from "@sellbridge/shared/support-assistant-faq";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { logger } from "@sellbridge/shared/logger";
 import {
@@ -73,16 +75,25 @@ async function readTicketAbout(formData: FormData, tenantId: string): Promise<Ti
 }
 
 /**
- * The team's copy of the automatic answer the customer read before asking for a person. An id
- * this profile does not know (a stale form) is logged and left out: the ticket still opens.
+ * The team's copy of the automatic answer the customer read before asking for a person. The id
+ * from the form is only trusted when the server, asked the same question, gives that same
+ * answer: a stale or edited form is logged and left out, and the ticket still opens.
  */
-function assistantNoteFor(profile: ProfileKind, answerId: string | undefined): string | undefined {
+function assistantNoteFor(
+  question: SupportAssistantQuestion,
+  answerId: string | undefined,
+): string | undefined {
   if (answerId === undefined) {
     return undefined;
   }
-  const answer = findFaqAnswer(profile, answerId);
-  if (answer === undefined) {
-    logger.warn("support.assistant_answer_unknown", { profile, answerId });
+  const answer = matchFaqAnswer(question);
+  if (answer === undefined || answer.id !== answerId) {
+    logger.warn("support.assistant_answer_mismatch", {
+      profile: question.profile,
+      topic: question.topic,
+      answerId,
+      expectedAnswerId: answer?.id ?? null,
+    });
     return undefined;
   }
   return formatAssistantNote(answer);
@@ -132,7 +143,15 @@ export function handleCreateTicket(request: Request) {
         subject: plan.subject,
         body: input.body,
         attachments,
-        assistantNote: assistantNoteFor(session.profileKind, input.assistantAnswerId),
+        assistantNote: assistantNoteFor(
+          {
+            profile: session.profileKind,
+            topic: input.category,
+            subtopic: input.situation,
+            text: input.body,
+          },
+          input.assistantAnswerId,
+        ),
       }),
     );
     await linkTicketAbout(database, {

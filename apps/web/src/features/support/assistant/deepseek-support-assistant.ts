@@ -7,7 +7,8 @@ import type { SupportAssistant } from "@sellbridge/shared/support-assistant";
  * When it is wired (CLAUDE.local.md): read the key from a Zod-validated env var, call with
  * `AbortSignal.timeout`, retry with backoff only on transient errors, validate the reply with
  * Zod, send no personal data in the prompt, and return `failed` on any error so the FAQ answers.
- * Its answers will need their own storage, since `findFaqAnswer` only knows the curated ids.
+ * Its answers will need their own storage: the ticket handler rebuilds the answer with
+ * `matchFaqAnswer` to trust the id the form sends back, and only knows the curated ones.
  */
 export function createDeepseekSupportAssistant(): SupportAssistant {
   return {

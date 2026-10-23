@@ -293,4 +293,15 @@ describe("support assistant answer on a new ticket", () => {
       expect.objectContaining({ assistantNote: undefined }),
     );
   });
+
+  it("keeps only the answer the server itself gives to this question", async () => {
+    mocks.createTicket.mockResolvedValue({ ticketId: TICKET_ID });
+    mocks.queueNewTicketNotices.mockResolvedValue(1);
+    const response = await handleCreateTicket(post("/api/suporte/chamados", planForm("password")));
+    expect(response.status).toBe(201);
+    expect(mocks.createTicket).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ assistantNote: undefined }),
+    );
+  });
 });
