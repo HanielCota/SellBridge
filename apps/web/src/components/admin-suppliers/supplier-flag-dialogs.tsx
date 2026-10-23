@@ -1,6 +1,5 @@
 import {
   applySupplierFlagSchema,
-  flagDeactivatesSupplier,
   revokeSupplierFlagSchema,
   SUPPLIER_FLAG_NOTE_MAX_LENGTH,
   SUPPLIER_FLAG_REASON_LABELS,
@@ -36,7 +35,6 @@ import {
 } from "@/features/admin-suppliers/supplier-flags.functions";
 import { supplierFlagsQueryKey } from "@/features/admin-suppliers/supplier-flags.queries";
 import { errorMessage } from "@/lib/errors";
-import { appliedMessage, BrokenRuleHint, DeactivationConfirm } from "./apply-flag-parts";
 
 /**
  * The browser's `maxLength` counts an emoji as two; the schema counts characters like the database.
@@ -58,10 +56,10 @@ function issuesByField(issues: readonly { path: readonly PropertyKey[]; message:
   return errors;
 }
 
-function useFlagMutation<TInput, TResult>(
+function useFlagMutation<TInput>(
   supplierId: string,
-  action: (input: { data: TInput }) => Promise<TResult>,
-  successMessage: (result: TResult) => string,
+  action: (input: { data: TInput }) => Promise<unknown>,
+  successMessage: string,
   onDone: () => void,
 ) {
   const queryClient = useQueryClient();
@@ -69,10 +67,9 @@ function useFlagMutation<TInput, TResult>(
     await queryClient.invalidateQueries({ queryKey: supplierFlagsQueryKey(supplierId) });
   return useMutation({
     mutationFn: async (data: TInput) => await action({ data }),
-    onSuccess: async (result) => {
-      toast.success(successMessage(result));
-      // The 3rd flag also turns the supplier off: its record and the supplier lists change too.
-      await queryClient.invalidateQueries({ queryKey: ["admin-suppliers"] });
+    onSuccess: async () => {
+      toast.success(successMessage);
+      await refreshFlags();
       onDone();
     },
     // A refusal (another team member already revoked it, or it expired meanwhile) means the
@@ -110,72 +107,34 @@ function ReasonSelect({
         </SelectContent>
       </Select>
       {error === undefined ? null : <p className="text-sm text-destructive">{error}</p>}
-      <BrokenRuleHint reason={value} />
     </div>
   );
 }
 
-/** Where the supplier stands before this flag: decides whether it is the 3rd strike. */
-export interface FlagStanding {
-  activeCount: number;
-  supplierActive: boolean;
-}
-
-const CONFIRM_REQUIRED = "Marque a confirmação para desligar o fornecedor.";
-
-/** The apply form's fields, its errors and the call; refuses the 3rd strike until confirmed. */
-function useApplyFlagForm(supplierId: string, standing: FlagStanding, onClose: () => void) {
+function ApplyFlagForm({ supplierId, onClose }: { supplierId: string; onClose: () => void }) {
   const [reason, setReason] = useState<SupplierFlagReason | "">("");
   const [note, setNote] = useState("");
-  const [confirmDeactivation, setConfirmDeactivation] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const apply = useFlagMutation(supplierId, teamApplySupplierFlag, appliedMessage, onClose);
-  const deactivates = flagDeactivatesSupplier({
-    activeFlagCount: standing.activeCount,
-    supplierActive: standing.supplierActive,
-  });
+  const apply = useFlagMutation(supplierId, teamApplySupplierFlag, "Flag aplicada.", onClose);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const confirmed = deactivates && confirmDeactivation;
-    const parsed = applySupplierFlagSchema.safeParse({
-      supplierId,
-      reason,
-      note,
-      confirmDeactivation: confirmed,
-    });
-    const fieldErrors = parsed.success ? {} : issuesByField(parsed.error.issues);
-    const confirmError = deactivates && !confirmed ? { confirm: CONFIRM_REQUIRED } : {};
-    setErrors({ ...fieldErrors, ...confirmError });
-    if (!parsed.success || deactivates !== confirmed) {
+    const parsed = applySupplierFlagSchema.safeParse({ supplierId, reason, note });
+    if (!parsed.success) {
+      setErrors(issuesByField(parsed.error.issues));
       return;
     }
+    setErrors({});
     apply.mutate(parsed.data);
   }
 
-  const fields = { reason, setReason, note, setNote, confirmDeactivation, setConfirmDeactivation };
-  return { ...fields, errors, apply, deactivates, handleSubmit };
-}
-
-function ApplyFlagForm({
-  supplierId,
-  standing,
-  onClose,
-}: {
-  supplierId: string;
-  standing: FlagStanding;
-  onClose: () => void;
-}) {
-  const form = useApplyFlagForm(supplierId, standing, onClose);
-  const { reason, note, errors, apply, deactivates } = form;
-
   return (
-    <form noValidate onSubmit={form.handleSubmit} className="grid gap-5">
+    <form noValidate onSubmit={handleSubmit} className="grid gap-5">
       <FormErrorAlert message={apply.isError ? errorMessage(apply.error) : null} />
       <ReasonSelect
         value={reason}
         error={errors.reason}
-        onChange={(value) => form.setReason(isFlagReason(value) ? value : "")}
+        onChange={(value) => setReason(isFlagReason(value) ? value : "")}
       />
       <TextareaField
         id="flag-note"
@@ -184,50 +143,29 @@ function ApplyFlagForm({
         placeholder="Exemplo: o pedido 1234 saiu com a cor trocada."
         value={note}
         errors={errors.note === undefined ? [] : [errors.note]}
-        onValueChange={form.setNote}
+        onValueChange={setNote}
         rows={3}
         maxLength={TYPING_LIMIT}
       />
-      {deactivates ? (
-        <DeactivationConfirm
-          activeCount={standing.activeCount}
-          confirmed={form.confirmDeactivation}
-          error={errors.confirm}
-          onConfirmedChange={form.setConfirmDeactivation}
-        />
-      ) : null}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          variant={deactivates ? "destructive" : "default"}
-          disabled={apply.isPending}
-        >
-          {applyLabel(apply.isPending, deactivates)}
+        <Button type="submit" disabled={apply.isPending}>
+          {apply.isPending ? "Aplicando…" : "Aplicar flag"}
         </Button>
       </DialogFooter>
     </form>
   );
 }
 
-function applyLabel(isPending: boolean, deactivates: boolean): string {
-  if (isPending) {
-    return "Aplicando…";
-  }
-  return deactivates ? "Aplicar e desligar" : "Aplicar flag";
-}
-
 /** "Aplicar flag": a reason and a note the supplier reads; it counts for 90 days. */
 export function ApplyFlagDialog({
   supplierId,
-  standing,
   open,
   onClose,
 }: {
   supplierId: string;
-  standing: FlagStanding;
   open: boolean;
   onClose: () => void;
 }) {
@@ -238,12 +176,10 @@ export function ApplyFlagDialog({
           <DialogTitle>Aplicar flag</DialogTitle>
           <DialogDescription>
             O fornecedor vê o motivo e a observação no painel por 90 dias e pode contestar pelo
-            suporte. Na 3ª flag ativa a conta dele é desligada, depois da sua confirmação.
+            suporte. Nada muda automaticamente na conta dele.
           </DialogDescription>
         </DialogHeader>
-        {open ? (
-          <ApplyFlagForm supplierId={supplierId} standing={standing} onClose={onClose} />
-        ) : null}
+        {open ? <ApplyFlagForm supplierId={supplierId} onClose={onClose} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -261,7 +197,7 @@ function useRevokeFlag(supplierId: string, flagId: string | null, onClose: () =>
   const revoke = useFlagMutation(
     supplierId,
     teamRevokeSupplierFlag,
-    () => "Flag retirada.",
+    "Flag retirada.",
     clearAndClose,
   );
   const close = () => {

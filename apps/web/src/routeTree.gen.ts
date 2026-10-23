@@ -77,7 +77,6 @@ import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/f
 import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
 import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
 import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
-import { Route as AppFornecedorPainelRegrasRouteImport } from './routes/_app/fornecedor/painel/regras'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
@@ -452,12 +451,6 @@ const AppFornecedorPainelProdutosRoute =
     path: '/produtos',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
-const AppFornecedorPainelRegrasRoute =
-  AppFornecedorPainelRegrasRouteImport.update({
-    id: '/regras',
-    path: '/regras',
-    getParentRoute: () => AppFornecedorPainelRouteRoute,
-  } as any)
 const ApiFornecedorProdutosImagensRoute =
   ApiFornecedorProdutosImagensRouteImport.update({
     id: '/api/fornecedor/produtos/imagens',
@@ -654,7 +647,6 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
-  '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -743,7 +735,6 @@ export interface FileRoutesByTo {
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
-  '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -838,7 +829,6 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
   '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
-  '/_app/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -932,7 +922,6 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
-    | '/fornecedor/painel/regras'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1021,7 +1010,6 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/marca'
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
-    | '/fornecedor/painel/regras'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1115,7 +1103,6 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel/marca'
     | '/_app/fornecedor/painel/pedidos'
     | '/_app/fornecedor/painel/produtos'
-    | '/_app/fornecedor/painel/regras'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1669,13 +1656,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelProdutosRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
-    '/_app/fornecedor/painel/regras': {
-      id: '/_app/fornecedor/painel/regras'
-      path: '/regras'
-      fullPath: '/fornecedor/painel/regras'
-      preLoaderRoute: typeof AppFornecedorPainelRegrasRouteImport
-      parentRoute: typeof AppFornecedorPainelRouteRoute
-    }
     '/api/fornecedor/produtos/imagens': {
       id: '/api/fornecedor/produtos/imagens'
       path: '/api/fornecedor/produtos/imagens'
@@ -1912,7 +1892,6 @@ interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
   AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
   AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
-  AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute
   AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
 }
 
@@ -1923,7 +1902,6 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
     AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
     AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
     AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
-    AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
     AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
   }
 

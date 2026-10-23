@@ -1,7 +1,6 @@
 import {
-  type AppliedSupplierFlag,
   applySupplierFlag,
-  getFlaggableSupplier,
+  getFlaggableSupplierName,
   listTeamSupplierFlags,
   revokeSupplierFlag,
 } from "@sellbridge/database/repositories";
@@ -14,7 +13,6 @@ import type {
 } from "@sellbridge/shared/supplier-flags";
 import { recordCatalogWrite } from "@/features/admin-audit/catalog-audit.server";
 import { database } from "@/lib/server/database";
-import { requestStockSync } from "@/lib/server/stock-sync";
 
 /** Who is acting, as `staffMiddleware` hands it over. */
 interface StaffActor {
@@ -32,41 +30,13 @@ function assertMayFlag(actor: StaffActor): void {
   }
 }
 
-/**
- * The supplier's name, whether it is active (the apply dialog warns about the 3rd strike) and its
- * flags; nothing else of its record (the flags page is for all staff).
- */
+/** The supplier's name and flags, nothing else of its record (the flags page is for all staff). */
 export async function loadTeamSupplierFlags(actor: StaffActor, supplierId: string) {
-  const [supplier, result] = await Promise.all([
-    getFlaggableSupplier(database, supplierId),
+  const [supplierName, result] = await Promise.all([
+    getFlaggableSupplierName(database, supplierId),
     listTeamSupplierFlags(database, supplierId, new Date()),
   ]);
-  return {
-    supplierName: supplier.name,
-    supplierActive: supplier.active,
-    ...result,
-    canManage: hasStaffPermission(actor.role, "suppliers.flag"),
-  };
-}
-
-/**
- * The 3rd strike went through the supplier deactivation the admin record uses: recorded the same
- * way, plus the cause, and the paused listings' zero stock is pushed right away.
- */
-async function recordThirdStrike(actor: StaffActor, supplierId: string, flag: AppliedSupplierFlag) {
-  logger.warn("supplier_flags.supplier_deactivated", {
-    supplierId,
-    flagId: flag.id,
-    pausedTargets: flag.pausedTargets,
-    role: actor.role,
-  });
-  await recordCatalogWrite(actor.userId, {
-    entityType: "supplier",
-    entityId: supplierId,
-    action: "supplier.deactivated",
-    details: { pausedTargets: flag.pausedTargets, cause: "third_flag", flagId: flag.id },
-  });
-  await requestStockSync("supplier_flags.deactivation_sync_deferred");
+  return { supplierName, ...result, canManage: hasStaffPermission(actor.role, "suppliers.flag") };
 }
 
 export async function applyFlag(actor: StaffActor, input: ApplySupplierFlagInput) {
@@ -84,9 +54,6 @@ export async function applyFlag(actor: StaffActor, input: ApplySupplierFlagInput
     action: "supplier.flag_applied",
     details: { flagId: flag.id, reason: input.reason },
   });
-  if (flag.supplierDeactivated) {
-    await recordThirdStrike(actor, input.supplierId, flag);
-  }
   return flag;
 }
 

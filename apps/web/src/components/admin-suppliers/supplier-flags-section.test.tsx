@@ -25,18 +25,8 @@ const activeFlag: TeamSupplierFlag = {
   status: "active",
 };
 
-function render(
-  canManage: boolean,
-  flags: readonly TeamSupplierFlag[] = [activeFlag],
-  supplierActive = true,
-): string {
-  const data = {
-    flags,
-    activeCount: flags.length,
-    reachedLimit: flags.length >= 3,
-    supplierActive,
-    canManage,
-  };
+function render(canManage: boolean, flags: readonly TeamSupplierFlag[] = [activeFlag]): string {
+  const data = { flags, activeCount: flags.length, needsAttention: flags.length >= 3, canManage };
   return renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
       <TooltipProvider>
@@ -61,20 +51,12 @@ describe("SupplierFlagsPanel", () => {
     expect(markup).toContain("Retirar flag");
   });
 
-  it("says a supplier with 3 active flags is out, or back in by an admin's hand", () => {
+  it("highlights a supplier with 3 active flags and says nothing happens on its own", () => {
     const flags = ["a", "b", "c"].map((suffix) => ({
       ...activeFlag,
       id: `${activeFlag.id}${suffix}`,
     }));
-    expect(render(false, flags, false)).toContain("Fornecedor desligado: chegou a 3 flags ativas");
-    expect(render(false, flags, true)).toContain("foi reativado");
-    expect(render(false)).not.toContain("Fornecedor desligado");
-  });
-
-  it("names the golden rule each flag breaks and keeps the 5 rules at hand", () => {
-    const markup = render(false);
-    expect(markup).toContain("Regra 2: Envie exatamente o produto anunciado");
-    expect(markup).toContain("Regras de ouro do fornecedor");
-    expect(markup).toContain("Converse só pela SellBridge");
+    expect(render(false, flags)).toContain("nada muda automaticamente");
+    expect(render(false)).not.toContain("nada muda automaticamente");
   });
 });
