@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { DAY_MILLISECONDS } from "./time.ts";
 import {
   applySupplierFlagSchema,
-  needsTeamAttention,
+  deactivatingFlagNotice,
+  flagDeactivatesSupplier,
+  reachedFlagLimit,
   revokeSupplierFlagSchema,
-  SUPPLIER_FLAG_ATTENTION_THRESHOLD,
+  SUPPLIER_FLAG_LIMIT,
+  SUPPLIER_FLAG_LIMIT_WARNING,
   SUPPLIER_FLAG_NOTE_MAX_LENGTH,
   SUPPLIER_FLAG_REASON_LABELS,
   SUPPLIER_FLAG_REASONS,
@@ -58,15 +61,42 @@ describe("supplier flag lifetime", () => {
 
 describe("supplier flag counter", () => {
   it("reads as X of 3 in 90 days", () => {
-    expect(SUPPLIER_FLAG_ATTENTION_THRESHOLD).toBe(3);
+    expect(SUPPLIER_FLAG_LIMIT).toBe(3);
     expect(supplierFlagCountLabel(1)).toBe("1 de 3 em 90 dias");
     expect(supplierFlagCountLabel(0)).toBe("0 de 3 em 90 dias");
   });
 
-  it("only asks the team to look once 3 flags are active, and does nothing else", () => {
-    expect(needsTeamAttention(2)).toBe(false);
-    expect(needsTeamAttention(3)).toBe(true);
-    expect(needsTeamAttention(4)).toBe(true);
+  it("reaches the limit at 3 active flags", () => {
+    expect(reachedFlagLimit(2)).toBe(false);
+    expect(reachedFlagLimit(3)).toBe(true);
+    expect(reachedFlagLimit(4)).toBe(true);
+  });
+
+  it("tells the supplier the 3rd flag turns the account off", () => {
+    expect(SUPPLIER_FLAG_LIMIT_WARNING).toBe("Na 3ª flag a conta é desligada.");
+  });
+});
+
+describe("three strikes", () => {
+  it("deactivates an active supplier only with the flag that would be the 3rd active one", () => {
+    expect(flagDeactivatesSupplier({ activeFlagCount: 0, supplierActive: true })).toBe(false);
+    expect(flagDeactivatesSupplier({ activeFlagCount: 1, supplierActive: true })).toBe(false);
+    expect(flagDeactivatesSupplier({ activeFlagCount: 2, supplierActive: true })).toBe(true);
+  });
+
+  it("deactivates again a supplier the team reactivated while it still had 3 flags", () => {
+    expect(flagDeactivatesSupplier({ activeFlagCount: 3, supplierActive: true })).toBe(true);
+  });
+
+  it("has nothing to deactivate when the supplier is already off", () => {
+    expect(flagDeactivatesSupplier({ activeFlagCount: 2, supplierActive: false })).toBe(false);
+  });
+
+  it("never counts past 3 when warning about a reactivated supplier", () => {
+    expect(deactivatingFlagNotice(2)).toBe("Esta é a flag 3 de 3: o fornecedor será desligado");
+    expect(deactivatingFlagNotice(3)).toBe(
+      "O fornecedor foi reativado com 3 flags ativas: esta flag o desliga de novo",
+    );
   });
 });
 
@@ -94,7 +124,22 @@ describe("applySupplierFlagSchema", () => {
       reason: "slow_support",
       note: "",
     });
-    expect(parsed).toEqual({ supplierId: SUPPLIER, reason: "slow_support", note: "" });
+    expect(parsed).toEqual({
+      supplierId: SUPPLIER,
+      reason: "slow_support",
+      note: "",
+      confirmDeactivation: false,
+    });
+  });
+
+  it("keeps the confirmation to deactivate the supplier when the team ticks it", () => {
+    const parsed = applySupplierFlagSchema.parse({
+      supplierId: SUPPLIER,
+      reason: "slow_support",
+      note: "",
+      confirmDeactivation: true,
+    });
+    expect(parsed.confirmDeactivation).toBe(true);
   });
 
   it("refuses 'other' without a note", () => {
