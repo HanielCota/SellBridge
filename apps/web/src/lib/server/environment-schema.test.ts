@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serverEnvironmentSchema } from "./environment-schema.ts";
+import { carrierTrackingProviderName, serverEnvironmentSchema } from "./environment-schema.ts";
 
 const validEnvironment = {
   DATABASE_URL: "postgres://localhost/sellbridge",
@@ -113,6 +113,39 @@ describe("serverEnvironmentSchema", () => {
         BILLING_UNLIMITED: false,
         BILLING_PAST_DUE_GRACE_DAYS: 7,
       });
+    });
+  });
+
+  describe("CARRIER_TRACKING_PROVIDER", () => {
+    it("defaults to simulated tracking outside production and to off in production", () => {
+      const development = serverEnvironmentSchema.parse(validEnvironment);
+      expect(carrierTrackingProviderName(development)).toBe("simulated");
+      expect(
+        carrierTrackingProviderName({
+          NODE_ENV: "production",
+          CARRIER_TRACKING_PROVIDER: undefined,
+        }),
+      ).toBe("off");
+    });
+
+    it("refuses simulated carrier events in production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        NODE_ENV: "production",
+        BILLING_UNLIMITED: "true",
+        CARRIER_TRACKING_PROVIDER: "simulated",
+      });
+      expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([
+        ["CARRIER_TRACKING_PROVIDER"],
+      ]);
+    });
+
+    it("keeps an explicit off in development", () => {
+      const parsed = serverEnvironmentSchema.parse({
+        ...validEnvironment,
+        CARRIER_TRACKING_PROVIDER: "off",
+      });
+      expect(carrierTrackingProviderName(parsed)).toBe("off");
     });
   });
 });

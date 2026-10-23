@@ -6,6 +6,7 @@ export const STEP_HEADING_IDS = {
   topic: "new-ticket-topic",
   situation: "new-ticket-situation",
   description: "new-ticket-description",
+  assistant: "new-ticket-assistant",
 } as const;
 
 export type StepHeadingId = (typeof STEP_HEADING_IDS)[keyof typeof STEP_HEADING_IDS];

@@ -19,6 +19,7 @@ import {
   type ComposerHandle,
   type ComposerMode,
 } from "@/components/support/admin-composer";
+import { AssistantAnswerNote } from "@/components/support/assistant-answer-note";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
 import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
 import { TicketThread } from "@/components/support/ticket-thread";
@@ -130,6 +131,16 @@ function AdminTicketPage() {
   return <AdminTicketWorkspace detail={query.data} />;
 }
 
+/** What the reply templates fill in: the customer's first name, the store and the agent. */
+function replyTemplateContext(ticket: AdminTicketDetail["ticket"], agentName: string) {
+  return {
+    customerName: firstName(ticket.createdByName),
+    storeName: ticket.tenantName,
+    subject: ticket.subject,
+    agentName,
+  };
+}
+
 function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
   const { session } = Route.useRouteContext();
   const queryClient = useQueryClient();
@@ -144,6 +155,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
       {reopenedByVerdict(detail) ? <NotSolvedBanner /> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
+          <AssistantAnswerNote answer={detail.assistantAnswer} />
           <TicketThread
             messages={messages}
             onQuote={(message) =>
@@ -155,12 +167,7 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             ticketId={ticket.id}
             isClosed={ticket.status === "closed"}
             templates={replyTemplatesFor(ticket.tenantKind)}
-            templateContext={{
-              customerName: firstName(ticket.createdByName),
-              storeName: ticket.tenantName,
-              subject: ticket.subject,
-              agentName: session.user.name,
-            }}
+            templateContext={replyTemplateContext(ticket, session.user.name)}
             isChangingStatus={statusMutation.isPending}
             onChangeStatus={(status) => statusMutation.mutate(status)}
             onSent={async (mode, status) => {
@@ -179,8 +186,11 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
             contact={detail.customerContact}
             relatedTickets={detail.relatedTickets}
             relatedTotal={detail.relatedTotal}
-            isSelf={ticket.createdById === session.user.id}
-            canManageCustomers={hasStaffPermission(session.user.role, "customers.manage")}
+            access={{
+              isSelf: ticket.createdById === session.user.id,
+              canManageCustomers: hasStaffPermission(session.user.role, "customers.manage"),
+              canImpersonate: hasStaffPermission(session.user.role, "customers.impersonate"),
+            }}
           />
           <LinkedOrdersCard orders={detail.orders} subject={detail.subject} />
           <TicketHistory events={detail.events} />

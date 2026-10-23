@@ -3,6 +3,8 @@ import { type RefObject, useLayoutEffect, useState } from "react";
 export interface IndicatorBox {
   left: number;
   width: number;
+  /** True when a new choice moved it; a layout change (a badge, fonts, a resize) does not. */
+  glides: boolean;
 }
 
 /** Scrolls a narrow track (a phone) just enough to show the active option, with no animation. */
@@ -29,18 +31,28 @@ export function useActiveIndicator<TValue>(
   const [indicator, setIndicator] = useState<IndicatorBox | null>(null);
 
   useLayoutEffect(() => {
-    const measure = () => {
+    let measured: IndicatorBox | null = null;
+    const measure = (glides: boolean) => {
       const button = buttonRefs.current.get(value);
       if (!button) {
         return;
       }
-      setIndicator({ left: button.offsetLeft, width: button.offsetWidth });
       if (containerRef.current) {
         revealInside(containerRef.current, button);
       }
+      const box = { left: button.offsetLeft, width: button.offsetWidth, glides };
+      // The observer also reports when nothing moved (on start, or the track's own resize):
+      // keeping the last box then leaves a glide that just began running.
+      if (measured !== null && measured.left === box.left && measured.width === box.width) {
+        return;
+      }
+      measured = box;
+      setIndicator(box);
     };
-    measure();
-    const observer = new ResizeObserver(measure);
+    measure(true);
+    // A new choice glides; a layout change (a count that appeared, fonts, a resize) lands at once.
+    // A count arriving beside the previous tab used to leave the pill under it for 400 ms.
+    const observer = new ResizeObserver(() => measure(false));
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }
