@@ -1,6 +1,5 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { forwardOrder } from "@sellbridge/database/repositories";
 import {
   organization,
@@ -12,10 +11,10 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const externalId = `E2E-TRK-${randomUUID()}`;
 
 /** A Correios-format code no other test uses. */

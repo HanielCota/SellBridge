@@ -7,6 +7,10 @@ import { fillBillingAddress, gotoHydrated, pickSupplier, testCpf, uniqueEmail } 
 
 const database = e2eDatabase();
 
+test.afterAll(async () => {
+  await database.$client.end();
+});
+
 async function acceptedVersions(email: string): Promise<string[]> {
   const rows = await database
     .select({ version: termsAcceptances.version })
