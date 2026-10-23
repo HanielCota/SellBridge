@@ -1,5 +1,5 @@
 {
-  "id": "fbd14202-a0e0-4ad6-aea1-11d623d3fb0a",
+  "id": "5b367109-ddeb-426c-afa5-dc59e1adcf7f",
   "prevId": "a88a9c03-ce93-433b-a002-b91c012cd6ea",
   "version": "7",
   "dialect": "postgresql",
@@ -834,6 +834,12 @@
         "company_name": {
           "name": "company_name",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "billing_address": {
+          "name": "billing_address",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -2664,12 +2670,6 @@
         },
         "buyer_name": {
           "name": "buyer_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "shipping_address_enc": {
-          "name": "shipping_address_enc",
           "type": "text",
           "primaryKey": false,
           "notNull": false
