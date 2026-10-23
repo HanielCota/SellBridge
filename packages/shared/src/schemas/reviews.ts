@@ -77,7 +77,7 @@ export const supplierReviewInputSchema = z
     message: "As marcações não combinam com a nota",
     path: ["tags"],
   })
-  // Other resellers read the comment: contact details (e-mail, phone, store link) are removed.
+  // Moderation reads the comment: contact details (e-mail, phone, store link) are removed.
   // "[removido]" can be longer than what it replaces ("@ab"), so the stored text is cut back to
   // the limit the reseller typed against.
   .transform((review) => ({
