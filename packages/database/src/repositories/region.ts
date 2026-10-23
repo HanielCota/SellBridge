@@ -1,4 +1,3 @@
-import type { BillingAddress } from "@sellbridge/shared/billing-address";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import {
   productSourceChoiceSchema,
@@ -24,17 +23,14 @@ export interface BillingHolder {
   /** Digits with area code; null for accounts saved before it was asked (item 26.a). */
   phone: string | null;
   company: HolderCompany | null;
-  /** Null for accounts saved before it was asked: the form asks for it on the next visit. */
-  address: BillingAddress | null;
 }
 
-/** What onboarding saves; phone, company and address left out keep what is stored. */
+/** What onboarding saves; phone and company left out keep what is stored. */
 export interface BillingHolderValues {
   fullName: string;
   cpf: string;
   phone?: string;
   company?: HolderCompany | null;
-  address?: BillingAddress;
 }
 
 /** The partial unique index of `schema/region.ts`: one account per CPF. */
@@ -76,14 +72,7 @@ export async function findBillingHolder(
   tenantId: string,
 ): Promise<BillingHolder | null> {
   const row = await database.query.tenantProfile.findFirst({
-    columns: {
-      fullName: true,
-      cpf: true,
-      phone: true,
-      cnpj: true,
-      companyName: true,
-      billingAddress: true,
-    },
+    columns: { fullName: true, cpf: true, phone: true, cnpj: true, companyName: true },
     where: eq(tenantProfile.tenantId, tenantId),
   });
   if (row === undefined) {
@@ -92,17 +81,12 @@ export async function findBillingHolder(
   return holderOf(row);
 }
 
-function companyValuesOf(company: HolderCompany | null | undefined) {
-  if (company === undefined) {
-    return {};
-  }
-  return { cnpj: company?.cnpj ?? null, companyName: company?.companyName ?? null };
-}
-
 function profileValuesOf(holder: BillingHolderValues) {
-  const { company, address, ...person } = holder;
-  const billingAddress = address === undefined ? {} : { billingAddress: address };
-  return { ...person, ...companyValuesOf(company), ...billingAddress };
+  const { company, ...person } = holder;
+  if (company === undefined) {
+    return person;
+  }
+  return { ...person, cnpj: company?.cnpj ?? null, companyName: company?.companyName ?? null };
 }
 
 /** Saves who invoices and charges go to. A CPF already used by another account is refused. */
@@ -113,13 +97,7 @@ export async function saveBillingHolder(
 ): Promise<BillingHolder> {
   const saved = await upsertTenantProfile(database, { tenantId, ...profileValuesOf(holder) });
   return (
-    holderOf(saved) ?? {
-      fullName: holder.fullName,
-      cpf: holder.cpf,
-      phone: null,
-      company: null,
-      address: null,
-    }
+    holderOf(saved) ?? { fullName: holder.fullName, cpf: holder.cpf, phone: null, company: null }
   );
 }
 
@@ -152,7 +130,6 @@ export async function findOnboardingProfile(
       phone: tenantProfile.phone,
       cnpj: tenantProfile.cnpj,
       companyName: tenantProfile.companyName,
-      billingAddress: tenantProfile.billingAddress,
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       supplierNiche: suppliers.niche,
@@ -182,7 +159,6 @@ function holderOf(row: {
   phone: string | null;
   cnpj: string | null;
   companyName: string | null;
-  billingAddress: BillingAddress | null;
 }): BillingHolder | null {
   if (row.fullName === null || row.cpf === null) {
     return null;
@@ -191,13 +167,7 @@ function holderOf(row: {
     row.cnpj === null || row.companyName === null
       ? null
       : { cnpj: row.cnpj, companyName: row.companyName };
-  return {
-    fullName: row.fullName,
-    cpf: row.cpf,
-    phone: row.phone,
-    company,
-    address: row.billingAddress,
-  };
+  return { fullName: row.fullName, cpf: row.cpf, phone: row.phone, company };
 }
 
 function starterSupplierOf(row: {

@@ -6,7 +6,6 @@ import {
   countUnreadSupportReplies,
   getSupportMetrics,
   describeTicketAbout,
-  findBillingHolder,
   getTicketSubject,
   getTicketThread,
   linkTicketOrder,
@@ -39,7 +38,6 @@ import {
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
-import { customerContactForStaff } from "@/features/admin/customer-contact";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -238,9 +236,9 @@ export const staffQueueCounts = createServerFn({ method: "GET" })
 export const staffGetTicket = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("support.answer")])
   .validator(ticketIdInput)
-  .handler(async ({ context, data }) => {
+  .handler(async ({ data }) => {
     const thread = await getTicketThread(database, data.ticketId, null);
-    const [history, orders, holder] = await Promise.all([
+    const [history, orders] = await Promise.all([
       listTenantTickets(
         database,
         thread.ticket.tenantId,
@@ -248,14 +246,12 @@ export const staffGetTicket = createServerFn({ method: "GET" })
         { page: 1, pageSize: RELATED_TICKETS_LIMIT + 1 },
       ),
       listTicketOrders(database, thread.ticket.id),
-      findBillingHolder(database, thread.ticket.tenantId),
     ]);
     const subject = await getTicketSubject(database, thread.ticket.id);
     return {
       ...thread,
       orders,
       subject,
-      customerContact: customerContactForStaff(context.role, holder),
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),

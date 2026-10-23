@@ -2,12 +2,10 @@ import type { TicketSummary, TicketThread } from "@sellbridge/database/repositor
 import { CopyIcon, IdentificationCardIcon, SignInIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { CustomerContactDetails } from "@/components/admin/customer-contact-details";
 import { SmartDate } from "@/components/data/smart-date";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { StaffCustomerContact } from "@/features/admin/customer-contact";
 import { useImpersonate } from "@/features/admin/use-impersonate";
 import { enterAccountAction, type EnterAccountAction } from "@/features/support/enter-account";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -161,19 +159,14 @@ function RelatedTickets({
   );
 }
 
-/**
- * Who opened the ticket, their billing address (and phone for admins), shortcuts to act on their
- * account and the store's ticket history.
- */
+/** Who opened the ticket, shortcuts to act on their account and the store's ticket history. */
 export function TicketCustomerPanel({
   ticket,
-  contact,
   relatedTickets,
   relatedTotal,
   access,
 }: {
   ticket: TicketThread["ticket"];
-  contact: StaffCustomerContact;
   relatedTickets: readonly TicketSummary[];
   relatedTotal: number;
   access: CustomerAccess;
@@ -184,9 +177,6 @@ export function TicketCustomerPanel({
       aria-label="Contexto do cliente"
     >
       <CustomerCard ticket={ticket} access={access} />
-      <div className="border-t pt-4">
-        <CustomerContactDetails contact={contact} />
-      </div>
       <div className="border-t pt-4">
         <RelatedTickets
           tenantName={ticket.tenantName}

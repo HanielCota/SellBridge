@@ -337,13 +337,6 @@
       "when": 1792677898382,
       "tag": "0047_supplier_flags",
       "breakpoints": true
-    },
-    {
-      "idx": 48,
-      "version": "7",
-      "when": 1792711253044,
-      "tag": "0048_tenant_billing_address",
-      "breakpoints": true
     }
   ]
 }
