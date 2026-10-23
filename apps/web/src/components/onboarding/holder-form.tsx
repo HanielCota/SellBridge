@@ -13,15 +13,34 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { saveOnboardingHolder } from "@/features/onboarding/onboarding.functions";
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { BillingAddressSection } from "@/components/onboarding/holder-address-fields";
-import {
-  holderDefaults,
-  holderInput,
-  switchHolderType,
-  visibleErrors,
-} from "@/components/onboarding/holder-values";
 
 const appRoute = getRouteApi("/_app");
+
+interface HolderFormValues {
+  fullName: string;
+  cpf: string;
+  phone: string;
+  isCompany: boolean;
+  cnpj: string;
+  companyName: string;
+}
+
+function holderDefaults(holder: BillingHolder | null, accountName: string): HolderFormValues {
+  return {
+    fullName: holder?.fullName ?? accountName,
+    cpf: holder === null ? "" : formatCpf(holder.cpf),
+    phone: holder === null || holder.phone === null ? "" : formatPhone(holder.phone),
+    isCompany: holder?.company !== null && holder !== null,
+    cnpj: holder?.company ? formatCnpj(holder.company.cnpj) : "",
+    companyName: holder?.company?.companyName ?? "",
+  };
+}
+
+/** The form's fields as the server takes them: the company only when the box is ticked. */
+function holderInput(value: HolderFormValues) {
+  const company = value.isCompany ? { cnpj: value.cnpj, companyName: value.companyName } : null;
+  return { fullName: value.fullName, cpf: value.cpf, phone: value.phone, company };
+}
 
 function useHolderForm(
   holder: BillingHolder | null,
@@ -29,7 +48,6 @@ function useHolderForm(
 ) {
   const { session } = appRoute.useRouteContext();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [lastSaved, setLastSaved] = useState(holder);
   const form = useForm({
     defaultValues: holderDefaults(holder, session.user.name),
     onSubmit: async ({ value }) => {
@@ -37,17 +55,21 @@ function useHolderForm(
       try {
         const saved = await saveOnboardingHolder({ data: holderInput(value) });
         form.reset(holderDefaults(saved, session.user.name));
-        setLastSaved(saved);
         await onSaved(saved);
       } catch (error) {
         setSubmitError(errorMessage(error));
       }
     },
   });
-  return { form, submitError, lastSaved };
+  return { form, submitError };
 }
 
-export type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
+type HolderFormApi = ReturnType<typeof useHolderForm>["form"];
+
+/** Field errors wait for the first save attempt, so nothing is flagged while the user types. */
+function visibleErrors(errors: readonly unknown[], hasSubmitted: boolean): readonly unknown[] {
+  return hasSubmitted ? errors : [];
+}
 
 /**
  * On a first attempt, TanStack Form stops at the first field with an error; validating every
@@ -58,10 +80,7 @@ async function submitHolder(form: HolderFormApi) {
   await form.handleSubmit();
 }
 
-/**
- * Who invoices go to, how to reach them and where to bill them (item 26.a, L2): name, CPF,
- * phone, company and the billing address.
- */
+/** Who invoices go to and how to reach them (item 26.a, L2): name, CPF, phone and company. */
 export function HolderForm({
   holder,
   submitLabel,
@@ -71,7 +90,7 @@ export function HolderForm({
   submitLabel: string;
   onSaved: (saved: BillingHolder) => void | Promise<void>;
 }) {
-  const { form, submitError, lastSaved } = useHolderForm(holder, onSaved);
+  const { form, submitError } = useHolderForm(holder, onSaved);
   const hasSubmitted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const isDirty = useStore(form.store, (state) => !state.isDefaultValue);
   // A successful save resets the baseline before React renders the next navigation.
@@ -87,14 +106,6 @@ export function HolderForm({
     >
       <PersonFields form={form} showErrors={hasSubmitted} />
       <CompanyFields form={form} showErrors={hasSubmitted} />
-      {/* Keyed by the saved address so a save folds the fields back behind the eye. */}
-      <BillingAddressSection
-        key={JSON.stringify(lastSaved?.address ?? null)}
-        form={form}
-        showErrors={hasSubmitted}
-        savedAddress={lastSaved?.address ?? null}
-        isMissing={lastSaved !== null && lastSaved.address === null}
-      />
       {submitError ? (
         <Alert variant="destructive">
           <AlertDescription>{submitError}</AlertDescription>
@@ -174,7 +185,7 @@ function CompanyFields({ form, showErrors }: { form: HolderFormApi; showErrors: 
             <Checkbox
               id="holder-is-company"
               checked={field.state.value}
-              onCheckedChange={(state) => switchCompanyMode(form, state === true)}
+              onCheckedChange={(state) => field.handleChange(state === true)}
             />
             <label htmlFor="holder-is-company" className="text-sm">
               Vendo como empresa (CNPJ)
@@ -185,19 +196,6 @@ function CompanyFields({ form, showErrors }: { form: HolderFormApi; showErrors: 
       {isCompany ? <CompanyInputs form={form} showErrors={showErrors} /> : null}
     </div>
   );
-}
-
-/**
- * Ticking or unticking the box starts CNPJ and legal name clean, without the old errors, so the
- * seller types the company again on purpose (L2-2).
- */
-function switchCompanyMode(form: HolderFormApi, isCompany: boolean) {
-  const next = switchHolderType(form.state.values, isCompany);
-  form.setFieldValue("isCompany", next.isCompany);
-  for (const name of ["cnpj", "companyName"] as const) {
-    form.setFieldValue(name, next[name], { dontValidate: true });
-    form.setFieldMeta(name, (meta) => ({ ...meta, errorMap: {}, isTouched: false }));
-  }
 }
 
 /**

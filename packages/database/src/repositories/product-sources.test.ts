@@ -54,7 +54,7 @@ describe("persisted product sources", () => {
       const profile = await findOnboardingProfile(database, tenantId);
       expect(profile.productSourceMode).toBe(mode);
       expect(profile.starterSupplier?.id ?? null).toBe(mode === "own" ? null : catalog.supplierId);
-      expect(profile.holder).toEqual({ ...holder, company: null, address: null });
+      expect(profile.holder).toEqual({ ...holder, company: null });
       expect(await listStoreConnections(database, tenantId)).toEqual(before);
     }
   });

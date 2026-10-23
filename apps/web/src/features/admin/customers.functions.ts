@@ -68,7 +68,6 @@ import {
   pageOfCustomers,
   rankCustomers,
 } from "./customer-ranking";
-import { customerContactForStaff, NO_CUSTOMER_CONTACT } from "./customer-contact";
 import { presentCustomerStores } from "./customer-stores.server";
 import { onboardingReminderEmail } from "./onboarding-reminder";
 import { type ProfileSaveSteps, saveCustomerProfile } from "./email-change.server";
@@ -220,7 +219,6 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
         access,
         events,
         profile: { hasHolder: false, starterSupplier: null },
-        contact: NO_CUSTOMER_CONTACT,
         stores: [],
         summary: null,
         openTickets: 0,
@@ -245,8 +243,6 @@ export const adminGetCustomer = createServerFn({ method: "GET" })
       events,
       weeklyOrders,
       profile: holderStatus(profile),
-      // adminMiddleware lets only admins in, so the phone comes along.
-      contact: customerContactForStaff("admin", profile.holder),
       stores: await presentCustomerStores(customer.tenantId, stores),
       summary,
       openTickets: tickets.total,

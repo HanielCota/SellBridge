@@ -124,22 +124,11 @@ export function testCpf(): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-/** The billing address of the first onboarding step, typed by hand (no CEP lookup yet). */
-export async function fillBillingAddress(page: Page) {
-  await page.getByLabel("CEP").fill("01310100");
-  await page.getByLabel("Rua").fill("Avenida Paulista");
-  await page.getByLabel("Número").fill("1578");
-  await page.getByLabel("Bairro").fill("Bela Vista");
-  await page.getByLabel("Cidade").fill("São Paulo");
-  await page.getByLabel("Estado").selectOption("SP");
-}
-
-/** First onboarding step: full name, a fresh CPF, the phone and the billing address. */
+/** First onboarding step: full name, a fresh CPF and the phone of the billing holder. */
 export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
   await page.getByLabel("Nome completo").fill(fullName);
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("(11) 98765-4321");
-  await fillBillingAddress(page);
   await page.getByRole("button", { name: "Continuar" }).click();
 }
 
