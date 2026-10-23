@@ -5,7 +5,7 @@ import {
 } from "@sellbridge/shared/supplier-flags";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
 import { BrokenRuleLine, GoldenRulesList } from "@/components/golden-rules/golden-rules-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -51,41 +51,52 @@ function FlagRow({
   );
 }
 
-function FlagHistory({ flags }: { flags: readonly TeamSupplierFlag[] }) {
-  if (flags.length === 0) {
-    return null;
-  }
+/**
+ * A folded block under the flags (history, golden rules): one look and one caret for both. The
+ * summary's tap area reaches 44px tall without moving the text.
+ */
+function FoldedSection({ summary, children }: { summary: ReactNode; children: ReactNode }) {
   return (
     <details className="group border-t border-border/60 pt-3">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm font-medium outline-none focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
-        Histórico <span className="tabular-nums">({flags.length})</span>
+      <summary className="relative flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm font-medium outline-none after:absolute after:-inset-x-2 after:-inset-y-3 focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+        {summary}
         <CaretDownIcon
           className="size-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
+      {children}
+    </details>
+  );
+}
+
+function FlagHistory({ flags }: { flags: readonly TeamSupplierFlag[] }) {
+  if (flags.length === 0) {
+    return null;
+  }
+  return (
+    <FoldedSection
+      summary={
+        <>
+          Histórico <span className="tabular-nums">({flags.length})</span>
+        </>
+      }
+    >
       <ul className="[&>li+li]:border-t [&>li+li]:border-border/60">
         {flags.map((flag) => (
           <FlagRow key={flag.id} flag={flag} onRevoke={null} />
         ))}
       </ul>
-    </details>
+    </FoldedSection>
   );
 }
 
 /** The 5 rules beside the flag form, folded like the history so the flags stay first. */
 function GoldenRulesReference() {
   return (
-    <details className="group border-t border-border/60 pt-3">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm font-medium outline-none focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
-        Regras de ouro do fornecedor
-        <CaretDownIcon
-          className="size-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-          aria-hidden="true"
-        />
-      </summary>
+    <FoldedSection summary="Regras de ouro do fornecedor">
       <GoldenRulesList />
-    </details>
+    </FoldedSection>
   );
 }
 
