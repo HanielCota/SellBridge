@@ -58,6 +58,9 @@ test("asks for the billing address and keeps it hidden behind the eye", async ({
   await expect(address).toHaveText(MASKED_ADDRESS);
 
   await page.getByRole("button", { name: "Alterar endereço" }).click();
+  // The button unmounts itself, so focus moves to the first address field.
+  await expect(page.getByLabel("CEP")).toBeFocused();
+  await expect(page.getByLabel("Estado")).toHaveAttribute("autocomplete", "address-level1");
   await page.getByLabel("Número").fill("s/n");
   await page.getByRole("button", { name: "Salvar dados", exact: true }).click();
   await expect(page.getByRole("button", { name: "Dados salvos", exact: true })).toBeVisible();

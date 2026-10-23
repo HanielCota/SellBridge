@@ -199,6 +199,8 @@ interface FloatingSelectFieldProps {
   options: readonly string[];
   onValueChange: (value: string) => void;
   onBlur?: (() => void) | undefined;
+  /** Autofill token, e.g. "address-level1" for the state. */
+  autoComplete?: string | undefined;
 }
 
 /**
@@ -213,6 +215,7 @@ export function FloatingSelectField({
   options,
   onValueChange,
   onBlur,
+  autoComplete,
 }: FloatingSelectFieldProps) {
   const message = firstErrorMessage(errors);
   const footnoteId = `${id}-footnote`;
@@ -224,12 +227,17 @@ export function FloatingSelectField({
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
           onBlur={onBlur}
+          autoComplete={autoComplete}
           aria-invalid={message ? true : undefined}
           aria-describedby={message ? footnoteId : undefined}
           className={cn(
-            "h-14 w-full appearance-none rounded-xl border border-field-border bg-field pt-5 pr-9 pb-1.5 pl-4 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
+            "h-14 w-full cursor-pointer appearance-none rounded-xl border border-field-border bg-field pt-5 pr-9 pb-1.5 pl-4 text-body tracking-tight text-foreground transition-[border-color,box-shadow] duration-150 outline-none",
             "focus:border-brand-strong focus:ring-4 focus:ring-brand/20",
             "aria-invalid:border-destructive aria-invalid:focus:ring-destructive/15",
+            // The open list is drawn by the OS: give its rows the app's surface in both themes.
+            "[&>option]:bg-popover [&>option]:text-popover-foreground",
+            // The empty choice reads as a placeholder, not as a picked value.
+            value === "" ? "text-muted-foreground" : null,
           )}
         >
           <option value="">Escolha</option>

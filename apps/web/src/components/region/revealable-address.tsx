@@ -38,7 +38,8 @@ export function RevealableAddress({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="-my-1 shrink-0 text-muted-foreground hover:text-foreground"
+        // The hit area grows to 44px for a finger without moving the 32px circle.
+        className="relative -my-1 shrink-0 text-muted-foreground after:absolute after:-inset-1.5 hover:text-foreground"
         aria-label={isVisible ? "Ocultar endereço" : "Mostrar endereço"}
         aria-pressed={isVisible}
         onClick={() => setIsVisible((visible) => !visible)}
