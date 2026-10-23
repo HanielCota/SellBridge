@@ -22,6 +22,7 @@ import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 import { DESCRIPTION_FIELD_ID } from "./description-step";
 import { focusStepHeading, STEP_HEADING_IDS } from "./step-parts";
+import { useAssistantAnswer } from "./use-assistant-answer";
 
 const createdSchema = z.object({ ticketId: z.uuid() });
 
@@ -30,6 +31,8 @@ interface TicketDraft {
   situation: SupportSituation | undefined;
   body: string;
   files: readonly File[];
+  /** The automatic answer the customer read before asking for a person. */
+  assistantAnswerId: string | undefined;
 }
 
 function buildFormData(draft: TicketDraft, search: NewTicketSearch): FormData {
@@ -41,6 +44,7 @@ function buildFormData(draft: TicketDraft, search: NewTicketSearch): FormData {
   formData.set("orderId", search.pedido ?? "");
   formData.set("storeConnectionId", search.loja ?? "");
   formData.set("listingId", search.anuncio ?? "");
+  formData.set("assistantAnswerId", draft.assistantAnswerId ?? "");
   for (const file of draft.files) {
     formData.append("files", file);
   }
@@ -84,30 +88,35 @@ function initialCategory(kind: ProfileKind, search: NewTicketSearch): TicketCate
 
 /**
  * Topic and situation. Changing an earlier answer clears only what depends on it, and focus moves
- * to the question that opens next.
+ * to the question that opens next. `onChange` runs on every change (it clears the assistant's
+ * answer, which belongs to the topic and situation it was given for).
  */
-function useTicketChoices(kind: ProfileKind, search: NewTicketSearch) {
+function useTicketChoices(kind: ProfileKind, search: NewTicketSearch, onChange: () => void) {
   const [category, setCategory] = useState(() => initialCategory(kind, search));
   const [situationId, setSituationId] = useState<string | undefined>(undefined);
   const topic = category === null ? undefined : findSupportTopic(kind, category);
   const situation = topic === undefined ? undefined : findSupportSituation(topic, situationId);
 
   function pickTopic(next: TicketCategory) {
+    onChange();
     setCategory(next);
     setSituationId(undefined);
     const hasSituations = (findSupportTopic(kind, next)?.situations.length ?? 0) > 0;
     focusStepHeading(hasSituations ? STEP_HEADING_IDS.situation : STEP_HEADING_IDS.description);
   }
   function pickSituation(next: string) {
+    onChange();
     setSituationId(next);
     focusStepHeading(STEP_HEADING_IDS.description);
   }
   function changeTopic() {
+    onChange();
     setCategory(null);
     setSituationId(undefined);
     focusStepHeading(STEP_HEADING_IDS.topic);
   }
   function changeSituation() {
+    onChange();
     setSituationId(undefined);
     focusStepHeading(STEP_HEADING_IDS.situation);
   }
@@ -141,9 +150,14 @@ function useSendTicket(search: NewTicketSearch) {
   return { isSending, sendError, sendDraft };
 }
 
-/** The new-ticket flow. The text and files written so far survive any change of topic. */
+/**
+ * The new-ticket flow. The text and files written so far survive any change of topic. The first
+ * send may stop at the assistant's answer; the next one ("Ainda preciso de ajuda") sends the
+ * ticket with that answer for the team.
+ */
 export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
-  const choices = useTicketChoices(kind, search);
+  const assistant = useAssistantAnswer();
+  const choices = useTicketChoices(kind, search, assistant.clear);
   const attachments = useTicketFiles();
   const sending = useSendTicket(search);
   const [body, setBody] = useState("");
@@ -151,15 +165,20 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
   const { topic, situation } = choices;
   const needsSituation = topic !== undefined && topic.situations.length > 0;
   const isReadyToWrite = topic !== undefined && (!needsSituation || situation !== undefined);
+  const question =
+    topic === undefined
+      ? undefined
+      : { category: topic.category, situationId: situation?.id, body };
 
   function writeBody(next: string) {
     setBody(next);
     setShowTooShort(false);
+    assistant.clear();
   }
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (topic === undefined || !isReadyToWrite) {
+    if (topic === undefined || question === undefined || !isReadyToWrite) {
       return;
     }
     if (body.trim().length < minimumDescriptionLength(situation)) {
@@ -167,7 +186,16 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
       document.getElementById(DESCRIPTION_FIELD_ID)?.focus();
       return;
     }
-    await sending.sendDraft({ topic, situation, body, files: attachments.files });
+    if (assistant.answer === null && (await assistant.ask(question))) {
+      return;
+    }
+    await sending.sendDraft({
+      topic,
+      situation,
+      body,
+      files: attachments.files,
+      assistantAnswerId: assistant.answer?.id,
+    });
   }
 
   return {
@@ -180,5 +208,9 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
     showTooShort,
     writeBody,
     send,
+    assistantAnswer: assistant.answer,
+    isAskingAssistant: assistant.isAsking,
+    isResolvingWithAssistant: assistant.isResolving,
+    resolveWithAssistant: () => assistant.resolve(question),
   };
 }

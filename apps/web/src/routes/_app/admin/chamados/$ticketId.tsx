@@ -19,6 +19,7 @@ import {
   type ComposerHandle,
   type ComposerMode,
 } from "@/components/support/admin-composer";
+import { AssistantAnswerNote } from "@/components/support/assistant-answer-note";
 import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel";
 import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
 import { TicketThread } from "@/components/support/ticket-thread";
@@ -144,6 +145,9 @@ function AdminTicketWorkspace({ detail }: { detail: AdminTicketDetail }) {
       {reopenedByVerdict(detail) ? <NotSolvedBanner /> : null}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
+          {detail.assistantAnswer === null ? null : (
+            <AssistantAnswerNote body={detail.assistantAnswer.body} />
+          )}
           <TicketThread
             messages={messages}
             onQuote={(message) =>
