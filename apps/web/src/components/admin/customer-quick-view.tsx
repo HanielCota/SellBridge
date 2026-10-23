@@ -8,6 +8,7 @@ import {
   SectionLabel,
   WeeklyOrders,
 } from "@/components/admin/customer-health-parts";
+import { CustomerContactDetails } from "@/components/admin/customer-contact-details";
 import { CustomerTimeline } from "@/components/admin/customer-timeline";
 import { HealthRing } from "@/components/admin/health-ring";
 import { SmartDate } from "@/components/data/smart-date";
@@ -68,6 +69,21 @@ function ActivityFigures({ customer }: { customer: RankedCustomer }) {
           <Skeleton className="h-24 rounded-xl" aria-label="Carregando linha do tempo" />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Billing address behind the eye and the phone, which only admins receive. */
+function ContactSection({ customerId }: { customerId: string }) {
+  const detail = useQuery(customerQueryOptions(customerId));
+  return (
+    <div>
+      <SectionLabel>Cobrança e contato</SectionLabel>
+      {detail.data ? (
+        <CustomerContactDetails contact={detail.data.contact} />
+      ) : (
+        <Skeleton className="h-24 rounded-xl" aria-label="Carregando contato" />
+      )}
     </div>
   );
 }
@@ -140,6 +156,7 @@ export function CustomerQuickView({
             <SectionLabel>Primeiros passos</SectionLabel>
             <OnboardingProgress completed={health.completedSteps} />
           </div>
+          <ContactSection customerId={customer.id} />
         </div>
         <ActivityFigures customer={customer} />
       </div>

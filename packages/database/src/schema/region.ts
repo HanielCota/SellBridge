@@ -1,6 +1,16 @@
 import { sql } from "drizzle-orm";
 import { PRODUCT_SOURCE_MODES } from "@sellbridge/shared/product-sources";
-import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import type { BillingAddress } from "@sellbridge/shared/billing-address";
+import {
+  check,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { organization } from "./auth.ts";
 import { suppliers } from "./suppliers.ts";
 
@@ -19,6 +29,11 @@ export const tenantProfile = pgTable(
     /** Digits only; set with `companyName` for who sells as a company, else both null. */
     cnpj: text(),
     companyName: text(),
+    /**
+     * Where invoices and charges go (CEP digits, street, number, district, city, state); not the
+     * supplier's shipping. Null for tenants saved before it was asked: the form asks for it again.
+     */
+    billingAddress: jsonb().$type<BillingAddress>(),
     /**
      * The supplier picked during onboarding, before any shop exists: the first shop the tenant
      * connects sells it. Null for own-only sellers, until picked, or after supplier deletion.
