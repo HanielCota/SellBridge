@@ -32,7 +32,6 @@ export async function lookUpEachCodeOnce<Request extends { code: string }, Resul
     for (let request = queue[nextIndex]; request !== undefined; request = queue[nextIndex]) {
       nextIndex += 1;
       // Sequential on purpose: each lane holds one carrier call at a time.
-      // eslint-disable-next-line no-await-in-loop
       results.set(request.code, await lookUp(request));
     }
   };
