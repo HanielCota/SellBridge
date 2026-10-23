@@ -88,6 +88,21 @@ function assistantNoteFor(profile: ProfileKind, answerId: string | undefined): s
   return formatAssistantNote(answer);
 }
 
+/** The new-ticket form fields, checked: a bad field answers 400 with its message. */
+function parseCreateTicketForm(formData: FormData) {
+  const input = createTicketSchema.safeParse({
+    category: textField(formData, "category"),
+    situation: textField(formData, "situation"),
+    about: textField(formData, "about"),
+    body: textField(formData, "body"),
+    assistantAnswerId: textField(formData, "assistantAnswerId"),
+  });
+  if (!input.success) {
+    throw validationError(firstIssue(input.error));
+  }
+  return input.data;
+}
+
 /**
  * POST /api/suporte/chamados: opens a ticket (multipart: category, situation, about, body,
  * assistantAnswerId, files).
@@ -97,22 +112,13 @@ export function handleCreateTicket(request: Request) {
     assertSameOrigin(request, environment.APP_URL);
     const session = await requireTenantRequest(request);
     const formData = await readUploadForm(request, session.userId);
-    const input = createTicketSchema.safeParse({
-      category: textField(formData, "category"),
-      situation: textField(formData, "situation"),
-      about: textField(formData, "about"),
-      body: textField(formData, "body"),
-      assistantAnswerId: textField(formData, "assistantAnswerId"),
-    });
-    if (!input.success) {
-      throw validationError(firstIssue(input.error));
-    }
+    const input = parseCreateTicketForm(formData);
     const plan = planSupportTicket({
       kind: session.profileKind,
-      category: input.data.category,
-      situationId: input.data.situation,
-      about: input.data.about,
-      description: input.data.body,
+      category: input.category,
+      situationId: input.situation,
+      about: input.about,
+      description: input.body,
     });
     const about = await readTicketAbout(formData, session.tenantId);
     const files = await validateAttachments(formData);
@@ -121,12 +127,12 @@ export function handleCreateTicket(request: Request) {
       createTicket(database, {
         tenantId: session.tenantId,
         userId: session.userId,
-        category: input.data.category,
+        category: input.category,
         priority: plan.priority,
         subject: plan.subject,
-        body: input.data.body,
+        body: input.body,
         attachments,
-        assistantNote: assistantNoteFor(session.profileKind, input.data.assistantAnswerId),
+        assistantNote: assistantNoteFor(session.profileKind, input.assistantAnswerId),
       }),
     );
     await linkTicketAbout(database, {
@@ -138,7 +144,7 @@ export function handleCreateTicket(request: Request) {
     logger.info("support.ticket_created", {
       tenantId: session.tenantId,
       ticketId,
-      assistantAnswerId: input.data.assistantAnswerId ?? null,
+      assistantAnswerId: input.assistantAnswerId ?? null,
     });
     // Not awaited: the ticket is saved, and the team's e-mail must not hold the reseller.
     void notifyTeamOfNewTicket(ticketId);
