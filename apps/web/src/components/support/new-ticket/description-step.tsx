@@ -3,6 +3,7 @@ import type { ClipboardEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
+import { cn } from "@/lib/utils";
 import { STEP_HEADING_IDS, StepHeading } from "./step-parts";
 
 export const DESCRIPTION_FIELD_ID = "new-ticket-body";
@@ -75,8 +76,15 @@ export function SendFooter({
   submitLabel?: string;
   children?: ReactNode;
 }) {
+  // Two buttons beside the text squeezed it into a narrow column: they get their own row.
+  const hasTwoButtons = children !== undefined && children !== null;
   return (
-    <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      className={cn(
+        "flex flex-col gap-3 border-t pt-4",
+        !hasTwoButtons && "sm:flex-row sm:items-end sm:justify-between",
+      )}
+    >
       <div className="text-sm">
         <p className="font-medium">O que acontece depois</p>
         <p className="text-muted-foreground">{promise}</p>

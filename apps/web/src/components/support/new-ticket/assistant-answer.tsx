@@ -30,13 +30,14 @@ export function AssistantAnswer({ answer }: { answer: SupportAnswer }) {
           <li key={step}>{step}</li>
         ))}
       </ol>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      <ul className="-my-2 flex flex-wrap gap-x-4 text-sm">
         {answer.links.map((link) => (
           <li key={link.path}>
             <Link
               to={link.path}
               target="_blank"
-              className="inline-flex items-center gap-1 font-medium underline-offset-4 hover:underline"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-1 font-medium underline-offset-4 hover:underline"
             >
               {link.label}
               <ArrowUpRightIcon className="size-3.5" aria-hidden="true" />
