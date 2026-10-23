@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { parseJsonText } from "@sellbridge/shared/http-body";
 import { z } from "zod";
 import { marketplaceError } from "../errors.ts";
-import { marketplaceShippingAddressSchema } from "../shipping-address.ts";
+import { marketplaceShippingAddressSchema, shippingAddressReading } from "../shipping-address.ts";
 import type { MarketplaceOrder } from "../types.ts";
 
 /**
@@ -25,11 +25,8 @@ const mockOrderSchema = z.object({
   marketplaceFeeCents: z.number().int().nonnegative(),
   refundedCents: z.number().int().nonnegative().default(0),
   buyerName: z.string().nullable(),
-  /**
-   * The simulated sale carries a made-up address, so the forward form shows it filled. Like a real
-   * marketplace's, a malformed one reads as "not provided" instead of failing the whole order.
-   */
-  shippingAddress: marketplaceShippingAddressSchema.optional().catch(undefined),
+  /** The simulated sale carries a made-up address, so the forward form shows it filled. */
+  shippingAddress: marketplaceShippingAddressSchema.optional(),
   orderedAt: z.string(),
   items: z
     .array(
@@ -45,6 +42,12 @@ const mockOrderSchema = z.object({
 
 export type MockOrder = z.input<typeof mockOrderSchema>;
 
+/**
+ * What the decoder accepts: like a real marketplace's, a malformed address reads as "not
+ * provided" (`shippingAddressReading`) instead of failing the whole order.
+ */
+const decodedMockOrderSchema = mockOrderSchema.extend({ shippingAddress: z.unknown().optional() });
+
 /** The simulated marketplace encodes the whole order in the webhook resource. */
 export function encodeMockOrderResource(order: MockOrder): string {
   return `${ORDER_RESOURCE_PREFIX}${Buffer.from(JSON.stringify(order)).toString("base64url")}`;
@@ -56,11 +59,17 @@ export function decodeMockOrderResource(resource: string): MarketplaceOrder {
   }
   const encoded = resource.slice(ORDER_RESOURCE_PREFIX.length);
   const json = parseJsonText(Buffer.from(encoded, "base64url").toString("utf8"));
-  const parsed = mockOrderSchema.safeParse(json);
+  const parsed = decodedMockOrderSchema.safeParse(json);
   if (!parsed.success) {
     throw marketplaceError("Pedido simulado em formato inválido", { retryable: false });
   }
-  return { ...parsed.data, orderedAt: new Date(parsed.data.orderedAt) };
+  const { shippingAddress, ...order } = parsed.data;
+  const reading = shippingAddressReading(shippingAddress);
+  return {
+    ...order,
+    orderedAt: new Date(order.orderedAt),
+    ...(reading.kind === "available" ? { shippingAddress: reading.address } : {}),
+  };
 }
 
 export function encodeMockAuthorizationCode(shopName: string): string {
