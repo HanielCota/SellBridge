@@ -12,6 +12,7 @@ import {
   normalizeTrackingInput,
   type CarrierTrackingResult,
 } from "./carrier-tracking";
+import { lookUpEachCodeOnce } from "./carrier-lookups";
 import { createCarrierTrackingProvider } from "./carrier-tracking-provider";
 import { explainTracking } from "./tracking-explanation";
 import type { TrackedParcelView, TrackingSearchResult } from "./tracking-views";
@@ -34,15 +35,21 @@ function eventsOf(result: CarrierTrackingResult | null) {
   return result?.state === "found" ? result.events : null;
 }
 
-async function parcelView(row: TrackedParcelRow): Promise<TrackedParcelView> {
-  const code = row.trackingCode === null ? null : normalizeTrackingInput(row.trackingCode);
-  const tracked =
-    code !== null && isCorreiosCode(code) ? await trackCode(code, row.shippedAt) : null;
-  const explanation = explainTracking({
-    parcel: row,
-    carrierEvents: eventsOf(tracked),
-    now: new Date(),
-  });
+/** The Correios code a parcel can be read by; null without a code or for another carrier. */
+function correiosCodeOf(row: TrackedParcelRow): string | null {
+  if (row.trackingCode === null) {
+    return null;
+  }
+  const code = normalizeTrackingInput(row.trackingCode);
+  return isCorreiosCode(code) ? code : null;
+}
+
+function parcelView(
+  row: TrackedParcelRow,
+  tracked: CarrierTrackingResult | null,
+  now: Date,
+): TrackedParcelView {
+  const explanation = explainTracking({ parcel: row, carrierEvents: eventsOf(tracked), now });
   return {
     shipmentId: row.shipmentId,
     orderId: row.orderId,
@@ -59,9 +66,21 @@ async function parcelView(row: TrackedParcelRow): Promise<TrackedParcelView> {
   };
 }
 
+/** Each distinct code is read once, a few at a time, then every parcel gets its answer. */
 async function trackedParcelViews(tenantId: string, filter: TrackedParcelFilter) {
   const rows = await listTrackedParcels(database, tenantId, filter);
-  return Promise.all(rows.map(parcelView));
+  const requests = rows.flatMap((row) => {
+    const code = correiosCodeOf(row);
+    return code === null ? [] : [{ code, handedOverAt: row.shippedAt }];
+  });
+  const answers = await lookUpEachCodeOnce(requests, (request) =>
+    trackCode(request.code, request.handedOverAt),
+  );
+  const now = new Date();
+  return rows.map((row) => {
+    const code = correiosCodeOf(row);
+    return parcelView(row, code === null ? null : (answers.get(code) ?? null), now);
+  });
 }
 
 export async function orderTracking(
