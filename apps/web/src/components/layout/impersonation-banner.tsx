@@ -2,6 +2,7 @@ import { EyeIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { takeReturnPath } from "@/features/admin/impersonation-return";
 import { authClient } from "@/lib/auth-client";
 
 const endTime = new Intl.DateTimeFormat("pt-BR", {
@@ -32,7 +33,7 @@ export function ImpersonationBanner({
       return;
     }
     // A plain page load: a router link would carry the customer's `?perfil=` back to the admin.
-    window.location.assign("/admin/clientes");
+    window.location.assign(takeReturnPath());
   }
 
   return (
@@ -47,12 +48,14 @@ export function ImpersonationBanner({
         {endsAt === null ? "" : ` até ${endTime.format(new Date(endsAt))}`}.
         <span className="hidden sm:inline"> Tudo o que fizer fica registrado com o seu nome.</span>
         <span className="hidden text-xs text-amber-900 sm:block">
-          Chaves de API, webhooks, lojas, assinatura e dados do titular ficam bloqueados.
+          Chaves de API, webhooks, lojas, assinatura, dados do titular e da empresa ficam
+          bloqueados.
         </span>
       </span>
+      {/* The after layer stretches the 28px button to the bar's full height: a 44px target. */}
       <Button
         size="xs"
-        className="shrink-0 bg-amber-950 text-amber-50 hover:bg-amber-900"
+        className="relative shrink-0 bg-amber-950 text-amber-50 after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-amber-900"
         disabled={isLeaving}
         onClick={() => void stopImpersonating()}
       >
