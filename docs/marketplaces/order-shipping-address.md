@@ -39,7 +39,7 @@ Two ways for a connector to deliver the address:
 
 ## What is stored
 
-- `orders.shipping_address_enc` (migration `0048_order_shipping_address.sql`): the address as JSON,
+- `orders.shipping_address_enc` (migration `0049_order_shipping_address.sql`): the address as JSON,
   encrypted with `TOKEN_ENCRYPTION_KEY` (AES-256-GCM, `sealShippingAddress` /
   `openShippingAddress`).
 - The web app opens it only in `loadFulfillmentDetail`
