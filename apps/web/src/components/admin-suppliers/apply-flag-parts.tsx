@@ -31,6 +31,8 @@ export function appliedMessage(result: AppliedSupplierFlag): string {
   return "Flag aplicada.";
 }
 
+const CONFIRM_ERROR_ID = "flag-confirm-deactivation-error";
+
 /** Three strikes: the flag that would be the 3rd active one says so and asks to confirm. */
 export function DeactivationConfirm({
   activeCount,
@@ -47,7 +49,8 @@ export function DeactivationConfirm({
     <Alert variant="destructive">
       <AlertTitle>{deactivatingFlagNotice(activeCount)}</AlertTitle>
       <AlertDescription className="space-y-3">
-        <p>
+        {/* Full red: the alert's 90% red sits at 4.6:1 on the dark dialog, on the AA edge. */}
+        <p className="text-destructive">
           Os produtos dele saem do catálogo e os anúncios dos revendedores são pausados. Só um
           administrador reativa a conta, pela ficha do fornecedor.
         </p>
@@ -56,6 +59,7 @@ export function DeactivationConfirm({
             id="flag-confirm-deactivation"
             checked={confirmed}
             aria-invalid={error === undefined ? undefined : true}
+            aria-describedby={error === undefined ? undefined : CONFIRM_ERROR_ID}
             onCheckedChange={(state) => onConfirmedChange(state === true)}
             className="mt-0.5"
           />
@@ -63,7 +67,11 @@ export function DeactivationConfirm({
             Confirmo: aplicar a flag e desligar o fornecedor
           </label>
         </div>
-        {error === undefined ? null : <p className="text-sm">{error}</p>}
+        {error === undefined ? null : (
+          <p id={CONFIRM_ERROR_ID} className="text-sm font-medium text-destructive">
+            {error}
+          </p>
+        )}
       </AlertDescription>
     </Alert>
   );
