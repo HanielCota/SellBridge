@@ -5,7 +5,7 @@ import {
   REVIEW_FILTERS,
   type OrderReviewSearch,
 } from "@sellbridge/shared/schemas";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
@@ -30,7 +30,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import type { listOrderReviews } from "@/features/orders/orders.functions";
 import { orderReviewsQueryOptions } from "@/features/orders/orders.queries";
-import { parcelsInTransitQueryOptions } from "@/features/tracking/order-tracking.queries";
+import {
+  orderTrackingQueryOptions,
+  parcelsInTransitQueryOptions,
+} from "@/features/tracking/order-tracking.queries";
 import { displayStoreName } from "@/features/stores/store-name";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -52,6 +55,15 @@ function reviewsSearch(search: OrdersSearch): OrderReviewSearch {
   };
 }
 
+/** The list and, opened from an order, its parcels: fetched together, not one after the other. */
+async function prefetchTracking(queryClient: QueryClient, trackOrder: string | undefined) {
+  const order =
+    trackOrder === undefined
+      ? Promise.resolve()
+      : prefetchOnServer(queryClient, orderTrackingQueryOptions(trackOrder));
+  await Promise.all([prefetchOnServer(queryClient, parcelsInTransitQueryOptions()), order]);
+}
+
 export const Route = createFileRoute("/_app/pedidos/")({
   validateSearch: ordersSearchSchema,
   loaderDeps: ({ search }) => search,
@@ -61,7 +73,7 @@ export const Route = createFileRoute("/_app/pedidos/")({
       return prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)));
     }
     if (search.view === "tracking") {
-      return prefetchOnServer(context.queryClient, parcelsInTransitQueryOptions());
+      return prefetchTracking(context.queryClient, search.trackOrder);
     }
     return prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search)));
   },
