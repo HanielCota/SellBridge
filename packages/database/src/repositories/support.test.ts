@@ -104,6 +104,31 @@ async function staffQueue(queue: "unassigned" | "mine" | "overdue" | "all", now:
 }
 
 describe("support tickets", () => {
+  it("keeps the assistant's answer for the team only, before the customer's message", async () => {
+    const now = new Date();
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "listing",
+      subject: `Anúncio parado · ${RUN}`,
+      body: "O anúncio do tênis foi pausado ontem.",
+      attachments: [],
+      assistantNote: "Por que um anúncio fica pausado\n1. Abra Publicações.",
+      now,
+    });
+    const customer = await getTicketThread(database, ticketId, tenantA);
+    expect(customer.messages.map((message) => message.body)).toEqual([
+      "O anúncio do tênis foi pausado ontem.",
+    ]);
+    const staff = await getTicketThread(database, ticketId, null);
+    expect(staff.messages.map((message) => [message.isAdmin, message.isInternal])).toEqual([
+      [false, true],
+      [false, false],
+    ]);
+    expect(staff.ticket.firstResponseAt).toBeNull();
+    expect(await countUnreadSupportReplies(database, tenantA, reseller)).toBe(0);
+  });
+
   it("creates a ticket with attachment and keeps it inside the tenant", async () => {
     const { ticketId } = await createTicket(database, {
       tenantId: tenantA,

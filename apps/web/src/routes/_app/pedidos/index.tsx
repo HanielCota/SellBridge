@@ -5,7 +5,7 @@ import {
   REVIEW_FILTERS,
   type OrderReviewSearch,
 } from "@sellbridge/shared/schemas";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Operations, operationsQuery } from "@/components/fulfillment/operations";
+import { OrderTracking } from "@/components/tracking/order-tracking";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
 import { OrderStatusBadge } from "@/components/reports/order-status-badge";
@@ -29,6 +30,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { operationsQueryOptions } from "@/features/fulfillment/fulfillment.queries";
 import type { listOrderReviews } from "@/features/orders/orders.functions";
 import { orderReviewsQueryOptions } from "@/features/orders/orders.queries";
+import {
+  orderTrackingQueryOptions,
+  parcelsInTransitQueryOptions,
+} from "@/features/tracking/order-tracking.queries";
 import { displayStoreName } from "@/features/stores/store-name";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
@@ -50,14 +55,28 @@ function reviewsSearch(search: OrdersSearch): OrderReviewSearch {
   };
 }
 
+/** The list and, opened from an order, its parcels: fetched together, not one after the other. */
+async function prefetchTracking(queryClient: QueryClient, trackOrder: string | undefined) {
+  const order =
+    trackOrder === undefined
+      ? Promise.resolve()
+      : prefetchOnServer(queryClient, orderTrackingQueryOptions(trackOrder));
+  await Promise.all([prefetchOnServer(queryClient, parcelsInTransitQueryOptions()), order]);
+}
+
 export const Route = createFileRoute("/_app/pedidos/")({
   validateSearch: ordersSearchSchema,
   loaderDeps: ({ search }) => search,
   // Only the visible tab is loaded, and with the same key its list reads.
-  loader: ({ context, deps: search }) =>
-    search.view === "reviews"
-      ? prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)))
-      : prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search))),
+  loader: ({ context, deps: search }) => {
+    if (search.view === "reviews") {
+      return prefetchOnServer(context.queryClient, orderReviewsQueryOptions(reviewsSearch(search)));
+    }
+    if (search.view === "tracking") {
+      return prefetchTracking(context.queryClient, search.trackOrder);
+    }
+    return prefetchOnServer(context.queryClient, operationsQueryOptions(operationsQuery(search)));
+  },
   head: () => ({ meta: [{ title: "Pedidos | SellBridge" }] }),
   component: OrdersPage,
 });
@@ -74,6 +93,7 @@ function useOrdersNavigation() {
 const VIEW_TABS: readonly FilterTab<OrdersSearch["view"]>[] = [
   { value: "operations", label: "Operação" },
   { value: "reviews", label: "Avaliações" },
+  { value: "tracking", label: "Rastreio" },
 ];
 
 function OrdersPage() {
@@ -83,10 +103,14 @@ function OrdersPage() {
   const router = useRouter();
   // The tab and the operations filters live in the address: coming back from an order keeps them.
   const updateOperations = useCallback(
-    (patch: Partial<OrdersSearch>) => {
+    (patch: Partial<OrdersSearch>, resetScroll = true) => {
       // A search typed just before opening an order lands late: it must not pull the page back.
       if (!/^\/pedidos\/?$/.test(router.latestLocation.pathname)) return;
-      void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true });
+      void navigate({
+        search: (previous) => ({ ...previous, ...patch }),
+        replace: true,
+        resetScroll,
+      });
     },
     [navigate, router],
   );
@@ -104,12 +128,20 @@ function OrdersPage() {
       />
       {search.view === "operations" ? (
         <Operations search={search} onChange={updateOperations} />
-      ) : (
+      ) : null}
+      {search.view === "reviews" ? (
         <>
           <OrderFilters />
           <OrderList onReview={setTarget} />
         </>
-      )}
+      ) : null}
+      {search.view === "tracking" ? (
+        <OrderTracking
+          trackOrder={search.trackOrder}
+          // The tab scrolls its result into view itself; a jump to the page top would undo it.
+          onTrackOrder={(trackOrder) => updateOperations({ trackOrder }, false)}
+        />
+      ) : null}
       <ReviewDialog
         target={target}
         onOpenChange={(open) => {
