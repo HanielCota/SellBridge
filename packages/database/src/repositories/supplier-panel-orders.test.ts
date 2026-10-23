@@ -8,10 +8,12 @@ import {
   createTestSupplierProduct,
   createTestTenantPair,
   testAddress,
+  testCpf,
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { noteSupplierEmailFailed } from "./auto-forward.ts";
 import { forwardOrder } from "./fulfillment.ts";
+import { saveBillingHolder } from "./region.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
 import { queueDueAt } from "./supplier-panel-orders-sql.ts";
@@ -231,6 +233,44 @@ describe("getSupplierPanelShipment", () => {
       shipmentId,
     });
     expect(detail.address).toBeNull();
+  });
+
+  // Resellers and suppliers must not reach each other outside the platform.
+  it("never gives the supplier the reseller's phone or billing address", async () => {
+    const phone = "11976543210";
+    const billingAddress = {
+      cep: "04538132",
+      street: "Rua Faturamento Secreto",
+      number: "77",
+      complement: "",
+      neighborhood: "Itaim Bibi",
+      city: "Campinas",
+      state: "SP" as const,
+    };
+    await saveBillingHolder(database, tenants.tenantA, {
+      fullName: "Revendedora Contato Oculto",
+      cpf: testCpf(),
+      phone,
+      company: null,
+      address: billingAddress,
+    });
+    const { shipmentId } = await forwardedShipment();
+    const detail = await getSupplierPanelShipment(database, {
+      supplierId: supplier.supplierId,
+      shipmentId,
+    });
+    const list = await listSupplierShipments(database, {
+      supplierId: supplier.supplierId,
+      tab: "todo",
+      query: "",
+      page: 1,
+    });
+    for (const payload of [JSON.stringify(detail), JSON.stringify(list)]) {
+      expect(payload).not.toContain(phone);
+      expect(payload).not.toContain(billingAddress.street);
+      expect(payload).not.toContain(billingAddress.cep);
+      expect(payload).not.toContain("Revendedora Contato Oculto");
+    }
   });
 
   it("treats another supplier's parcel as not found", async () => {
