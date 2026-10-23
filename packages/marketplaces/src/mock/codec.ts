@@ -25,8 +25,11 @@ const mockOrderSchema = z.object({
   marketplaceFeeCents: z.number().int().nonnegative(),
   refundedCents: z.number().int().nonnegative().default(0),
   buyerName: z.string().nullable(),
-  /** The simulated sale carries a made-up address, so the forward form shows it filled. */
-  shippingAddress: marketplaceShippingAddressSchema.optional(),
+  /**
+   * The simulated sale carries a made-up address, so the forward form shows it filled. Like a real
+   * marketplace's, a malformed one reads as "not provided" instead of failing the whole order.
+   */
+  shippingAddress: marketplaceShippingAddressSchema.optional().catch(undefined),
   orderedAt: z.string(),
   items: z
     .array(

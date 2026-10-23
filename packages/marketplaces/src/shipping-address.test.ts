@@ -64,4 +64,19 @@ describe("marketplace shipping address", () => {
     });
     expect(decodeMockOrderResource(resource).shippingAddress).toEqual(address);
   });
+  it("keeps a simulated order whose address is malformed, without the address", () => {
+    const resource = encodeMockOrderResource({
+      externalOrderId: "SIM-2",
+      status: "paid",
+      totalCents: 1000,
+      marketplaceFeeCents: 100,
+      buyerName: "Comprador simulado",
+      shippingAddress: { ...address, postalCode: "123" },
+      orderedAt: new Date(0).toISOString(),
+      items: [{ externalListingId: "L1", title: "Caneca", quantity: 1, unitPriceCents: 1000 }],
+    });
+    const order = decodeMockOrderResource(resource);
+    expect(order.externalOrderId).toBe("SIM-2");
+    expect(order.shippingAddress).toBeUndefined();
+  });
 });
