@@ -52,9 +52,10 @@ export function ImpersonationBanner({
           bloqueados.
         </span>
       </span>
+      {/* The after layer stretches the 28px button to the bar's full height: a 44px target. */}
       <Button
         size="xs"
-        className="shrink-0 bg-amber-950 text-amber-50 hover:bg-amber-900"
+        className="relative shrink-0 bg-amber-950 text-amber-50 after:absolute after:-inset-x-1 after:-inset-y-2 hover:bg-amber-900"
         disabled={isLeaving}
         onClick={() => void stopImpersonating()}
       >
