@@ -267,12 +267,34 @@ async function explainUnrevokable(
   throw conflictError("Esta flag já venceu e não conta mais.");
 }
 
-/** Revokes an active flag of this supplier; one already revoked or expired is refused. */
+interface FlagRevocation {
+  supplierId: string;
+  flagId: string;
+  revokedBy: string;
+  revokeNote: string;
+  now: Date;
+}
+
+/**
+ * Revokes an active flag of this supplier; one already revoked or expired is refused. Takes the
+ * same supplier lock as `applySupplierFlag`: a revoke committing between the apply's count and its
+ * commit would leave a supplier put out with only 2 active flags.
+ */
 export async function revokeSupplierFlag(
   database: DatabaseExecutor,
-  input: { supplierId: string; flagId: string; revokedBy: string; revokeNote: string; now: Date },
+  input: FlagRevocation,
 ): Promise<{ id: string }> {
-  const [revoked] = await database
+  return await database.transaction(async (transaction) => {
+    await lockFlaggableSupplier(transaction, input.supplierId);
+    return await revokeLockedFlag(transaction, input);
+  });
+}
+
+async function revokeLockedFlag(
+  transaction: DatabaseExecutor,
+  input: FlagRevocation,
+): Promise<{ id: string }> {
+  const [revoked] = await transaction
     .update(supplierFlags)
     .set({ revokedAt: input.now, revokedBy: input.revokedBy, revokeNote: input.revokeNote })
     .where(
@@ -285,7 +307,7 @@ export async function revokeSupplierFlag(
     )
     .returning({ id: supplierFlags.id });
   if (revoked === undefined) {
-    return await explainUnrevokable(database, input);
+    return await explainUnrevokable(transaction, input);
   }
   return revoked;
 }

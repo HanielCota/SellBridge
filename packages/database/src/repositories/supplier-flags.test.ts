@@ -55,6 +55,18 @@ function flagInput(supplierId: string, reason: SupplierFlagReason) {
   return { supplierId, reason, note: "", createdBy: staffId() };
 }
 
+/** Whether `promise` settles before `milliseconds` pass (a blocked lock does not). */
+async function settlesWithin(promise: Promise<unknown>, milliseconds: number): Promise<boolean> {
+  const settled = (async () => {
+    await promise;
+    return true;
+  })();
+  const timedOut = new Promise<boolean>((resolve) => {
+    setTimeout(() => resolve(false), milliseconds);
+  });
+  return await Promise.race([settled, timedOut]);
+}
+
 /** Two active flags: the next one is the 3rd strike. Returns the second. */
 async function applyTwoFlags(supplierId: string) {
   await applySupplierFlag(database, flagInput(supplierId, "slow_support"));
@@ -259,6 +271,24 @@ describe("supplier flags", () => {
     await expect(applySupplierFlag(database, flagInput(supplierId, "order_error"))).rejects.toThrow(
       "O fornecedor foi reativado com 3 flags ativas",
     );
+  });
+
+  it("waits for an apply holding the supplier before revoking one of its flags", async () => {
+    const supplierId = await createSupplier();
+    const second = await applyTwoFlags(supplierId);
+    let revoking: Promise<{ id: string }> | undefined;
+    await database.transaction(async (transaction) => {
+      await transaction.select().from(suppliers).where(eq(suppliers.id, supplierId)).for("update");
+      revoking = revokeSupplierFlag(database, {
+        supplierId,
+        flagId: second.id,
+        revokedBy: staffId(),
+        revokeNote: "Aplicada por engano",
+        now: new Date(),
+      });
+      expect(await settlesWithin(revoking, 300)).toBe(false);
+    });
+    expect(await revoking).toEqual({ id: second.id });
   });
 
   it("refuses 'other' without a note at the database too", async () => {
