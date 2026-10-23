@@ -8,7 +8,8 @@ import type { StaffCustomerContact } from "@/features/admin/customer-contact";
  */
 export function CustomerContactDetails({ contact }: { contact: StaffCustomerContact }) {
   return (
-    <dl className="space-y-3 text-sm">
+    // Capped so the eye stays next to the address in the wide quick view.
+    <dl className="max-w-sm space-y-3 text-sm">
       <div className="space-y-1">
         <dt className="text-footnote text-muted-foreground">Endereço de cobrança</dt>
         <dd>

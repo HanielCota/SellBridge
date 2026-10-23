@@ -82,7 +82,7 @@ function ContactSection({ customerId }: { customerId: string }) {
       {detail.data ? (
         <CustomerContactDetails contact={detail.data.contact} />
       ) : (
-        <Skeleton className="h-12 rounded-xl" aria-label="Carregando contato" />
+        <Skeleton className="h-24 rounded-xl" aria-label="Carregando contato" />
       )}
     </div>
   );
