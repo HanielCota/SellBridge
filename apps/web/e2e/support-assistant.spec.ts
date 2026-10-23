@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
 
 test("the assistant answers a plan question and “Resolveu” opens no ticket", async ({ page }) => {
@@ -19,6 +19,42 @@ test("the assistant answers a plan question and “Resolveu” opens no ticket",
 
   await expect(page).toHaveURL(/\/suporte(\?|$)/);
   await expect(page.getByText("Você ainda não abriu chamados")).toBeVisible();
+});
+
+test("an answer that arrives after the text changed is not shown", async ({ page }) => {
+  await signUp(page, "Revendedor Resposta Antiga");
+  await gotoHydrated(page, "/suporte/novo");
+  await page.getByRole("button", { name: /^Minha conta/ }).click();
+  await page.getByRole("button", { name: /^Plano e mensalidade/ }).click();
+  const field = page.getByLabel("Qual a sua dúvida sobre o plano?");
+  await field.fill("Quero trocar o cartão do plano.");
+
+  // Holds the assistant's reply until the customer has edited the text.
+  const heldReplies: Route[] = [];
+  await page.route("**/_serverFn/**", async (route) => {
+    if (route.request().method() === "POST") {
+      heldReplies.push(route);
+      return;
+    }
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(page.getByRole("button", { name: "Um momento…" })).toBeVisible();
+  await field.fill("Quero trocar o cartão do plano e também o e-mail da conta.");
+
+  const staleReply = page.waitForResponse(
+    (response) => response.url().includes("/_serverFn/") && response.request().method() === "POST",
+  );
+  await Promise.all(heldReplies.map((route) => route.continue()));
+  await staleReply;
+  await page.unroute("**/_serverFn/**");
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+
+  await expect(page.getByRole("region", { name: "Como mudar o plano ou o cartão" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Enviar chamado" })).toBeVisible();
+  await expect(field).toHaveValue(/também o e-mail/);
 });
 
 test("“Ainda preciso de ajuda” sends the ticket and the team sees the answer", async ({

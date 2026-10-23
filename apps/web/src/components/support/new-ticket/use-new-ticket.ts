@@ -153,7 +153,7 @@ function useSendTicket(search: NewTicketSearch) {
 /**
  * The new-ticket flow. The text and files written so far survive any change of topic. The first
  * send may stop at the assistant's answer; the next one ("Ainda preciso de ajuda") sends the
- * ticket with that answer for the team.
+ * ticket with that answer for the team. "Resolveu" is ignored while that ticket is on its way.
  */
 export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
   const assistant = useAssistantAnswer();
@@ -178,7 +178,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (topic === undefined || question === undefined || !isReadyToWrite) {
+    if (topic === undefined || question === undefined || !isReadyToWrite || assistant.isBusy) {
       return;
     }
     if (body.trim().length < minimumDescriptionLength(situation)) {
@@ -186,7 +186,8 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
       document.getElementById(DESCRIPTION_FIELD_ID)?.focus();
       return;
     }
-    if (assistant.answer === null && (await assistant.ask(question))) {
+    // Only "no answer" goes on: an answer waits for the customer, a stale one for the new text.
+    if (assistant.answer === null && (await assistant.ask(question)) !== "no_answer") {
       return;
     }
     await sending.sendDraft({
@@ -211,6 +212,6 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
     assistantAnswer: assistant.answer,
     isAskingAssistant: assistant.isAsking,
     isResolvingWithAssistant: assistant.isResolving,
-    resolveWithAssistant: () => assistant.resolve(question),
+    resolveWithAssistant: () => (sending.isSending ? undefined : assistant.resolve(question)),
   };
 }
