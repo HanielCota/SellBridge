@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database";
 import { suppliers } from "@sellbridge/database/schema";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
-import { e2eDatabase } from "./database";
+import { requireEnvironmentVariable } from "./environment";
 
 test("the dark theme tells the browser, so native controls and scrollbars turn dark", async ({
   page,
@@ -31,7 +32,7 @@ test("the admin supplier form uses the app's own select, never the native one", 
 }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
-  const database = e2eDatabase();
+  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
   const [supplier] = await database.select({ id: suppliers.id }).from(suppliers).limit(1);
   await database.$client.end();
   await gotoHydrated(page, `/admin/fornecedores/${supplier?.id ?? ""}`);

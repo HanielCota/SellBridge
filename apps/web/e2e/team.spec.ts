@@ -1,11 +1,12 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { createDatabase } from "@sellbridge/database/client";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
+import { requireEnvironmentVariable } from "./environment";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp, uniqueEmail } from "./helpers";
-import { e2eDatabase } from "./database";
 
-const database = e2eDatabase();
+const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
 
 test.afterAll(async () => {
   await database.$client.end();
