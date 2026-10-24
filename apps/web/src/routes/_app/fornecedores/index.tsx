@@ -6,7 +6,7 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -14,6 +14,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
+import { ALL_STATES, SupplierStateSelect } from "@/components/suppliers/supplier-state-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +33,6 @@ import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 
 const ALL_NICHES = "__all__";
-const ALL_STATES = "__all__";
 const ALL_CITIES = "__all__";
 
 export const Route = createFileRoute("/_app/fornecedores/")({
@@ -99,9 +99,10 @@ function LocationFilters() {
   const cities = locations.find((location) => location.state === search.state)?.cities ?? [];
   return (
     <>
-      <Select
+      <SupplierStateSelect
         value={search.state ?? ALL_STATES}
-        onValueChange={(value) => {
+        className="w-full sm:w-56"
+        onChange={(value) => {
           const parsed = stateSchema.safeParse(value);
           const state = parsed.success ? parsed.data : undefined;
           void navigate({
@@ -109,23 +110,7 @@ function LocationFilters() {
             replace: true,
           });
         }}
-      >
-        <SelectTrigger
-          className="w-full min-w-0 justify-start sm:w-40 [&>svg:last-child]:ml-auto"
-          aria-label="Estado do fornecedor"
-        >
-          <MapPinIcon aria-hidden="true" />
-          <SelectValue>{search.state ?? "Todo o Brasil"}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_STATES}>Todo o Brasil</SelectItem>
-          {locations.map((location) => (
-            <SelectItem key={location.state} value={location.state}>
-              {location.state}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
       <CitySelect cities={cities} />
     </>
   );

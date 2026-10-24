@@ -210,7 +210,7 @@ test.describe("fornecedores e catálogo", () => {
   test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores");
     await page.getByRole("combobox", { name: "Estado do fornecedor" }).click();
-    await page.getByRole("option", { name: "MG", exact: true }).click();
+    await page.getByRole("option", { name: "Minas Gerais MG" }).click();
     await expect(page).toHaveURL(/state=MG/);
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
