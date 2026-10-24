@@ -878,7 +878,7 @@ Itens sem linha nesta tabela são executados inteiros, como uma parte só.
   3. **Tipos de gráfico:** Evolução e Acumulado iguais. Sai Composição, Cascata e Margem (dependem de lucro). Entra **"Por produto"**: as vendas dos 5 mais vendidos ao longo do período. Séries: A receber e Peças.
   4. **Filtro do gráfico:** "Todas as lojas" vira "Todos os produtos". Filtro de situação: "Todos, sem cancelados" (padrão), "Em andamento", "Entregues" e "Cancelados e devolvidos".
   5. **"Vendas por loja"** vira **"Seus pedidos agora"**: esperando aceite, separando, enviados, entregues e devolvidos.
-  6. **"Produtos mais vendidos"** com foto e previsão de estoque: "acaba em ~X dias" (ritmo de vendas do período ÷ estoque disponível).
+  6. **"Produtos mais vendidos"** com foto e previsão de estoque: "acaba em ~X dias" (estoque disponível, `stock − reservedStock`, ÷ peças vendidas por dia no período; sem venda no período, não mostra previsão).
   7. **"Precisa de você"** (`AttentionPanel`), por urgência e com o estado "tudo certo": pedidos para aceitar (com o prazo do primeiro), produtos acabando, produto para corrigir e resposta do suporte. Uma linha com a nota e os envios no prazo leva a Desempenho.
 - **Fica de fora:** "Custo pendente" (o fornecedor sempre sabe quanto recebe) e ranking por tamanho ou cor (o cadastro não guarda variação; se o cliente pedir, vai para a fase 2).
 - **Privacidade (versão básica, revisar com o feedback):** o fornecedor vê o valor que recebe (`order_items.unit_cost_cents × quantity`) e quantos revendedores venderam, sem o nome deles e sem o preço de venda no marketplace (`unit_price_cents`). O CSV segue a mesma regra.
