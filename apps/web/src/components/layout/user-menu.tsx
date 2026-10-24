@@ -238,7 +238,7 @@ function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
     <>
       {isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null}
       {adminMode && hasStaffPermission(role, "audit.view") ? (
-        // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
+        // Item 28.b: the admin-mode header has no room for another tab, so it lives here.
         <DropdownMenuItem asChild className={MENU_ROW}>
           <Link to="/admin/auditoria">
             <ClockCounterClockwiseIcon aria-hidden="true" />
