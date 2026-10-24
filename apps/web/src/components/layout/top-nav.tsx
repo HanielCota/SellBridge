@@ -81,7 +81,20 @@ const LAYOUTS = {
   },
 } as const;
 
-type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
+/**
+ * The supplier's six tabs are narrower than the seller's, so their icons fit from xl: with the
+ * account name at its cap, the capsule keeps 28px from the logo at 1280px.
+ */
+const SUPPLIER_LAYOUT = { ...LAYOUTS.regular, tabIcon: "hidden size-4 xl:block" } as const;
+
+type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS] | typeof SUPPLIER_LAYOUT;
+
+function layoutFor(adminMode: boolean, isSupplier: boolean): Layout {
+  if (adminMode) {
+    return LAYOUTS.dense;
+  }
+  return isSupplier ? SUPPLIER_LAYOUT : LAYOUTS.regular;
+}
 
 /** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
 function useNavCounts(isAdmin: boolean, canReview: boolean) {
@@ -423,7 +436,7 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const supportReplies = counts.supportReplies;
   const isSupplier = profileKind === "supplier";
   const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);
-  const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
+  const layout = layoutFor(adminMode, isSupplier);
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}
