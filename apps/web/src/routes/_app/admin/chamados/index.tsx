@@ -1,4 +1,5 @@
 import type { StaffTicketSummary } from "@sellbridge/database/repositories";
+import { CONVERSATION_STATUS_LABELS } from "@sellbridge/shared/supplier-conversation-topics";
 import {
   staffTicketsSearchSchema,
   TICKET_CATEGORIES,
@@ -7,6 +8,7 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_QUEUE_LABELS,
   TICKET_QUEUES,
+  TICKET_STATUS_LABELS,
   type StaffTicketsSearch,
   type TicketQueue,
 } from "@sellbridge/shared/schemas";
@@ -65,9 +67,12 @@ export const Route = createFileRoute("/_app/admin/chamados/")({
 
 const ALL = "__all__";
 
-/** A closed ticket asks nothing of the team: its last message is history, not a to-do. */
+/**
+ * A closed ticket asks nothing of the team: its last message is history, not a to-do. Nor does a
+ * supplier conversation, which the supplier answers.
+ */
 function showsUnread(ticket: StaffTicketSummary): boolean {
-  return ticket.hasUnread && ticket.status !== "closed";
+  return ticket.hasUnread && ticket.status !== "closed" && ticket.audience === "platform";
 }
 
 const columnHelper = createServerColumnHelper<StaffTicketSummary>();
@@ -87,6 +92,7 @@ const columns = columnHelper.columns([
           </Link>
           <p className="flex flex-wrap items-center gap-x-2 text-footnote text-muted-foreground">
             <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} />
+            {ticket.supplierName === null ? null : <span>Para {ticket.supplierName}</span>}
             {showsUnread(ticket) ? <UnreadDot label="Mensagem nova" /> : null}
           </p>
         </div>
@@ -121,6 +127,12 @@ const columns = columnHelper.columns([
     header: "Status",
     cell: (info) => {
       const ticket = info.row.original;
+      // A supplier conversation waits for the supplier: no team deadline applies to it.
+      if (ticket.audience === "supplier") {
+        return (
+          <TicketStatusBadge status={ticket.status} labels={CONVERSATION_STATUS_LABELS.reseller} />
+        );
+      }
       return (
         <div className="flex flex-col items-start gap-1">
           <TicketStatusBadge status={ticket.status} />
@@ -154,12 +166,19 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
         <TicketPriorityBadge priority={row.priority} focusable={false} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <TicketStatusBadge status={row.status} />
-        <ResponseDeadlineBadge
+        <TicketStatusBadge
           status={row.status}
-          priority={row.priority}
-          awaitingSince={row.awaitingSince}
+          labels={
+            row.audience === "supplier" ? CONVERSATION_STATUS_LABELS.reseller : TICKET_STATUS_LABELS
+          }
         />
+        {row.audience === "supplier" ? null : (
+          <ResponseDeadlineBadge
+            status={row.status}
+            priority={row.priority}
+            awaitingSince={row.awaitingSince}
+          />
+        )}
         {showsUnread(row) ? <UnreadDot label="Mensagem nova" /> : null}
       </div>
       <p className="truncate text-xs text-muted-foreground">
@@ -179,7 +198,7 @@ function QueueTabs({
 }) {
   const counts = useQuery(staffQueueCountsQueryOptions());
   const countOf = (queue: TicketQueue) => {
-    if (!counts.data || queue === "all") {
+    if (!counts.data || queue === "all" || queue === "suppliers") {
       return undefined;
     }
     return counts.data[queue];
@@ -390,6 +409,11 @@ const EMPTY_QUEUE_TEXT: Record<TicketQueue, { title: string; description: string
   all: {
     title: "Nenhum chamado",
     description: "Os chamados abertos pelos revendedores aparecem aqui.",
+  },
+  suppliers: {
+    title: "Nenhuma conversa entre revendedor e fornecedor",
+    description:
+      "As conversas aparecem aqui para a equipe acompanhar. Quem responde é o fornecedor.",
   },
 };
 

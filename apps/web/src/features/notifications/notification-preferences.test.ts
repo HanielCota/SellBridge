@@ -24,7 +24,10 @@ describe("buildPreferenceRows", () => {
   });
 
   it("offers a supplier only the notices that reach a supplier, not the reseller's", () => {
-    expect(buildPreferenceRows([], "supplier").map((row) => row.event)).toEqual(["support_reply"]);
+    expect(buildPreferenceRows([], "supplier").map((row) => row.event)).toEqual([
+      "support_reply",
+      "supplier_conversation",
+    ]);
   });
 
   it("shows the saved choice over the default", () => {

@@ -27,7 +27,12 @@ import {
   type SupportReplyEvent,
 } from "./notification-reply-events.ts";
 
-export type { OrderMessageEvent, SupportReplyEvent };
+import {
+  supplierConversationEvents,
+  type SupplierConversationEvent,
+} from "./notification-conversation-events.ts";
+
+export type { OrderMessageEvent, SupportReplyEvent, SupplierConversationEvent };
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
@@ -112,6 +117,7 @@ export type NotificationEvent =
   | StoreProblemEvent
   | SupportReplyEvent
   | OrderMessageEvent
+  | SupplierConversationEvent
   | ReviewPendingEvent
   | StockShortageEvent
   | ShipmentCancelledEvent
@@ -425,6 +431,7 @@ export async function listNotificationEvents(
     stores,
     support,
     messages,
+    conversations,
     reviews,
     read,
   ] = await Promise.all([
@@ -437,6 +444,7 @@ export async function listNotificationEvents(
     storeProblemEvents(database, input.tenantId),
     supportReplyEvents(database, input, PER_KIND),
     orderMessageEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
+    supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     readState(database, input),
   ]);
@@ -450,6 +458,7 @@ export async function listNotificationEvents(
     ...stores,
     ...support,
     ...messages,
+    ...conversations,
     ...reviews,
   ];
   const { clearedAt } = read;

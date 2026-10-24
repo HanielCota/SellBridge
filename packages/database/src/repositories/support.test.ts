@@ -11,7 +11,6 @@ import {
   countUnreadSupportReplies,
   findTicketForMessage,
   getAttachment,
-  getSupportMetrics,
   getTicketThread,
   listStaffTickets,
   listTenantTickets,
@@ -21,6 +20,7 @@ import {
   setTicketStatus,
 } from "./support.ts";
 import { createTicket } from "./support-create.ts";
+import { getSupportMetrics } from "./support-metrics.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;

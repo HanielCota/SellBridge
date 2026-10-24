@@ -1,4 +1,4 @@
-import { CheckCircleIcon, MapPinIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, PackageIcon, StorefrontIcon } from "@phosphor-icons/react";
 import { stateSchema } from "@sellbridge/shared/brazilian-states";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -7,13 +7,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { ReputationSummary } from "@/components/suppliers/reputation";
 import { SupplierLogo } from "@/components/suppliers/supplier-logo";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ALL_STATES, SupplierStateSelect } from "@/components/suppliers/supplier-state-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { listSuppliers } from "@/features/suppliers/suppliers.functions";
 import { suppliersQueryOptions } from "@/features/suppliers/suppliers.queries";
@@ -23,7 +17,6 @@ import { cn } from "@/lib/utils";
 
 export type PickableSupplier = Awaited<ReturnType<typeof listSuppliers>>["suppliers"][number];
 
-const ALL_STATES = "__all__";
 const SEARCH_DELAY_MILLISECONDS = 300;
 
 function useSupplierOptions(term: string, state: string) {
@@ -54,8 +47,6 @@ export function SupplierPicker({
   const [state, setState] = useState(ALL_STATES);
   const query = useSupplierOptions(term, state);
   const shown = query.data?.suppliers ?? [];
-  // Only states with active suppliers, so the filter never offers an empty one.
-  const states = (query.data?.locations ?? []).map((location) => location.state);
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -66,7 +57,7 @@ export function SupplierPicker({
           value={term}
           onValueChange={setTerm}
         />
-        <StateSelect states={states} value={state} onChange={setState} />
+        <SupplierStateSelect value={state} onChange={setState} className="sm:w-56" />
       </div>
       <SupplierOptions
         query={query}
@@ -76,36 +67,6 @@ export function SupplierPicker({
         isFiltered={term.trim().length > 0 || state !== ALL_STATES}
       />
     </div>
-  );
-}
-
-function StateSelect({
-  states,
-  value,
-  onChange,
-}: {
-  states: readonly string[];
-  value: string;
-  onChange: (state: string) => void;
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger
-        className="justify-start sm:w-48 [&>svg:last-child]:ml-auto"
-        aria-label="Estado do fornecedor"
-      >
-        <MapPinIcon aria-hidden="true" />
-        <SelectValue>{value === ALL_STATES ? "Todo o Brasil" : value}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_STATES}>Todo o Brasil</SelectItem>
-        {states.map((state) => (
-          <SelectItem key={state} value={state}>
-            {state}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 
@@ -204,10 +165,13 @@ function SupplierOption({
           )}
         />
       </span>
-      <ReputationSummary reputation={supplier.reputation} />
-      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-        <PackageIcon className="size-3.5" aria-hidden="true" />
-        {supplier.productCount} produtos
+      {/* Pinned to the bottom so reputation and product count line up across a row. */}
+      <span className="mt-auto flex flex-col gap-3">
+        <ReputationSummary reputation={supplier.reputation} />
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <PackageIcon className="size-3.5" aria-hidden="true" />
+          {supplier.productCount} produtos
+        </span>
       </span>
     </label>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, SUPPLIER_NAV_ITEMS } from "./nav-items";
+import { ADMIN_NAV_ITEMS, NAV_ITEMS, SUPPLIER_NAV_ITEMS } from "./nav-items";
 
 // MVP: sellers sell only supplier products, so their own-product page leaves the menu.
 describe("seller navigation", () => {
@@ -11,6 +11,18 @@ describe("seller navigation", () => {
   it("keeps the supplier panel's products tab", () => {
     expect(SUPPLIER_NAV_ITEMS).toContainEqual(
       expect.objectContaining({ label: "Meus produtos", to: "/fornecedor/painel/produtos" }),
+    );
+  });
+});
+
+describe("team navigation", () => {
+  it("opens review comments from a tab only moderation sees", () => {
+    expect(ADMIN_NAV_ITEMS).toContainEqual(
+      expect.objectContaining({
+        label: "Avaliações",
+        to: "/admin/avaliacoes",
+        permission: "reviews.moderate",
+      }),
     );
   });
 });

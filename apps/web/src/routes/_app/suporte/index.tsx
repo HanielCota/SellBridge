@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
+import { SupportAreaTabs } from "@/components/supplier-support/support-area-tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
@@ -110,19 +111,23 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
 
 function SupportHeader() {
   const now = useNow();
+  const { session } = Route.useRouteContext();
   return (
-    <PageHeader
-      title="Suporte"
-      description={`${supportHoursText(now)} Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
-      actions={
-        <Button asChild>
-          <Link to="/suporte/novo">
-            <PlusIcon aria-hidden="true" />
-            Novo chamado
-          </Link>
-        </Button>
-      }
-    />
+    <>
+      <PageHeader
+        title="Suporte"
+        description={`${supportHoursText(now)} Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
+        actions={
+          <Button asChild>
+            <Link to="/suporte/novo">
+              <PlusIcon aria-hidden="true" />
+              Novo chamado
+            </Link>
+          </Button>
+        }
+      />
+      <SupportAreaTabs current="platform" kind={session.profileKind} />
+    </>
   );
 }
 

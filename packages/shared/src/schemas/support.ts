@@ -62,7 +62,7 @@ export const ticketBodySchema = freeText()
   .max(5000, "A mensagem deve ter no máximo 5.000 caracteres");
 
 /** An optional text field of a multipart form: empty means not sent. */
-function optionalFormText(max: number) {
+export function optionalFormText(max: number) {
   return z
     .string()
     .optional()
@@ -109,7 +109,7 @@ export const newTicketSearchSchema = z.object({
 });
 
 /** An optional id from the new-ticket form: empty means nothing linked, anything else a uuid. */
-const optionalFormId = z
+export const optionalFormId = z
   .string()
   .optional()
   .transform((value) => (value === undefined || value === "" ? undefined : value))
@@ -150,8 +150,11 @@ export const ticketsSearchSchema = z.object({
 });
 export type TicketsSearch = z.infer<typeof ticketsSearchSchema>;
 
-/** Slices of the support inbox; the default (all) comes first, then what needs someone. */
-export const TICKET_QUEUES = ["all", "unassigned", "mine", "overdue"] as const;
+/**
+ * Slices of the support inbox; the default (all) comes first, then what needs someone, then the
+ * reseller ↔ supplier conversations the team only reads.
+ */
+export const TICKET_QUEUES = ["all", "unassigned", "mine", "overdue", "suppliers"] as const;
 export const ticketQueueSchema = z.enum(TICKET_QUEUES);
 export type TicketQueue = z.infer<typeof ticketQueueSchema>;
 
@@ -160,6 +163,7 @@ export const TICKET_QUEUE_LABELS: Record<TicketQueue, string> = {
   mine: "Minha caixa",
   overdue: "Atrasados",
   all: "Todos",
+  suppliers: "Revendedor ↔ fornecedor",
 };
 
 export const staffTicketsSearchSchema = ticketsSearchSchema.extend({

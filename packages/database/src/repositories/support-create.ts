@@ -1,8 +1,28 @@
 import { conflictError } from "@sellbridge/shared/errors";
+import type { SupplierConversationTopicId } from "@sellbridge/shared/supplier-conversation-topics";
 import type { TicketCategory, TicketPriority } from "@sellbridge/shared/ticket-rules";
 import type { Database, Transaction } from "../client.ts";
 import { ticketMessages, tickets } from "../schema/index.ts";
 import { insertAttachments, type NewAttachment } from "./support.ts";
+
+/** The store a supplier conversation is about, its supplier and the reseller's topic. */
+export interface SupplierConversationTarget {
+  supplierId: string;
+  storeConnectionId: string;
+  topic: SupplierConversationTopicId;
+}
+
+function conversationColumns(target: SupplierConversationTarget | undefined) {
+  if (target === undefined) {
+    return {};
+  }
+  return {
+    audience: "supplier" as const,
+    supplierId: target.supplierId,
+    storeConnectionId: target.storeConnectionId,
+    supplierTopic: target.topic,
+  };
+}
 
 /** The answer was read before the ticket existed: it sorts right before the first message. */
 const ASSISTANT_NOTE_LEAD_MILLISECONDS = 1;
@@ -42,6 +62,8 @@ export async function createTicket(
     attachments: readonly NewAttachment[];
     /** What the support assistant answered before the customer asked for a person. */
     assistantNote?: string | undefined;
+    /** Sent to the supplier of a store instead of the team (a supplier conversation). */
+    conversation?: SupplierConversationTarget | undefined;
     now?: Date;
   },
 ): Promise<{ ticketId: string }> {
@@ -55,6 +77,7 @@ export async function createTicket(
         category: input.category,
         priority: input.priority ?? "normal",
         subject: input.subject,
+        ...conversationColumns(input.conversation),
         awaitingSince: now,
         createdAt: now,
         updatedAt: now,

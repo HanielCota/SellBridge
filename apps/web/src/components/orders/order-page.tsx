@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
+import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supplier-button";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { displayStoreName } from "@/features/stores/store-name";
 
@@ -67,6 +68,7 @@ function OrderHeader({ page }: { page: OrderPageData }) {
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        <TalkToSupplierButton orderId={order.id} />
         <TalkToSupportButton
           search={supportTicketSearch({ kind: "order", id: order.id, name: order.externalOrderId })}
         />

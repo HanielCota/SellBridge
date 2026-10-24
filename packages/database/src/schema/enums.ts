@@ -1,5 +1,6 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 import { STOCK_STATES } from "@sellbridge/shared/stock-reservation";
+import { SUPPLIER_CONVERSATION_TOPIC_IDS } from "@sellbridge/shared/supplier-conversation-topics";
 
 export const marketplaceEnum = pgEnum("marketplace", [
   "mock",
@@ -53,6 +54,18 @@ export const ticketCategoryEnum = pgEnum("ticket_category", [
   "account",
   "other",
 ]);
+
+/**
+ * Who answers a ticket: the SellBridge team (`platform`), or the supplier of the reseller's store
+ * (`supplier`, the reseller ↔ supplier support conversations).
+ */
+export const ticketAudienceEnum = pgEnum("ticket_audience", ["platform", "supplier"]);
+
+/** Kept in step with `SUPPLIER_CONVERSATION_TOPIC_IDS` in the shared topics. */
+export const supplierConversationTopicEnum = pgEnum(
+  "supplier_conversation_topic",
+  SUPPLIER_CONVERSATION_TOPIC_IDS,
+);
 
 /** Kept in step with `TICKET_PRIORITIES`; declared from the least to the most urgent. */
 export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "normal", "high", "urgent"]);
