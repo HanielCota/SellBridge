@@ -235,15 +235,14 @@ test("o admin lê o comentário; o atendente é recusado e o supervisor lê, no 
   await reseller.close();
 });
 
-/** Opens the account menu and says whether the team's "Avaliações" item is in it. */
-async function menuHasReviews(page: Page): Promise<boolean> {
-  await page.getByRole("button", { name: "Menu do usuário" }).click();
-  const found = await page.getByRole("menuitem", { name: "Avaliações" }).count();
-  await page.keyboard.press("Escape");
-  return found > 0;
+/** The team's "Avaliações" tab in the header, next to Fornecedores and Chamados. */
+function reviewsTab(page: Page) {
+  return page
+    .getByRole("navigation", { name: "Principal" })
+    .getByRole("link", { name: "Avaliações", exact: true });
 }
 
-test("o supervisor abre Avaliações pelo menu e lê os comentários de todos os fornecedores", async ({
+test("o supervisor abre a aba Avaliações e lê os comentários de todos os fornecedores", async ({
   browser,
 }) => {
   const supervisor = await teamPage(browser, "supervisor");
@@ -256,9 +255,9 @@ test("o supervisor abre Avaliações pelo menu e lê os comentários de todos os
     }
   });
   await enableAdminMode(page);
-  await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Avaliações" }).click();
+  await reviewsTab(page).click();
   await expect(page).toHaveURL(/\/admin\/avaliacoes/);
+  await expect(reviewsTab(page)).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("heading", { name: "Avaliações", level: 1 })).toBeVisible();
 
   // "Só com comentário" starts on, and the review names the supplier, the store and the order.
@@ -275,10 +274,11 @@ test("o supervisor abre Avaliações pelo menu e lê os comentários de todos os
   await expect(page).toHaveURL(/withComment=false/);
   await expect(page.getByLabel("Só com comentário")).not.toBeChecked();
 
-  // The agent: no menu item, the address sends them to the inbox, the function answers 403.
+  // The agent: no tab, the address sends them to the inbox, the function answers 403.
   const agent = await teamPage(browser, "agent");
   await enableAdminMode(agent.page);
-  expect(await menuHasReviews(agent.page)).toBe(false);
+  await expect(agent.page.getByRole("link", { name: /^Chamados/ })).toBeVisible();
+  await expect(reviewsTab(agent.page)).toHaveCount(0);
   await gotoHydrated(agent.page, "/admin/avaliacoes");
   await expect(agent.page).toHaveURL(/\/admin\/chamados/);
   const refused = await callFromPage(agent.page, listCall);
