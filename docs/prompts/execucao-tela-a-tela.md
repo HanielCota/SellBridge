@@ -852,6 +852,39 @@ Itens sem linha nesta tabela são executados inteiros, como uma parte só.
 - **IDs:** F8.
 - Só com credenciais de parceiro da Shopee. Sem elas, não comece.
 
+#### Item 38 · Novo Início do fornecedor: vendas e logística no painel
+
+- **Telas:** painel do fornecedor › Início (`/fornecedor/painel`) e o menu do painel.
+- **Ideia (aprovada pelo usuário em 2026-10-23):** o fornecedor abre o painel e entende, num olhar, o que vende mais, quanto vai receber e onde estão os pedidos. O Início copia o máximo do Painel de vendas do revendedor (`routes/_app/dashboard.tsx`, `components/reports/*`) e só troca o que não faz sentido para o fornecedor.
+- **Persona:** dona de confecção pequena, pouco técnica, usa pelo celular. Pergunta "o que mais saiu", "quanto vou receber" e "o que eu produzo na semana que vem".
+- **Menu:** Início · Pedidos · Produtos · Desempenho · Marca.
+  - "Importar produtos" sai do menu e vira botão dentro de Produtos, ao lado de "Cadastrar produto".
+  - "Meus produtos" vira "Produtos".
+  - A lista de tarefas de hoje (`supplier-panel/home/home-queue.tsx`) não vira página: vira o bloco "Precisa de você" do Início.
+  - Pedidos ganha um número com quantos esperam aceite.
+- **Copiar do revendedor como está:**
+  1. Título grande com ações: "Cadastrar produto" e "Editar minha marca".
+  2. Datas e comparação abaixo do título (`formatPeriodCaption`).
+  3. Filtro de período (`PeriodFilters`): Hoje, 7, 30, 90 dias e Personalizado, com os atalhos de calendário.
+  4. Período anterior tracejado e média de 7 dias no gráfico (`chart-kind-menu.tsx`).
+  5. Exportar CSV do período (`export-link.tsx`).
+  6. Cards com "Ver tudo" e card inteiro clicável (`BreakdownSection`).
+  7. Dicas nos termos (`Hint`, `hinted-term`).
+  8. Esqueleto ao carregar e erro que mantém os dados já na tela.
+  9. Guia de primeiros passos quando ainda não há venda: cadastrar produto → enviar para análise → esperar os revendedores publicarem.
+- **Adaptar:**
+  1. **Frase do período** (`PeriodSummary`): quanto vai receber, se subiu ou caiu e por quê (mais pedidos ou pedidos de valor maior), e o melhor dia ou semana. Sem lucro nem margem.
+  2. **Indicadores** (`KpiTiles`): A receber, Pedidos, Peças vendidas e Valor médio por pedido, com variação e tendência. Levam a Pedidos já filtrado pelo período, porque o fornecedor não tem Financeiro.
+  3. **Tipos de gráfico:** Evolução e Acumulado iguais. Sai Composição, Cascata e Margem (dependem de lucro). Entra **"Por produto"**: as vendas dos 5 mais vendidos ao longo do período. Séries: A receber e Peças.
+  4. **Filtro do gráfico:** "Todas as lojas" vira "Todos os produtos". Filtro de situação: "Todos, sem cancelados" (padrão), "Em andamento", "Entregues" e "Cancelados e devolvidos".
+  5. **"Vendas por loja"** vira **"Seus pedidos agora"**: esperando aceite, separando, enviados, entregues e devolvidos.
+  6. **"Produtos mais vendidos"** com foto e previsão de estoque: "acaba em ~X dias" (ritmo de vendas do período ÷ estoque disponível).
+  7. **"Precisa de você"** (`AttentionPanel`), por urgência e com o estado "tudo certo": pedidos para aceitar (com o prazo do primeiro), produtos acabando, produto para corrigir e resposta do suporte. Uma linha com a nota e os envios no prazo leva a Desempenho.
+- **Fica de fora:** "Custo pendente" (o fornecedor sempre sabe quanto recebe) e ranking por tamanho ou cor (o cadastro não guarda variação; se o cliente pedir, vai para a fase 2).
+- **Privacidade (versão básica, revisar com o feedback):** o fornecedor vê o valor que recebe (`order_items.unit_cost_cents × quantity`) e quantos revendedores venderam, sem o nome deles e sem o preço de venda no marketplace (`unit_price_cents`). O CSV segue a mesma regra.
+- **Dados:** `order_items` (por `supplier_product_id`), `orders` (data, status, `store_connection_id` só para contar revendedores), `order_shipments` (etapas e devolvidos) e o estoque de `supplier_products`. Conta como venda o pedido pago; cancelado sai da conta padrão.
+- **Pronto quando:** testes de lógica (frase, previsão de estoque, contagem por situação e privacidade do CSV); e2e do Início do fornecedor com filtros; capturas nas 8 larguras, claro e escuro; nada encosta nem sai do gráfico.
+
 ### P2/P3 — Só com decisão do cliente (⛔ não iniciar sem pedido explícito)
 
 | Item | Assunto                                      | IDs         | Depende de                                       | Base possível quando autorizado                                                   |
