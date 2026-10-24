@@ -38,6 +38,7 @@ import {
 } from "@/lib/server/impersonation-rules";
 import { requireStaffSession, requireTenantRequest } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, supportUploads } from "@/lib/server/upload-rate-limit";
+import { findProfileAttachment } from "@/features/supplier-support/conversation-attachments.server";
 import {
   storeAttachments,
   readSupportForm,
@@ -49,7 +50,7 @@ import {
 
 const idSchema = z.uuid();
 
-function parseId(value: string | undefined, label: string): string {
+export function parseId(value: string | undefined, label: string): string {
   const parsed = idSchema.safeParse(value);
   if (!parsed.success) {
     throw validationError(`${label} inválido`);
@@ -57,7 +58,7 @@ function parseId(value: string | undefined, label: string): string {
   return parsed.data;
 }
 
-function firstIssue(error: z.ZodError): string {
+export function firstIssue(error: z.ZodError): string {
   return error.issues.at(0)?.message ?? "Dados inválidos";
 }
 
@@ -193,7 +194,7 @@ export function handleCreateTicket(request: Request) {
  * carries any file, even one refused right after: a loop of junk files still meets the 429. A
  * text-only message never spends it, so a quick reply is never refused as "too many files".
  */
-async function readUploadForm(request: Request, userId: string): Promise<FormData> {
+export async function readUploadForm(request: Request, userId: string): Promise<FormData> {
   const formData = await readSupportForm(request);
   if (hasFiles(formData)) {
     assertUploadAllowed(supportUploads, userId);
@@ -337,7 +338,7 @@ export function handleAdminReply(request: Request, ticketIdParam: string | undef
  * `?inline=1` lets an image open in the browser for the thread's preview. Only images: their
  * type was checked by magic bytes on upload, and `nosniff` keeps the browser to that type.
  */
-function dispositionOf(request: Request, mimeType: string): "inline" | "attachment" {
+export function dispositionOf(request: Request, mimeType: string): "inline" | "attachment" {
   const wantsInline = new URL(request.url).searchParams.get("inline") === "1";
   if (wantsInline && mimeType.startsWith("image/")) {
     return "inline";
@@ -353,10 +354,9 @@ export function handleDownloadAttachment(request: Request, attachmentIdParam: st
     if (!session) {
       return jsonResponse(401, { error: "Faça login para baixar anexos" });
     }
-    const scope = hasStaffPermission(session.user.role, "support.answer")
-      ? null
-      : (await requireTenantRequest(request)).tenantId;
-    const attachment = await getAttachment(database, attachmentId, scope);
+    const attachment = hasStaffPermission(session.user.role, "support.answer")
+      ? await getAttachment(database, attachmentId, null)
+      : await findProfileAttachment(await requireTenantRequest(request), attachmentId);
     const bytes = await fileStorage.get(attachment.storageKey);
     if (!bytes) {
       return jsonResponse(404, { error: "Arquivo não encontrado no armazenamento" });

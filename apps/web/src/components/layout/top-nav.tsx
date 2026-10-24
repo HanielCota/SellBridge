@@ -469,7 +469,7 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
           {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
           {adminMode ? null : (
             <div className="hidden sm:block">
-              <SupportButton unread={supportReplies} />
+              <SupportButton unread={supportReplies} profileKind={profileKind} />
             </div>
           )}
           <NotificationBell />

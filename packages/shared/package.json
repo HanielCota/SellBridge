@@ -39,6 +39,7 @@
     "./ticket-rules": "./src/domain/ticket-rules.ts",
     "./support-hours": "./src/domain/support-hours.ts",
     "./support-topics": "./src/domain/support-topics.ts",
+    "./supplier-conversation-topics": "./src/domain/supplier-conversation-topics.ts",
     "./stock-reservation": "./src/domain/stock-reservation.ts",
     "./marketplace-units": "./src/domain/marketplace-units.ts",
     "./catalog-availability": "./src/domain/catalog-availability.ts",

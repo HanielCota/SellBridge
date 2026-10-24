@@ -52,7 +52,7 @@ function buildFormData(draft: TicketDraft, search: NewTicketSearch): FormData {
 }
 
 /** Files for the ticket: kept one by one, each refused file with its own reason. */
-function useTicketFiles() {
+export function useTicketFiles() {
   const [files, setFiles] = useState<File[]>([]);
   const [rejected, setRejected] = useState<RejectedAttachment[]>([]);
   function addFiles(added: File[]) {
