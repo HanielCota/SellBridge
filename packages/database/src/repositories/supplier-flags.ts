@@ -52,6 +52,8 @@ export interface AppliedSupplierFlag {
   activeCount: number;
   /** This flag was the 3rd active one and put the supplier out. */
   supplierDeactivated: boolean;
+  /** Whether the supplier is active after this flag (false when it was already off, too). */
+  supplierActive: boolean;
   /** Live listings paused by that deactivation (0 when it did not happen). */
   pausedTargets: number;
 }
@@ -157,6 +159,7 @@ export async function applySupplierFlag(
         ...created,
         activeCount: activeFlagCount + 1,
         supplierDeactivated: false,
+        supplierActive: supplier.active,
         pausedTargets: 0,
       };
     }
@@ -165,6 +168,7 @@ export async function applySupplierFlag(
       ...created,
       activeCount: activeFlagCount + 1,
       supplierDeactivated: true,
+      supplierActive: false,
       pausedTargets,
     };
   });

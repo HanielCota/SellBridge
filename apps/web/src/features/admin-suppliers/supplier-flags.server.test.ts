@@ -50,6 +50,7 @@ beforeEach(() => {
     expiresAt: new Date("2026-12-01T00:00:00Z"),
     activeCount: 1,
     supplierDeactivated: false,
+    supplierActive: true,
     pausedTargets: 0,
   });
   mocks.stockSync.mockResolvedValue(true);
@@ -90,6 +91,7 @@ describe("applying a supplier flag", () => {
       expiresAt: new Date("2026-12-01T00:00:00Z"),
       activeCount: 3,
       supplierDeactivated: true,
+      supplierActive: false,
       pausedTargets: 4,
     });
     await applyFlag(
@@ -114,6 +116,7 @@ describe("applying a supplier flag", () => {
       reason: "slow_support",
       activeCount: 3,
       deactivated: true,
+      supplierActive: false,
     });
   });
 
@@ -126,6 +129,7 @@ describe("applying a supplier flag", () => {
       reason: "slow_support",
       activeCount: 1,
       deactivated: false,
+      supplierActive: true,
     });
   });
 

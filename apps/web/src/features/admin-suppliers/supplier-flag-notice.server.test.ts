@@ -24,6 +24,7 @@ const input = {
   reason: "order_error" as const,
   activeCount: 2,
   deactivated: false,
+  supplierActive: true,
 };
 
 beforeEach(() => {

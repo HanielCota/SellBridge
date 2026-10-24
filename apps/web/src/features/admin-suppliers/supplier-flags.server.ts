@@ -93,6 +93,7 @@ export async function applyFlag(actor: StaffActor, input: ApplySupplierFlagInput
     reason: input.reason,
     activeCount: flag.activeCount,
     deactivated: flag.supplierDeactivated,
+    supplierActive: flag.supplierActive,
   });
   return flag;
 }

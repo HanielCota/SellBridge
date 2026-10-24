@@ -15,17 +15,26 @@ export interface SupplierFlagEmailInput {
   activeCount: number;
   /** True when this flag switched the account off. */
   deactivated: boolean;
+  /** Whether the account is on after this flag: false when the team had already switched it off. */
+  supplierActive: boolean;
   panelUrl: string;
+}
+
+/** What the flag means for the account: off already, one flag away, or the rule. */
+function standingWarning(input: SupplierFlagEmailInput): string {
+  if (!input.supplierActive) {
+    return "Sua conta continua desligada.";
+  }
+  if (SUPPLIER_FLAG_LIMIT - input.activeCount === 1) {
+    return "Falta 1 flag para a conta ser desligada.";
+  }
+  return `Na ${SUPPLIER_FLAG_LIMIT}ª flag a conta é desligada.`;
 }
 
 function flagParagraphs(input: SupplierFlagEmailInput): string[] {
   const reason = SUPPLIER_FLAG_REASON_LABELS[input.reason];
   const counter = `Flags ativas: ${supplierFlagCountLabel(input.activeCount)}.`;
-  const left = SUPPLIER_FLAG_LIMIT - input.activeCount;
-  const warning =
-    left === 1
-      ? "Falta 1 flag para a conta ser desligada."
-      : `Na ${SUPPLIER_FLAG_LIMIT}ª flag a conta é desligada.`;
+  const warning = standingWarning(input);
   return [
     `A equipe SellBridge registrou uma flag na sua conta: ${reason}.`,
     `${counter} ${warning}`,

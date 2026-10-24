@@ -256,7 +256,11 @@ describe("supplier flags", () => {
     await database.update(suppliers).set({ active: false }).where(eq(suppliers.id, supplierId));
 
     const third = await applySupplierFlag(database, flagInput(supplierId, "stale_catalog"));
-    expect(third).toMatchObject({ activeCount: 3, supplierDeactivated: false });
+    expect(third).toMatchObject({
+      activeCount: 3,
+      supplierDeactivated: false,
+      supplierActive: false,
+    });
   });
 
   it("names a reactivated supplier's next flag without counting past 3", async () => {

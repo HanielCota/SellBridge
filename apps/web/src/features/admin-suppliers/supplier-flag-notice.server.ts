@@ -15,6 +15,7 @@ export async function noticeSupplierFlag(input: {
   reason: SupplierFlagReason;
   activeCount: number;
   deactivated: boolean;
+  supplierActive: boolean;
 }): Promise<void> {
   try {
     const to = await findSupplierContactEmail(database, input.supplierId);

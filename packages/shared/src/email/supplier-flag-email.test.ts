@@ -7,7 +7,13 @@ const PANEL_URL = `${APP_URL}/fornecedor/painel`;
 describe("supplierFlagEmail", () => {
   it("names the reason and the count of a new flag, without the team's note", () => {
     const email = supplierFlagEmail(
-      { reason: "order_error", activeCount: 1, deactivated: false, panelUrl: PANEL_URL },
+      {
+        reason: "order_error",
+        activeCount: 1,
+        deactivated: false,
+        supplierActive: true,
+        panelUrl: PANEL_URL,
+      },
       APP_URL,
     );
     expect(email.subject).toBe("Nova flag na sua conta: Erro em pedido");
@@ -18,7 +24,13 @@ describe("supplierFlagEmail", () => {
 
   it("warns when one more flag switches the account off", () => {
     const email = supplierFlagEmail(
-      { reason: "slow_support", activeCount: 2, deactivated: false, panelUrl: PANEL_URL },
+      {
+        reason: "slow_support",
+        activeCount: 2,
+        deactivated: false,
+        supplierActive: true,
+        panelUrl: PANEL_URL,
+      },
       APP_URL,
     );
     expect(email.text).toContain("Falta 1 flag para a conta ser desligada.");
@@ -26,11 +38,34 @@ describe("supplierFlagEmail", () => {
 
   it("says the account is off, and that orders already received still go out", () => {
     const email = supplierFlagEmail(
-      { reason: "stale_catalog", activeCount: 3, deactivated: true, panelUrl: PANEL_URL },
+      {
+        reason: "stale_catalog",
+        activeCount: 3,
+        deactivated: true,
+        supplierActive: false,
+        panelUrl: PANEL_URL,
+      },
       APP_URL,
     );
     expect(email.subject).toBe("Sua conta de fornecedor foi desligada");
     expect(email.text).toContain("Seus produtos saíram do catálogo");
     expect(email.text).toContain("entregue todos normalmente");
+  });
+
+  it("tells a supplier the team had already switched off that the account stays off", () => {
+    const email = supplierFlagEmail(
+      {
+        reason: "order_error",
+        activeCount: 2,
+        deactivated: false,
+        supplierActive: false,
+        panelUrl: PANEL_URL,
+      },
+      APP_URL,
+    );
+    expect(email.subject).toBe("Nova flag na sua conta: Erro em pedido");
+    expect(email.text).toContain("Sua conta continua desligada.");
+    expect(email.text).not.toContain("Falta 1 flag");
+    expect(email.text).not.toContain("a conta é desligada");
   });
 });
