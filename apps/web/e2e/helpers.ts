@@ -130,8 +130,9 @@ export async function fillBillingAddress(page: Page) {
   await page.getByLabel("Rua").fill("Avenida Paulista");
   await page.getByLabel("Número").fill("1578");
   await page.getByLabel("Bairro").fill("Bela Vista");
+  await page.getByLabel("Estado").click();
+  await page.getByRole("option", { name: "São Paulo" }).click();
   await page.getByLabel("Cidade").fill("São Paulo");
-  await page.getByLabel("Estado").selectOption("SP");
 }
 
 /** First onboarding step: full name, a fresh CPF, the phone and the billing address. */

@@ -1,8 +1,10 @@
 import { billingAddressSchema, formatCep } from "@sellbridge/shared/billing-address";
 import type { BillingAddress } from "@sellbridge/shared/billing-address";
-import { BRAZILIAN_STATES } from "@sellbridge/shared/brazilian-states";
+import { useStore } from "@tanstack/react-form";
 import { useEffect, useState } from "react";
-import { FloatingSelectField, FloatingTextField } from "@/components/form/floating-field";
+import { FloatingCityField } from "@/components/form/floating-city-field";
+import { FloatingTextField } from "@/components/form/floating-field";
+import { FloatingStateSelect } from "@/components/form/floating-state-select";
 import type { HolderFormApi } from "@/components/onboarding/holder-form";
 import { visibleErrors } from "@/components/onboarding/holder-values";
 import { RevealableAddress } from "@/components/region/revealable-address";
@@ -162,6 +164,7 @@ function NumberInputs({ form, showErrors }: { form: HolderFormApi; showErrors: b
 }
 
 function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: boolean }) {
+  const chosenState = useStore(form.store, (state) => state.values.address.state);
   return (
     <>
       <form.Field name="address.neighborhood" validators={{ onChange: fields.neighborhood }}>
@@ -179,13 +182,14 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
           </div>
         )}
       </form.Field>
-      <form.Field name="address.city" validators={{ onChange: fields.city }}>
+      {/* The state comes before the city: picking it fills the city suggestions. */}
+      <form.Field name="address.state" validators={{ onChange: fields.state }}>
         {(field) => (
           <div className="col-span-1 sm:col-span-2">
-            <FloatingTextField
-              id="holder-city"
-              label="Cidade"
-              autoComplete="address-level2"
+            <FloatingStateSelect
+              id="holder-state"
+              label="Estado"
+              autoComplete="address-level1"
               value={field.state.value}
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
@@ -194,14 +198,13 @@ function PlaceInputs({ form, showErrors }: { form: HolderFormApi; showErrors: bo
           </div>
         )}
       </form.Field>
-      <form.Field name="address.state" validators={{ onChange: fields.state }}>
+      <form.Field name="address.city" validators={{ onChange: fields.city }}>
         {(field) => (
           <div className="col-span-1 sm:col-span-2">
-            <FloatingSelectField
-              id="holder-state"
-              label="Estado"
-              autoComplete="address-level1"
-              options={BRAZILIAN_STATES}
+            <FloatingCityField
+              id="holder-city"
+              label="Cidade"
+              state={chosenState}
               value={field.state.value}
               errors={visibleErrors(field.state.meta.errors, showErrors)}
               onBlur={field.handleBlur}
