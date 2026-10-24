@@ -44,10 +44,10 @@ function clientWithFailedNotices(): QueryClient {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, retryOnMount: false } },
   });
-  const options = teamNoticesQueryOptions(supplierId);
+  const { queryKey } = teamNoticesQueryOptions(supplierId);
   client
     .getQueryCache()
-    .build(client, options)
+    .build(client, { queryKey })
     .setState({ status: "error", error: new Error("network down"), fetchStatus: "idle" });
   return client;
 }
