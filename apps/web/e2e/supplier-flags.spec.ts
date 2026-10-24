@@ -176,10 +176,20 @@ test("fornecedor vê o aviso sem saber quem aplicou e não chega às flags da eq
   await expect(card).toContainText("Tentou passar contato fora da plataforma");
   await expect(card).toContainText(NOTE);
   await expect(card).toContainText("1 de 3 em 90 dias");
+  await expect(card).toContainText("Na 3ª flag a conta é desligada.");
+  await expect(card).toContainText("Regra 5: Converse só pela SellBridge");
   await expect(card).toContainText("problema na sua conta de fornecedor");
   await expect(card).not.toContainText("Supervisora Flags");
   const contest = card.getByRole("link", { name: "Discorda? Fale com o suporte" });
   expect(await contest.getAttribute("href")).toContain("categoria=other");
+
+  await card.getByRole("link", { name: "Ver as regras de ouro" }).click();
+  await expect(page.getByRole("heading", { name: "Regras de ouro", level: 1 })).toBeVisible();
+  const rules = page.getByRole("region", { name: "As 5 regras" }).getByRole("listitem");
+  await expect(rules).toHaveCount(5);
+  await expect(rules.first()).toContainText("Despache dentro do prazo");
+  await expect(page.getByText("Hoje você tem 1 de 3 em 90 dias.")).toBeVisible();
+  await gotoHydrated(page, "/fornecedor/painel");
 
   // Malicious: the team's functions and another supplier's flags are refused.
   expect(await replayStatus(context, applyCall)).toBe(403);
@@ -243,6 +253,9 @@ test("supervisor retira a flag com uma observação e o fornecedor deixa de ver"
   await gotoHydrated(supplierPage, "/fornecedor/painel");
   await expect(supplierPage.getByRole("heading", { name: "Painel do fornecedor" })).toBeVisible();
   await expect(supplierPage.getByRole("region", { name: "Avisos da equipe" })).toHaveCount(0);
+  const teaser = supplierPage.getByRole("region", { name: "Regras de ouro" });
+  await expect(teaser).toContainText("na 3ª flag a conta é desligada");
+  await expect(teaser.getByRole("link", { name: "Ver as 5 regras" })).toBeVisible();
   await supplierContext.close();
 });
 
@@ -309,4 +322,53 @@ test("uma retirada recusada atualiza a lista e não reaparece na próxima flag",
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Esta flag já foi retirada.")).toHaveCount(0);
   await context.close();
+});
+
+test("a 3ª flag ativa pede confirmação e desliga o fornecedor", async ({ browser }) => {
+  const [admin] = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, ADMIN_USER.email));
+  if (admin === undefined) throw new Error("admin do seed não encontrado");
+  // One flag is still active from the test above; one more makes 2, so the next is the 3rd.
+  await applySupplierFlag(database, {
+    supplierId,
+    reason: "order_error",
+    note: "",
+    createdBy: admin.id,
+  });
+
+  const { context, page } = await teamMemberPage(browser, "Supervisora Terceira", "supervisor");
+  await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
+  await expect(page.getByText("2 de 3 em 90 dias")).toBeVisible();
+  await expect(page.getByText("Regra 2: Envie exatamente o produto anunciado")).toBeVisible();
+
+  await page.getByRole("button", { name: "Aplicar flag" }).click();
+  const dialog = page.getByRole("dialog", { name: "Aplicar flag" });
+  await dialog.getByRole("combobox", { name: "Motivo" }).click();
+  await page.getByRole("option", { name: "Atraso para responder" }).click();
+  await expect(dialog.getByText("Quebra a Regra 4: Responda em até 1 dia útil.")).toBeVisible();
+  await expect(dialog.getByText("Esta é a flag 3 de 3: o fornecedor será desligado")).toBeVisible();
+  await dialog.getByRole("button", { name: "Aplicar e desligar" }).click();
+  await expect(dialog.getByText("Marque a confirmação para desligar o fornecedor.")).toBeVisible();
+
+  await dialog.getByRole("checkbox", { name: /Confirmo: aplicar a flag e desligar/ }).click();
+  await dialog.getByRole("button", { name: "Aplicar e desligar" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Fornecedor desligado: chegou a 3 flags ativas")).toBeVisible();
+  await context.close();
+
+  const [supplier] = await database
+    .select({ active: suppliers.active })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId));
+  expect(supplier?.active).toBe(false);
+
+  const supplierContext = await browser.newContext({ locale: "pt-BR" });
+  const supplierPage = await supplierContext.newPage();
+  await signIn(supplierPage, { email: supplierEmail, password: SIGN_UP_PASSWORD });
+  await gotoHydrated(supplierPage, "/fornecedor/painel");
+  const card = supplierPage.getByRole("region", { name: "Avisos da equipe" });
+  await expect(card).toContainText("3 de 3 em 90 dias");
+  await supplierContext.close();
 });

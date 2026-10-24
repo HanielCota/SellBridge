@@ -5,8 +5,9 @@ import {
 } from "@sellbridge/shared/supplier-flags";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
+import { BrokenRuleLine, GoldenRulesList } from "@/components/golden-rules/golden-rules-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { HintedText } from "@/components/ui/hint";
@@ -17,7 +18,7 @@ import { errorMessage } from "@/lib/errors";
 import { ApplyFlagDialog, RevokeFlagDialog } from "./supplier-flag-dialogs";
 
 const COUNTER_HINT =
-  "Flags que ainda contam: cada uma vale 90 dias. Ao chegar a 3, o fornecedor ganha destaque aqui; nada acontece automaticamente.";
+  "Flags que ainda contam: cada uma vale 90 dias. Na 3ª flag ativa o fornecedor é desligado, depois que quem aplica confirma.";
 
 function FlagRow({
   flag,
@@ -30,6 +31,7 @@ function FlagRow({
     <li className="flex items-start gap-3 py-3">
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="text-sm font-medium">{SUPPLIER_FLAG_REASON_LABELS[flag.reason]}</p>
+        <BrokenRuleLine reason={flag.reason} />
         {flag.note === "" ? null : (
           <p className="text-sm break-words text-muted-foreground">{flag.note}</p>
         )}
@@ -49,25 +51,80 @@ function FlagRow({
   );
 }
 
-function FlagHistory({ flags }: { flags: readonly TeamSupplierFlag[] }) {
-  if (flags.length === 0) {
-    return null;
-  }
+/**
+ * A folded block under the flags (history, golden rules): one look and one caret for both. The
+ * summary's tap area reaches 44px tall without moving the text.
+ */
+function FoldedSection({ summary, children }: { summary: ReactNode; children: ReactNode }) {
   return (
     <details className="group border-t border-border/60 pt-3">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm font-medium outline-none focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
-        Histórico <span className="tabular-nums">({flags.length})</span>
+      <summary className="relative flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg text-sm font-medium outline-none after:absolute after:-inset-x-2 after:-inset-y-3 focus-visible:ring-4 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+        {summary}
         <CaretDownIcon
           className="size-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
+      {children}
+    </details>
+  );
+}
+
+function FlagHistory({ flags }: { flags: readonly TeamSupplierFlag[] }) {
+  if (flags.length === 0) {
+    return null;
+  }
+  return (
+    <FoldedSection
+      summary={
+        <>
+          Histórico <span className="tabular-nums">({flags.length})</span>
+        </>
+      }
+    >
       <ul className="[&>li+li]:border-t [&>li+li]:border-border/60">
         {flags.map((flag) => (
           <FlagRow key={flag.id} flag={flag} onRevoke={null} />
         ))}
       </ul>
-    </details>
+    </FoldedSection>
+  );
+}
+
+/** The 5 rules beside the flag form, folded like the history so the flags stay first. */
+function GoldenRulesReference() {
+  return (
+    <FoldedSection summary="Regras de ouro do fornecedor">
+      <GoldenRulesList />
+    </FoldedSection>
+  );
+}
+
+/** Three strikes, as the team reads it: out at 3, or back in by an admin's hand. */
+function FlagLimitAlert({
+  activeCount,
+  supplierActive,
+}: {
+  activeCount: number;
+  supplierActive: boolean;
+}) {
+  if (!supplierActive) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          Fornecedor desligado: chegou a {activeCount} flags ativas. Só um administrador reativa a
+          conta, pela ficha do fornecedor.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>
+        Este fornecedor tem {activeCount} flags ativas e foi reativado. Uma nova flag desliga a
+        conta de novo.
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -97,11 +154,12 @@ function FlagsHeader({
   );
 }
 
-/** What the server hands over for one supplier: its name, its flags and what the viewer may do. */
+/** What the server hands over for one supplier: its state, its flags and what the viewer may do. */
 export interface SupplierFlagsData {
   flags: readonly TeamSupplierFlag[];
   activeCount: number;
-  needsAttention: boolean;
+  reachedLimit: boolean;
+  supplierActive: boolean;
   canManage: boolean;
 }
 
@@ -118,19 +176,14 @@ export function SupplierFlagsPanel({
 }) {
   const [applying, setApplying] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  const { flags, activeCount, needsAttention, canManage } = data;
+  const { flags, activeCount, reachedLimit, supplierActive, canManage } = data;
   const active = flags.filter((flag) => flag.status === "active");
   const past = flags.filter((flag) => flag.status !== "active");
   return (
     <section aria-label="Flags" className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6">
       <FlagsHeader activeCount={activeCount} onApply={canManage ? () => setApplying(true) : null} />
-      {needsAttention ? (
-        <Alert variant="destructive">
-          <AlertDescription>
-            Este fornecedor chegou a {activeCount} flags ativas. Avalie o caso com a equipe; nada
-            muda automaticamente na conta dele.
-          </AlertDescription>
-        </Alert>
+      {reachedLimit ? (
+        <FlagLimitAlert activeCount={activeCount} supplierActive={supplierActive} />
       ) : null}
       {active.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhuma flag ativa.</p>
@@ -142,10 +195,12 @@ export function SupplierFlagsPanel({
         </ul>
       )}
       <FlagHistory flags={past} />
+      <GoldenRulesReference />
       {canManage ? (
         <>
           <ApplyFlagDialog
             supplierId={supplierId}
+            standing={{ activeCount, supplierActive }}
             open={applying}
             onClose={() => setApplying(false)}
           />

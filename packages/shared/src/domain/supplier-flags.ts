@@ -5,8 +5,8 @@ import { DAY_MILLISECONDS } from "./time.ts";
 /**
  * Manual supplier flags (MVP function 6), like YouTube strikes: the team applies one with a
  * reason, it counts for 90 days and the supplier sees it in the panel and may contest it through
- * a support ticket. Nothing happens on its own when flags pile up: at 3 the supplier is only
- * highlighted for the team.
+ * a support ticket. Three strikes and out: the flag that would be the 3rd active one deactivates
+ * the supplier, but only once the team member who applies it confirms; nothing runs on its own.
  */
 export const SUPPLIER_FLAG_REASONS = [
   "product_listing_error",
@@ -41,8 +41,8 @@ export const SUPPLIER_FLAG_REASON_EXPLANATIONS: Readonly<Record<SupplierFlagReas
 };
 
 export const SUPPLIER_FLAG_VALIDITY_DAYS = 90;
-/** Active flags at which the team is asked to look at the supplier; nothing is automatic. */
-export const SUPPLIER_FLAG_ATTENTION_THRESHOLD = 3;
+/** Active flags at which the supplier is out (deactivated), on the applier's confirmation. */
+export const SUPPLIER_FLAG_LIMIT = 3;
 export const SUPPLIER_FLAG_NOTE_MAX_LENGTH = 500;
 
 export type SupplierFlagStatus = "active" | "expired" | "revoked";
@@ -67,11 +67,37 @@ export function supplierFlagStatus(
 
 /** "1 de 3 em 90 dias". */
 export function supplierFlagCountLabel(activeCount: number): string {
-  return `${activeCount} de ${SUPPLIER_FLAG_ATTENTION_THRESHOLD} em ${SUPPLIER_FLAG_VALIDITY_DAYS} dias`;
+  return `${activeCount} de ${SUPPLIER_FLAG_LIMIT} em ${SUPPLIER_FLAG_VALIDITY_DAYS} dias`;
 }
 
-export function needsTeamAttention(activeCount: number): boolean {
-  return activeCount >= SUPPLIER_FLAG_ATTENTION_THRESHOLD;
+/** What the supplier reads under the counter. */
+export const SUPPLIER_FLAG_LIMIT_WARNING = `Na ${SUPPLIER_FLAG_LIMIT}ª flag a conta é desligada.`;
+
+export function reachedFlagLimit(activeCount: number): boolean {
+  return activeCount >= SUPPLIER_FLAG_LIMIT;
+}
+
+/**
+ * Whether one more flag puts an active supplier out: it would be the 3rd active one (or more, when
+ * the team reactivated a supplier that still had 3). An inactive supplier has nothing to lose.
+ */
+export function flagDeactivatesSupplier(supplier: {
+  activeFlagCount: number;
+  supplierActive: boolean;
+}): boolean {
+  return supplier.supplierActive && reachedFlagLimit(supplier.activeFlagCount + 1);
+}
+
+/**
+ * What the team reads before the flag that puts the supplier out. A supplier reactivated with 3
+ * active flags would otherwise read "flag 4 de 3".
+ */
+export function deactivatingFlagNotice(activeFlagCount: number): string {
+  const next = activeFlagCount + 1;
+  if (next <= SUPPLIER_FLAG_LIMIT) {
+    return `Esta é a flag ${next} de ${SUPPLIER_FLAG_LIMIT}: o fornecedor será desligado`;
+  }
+  return `O fornecedor foi reativado com ${activeFlagCount} flags ativas: esta flag o desliga de novo`;
 }
 
 /** Most recent first; a tie keeps the order it came in. Returns a new array. */
@@ -113,6 +139,8 @@ export const applySupplierFlagSchema = z
     supplierId: supplierIdSchema,
     reason: z.enum(SUPPLIER_FLAG_REASONS, { error: "Escolha o motivo" }),
     note: flagNote(),
+    /** Ticked by the team member when this flag deactivates the supplier (3rd active one). */
+    confirmDeactivation: z.boolean().default(false),
   })
   .superRefine((value, context) => {
     if (value.reason === "other" && value.note === "") {

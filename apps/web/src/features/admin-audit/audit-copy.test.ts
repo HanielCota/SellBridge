@@ -59,6 +59,16 @@ describe("audit copy", () => {
     ).toBe("Retirou uma flag do fornecedor");
   });
 
+  it("says when the 3rd flag put the supplier out, apart from a deactivation by hand", () => {
+    const deactivated = { ...base, source: "catalog" as const, action: "supplier.deactivated" };
+    expect(
+      describeAuditEntry({ ...deactivated, details: { pausedTargets: 2, cause: "third_flag" } }),
+    ).toBe("Desativou o fornecedor na 3ª flag");
+    expect(describeAuditEntry({ ...deactivated, details: { pausedTargets: 2 } })).toBe(
+      "Desativou o fornecedor",
+    );
+  });
+
   it("names a refused contact by its kinds, on an account or a supplier link", () => {
     const details = { channel: "seller_app", field: "notes", kinds: "phone,email", tenantId: null };
     expect(
