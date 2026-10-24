@@ -4,8 +4,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { offAccountReviewSearch } from "@/features/supplier-panel/home/team-notices-contest";
 
 /**
- * Shown on every panel page once the team switched the supplier off (3rd flag): what stopped,
- * what still has to be done (the orders already received) and how to ask for a review.
+ * Shown on every panel page once the team switched the supplier off, on its 3rd flag or by hand
+ * from the supplier's record (so it names no cause): what stopped, what still has to be done (the
+ * orders already received) and how to ask for a review.
  */
 export function SupplierOffBanner() {
   return (
@@ -16,8 +17,9 @@ export function SupplierOffBanner() {
       </AlertTitle>
       <AlertDescription className="space-y-2">
         <p>
-          A conta chegou a 3 flags. Seus produtos saíram do catálogo e os anúncios dos revendedores
-          foram pausados. Por enquanto não dá para cadastrar, enviar nem importar produtos.
+          A equipe SellBridge desligou sua conta. Seus produtos saíram do catálogo e os anúncios dos
+          revendedores foram pausados. Por enquanto não dá para cadastrar, enviar nem importar
+          produtos.
         </p>
         <p>Os pedidos que você já recebeu continuam aqui: entregue todos normalmente.</p>
         <Link
