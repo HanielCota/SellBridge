@@ -16,7 +16,10 @@ import { organization, user } from "./auth.ts";
 import { listings } from "./listings.ts";
 import { orders } from "./orders.ts";
 import { storeConnections } from "./stores.ts";
+import { suppliers } from "./suppliers.ts";
 import {
+  supplierConversationTopicEnum,
+  ticketAudienceEnum,
   ticketCategoryEnum,
   ticketEventTypeEnum,
   ticketPriorityEnum,
@@ -53,6 +56,15 @@ export const tickets = pgTable(
     storeConnectionId: uuid().references(() => storeConnections.id, { onDelete: "set null" }),
     /** The listing the ticket is about, when opened from Publicações (item 27.a). */
     listingId: uuid().references(() => listings.id, { onDelete: "set null" }),
+    /**
+     * `supplier`: a conversation between the reseller (`tenantId`) and the supplier of the store
+     * (`storeConnectionId`). The supplier answers it; the team only reads it.
+     */
+    audience: ticketAudienceEnum().notNull().default("platform"),
+    /** The supplier a `supplier` conversation was sent to; kept when the store changes supplier. */
+    supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
+    /** What a `supplier` conversation is about, from the supplier conversation topics. */
+    supplierTopic: supplierConversationTopicEnum(),
     /** First public support reply, for the first-response metrics. */
     firstResponseAt: timestamp({ withTimezone: true }),
     closedAt: timestamp({ withTimezone: true }),
@@ -69,7 +81,12 @@ export const tickets = pgTable(
   (table) => [
     index("tickets_tenant_idx").on(table.tenantId),
     index("tickets_queue_idx").on(table.status, table.assigneeId),
+    index("tickets_supplier_idx").on(table.supplierId, table.updatedAt),
     check("tickets_rating_range", sql`${table.rating} between 1 and 5`),
+    check(
+      "tickets_supplier_topic_check",
+      sql`(${table.audience} = 'supplier') = (${table.supplierTopic} is not null)`,
+    ),
   ],
 );
 

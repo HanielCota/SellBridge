@@ -13,7 +13,11 @@ import {
 } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { formatFileSize } from "@/lib/file-size";
-import { describeCustomerEvent } from "@/components/support/ticket-event-text";
+import {
+  CUSTOMER_PERSPECTIVE,
+  STAFF_PERSPECTIVE,
+  type ThreadPerspective,
+} from "@/components/support/thread-perspective";
 import { UserAvatar } from "@/components/layout/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -77,19 +81,26 @@ function formatDayLabel(date: Date, now: Date = new Date()): string {
   return dayLabelFormatter.format(date);
 }
 
-function authorLabel(message: ThreadMessage, tagSupport: boolean): string {
+function authorLabel(message: ThreadMessage, perspective: ThreadPerspective): string {
   if (message.isInternal) {
     return `Nota interna · ${message.authorName}`;
   }
-  if (message.isAdmin && tagSupport) {
-    return `${message.authorName} · Suporte`;
+  if (message.isAdmin && perspective.responderTag !== null) {
+    return `${message.authorName} · ${perspective.responderTag}`;
   }
   return message.authorName;
 }
 
 /** The reseller sees their own photo (or initials, as in the top bar); support keeps the headset. */
-function AuthorAvatar({ message }: { message: ThreadMessage }) {
-  if (!message.isAdmin) {
+function AuthorAvatar({
+  message,
+  responderAvatar,
+}: {
+  message: ThreadMessage;
+  responderAvatar: ThreadPerspective["responderAvatar"];
+}) {
+  const drawsPerson = responderAvatar === "initials" && !message.isInternal;
+  if (!message.isAdmin || drawsPerson) {
     return (
       <UserAvatar
         name={message.authorName}
@@ -232,10 +243,11 @@ type ThreadEntry =
   | { kind: "message"; at: Date; message: ThreadMessage }
   | { kind: "event"; at: Date; event: TicketEventView; text: string };
 
-/** Messages and the history in one timeline; history the reseller gains nothing from is dropped. */
+/** Messages and the history in one timeline; history the reader gains nothing from is dropped. */
 function buildTimeline(
   messages: readonly ThreadMessage[],
   events: readonly TicketEventView[],
+  describeEvent: ThreadPerspective["describeEvent"],
 ): ThreadEntry[] {
   const entries: ThreadEntry[] = messages.map((message) => ({
     kind: "message",
@@ -243,7 +255,7 @@ function buildTimeline(
     message,
   }));
   for (const event of events) {
-    const text = describeCustomerEvent(event);
+    const text = describeEvent(event);
     if (text !== null) {
       entries.push({ kind: "event", at: event.createdAt, event, text });
     }
@@ -286,40 +298,55 @@ function EventLine({ entry }: { entry: Extract<ThreadEntry, { kind: "event" }> }
   );
 }
 
-/** Under the reseller's last message: whether someone from support opened the thread since. */
-function SeenReceipt({ seenAt, sentAt }: { seenAt: Date | null; sentAt: Date }) {
+/** Under the asker's last message: whether someone from the other side opened the thread since. */
+function SeenReceipt({
+  seenAt,
+  sentAt,
+  owner,
+}: {
+  seenAt: Date | null;
+  sentAt: Date;
+  owner: string;
+}) {
   if (seenAt !== null && seenAt.getTime() >= sentAt.getTime()) {
     return (
       <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
         <ChecksIcon className="size-3.5 text-brand-text" aria-hidden="true" />
-        Visto pelo suporte
+        Visto {owner}
       </p>
     );
   }
   return (
     <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
       <CheckIcon className="size-3.5" aria-hidden="true" />
-      Enviado · ainda não visto pelo suporte
+      Enviado · ainda não visto {owner}
     </p>
   );
 }
 
+/** Like any chat app: whoever is reading sees their own side on the right, tinted. */
+function isReadersOwn(message: ThreadMessage, readerSide: ThreadPerspective["readerSide"]) {
+  if (readerSide === "observer") {
+    return false;
+  }
+  return readerSide === "customer" ? !message.isAdmin : message.isAdmin;
+}
+
 function MessageItem({
   message,
-  tagSupport,
+  perspective,
   onQuote,
   footer,
 }: {
   message: ThreadMessage;
-  tagSupport: boolean;
+  perspective: ThreadPerspective;
   onQuote?: ((message: ThreadMessage) => void) | undefined;
   footer: ReactNode;
 }) {
-  // Like any chat app: whoever is reading sees their own side on the right, tinted.
-  const isMine = tagSupport ? !message.isAdmin : message.isAdmin;
+  const isMine = isReadersOwn(message, perspective.readerSide);
   return (
     <li className={cn("flex gap-3", isMine && "flex-row-reverse")}>
-      <AuthorAvatar message={message} />
+      <AuthorAvatar message={message} responderAvatar={perspective.responderAvatar} />
       <article
         className={cn(
           "group/message max-w-[min(42rem,85%)] min-w-0 space-y-1.5 rounded-2xl border px-4 py-3",
@@ -328,7 +355,7 @@ function MessageItem({
         )}
       >
         <header className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{authorLabel(message, tagSupport)}</span>
+          <span className="font-medium text-foreground">{authorLabel(message, perspective)}</span>
           <time
             dateTime={message.createdAt.toISOString()}
             title={fullFormatter.format(message.createdAt)}
@@ -359,8 +386,9 @@ function MessageItem({
 }
 
 /**
- * `onQuote` turns on the admin action that quotes a message into the reply. The admin view
- * drops the "Suporte" tag: there the headset avatar already tells the sides apart.
+ * `onQuote` turns on the admin action that quotes a message into the reply. Without a
+ * `perspective`, the admin view (with `onQuote`) drops the "Suporte" tag, since the headset
+ * avatar already tells the sides apart, and every other view reads as the customer.
  * The reseller view also passes `events` (shown between the messages), `seenAt` (read receipt
  * under their last message) and `messageFooter` (the "did this solve it?" prompt).
  */
@@ -370,15 +398,16 @@ export function TicketThread({
   events = [],
   seenAt,
   messageFooter,
+  perspective = onQuote === undefined ? CUSTOMER_PERSPECTIVE : STAFF_PERSPECTIVE,
 }: {
   messages: TicketThreadData["messages"];
   onQuote?: (message: ThreadMessage) => void;
   events?: readonly TicketEventView[];
   seenAt?: Date | null;
   messageFooter?: (message: ThreadMessage) => ReactNode;
+  perspective?: ThreadPerspective;
 }) {
-  const tagSupport = onQuote === undefined;
-  const timeline = buildTimeline(messages, events);
+  const timeline = buildTimeline(messages, events, perspective.describeEvent);
   const lastMessage = messages.at(-1);
   const showReceipt = seenAt !== undefined && lastMessage !== undefined && !lastMessage.isAdmin;
   let previousDay = "";
@@ -397,7 +426,7 @@ export function TicketThread({
       <MessageItem
         key={entry.message.id}
         message={entry.message}
-        tagSupport={tagSupport}
+        perspective={perspective}
         onQuote={onQuote}
         footer={messageFooter?.(entry.message)}
       />,
@@ -408,7 +437,13 @@ export function TicketThread({
       <ol className="space-y-4" aria-label="Mensagens do chamado">
         {items}
       </ol>
-      {showReceipt ? <SeenReceipt seenAt={seenAt ?? null} sentAt={lastMessage.createdAt} /> : null}
+      {showReceipt ? (
+        <SeenReceipt
+          seenAt={seenAt ?? null}
+          sentAt={lastMessage.createdAt}
+          owner={perspective.receiptOwner}
+        />
+      ) : null}
     </div>
   );
 }

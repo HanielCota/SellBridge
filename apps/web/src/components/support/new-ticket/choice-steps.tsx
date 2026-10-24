@@ -33,7 +33,7 @@ function topicIcon(kind: ProfileKind, category: TicketCategory): Icon {
 }
 
 /** Same look as the catalog's choice cards: card fill, a muted hover, a visible focus ring. */
-const OPTION_CLASS =
+export const OPTION_CLASS =
   "cursor-pointer text-left transition-[background-color,scale] duration-150 select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none active:scale-[0.98] active:duration-100 motion-reduce:active:scale-100";
 
 export function TopicStep({
@@ -87,18 +87,23 @@ export function TopicStep({
 export function SituationStep({
   situations,
   onPick,
+  step = { number: 2, total: 3 },
+  help = "Assim a pessoa certa da equipe já recebe o seu chamado.",
 }: {
   situations: readonly SupportSituation[];
   onPick: (situationId: string) => void;
+  /** Where the step sits in the flow: a supplier conversation asks for the store first. */
+  step?: { number: number; total: number };
+  help?: string;
 }) {
   return (
     <div className="grid gap-3">
       <StepHeading
         id={STEP_HEADING_IDS.situation}
-        number={2}
-        total={3}
+        number={step.number}
+        total={step.total}
         question="O que está acontecendo?"
-        help="Assim a pessoa certa da equipe já recebe o seu chamado."
+        help={help}
       />
       <fieldset
         aria-labelledby={STEP_HEADING_IDS.situation}

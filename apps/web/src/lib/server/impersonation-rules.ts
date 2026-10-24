@@ -33,6 +33,10 @@ export const BLOCKED_WHILE_IMPERSONATING: Readonly<Record<string, string>> = {
   // "Sim, resolveu" records that the customer confirmed the fix; the team closes the
   // ticket from its own inbox instead.
   closeMyTicket: "encerrar o chamado em nome do cliente",
+  // The supplier would read the team's words as the customer's: the visit only looks.
+  "supplierSupport.createConversation": "abrir uma conversa com o fornecedor em nome do cliente",
+  "supplierSupport.reply": "escrever numa conversa com o fornecedor em nome do cliente",
+  closeMyConversation: "encerrar a conversa com o fornecedor em nome do cliente",
 };
 
 /** Writes too small to land in the customer's timeline (read markers). */

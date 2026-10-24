@@ -12,6 +12,7 @@ export const NOTIFICATION_EVENTS = [
   "support_reply",
   "ticket_created",
   "order_message",
+  "supplier_conversation",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -74,6 +75,13 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Mensagem do fornecedor",
     description: "O fornecedor escreveu nas mensagens de um pedido.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  // Both directions: the supplier hears about a reseller's message, the reseller about a reply.
+  supplier_conversation: {
+    audience: "reseller",
+    label: "Conversa entre loja e fornecedor",
+    description: "Chegou uma mensagem nova numa conversa entre loja e fornecedor.",
     defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -277,6 +285,49 @@ export function orderMessageContent(notice: OrderMessageNotice): NotificationCon
     ],
     actionLabel: "Abrir o pedido",
     actionPath: `/pedidos/${notice.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface SupplierConversationNotice {
+  ticketId: string;
+  /** The conversation's heading ("O pedido está atrasado"): never what was written. */
+  subject: string;
+  /** Who is told: the supplier about a reseller's message, or the reseller about a reply. */
+  recipient: "reseller" | "supplier";
+  /** The store the conversation is about. */
+  storeName: string;
+}
+
+/** A message between store and supplier. The text stays in the app: it may carry anything. */
+export function supplierConversationContent(
+  notice: SupplierConversationNotice,
+): NotificationContent {
+  const path = `/suporte/conversas/${notice.ticketId}`;
+  if (notice.recipient === "supplier") {
+    return {
+      subject: `Mensagem de um revendedor: ${notice.subject}`,
+      preview: `Loja ${notice.storeName}.`,
+      heading: "Um revendedor escreveu para você",
+      paragraphs: [
+        `A loja ${notice.storeName} escreveu sobre "${notice.subject}".`,
+        "Leia e responda pelo SellBridge, em Suporte, na aba Revendedores.",
+      ],
+      actionLabel: "Ler a mensagem",
+      actionPath: path,
+      footnote: FOOTNOTE,
+    };
+  }
+  return {
+    subject: `O fornecedor respondeu: ${notice.subject}`,
+    preview: `Loja ${notice.storeName}.`,
+    heading: "O fornecedor respondeu",
+    paragraphs: [
+      `O fornecedor da loja ${notice.storeName} respondeu sobre "${notice.subject}".`,
+      "Leia a resposta e continue a conversa pelo SellBridge.",
+    ],
+    actionLabel: "Ler a resposta",
+    actionPath: path,
     footnote: FOOTNOTE,
   };
 }

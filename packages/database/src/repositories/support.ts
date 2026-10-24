@@ -18,16 +18,15 @@ import {
   type TicketPriority,
 } from "@sellbridge/shared/ticket-rules";
 import { toPaginated, type Paginated, type Pagination } from "@sellbridge/shared/schemas";
+import type { SupplierConversationTopicId } from "@sellbridge/shared/supplier-conversation-topics";
 import {
   and,
   asc,
   count,
   desc,
   eq,
-  gte,
   ilike,
   inArray,
-  isNotNull,
   isNull,
   lt,
   or,
@@ -42,13 +41,15 @@ import {
   STAFF_ROLE_LIST,
   withoutActiveAssigneeSql,
 } from "./support-assignee.ts";
-import { isOverdue, plusResponseTarget, responseDueAtSql } from "./support-deadline.ts";
+import { platformTicketSql, supplierConversationSql } from "./support-audience.ts";
+import { isOverdue, responseDueAtSql } from "./support-deadline.ts";
 import { staffTicketSearch } from "./support-search.ts";
 import { hasUnreadSql } from "./support-unread.ts";
-import { timestampOf } from "./sql/raw-values.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 import {
   organization,
+  storeConnections,
+  suppliers,
   ticketAttachments,
   ticketEvents,
   ticketMessages,
@@ -58,6 +59,7 @@ import {
 } from "../schema/index.ts";
 
 type TicketStatus = (typeof tickets.$inferSelect)["status"];
+export type TicketAudience = (typeof tickets.$inferSelect)["audience"];
 type TicketEventType = (typeof ticketEvents.$inferSelect)["type"];
 
 export interface NewAttachment {
@@ -87,6 +89,9 @@ export interface StaffTicketSummary extends TicketSummary {
   createdByEmail: string;
   assigneeId: string | null;
   assigneeName: string | null;
+  /** The supplier a reseller ↔ supplier conversation was sent to; null for the team's tickets. */
+  supplierName: string | null;
+  audience: TicketAudience;
 }
 
 export interface TicketEventView {
@@ -108,6 +113,12 @@ export interface TicketThread {
     tenantId: string;
     tenantName: string;
     tenantKind: ProfileKind;
+    /** `supplier`: a reseller ↔ supplier conversation, answered by `supplierName`. */
+    audience: TicketAudience;
+    supplierId: string | null;
+    supplierName: string | null;
+    supplierTopic: SupplierConversationTopicId | null;
+    storeName: string | null;
     createdById: string;
     createdByName: string;
     createdByImage: string | null;
@@ -219,6 +230,7 @@ async function lockTicket(transaction: Transaction, ticketId: string, tenantId: 
       ratedAt: tickets.ratedAt,
       priority: tickets.priority,
       category: tickets.category,
+      audience: tickets.audience,
     })
     .from(tickets)
     .where(
@@ -268,7 +280,9 @@ async function applyMessageToTicket(
   const isFirstResponse = message.kind === "reply" && ticket.firstResponseAt === null;
   // Same rule as the "unassigned" queue: an assignee who left the team (or was blocked) counts
   // as nobody, so the first reply from the team takes the ticket out of that queue.
+  // A supplier answering its conversation never takes it: only the team works a queue.
   const takesTicket =
+    ticket.audience === "platform" &&
     message.kind === "reply" &&
     message.authorId !== ticket.assigneeId &&
     (ticket.assigneeId === null || !(await isActiveStaff(transaction, ticket.assigneeId)));
@@ -309,6 +323,8 @@ async function applyMessageToTicket(
  * `tenantId` scopes reseller access; staff pass null after their permission was checked.
  * The first public support reply on a ticket nobody took assigns it to whoever answered.
  * The ticket row is locked so a concurrent close cannot slip in between check and reply.
+ * `answeredBy` says who writes when `tenantId` is null: the team, or the conversation's
+ * supplier (checked by the caller). The team only reads supplier conversations.
  */
 export async function addTicketMessage(
   database: Database,
@@ -320,6 +336,7 @@ export async function addTicketMessage(
     statusAfter?: TicketStatus | undefined;
     body: string;
     attachments: readonly NewAttachment[];
+    answeredBy?: TicketAudience;
     now?: Date;
   },
 ): Promise<{ status: TicketStatus }> {
@@ -327,6 +344,9 @@ export async function addTicketMessage(
   return database.transaction(async (transaction) => {
     const ticket = await lockTicket(transaction, input.ticketId, input.tenantId);
     assertCanReply(ticket.status, input.kind);
+    if (input.kind !== "reseller" && ticket.audience !== (input.answeredBy ?? "platform")) {
+      throw forbiddenError("Só o fornecedor responde as conversas entre loja e fornecedor");
+    }
     const [message] = await transaction
       .insert(ticketMessages)
       .values({
@@ -615,7 +635,7 @@ export async function listTenantTickets(
   },
   pagination: Pagination,
 ): Promise<Paginated<TicketSummary>> {
-  const where = and(eq(tickets.tenantId, tenantId), ...ticketFilters(filters));
+  const where = and(platformTicketSql, eq(tickets.tenantId, tenantId), ...ticketFilters(filters));
   const reader = filters.readerId
     ? { userId: filters.readerId, side: "customer" as const }
     : undefined;
@@ -642,7 +662,11 @@ export async function countUnreadSupportReplies(
     .select({ total: count() })
     .from(tickets)
     .where(
-      and(eq(tickets.tenantId, tenantId), hasUnreadSql({ userId: readerId, side: "customer" })),
+      and(
+        platformTicketSql,
+        eq(tickets.tenantId, tenantId),
+        hasUnreadSql({ userId: readerId, side: "customer" }),
+      ),
     );
   return row?.total ?? 0;
 }
@@ -662,14 +686,19 @@ export async function listUnreadSupportReplies(
     .select({ ticketId: tickets.id, subject: tickets.subject, repliedAt })
     .from(tickets)
     .where(
-      and(eq(tickets.tenantId, tenantId), hasUnreadSql({ userId: readerId, side: "customer" })),
+      and(
+        platformTicketSql,
+        eq(tickets.tenantId, tenantId),
+        hasUnreadSql({ userId: readerId, side: "customer" }),
+      ),
     )
     .orderBy(desc(repliedAt))
     .limit(limit);
 }
 
 export interface StaffTicketFilters {
-  queue: "unassigned" | "mine" | "overdue" | "all";
+  /** `suppliers`: the reseller ↔ supplier conversations the team reads; the rest is its own. */
+  queue: "unassigned" | "mine" | "overdue" | "all" | "suppliers";
   status?: TicketStatus | undefined;
   priority?: TicketPriority | undefined;
   category?: TicketCategory | undefined;
@@ -677,16 +706,27 @@ export interface StaffTicketFilters {
 }
 
 function queueCondition(queue: StaffTicketFilters["queue"], viewerId: string, now: Date) {
+  if (queue === "suppliers") {
+    return supplierConversationSql;
+  }
   if (queue === "unassigned") {
-    return and(withoutActiveAssigneeSql, inArray(tickets.status, ["open", "answered"]));
+    return and(
+      platformTicketSql,
+      withoutActiveAssigneeSql,
+      inArray(tickets.status, ["open", "answered"]),
+    );
   }
   if (queue === "mine") {
-    return and(eq(tickets.assigneeId, viewerId), inArray(tickets.status, ["open", "answered"]));
+    return and(
+      platformTicketSql,
+      eq(tickets.assigneeId, viewerId),
+      inArray(tickets.status, ["open", "answered"]),
+    );
   }
   if (queue === "overdue") {
-    return isOverdue(now);
+    return and(platformTicketSql, isOverdue(now));
   }
-  return undefined;
+  return platformTicketSql;
 }
 
 /** The support inbox: one queue, filtered, with unread dots for the viewing staff member. */
@@ -718,11 +758,14 @@ export async function listStaffTickets(
         createdByEmail: user.email,
         assigneeId: activeAssigneeIdSql,
         assigneeName: activeAssigneeNameSql,
+        supplierName: suppliers.name,
+        audience: tickets.audience,
       })
       .from(tickets)
       .innerJoin(organization, eq(organization.id, tickets.tenantId))
       .innerJoin(user, eq(user.id, tickets.createdById))
       .leftJoin(assignee, eq(assignee.id, tickets.assigneeId))
+      .leftJoin(suppliers, eq(suppliers.id, tickets.supplierId))
       .where(where)
       .orderBy(...order)
       .limit(pagination.pageSize)
@@ -765,8 +808,8 @@ export async function countStaffQueues(
     })
     .from(tickets)
     // Every counter is about live tickets: skipping the closed ones (most of the table, and
-    // growing) lets the queue index do the work.
-    .where(active);
+    // growing) lets the queue index do the work. Supplier conversations are not the team's.
+    .where(and(active, platformTicketSql));
   return row ?? { unassigned: 0, mine: 0, overdue: 0, open: 0 };
 }
 
@@ -788,6 +831,11 @@ async function findThreadTicket(
       tenantId: tickets.tenantId,
       tenantName: organization.name,
       tenantKind: organization.kind,
+      audience: tickets.audience,
+      supplierId: tickets.supplierId,
+      supplierName: suppliers.name,
+      supplierTopic: tickets.supplierTopic,
+      storeName: storeConnections.shopName,
       createdById: tickets.createdById,
       createdByName: user.name,
       createdByImage: user.image,
@@ -804,6 +852,8 @@ async function findThreadTicket(
     .innerJoin(organization, eq(organization.id, tickets.tenantId))
     .innerJoin(user, eq(user.id, tickets.createdById))
     .leftJoin(assignee, eq(assignee.id, tickets.assigneeId))
+    .leftJoin(suppliers, eq(suppliers.id, tickets.supplierId))
+    .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
     .where(
       tenantId === null
         ? eq(tickets.id, ticketId)
@@ -1037,167 +1087,6 @@ export async function autoCloseIdleTickets(
     }
     return closed.length;
   });
-}
-
-export interface SupportMetrics {
-  opened: number;
-  closed: number;
-  openNow: number;
-  overdueNow: number;
-  /** Average time to the first support reply, for tickets opened in the period. */
-  averageFirstResponseMinutes: number | null;
-  /**
-   * Share of tickets opened in the period whose first reply came within the target. Measured
-   * against the ticket's current priority.
-   */
-  withinTargetRate: number | null;
-  /** Every rating given in the period, even if the ticket was reopened afterwards. */
-  averageRating: number | null;
-  ratings: number;
-  byCategory: { category: TicketCategory; total: number }[];
-  byAgent: {
-    agentId: string;
-    agentName: string;
-    assignedOpen: number;
-    closed: number;
-    replies: number;
-    averageRating: number | null;
-  }[];
-}
-
-const firstReplyTarget = plusResponseTarget(tickets.createdAt);
-
-function numberOrNull(value: string | number | null): number | null {
-  if (value === null) {
-    return null;
-  }
-  return Number(value);
-}
-
-async function overviewMetrics(database: Database, since: Date, now: Date) {
-  const openedInPeriod = gte(tickets.createdAt, since);
-  const answeredInPeriod = and(openedInPeriod, isNotNull(tickets.firstResponseAt));
-  const [row] = await database
-    .select({
-      opened: sql<number>`count(*) filter (where ${openedInPeriod})`.mapWith(Number),
-      closed:
-        sql<number>`count(*) filter (where ${tickets.closedAt} >= ${timestampOf(since)})`.mapWith(
-          Number,
-        ),
-      openNow: sql<number>`count(*) filter (where ${tickets.status} = 'open')`.mapWith(Number),
-      overdueNow: sql<number>`count(*) filter (where ${isOverdue(now)})`.mapWith(Number),
-      averageFirstResponseMinutes: sql<
-        string | null
-      >`avg(extract(epoch from (${tickets.firstResponseAt} - ${tickets.createdAt})) / 60) filter (where ${answeredInPeriod})`,
-      withinTargetRate: sql<
-        string | null
-      >`avg(case when ${tickets.firstResponseAt} <= ${firstReplyTarget} then 1.0 else 0.0 end) filter (where ${answeredInPeriod})`,
-    })
-    .from(tickets);
-  return row;
-}
-
-/**
- * Ratings come from the history, not from `tickets.rating`: reopening a ticket clears that
- * column for the next close, and a low rating must not vanish from the metrics with it.
- */
-const ratingValue = sql`(${ticketEvents.toValue})::int`;
-const ratedSince = (since: Date) =>
-  and(eq(ticketEvents.type, "rated"), gte(ticketEvents.createdAt, since));
-
-async function ratingMetrics(database: Database, since: Date) {
-  const [row] = await database
-    .select({ average: sql<string | null>`avg(${ratingValue})`, total: count() })
-    .from(ticketEvents)
-    .where(ratedSince(since));
-  return { average: numberOrNull(row?.average ?? null), total: row?.total ?? 0 };
-}
-
-async function agentMetrics(database: Database, since: Date) {
-  const replies = database
-    .select({ authorId: ticketMessages.authorId, replies: count().as("replies") })
-    .from(ticketMessages)
-    .where(
-      and(
-        eq(ticketMessages.isAdmin, true),
-        eq(ticketMessages.isInternal, false),
-        gte(ticketMessages.createdAt, since),
-      ),
-    )
-    .groupBy(ticketMessages.authorId)
-    .as("agent_replies");
-  const assigned = database
-    .select({
-      assigneeId: tickets.assigneeId,
-      assignedOpen: sql<number>`count(*) filter (where ${tickets.status} <> 'closed')`.as(
-        "assigned_open",
-      ),
-      closed: sql<number>`count(*) filter (where ${tickets.closedAt} >= ${timestampOf(since)})`.as(
-        "closed",
-      ),
-    })
-    .from(tickets)
-    .where(isNotNull(tickets.assigneeId))
-    .groupBy(tickets.assigneeId)
-    .as("agent_tickets");
-  // Credited to whoever holds the ticket now.
-  const rated = database
-    .select({
-      assigneeId: tickets.assigneeId,
-      averageRating: sql<string | null>`avg(${ratingValue})`.as("average_rating"),
-    })
-    .from(ticketEvents)
-    .innerJoin(tickets, eq(tickets.id, ticketEvents.ticketId))
-    .where(and(ratedSince(since), isNotNull(tickets.assigneeId)))
-    .groupBy(tickets.assigneeId)
-    .as("agent_ratings");
-  const rows = await database
-    .select({
-      agentId: user.id,
-      agentName: user.name,
-      assignedOpen: sql<number>`coalesce(${assigned.assignedOpen}, 0)`.mapWith(Number),
-      closed: sql<number>`coalesce(${assigned.closed}, 0)`.mapWith(Number),
-      replies: sql<number>`coalesce(${replies.replies}, 0)`.mapWith(Number),
-      averageRating: rated.averageRating,
-    })
-    .from(user)
-    .leftJoin(assigned, eq(assigned.assigneeId, user.id))
-    .leftJoin(replies, eq(replies.authorId, user.id))
-    .leftJoin(rated, eq(rated.assigneeId, user.id))
-    .where(inArray(user.role, [...STAFF_ROLES]))
-    .orderBy(asc(user.name));
-  return rows.map((row) => ({ ...row, averageRating: numberOrNull(row.averageRating) }));
-}
-
-/** Volume, response times and satisfaction since `since`, overall and per team member. */
-export async function getSupportMetrics(
-  database: Database,
-  input: { since: Date; now?: Date },
-): Promise<SupportMetrics> {
-  const now = input.now ?? new Date();
-  const [overview, ratings, byCategory, byAgent] = await Promise.all([
-    overviewMetrics(database, input.since, now),
-    ratingMetrics(database, input.since),
-    database
-      .select({ category: tickets.category, total: count() })
-      .from(tickets)
-      .where(gte(tickets.createdAt, input.since))
-      .groupBy(tickets.category)
-      .orderBy(desc(count())),
-    agentMetrics(database, input.since),
-  ]);
-  return {
-    opened: overview?.opened ?? 0,
-    closed: overview?.closed ?? 0,
-    openNow: overview?.openNow ?? 0,
-    overdueNow: overview?.overdueNow ?? 0,
-    averageFirstResponseMinutes: numberOrNull(overview?.averageFirstResponseMinutes ?? null),
-    withinTargetRate: numberOrNull(overview?.withinTargetRate ?? null),
-    averageRating: ratings.average,
-    ratings: ratings.total,
-    byCategory,
-    byAgent,
-  };
 }
 
 /**
