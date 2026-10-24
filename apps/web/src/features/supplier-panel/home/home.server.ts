@@ -72,6 +72,8 @@ export interface SupplierHome {
   orderTotals: { accept: number; progress: number };
   catalog: CatalogFix[];
   health: SupplierHealth;
+  /** The public "Fornecedor destaque" badge resellers see: the home's green note. */
+  highlighted: boolean;
 }
 
 /** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
@@ -99,12 +101,13 @@ async function loadHomeOrders(supplierId: string, now: Date) {
 /** The "Início" page: one list of what needs the supplier, and the health in one line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
-  const [profile, healthInput, orders, stock, rejectedProducts] = await Promise.all([
+  const [profile, healthInput, orders, stock, rejectedProducts, reputation] = await Promise.all([
     getSupplierPanelProfile(database, supplierId),
     loadSupplierHealthInput(database, { supplierId, now }),
     loadHomeOrders(supplierId, now),
     listSupplierOutOfStockListed(database, supplierId),
     listSupplierRejectedProducts(database, supplierId),
+    loadPublicReputation(supplierId, now),
   ]);
   const catalog = catalogFixes(stock, rejectedProducts);
   // Ids and counts only: what the list showed, for support to compare with a complaint.
@@ -119,6 +122,7 @@ export async function loadSupplierHome(supplierId: string): Promise<SupplierHome
     ...orders,
     catalog,
     health: computeSupplierHealth(healthInput),
+    highlighted: reputation.highlighted,
   };
 }
 

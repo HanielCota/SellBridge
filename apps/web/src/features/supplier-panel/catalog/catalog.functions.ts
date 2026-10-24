@@ -17,6 +17,7 @@ import {
   writePanelRejection,
   writePanelSubmission,
 } from "./catalog.server";
+import { assertSupplierAcceptsProducts } from "./supplier-active-guard";
 
 const productFormInputSchema = z.object({
   supplierId: z.uuid(),
@@ -36,12 +37,18 @@ export const supplierPanelGetProductForm = createServerFn({ method: "GET" })
 export const supplierPanelSaveDraft = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware, blockedContactLogging("supplier_panel")])
   .validator(catalogSaveDraftSchema)
-  .handler(async ({ data }) => await writePanelDraft(data));
+  .handler(async ({ data }) => {
+    await assertSupplierAcceptsProducts(data.supplierId);
+    return await writePanelDraft(data);
+  });
 
 export const supplierPanelSubmitProduct = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(catalogProductRefSchema)
-  .handler(async ({ data }) => await writePanelSubmission(data));
+  .handler(async ({ data }) => {
+    await assertSupplierAcceptsProducts(data.supplierId);
+    return await writePanelSubmission(data);
+  });
 
 /** The platform's review of a submitted product: always admin-only, and audited. */
 export const adminApprovePanelProduct = createServerFn({ method: "POST" })

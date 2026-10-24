@@ -20,6 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { supplierPanelListProducts } from "@/features/supplier-panel/catalog/catalog.functions";
 import { supplierPanelProductsQueryOptions } from "@/features/supplier-panel/catalog/catalog.queries";
+import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { CatalogProductTable, type OpenProduct } from "./catalog-product-table";
@@ -92,6 +93,7 @@ function CatalogListBody({
   onOpenProduct,
   onCreateProduct,
 }: Omit<CatalogProductListProps, "supplierId"> & { query: CatalogListQuery }) {
+  const canAddProducts = usePanelSupplierActive();
   if (query.isPending) {
     return <Skeleton className="h-96 rounded-3xl" aria-label="Carregando produtos" />;
   }
@@ -117,9 +119,9 @@ function CatalogListBody({
             >
               Limpar filtros
             </Button>
-          ) : (
+          ) : canAddProducts ? (
             <Button onClick={onCreateProduct}>Cadastrar produto</Button>
-          )
+          ) : undefined
         }
       />
     );
@@ -145,6 +147,22 @@ interface CatalogProductListProps {
 
 const CreateProductIcon = ACTION_ICONS.createProduct.icon;
 
+/** The header's "Cadastrar produto"; none for a switched-off supplier (the server refuses too). */
+function CreateProductAction({ onCreateProduct }: { onCreateProduct: () => void }) {
+  const canAddProducts = usePanelSupplierActive();
+  if (!canAddProducts) {
+    return null;
+  }
+  return (
+    <Hint label={ACTION_ICONS.createProduct.hint} openOnTap={false}>
+      <Button onClick={onCreateProduct}>
+        <CreateProductIcon aria-hidden="true" />
+        Cadastrar produto
+      </Button>
+    </Hint>
+  );
+}
+
 export function CatalogProductList({
   supplierId,
   search,
@@ -163,14 +181,7 @@ export function CatalogProductList({
       <PageHeader
         title="Produtos"
         description="Só os aprovados aparecem para os revendedores."
-        actions={
-          <Hint label={ACTION_ICONS.createProduct.hint} openOnTap={false}>
-            <Button onClick={onCreateProduct}>
-              <CreateProductIcon aria-hidden="true" />
-              Cadastrar produto
-            </Button>
-          </Hint>
-        }
+        actions={<CreateProductAction onCreateProduct={onCreateProduct} />}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-full overflow-x-auto">
