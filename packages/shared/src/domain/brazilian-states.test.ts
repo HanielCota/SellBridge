@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BRAZILIAN_STATE_NAMES,
   BRAZILIAN_STATES,
+  parseState,
   stateLabel,
   stateSchema,
 } from "./brazilian-states.ts";
@@ -31,5 +32,13 @@ describe("stateLabel", () => {
   it("joins the state name and its code", () => {
     expect(stateLabel("RR")).toBe("Roraima (RR)");
     expect(stateLabel("AM")).toBe("Amazonas (AM)");
+  });
+});
+
+describe("parseState", () => {
+  it("returns the state for a known code and null otherwise", () => {
+    expect(parseState("AM")).toBe("AM");
+    expect(parseState("")).toBeNull();
+    expect(parseState("am")).toBeNull();
   });
 });

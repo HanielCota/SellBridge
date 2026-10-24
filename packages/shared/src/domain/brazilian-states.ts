@@ -34,6 +34,12 @@ export const BRAZILIAN_STATES = [
 export const stateSchema = z.enum(BRAZILIAN_STATES);
 export type BrazilianState = z.infer<typeof stateSchema>;
 
+/** The state a form or URL holds, or null while none (or an unknown code) is chosen. */
+export function parseState(value: string): BrazilianState | null {
+  const parsed = stateSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 /** Each state's full name, as people say it; the code alone is easy to mistake (AM, AP, AL). */
 export const BRAZILIAN_STATE_NAMES: Readonly<Record<BrazilianState, string>> = {
   AC: "Acre",

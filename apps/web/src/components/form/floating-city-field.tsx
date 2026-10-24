@@ -1,8 +1,4 @@
-import {
-  BRAZILIAN_STATE_CAPITALS,
-  stateSchema,
-  type BrazilianState,
-} from "@sellbridge/shared/brazilian-states";
+import { BRAZILIAN_STATE_CAPITALS, parseState } from "@sellbridge/shared/brazilian-states";
 import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, useState } from "react";
 import { FloatingTextField } from "@/components/form/floating-field";
@@ -19,11 +15,6 @@ interface FloatingCityFieldProps {
   errors: readonly unknown[];
   onValueChange: (value: string) => void;
   onBlur: () => void;
-}
-
-function chosenState(value: string): BrazilianState | null {
-  const parsed = stateSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 /** The open list's keyboard: arrows move, Enter picks, Escape closes. */
@@ -121,7 +112,7 @@ export function FloatingCityField({
   onValueChange,
   onBlur,
 }: FloatingCityFieldProps) {
-  const chosen = chosenState(state);
+  const chosen = parseState(state);
   const cities = useQuery(stateCitiesQueryOptions(chosen)).data ?? [];
   const [isOpen, setIsOpen] = useState(false);
   const capital = chosen === null ? null : BRAZILIAN_STATE_CAPITALS[chosen];

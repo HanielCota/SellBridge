@@ -1,13 +1,11 @@
+import { stripAccents } from "@sellbridge/shared/text";
+
 /** How many cities the list shows at once; typing narrows the rest. */
 export const MAX_CITY_SUGGESTIONS = 6;
 
 /** Lower case without accents, so "sao" finds "São Paulo" and "manaus" finds "Manaus". */
 export function foldCityName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
+  return stripAccents(name).toLowerCase().trim();
 }
 
 function byName(first: string, second: string): number {
@@ -25,15 +23,13 @@ export function suggestCities(
   capital: string | null,
 ): readonly string[] {
   const query = foldCityName(typed);
-  if (cities.some((city) => foldCityName(city) === query) && query !== "") {
+  const folded = cities.toSorted(byName).map((city) => ({ city, key: foldCityName(city) }));
+  if (query !== "" && folded.some(({ key }) => key === query)) {
     return [];
   }
-  const sorted = cities.toSorted(byName);
-  const starting = sorted.filter((city) => foldCityName(city).startsWith(query));
-  const containing = sorted.filter(
-    (city) => !foldCityName(city).startsWith(query) && foldCityName(city).includes(query),
-  );
-  const matches = [...starting, ...containing];
+  const starting = folded.filter(({ key }) => key.startsWith(query));
+  const containing = folded.filter(({ key }) => !key.startsWith(query) && key.includes(query));
+  const matches = [...starting, ...containing].map(({ city }) => city);
   const capitalFirst =
     capital !== null && matches.includes(capital)
       ? [capital, ...matches.filter((city) => city !== capital)]

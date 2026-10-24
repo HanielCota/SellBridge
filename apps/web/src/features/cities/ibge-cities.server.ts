@@ -16,9 +16,6 @@ const ibgeCitiesSchema = z
   .array(z.object({ nome: z.string().trim().min(1).max(100) }))
   .max(MAX_CITIES_PER_STATE);
 
-/** The cities rarely change (a new one every few years): one lookup per state per process. */
-const citiesByState = new Map<BrazilianState, readonly string[]>();
-
 function isTransientStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
@@ -53,24 +50,13 @@ async function requestCities(
   }
 }
 
-/**
- * The state's cities from IBGE, for the billing city suggestions. A failure returns no
- * suggestions (logged) instead of an error: the field takes any typed city anyway.
- */
-export async function listCitiesOfState(
+/** Asks again only after a transient failure; no suggestions when every attempt fails. */
+async function requestWithRetry(
   state: BrazilianState,
-  fetchCities: FetchCities = fetch,
+  fetchCities: FetchCities,
 ): Promise<readonly string[]> {
-  const cached = citiesByState.get(state);
-  if (cached !== undefined) {
-    return cached;
-  }
   for (let attempt = 1; attempt <= LOOKUP_ATTEMPTS; attempt += 1) {
     const cities = await requestCities(state, fetchCities);
-    if (cities !== null && cities.length > 0) {
-      citiesByState.set(state, cities);
-      return cities;
-    }
     if (cities !== null) {
       return cities;
     }
@@ -81,7 +67,25 @@ export async function listCitiesOfState(
   return [];
 }
 
-/** Tests only: forget what earlier lookups cached. */
-export function clearCitiesCache(): void {
-  citiesByState.clear();
+/**
+ * Looks up a state's cities in IBGE, for the billing city suggestions. A failure gives no
+ * suggestions (logged) instead of an error: the field takes any typed city anyway. A found list
+ * is kept, since cities rarely change (a new one every few years).
+ */
+export function createCitiesLookup(fetchCities: FetchCities = fetch) {
+  const citiesByState = new Map<BrazilianState, readonly string[]>();
+  return async function listCitiesOfState(state: BrazilianState): Promise<readonly string[]> {
+    const cached = citiesByState.get(state);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const cities = await requestWithRetry(state, fetchCities);
+    if (cities.length > 0) {
+      citiesByState.set(state, cities);
+    }
+    return cities;
+  };
 }
+
+/** The one lookup the server uses, so its cache lasts for the whole process. */
+export const listCitiesOfState = createCitiesLookup();

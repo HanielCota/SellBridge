@@ -2,7 +2,7 @@ import {
   BRAZILIAN_STATE_NAMES,
   BRAZILIAN_STATES,
   stateLabel,
-  stateSchema,
+  parseState,
   type BrazilianState,
 } from "@sellbridge/shared/brazilian-states";
 import { CaretDownIcon } from "@phosphor-icons/react";
@@ -21,11 +21,6 @@ interface FloatingStateSelectProps {
   onBlur?: (() => void) | undefined;
   /** Autofill token, e.g. "address-level1"; it lands on the hidden native select. */
   autoComplete?: string | undefined;
-}
-
-function chosenState(value: string): BrazilianState | null {
-  const parsed = stateSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 function StateOption({ state }: { state: BrazilianState }) {
@@ -101,7 +96,7 @@ export function FloatingStateSelect({
 }: FloatingStateSelectProps) {
   const message = firstErrorMessage(errors);
   const footnoteId = `${id}-footnote`;
-  const state = chosenState(value);
+  const state = parseState(value);
   return (
     <div className="grid gap-1.5">
       <SelectPrimitive.Root
