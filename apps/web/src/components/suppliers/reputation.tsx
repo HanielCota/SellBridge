@@ -4,7 +4,8 @@ import {
   type ScoreLevel,
   type SupplierReputation,
 } from "@sellbridge/shared/supplier-score";
-import { MedalIcon, StarIcon } from "@phosphor-icons/react";
+import { StarIcon } from "@phosphor-icons/react";
+import { GoldMedal } from "@/components/icons/gold-medal";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ export function StarAverage({
     return <span className="text-xs text-muted-foreground">Sem avaliações</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs tabular-nums">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs tabular-nums">
       <StarIcon weight="fill" className="size-3.5 text-amber-500" aria-hidden="true" />
       <span className="font-medium">{formatAverage(average)}</span>
       <span className="text-muted-foreground">
@@ -83,9 +84,9 @@ export function HighlightBadge({ focusable = true }: { focusable?: boolean }) {
     <HintedText
       focusable={focusable}
       label={TERM_HINTS.highlightedSupplier}
-      className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+      className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-amber-700 dark:text-amber-300"
     >
-      <MedalIcon weight="fill" className="size-3.5" aria-hidden="true" />
+      <GoldMedal className="size-4 shrink-0" aria-hidden="true" />
       Fornecedor destaque
     </HintedText>
   );
@@ -113,7 +114,9 @@ function ScoreNumber({ score }: { score: number | null }) {
   if (score === null) {
     return null;
   }
-  return <span className="text-xs text-muted-foreground tabular-nums">· {score}</span>;
+  return (
+    <span className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">· {score}</span>
+  );
 }
 
 // Cards stretch their link over the whole card (`after:inset-0`); `relative z-10` lifts the level
@@ -159,7 +162,8 @@ export function ReputationSummary({ reputation }: { reputation: SupplierReputati
   return (
     <div className="space-y-2">
       <ReputationThermometer level={reputation.level} />
-      <div className="flex items-center justify-between gap-2">
+      {/* Level, then stars, in every card: side by side they wrapped only on some cards. */}
+      <div className="flex flex-col items-start gap-1">
         <LevelLabel reputation={reputation} />
         <StarAverage average={reputation.average} reviewCount={reputation.reviewCount} />
       </div>
