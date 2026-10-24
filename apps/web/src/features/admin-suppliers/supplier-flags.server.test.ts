@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   record: vi.fn<typeof recordCatalogEvent>(),
   info: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+  notice: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   applySupplierFlag: mocks.apply,
@@ -26,6 +27,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.stockSync }));
+vi.mock("./supplier-flag-notice.server", () => ({ noticeSupplierFlag: mocks.notice }));
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: { info: mocks.info, error: mocks.error, warn: mocks.info },
 }));
@@ -107,12 +109,24 @@ describe("applying a supplier flag", () => {
       }),
     );
     expect(mocks.stockSync).toHaveBeenCalledTimes(1);
+    expect(mocks.notice).toHaveBeenCalledWith({
+      supplierId,
+      reason: "slow_support",
+      activeCount: 3,
+      deactivated: true,
+    });
   });
 
-  it("leaves the supplier alone below the 3rd strike", async () => {
+  it("leaves the supplier alone below the 3rd strike, and still e-mails the flag", async () => {
     await applyFlag({ userId: "admin-1", role: "admin" }, apply);
     expect(mocks.record).toHaveBeenCalledTimes(1);
     expect(mocks.stockSync).not.toHaveBeenCalled();
+    expect(mocks.notice).toHaveBeenCalledWith({
+      supplierId,
+      reason: "slow_support",
+      activeCount: 1,
+      deactivated: false,
+    });
   });
 
   it("keeps the note out of the logs", async () => {

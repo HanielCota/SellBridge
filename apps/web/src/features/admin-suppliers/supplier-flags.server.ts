@@ -15,6 +15,7 @@ import type {
 import { recordCatalogWrite } from "@/features/admin-audit/catalog-audit.server";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
+import { noticeSupplierFlag } from "./supplier-flag-notice.server";
 
 /** Who is acting, as `staffMiddleware` hands it over. */
 interface StaffActor {
@@ -87,6 +88,12 @@ export async function applyFlag(actor: StaffActor, input: ApplySupplierFlagInput
   if (flag.supplierDeactivated) {
     await recordThirdStrike(actor, input.supplierId, flag);
   }
+  await noticeSupplierFlag({
+    supplierId: input.supplierId,
+    reason: input.reason,
+    activeCount: flag.activeCount,
+    deactivated: flag.supplierDeactivated,
+  });
   return flag;
 }
 
