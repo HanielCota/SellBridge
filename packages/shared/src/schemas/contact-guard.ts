@@ -13,10 +13,15 @@ export const CONTACT_DETAILS_REFUSED =
 export const SUPPLIER_TEXT_CONTACT_REFUSED =
   "Por segurança, telefone, e-mail e redes sociais não podem aparecer na marca nem nos produtos.";
 
+/** For the support conversations between a reseller and their supplier. */
+export const CONVERSATION_CONTACT_REFUSED =
+  "Por segurança, telefone, e-mail, WhatsApp e redes sociais não podem ser enviados por aqui. Continue a conversa pelo SellBridge.";
+
 /** Every message a contact refusal carries; the server logs the issues that have one. */
 export const CONTACT_REFUSAL_MESSAGES: readonly string[] = [
   CONTACT_DETAILS_REFUSED,
   SUPPLIER_TEXT_CONTACT_REFUSED,
+  CONVERSATION_CONTACT_REFUSED,
 ];
 
 /** Sites that open a chat, a profile or a short link to either, by their exact host. */
@@ -107,6 +112,9 @@ export const refuseContactDetails = refuseWith(CONTACT_DETAILS_REFUSED);
 
 /** The same rule for the supplier's brand and product texts, with words for the supplier. */
 export const refuseSupplierTextContact = refuseWith(SUPPLIER_TEXT_CONTACT_REFUSED);
+
+/** The same rule for reseller and supplier support conversations, in both directions. */
+export const refuseConversationContact = refuseWith(CONVERSATION_CONTACT_REFUSED);
 
 /**
  * The first of `texts` (by key) that carries a contact, or null. For texts saved before the

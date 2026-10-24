@@ -43,6 +43,8 @@ interface ReplyFormProps {
   composerRef?: Ref<ReplyComposerHandle>;
   /** What the box asks for; it changes with the moment of the ticket. */
   placeholder?: string;
+  /** Beside the send button on a closed thread: what replying does. */
+  closedHint?: string;
 }
 
 function buildReplyFormData(body: string, files: readonly File[]): FormData {
@@ -155,6 +157,7 @@ export function ReplyForm({
   tools,
   composerRef,
   placeholder = "Escreva sua resposta para o suporte…",
+  closedHint = "Responder reabre o chamado",
 }: ReplyFormProps) {
   const reply = useReplySubmission({ endpoint, onSent, draftKey });
   const { textareaRef } = useComposerText(composerRef);
@@ -197,7 +200,7 @@ export function ReplyForm({
           }}
         />
         <AttachedFiles files={reply.attachments.files} onRemove={reply.attachments.removeFile} />
-        <ComposerToolbar reply={reply} isClosed={isClosed} tools={tools} />
+        <ComposerToolbar reply={reply} closedHint={isClosed ? closedHint : null} tools={tools} />
         <DropOverlay visible={drop.isOver} />
       </form>
       <FileError message={reply.attachments.fileError} />
@@ -208,22 +211,21 @@ export function ReplyForm({
 
 function ComposerToolbar({
   reply,
-  isClosed,
+  closedHint,
   tools,
 }: {
   reply: ReturnType<typeof useReplySubmission>;
-  isClosed: boolean;
+  /** Null while the thread is open. */
+  closedHint: string | null;
   tools: ReactNode;
 }) {
   return (
     <div className={COMPOSER_TOOLBAR_CLASS}>
       <AttachmentButton onAdd={reply.attachments.addFiles} />
       {tools}
-      {isClosed ? (
-        <span className="ml-1.5 truncate text-xs text-muted-foreground">
-          Responder reabre o chamado
-        </span>
-      ) : null}
+      {closedHint === null ? null : (
+        <span className="ml-1.5 truncate text-xs text-muted-foreground">{closedHint}</span>
+      )}
       <ComposerStatus draft={reply.draft.state} length={reply.draft.body.length} />
       <Hint label="Ctrl + Enter">
         <Button

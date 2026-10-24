@@ -77,6 +77,10 @@ const KIND_STYLES: Record<NotificationKind, { icon: Icon; className: string }> =
     icon: ChatCircleTextIcon,
     className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   },
+  supplier_conversation: {
+    icon: ChatCircleTextIcon,
+    className: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  },
   review_pending: {
     icon: StarIcon,
     className: WARNING_TINT,

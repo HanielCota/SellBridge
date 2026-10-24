@@ -116,6 +116,19 @@ function orderMessage(event: Extract<NotificationEvent, { kind: "order_message" 
   };
 }
 
+/** A new message between store and supplier, worded for whoever reads it. */
+function supplierConversation(
+  event: Extract<NotificationEvent, { kind: "supplier_conversation" }>,
+) {
+  const store = displayStoreName(event.storeName ?? "Loja");
+  return {
+    id: `conversation:${event.entityId}:${event.at.getTime()}`,
+    title: event.from === "supplier" ? "O fornecedor respondeu" : "Mensagem de um revendedor",
+    detail: `${event.subject} · ${store}`,
+    href: `/suporte/conversas/${event.entityId}`,
+  };
+}
+
 /** Wording and destination of each kind of event, in the reseller's language. */
 export function presentNotification(event: NotificationEvent): AppNotification {
   const base = { kind: event.kind, at: event.at };
@@ -156,6 +169,8 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...listingUnavailable(event) };
     case "order_message":
       return { ...base, ...orderMessage(event) };
+    case "supplier_conversation":
+      return { ...base, ...supplierConversation(event) };
     case "review_pending":
       return {
         ...base,
