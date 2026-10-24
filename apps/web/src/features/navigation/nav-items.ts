@@ -44,6 +44,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     badge: "productReviews",
     permission: "customers.manage",
   },
+  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
+  { label: "Avaliações", to: "/admin/avaliacoes", permission: "reviews.moderate" },
   {
     label: "Chamados",
     to: "/admin/chamados",
