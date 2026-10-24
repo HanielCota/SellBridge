@@ -48,7 +48,9 @@ export const OTHER_SITUATION_ID = "other-issue";
  * The way out inside a topic: the customer got the topic right but the case is not on the
  * list. It asks the topic's own question, so the customer still knows what to write.
  */
-function otherSituation(topic: SupportTopic): SupportSituation {
+export function otherSituation(
+  topic: Pick<SupportTopic, "question" | "example">,
+): SupportSituation {
   return {
     id: OTHER_SITUATION_ID,
     label: "Outro problema",
@@ -102,7 +104,7 @@ export function findSupportSituation(
 }
 
 /** True when the team has nothing but the text to go on: no situation, or "Outro problema". */
-function isOpenEnded(situation: SupportSituation | undefined): boolean {
+export function isOpenEnded(situation: SupportSituation | undefined): boolean {
   return situation === undefined || situation.id === OTHER_SITUATION_ID;
 }
 

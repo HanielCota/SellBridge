@@ -24,6 +24,7 @@ import { TicketCustomerPanel } from "@/components/support/ticket-customer-panel"
 import { LinkedOrdersCard } from "@/components/support/linked-orders-card";
 import { ReturnClaimDecision } from "@/components/support/return-claim-decision";
 import { TicketThread } from "@/components/support/ticket-thread";
+import { AdminConversationView } from "@/components/supplier-support/admin-conversation-view";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -128,6 +129,10 @@ function AdminTicketPage() {
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
+  }
+  // The team reads reseller ↔ supplier conversations; it does not work them as tickets.
+  if (query.data.ticket.audience === "supplier") {
+    return <AdminConversationView ticketId={ticketId} />;
   }
   return <AdminTicketWorkspace detail={query.data} />;
 }

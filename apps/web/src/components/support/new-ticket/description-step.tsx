@@ -18,6 +18,7 @@ export function DescriptionStep({
   isTooShort,
   onChange,
   onPaste,
+  tooShortMessage = "Conte um pouco mais para a equipe entender o caso.",
 }: {
   number: number;
   question: string;
@@ -28,6 +29,8 @@ export function DescriptionStep({
   isTooShort: boolean;
   onChange: (value: string) => void;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
+  /** Who needs to understand the case: the team by default, the supplier in a conversation. */
+  tooShortMessage?: string;
 }) {
   return (
     <div className="grid gap-2.5">
@@ -50,7 +53,7 @@ export function DescriptionStep({
       />
       {isTooShort ? (
         <p id={SHORT_MESSAGE_ID} role="alert" className="text-sm text-destructive">
-          Conte um pouco mais para a equipe entender o caso.
+          {tooShortMessage}
         </p>
       ) : null}
       {/* Plain text, not a box: a boxed sample reads as an answer already filled in. */}
@@ -68,12 +71,15 @@ export function SendFooter({
   isSending,
   busyLabel = "Enviando…",
   submitLabel = "Enviar chamado",
+  showsSupportHours = true,
   children,
 }: {
   promise: string;
   isSending: boolean;
   busyLabel?: string;
   submitLabel?: string;
+  /** The team's hours; off when the supplier, not the team, answers. */
+  showsSupportHours?: boolean;
   children?: ReactNode;
 }) {
   // Two buttons beside the text squeezed it into a narrow column: they get their own row.
@@ -88,7 +94,7 @@ export function SendFooter({
       <div className="text-sm">
         <p className="font-medium">O que acontece depois</p>
         <p className="text-muted-foreground">{promise}</p>
-        <OutOfHoursNotice />
+        {showsSupportHours ? <OutOfHoursNotice /> : null}
       </div>
       {/* Never disabled: a click with something missing points to it instead. */}
       <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row-reverse">
