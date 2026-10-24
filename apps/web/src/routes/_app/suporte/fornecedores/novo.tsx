@@ -2,7 +2,7 @@ import {
   newSupplierConversationSearchSchema,
   type NewSupplierConversationSearch,
 } from "@sellbridge/shared/schemas";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { FormErrorAlert } from "@/components/form/form-feedback";
 import { BackLink, PageHeader } from "@/components/layout/page-header";
 import { OrderPicker } from "@/components/supplier-support/new-conversation/order-picker";
@@ -19,6 +19,12 @@ import { displayStoreName } from "@/features/stores/store-name";
 
 export const Route = createFileRoute("/_app/suporte/fornecedores/novo")({
   validateSearch: newSupplierConversationSearchSchema,
+  // A supplier has no stores to write from: its side of these conversations is the inbox.
+  beforeLoad: ({ context }) => {
+    if (context.session.profileKind === "supplier") {
+      throw redirect({ to: "/suporte/revendedores" });
+    }
+  },
   head: () => ({ meta: [{ title: "Falar com o fornecedor | SellBridge" }] }),
   component: NewConversationPage,
 });

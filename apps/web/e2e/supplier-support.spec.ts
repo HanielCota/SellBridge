@@ -139,3 +139,11 @@ test("a store writes to its supplier from Suporte, the supplier answers and the 
   await expect(staffPage.getByText("Postamos hoje à tarde")).toBeVisible();
   await expect(staffPage.getByRole("textbox")).toHaveCount(0);
 });
+
+test("a supplier opening the reseller's new-conversation page lands on its own inbox", async ({
+  page,
+}) => {
+  await accounts.signUp(page, `Fornecedor Rota ${randomUUID().slice(0, 8)}`);
+  await gotoHydrated(page, "/suporte/fornecedores/novo");
+  await expect(page).toHaveURL(/\/suporte\/revendedores/);
+});
