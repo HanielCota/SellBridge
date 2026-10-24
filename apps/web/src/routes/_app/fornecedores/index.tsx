@@ -88,8 +88,8 @@ function SupplierFilters() {
 }
 
 /**
- * Where the supplier ships from. Any reseller sells any supplier, so this only narrows the list;
- * the cities follow the state picked, and only places with active suppliers are offered.
+ * Where the supplier ships from. Any reseller sells any supplier, so this only narrows the list:
+ * every state is offered, and the cities follow the state picked, only those with active suppliers.
  */
 function LocationFilters() {
   const search = Route.useSearch();

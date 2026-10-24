@@ -21,7 +21,7 @@ export const ALL_STATES = "__all__";
 
 const ALL_STATES_LABEL = "Todo o Brasil";
 
-/** The flag of the chosen state, Brazil's for every state, a pin for a code it doesn't know. */
+/** The chosen state's flag: Brazil's for the all-states option, a pin for a code it doesn't know. */
 function StateIcon({ state }: { state: string }) {
   if (state === ALL_STATES) {
     return <BrazilFlag aria-hidden="true" className="size-4 shrink-0" />;
