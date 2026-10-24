@@ -180,8 +180,13 @@ test("fornecedor vê o aviso sem saber quem aplicou e não chega às flags da eq
   await expect(card).toContainText("Regra 5: Converse só pela SellBridge");
   await expect(card).toContainText("problema na sua conta de fornecedor");
   await expect(card).not.toContainText("Supervisora Flags");
-  const contest = card.getByRole("link", { name: "Discorda? Fale com o suporte" });
-  expect(await contest.getAttribute("href")).toContain("categoria=other");
+  // Each flag is contested on its own: the ticket opens naming it, with the text started.
+  await card.getByRole("link", { name: "Contestar esta flag" }).click();
+  await expect(page).toHaveURL(/categoria=other/);
+  await expect(page.locator("#new-ticket-body")).toHaveValue(
+    /^Quero contestar a flag "Tentou passar contato fora da plataforma" de \d{2}\/\d{2}\/\d{4}\. Motivo: $/,
+  );
+  await gotoHydrated(page, "/fornecedor/painel");
 
   await card.getByRole("link", { name: "Ver as regras de ouro" }).click();
   await expect(page.getByRole("heading", { name: "Regras de ouro", level: 1 })).toBeVisible();
@@ -253,9 +258,11 @@ test("supervisor retira a flag com uma observação e o fornecedor deixa de ver"
   await gotoHydrated(supplierPage, "/fornecedor/painel");
   await expect(supplierPage.getByRole("heading", { name: "Painel do fornecedor" })).toBeVisible();
   await expect(supplierPage.getByRole("region", { name: "Avisos da equipe" })).toHaveCount(0);
-  const teaser = supplierPage.getByRole("region", { name: "Regras de ouro" });
-  await expect(teaser).toContainText("na 3ª flag a conta é desligada");
-  await expect(teaser.getByRole("link", { name: "Ver as 5 regras" })).toBeVisible();
+  // No flag left: the green "em dia" card, with the rules one tap away.
+  const standing = supplierPage.getByRole("region", { name: "Sua conta" });
+  await expect(standing).toContainText("Nenhuma flag: sua conta está em dia");
+  await expect(standing).toContainText("na 3ª flag a conta é desligada");
+  await expect(standing.getByRole("link", { name: "Ver as 5 regras" })).toBeVisible();
   await supplierContext.close();
 });
 
@@ -370,5 +377,16 @@ test("a 3ª flag ativa pede confirmação e desliga o fornecedor", async ({ brow
   await gotoHydrated(supplierPage, "/fornecedor/painel");
   const card = supplierPage.getByRole("region", { name: "Avisos da equipe" });
   await expect(card).toContainText("3 de 3 em 90 dias");
+  await expect(card).toContainText("A conta está desligada.");
+  // Switched off, the supplier is told so on every panel page and adds no products.
+  const banner = supplierPage
+    .getByRole("alert")
+    .filter({ hasText: "conta de fornecedor está desligada" });
+  await expect(banner).toContainText("entregue todos normalmente");
+  await expect(banner.getByRole("link", { name: "Pedir revisão ao suporte" })).toBeVisible();
+  await expect(supplierPage.getByRole("link", { name: "Cadastrar produto" })).toHaveCount(0);
+  await gotoHydrated(supplierPage, "/fornecedor/painel/produtos");
+  await expect(banner).toBeVisible();
+  await expect(supplierPage.getByRole("button", { name: "Cadastrar produto" })).toHaveCount(0);
   await supplierContext.close();
 });

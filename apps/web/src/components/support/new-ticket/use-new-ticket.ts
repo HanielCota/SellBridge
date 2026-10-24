@@ -160,7 +160,7 @@ export function useNewTicket(kind: ProfileKind, search: NewTicketSearch) {
   const choices = useTicketChoices(kind, search, assistant.clear);
   const attachments = useTicketFiles();
   const sending = useSendTicket(search);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(search.texto ?? "");
   const [showTooShort, setShowTooShort] = useState(false);
   const { topic, situation } = choices;
   const needsSituation = topic !== undefined && topic.situations.length > 0;

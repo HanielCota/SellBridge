@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.queries";
+import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
 import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
 import { TeamNoticesCard } from "./team-notices-card";
 
@@ -21,17 +22,21 @@ interface SupplierHomeProps {
  */
 export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
   const query = useQuery(supplierHomeQueryOptions(supplierId));
+  const active = usePanelSupplierActive();
   const header = (
     <PageHeader
       title="Painel do fornecedor"
       {...(query.data === undefined ? {} : { description: query.data.supplierName })}
       actions={
-        <Button asChild>
-          <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
-            <PlusIcon aria-hidden="true" />
-            Cadastrar produto
-          </Link>
-        </Button>
+        // A switched-off supplier adds no products (the server refuses them too).
+        active ? (
+          <Button asChild>
+            <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
+              <PlusIcon aria-hidden="true" />
+              Cadastrar produto
+            </Link>
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -50,8 +55,12 @@ export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
   return (
     <div className="space-y-6">
       {header}
-      <TeamNoticesCard supplierId={supplierId} />
-      <SupplierQuickLinks />
+      <TeamNoticesCard
+        supplierId={supplierId}
+        active={active}
+        highlighted={query.data?.highlighted ?? false}
+      />
+      <SupplierQuickLinks canAddProducts={active} />
       {query.data === undefined ? (
         <HomeQueueSkeleton />
       ) : (
@@ -61,7 +70,7 @@ export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
   );
 }
 
-function SupplierQuickLinks() {
+function SupplierQuickLinks({ canAddProducts }: { canAddProducts: boolean }) {
   return (
     <section
       aria-label="Atalhos do fornecedor"
@@ -78,9 +87,11 @@ function SupplierQuickLinks() {
         <Button asChild variant="outline">
           <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link to="/fornecedor/painel/importar">Importar produtos por planilha</Link>
-        </Button>
+        {canAddProducts ? (
+          <Button asChild variant="outline">
+            <Link to="/fornecedor/painel/importar">Importar produtos por planilha</Link>
+          </Button>
+        ) : null}
         <Button asChild variant="outline">
           <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
         </Button>

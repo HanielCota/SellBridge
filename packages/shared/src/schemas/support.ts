@@ -102,6 +102,8 @@ export const supportAssistantOutcomeSchema = z.object({
 export const newTicketSearchSchema = z.object({
   categoria: optionalParameter(ticketCategorySchema),
   assunto: optionalParameter(freeText().trim().max(120)),
+  /** Text the description starts with, e.g. which flag a supplier contests. */
+  texto: optionalParameter(freeText().max(300)),
   /** The order, store or listing the ticket is about (item 27.a); checked against the account. */
   pedido: optionalParameter(z.uuid()),
   loja: optionalParameter(z.uuid()),
