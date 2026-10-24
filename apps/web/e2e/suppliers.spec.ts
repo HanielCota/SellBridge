@@ -209,7 +209,14 @@ test.describe("fornecedores e catálogo", () => {
 
   test("filtra fornecedores pelo estado e pela cidade de onde enviam", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores");
-    await page.getByRole("combobox", { name: "Estado do fornecedor" }).click();
+    const stateFilter = page.getByRole("combobox", { name: "Estado do fornecedor" });
+    // Measured before opening: an open select hides the rest of the page from the a11y tree.
+    const field = await stateFilter.boundingBox();
+    await stateFilter.click();
+    // The list opens below the field: laid over it, it read as a broken card.
+    const list = await page.getByRole("listbox").boundingBox();
+    expect(list?.y ?? 0).toBeGreaterThanOrEqual((field?.y ?? 0) + (field?.height ?? 0));
+    await expect(page.getByRole("option", { name: "Roraima RR" })).toBeVisible();
     await page.getByRole("option", { name: "Minas Gerais MG" }).click();
     await expect(page).toHaveURL(/state=MG/);
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toBeVisible();
