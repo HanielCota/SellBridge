@@ -100,6 +100,34 @@ function CitySuggestions({
 }
 
 /**
+ * Whether the list is open and which cities it shows. Closing forgets the highlighted row, so a
+ * reopened list does not pick a stale city on Enter.
+ */
+function useCityList(
+  cities: readonly string[],
+  typed: string,
+  capital: string | null,
+  onPick: (city: string) => void,
+) {
+  const [isOpen, setIsOpen] = useState(false);
+  const suggestions = isOpen ? suggestCities(cities, typed, capital) : [];
+  const keys = useSuggestionKeys(suggestions, pick);
+  function open() {
+    keys.setActiveIndex(-1);
+    setIsOpen(true);
+  }
+  function close() {
+    setIsOpen(false);
+    keys.setActiveIndex(-1);
+  }
+  function pick(city: string) {
+    onPick(city);
+    close();
+  }
+  return { suggestions, keys, open, close, pick };
+}
+
+/**
  * The city, typed freely, with the chosen state's cities suggested under it (capital first,
  * accents optional). Without a state, or while IBGE is out, it is a plain text field.
  */
@@ -114,16 +142,17 @@ export function FloatingCityField({
 }: FloatingCityFieldProps) {
   const chosen = parseState(state);
   const cities = useQuery(stateCitiesQueryOptions(chosen)).data ?? [];
-  const [isOpen, setIsOpen] = useState(false);
   const capital = chosen === null ? null : BRAZILIAN_STATE_CAPITALS[chosen];
-  const suggestions = isOpen ? suggestCities(cities, value, capital) : [];
-  function pick(city: string) {
-    onValueChange(city);
-    setIsOpen(false);
-  }
-  const keys = useSuggestionKeys(suggestions, pick);
+  const { suggestions, keys, open, close, pick } = useCityList(
+    cities,
+    value,
+    capital,
+    onValueChange,
+  );
   const listId = `${id}-suggestions`;
   const isListShown = suggestions.length > 0;
+  const activeId =
+    isListShown && keys.activeIndex >= 0 ? `${listId}-${keys.activeIndex}` : undefined;
   return (
     <div className="relative">
       <FloatingTextField
@@ -135,19 +164,18 @@ export function FloatingCityField({
         aria-expanded={isListShown}
         aria-controls={isListShown ? listId : undefined}
         aria-autocomplete="list"
-        aria-activedescendant={keys.activeIndex >= 0 ? `${listId}-${keys.activeIndex}` : undefined}
+        aria-activedescendant={activeId}
         value={value}
         errors={errors}
-        onFocus={() => setIsOpen(true)}
+        onFocus={open}
         onBlur={() => {
-          setIsOpen(false);
+          close();
           onBlur();
         }}
-        onKeyDown={(event) => keys.onKeyDown(event, () => setIsOpen(false))}
+        onKeyDown={(event) => keys.onKeyDown(event, close)}
         onValueChange={(next) => {
           onValueChange(next);
-          keys.setActiveIndex(-1);
-          setIsOpen(true);
+          open();
         }}
       />
       {isListShown ? (
