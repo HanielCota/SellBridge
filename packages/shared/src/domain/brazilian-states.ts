@@ -34,7 +34,13 @@ export const BRAZILIAN_STATES = [
 export const stateSchema = z.enum(BRAZILIAN_STATES);
 export type BrazilianState = z.infer<typeof stateSchema>;
 
-/** Each state's name as people write it, for pickers that show the name beside the code. */
+/** The state a form or URL holds, or null while none (or an unknown code) is chosen. */
+export function parseState(value: string): BrazilianState | null {
+  const parsed = stateSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Each state's full name, as people say it; the code alone is easy to mistake (AM, AP, AL). */
 export const BRAZILIAN_STATE_NAMES: Readonly<Record<BrazilianState, string>> = {
   AC: "Acre",
   AL: "Alagoas",
@@ -64,3 +70,39 @@ export const BRAZILIAN_STATE_NAMES: Readonly<Record<BrazilianState, string>> = {
   SE: "Sergipe",
   TO: "Tocantins",
 };
+
+/** Each state's capital: the city most people there pick, so it leads the suggestions. */
+export const BRAZILIAN_STATE_CAPITALS: Readonly<Record<BrazilianState, string>> = {
+  AC: "Rio Branco",
+  AL: "Maceió",
+  AP: "Macapá",
+  AM: "Manaus",
+  BA: "Salvador",
+  CE: "Fortaleza",
+  DF: "Brasília",
+  ES: "Vitória",
+  GO: "Goiânia",
+  MA: "São Luís",
+  MT: "Cuiabá",
+  MS: "Campo Grande",
+  MG: "Belo Horizonte",
+  PA: "Belém",
+  PB: "João Pessoa",
+  PR: "Curitiba",
+  PE: "Recife",
+  PI: "Teresina",
+  RJ: "Rio de Janeiro",
+  RN: "Natal",
+  RS: "Porto Alegre",
+  RO: "Porto Velho",
+  RR: "Boa Vista",
+  SC: "Florianópolis",
+  SP: "São Paulo",
+  SE: "Aracaju",
+  TO: "Palmas",
+};
+
+/** "Roraima (RR)": the name people know, with the code the address keeps. */
+export function stateLabel(state: BrazilianState): string {
+  return `${BRAZILIAN_STATE_NAMES[state]} (${state})`;
+}
