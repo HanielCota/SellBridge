@@ -218,6 +218,19 @@ export async function insertAttachments(
     .values(attachments.map((file) => ({ ...file, ticketId, messageId })));
 }
 
+/**
+ * One ticket as the website support reaches it: the team (`tenantId` null) reads any, a reseller
+ * only its own website tickets. A supplier conversation answers "not found" there, so its thread
+ * (with the supplier team's names and photos) and its reply box stay behind the conversation
+ * routes, which check the side and refuse contact details.
+ */
+function websiteTicketSql(ticketId: string, tenantId: string | null): SQL | undefined {
+  if (tenantId === null) {
+    return eq(tickets.id, ticketId);
+  }
+  return and(eq(tickets.id, ticketId), eq(tickets.tenantId, tenantId), platformTicketSql);
+}
+
 /** The ticket row, locked for the rest of the transaction; `tenantId` null means staff. */
 async function lockTicket(transaction: Transaction, ticketId: string, tenantId: string | null) {
   const [ticket] = await transaction
@@ -440,6 +453,10 @@ export async function rateTicket(
   const now = input.now ?? new Date();
   await database.transaction(async (transaction) => {
     const ticket = await lockTicket(transaction, input.ticketId, input.tenantId);
+    // Ratings measure the team; a supplier conversation is not the team's to be rated on.
+    if (ticket.audience !== "platform") {
+      throw notFoundError("Chamado não encontrado");
+    }
     assertCanRate(ticket.status, ticket.ratedAt);
     const comment = input.comment?.trim();
     await transaction
@@ -854,11 +871,7 @@ async function findThreadTicket(
     .leftJoin(assignee, eq(assignee.id, tickets.assigneeId))
     .leftJoin(suppliers, eq(suppliers.id, tickets.supplierId))
     .leftJoin(storeConnections, eq(storeConnections.id, tickets.storeConnectionId))
-    .where(
-      tenantId === null
-        ? eq(tickets.id, ticketId)
-        : and(eq(tickets.id, ticketId), eq(tickets.tenantId, tenantId)),
-    )
+    .where(websiteTicketSql(ticketId, tenantId))
     .limit(1);
   if (!ticket) {
     throw notFoundError("Chamado não encontrado");
@@ -1137,11 +1150,7 @@ export async function findTicketForMessage(
   const [ticket] = await database
     .select({ status: tickets.status })
     .from(tickets)
-    .where(
-      input.tenantId === null
-        ? eq(tickets.id, input.ticketId)
-        : and(eq(tickets.id, input.ticketId), eq(tickets.tenantId, input.tenantId)),
-    )
+    .where(websiteTicketSql(input.ticketId, input.tenantId))
     .limit(1);
   return ticket ?? null;
 }

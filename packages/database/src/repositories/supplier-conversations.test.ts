@@ -3,7 +3,14 @@ import { inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeConnections, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
-import { addTicketMessage, listStaffTickets, listTenantTickets } from "./support.ts";
+import {
+  addTicketMessage,
+  findTicketForMessage,
+  getTicketThread,
+  listStaffTickets,
+  listTenantTickets,
+  rateTicket,
+} from "./support.ts";
 import { createTicket } from "./support-create.ts";
 import {
   countUnreadConversations,
@@ -177,6 +184,34 @@ describe("conversation scoping", () => {
     expect(readable.items.find((item) => item.id === conversationId)?.supplierName).toMatch(
       /^Marca A/,
     );
+  });
+});
+
+describe("website support routes", () => {
+  it("answer not found for a reseller's conversation, so it is read and answered only as one", async () => {
+    await expect(getTicketThread(database, conversationId, resellerTenant)).rejects.toThrow(
+      /Chamado não encontrado/,
+    );
+    expect(
+      await findTicketForMessage(database, { ticketId: conversationId, tenantId: resellerTenant }),
+    ).toBeNull();
+    await expect(
+      rateTicket(database, {
+        ticketId: conversationId,
+        tenantId: resellerTenant,
+        userId: resellerUser,
+        rating: 5,
+      }),
+    ).rejects.toThrow(/Chamado não encontrado/);
+  });
+
+  it("still let the team open the conversation", async () => {
+    expect((await getTicketThread(database, conversationId, null)).ticket.audience).toBe(
+      "supplier",
+    );
+    expect(
+      await findTicketForMessage(database, { ticketId: conversationId, tenantId: null }),
+    ).not.toBeNull();
   });
 });
 
