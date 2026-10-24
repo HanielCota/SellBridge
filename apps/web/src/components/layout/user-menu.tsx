@@ -4,7 +4,6 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
-  ChatTextIcon,
   ClockCounterClockwiseIcon,
   CreditCardIcon,
   type Icon,
@@ -231,21 +230,13 @@ function AccountLinks({
 }
 
 /**
- * The team's switch and, in admin mode, the pages the header has no room for: review
- * moderation (supervisors and admins) and the audit log (admins). Nothing for a customer.
+ * The team's switch and, in admin mode, the page the header has no room for: the audit log
+ * (admins). Review moderation is a team tab of its own. Nothing for a customer.
  */
 function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
   return (
     <>
       {isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null}
-      {adminMode && hasStaffPermission(role, "reviews.moderate") ? (
-        <DropdownMenuItem asChild className={MENU_ROW}>
-          <Link to="/admin/avaliacoes">
-            <ChatTextIcon aria-hidden="true" />
-            Avaliações
-          </Link>
-        </DropdownMenuItem>
-      ) : null}
       {adminMode && hasStaffPermission(role, "audit.view") ? (
         // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
         <DropdownMenuItem asChild className={MENU_ROW}>
