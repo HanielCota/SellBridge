@@ -67,7 +67,6 @@ Itens com partes (seção 9.0 do prompt) registram cada parte na coluna Notas (e
 | 35   | Conquistas digitais e Club                      | ⛔       | —                                     | Depende de decisão do cliente                                            |
 | 36   | IA assistente                                   | ⛔       | —                                     | Depende de decisão do cliente                                            |
 | 37   | Fiscal e contabilidade                          | ⛔       | —                                     | Depende de decisão contábil                                              |
-| 38   | Novo Início do fornecedor                       | ⬜       | —                                     |                                                                          |
 
 ## Histórico
 
