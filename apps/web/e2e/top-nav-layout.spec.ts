@@ -1,5 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import { e2eDatabase } from "./database";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import { supplierAccounts } from "./supplier-accounts";
+
+const database = e2eDatabase();
+const accounts = supplierAccounts(database);
+
+test.afterAll(async () => {
+  await accounts.removeAll();
+  await database.$client.end();
+});
 
 /** The lit pill under the active tab; the team divider is another hidden span in the nav. */
 const PILL_SELECTOR = ":scope > span.bg-foreground[aria-hidden='true']";
@@ -8,11 +18,16 @@ const DESKTOP_WIDTHS = [1024, 1280, 1366, 1440, 1536, 1600, 1920] as const;
 
 async function headerBoxes(page: Page) {
   const header = page.locator("header").first();
-  const logo = await header.getByRole("link", { name: "SellBridge, visão geral" }).boundingBox();
+  const logo = await header.getByRole("link", { name: /^SellBridge, / }).boundingBox();
   const nav = header.getByRole("navigation", { name: "Principal" });
   const navBox = (await nav.isVisible()) ? await nav.boundingBox() : null;
   const actions = await header.getByRole("button", { name: "Menu do usuário" }).boundingBox();
-  const search = await header.getByRole("button", { name: /Buscar/ }).boundingBox();
+  // The supplier header has no search; its first control on the right is Suporte.
+  const search = await header
+    .getByRole("button", { name: /Buscar/ })
+    .or(header.getByRole("button", { name: /^Suporte/ }))
+    .first()
+    .boundingBox();
   return { logo, nav: navBox, search, actions };
 }
 
@@ -174,4 +189,20 @@ test("seller header stays clear with a long account name", async ({ page }) => {
   await expect(
     page.getByText("Seller with a deliberately long account display name", { exact: true }),
   ).toBeVisible();
+});
+
+test("supplier header shows the tab icons from 1280px and stays clear", async ({ page }) => {
+  await accounts.signUp(page, "Supplier with a deliberately long brand display name");
+  await expectClearHeader(page);
+  await expectEveryTabVisible(page);
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  for (const width of [1280, 1366]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const label of ["Início", "Pedidos", "Desempenho", "Marca"]) {
+      await expect(
+        nav.getByRole("link", { name: label, exact: true }).locator("svg"),
+        `${label} icon at ${width}px`,
+      ).toBeVisible();
+    }
+  }
 });
