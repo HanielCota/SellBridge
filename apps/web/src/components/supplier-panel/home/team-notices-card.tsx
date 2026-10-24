@@ -93,7 +93,8 @@ function GoodStandingCard({ highlighted }: { highlighted: boolean }) {
 /**
  * "Avisos da equipe" on the supplier's home (MVP function 6): the flags that count now, in plain
  * words, the golden rule each one breaks and a way to contest each. Without flags it turns into
- * a green "em dia" card; while loading it shows nothing, so the home never waits on it.
+ * a green "em dia" card; while loading or on an error it shows nothing, so the home never waits
+ * on it.
  */
 export function TeamNoticesCard({
   supplierId,
@@ -105,10 +106,11 @@ export function TeamNoticesCard({
   highlighted: boolean;
 }) {
   const query = useQuery(teamNoticesQueryOptions(supplierId));
-  if (query.isPending) {
+  // Loading or failed: nothing, never the green card, which would tell a flagged supplier it has none.
+  const notices = query.data;
+  if (notices === undefined) {
     return null;
   }
-  const notices = query.data ?? [];
   if (notices.length === 0 && active) {
     return <GoodStandingCard highlighted={highlighted} />;
   }
