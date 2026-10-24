@@ -1,6 +1,6 @@
 import type {
   applySupplierFlag,
-  getFlaggableSupplierName,
+  getFlaggableSupplier,
   listTeamSupplierFlags,
   recordCatalogEvent,
   revokeSupplierFlag,
@@ -11,36 +11,53 @@ const mocks = vi.hoisted(() => ({
   apply: vi.fn<typeof applySupplierFlag>(),
   revoke: vi.fn<typeof revokeSupplierFlag>(),
   list: vi.fn<typeof listTeamSupplierFlags>(),
-  supplierName: vi.fn<typeof getFlaggableSupplierName>(),
+  supplier: vi.fn<typeof getFlaggableSupplier>(),
+  stockSync: vi.fn<(failureEvent: string) => Promise<boolean>>(),
   record: vi.fn<typeof recordCatalogEvent>(),
   info: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+  notice: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
 }));
 vi.mock("@sellbridge/database/repositories", () => ({
   applySupplierFlag: mocks.apply,
   revokeSupplierFlag: mocks.revoke,
   listTeamSupplierFlags: mocks.list,
-  getFlaggableSupplierName: mocks.supplierName,
+  getFlaggableSupplier: mocks.supplier,
   recordCatalogEvent: mocks.record,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
+vi.mock("@/lib/server/stock-sync", () => ({ requestStockSync: mocks.stockSync }));
+vi.mock("./supplier-flag-notice.server", () => ({ noticeSupplierFlag: mocks.notice }));
 vi.mock("@sellbridge/shared/logger", () => ({
-  logger: { info: mocks.info, error: mocks.error, warn: mocks.error },
+  logger: { info: mocks.info, error: mocks.error, warn: mocks.info },
 }));
 import { applyFlag, loadTeamSupplierFlags, revokeFlag } from "./supplier-flags.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
 const flagId = "1b6f3a8e-2c4d-4e5f-8a9b-0c1d2e3f4a5b";
-const apply = { supplierId, reason: "slow_support" as const, note: "Chamado parado há 5 dias" };
+const apply = {
+  supplierId,
+  reason: "slow_support" as const,
+  note: "Chamado parado há 5 dias",
+  confirmDeactivation: false,
+};
 const revoke = { supplierId, flagId, revokeNote: "Aplicada por engano" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.apply.mockResolvedValue({ id: flagId, expiresAt: new Date("2026-12-01T00:00:00Z") });
+  mocks.apply.mockResolvedValue({
+    id: flagId,
+    expiresAt: new Date("2026-12-01T00:00:00Z"),
+    activeCount: 1,
+    supplierDeactivated: false,
+    supplierActive: true,
+    pausedTargets: 0,
+  });
+  mocks.stockSync.mockResolvedValue(true);
   mocks.revoke.mockResolvedValue({ id: flagId });
-  mocks.list.mockResolvedValue({ flags: [], activeCount: 0, needsAttention: false });
+  mocks.list.mockResolvedValue({ flags: [], activeCount: 0, reachedLimit: false });
   mocks.record.mockResolvedValue();
-  mocks.supplierName.mockResolvedValue("Cerâmica do Teste");
+  mocks.supplier.mockResolvedValue({ name: "Cerâmica do Teste", active: true });
 });
 
 describe("applying a supplier flag", () => {
@@ -66,6 +83,54 @@ describe("applying a supplier flag", () => {
         details: { flagId, reason: "slow_support" },
       },
     );
+  });
+
+  it("records the 3rd strike as a supplier deactivation and pushes the paused stock", async () => {
+    mocks.apply.mockResolvedValue({
+      id: flagId,
+      expiresAt: new Date("2026-12-01T00:00:00Z"),
+      activeCount: 3,
+      supplierDeactivated: true,
+      supplierActive: false,
+      pausedTargets: 4,
+    });
+    await applyFlag(
+      { userId: "supervisor-1", role: "supervisor" },
+      { ...apply, confirmDeactivation: true },
+    );
+
+    expect(mocks.apply).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ confirmDeactivation: true }),
+    );
+    expect(mocks.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: "supplier.deactivated",
+        details: { pausedTargets: 4, cause: "third_flag", flagId },
+      }),
+    );
+    expect(mocks.stockSync).toHaveBeenCalledTimes(1);
+    expect(mocks.notice).toHaveBeenCalledWith({
+      supplierId,
+      reason: "slow_support",
+      activeCount: 3,
+      deactivated: true,
+      supplierActive: false,
+    });
+  });
+
+  it("leaves the supplier alone below the 3rd strike, and still e-mails the flag", async () => {
+    await applyFlag({ userId: "admin-1", role: "admin" }, apply);
+    expect(mocks.record).toHaveBeenCalledTimes(1);
+    expect(mocks.stockSync).not.toHaveBeenCalled();
+    expect(mocks.notice).toHaveBeenCalledWith({
+      supplierId,
+      reason: "slow_support",
+      activeCount: 1,
+      deactivated: false,
+      supplierActive: true,
+    });
   });
 
   it("keeps the note out of the logs", async () => {
@@ -113,7 +178,8 @@ describe("listing a supplier's flags for the team", () => {
       "activeCount",
       "canManage",
       "flags",
-      "needsAttention",
+      "reachedLimit",
+      "supplierActive",
       "supplierName",
     ]);
     expect(view.supplierName).toBe("Cerâmica do Teste");

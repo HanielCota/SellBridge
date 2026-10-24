@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, suppliers } from "../schema/index.ts";
 import { createTestDatabase, createTestTenants, createTestUsers } from "../testing/fixtures.ts";
-import { findSupplierAccountUserId } from "./supplier-account.ts";
+import {
+  findSupplierAccountUserId,
+  findSupplierContactEmail,
+  isSupplierActive,
+} from "./supplier-account.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -52,5 +56,31 @@ describe("findSupplierAccountUserId", () => {
 
   it("finds nobody for a supplier registered by the team without an account", async () => {
     expect(await findSupplierAccountUserId(database, withoutAccount)).toBeNull();
+  });
+});
+
+describe("isSupplierActive", () => {
+  it("is on until the team switches the supplier off", async () => {
+    expect(await isSupplierActive(database, withAccount)).toBe(true);
+    await database.update(suppliers).set({ active: false }).where(eq(suppliers.id, withAccount));
+    expect(await isSupplierActive(database, withAccount)).toBe(false);
+    await database.update(suppliers).set({ active: true }).where(eq(suppliers.id, withAccount));
+  });
+
+  it("is off for a supplier that does not exist", async () => {
+    expect(await isSupplierActive(database, randomUUID())).toBe(false);
+  });
+});
+
+describe("findSupplierContactEmail", () => {
+  it("reads the brand contact, or null when the brand has none", async () => {
+    await database
+      .update(suppliers)
+      .set({ contactEmail: "contato@fornecedor-flags.com.br" })
+      .where(eq(suppliers.id, withAccount));
+    expect(await findSupplierContactEmail(database, withAccount)).toBe(
+      "contato@fornecedor-flags.com.br",
+    );
+    expect(await findSupplierContactEmail(database, withoutAccount)).toBeNull();
   });
 });

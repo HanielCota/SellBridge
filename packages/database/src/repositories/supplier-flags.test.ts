@@ -1,3 +1,4 @@
+import type { SupplierFlagReason } from "@sellbridge/shared/supplier-flags";
 import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -6,7 +7,7 @@ import { createTestDatabase, createTestUsers } from "../testing/fixtures.ts";
 import {
   applySupplierFlag,
   listActiveSupplierFlags,
-  getFlaggableSupplierName,
+  getFlaggableSupplier,
   listTeamSupplierFlags,
   revokeSupplierFlag,
 } from "./supplier-flags.ts";
@@ -48,6 +49,28 @@ async function appliedAt(flagId: string): Promise<Date> {
 
 function daysLater(start: Date, days: number): Date {
   return new Date(start.getTime() + days * DAY_MILLISECONDS);
+}
+
+function flagInput(supplierId: string, reason: SupplierFlagReason) {
+  return { supplierId, reason, note: "", createdBy: staffId() };
+}
+
+/** Whether `promise` settles before `milliseconds` pass (a blocked lock does not). */
+async function settlesWithin(promise: Promise<unknown>, milliseconds: number): Promise<boolean> {
+  const settled = (async () => {
+    await promise;
+    return true;
+  })();
+  const timedOut = new Promise<boolean>((resolve) => {
+    setTimeout(() => resolve(false), milliseconds);
+  });
+  return await Promise.race([settled, timedOut]);
+}
+
+/** Two active flags: the next one is the 3rd strike. Returns the second. */
+async function applyTwoFlags(supplierId: string) {
+  await applySupplierFlag(database, flagInput(supplierId, "slow_support"));
+  return await applySupplierFlag(database, flagInput(supplierId, "order_error"));
 }
 
 beforeAll(async () => {
@@ -183,15 +206,93 @@ describe("supplier flags", () => {
     ]);
   });
 
-  it("asks the team to look at a supplier with 3 active flags", async () => {
+  it("refuses the 3rd active flag of an active supplier without the confirmation", async () => {
     const supplierId = await createSupplier();
-    for (const reason of ["slow_support", "order_error", "stale_catalog"] as const) {
-      await applySupplierFlag(database, { supplierId, reason, note: "", createdBy: staffId() });
-    }
+    await applyTwoFlags(supplierId);
 
+    await expect(
+      applySupplierFlag(database, flagInput(supplierId, "stale_catalog")),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
     const team = await listTeamSupplierFlags(database, supplierId, new Date());
-    expect(team.activeCount).toBe(3);
-    expect(team.needsAttention).toBe(true);
+    expect(team.activeCount).toBe(2);
+    expect((await getFlaggableSupplier(database, supplierId)).active).toBe(true);
+  });
+
+  it("puts an active supplier out with the confirmed 3rd active flag", async () => {
+    const supplierId = await createSupplier();
+    const second = await applyTwoFlags(supplierId);
+    expect(second).toMatchObject({ activeCount: 2, supplierDeactivated: false });
+
+    const third = await applySupplierFlag(database, {
+      ...flagInput(supplierId, "stale_catalog"),
+      confirmDeactivation: true,
+    });
+
+    expect(third).toMatchObject({ activeCount: 3, supplierDeactivated: true, pausedTargets: 0 });
+    expect((await getFlaggableSupplier(database, supplierId)).active).toBe(false);
+    const team = await listTeamSupplierFlags(database, supplierId, new Date());
+    expect(team.reachedLimit).toBe(true);
+  });
+
+  it("does not count a revoked flag towards the 3rd strike", async () => {
+    const supplierId = await createSupplier();
+    const second = await applyTwoFlags(supplierId);
+    await revokeSupplierFlag(database, {
+      supplierId,
+      flagId: second.id,
+      revokedBy: staffId(),
+      revokeNote: "Aplicada por engano",
+      now: new Date(),
+    });
+
+    const next = await applySupplierFlag(database, flagInput(supplierId, "stale_catalog"));
+    expect(next).toMatchObject({ activeCount: 2, supplierDeactivated: false });
+    expect((await getFlaggableSupplier(database, supplierId)).active).toBe(true);
+  });
+
+  it("applies a 3rd flag to a supplier already off without asking again", async () => {
+    const supplierId = await createSupplier();
+    await applyTwoFlags(supplierId);
+    await database.update(suppliers).set({ active: false }).where(eq(suppliers.id, supplierId));
+
+    const third = await applySupplierFlag(database, flagInput(supplierId, "stale_catalog"));
+    expect(third).toMatchObject({
+      activeCount: 3,
+      supplierDeactivated: false,
+      supplierActive: false,
+    });
+  });
+
+  it("names a reactivated supplier's next flag without counting past 3", async () => {
+    const supplierId = await createSupplier();
+    await applyTwoFlags(supplierId);
+    await applySupplierFlag(database, {
+      ...flagInput(supplierId, "stale_catalog"),
+      confirmDeactivation: true,
+    });
+    await database.update(suppliers).set({ active: true }).where(eq(suppliers.id, supplierId));
+
+    await expect(applySupplierFlag(database, flagInput(supplierId, "order_error"))).rejects.toThrow(
+      "O fornecedor foi reativado com 3 flags ativas",
+    );
+  });
+
+  it("waits for an apply holding the supplier before revoking one of its flags", async () => {
+    const supplierId = await createSupplier();
+    const second = await applyTwoFlags(supplierId);
+    let revoking: Promise<{ id: string }> | undefined;
+    await database.transaction(async (transaction) => {
+      await transaction.select().from(suppliers).where(eq(suppliers.id, supplierId)).for("update");
+      revoking = revokeSupplierFlag(database, {
+        supplierId,
+        flagId: second.id,
+        revokedBy: staffId(),
+        revokeNote: "Aplicada por engano",
+        now: new Date(),
+      });
+      expect(await settlesWithin(revoking, 300)).toBe(false);
+    });
+    expect(await revoking).toEqual({ id: second.id });
   });
 
   it("refuses 'other' without a note at the database too", async () => {
@@ -201,13 +302,14 @@ describe("supplier flags", () => {
     ).rejects.toMatchObject({ cause: { constraint_name: "supplier_flags_note_check" } });
   });
 
-  it("reads only the supplier's name for the team's flags page", async () => {
+  it("reads only the supplier's name and whether it is active for the team's flags page", async () => {
     const supplierId = await createSupplier();
-    expect(await getFlaggableSupplierName(database, supplierId)).toBe(
-      "Fornecedor de teste das flags",
-    );
+    expect(await getFlaggableSupplier(database, supplierId)).toEqual({
+      name: "Fornecedor de teste das flags",
+      active: true,
+    });
     await expect(
-      getFlaggableSupplierName(database, "00000000-0000-4000-8000-000000000000"),
+      getFlaggableSupplier(database, "00000000-0000-4000-8000-000000000000"),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 

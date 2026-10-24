@@ -35,6 +35,8 @@ export async function setOrganizationKind(
 export interface ProfileSupplier {
   id: string;
   name: string;
+  /** False once the team switched the supplier off (e.g. on its 3rd flag). */
+  active: boolean;
 }
 
 /** The supplier a supplier profile runs, or null while the profile has not set up its brand. */
@@ -43,7 +45,7 @@ export async function findSupplierOfProfile(
   organizationId: string,
 ): Promise<ProfileSupplier | null> {
   const [found] = await database
-    .select({ id: suppliers.id, name: suppliers.name })
+    .select({ id: suppliers.id, name: suppliers.name, active: suppliers.active })
     .from(suppliers)
     .where(eq(suppliers.organizationId, organizationId));
   return found ?? null;

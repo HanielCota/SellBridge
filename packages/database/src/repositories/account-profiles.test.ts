@@ -98,6 +98,7 @@ describe("account profiles", () => {
     expect(await findSupplierOfProfile(database, organizationId)).toEqual({
       id: created?.id,
       name: "Ateliê Perfil",
+      active: true,
     });
   });
 
