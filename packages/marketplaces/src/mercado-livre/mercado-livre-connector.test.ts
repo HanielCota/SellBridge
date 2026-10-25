@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { logger } from "@sellbridge/shared/logger";
 import { createMercadoLivreConnector } from "./mercado-livre-connector.ts";
 import { ERROR_FIXTURES } from "./fixtures/errors.ts";
 
@@ -268,10 +269,18 @@ describe("publishing", () => {
       [`GET ${API}/sites/MLB/domain_discovery/search`]: () => json(200, [{ category_id: "MLB1" }]),
       [`POST ${API}/items`]: () => json(400, { message: "attribute BRAND is required" }),
     });
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     await expect(ml.publishProduct(store, product)).rejects.toMatchObject({
       details: { retryable: false },
-      message: "Mercado Livre recusou a operação: attribute BRAND is required",
+      message:
+        "O Mercado Livre respondeu com erro 400. Tente de novo; se continuar, fale com o suporte.",
     });
+    // The marketplace's own words stay where support reads them.
+    expect(warn).toHaveBeenCalledWith(
+      "mercado_livre.refused",
+      expect.objectContaining({ status: 400, message: "attribute BRAND is required" }),
+    );
+    warn.mockRestore();
   });
 
   it("translates the validation causes of a refused item, with what to do", async () => {
