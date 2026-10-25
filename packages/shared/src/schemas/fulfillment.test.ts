@@ -178,3 +178,38 @@ describe("contact details between reseller and supplier", () => {
     );
   });
 });
+
+function firstMessage(result: { error?: { issues: { message: string }[] } }) {
+  return result.error?.issues[0]?.message;
+}
+
+/*
+ * Regression: these fields fell back to Zod's English defaults, so the reseller and the supplier
+ * read "Too small: expected string to have >=1 characters" without knowing which field it was.
+ */
+describe("messages the forms show", () => {
+  it.each([
+    ["recipient", "Informe o nome de quem recebe"],
+    ["street", "Informe a rua"],
+    ["number", "Informe o número (ou s/n)"],
+    ["neighborhood", "Informe o bairro"],
+    ["city", "Informe a cidade"],
+  ] as const)("names the empty address field %s", (field, message) => {
+    const address = { ...forward.address, [field]: "" };
+    expect(firstMessage(forwardOrderSchema.safeParse({ ...forward, address }))).toBe(message);
+  });
+
+  it("says how long a message may be", () => {
+    const note = "a".repeat(1001);
+    expect(firstMessage(shipmentUpdateSchema.safeParse({ ...input, note }))).toBe(
+      "O texto pode ter até 1.000 caracteres",
+    );
+  });
+
+  it("explains a tracking link that is not an address", () => {
+    const trackingUrl = "rastreio dos Correios";
+    expect(firstMessage(shipmentUpdateSchema.safeParse({ ...input, trackingUrl }))).toBe(
+      "Informe o endereço completo do rastreio, começando com https://",
+    );
+  });
+});

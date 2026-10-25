@@ -69,6 +69,7 @@
     "./deadline": "./src/runtime/deadline.ts",
     "./health": "./src/runtime/health.ts",
     "./network-address": "./src/runtime/network-address.ts",
+    "./zod-messages": "./src/runtime/zod-messages.ts",
     "./customer-health": "./src/domain/customer-health.ts",
     "./billing": "./src/domain/billing.ts",
     "./mailer": "./src/email/mailer.ts",

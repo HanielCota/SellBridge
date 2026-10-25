@@ -3,6 +3,7 @@ import { deliverOrderMessageNotice, orderMessageMoments } from "@sellbridge/data
 import { getMercadoLivreShipping, type ConnectorRegistry } from "@sellbridge/marketplaces";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { installErrorAlerts } from "@sellbridge/shared/error-alerts";
+import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
 import { logger } from "@sellbridge/shared/logger";
 import { createMailer } from "@sellbridge/shared/mailer";
 import {
@@ -328,6 +329,7 @@ function registerShutdown(
 /** Start with explicit adapters; the normal entry point always supplies the real registry. */
 export async function startWorker(connectors: ConnectorRegistry): Promise<void> {
   installErrorAlerts({ webhookUrl: environment.ALERT_WEBHOOK_URL, service: "worker" });
+  installPortugueseZodMessages();
   const context = createContext(connectors);
   const workers = [
     ...marketplaceWorkers(context),
