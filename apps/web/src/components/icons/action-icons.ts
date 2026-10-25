@@ -5,7 +5,6 @@ import {
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
-  ChartLineIcon,
   CaretLeftIcon,
   CaretRightIcon,
   ChatsCircleIcon,
@@ -175,8 +174,6 @@ export const ACTION_ICONS = {
     icon: ArrowCounterClockwiseIcon,
     hint: "Traz a pendência de volta para a fila agora",
   },
-  /** The team's support numbers; `chartKind` (bars) picks how a chart is drawn. */
-  supportMetrics: { icon: ChartLineIcon, hint: "Tempo de resposta, volume e notas da equipe" },
   inviteMember: {
     icon: UserPlusIcon,
     hint: "Mandar um convite por e-mail para alguém entrar na equipe",

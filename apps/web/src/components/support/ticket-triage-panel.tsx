@@ -17,6 +17,7 @@ import {
 } from "@sellbridge/shared/staff-access";
 import { MAX_RATING } from "@sellbridge/shared/ticket-rules";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { SmartDate } from "@/components/data/smart-date";
@@ -93,6 +94,22 @@ function TeamAssigneeSelect({ ticket, assign }: { ticket: Ticket; assign: Assign
   );
 }
 
+/** The coordination's shortcut from a ticket to how its holder is doing. */
+function AssigneePerformanceLink({ ticket, role }: { ticket: Ticket; role: string }) {
+  if (ticket.assigneeId === null || !hasStaffPermission(role, "support.metrics")) {
+    return null;
+  }
+  return (
+    <Link
+      to="/admin/chamados/metricas"
+      search={{ pessoa: ticket.assigneeId }}
+      className="block w-fit rounded text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      Ver desempenho de {ticket.assigneeName?.split(" ")[0] ?? "quem responde"}
+    </Link>
+  );
+}
+
 /**
  * Supervisors pick anyone on the team; an agent can only take a ticket nobody has or hand
  * their own back to the queue (the server enforces the same rule).
@@ -103,7 +120,12 @@ function AssigneeControl({ ticket, viewer }: { ticket: Ticket; viewer: Viewer })
     "Responsável atualizado",
   );
   if (hasStaffPermission(viewer.role, "support.assign_others")) {
-    return <TeamAssigneeSelect ticket={ticket} assign={assign} />;
+    return (
+      <div className="space-y-1.5">
+        <TeamAssigneeSelect ticket={ticket} assign={assign} />
+        <AssigneePerformanceLink ticket={ticket} role={viewer.role} />
+      </div>
+    );
   }
   if (ticket.assigneeId === null) {
     return (

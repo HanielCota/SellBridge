@@ -4,7 +4,7 @@ import {
   closeTicketForCustomer,
   countStaffQueues,
   countUnreadSupportReplies,
-  getSupportMetrics,
+  getSupportPerformanceRows,
   describeTicketAbout,
   findBillingHolder,
   findReturnClaimByTicket,
@@ -35,13 +35,17 @@ import {
   setTicketCategorySchema,
   setTicketPrioritySchema,
   staffTicketsSearchSchema,
-  supportMetricsSearchSchema,
+  supportPerformanceInputSchema,
   ticketNotificationsSchema,
   ticketOrderLinkSchema,
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { isAssistantMessage } from "@sellbridge/shared/support-assistant";
+import {
+  buildSupportPerformanceReport,
+  periodBounds,
+} from "@sellbridge/shared/support-performance";
 import { customerContactForStaff } from "@/features/admin/customer-contact";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
@@ -54,7 +58,6 @@ import { staffMiddleware, accountMiddleware } from "@/lib/server/middleware";
 const RELATED_TICKETS_LIMIT = 5;
 /** Tickets listed in the support button's menu. */
 const RECENT_TICKETS_LIMIT = 3;
-const DAY_MILLISECONDS = 86_400_000;
 /** Orders offered at once in the "link an order" picker. */
 const LINKABLE_ORDERS_LIMIT = 8;
 
@@ -241,6 +244,9 @@ export const staffListTickets = createServerFn({ method: "GET" })
         status: data.status,
         priority: data.priority,
         category: data.category,
+        situationId: data.situacao,
+        assigneeId: data.responsavel,
+        customerKind: customerKindOf(data.origem),
         search: data.query,
         viewerId: context.userId,
       },
@@ -364,13 +370,21 @@ export const staffSetTicketCategory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const staffSupportMetrics = createServerFn({ method: "GET" })
+const CUSTOMER_KINDS = { revendedor: "seller", fornecedor: "supplier" } as const;
+
+function customerKindOf(origem: "revendedor" | "fornecedor" | undefined) {
+  return origem === undefined ? undefined : CUSTOMER_KINDS[origem];
+}
+
+/** The support performance report: the period and the one before it, for the comparisons. */
+export const staffSupportPerformance = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("support.metrics")])
-  .validator(supportMetricsSearchSchema)
+  .validator(supportPerformanceInputSchema)
   .handler(async ({ data }) => {
     const now = new Date();
-    const since = new Date(now.getTime() - data.days * DAY_MILLISECONDS);
-    return getSupportMetrics(database, { since, now });
+    const { since, previousSince } = periodBounds(now, data.days);
+    const rows = await getSupportPerformanceRows(database, { previousSince, since, now });
+    return buildSupportPerformanceReport({ rows, now, days: data.days, origin: data.origem });
   });
 
 const ticketAboutPreviewInput = z.object({

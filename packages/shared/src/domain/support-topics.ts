@@ -140,6 +140,8 @@ export function supportTicketSubject(input: {
 export interface SupportTicketPlan {
   priority: SupportSituationPriority;
   subject: string;
+  /** The checked situation id, stored on the ticket; null when the topic has none. */
+  situationId: string | null;
 }
 
 /**
@@ -174,6 +176,7 @@ export function planSupportTicket(input: {
   return {
     priority: situation?.priority ?? "normal",
     subject: supportTicketSubject({ heading, about: input.about, description: input.description }),
+    situationId: situation?.id ?? null,
   };
 }
 

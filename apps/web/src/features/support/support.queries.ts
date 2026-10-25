@@ -1,6 +1,6 @@
 import type {
   StaffTicketsSearch,
-  SupportMetricsSearch,
+  SupportPerformanceInput,
   TicketsSearch,
 } from "@sellbridge/shared/schemas";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import {
   staffGetTicket,
   staffListTickets,
   staffQueueCounts,
-  staffSupportMetrics,
+  staffSupportPerformance,
 } from "./support.functions";
 
 /** An open thread picks up the other side's new messages without a reload. */
@@ -74,10 +74,10 @@ export const supportTeamQueryOptions = () =>
     staleTime: 5 * 60_000,
   });
 
-export const supportMetricsQueryOptions = (search: SupportMetricsSearch) =>
+export const supportPerformanceQueryOptions = (input: SupportPerformanceInput) =>
   queryOptions({
-    queryKey: ["tickets", "admin", "metrics", search],
-    queryFn: () => staffSupportMetrics({ data: search }),
+    queryKey: ["tickets", "admin", "performance", input.days, input.origem],
+    queryFn: () => staffSupportPerformance({ data: input }),
     placeholderData: keepPreviousData,
   });
 

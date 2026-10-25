@@ -41,11 +41,11 @@ import {
   STAFF_ROLE_LIST,
   withoutActiveAssigneeSql,
 } from "./support-assignee.ts";
-import { platformTicketSql, supplierConversationSql } from "./support-audience.ts";
+import { platformTicketSql } from "./support-audience.ts";
 import { isOverdue, responseDueAtSql } from "./support-deadline.ts";
-import { staffTicketSearch } from "./support-search.ts";
-import { hasUnreadSql } from "./support-unread.ts";
+import { staffTicketConditions, type StaffTicketFilters } from "./support-staff-filters.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { hasUnreadSql } from "./support-unread.ts";
 import {
   organization,
   storeConnections,
@@ -583,7 +583,7 @@ export async function setTicketCategory(
     }
     await transaction
       .update(tickets)
-      .set({ category: input.category, updatedAt: now })
+      .set({ category: input.category, situationId: null, updatedAt: now })
       .where(eq(tickets.id, ticket.id));
     await recordEvent(transaction, {
       ticketId: ticket.id,
@@ -713,39 +713,6 @@ export async function listUnreadSupportReplies(
     .limit(limit);
 }
 
-export interface StaffTicketFilters {
-  /** `suppliers`: the reseller ↔ supplier conversations the team reads; the rest is its own. */
-  queue: "unassigned" | "mine" | "overdue" | "all" | "suppliers";
-  status?: TicketStatus | undefined;
-  priority?: TicketPriority | undefined;
-  category?: TicketCategory | undefined;
-  search?: string | undefined;
-}
-
-function queueCondition(queue: StaffTicketFilters["queue"], viewerId: string, now: Date) {
-  if (queue === "suppliers") {
-    return supplierConversationSql;
-  }
-  if (queue === "unassigned") {
-    return and(
-      platformTicketSql,
-      withoutActiveAssigneeSql,
-      inArray(tickets.status, ["open", "answered"]),
-    );
-  }
-  if (queue === "mine") {
-    return and(
-      platformTicketSql,
-      eq(tickets.assigneeId, viewerId),
-      inArray(tickets.status, ["open", "answered"]),
-    );
-  }
-  if (queue === "overdue") {
-    return and(platformTicketSql, isOverdue(now));
-  }
-  return platformTicketSql;
-}
-
 /** The support inbox: one queue, filtered, with unread dots for the viewing staff member. */
 export async function listStaffTickets(
   database: Database,
@@ -753,14 +720,7 @@ export async function listStaffTickets(
   pagination: Pagination,
 ): Promise<Paginated<StaffTicketSummary>> {
   const now = input.now ?? new Date();
-  const term = input.search ? containsPattern(input.search) : undefined;
-  const where = and(
-    queueCondition(input.queue, input.viewerId, now),
-    input.status ? eq(tickets.status, input.status) : undefined,
-    input.priority ? eq(tickets.priority, input.priority) : undefined,
-    input.category ? eq(tickets.category, input.category) : undefined,
-    term ? staffTicketSearch(term) : undefined,
-  );
+  const where = staffTicketConditions(input, now);
   const order =
     input.queue === "overdue"
       ? // Most late first: a low ticket waiting long can be less late than an urgent one.

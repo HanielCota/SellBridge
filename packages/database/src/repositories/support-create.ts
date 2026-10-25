@@ -46,6 +46,27 @@ async function insertAssistantNote(
   });
 }
 
+/** The customer's own first message, which every ticket starts with. */
+async function insertOpeningMessage(
+  transaction: Transaction,
+  message: { ticketId: string; userId: string; body: string; now: Date },
+): Promise<string> {
+  const [inserted] = await transaction
+    .insert(ticketMessages)
+    .values({
+      ticketId: message.ticketId,
+      authorId: message.userId,
+      isAdmin: false,
+      body: message.body,
+      createdAt: message.now,
+    })
+    .returning({ id: ticketMessages.id });
+  if (!inserted) {
+    throw conflictError("Não foi possível registrar a mensagem");
+  }
+  return inserted.id;
+}
+
 /**
  * Opens a ticket with its first message and files. The priority comes from what the customer
  * said is going on (the support topics), never from a field the customer fills in.
@@ -58,6 +79,7 @@ export async function createTicket(
     category: TicketCategory;
     priority?: TicketPriority;
     subject: string;
+    situationId?: string | null;
     body: string;
     attachments: readonly NewAttachment[];
     /** What the support assistant answered before the customer asked for a person. */
@@ -77,6 +99,7 @@ export async function createTicket(
         category: input.category,
         priority: input.priority ?? "normal",
         subject: input.subject,
+        situationId: input.situationId ?? null,
         ...conversationColumns(input.conversation),
         awaitingSince: now,
         createdAt: now,
@@ -86,20 +109,13 @@ export async function createTicket(
     if (!ticket) {
       throw conflictError("Não foi possível abrir o chamado");
     }
-    const [message] = await transaction
-      .insert(ticketMessages)
-      .values({
-        ticketId: ticket.id,
-        authorId: input.userId,
-        isAdmin: false,
-        body: input.body,
-        createdAt: now,
-      })
-      .returning({ id: ticketMessages.id });
-    if (!message) {
-      throw conflictError("Não foi possível registrar a mensagem");
-    }
-    await insertAttachments(transaction, ticket.id, message.id, input.attachments);
+    const messageId = await insertOpeningMessage(transaction, {
+      ticketId: ticket.id,
+      userId: input.userId,
+      body: input.body,
+      now,
+    });
+    await insertAttachments(transaction, ticket.id, messageId, input.attachments);
     if (input.assistantNote !== undefined) {
       await insertAssistantNote(transaction, {
         ticketId: ticket.id,

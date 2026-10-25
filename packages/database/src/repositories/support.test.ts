@@ -20,7 +20,6 @@ import {
   setTicketStatus,
 } from "./support.ts";
 import { createTicket } from "./support-create.ts";
-import { getSupportMetrics } from "./support-metrics.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenantPair>>;
@@ -626,50 +625,6 @@ describe("closing and rating", () => {
       toValue: "closed",
     });
     expect((await getTicketThread(database, waiting, null)).ticket.status).toBe("open");
-  });
-});
-
-describe("support metrics", () => {
-  it("keeps a rating in the metrics after the ticket is reopened", async () => {
-    const ticketId = await openTicket("Nota que não pode sumir", at(2000));
-    await reply(ticketId, at(2001));
-    await closeTicketForCustomer(database, {
-      ticketId,
-      tenantId: tenantA,
-      userId: reseller,
-      now: at(2002),
-    });
-    await rateTicket(database, {
-      ticketId,
-      tenantId: tenantA,
-      userId: reseller,
-      rating: 1,
-      now: at(2003),
-    });
-    const before = await getSupportMetrics(database, { since: at(1999), now: at(2004) });
-
-    await setTicketStatus(database, { ticketId, status: "open", actorId: agent, now: at(2004) });
-    await setTicketStatus(database, { ticketId, status: "closed", actorId: agent, now: at(2005) });
-
-    const after = await getSupportMetrics(database, { since: at(1999), now: at(2006) });
-    expect(after.ratings).toBe(before.ratings);
-    expect(after.averageRating).toBe(before.averageRating);
-    expect(after.byAgent.find((row) => row.agentId === agent)?.averageRating).not.toBeNull();
-  });
-
-  it("measures first replies against the target and lists the team", async () => {
-    const onTime = await openTicket("Métrica no prazo", at(1000));
-    await reply(onTime, at(1001));
-    const late = await openTicket("Métrica atrasada", at(1000));
-    await reply(late, at(1030));
-
-    const metrics = await getSupportMetrics(database, { since: at(999), now: at(1031) });
-    expect(metrics.opened).toBeGreaterThanOrEqual(2);
-    expect(metrics.withinTargetRate).not.toBeNull();
-    expect(metrics.averageFirstResponseMinutes).not.toBeNull();
-    expect(metrics.byCategory.find((row) => row.category === "order")?.total).toBeGreaterThan(0);
-    const agentRow = metrics.byAgent.find((row) => row.agentId === agent);
-    expect(agentRow?.replies).toBeGreaterThanOrEqual(2);
   });
 });
 

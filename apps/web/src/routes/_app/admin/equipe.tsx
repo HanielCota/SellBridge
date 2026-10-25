@@ -1,5 +1,9 @@
 import type { StaffMember } from "@sellbridge/database/repositories";
-import { STAFF_ROLE_LABELS, staffRoleOf } from "@sellbridge/shared/staff-access";
+import {
+  hasStaffPermission,
+  STAFF_ROLE_LABELS,
+  staffRoleOf,
+} from "@sellbridge/shared/staff-access";
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { UsersThreeIcon } from "@phosphor-icons/react";
@@ -56,6 +60,25 @@ function RoleLabel({ role }: { role: string }) {
     <HintedText label={STAFF_ROLE_HINTS[staffRole]} className="hinted-term">
       {STAFF_ROLE_LABELS[staffRole]}
     </HintedText>
+  );
+}
+
+/** Support roles lead to their sheet on the performance screen, for whoever may see it. */
+function PerformanceLink({ member }: { member: StaffMember }) {
+  const { session } = Route.useRouteContext();
+  const role = staffRoleOf(member.role);
+  const answersTickets = role === "agent" || role === "supervisor";
+  if (!answersTickets || !hasStaffPermission(session.user.role, "support.metrics")) {
+    return null;
+  }
+  return (
+    <Link
+      to="/admin/chamados/metricas"
+      search={{ pessoa: member.id }}
+      className="block w-fit rounded text-footnote text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      Ver desempenho
+    </Link>
   );
 }
 
@@ -133,7 +156,12 @@ const columns = columnHelper.columns([
         Cargo
       </HintedText>
     ),
-    cell: (info) => <RoleLabel role={info.getValue()} />,
+    cell: (info) => (
+      <div className="space-y-0.5">
+        <RoleLabel role={info.getValue()} />
+        <PerformanceLink member={info.row.original} />
+      </div>
+    ),
   }),
   columnHelper.display({
     id: "state",
@@ -169,6 +197,7 @@ function MobileMemberRow({ member }: { member: StaffMember & { canInvite: boolea
           <RoleLabel role={member.role} />
           <MemberStatus member={member} />
         </p>
+        <PerformanceLink member={member} />
         <ResendInvite member={member} canInvite={member.canInvite} />
       </div>
     </div>
