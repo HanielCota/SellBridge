@@ -211,7 +211,7 @@ async function requireSellable(
     await failPermanently(
       dependencies,
       row.target.id,
-      "This publication was stopped. Restore the product and explicitly retry when ready.",
+      "Esta publicação foi interrompida. Reative o produto e tente publicar de novo quando estiver pronto.",
     );
   }
   const reason = unavailableReason(row.availability);

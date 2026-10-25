@@ -117,9 +117,13 @@ describe("private product publication", () => {
     await expect(
       createListingWithTargets(database, tenants.tenantB, draft(), [foreignStoreId]),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // Regression: this one reached the reseller in English.
     await expect(
       createListingWithTargets(database, tenants.tenantA, draft(), [foreignStoreId]),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      userMessage: "Uma ou mais lojas escolhidas não estão mais disponíveis.",
+    });
     await expect(
       createListingWithTargets(database, tenants.tenantA, draft(draftId), [storeId]),
     ).rejects.toMatchObject({ code: "CONFLICT" });

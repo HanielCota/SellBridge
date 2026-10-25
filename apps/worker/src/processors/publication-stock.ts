@@ -120,7 +120,7 @@ export async function reconcilePublicationStock(
     await markTargetSyncFailed(
       dependencies.database,
       scope.targetId,
-      userMessageOr(error, "Could not confirm publication stock."),
+      userMessageOr(error, "Não foi possível confirmar o estoque do anúncio."),
     );
     throw error;
   }

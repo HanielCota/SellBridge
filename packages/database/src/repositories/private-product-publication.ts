@@ -40,6 +40,6 @@ export async function assertPrivateProductPublication(
       ),
     );
   if (stores?.total !== new Set(storeIds).size) {
-    throw notFoundError("One or more destination stores are unavailable.");
+    throw notFoundError("Uma ou mais lojas escolhidas não estão mais disponíveis.");
   }
 }
