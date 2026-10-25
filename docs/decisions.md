@@ -701,3 +701,19 @@ O sino reserva 5 lugares fixos para novidades quando os problemas abertos lotam 
 ## 2026-10-22: Fica para a fase 2 (reunião do MVP)
 
 Nota fiscal e Bling, endereço completo do revendedor, conector da Shopee, IA no suporte, vídeo, rastreio público, flags automáticas, prazo do suporte contado em horário comercial, sino do fornecedor, tela de envios da equipe e anexos nas mensagens.
+
+## 2026-10-25: Desempenho do suporte
+
+A página `/admin/chamados/metricas` passa a se chamar "Desempenho do suporte". O acesso fica dentro de Chamados, com o seletor "Fila · Desempenho", e não ganha aba própria no menu: o modo admin já tem 12 abas. As regras de medição ficam em `@sellbridge/shared/support-performance`, testadas:
+
+- **Quem resolveu** é o autor da última resposta pública da equipe antes do encerramento, contando só respostas depois do encerramento anterior. Isso vale também no encerramento automático. Reabrir e fechar de novo sem resposta nova não credita ninguém. A nota vai para quem resolveu o encerramento avaliado.
+- **Voltou** quando o chamado é reaberto em até 7 dias, ou quando o mesmo cliente abre o mesmo tema e situação sobre a mesma loja, anúncio ou pedido. Sem referência em comum não conta, porque pode ser outro pedido.
+- **"Sem reabrir" só conta encerramentos com mais de 7 dias**, que já tiveram a janela inteira para voltar.
+- **A comparação é justa**: o "sem reabrir" de cada pessoa é comparado com o que a equipe consegue na mesma mistura de assuntos, considerando só os encerramentos feitos por alguém da equipe.
+- **"No prazo" da equipe** inclui os chamados nunca respondidos cujo prazo já passou.
+- **Taxa de avaliação** = notas de encerramentos do período ÷ encerramentos do período, nunca acima de 100%.
+- **O período usa dias inteiros de Brasília**: "7 dias" vai de hoje até seis dias atrás, a partir da meia-noite, e a primeira semana começa no primeiro dia do período.
+- **Tempos** usam a mediana, em horas corridas, igual ao prazo.
+- **Amostra mínima de 5**: vale para resolvidos, para cada taxa da pessoa, para o "Melhor resultado" e para "Precisa de treino em". Abaixo disso, não há cor nem julgamento.
+- **Em experiência** marca atendentes e supervisores com menos de 90 dias, contados a partir de `user.createdAt`. Administradores nunca ficam em experiência.
+- O chamado guarda a situação escolhida no formulário guiado (`tickets.situation_id`).
