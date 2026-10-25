@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { hasPasswordQueryOptions } from "@/features/profile/account.queries";
 import { authClient } from "@/lib/auth-client";
+import { authErrorMessage } from "@/lib/auth-error-message";
 
 const EXPORT_URL = "/api/conta/exportar";
 
@@ -23,13 +24,6 @@ const DELETION_CONSEQUENCES = [
   "As lojas são desconectadas e os anúncios pausados no marketplace.",
   "Pedidos, anúncios, chamados e dados de cadastro são apagados.",
 ];
-
-function deletionErrorMessage(code: string | undefined, message: string | undefined): string {
-  if (code === "INVALID_PASSWORD") {
-    return "Senha incorreta";
-  }
-  return message ?? "Não foi possível excluir a conta. Tente novamente.";
-}
 
 function useDeleteAccount() {
   const [password, setPassword] = useState("");
@@ -46,7 +40,9 @@ function useDeleteAccount() {
     const result = await authClient.deleteUser({ password });
     setIsDeleting(false);
     if (result.error) {
-      setError(deletionErrorMessage(result.error.code, result.error.message));
+      setError(
+        authErrorMessage(result.error, "Não foi possível excluir a conta. Tente novamente."),
+      );
       return;
     }
     toast.success("Sua conta foi excluída");
