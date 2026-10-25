@@ -83,7 +83,7 @@ function RowSummary({
           </>
         ) : null}
         {NOTABLE_STATUSES.has(row.status) ? (
-          <span className="ml-1 shrink-0 text-foreground">
+          <span className="ml-1 shrink-0 text-foreground max-sm:hidden">
             <OrderStatusBadge status={row.status} />
           </span>
         ) : null}
@@ -139,6 +139,21 @@ function RowThumb({ row }: { row: OrderFinancialRow }) {
   );
 }
 
+/**
+ * On a phone the badge gets a line of its own under the row, lined up with the text: beside the
+ * amount it had no room and was drawn over "não conta como venda". From `sm` up it stays inline.
+ */
+function PhoneStatusLine({ row }: { row: OrderFinancialRow }) {
+  if (!NOTABLE_STATUSES.has(row.status)) {
+    return null;
+  }
+  return (
+    <span className="basis-full pl-14 text-xs sm:hidden">
+      <OrderStatusBadge status={row.status} />
+    </span>
+  );
+}
+
 function StatementRow({
   row,
   byDay,
@@ -155,12 +170,16 @@ function StatementRow({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={cn(ROW_BUTTON, "data-[state=open]:bg-foreground/[0.04]")}
+            className={cn(
+              ROW_BUTTON,
+              "data-[state=open]:bg-foreground/[0.04] max-sm:flex-wrap max-sm:gap-y-1",
+            )}
           >
             <RowThumb row={row} />
             <RowSummary row={row} byDay={byDay} showStore={showStore} />
             <RowAmount row={row} />
             <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <PhoneStatusLine row={row} />
           </button>
         </PopoverTrigger>
         <OrderDetail row={row} />
