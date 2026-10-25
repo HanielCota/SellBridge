@@ -1,6 +1,6 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ import { NotificationBell } from "./notification-bell";
 import { SupportButton } from "./support-button";
 import { teamModeActiveTag } from "@/features/auth/team-mode";
 import { accountLabel } from "@/features/auth/account-label";
+import { TeamModeButton, TeamModeMenuEntry } from "./team-mode-entry";
 import { UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
@@ -206,11 +207,14 @@ function MobileNav({
   pathname,
   counts,
   layout,
+  teamModeRole,
 }: {
   items: NavItem[];
   pathname: string;
   counts: BadgeCounts;
   layout: Layout;
+  /** The team role while its mode is off, so the sheet offers the way in; null otherwise. */
+  teamModeRole: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -234,6 +238,9 @@ function MobileNav({
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
+          {teamModeRole === null ? null : (
+            <TeamModeMenuEntry role={teamModeRole} onEnter={() => setIsOpen(false)} />
+          )}
           {[...items, SUPPORT_NAV_ITEM].map((item, index, all) => (
             <Fragment key={item.to}>
               {startsTeamArea(all, index) ? <TeamDivider vertical={false} /> : null}
@@ -429,6 +436,51 @@ function navigationFor(user: SessionUser, adminMode: boolean, isSupplier: boolea
   };
 }
 
+/** The header's right side: search, support, the team's way in, the bell and the account. */
+function HeaderActions({
+  user,
+  adminMode,
+  profileKind,
+  supportReplies,
+  teamModeRole,
+  layout,
+}: {
+  user: SessionUser;
+  adminMode: boolean;
+  profileKind: ProfileKind;
+  supportReplies: number;
+  teamModeRole: string | null;
+  layout: Layout;
+}) {
+  const isSupplier = profileKind === "supplier";
+  return (
+    <div className="flex items-center gap-2 justify-self-end">
+      {/* The search looks through the seller's orders, listings and stores. */}
+      {isSupplier ? null : <CommandPalette />}
+      {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
+      {adminMode ? null : (
+        <div className="hidden sm:block">
+          <SupportButton unread={supportReplies} profileKind={profileKind} />
+        </div>
+      )}
+      {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
+      {teamModeRole === null ? null : (
+        <div className="hidden sm:block">
+          <TeamModeButton role={teamModeRole} />
+        </div>
+      )}
+      <NotificationBell />
+      <AccountChip
+        user={user}
+        supportReplies={supportReplies}
+        adminMode={adminMode}
+        profileKind={profileKind}
+        layout={layout}
+      />
+    </div>
+  );
+}
+
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -437,6 +489,7 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
   const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);
   const layout = layoutFor(adminMode, isSupplier);
+  const teamModeRole = isStaffRole(user.role) && !adminMode ? user.role : null;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}
@@ -447,7 +500,13 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
         )}
       >
         <div className="flex items-center gap-3">
-          <MobileNav items={items} pathname={pathname} counts={counts} layout={layout} />
+          <MobileNav
+            items={items}
+            pathname={pathname}
+            counts={counts}
+            layout={layout}
+            teamModeRole={teamModeRole}
+          />
           <Link
             to={isSupplier ? SUPPLIER_PANEL_PATH : SELLER_HOME_PATH}
             aria-label={isSupplier ? "SellBridge, painel do fornecedor" : "SellBridge, visão geral"}
@@ -463,24 +522,14 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
           counts={counts}
           layout={layout}
         />
-        <div className="flex items-center gap-2 justify-self-end">
-          {/* The search looks through the seller's orders, listings and stores. */}
-          {isSupplier ? null : <CommandPalette />}
-          {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
-          {adminMode ? null : (
-            <div className="hidden sm:block">
-              <SupportButton unread={supportReplies} profileKind={profileKind} />
-            </div>
-          )}
-          <NotificationBell />
-          <AccountChip
-            user={user}
-            supportReplies={supportReplies}
-            adminMode={adminMode}
-            profileKind={profileKind}
-            layout={layout}
-          />
-        </div>
+        <HeaderActions
+          user={user}
+          adminMode={adminMode}
+          profileKind={profileKind}
+          supportReplies={supportReplies}
+          teamModeRole={teamModeRole}
+          layout={layout}
+        />
       </div>
     </header>
   );
