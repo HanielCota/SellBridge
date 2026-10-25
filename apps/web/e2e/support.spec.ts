@@ -416,6 +416,13 @@ test("recusa anexo com conteúdo diferente da extensão", async ({ page }) => {
   await expect(page).toHaveURL(/\/suporte\/novo/);
 });
 
+test("para a descrição no limite que o servidor aceita", async ({ page }) => {
+  await signUp(page, "Revendedor Texto Longo");
+  await gotoHydrated(page, "/suporte/novo");
+  await describeLateOrder(page, "x".repeat(5001));
+  await expect(page.getByLabel("O que aconteceu com a entrega?")).toHaveValue("x".repeat(5000));
+});
+
 test("revendedor não acessa a área de administração", async ({ page }) => {
   await signUp(page, "Revendedor Curioso");
   await page.goto("/admin/chamados");
