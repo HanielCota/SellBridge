@@ -12,6 +12,7 @@ import { createRandom, type Random } from "./random.ts";
 import { seedDemoReviews } from "./reputation.ts";
 import { seedDemoSales } from "./sales.ts";
 import { seedSupportTickets } from "./support.ts";
+import { seedSupportPerformance } from "./support-performance.ts";
 
 export const DEMO_ORGANIZATION_SLUG = "ana-revendedora-demo";
 export const ADMIN_ORGANIZATION_SLUG = "sellbridge-admin";
@@ -83,4 +84,10 @@ export async function runSeed(database: Database, options: RunSeedOptions): Prom
   const authors = new Map([[DEMO_ACCOUNT.email, demo], ...customers]);
   const ticketsCreated = await seedSupportTickets(database, authors, admin);
   logger.info("seed.support_ready", { tickets: ticketsCreated });
+  const history = await seedSupportPerformance(database, {
+    authors: [...authors.values()],
+    // Team accounts can enter customer accounts: they share the admin password, not the demo one.
+    password: options.adminPassword,
+  });
+  logger.info("seed.support_history_ready", { tickets: history });
 }

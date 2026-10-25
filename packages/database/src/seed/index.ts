@@ -4,6 +4,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../client.ts";
 import { CUSTOMERS } from "./customers.ts";
+import { SUPPORT_TEAM_EMAILS, supportTeamSlug } from "./support-performance.ts";
 import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
 import {
   ADMIN_ORGANIZATION_SLUG,
@@ -51,12 +52,18 @@ async function resetDomain(database: Database): Promise<void> {
   await database.execute(
     sql.raw(`truncate table ${DOMAIN_TABLES.join(", ")} restart identity cascade`),
   );
-  const emails = [DEMO_ACCOUNT.email, ADMIN_ACCOUNT.email, ...CUSTOMERS.map((item) => item.email)];
+  const emails = [
+    DEMO_ACCOUNT.email,
+    ADMIN_ACCOUNT.email,
+    ...CUSTOMERS.map((item) => item.email),
+    ...SUPPORT_TEAM_EMAILS,
+  ];
   const slugs = [
     DEMO_ORGANIZATION_SLUG,
     DEMO_SECOND_PROFILE.slug,
     ADMIN_ORGANIZATION_SLUG,
     ...CUSTOMERS.map((item) => item.slug),
+    ...SUPPORT_TEAM_EMAILS.map(supportTeamSlug),
   ];
   await database.execute(sql`delete from "user" where email in ${inList(emails)}`);
   await database.execute(sql`delete from organization where slug in ${inList(slugs)}`);

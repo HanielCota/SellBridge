@@ -9,6 +9,7 @@ import {
   type TicketPriority,
 } from "../domain/ticket-rules.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
+import { SUPPORT_ORIGINS, SUPPORT_PERIOD_DAYS } from "../domain/support-performance/types.ts";
 
 export { TICKET_CATEGORIES, TICKET_PRIORITIES, type TicketCategory, type TicketPriority };
 
@@ -172,8 +173,20 @@ export const staffTicketsSearchSchema = ticketsSearchSchema.extend({
   queue: withFallback(ticketQueueSchema.default("all"), "all"),
   priority: optionalParameter(ticketPrioritySchema),
   category: optionalParameter(ticketCategorySchema),
+  /**
+   * A support-topic situation id, from the performance screen's subjects; `sem-detalhe` lists
+   * the tickets opened before the guided form recorded one.
+   */
+  situacao: optionalParameter(z.string().trim().min(1).max(40)),
+  /** Only resellers' or only suppliers' tickets, as the performance screen counted them. */
+  origem: optionalParameter(z.enum(["revendedor", "fornecedor"])),
+  /** A team member's id, from the performance screen's people. */
+  responsavel: optionalParameter(z.string().trim().min(1).max(64)),
 });
 export type StaffTicketsSearch = z.infer<typeof staffTicketsSearchSchema>;
+
+/** The `situacao` value for tickets without a recorded situation. */
+export const NO_SITUATION_FILTER = "sem-detalhe";
 
 const ticketIdSchema = z.uuid();
 
@@ -225,7 +238,30 @@ export const rateTicketSchema = z.object({
     .optional(),
 });
 
-export const supportMetricsSearchSchema = z.object({
-  days: withFallback(z.coerce.number().int().min(1).max(90).default(30), 30),
+export const SUPPORT_PERFORMANCE_SECTIONS = ["geral", "equipe", "assuntos"] as const;
+export type SupportPerformanceSection = (typeof SUPPORT_PERFORMANCE_SECTIONS)[number];
+
+export const SUPPORT_PERFORMANCE_CHARTS = ["volume", "resposta", "horarios"] as const;
+export type SupportPerformanceChart = (typeof SUPPORT_PERFORMANCE_CHARTS)[number];
+
+const supportPeriodSchema = z.coerce
+  .number()
+  .pipe(z.union(SUPPORT_PERIOD_DAYS.map((days) => z.literal(days))));
+
+/** What the support performance report is computed for: the server function's input. */
+export const supportPerformanceInputSchema = z.object({
+  days: withFallback(supportPeriodSchema.default(30), 30),
+  origem: withFallback(z.enum(SUPPORT_ORIGINS).default("todos"), "todos"),
+});
+export type SupportPerformanceInput = z.infer<typeof supportPerformanceInputSchema>;
+
+/**
+ * The performance page's URL. Not `perfil`: that one switches the session's profile. `pessoa`
+ * opens a team member's sheet.
+ */
+export const supportMetricsSearchSchema = supportPerformanceInputSchema.extend({
+  secao: withFallback(z.enum(SUPPORT_PERFORMANCE_SECTIONS).default("geral"), "geral"),
+  grafico: withFallback(z.enum(SUPPORT_PERFORMANCE_CHARTS).default("volume"), "volume"),
+  pessoa: optionalParameter(z.string().trim().min(1).max(64)),
 });
 export type SupportMetricsSearch = z.infer<typeof supportMetricsSearchSchema>;

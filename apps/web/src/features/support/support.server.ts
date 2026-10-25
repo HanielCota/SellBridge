@@ -161,6 +161,7 @@ export function handleCreateTicket(request: Request) {
         category: input.category,
         priority: plan.priority,
         subject: plan.subject,
+        situationId: plan.situationId,
         body: input.body,
         attachments,
         assistantNote: assistantNoteFor(session.profileKind, input),

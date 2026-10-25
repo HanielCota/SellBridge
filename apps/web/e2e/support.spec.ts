@@ -390,7 +390,8 @@ test("atendente vê só o suporte e assume um chamado da fila", async ({ browser
   await gotoHydrated(agent, "/admin/chamados?queue=mine");
   await expect(agent.getByRole("link", { name: subject })).toBeVisible();
 
-  // Metrics are for supervisors and admins.
+  // Metrics are for supervisors and admins: no "Fila · Desempenho" switch, and no way in by URL.
+  await expect(agent.getByRole("group", { name: "Área do suporte" })).toHaveCount(0);
   await agent.goto("/admin/chamados/metricas");
   await expect(agent).toHaveURL(/\/admin\/chamados(\?|$)/);
 

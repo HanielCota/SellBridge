@@ -65,6 +65,12 @@ export const tickets = pgTable(
     supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
     /** What a `supplier` conversation is about, from the supplier conversation topics. */
     supplierTopic: supplierConversationTopicEnum(),
+    /**
+     * What the customer said is going on, from the support topics (`SupportSituation.id`, stable
+     * across label changes). Null for tickets opened before the guided form and for topics
+     * without situations; drives the complaints-by-subject metrics.
+     */
+    situationId: text(),
     /** First public support reply, for the first-response metrics. */
     firstResponseAt: timestamp({ withTimezone: true }),
     closedAt: timestamp({ withTimezone: true }),
@@ -82,6 +88,15 @@ export const tickets = pgTable(
     index("tickets_tenant_idx").on(table.tenantId),
     index("tickets_queue_idx").on(table.status, table.assigneeId),
     index("tickets_supplier_idx").on(table.supplierId, table.updatedAt),
+    // The performance screen reads tickets opened since a date.
+    index("tickets_created_idx").on(table.createdAt),
+    // A repeat of the same complaint (support performance: "came back") is looked up by these.
+    index("tickets_subject_idx").on(
+      table.tenantId,
+      table.category,
+      table.situationId,
+      table.createdAt,
+    ),
     check("tickets_rating_range", sql`${table.rating} between 1 and 5`),
     check(
       "tickets_supplier_topic_check",
@@ -109,7 +124,11 @@ export const ticketMessages = pgTable(
     body: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("ticket_messages_ticket_idx").on(table.ticketId)],
+  (table) => [
+    index("ticket_messages_ticket_idx").on(table.ticketId),
+    // The performance screen reads team replies since a date.
+    index("ticket_messages_created_idx").on(table.createdAt),
+  ],
 );
 
 export const ticketAttachments = pgTable(
@@ -153,7 +172,11 @@ export const ticketEvents = pgTable(
     toValue: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("ticket_events_ticket_idx").on(table.ticketId, table.id)],
+  (table) => [
+    index("ticket_events_ticket_idx").on(table.ticketId, table.id),
+    // The performance screen reads closes and ratings since a date.
+    index("ticket_events_type_created_idx").on(table.type, table.createdAt),
+  ],
 );
 
 /** Up to when each person read a thread: drives the "new reply" dots on both sides. */

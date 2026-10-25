@@ -84,7 +84,11 @@ describe("planSupportTicket", () => {
       about: "Pedido 2000012345",
       description: LONG_ENOUGH,
     });
-    expect(plan).toEqual({ priority: "normal", subject: "O pedido atrasou: Pedido 2000012345" });
+    expect(plan).toEqual({
+      priority: "normal",
+      subject: "O pedido atrasou: Pedido 2000012345",
+      situationId: "order-late",
+    });
   });
 
   it("opens an other-topic ticket without a situation", () => {
@@ -96,6 +100,7 @@ describe("planSupportTicket", () => {
       description: "Quero entender como funciona a coleta dos pedidos na minha cidade.",
     });
     expect(plan.subject.startsWith("Outra coisa: Quero entender")).toBe(true);
+    expect(plan.situationId).toBeNull();
   });
 
   it("refuses a topic the profile does not have", () => {
@@ -128,6 +133,7 @@ describe("Outro problema", () => {
     expect(plan).toEqual({
       priority: "normal",
       subject: "Produtos e catálogo: O produto aparece com o nome de outra marca no catálogo.",
+      situationId: "other-issue",
     });
   });
 
