@@ -293,3 +293,38 @@ describe("supplier reputation query plan", () => {
     expect(JSON.stringify([...plan.lookup])).toContain("order_items_supplier_product_idx");
   });
 });
+
+/*
+ * The menu counter runs on every page and every minute, so it has its own leaner query; these
+ * pin it to what the review list shows.
+ */
+describe("pending review counter", () => {
+  it("counts an order once per supplier, dated by its order date when delivery has none", async () => {
+    const before = await countPendingReviews(database, tenantA, LONG_AGO);
+    const orderId = await insertOrder(tenantA, storeA, "delivered");
+    await database.insert(orderItems).values({
+      tenantId: tenantA,
+      orderId,
+      supplierProductId: catalog.productId,
+      title: "Segundo item do mesmo fornecedor",
+      quantity: 1,
+      unitPriceCents: 2500,
+      unitCostCents: 1200,
+      stockState: "consumed",
+    });
+    const [order] = await database
+      .select({ orderedAt: orders.orderedAt })
+      .from(orders)
+      .where(sql`${orders.id} = ${orderId}`);
+
+    const after = await countPendingReviews(database, tenantA, LONG_AGO);
+    expect(after.total).toBe(before.total + 1);
+    expect(after.latestDeliveredAt?.getTime()).toBe(order?.orderedAt.getTime());
+    const listed = await listReviewableOrders(database, tenantA, {
+      filters: { filter: "pending", reviewableSince: LONG_AGO },
+      pagination: { page: 1, pageSize: 20 },
+    });
+    expect(listed.total).toBe(after.total);
+    expect((await countPendingReviews(database, tenantA, new Date())).total).toBe(0);
+  });
+});
