@@ -12,7 +12,6 @@ import {
   listOrderFinancials,
   listStoreConnections,
   listSupplierCredits,
-  type ReportScope,
 } from "@sellbridge/database/repositories";
 import {
   financialSearchSchema,
@@ -20,12 +19,16 @@ import {
   type FinancialSearch,
   periodSearchSchema,
 } from "@sellbridge/shared/schemas";
-import { comparablePreviousRange } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
 import type { SetupProgressSnapshot } from "@/features/onboarding/setup-progress";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { buildReportScope, chartScopes, narrowToDay } from "@/features/reports/report-scope.server";
+import {
+  buildReportScope,
+  chartScopes,
+  comparisonScope,
+  narrowToDay,
+} from "@/features/reports/report-scope.server";
 
 /** How many orders a picked day loads at once: the schema's largest page. */
 const PICKED_DAY_PAGE_SIZE = 100;
@@ -96,13 +99,10 @@ export const getDashboard = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const now = new Date();
     const { period, scope } = buildReportScope(context.tenantId, data, now);
+    // The totals compare like with like; the chart keeps the whole previous period behind the
+    // current one (today's: up to this hour).
     const chart = chartScopes(scope, period, now);
-    // The totals compare like with like (an ongoing period against the same stretch before it);
-    // the chart keeps the whole previous period behind the current one (today's: up to this hour).
-    const comparableScope: ReportScope = {
-      ...scope,
-      range: comparablePreviousRange(period, now),
-    };
+    const previousScope = comparisonScope(scope, period, now);
     const storesPromise = listStoreConnections(database, context.tenantId);
     const [
       summary,
@@ -116,7 +116,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       onboarding,
     ] = await Promise.all([
       getSalesSummary(database, scope),
-      getSalesSummary(database, comparableScope),
+      getSalesSummary(database, previousScope),
       getSalesTimeseries(database, chart.current, period.bucket),
       getSalesTimeseries(database, chart.previous, period.bucket),
       // Long periods also get one bar per month, for the composition chart.
@@ -168,10 +168,7 @@ export const getFinancials = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const now = new Date();
     const { period, scope } = buildReportScope(context.tenantId, data, now);
-    const previousScope: ReportScope = {
-      ...scope,
-      range: { from: period.previousFrom, to: period.previousTo },
-    };
+    const previousScope = comparisonScope(scope, period, now);
     const chart = chartScopes(scope, period, now);
     // A picked day narrows the summary and the statement; the chart keeps the whole period.
     const picked = narrowToDay(scope, period, data.day);

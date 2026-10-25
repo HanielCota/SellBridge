@@ -1,6 +1,7 @@
 import type { ReportScope } from "@sellbridge/database/repositories";
 import {
   chartRanges,
+  comparablePreviousRange,
   dayRangeWithin,
   resolvePeriod,
   type ResolvedPeriod,
@@ -18,6 +19,19 @@ export function buildReportScope(tenantId: string, search: PeriodSearch, now = n
     platformFeeBasisPoints: environment.PLATFORM_FEE_BASIS_POINTS,
   };
   return { period, scope };
+}
+
+/**
+ * What the totals compare against, the same on the dashboard and the financial page: an ongoing
+ * period against the same stretch of the one before (today until this hour against yesterday
+ * until this hour). Each page used its own base under the same "vs. período anterior" label.
+ */
+export function comparisonScope(
+  scope: ReportScope,
+  period: ResolvedPeriod,
+  now: Date,
+): ReportScope {
+  return { ...scope, range: comparablePreviousRange(period, now) };
 }
 
 /** The scopes of the chart's two series: today's hourly chart stops at the current hour. */
