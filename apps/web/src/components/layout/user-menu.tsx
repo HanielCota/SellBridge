@@ -1,4 +1,4 @@
-import { teamModeName } from "@/features/auth/team-mode";
+import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
 import { unreadRepliesText } from "@/features/support/response-time";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
@@ -16,7 +16,7 @@ import {
   UserCircleIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { type ReactNode, useRef } from "react";
 import { toast } from "sonner";
@@ -32,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionUser } from "@/features/auth/session.functions";
-import { setAdminMode } from "@/features/auth/session.functions";
 import { authClient } from "@/lib/auth-client";
 import { forgetTabProfile } from "@/lib/tab-profile";
 import { cn } from "@/lib/utils";
@@ -112,29 +111,11 @@ function ThemeChoice() {
 
 /** Shows or hides the team tools in the interface; only offered to team accounts. */
 function AdminModeItem({ enabled, role }: { enabled: boolean; role: string }) {
-  const name = teamModeName(role);
-  const router = useRouter();
-  const navigate = useNavigate();
-  const isOnAdminPage = useRouterState({
-    select: (state) => state.location.pathname.startsWith("/admin"),
-  });
-  async function toggle(next: boolean) {
-    try {
-      await setAdminMode({ data: { enabled: next } });
-    } catch {
-      toast.error(`Não foi possível alterar o ${name.toLowerCase()}.`);
-      return;
-    }
-    toast.success(next ? `${name} ativado` : `${name} desativado`);
-    if (!next && isOnAdminPage) {
-      await navigate({ to: "/dashboard" });
-    }
-    await router.invalidate();
-  }
+  const { name, switchTeamMode } = useTeamModeSwitch(role);
   return (
     <DropdownMenuCheckboxItem
       checked={enabled}
-      onCheckedChange={(checked) => void toggle(checked)}
+      onCheckedChange={(checked) => void switchTeamMode(checked)}
       onSelect={(event) => event.preventDefault()}
       className={cn(MENU_ROW, "pr-2.5 *:data-[slot=dropdown-menu-checkbox-item-indicator]:hidden")}
     >
