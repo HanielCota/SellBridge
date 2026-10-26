@@ -372,6 +372,13 @@
       "when": 1792904289713,
       "tag": "0052_ticket_situation",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793021845967,
+      "tag": "0053_supplier_shipment_index",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ export * from "./store-disconnect.ts";
 export * from "./account-export.ts";
 export * from "./account-deletion.ts";
 export * from "./listings.ts";
+export { countFailedListingTargets, getListingActivity } from "./active-targets.ts";
 export * from "./listing-sync.ts";
 export * from "./listing-overview.ts";
 export * from "./listing-actions.ts";

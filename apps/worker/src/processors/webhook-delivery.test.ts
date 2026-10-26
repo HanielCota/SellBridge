@@ -116,7 +116,8 @@ describe("webhook-delivery processor", () => {
     const endpoint = await createEndpoint("/fail");
     await recordApiEvent(database, { tenantId, type: "order.created", data: orderData });
     responseStatus = 500;
-    const now = new Date();
+    // PostgreSQL's default timestamp can be later within the same millisecond as Date.now().
+    const now = new Date(Date.now() + 1000);
     const deliver = createWebhookDeliveryProcessor({
       database,
       cipher,

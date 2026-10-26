@@ -115,19 +115,21 @@ export async function listSupplierPanelProducts(
       : matchesEveryWord(input.query, [supplierProducts.sku, supplierProducts.title]),
   );
   const order = input.direction === "asc" ? asc : desc;
-  const [total] = await database.select({ value: count() }).from(supplierProducts).where(condition);
-  const rows = await database
-    .select(panelProductColumns)
-    .from(supplierProducts)
-    .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
-    .where(condition)
-    .orderBy(order(SORT_COLUMNS[input.sort]), asc(supplierProducts.id))
-    .limit(input.pageSize)
-    .offset((input.page - 1) * input.pageSize);
+  const [rows, counts] = await Promise.all([
+    database
+      .select(panelProductColumns)
+      .from(supplierProducts)
+      .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
+      .where(condition)
+      .orderBy(order(SORT_COLUMNS[input.sort]), asc(supplierProducts.id))
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+    countByStatus(database, input.supplierId, input.query),
+  ]);
   const pagination = { page: input.page, pageSize: input.pageSize };
   return {
-    ...toPaginated(rows.map(withPanelCompleteness), total?.value ?? 0, pagination),
-    counts: await countByStatus(database, input.supplierId, input.query),
+    ...toPaginated(rows.map(withPanelCompleteness), counts[input.status], pagination),
+    counts,
   };
 }
 

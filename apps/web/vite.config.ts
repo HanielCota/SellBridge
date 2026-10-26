@@ -52,5 +52,23 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [tailwindcss(), tanstackStart(), viteReact(), ocrModel()],
+  plugins: [
+    tailwindcss(),
+    tanstackStart({
+      router: {
+        codeSplittingOptions: {
+          // Load each page's queries with its loader instead of importing every feature at boot.
+          defaultBehavior: [
+            ["loader"],
+            ["component"],
+            ["pendingComponent"],
+            ["errorComponent"],
+            ["notFoundComponent"],
+          ],
+        },
+      },
+    }),
+    viteReact(),
+    ocrModel(),
+  ],
 });

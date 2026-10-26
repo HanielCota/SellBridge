@@ -108,8 +108,11 @@ function useFinishOnboarding() {
   const router = useRouter();
   const queryClient = useQueryClient();
   return async function finish() {
-    await router.invalidate();
-    const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
+    // Settle the saved profile before navigating; a background reload can leave old form data.
+    const [, progress] = await Promise.all([
+      router.invalidate({ sync: true }),
+      queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 }),
+    ]);
     await navigate({
       to:
         search.redirect ??
