@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { VisitingStaff } from "./impersonation-window.ts";
 import type { Membership } from "./membership.ts";
 
 interface SessionShape {
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn<() => Promise<SessionShape | null>>(),
   setActiveOrganization: vi.fn<() => Promise<void>>(),
   listMemberships: vi.fn<(userId: string) => Promise<Membership[]>>(),
+  findVisitingStaff: vi.fn<(userId: string) => Promise<VisitingStaff | null>>(),
 }));
 vi.mock("./auth.ts", () => ({
   auth: {
@@ -22,6 +24,9 @@ vi.mock("./auth.ts", () => ({
 }));
 vi.mock("./membership.ts", () => ({
   listMemberships: mocks.listMemberships,
+}));
+vi.mock("./visiting-staff.ts", () => ({
+  findVisitingStaff: mocks.findVisitingStaff,
 }));
 
 const { requireSellerSession, requireTenantSession } = await import("./tenant-session");
@@ -79,6 +84,7 @@ describe("requireTenantSession", () => {
 
   it("ends an admin's visit after an hour, whatever the session cookie says", async () => {
     mocks.listMemberships.mockResolvedValue([membership("org-a")]);
+    mocks.findVisitingStaff.mockResolvedValue({ role: "admin", banned: false });
     mocks.getSession.mockResolvedValue({
       ...session("org-a"),
       session: {
@@ -101,6 +107,39 @@ describe("requireTenantSession", () => {
     await expect(requireTenantSession(new Headers())).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+  });
+
+  // Regression (security audit, 26/10/2026): the visit session belongs to the customer, so banning
+  // or demoting the team member deleted none of it and the visit went on until the hour ended.
+  it.each([
+    ["banned", { role: "agent", banned: true }],
+    ["demoted", { role: "user", banned: false }],
+    ["removed", null],
+  ] as const)(
+    "ends the visit of a team member who was %s since it started",
+    async (_case, visitor) => {
+      mocks.listMemberships.mockResolvedValue([membership("org-a")]);
+      mocks.findVisitingStaff.mockResolvedValue(visitor);
+      mocks.getSession.mockResolvedValue({
+        ...session("org-a"),
+        session: {
+          activeOrganizationId: "org-a",
+          impersonatedBy: "agent-1",
+          createdAt: startedAt(5),
+        },
+      });
+      await expect(requireTenantSession(new Headers())).rejects.toMatchObject({
+        code: "UNAUTHORIZED",
+      });
+      expect(mocks.findVisitingStaff).toHaveBeenCalledWith("agent-1");
+    },
+  );
+
+  it("does not look up a visitor for the customer's own session", async () => {
+    mocks.getSession.mockResolvedValue(session("org-a"));
+    mocks.listMemberships.mockResolvedValue([membership("org-a")]);
+    await requireTenantSession(new Headers());
+    expect(mocks.findVisitingStaff).not.toHaveBeenCalled();
   });
 
   it("uses the profile sent by the tab instead of the session's active one", async () => {

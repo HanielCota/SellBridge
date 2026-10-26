@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertVisitNotOver, isImpersonationOver } from "./impersonation-window";
+import { assertVisitNotOver, isImpersonationOver, mayKeepVisiting } from "./impersonation-window";
 
 const NOW = new Date("2026-10-15T12:00:00Z");
 const minutesBefore = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000);
@@ -26,5 +26,19 @@ describe("assertVisitNotOver", () => {
     expect(() =>
       assertVisitNotOver({ impersonatedBy: "admin-1", createdAt: "2020-01-01T00:00:00Z" }),
     ).toThrow(expect.objectContaining({ code: "UNAUTHORIZED" }));
+  });
+});
+
+describe("mayKeepVisiting", () => {
+  it("keeps a visit while the team member may still enter accounts", () => {
+    expect(mayKeepVisiting({ role: "agent", banned: false })).toBe(true);
+    expect(mayKeepVisiting({ role: "admin", banned: false })).toBe(true);
+  });
+
+  it("ends a visit once the team member is banned, demoted or gone", () => {
+    expect(mayKeepVisiting({ role: "admin", banned: true })).toBe(false);
+    expect(mayKeepVisiting({ role: "user", banned: false })).toBe(false);
+    expect(mayKeepVisiting({ role: null, banned: false })).toBe(false);
+    expect(mayKeepVisiting(null)).toBe(false);
   });
 });
