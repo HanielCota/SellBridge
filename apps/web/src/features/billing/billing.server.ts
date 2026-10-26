@@ -48,11 +48,14 @@ export async function findBillingNotice(tenantId: string): Promise<BillingNotice
 
 /** Stripe's answer bounds every billing call (item 16.a): the client default waits up to ~45 s. */
 const STRIPE_CHECKOUT_LIMITS = { timeout: 5_000, maxNetworkRetries: 1 } as const;
+/** Without it Stripe follows the browser's language, and the payment page may open in English. */
+const STRIPE_LOCALE = "pt-BR";
 
 async function portal(customerId: string) {
   return stripeClient().billingPortal.sessions.create(
     {
       customer: customerId,
+      locale: STRIPE_LOCALE,
       ...(environment.STRIPE_PORTAL_CONFIGURATION_ID
         ? { configuration: environment.STRIPE_PORTAL_CONFIGURATION_ID }
         : {}),
@@ -111,6 +114,7 @@ async function openCheckout(
     {
       integration_identifier: `sellbridge_${Array.from(randomBytes(8), (value) => String.fromCharCode(97 + (value % 26))).join("")}`,
       mode: "subscription",
+      locale: STRIPE_LOCALE,
       customer: input.customerId,
       client_reference_id: input.tenantId,
       line_items: [{ price: priceId(input.plan), quantity: 1 }],

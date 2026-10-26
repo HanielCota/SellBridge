@@ -133,6 +133,21 @@ describe("owner subscription management", () => {
     await startSubscription(input);
     expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), limits);
   });
+  // Regression (idioma-pt, 25/10/2026): Stripe picked the page language from the browser, so the
+  // payment and subscription pages could open in English.
+  it("opens the checkout and the portal in Brazilian Portuguese", async () => {
+    await startSubscription(input);
+    expect(mocks.checkout).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: "pt-BR" }),
+      expect.anything(),
+    );
+    mocks.subscriptions.mockResolvedValue({ data: [{ status: "active" }] });
+    await startSubscription(input);
+    expect(mocks.portal).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: "pt-BR" }),
+      expect.anything(),
+    );
+  });
   it("refuses a second checkout while one is being opened", async () => {
     mocks.tryLock.mockResolvedValue(false);
     await expect(startSubscription(input)).rejects.toMatchObject({ code: "CONFLICT" });
