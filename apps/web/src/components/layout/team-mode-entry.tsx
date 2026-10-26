@@ -6,6 +6,8 @@ import { teamHomeFor } from "@/features/auth/team-mode";
 import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
 import { ADMIN_NAV_ITEMS } from "@/features/navigation/nav-items";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { errorMessage } from "@/lib/errors";
 import { navTabClassName } from "./nav-tab-parts";
 
 /** Where switching the mode on lands: the first team page the role may open. */
@@ -36,7 +38,12 @@ function useEnterTeamMode(role: string) {
     if (!switched) {
       return;
     }
-    await navigate({ to: teamEntryPage(role) });
+    try {
+      await navigate({ to: teamEntryPage(role) });
+    } catch (error) {
+      // The mode is on, so the team tabs are there; only the page could not open.
+      toast.error(`Não foi possível abrir a área da equipe: ${errorMessage(error)}`);
+    }
   }
 
   return { name, enter };
