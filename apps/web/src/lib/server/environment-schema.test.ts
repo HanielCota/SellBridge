@@ -147,4 +147,28 @@ describe("serverEnvironmentSchema", () => {
       expect(carrierTrackingProviderName(parsed)).toBe("off");
     });
   });
+
+  // Regression (security audit, 26/10/2026): production accepted the development switch that turns
+  // off the guard keeping customer webhooks away from internal addresses.
+  describe("WEBHOOK_ALLOW_PRIVATE_URLS", () => {
+    it("refuses the switch in production", () => {
+      const parsed = serverEnvironmentSchema.safeParse({
+        ...validEnvironment,
+        NODE_ENV: "production",
+        BILLING_UNLIMITED: "true",
+        WEBHOOK_ALLOW_PRIVATE_URLS: "true",
+      });
+      expect(parsed.error?.issues.map((issue) => issue.path)).toEqual([
+        ["WEBHOOK_ALLOW_PRIVATE_URLS"],
+      ]);
+    });
+
+    it("keeps the switch in development", () => {
+      const parsed = serverEnvironmentSchema.parse({
+        ...validEnvironment,
+        WEBHOOK_ALLOW_PRIVATE_URLS: "true",
+      });
+      expect(parsed.WEBHOOK_ALLOW_PRIVATE_URLS).toBe(true);
+    });
+  });
 });

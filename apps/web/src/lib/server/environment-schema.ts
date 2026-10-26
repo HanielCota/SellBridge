@@ -3,6 +3,7 @@ import {
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
   nodeEnvironmentSchema,
+  refusePrivateWebhookUrlsInProduction,
   shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
@@ -147,6 +148,7 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
   }
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
+  refusePrivateWebhookUrlsInProduction(value, context);
 });
 
 /** No synthetic tracking is available in any environment. */

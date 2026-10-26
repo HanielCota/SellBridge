@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   alertWebhookUrlEnvironmentSchema,
+  booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
+  nodeEnvironmentSchema,
   parseEnvironment,
+  refusePrivateWebhookUrlsInProduction,
   shopeeShowcaseUnitsEnvironmentSchema,
 } from "./environment.ts";
 
@@ -92,5 +95,32 @@ describe("shopeeShowcaseUnitsEnvironmentSchema", () => {
 
   it.each(["-1", "1.5", "100001", "mil", "NaN"])("refuses %s", (value) => {
     expect(() => parse(value)).toThrow(/SHOPEE_SHOWCASE_UNITS/);
+  });
+});
+
+// Regression (security audit, 26/10/2026): the worker accepted the development switch in production
+// and skipped the private-address guard for every customer webhook delivery.
+describe("refusePrivateWebhookUrlsInProduction", () => {
+  const workerLike = z
+    .object({
+      NODE_ENV: nodeEnvironmentSchema,
+      WEBHOOK_ALLOW_PRIVATE_URLS: booleanFlagEnvironmentSchema,
+    })
+    .superRefine(refusePrivateWebhookUrlsInProduction);
+
+  it("refuses the switch in production", () => {
+    expect(() =>
+      parseEnvironment(workerLike, { NODE_ENV: "production", WEBHOOK_ALLOW_PRIVATE_URLS: "true" }),
+    ).toThrow(/WEBHOOK_ALLOW_PRIVATE_URLS/);
+  });
+
+  it("starts production with the switch off and keeps it in development", () => {
+    expect(
+      parseEnvironment(workerLike, { NODE_ENV: "production" }).WEBHOOK_ALLOW_PRIVATE_URLS,
+    ).toBe(false);
+    expect(
+      parseEnvironment(workerLike, { NODE_ENV: "development", WEBHOOK_ALLOW_PRIVATE_URLS: "true" })
+        .WEBHOOK_ALLOW_PRIVATE_URLS,
+    ).toBe(true);
   });
 });
