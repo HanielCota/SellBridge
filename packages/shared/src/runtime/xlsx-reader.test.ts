@@ -126,4 +126,47 @@ describe("readXlsxSheets", () => {
 
     await expect(readXlsxSheets(bytes)).rejects.toMatchObject({ code: "VALIDATION" });
   });
+
+  // Regression (security audit, 26/10/2026): the lazy regex rescanned the file from every unclosed
+  // tag and skipped it silently; the reader now refuses it in one pass.
+  it("deve recusar aba com <row> sem fechamento", async () => {
+    const unclosed = `<worksheet><sheetData>${"<row>".repeat(20_000)}</sheetData></worksheet>`;
+    const bytes = await buildZip(withFirstSheet(unclosed));
+
+    await expect(readXlsxSheets(bytes)).rejects.toMatchObject({
+      userMessage: "A planilha tem uma tag <row> sem fechamento; salve de novo como .xlsx",
+    });
+  });
+
+  // Regression (security audit, 26/10/2026): one worksheet listed many times was inflated and kept
+  // once per listing, with no limit across the workbook.
+  it("deve recusar pasta de trabalho com mais de 100 abas", async () => {
+    const listed = `<sheet name="x" sheetId="1" r:id="rId1"/>`.repeat(101);
+    const files = withFirstSheet(firstSheet).map((file) =>
+      file.name === "xl/workbook.xml"
+        ? { ...file, content: `<workbook><sheets>${listed}</sheets></workbook>` }
+        : file,
+    );
+
+    await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
+      userMessage: "A planilha aceita no máximo 100 abas",
+    });
+  });
+
+  // Regression (security audit, 26/10/2026): `<c r="SE"/>` rows padded to 499 cells each, so a few
+  // KB held millions of cells.
+  it("deve recusar planilha com células demais", async () => {
+    const padded = `<worksheet><sheetData>${'<row><c r="SE"/></row>'.repeat(10_100)}</sheetData></worksheet>`;
+    const bytes = await buildZip(withFirstSheet(padded));
+
+    await expect(readXlsxSheets(bytes)).rejects.toMatchObject({
+      userMessage: "A planilha .xlsx tem células demais para importar",
+    });
+  });
 });
+
+function withFirstSheet(content: string): ZipFile[] {
+  return workbookFiles({ deflate: true }).map((file) =>
+    file.name === "xl/worksheets/sheet1.xml" ? { ...file, content } : file,
+  );
+}
