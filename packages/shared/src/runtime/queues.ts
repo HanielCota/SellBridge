@@ -34,6 +34,22 @@ export const webhookEventJobSchema = z.object({
   webhookEventId: z.uuid(),
 });
 
+/**
+ * A reconnected store's sales since it lost its access, read from the marketplace. It runs on the
+ * webhook queue: notifications about a store without access are closed on arrival instead of
+ * waiting for the reconnection, so this is how those sales come in.
+ */
+export const storeOrderCatchUpJobSchema = z.object({
+  storeConnectionId: z.uuid(),
+  since: z.iso.datetime(),
+});
+export type StoreOrderCatchUpJob = z.infer<typeof storeOrderCatchUpJobSchema>;
+
+/** One catch-up per reconnection: reconnecting twice from the same point adds nothing. */
+export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
+  return `order-catch-up-${job.storeConnectionId}-${Date.parse(job.since)}`;
+}
+
 export const autoForwardJobSchema = z.object({ orderId: z.uuid() });
 
 /**

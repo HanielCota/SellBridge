@@ -8,7 +8,10 @@ import {
   QUEUE_NAMES,
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
+  storeOrderCatchUpJobId,
   type PublishListingJob,
+  type StoreOrderCatchUpJob,
+  WEBHOOK_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
@@ -54,6 +57,14 @@ function getWebhookQueue(): Queue {
 /** jobId = event id: even if enqueued twice, BullMQ keeps a single job. */
 export async function enqueueWebhookEvent(webhookEventId: string): Promise<void> {
   await enqueueWebhookEventJob(getWebhookQueue(), webhookEventId);
+}
+
+/** A reconnected store's sales, read by the webhook worker (see `storeOrderCatchUpJobSchema`). */
+export async function enqueueStoreOrderCatchUp(job: StoreOrderCatchUpJob): Promise<void> {
+  await getWebhookQueue().add("order-catch-up", job, {
+    ...WEBHOOK_JOB_OPTIONS,
+    jobId: storeOrderCatchUpJobId(job),
+  });
 }
 
 let stockPriceSyncQueue: Queue | null = null;

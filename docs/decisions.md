@@ -749,3 +749,13 @@ Revisar se: o segredo do Better Auth for trocado (todos os links de comprador mu
 ## 2026-10-28: Desempenho do fornecedor no jeito do Início, com devoluções (PR #150)
 
 O Desempenho do fornecedor vira um cartão só, como o Início: a cor da conta ao lado do score público, uma faixa com as cinco métricas e, abaixo, os pedidos da métrica escolhida com foto, loja e atraso. Devoluções entram como quinta métrica: pacotes devolvidos entre os que o comprador recebeu, verde até 2% e vermelho acima de 3%, a linha em que o score público começa a perder pontos (mesma regra dos cancelamentos). Nas notas baixas aparecem os motivos marcados, nunca o comentário, que segue só para a moderação.
+
+## 2026-10-26: Venda de loja sem acesso entra pela busca na reconexão
+
+Antes, o aviso de venda de uma loja expirada ou com erro ficava sem processar, e a varredura o tentava de novo a cada 5 minutos por 24 horas, à espera da reconexão. Como o aviso do Mercado Livre só traz o identificador público do app, qualquer pessoa podia empilhar avisos falsos que nunca eram apagados (a limpeza só apaga avisos processados) e atrasavam a recuperação de avisos verdadeiros (auditoria de segurança de 26/10).
+
+- O aviso de loja sem acesso é fechado na hora, com o motivo, e sai na limpeza de 30 dias como qualquer outro. A regra de nunca apagar aviso não processado continua.
+- Quando a loja volta (OAuth de uma loja expirada ou com erro), o site pede ao worker a busca das vendas no marketplace desde o primeiro dia da loja, limitada a 30 dias (`orderCatchUpSince`), com o token novo (`listOrders`, até 1000 pedidos). O job roda na fila de webhooks para não mexer no `index.ts` do worker.
+- Pedido já salvo só é atualizado; pedido pago é encaminhado uma vez (job por pedido). A recuperação passa de 24 horas para até 30 dias.
+- Descartado: apagar avisos não processados depois de 30 dias (quebraria a regra de inspeção) e limitar avisos por loja (perderia vendas reais de loja com muito movimento).
+- A conexão da loja não espera a busca: se o pedido do job falhar, a loja fica conectada e o log `store.order_catch_up_not_queued` guarda a loja e a data.

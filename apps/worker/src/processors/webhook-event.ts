@@ -1,4 +1,3 @@
-import type { Database } from "@sellbridge/database";
 import {
   findConnectedStoreByShop,
   findStoreAwaitingReconnection,
@@ -6,33 +5,25 @@ import {
   markWebhookFailed,
   markWebhookProcessed,
   recordStoreWebhook,
-  upsertMarketplaceOrder,
 } from "@sellbridge/database/repositories";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
-import { webhookEventJobSchema } from "@sellbridge/shared/queues";
+import { storeOrderCatchUpJobSchema, webhookEventJobSchema } from "@sellbridge/shared/queues";
 import {
   type ConnectorRegistry,
   isMarketplaceAuthError,
   isMarketplaceError,
   isRetryableError,
   type MarketplaceId,
-  type MarketplaceOrder,
-  sealShippingAddress,
 } from "@sellbridge/marketplaces";
-import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
 import { decryptStoreCredentials } from "../lib/store-access.ts";
+import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
+import { catchUpStoreOrders } from "./store-order-catch-up.ts";
 
-export interface WebhookDependencies {
-  database: Database;
+export interface WebhookDependencies extends OrderIntakeDependencies {
   connectors: ConnectorRegistry;
-  cipher: TokenCipher;
-  /** Asks the stock and price sync to run now instead of at its next scheduled run. */
-  requestStockSync: () => Promise<void>;
-  /** Asks to forward a paid order to its suppliers on its own (item 21.b; a no-op when off). */
-  requestAutoForward: (orderId: string) => Promise<void>;
 }
 
 export type WebhookOutcome =
@@ -41,7 +32,8 @@ export type WebhookOutcome =
   | "already_processed"
   | "ignored_topic"
   | "unknown_store"
-  | "awaiting_reconnection";
+  | "awaiting_reconnection"
+  | "orders_caught_up";
 
 type WebhookEvent = NonNullable<Awaited<ReturnType<typeof getWebhookEvent>>>;
 type ConnectedStore = NonNullable<Awaited<ReturnType<typeof findConnectedStoreByShop>>>;
@@ -103,9 +95,11 @@ async function stampStoreWebhook(
 }
 
 /**
- * No usable store for the event. A store that lost its access (expired, refused token) can be
- * reconnected: the sale stays pending, with the reason, and the sweeper retries it for a day,
- * so it comes in once the reseller reconnects. A shop we never knew is skipped for good.
+ * No usable store for the event. A store that lost its access (expired, refused token) reads its
+ * sales from the marketplace once the reseller reconnects it (store-order-catch-up.ts), so the
+ * event is closed with the reason right away. Kept open, anyone who knows the app's public id
+ * could pile up events that were retried every 5 minutes and never deleted. A shop we never knew
+ * is skipped for good.
  */
 async function holdOrSkip(
   dependencies: WebhookDependencies,
@@ -121,12 +115,8 @@ async function holdOrSkip(
   if (awaiting) {
     // The marketplace still talks about the shop while it waits on a reconnection.
     await stampStoreWebhook(dependencies, awaiting.id, event.receivedAt);
-    await markWebhookFailed(
-      dependencies.database,
-      eventId,
-      "Loja sem acesso: a venda entra quando a loja for reconectada",
-    );
-    return { kind: "skipped", outcome: "awaiting_reconnection" };
+    const note = "Loja sem acesso: as vendas entram pela busca feita quando a loja for reconectada";
+    return skipEvent(dependencies, { eventId, note, outcome: "awaiting_reconnection" });
   }
   const note = "Nenhuma loja conectada corresponde ao evento";
   return skipEvent(dependencies, { eventId, note, outcome: "unknown_store" });
@@ -178,45 +168,6 @@ async function prepareOrderSync(
   };
 }
 
-/**
- * The order is saved either way: when Redis is down, the scheduled sync sends the new count a
- * few minutes later, so a failed request is logged, not thrown.
- */
-async function requestStockSyncSafely(
-  dependencies: WebhookDependencies,
-  webhookEventId: string,
-): Promise<void> {
-  try {
-    await dependencies.requestStockSync();
-  } catch (error) {
-    logger.warn("stock.sync_deferred", { webhookEventId, error });
-  }
-}
-
-/** Same as the stock sync: the order is saved, and a failed request is logged, not thrown. */
-async function requestAutoForwardSafely(
-  dependencies: WebhookDependencies,
-  context: { webhookEventId: string; orderId: string },
-): Promise<void> {
-  try {
-    await dependencies.requestAutoForward(context.orderId);
-  } catch (error) {
-    logger.warn("order.auto_forward_deferred", { ...context, error });
-  }
-}
-
-/**
- * The order as stored: the buyer's address, when the marketplace sent one, goes in encrypted
- * (docs/marketplaces/order-shipping-address.md); its fields are never logged.
- */
-function incomingOrder(cipher: TokenCipher, order: MarketplaceOrder) {
-  const { shippingAddress, ...fields } = order;
-  if (shippingAddress === undefined) {
-    return fields;
-  }
-  return { ...fields, shippingAddressEnc: sealShippingAddress(cipher, shippingAddress) };
-}
-
 async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
   const { dependencies, store } = sync;
   // Decrypted here, inside the caller's try, so a bad token is recorded on the event.
@@ -228,29 +179,17 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     credentials,
     sync.resource,
   );
-  const result = await upsertMarketplaceOrder(
-    dependencies.database,
-    store.tenantId,
-    store.id,
-    incomingOrder(dependencies.cipher, order),
-  );
+  const status = await saveMarketplaceOrder(dependencies, store, order, {
+    webhookEventId: sync.webhookEventId,
+  });
   await markWebhookProcessed(dependencies.database, sync.webhookEventId);
-  if (result.stockMoves > 0) {
-    await requestStockSyncSafely(dependencies, sync.webhookEventId);
-  }
-  if (order.status === "paid") {
-    await requestAutoForwardSafely(dependencies, {
-      webhookEventId: sync.webhookEventId,
-      orderId: result.orderId,
-    });
-  }
   logger.info("webhook.order_synced", {
     webhookEventId: sync.webhookEventId,
     tenantId: store.tenantId,
     externalOrderId: order.externalOrderId,
-    result: result.status,
+    result: status,
   });
-  return result.status === "created" ? "order_created" : "order_updated";
+  return status === "created" ? "order_created" : "order_updated";
 }
 
 /**
@@ -280,6 +219,10 @@ async function handleSyncFailure(sync: OrderSync, job: JobContext, error: unknow
 
 export function createWebhookEventProcessor(dependencies: WebhookDependencies) {
   return async function processWebhookEvent(job: JobContext): Promise<WebhookOutcome> {
+    const catchUp = storeOrderCatchUpJobSchema.safeParse(job.data);
+    if (catchUp.success) {
+      return catchUpStoreOrders(dependencies, catchUp.data);
+    }
     const webhookEventId = parseWebhookJob(job);
     const event = await loadWebhookEvent(dependencies, webhookEventId);
     if (event.processedAt) {

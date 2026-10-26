@@ -33,8 +33,8 @@ export function createWebhookEventSweepProcessor(dependencies: WebhookEventSweep
       receivedBefore: new Date(now - UNPROCESSED_WEBHOOK_GRACE_MILLISECONDS),
       limit: SWEEP_BATCH_SIZE,
     };
-    // Walks the whole window, not only its oldest 500: a store waiting to reconnect keeps its
-    // events unprocessed for a day, and as the first page they hid every newer lost event.
+    // Walks the whole window, not only its oldest 500: events that keep failing for a day (a
+    // marketplace that keeps refusing) would otherwise hide every newer lost event.
     let requeued = 0;
     let after: UnprocessedEventCursor | undefined;
     for (let page = 0; page < SWEEP_MAX_PAGES; page += 1) {

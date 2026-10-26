@@ -250,19 +250,26 @@ describe("webhook-event processor: stock and held sales", () => {
     expect(await processWebhook(job(eventId))).toBe("order_created");
   });
 
-  it("holds a sale while the store has lost its access, and takes it once reconnected", async () => {
+  // Regression (security audit, 26/10/2026): the event waited unprocessed for the reconnection,
+  // so anyone who knows the app's public id could pile up events retried every 5 minutes and
+  // never deleted. It is closed now; the reconnection reads the sales from the marketplace
+  // (store-order-catch-up.test.ts).
+  it("closes a sale's event while the store has lost its access, with the reason", async () => {
     await setStoreStatus("expired");
     try {
       const eventId = await recordEvent({ shopId, resource: orderResource() });
       expect(await processWebhook(job(eventId))).toBe("awaiting_reconnection");
-      const held = await database.query.webhookEvents.findFirst({
+      const closed = await database.query.webhookEvents.findFirst({
         where: eq(schema.webhookEvents.id, eventId),
       });
-      // Not processed: the sweeper keeps retrying it.
-      expect(held?.processedAt).toBeNull();
+      // Processed: the sweeper leaves it alone and the 30-day pruning removes it.
+      expect(closed?.processedAt).not.toBeNull();
+      expect(closed?.error).toBe(
+        "Loja sem acesso: as vendas entram pela busca feita quando a loja for reconectada",
+      );
 
       await setStoreStatus("connected");
-      expect(await processWebhook(job(eventId))).toBe("order_created");
+      expect(await processWebhook(job(eventId))).toBe("already_processed");
     } finally {
       await setStoreStatus("connected");
     }

@@ -6,6 +6,7 @@ import {
   findOAuthStateProfile,
   createOAuthState,
   findOnboardingProfile,
+  findStoreAwaitingReconnection,
   hasLiveStoreConnection,
   isUserEmailVerified,
   upsertStoreConnection,
@@ -25,6 +26,7 @@ import {
   oauthCallbackUrl,
   tokenCipher,
 } from "@/lib/server/marketplaces";
+import { enqueueStoreOrderCatchUp } from "@/lib/server/queues";
 import { requireSellerRequest, type TenantSession } from "@/lib/server/tenant-session";
 import type { StoreConnectErrorCode } from "./store-connect-errors";
 
@@ -220,7 +222,13 @@ async function connectStore(input: ConnectStoreInput) {
   if (!(await mayConnectShop(input, shop.externalShopId))) {
     return null;
   }
-  return upsertStoreConnection(database, {
+  // Read before the save, which turns the store back to connected.
+  const awaiting = await findStoreAwaitingReconnection(
+    database,
+    input.marketplace,
+    shop.externalShopId,
+  );
+  const store = await upsertStoreConnection(database, {
     billingEnabled: billingConfigured(),
     tenantId: input.tenantId,
     marketplace: input.marketplace,
@@ -231,6 +239,33 @@ async function connectStore(input: ConnectStoreInput) {
     expiresAt: tokens.expiresAt,
     supplierId: input.supplierId,
   });
+  if (awaiting?.id === store.id) {
+    await requestOrderCatchUp(store.id, awaiting.connectedAt);
+  }
+  return store;
+}
+
+/**
+ * How far back a reconnected store's sales are read. Its notifications are closed while it has
+ * no access, so this reading is what brings them in; a month covers a store left expired for
+ * weeks, where the old wait for the reconnection gave up after a day.
+ */
+const ORDER_CATCH_UP_WINDOW_MILLISECONDS = 30 * 24 * 60 * 60 * 1000;
+
+/** Never before the store was first connected: older sales were never the reseller's here. */
+export function orderCatchUpSince(firstConnectedAt: Date, now: Date): Date {
+  const windowStart = now.getTime() - ORDER_CATCH_UP_WINDOW_MILLISECONDS;
+  return new Date(Math.max(firstConnectedAt.getTime(), windowStart));
+}
+
+/** The store is connected either way; a failed request is logged with the store to retry it. */
+async function requestOrderCatchUp(storeConnectionId: string, firstConnectedAt: Date) {
+  const since = orderCatchUpSince(firstConnectedAt, new Date()).toISOString();
+  try {
+    await enqueueStoreOrderCatchUp({ storeConnectionId, since });
+  } catch (error) {
+    logger.error("store.order_catch_up_not_queued", { storeConnectionId, since, error });
+  }
 }
 
 /** GET /api/oauth/:marketplace/callback: validates state, exchanges the code and stores encrypted tokens. */
