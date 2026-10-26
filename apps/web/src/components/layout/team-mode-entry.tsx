@@ -2,6 +2,7 @@ import { ShieldCheckIcon } from "@phosphor-icons/react";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useNavigate } from "@tanstack/react-router";
 import { Hint } from "@/components/ui/hint";
+import { teamHomeFor } from "@/features/auth/team-mode";
 import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
 import { ADMIN_NAV_ITEMS } from "@/features/navigation/nav-items";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,14 @@ function firstTeamPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
   return page.to;
 }
 
+/**
+ * Where the team's way in lands: the same page signing in opens for agents and supervisors (the
+ * ticket queue), else the first team page the role may open.
+ */
+export function teamEntryPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
+  return teamHomeFor(role, true) ?? firstTeamPage(role);
+}
+
 function useEnterTeamMode(role: string) {
   const navigate = useNavigate();
   const { name, switchTeamMode } = useTeamModeSwitch(role);
@@ -27,7 +36,7 @@ function useEnterTeamMode(role: string) {
     if (!switched) {
       return;
     }
-    await navigate({ to: firstTeamPage(role) });
+    await navigate({ to: teamEntryPage(role) });
   }
 
   return { name, enter };
