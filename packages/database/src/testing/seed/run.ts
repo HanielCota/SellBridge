@@ -92,7 +92,26 @@ async function seedSupplierAccount(database: Database, password: string): Promis
     .where(
       and(eq(suppliers.name, SUPPLIER_ACCOUNT.supplierName), isNull(suppliers.organizationId)),
     );
+  await assertSupplierLinked(database, supplierAccount.tenantId);
   logger.info("seed.supplier_account_ready", { created: supplierAccount.created });
+}
+
+/**
+ * The account opens the panel only when it runs that supplier. A supplier missing from the seed
+ * data is a broken seed; one another profile already runs (a local database where it was
+ * claimed by hand) leaves the account on the brand step, which is said instead of passing quietly.
+ */
+async function assertSupplierLinked(database: Database, tenantId: string): Promise<void> {
+  const [supplier] = await database
+    .select({ organizationId: suppliers.organizationId })
+    .from(suppliers)
+    .where(eq(suppliers.name, SUPPLIER_ACCOUNT.supplierName));
+  if (supplier === undefined) {
+    throw new Error(`Seed supplier "${SUPPLIER_ACCOUNT.supplierName}" is missing from the catalog`);
+  }
+  if (supplier.organizationId !== tenantId) {
+    logger.warn("seed.supplier_account_unlinked", { supplier: SUPPLIER_ACCOUNT.supplierName });
+  }
 }
 
 /** Everything the local environment and the E2E tests expect; idempotent. */
