@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 import { navTabClassName } from "./nav-tab-parts";
+import { HEADER_ROUND_BUTTON_CLASSES } from "./support-button";
 
 /** Where switching the mode on lands: the first team page the role may open. */
 function firstTeamPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
@@ -61,7 +62,10 @@ export function TeamModeButton({ role }: { role: string }) {
         type="button"
         aria-label={name}
         onClick={() => void enter()}
-        className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-foreground ring-1 ring-border transition-[background-color,scale] duration-150 outline-none hover:bg-foreground/[0.06] focus-visible:ring-4 focus-visible:ring-ring/30 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100 min-[1366px]:pr-4 min-[1366px]:pl-3.5"
+        className={cn(
+          HEADER_ROUND_BUTTON_CLASSES,
+          "text-foreground ring-1 ring-border transition-[background-color,scale] hover:bg-foreground/[0.06] min-[1366px]:pr-4 min-[1366px]:pl-3.5",
+        )}
       >
         <ShieldCheckIcon className="size-5" weight="fill" aria-hidden="true" />
         {/* Beside the support button the word squeezes the tab capsule below 1366px (measured at

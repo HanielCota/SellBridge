@@ -10,8 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
 import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
 import { SUPPORT_HOURS_TEXT, unreadRepliesText } from "@/features/support/response-time";
+import { cn } from "@/lib/utils";
 
 const SupportIcon = ACTION_ICONS.support.icon;
+
+/** Size, shape, focus ring and press feedback shared by the round buttons beside the bell. */
+export const HEADER_ROUND_BUTTON_CLASSES =
+  "relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/30 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100";
 
 /**
  * Help one tap away from every page: open a ticket, or jump back into one. The badge counts
@@ -56,7 +61,10 @@ export function SupportButton({
           aria-label={unread > 0 ? `Suporte: ${unreadRepliesText(unread)}` : "Suporte"}
           className={
             className ??
-            "relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-card text-muted-foreground transition-[color,scale] duration-150 outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/30 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100 xl:pr-4 xl:pl-3.5"
+            cn(
+              HEADER_ROUND_BUTTON_CLASSES,
+              "text-muted-foreground transition-[color,scale] hover:text-foreground xl:pr-4 xl:pl-3.5",
+            )
           }
         >
           <SupportIcon className="size-5" aria-hidden="true" />
