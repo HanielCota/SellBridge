@@ -8,6 +8,7 @@ import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
+import { signInErrorMessage } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
@@ -47,7 +48,7 @@ function useLoginForm() {
       setSubmitError(null);
       const result = await authClient.signIn.email(value);
       if (result.error) {
-        setSubmitError("E-mail ou senha incorretos.");
+        setSubmitError(signInErrorMessage(result.error));
         return;
       }
       await navigate({ to: search.redirect ?? "/dashboard" });
