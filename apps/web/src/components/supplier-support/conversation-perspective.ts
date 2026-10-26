@@ -19,7 +19,7 @@ export function describeConversationEvent(event: TicketEventView): string | null
 }
 
 const CONVERSATION_BASE = {
-  responderTag: null,
+  responderBadge: null,
   responderAvatar: "initials",
   describeEvent: describeConversationEvent,
   receiptOwner: "pelo fornecedor",
