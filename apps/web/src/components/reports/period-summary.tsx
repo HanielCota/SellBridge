@@ -57,7 +57,7 @@ export function PeriodSummary({
   return (
     <p
       className={cn(
-        "max-w-md text-base leading-relaxed text-muted-foreground text-pretty",
+        "max-w-[60ch] text-[1.0625rem] leading-relaxed text-muted-foreground text-pretty",
         className,
       )}
     >
@@ -145,7 +145,10 @@ export function sentenceReais(cents: number): string {
   return Math.abs(cents) < 100 ? formatCents(cents) : wholeReais.format(cents / 100);
 }
 
-/** "Você lucrou R$ 1.130 no período, 10% a mais que no anterior, com 37% de margem." */
+/**
+ * "Você lucrou R$ 1.130,40 no período, 10% a mais que no anterior, com 37% de margem." With
+ * cents, as the lists right under it (board 5, approved on 2026-10-25).
+ */
 function ProfitSentence({ current, previous }: { current: Totals; previous: Totals }) {
   if (current.revenueCents <= 0 && current.profitCents === 0) {
     return null;
@@ -155,7 +158,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
       <>
         Você teve{" "}
         <span className="font-medium text-destructive">
-          prejuízo de {sentenceReais(-current.profitCents)}
+          prejuízo de {formatCents(-current.profitCents)}
         </span>{" "}
         no período.{" "}
       </>
@@ -166,7 +169,7 @@ function ProfitSentence({ current, previous }: { current: Totals; previous: Tota
   const moved = trend !== null && trend.direction !== "flat";
   return (
     <>
-      Você lucrou <Strong>{sentenceReais(current.profitCents)}</Strong> no período
+      Você lucrou <Strong>{formatCents(current.profitCents)}</Strong> no período
       {moved ? (
         <>
           ,{" "}
@@ -203,9 +206,8 @@ function PendingCostNote({ current }: { current: Totals }) {
   const one = current.pendingCostOrders === 1;
   return (
     <>
-      <Strong>{sentenceReais(current.pendingCostRevenueCents)}</Strong> em{" "}
-      {current.pendingCostOrders} {one ? "venda" : "vendas"} com custo pendente{" "}
-      {one ? "ficou" : "ficaram"} fora do lucro.{" "}
+      <Strong>{formatCents(current.pendingCostRevenueCents)}</Strong> em {current.pendingCostOrders}{" "}
+      {one ? "venda" : "vendas"} com custo pendente {one ? "ficou" : "ficaram"} fora do lucro.{" "}
     </>
   );
 }
