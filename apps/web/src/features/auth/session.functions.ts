@@ -4,7 +4,7 @@ import { getCookie, getRequest, getRequestHeaders, setCookie } from "@tanstack/r
 import { z } from "zod";
 import { hasAcceptedTerms } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { isStaffRole } from "@sellbridge/shared/staff-access";
+import { isTeamModeOn } from "@/features/auth/team-mode";
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import { auth, isGoogleSignInEnabled } from "@/lib/server/auth";
 import { database } from "@/lib/server/database";
@@ -49,7 +49,7 @@ export interface AppSession {
   impersonatedBy: string | null;
   /** When an admin's visit ends on its own (ISO), or null outside one. */
   impersonationEndsAt: string | null;
-  /** True only for team members (agent, supervisor, admin) who turned admin mode on. */
+  /** True only for team members (agent, supervisor, admin) with the mode on (`isTeamModeOn`). */
   adminMode: boolean;
   /** Whether this person accepted the terms in force (item 26.a): the app asks first. */
   termsAccepted: boolean;
@@ -76,7 +76,7 @@ export const getAppSession = createServerFn({ method: "GET" }).handler(
         image: session.user.image ?? null,
         createdAt: new Date(session.user.createdAt).toISOString(),
       },
-      adminMode: isStaffRole(role) && getCookie(ADMIN_MODE_COOKIE) === "on",
+      adminMode: isTeamModeOn(role, getCookie(ADMIN_MODE_COOKIE)),
       ...profile,
       impersonatedBy: session.session.impersonatedBy ?? null,
       impersonationEndsAt: session.session.impersonatedBy
