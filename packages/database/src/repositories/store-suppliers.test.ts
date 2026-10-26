@@ -7,7 +7,13 @@ import {
   createTestTenantPair,
   testStoreInput,
 } from "../testing/fixtures.ts";
-import { assertStoresSellSupplier, assignStoreSupplier } from "./store-suppliers.ts";
+import { ensureSellerCatalog } from "./seller-catalog.ts";
+import {
+  assertStoresSellSupplier,
+  assignStoreSupplier,
+  findStoreSuppliers,
+  findStoreSuppliersVisibleTo,
+} from "./store-suppliers.ts";
 import { listStoreConnections, upsertStoreConnection } from "./stores.ts";
 
 const database = createTestDatabase();
@@ -97,5 +103,32 @@ describe("store supplier", () => {
     await supplierOne.cleanup();
     const [store] = await listStoreConnections(database, tenants.tenantA);
     expect(store?.supplierId).toBeNull();
+  });
+});
+
+// Regression (security audit, 26/10/2026): the stores page takes a supplier id from the URL, and
+// another seller's private catalog came back with that seller's organization name.
+describe("suppliers a seller may see by id", () => {
+  it("never returns another seller's private catalog, only public ones and its own", async () => {
+    const catalogOfA = await ensureSellerCatalog(database, tenants.tenantA);
+    const catalogOfB = await ensureSellerCatalog(database, tenants.tenantB);
+    const publicSource = await createTestSupplierProduct(database, {
+      sku: `SS3-${tenants.tenantA}`,
+      title: "Produto público",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    const ids = [catalogOfA.id, catalogOfB.id, publicSource.supplierId];
+
+    const seenByA = await findStoreSuppliersVisibleTo(database, tenants.tenantA, ids);
+
+    expect(seenByA.map((supplier) => supplier.id).toSorted()).toEqual(
+      [catalogOfA.id, publicSource.supplierId].toSorted(),
+    );
+    // The team's screens still find any supplier by id.
+    expect(
+      (await findStoreSuppliers(database, [catalogOfB.id])).map((supplier) => supplier.id),
+    ).toEqual([catalogOfB.id]);
+    await publicSource.cleanup();
   });
 });

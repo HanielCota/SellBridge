@@ -1,7 +1,7 @@
 import {
   changeStoreSupplier,
   findOnboardingProfile,
-  findStoreSuppliers,
+  findStoreSuppliersVisibleTo,
   listStoreConnections,
   previewStoreSupplierChange,
   type StoreSupplier,
@@ -40,7 +40,10 @@ export const getStoreSuppliers = createServerFn({ method: "GET" })
     const extra = [starterId, picked].flatMap((id) =>
       id === null || id === undefined ? [] : [id],
     );
-    const suppliers = await findStoreSuppliers(database, [...ids, ...extra]);
+    const suppliers = await findStoreSuppliersVisibleTo(database, context.tenantId, [
+      ...ids,
+      ...extra,
+    ]);
     return {
       productSourceMode: profile.productSourceMode,
       suppliers,
