@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { navTabClassName } from "./nav-tab-parts";
 
 /** Where switching the mode on lands: the first team page the role may open. */
-function firstTeamPage(role: string) {
+function firstTeamPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
   const page = ADMIN_NAV_ITEMS.find(
     (item) => item.permission === undefined || hasStaffPermission(role, item.permission),
   );

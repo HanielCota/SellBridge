@@ -33,7 +33,10 @@ export function isTeamModeOn(role: string, preference: string | undefined): bool
  * store, so the dashboard only showed the reseller's setup. Null for everyone else.
  */
 export function teamHomeFor(role: string, teamModeOn: boolean): "/admin/chamados" | null {
-  if (!teamModeOn || role === "admin" || !isStaffRole(role)) {
+  if (!teamModeOn) {
+    return null;
+  }
+  if (role === "admin" || !isStaffRole(role)) {
     return null;
   }
   return "/admin/chamados";
