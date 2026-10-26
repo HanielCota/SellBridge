@@ -10,11 +10,12 @@ import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import type { z } from "zod";
-import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
+import { ChoiceChips } from "@/components/data/choice-chips";
+import type { FilterTab } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
-import { SegmentedControl } from "@/components/data/segmented-control";
 import { SmartDate } from "@/components/data/smart-date";
+import { UnderlineTabs } from "@/components/data/underline-tabs";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -119,7 +120,7 @@ function OrdersPage() {
         title="Pedidos"
         description="Encaminhe vendas aos fornecedores, acompanhe a separação, imprima etiquetas e consulte o rastreio."
       />
-      <FilterTabs
+      <UnderlineTabs
         legend="Visão dos pedidos"
         tabs={VIEW_TABS}
         value={search.view}
@@ -162,7 +163,7 @@ function OrderFilters() {
   });
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <SegmentedControl
+      <ChoiceChips
         legend="Filtrar pedidos"
         options={REVIEW_FILTERS}
         labels={REVIEW_FILTER_LABELS}
