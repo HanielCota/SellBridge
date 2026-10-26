@@ -44,7 +44,7 @@ describe("submitTransition", () => {
   it("refuses anything that is not a draft", () => {
     expect(submitTransition("rejected", 0)).toEqual({
       allowed: false,
-      message: "Só um rascunho pode ser enviado para análise (status atual: Reprovado)",
+      message: "Só um rascunho pode ser enviado para análise (situação atual: Reprovado)",
     });
   });
 });

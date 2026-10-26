@@ -145,7 +145,7 @@ function NoTickets({
       <EmptyState
         icon={HeadsetIcon}
         title="Nenhum chamado encontrado"
-        description="Ajuste a busca ou o status. Seus outros chamados continuam na lista completa."
+        description="Ajuste a busca ou a situação. Seus outros chamados continuam na lista completa."
         action={
           <Button variant="outline" onClick={onClearFilter}>
             Ver todos os chamados

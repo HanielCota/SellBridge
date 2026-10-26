@@ -26,7 +26,7 @@ describe("audit copy", () => {
         action: "ticket.status_changed",
         details: { from: "open", to: "closed" },
       }),
-    ).toBe("Mudou o status para Encerrado");
+    ).toBe("Mudou a situação para Encerrado");
     expect(
       describeAuditEntry({
         ...base,

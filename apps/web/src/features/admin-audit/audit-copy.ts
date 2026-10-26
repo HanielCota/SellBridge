@@ -83,7 +83,7 @@ function labelOf(labels: Readonly<Record<string, string>>, value: string | null)
 }
 
 const SUPPORT_COPY: Readonly<Record<string, (to: string | null, from: string | null) => string>> = {
-  "ticket.status_changed": (to) => `Mudou o status para ${labelOf(STATUS_LABELS, to)}`,
+  "ticket.status_changed": (to) => `Mudou a situação para ${labelOf(STATUS_LABELS, to)}`,
   "ticket.priority_changed": (to) => `Mudou a prioridade para ${labelOf(PRIORITY_LABELS, to)}`,
   "ticket.category_changed": (to) => `Mudou o tema para ${labelOf(CATEGORY_LABELS, to)}`,
   "ticket.assigned": (to) => (to === null ? "Tirou o responsável" : "Definiu o responsável"),

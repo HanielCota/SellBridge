@@ -210,7 +210,7 @@ export function CatalogProductList({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-full overflow-x-auto">
           <FilterTabs
-            legend="Status dos produtos"
+            legend="Situação dos produtos"
             tabs={STATUS_TABS.map((tab) => ({ ...tab, count: counts?.[tab.value] }))}
             value={search.status}
             onChange={(status) => onSearchChange({ status, page: 1 })}

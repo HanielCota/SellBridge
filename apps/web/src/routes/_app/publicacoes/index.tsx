@@ -174,7 +174,7 @@ function ListingsGrid() {
         title={isFiltered ? "Nenhuma publicação encontrada" : "Você ainda não publicou produtos"}
         description={
           isFiltered
-            ? "Ajuste a busca ou escolha outro status."
+            ? "Ajuste a busca ou escolha outra situação."
             : "Escolha produtos no catálogo e publique nas suas lojas."
         }
         action={

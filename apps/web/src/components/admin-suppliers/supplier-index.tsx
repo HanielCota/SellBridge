@@ -43,7 +43,7 @@ const supplierColumns = columnHelper.columns([
     cell: (information) => `${information.getValue()} - ${information.row.original.state}`,
   }),
   columnHelper.accessor("active", {
-    header: "Status",
+    header: "Situação",
     cell: (information) => (
       <ToneStatus
         tone={information.getValue() ? "success" : "muted"}

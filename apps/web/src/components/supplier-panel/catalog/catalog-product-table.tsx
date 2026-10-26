@@ -126,7 +126,7 @@ function catalogColumns(
       ),
     }),
     columnHelper.accessor("reviewStatus", {
-      header: "Status",
+      header: "Situação",
       cell: (information) => <ReviewStatus status={information.getValue()} />,
     }),
     columnHelper.display({

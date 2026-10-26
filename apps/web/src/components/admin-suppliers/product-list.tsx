@@ -97,7 +97,7 @@ function productColumns(onEdit: (product: AdminSupplierProduct) => void) {
       ),
     }),
     columnHelper.accessor("active", {
-      header: "Status",
+      header: "Situação",
       cell: (information) => (
         <ToneStatus
           tone={information.getValue() ? "success" : "muted"}

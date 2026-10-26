@@ -164,7 +164,7 @@ test.describe("financeiro", () => {
     }
     const csv = Buffer.concat(chunks).toString("utf8");
     const lines = csv.trim().split("\r\n");
-    expect(lines[0]).toContain("Data;Pedido;Loja;Comprador;Status");
+    expect(lines[0]).toContain("Data;Pedido;Loja;Comprador;Situação");
     expect(lines.length).toBeGreaterThan(1);
     expect(
       lines.slice(1).every((line) => line.includes(";Devolvido;") || line.includes(";Cancelado;")),
