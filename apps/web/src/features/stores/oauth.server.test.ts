@@ -31,11 +31,11 @@ vi.mock("@/lib/server/environment", () => ({
   },
 }));
 vi.mock("@/lib/server/marketplaces", () => ({
-  connectors: { mock: { exchangeCode: mocks.exchangeCode } },
-  oauthCallbackUrl: (marketplace: string, origin: string) =>
-    `${origin}/api/oauth/${marketplace}/callback`,
-  oauthAuthorizationUrl: (_marketplace: string, request: { state: string }, origin: string) =>
-    `${origin}/oauth/mock/autorizar?state=${request.state}`,
+  connectors: { mercado_livre: { exchangeCode: mocks.exchangeCode } },
+  oauthCallbackUrl: (marketplace: string) =>
+    `https://sellbridge.test/api/oauth/${marketplace}/callback`,
+  oauthAuthorizationUrl: (_marketplace: string, request: { state: string }) =>
+    `https://auth.mercadolivre.com.br/authorization?state=${request.state}`,
   tokenCipher: { encrypt: (value: string) => `enc:${value}` },
 }));
 vi.mock("@/features/billing/stripe.server", () => ({ billingConfigured: () => false }));
@@ -55,11 +55,13 @@ const { handleOAuthCallback, handleOAuthStart } = await import("./oauth.server")
 const SHOP = { externalShopId: "ml-123", shopName: "Loja do Vendedor" };
 
 function callbackRequest(): Request {
-  return new Request("https://sellbridge.test/api/oauth/mock/callback?code=abc&state=state-1");
+  return new Request(
+    "https://sellbridge.test/api/oauth/mercado_livre/callback?code=abc&state=state-1",
+  );
 }
 
 async function redirectedTo(): Promise<URL> {
-  const response = await handleOAuthCallback(callbackRequest(), "mock");
+  const response = await handleOAuthCallback(callbackRequest(), "mercado_livre");
   expect(response.status).toBe(302);
   return new URL(response.headers.get("location") ?? "");
 }
@@ -96,7 +98,7 @@ describe("OAuth callback", () => {
       {},
       {
         state: "state-1",
-        marketplace: "mock",
+        marketplace: "mercado_livre",
         userId: "user-b",
       },
     );
@@ -109,7 +111,7 @@ describe("OAuth callback", () => {
     expect(location.searchParams.get("conectada")).toBe("store-1");
     expect(mocks.consumeOAuthState).toHaveBeenCalledWith(
       {},
-      expect.objectContaining({ tenantId: "tenant-b", marketplace: "mock" }),
+      expect.objectContaining({ tenantId: "tenant-b", marketplace: "mercado_livre" }),
     );
     expect(mocks.upsertStoreConnection).toHaveBeenCalledWith(
       {},
@@ -151,8 +153,8 @@ describe("connecting a store while an admin uses the customer's account", () => 
 
   it("sends the admin back before asking the marketplace for consent", async () => {
     const response = await handleOAuthStart(
-      new Request("https://sellbridge.test/api/oauth/mock/start"),
-      "mock",
+      new Request("https://sellbridge.test/api/oauth/mercado_livre/start"),
+      "mercado_livre",
     );
     const location = new URL(response.headers.get("location") ?? "");
     expect(location.pathname).toBe("/lojas");
@@ -176,8 +178,8 @@ describe("redirects on a trusted host other than APP_URL", () => {
       impersonatedBy: "admin-1",
     });
     const response = await handleOAuthStart(
-      new Request("http://127.0.0.1:4850/api/oauth/mock/start"),
-      "mock",
+      new Request("http://127.0.0.1:4850/api/oauth/mercado_livre/start"),
+      "mercado_livre",
     );
     const location = new URL(response.headers.get("location") ?? "");
     expect(location.origin).toBe("http://127.0.0.1:4850");
@@ -187,8 +189,8 @@ describe("redirects on a trusted host other than APP_URL", () => {
   it("never follows a host that is not trusted", async () => {
     mocks.requireSellerRequest.mockRejectedValue(unauthorizedError());
     const response = await handleOAuthStart(
-      new Request("http://evil.example/api/oauth/mock/start"),
-      "mock",
+      new Request("http://evil.example/api/oauth/mercado_livre/start"),
+      "mercado_livre",
     );
     expect(new URL(response.headers.get("location") ?? "").origin).toBe("https://sellbridge.test");
   });
@@ -213,7 +215,15 @@ describe("verified e-mail before a new store", () => {
     expect(location.searchParams.get("conectada")).toBe("store-1");
     expect(mocks.hasLiveStoreConnection).toHaveBeenCalledWith(
       {},
-      { tenantId: "tenant-b", marketplace: "mock", externalShopId: SHOP.externalShopId },
+      { tenantId: "tenant-b", marketplace: "mercado_livre", externalShopId: SHOP.externalShopId },
     );
   });
+});
+
+it("refuses the retired mock callback without exchanging a code", async () => {
+  const response = await handleOAuthCallback(callbackRequest(), "mock");
+  expect(new URL(response.headers.get("location") ?? "").searchParams.get("erro")).toBe(
+    "unknown_marketplace",
+  );
+  expect(mocks.exchangeCode).not.toHaveBeenCalled();
 });

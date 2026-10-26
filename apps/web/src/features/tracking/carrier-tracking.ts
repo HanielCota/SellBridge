@@ -2,7 +2,7 @@ import { freeText } from "@sellbridge/shared/schemas";
 import { z } from "zod";
 
 /** Which carrier source answers the tracking (env `CARRIER_TRACKING_PROVIDER`). */
-export const CARRIER_TRACKING_PROVIDERS = ["off", "simulated"] as const;
+export const CARRIER_TRACKING_PROVIDERS = ["off"] as const;
 export type CarrierTrackingProviderName = (typeof CARRIER_TRACKING_PROVIDERS)[number];
 
 /**
@@ -39,7 +39,7 @@ export type CarrierTrackingEvent = z.infer<typeof carrierTrackingEventSchema>;
 /**
  * A provider's answer. `not_connected`: no carrier is connected yet (provider `off`);
  * `not_found`: the carrier does not know the code; `unavailable`: the carrier could not be
- * reached; `found`: its events, oldest first. `simulated` marks demonstration data.
+ * reached; `found`: its events, oldest first.
  */
 export const carrierTrackingResultSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal("not_connected") }),
@@ -48,7 +48,6 @@ export const carrierTrackingResultSchema = z.discriminatedUnion("state", [
   z.object({
     state: z.literal("found"),
     carrier: z.string().min(1),
-    simulated: z.boolean(),
     events: z.array(carrierTrackingEventSchema),
   }),
 ]);

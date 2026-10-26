@@ -5,7 +5,6 @@ import {
   type CustomerIssue,
 } from "@sellbridge/shared/customer-health";
 import type { CustomerIssueKind } from "@sellbridge/shared/schemas";
-import { displayStoreName } from "@/features/stores/store-name";
 
 /** The heading of each attention tile and of the issue filter. */
 export const ISSUE_KIND_LABELS: Record<CustomerIssueKind, string> = {
@@ -35,7 +34,7 @@ function storeCopy(issue: Extract<CustomerIssue, { kind: "store" }>): IssueCopy 
     : "A conexão falhou: pedidos e estoque não sincronizam.";
   if (issue.stores.length === 1 && first) {
     return {
-      title: `Reconectar ${displayStoreName(first.shopName)}`,
+      title: `Reconectar ${first.shopName}`,
       description,
       badge: "Loja desconectada",
     };

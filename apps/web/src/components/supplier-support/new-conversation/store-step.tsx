@@ -8,7 +8,6 @@ import {
   StepHeading,
 } from "@/components/support/new-ticket/step-parts";
 import { Button } from "@/components/ui/button";
-import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 
 /** Why a store cannot be picked, in one short line; null when it can. */
@@ -44,7 +43,7 @@ function StoreOption({
     >
       <StorefrontIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0">
-        <span className="block text-sm font-medium">{displayStoreName(store.storeName)}</span>
+        <span className="block text-sm font-medium">{store.storeName}</span>
         <span className="block text-sm text-muted-foreground">
           {reason ?? `Fornecedor: ${store.supplierName ?? ""}`}
         </span>

@@ -8,7 +8,6 @@ import {
   TicketSubjectList,
   type TicketSubjectLabels,
 } from "@/components/support/ticket-subject";
-import { displayStoreName } from "@/features/stores/store-name";
 
 function PanelSection({
   title,
@@ -38,7 +37,7 @@ function LinkedOrderItem({ order }: { order: LinkedOrder }) {
         <OrderStatusBadge status={order.status} />
       </div>
       <p className="truncate text-xs text-muted-foreground">
-        {displayStoreName(order.storeName)} · {formatCents(order.totalCents)}
+        {order.storeName} · {formatCents(order.totalCents)}
       </p>
       <p className="text-xs text-muted-foreground">
         Vendido <SmartDate date={order.orderedAt} />

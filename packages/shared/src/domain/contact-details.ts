@@ -43,7 +43,7 @@ const DIGIT_RUN = String.raw`(?:\+\s?)?\(?\d(?:[\s()./-]{0,3}\d){7,}`;
 
 /**
  * Codes that say which sale the review is about: tracking codes ("AA123456789BR"), listings
- * ("MLB1234567890") and simulated sales ("SIM-9F936BC5"). They are kept whole; any other digits
+ * ("MLB1234567890") and legacy order references ("SIM-9F936BC5"). They are kept whole; any other digits
  * glued to a word ("zap11987654321") are still a phone.
  */
 const KEPT_CODE = String.raw`[A-Z]{2}\d{9}[A-Z]{2}(?![\p{L}\d])|MLB\d+|SIM-[A-Z0-9]+`;

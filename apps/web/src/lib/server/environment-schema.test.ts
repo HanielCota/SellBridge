@@ -117,12 +117,11 @@ describe("serverEnvironmentSchema", () => {
   });
 
   describe("CARRIER_TRACKING_PROVIDER", () => {
-    it("defaults to simulated tracking outside production and to off in production", () => {
+    it("defaults to disconnected tracking in every environment", () => {
       const development = serverEnvironmentSchema.parse(validEnvironment);
-      expect(carrierTrackingProviderName(development)).toBe("simulated");
+      expect(carrierTrackingProviderName(development)).toBe("off");
       expect(
         carrierTrackingProviderName({
-          NODE_ENV: "production",
           CARRIER_TRACKING_PROVIDER: undefined,
         }),
       ).toBe("off");

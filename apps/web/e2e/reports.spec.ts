@@ -58,9 +58,9 @@ test.describe("dashboard", () => {
     await expect(chart).toBeVisible();
 
     await page.getByLabel("Loja", { exact: true }).click();
-    await page.getByRole("option", { name: "Ana Moda (loja simulada)" }).click();
+    await page.getByRole("option", { name: "Ana Moda" }).click();
     await expect(page).toHaveURL(/store=/);
-    await expect(page.getByText("Ana Casa & Beleza (loja simulada)")).toHaveCount(0);
+    await expect(page.getByText("Ana Casa & Beleza")).toHaveCount(0);
   });
 
   // Regression: one day drew a single daily bucket, two lone dots instead of a line.

@@ -1,6 +1,7 @@
 import type { BrazilianState } from "@sellbridge/shared/brazilian-states";
 import { logger } from "@sellbridge/shared/logger";
 import { z } from "zod";
+import { createAsyncCache } from "@/lib/server/async-cache";
 
 export type FetchCities = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -67,25 +68,14 @@ async function requestWithRetry(
   return [];
 }
 
-/**
- * Looks up a state's cities in IBGE, for the billing city suggestions. A failure gives no
- * suggestions (logged) instead of an error: the field takes any typed city anyway. A found list
- * is kept, since cities rarely change (a new one every few years).
- */
-export function createCitiesLookup(fetchCities: FetchCities = fetch) {
-  const citiesByState = new Map<BrazilianState, readonly string[]>();
-  return async function listCitiesOfState(state: BrazilianState): Promise<readonly string[]> {
-    const cached = citiesByState.get(state);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const cities = await requestWithRetry(state, fetchCities);
-    if (cities.length > 0) {
-      citiesByState.set(state, cities);
-    }
-    return cities;
-  };
+/** Successful lists last a day; an outage has a short cooldown before another attempt. */
+export function createCitiesLookup(fetchCities: FetchCities = fetch, now: () => number = Date.now) {
+  return createAsyncCache<BrazilianState, readonly string[]>({
+    load: (state) => requestWithRetry(state, fetchCities),
+    maxEntries: 27,
+    ttlMilliseconds: (cities) => (cities.length > 0 ? 24 * 60 * 60_000 : 30_000),
+    now,
+  });
 }
 
-/** The one lookup the server uses, so its cache lasts for the whole process. */
 export const listCitiesOfState = createCitiesLookup();

@@ -1,4 +1,4 @@
-import { FlaskIcon } from "@phosphor-icons/react";
+import { StorefrontIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { SHOPEE_PATH, TIKTOK_PATH } from "./marketplace-logo-paths";
@@ -60,7 +60,7 @@ export function MarketplaceMark({
         className,
       )}
     >
-      {mark ? mark.logo : <FlaskIcon className="size-[45%]" />}
+      {mark ? mark.logo : <StorefrontIcon className="size-[45%]" />}
     </span>
   );
 }

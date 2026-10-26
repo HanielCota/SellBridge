@@ -46,7 +46,7 @@ const LOOKALIKE_DIGITS: ReadonlyMap<string, string> = new Map([
 ]);
 const LOOKALIKE = /(?<=\d)[olis](?![a-z])|(?<![a-z])[olis](?=\d)/g;
 
-/** Codes that are all digits and letters but never a phone: tracking, listings, simulated sales. */
+/** Codes that are all digits and letters but never a phone: tracking, listings, legacy order references. */
 const NON_CONTACT_CODES = /[a-z]{2}\d{9}[a-z]{2}|mlb\d+|sim-[a-z0-9]+/g;
 
 /** Up to five of the characters people put between digits; a slash or a letter ends the run. */

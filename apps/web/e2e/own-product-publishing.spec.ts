@@ -41,7 +41,7 @@ test("seller-owned product publishes and archives through a supplier-free store"
   await page.getByRole("radio", { name: /^Meus próprios produtos/ }).check();
   await page.getByRole("button", { name: "Salvar origem dos produtos", exact: true }).click();
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill("Own Publishing Store");
   await page.getByRole("button", { name: "Autorizar acesso" }).click();

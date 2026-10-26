@@ -1,7 +1,6 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { profitMargin } from "@/features/reports/dashboard-insights";
 import { BreakdownSection } from "@/components/reports/breakdown-section";
-import { displayStoreName } from "@/features/stores/store-name";
 import { formatPercent } from "@/lib/percent";
 
 interface StoreRow {
@@ -36,7 +35,7 @@ function marginText(store: StoreRow): string {
 
 function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: number }) {
   const share = totalRevenue > 0 ? store.revenueCents / totalRevenue : 0;
-  const name = displayStoreName(store.storeName);
+  const name = store.storeName;
   return (
     <li className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 text-sm">

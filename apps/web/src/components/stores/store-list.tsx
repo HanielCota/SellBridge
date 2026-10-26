@@ -4,7 +4,6 @@ import { PackageIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { storeHealth } from "@sellbridge/shared/store-attention";
 import { StoreMenu, type StoreRowActions } from "@/components/stores/store-menu";
 import { StoreStatusDot } from "@/components/stores/store-status-badge";
-import { displayStoreName } from "@/features/stores/store-name";
 import { Button } from "@/components/ui/button";
 import type { listStores } from "@/features/stores/stores.functions";
 import { formatAbsoluteTime, formatRelativeTime } from "@/lib/relative-time";
@@ -249,7 +248,7 @@ function StoreRow({
   supplier: StoreSupplierLabel | undefined;
   actions: StoreRowActions;
 }) {
-  const name = displayStoreName(store.shopName);
+  const name = store.shopName;
   return (
     <li className="px-5 py-4">
       <div className={`grid items-center gap-x-4 gap-y-3 ${ROW_COLUMNS}`}>

@@ -21,7 +21,6 @@ function startUrl(marketplace: string, supplier: NewStoreSupplier | null): strin
 }
 
 const DESCRIPTIONS: Record<string, string> = {
-  mock: "Teste publicar, vender e sincronizar sem uma conta real.",
   mercado_livre: "Entre com sua conta de vendedor do Mercado Livre.",
   shopee: "Entre com a conta da sua loja na Shopee.",
   tiktok_shop: "Entre com a conta da sua loja no TikTok Shop.",

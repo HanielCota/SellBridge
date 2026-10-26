@@ -10,11 +10,10 @@ import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
 import { UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
-import { displayStoreName } from "@/features/stores/store-name";
 
 /** Who the conversation is with, in the reader's terms: the brand for a store, the store for a brand. */
 function counterpartLine(row: ConversationSummary, side: ConversationSide): string {
-  const store = displayStoreName(row.storeName ?? "Loja");
+  const store = row.storeName ?? "Loja";
   if (side === "reseller") {
     return `${store} · ${row.supplierName ?? "Fornecedor"}`;
   }

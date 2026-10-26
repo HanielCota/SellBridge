@@ -34,7 +34,6 @@ import {
   orderTrackingQueryOptions,
   parcelsInTransitQueryOptions,
 } from "@/features/tracking/order-tracking.queries";
-import { displayStoreName } from "@/features/stores/store-name";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -203,7 +202,7 @@ function OrderRow({
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
           <span>{row.externalOrderId}</span>
           <span aria-hidden="true">·</span>
-          <span>{displayStoreName(row.storeName)}</span>
+          <span>{row.storeName}</span>
           <span aria-hidden="true">·</span>
           <SmartDate date={row.orderedAt} />
         </p>

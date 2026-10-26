@@ -242,7 +242,7 @@ test.describe("fornecedores e catálogo", () => {
     const addStore = page.getByRole("region", { name: "Adicionar loja" });
     await expect(addStore.getByText("A nova loja vende")).toBeVisible();
     await expect(addStore.getByText("Rio Pet Atacado", { exact: true })).toBeVisible();
-    await expect(addStore.getByRole("link", { name: "Conectar Loja simulada" })).toHaveAttribute(
+    await expect(addStore.getByRole("link", { name: "Conectar Mercado Livre" })).toHaveAttribute(
       "href",
       /fornecedor=/,
     );

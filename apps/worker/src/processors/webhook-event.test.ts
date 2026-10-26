@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
-import { encodeMockOrderResource, openShippingAddress } from "@sellbridge/marketplaces";
+import { openShippingAddress } from "@sellbridge/marketplaces";
+import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
 import { UnrecoverableError } from "bullmq";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

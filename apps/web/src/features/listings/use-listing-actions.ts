@@ -7,7 +7,6 @@ import {
   resendDescriptions,
   retryListings,
   setListingsPausedFn,
-  simulateMockSale,
   updateListingPriceFn,
 } from "./listings.functions";
 
@@ -131,19 +130,5 @@ export function useUpdatePrice(onSaved: () => void) {
       await refresh();
       onSaved();
     },
-  });
-}
-
-export function useSimulateSale() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (listingTargetId: string) => simulateMockSale({ data: { listingTargetId } }),
-    onSuccess: async () => {
-      toast.success("Venda simulada enviada. Ela aparece no financeiro em instantes.");
-      await queryClient.invalidateQueries({ queryKey: ["financials"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      await queryClient.invalidateQueries({ queryKey: ["listings"] });
-    },
-    onError: showError,
   });
 }

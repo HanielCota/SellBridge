@@ -23,14 +23,12 @@ import {
   listingRunState,
   type ListingRunState,
 } from "@/features/listings/listing-health";
-import { useBulkListingActions, useSimulateSale } from "@/features/listings/use-listing-actions";
-import { displayStoreName } from "@/features/stores/store-name";
+import { useBulkListingActions } from "@/features/listings/use-listing-actions";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
 import {
-  useFlaskMotion,
   usePauseMotion,
   usePlayMotion,
   useTagMotion,
@@ -174,7 +172,7 @@ function StoreRowContent({ store }: { store: ListingStore }) {
   return (
     <>
       <MarketplaceMark marketplace={store.marketplace} className="size-5 rounded-md" />
-      <span className="min-w-0 flex-1 truncate">{displayStoreName(store.storeName)}</span>
+      <span className="min-w-0 flex-1 truncate">{store.storeName}</span>
       <span className="sr-only">, {LISTING_STATUS_LABELS[store.status]}</span>
       {store.externalUrl ? (
         <ArrowUpRightIcon
@@ -214,32 +212,6 @@ function StoresSection({ row }: { row: ListingOverviewRow }) {
           </DropdownMenuItem>
         ),
       )}
-    </>
-  );
-}
-
-function SimulateSaleItem({ row }: { row: ListingOverviewRow }) {
-  const simulate = useSimulateSale();
-  const motion = useFlaskMotion();
-  const target = row.stores.find(
-    (store) => store.marketplace === "mock" && store.status === "published",
-  );
-  if (!target) {
-    return null;
-  }
-  return (
-    <>
-      <DropdownMenuSeparator />
-      <ActionItem
-        motion={motion}
-        label="Simular venda"
-        trailing={<span className="sr-only">. {CONTROL_HINTS.simulateSale}</span>}
-        onSelect={() => simulate.mutate(target.id)}
-      />
-      {/* Said in words, not only in a hover legend: a menu item takes no tooltip. */}
-      <p className="-mt-1 pr-2 pb-1.5 pl-8 text-xs text-muted-foreground" aria-hidden="true">
-        Teste: cria um pedido sem cobrar ninguém
-      </p>
     </>
   );
 }
@@ -293,7 +265,6 @@ export function ListingMenu({
         <EditPriceItem onEditPrice={onEditPrice} />
         <RunStateItem row={row} />
         <StoresSection row={row} />
-        <SimulateSaleItem row={row} />
         <TalkToSupportItem row={row} />
       </DropdownMenuContent>
     </DropdownMenu>

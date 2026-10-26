@@ -1,8 +1,26 @@
+import { randomBytes } from "node:crypto";
 import { availableParallelism } from "node:os";
 import { defineConfig, devices } from "@playwright/test";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 
 loadRootEnvironmentFile();
+// Browser tests must not inherit payment, mail or alert credentials from a developer's .env.
+for (const key of [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRO_PRICE_ID",
+  "STRIPE_BUSINESS_PRICE_ID",
+  "STRIPE_PORTAL_CONFIGURATION_ID",
+  "RESEND_API_KEY",
+  "ALERT_WEBHOOK_URL",
+  "MERCADO_LIVRE_CLIENT_ID",
+  "MERCADO_LIVRE_CLIENT_SECRET",
+]) {
+  process.env[key] = "";
+}
+process.env.AUTO_FORWARD_ENABLED = "false";
+
+process.env.E2E_MARKETPLACE_SECRET ??= randomBytes(32).toString("hex");
 
 /** Overridable so a second checkout (a parallel worktree) runs its own servers side by side. */
 const port = Number(process.env.E2E_PORT ?? 3100);
@@ -51,21 +69,20 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `pnpm exec vite dev --port ${port} --strictPort`,
+      command: `pnpm exec vite dev --config e2e/vite.config.ts --port ${port} --strictPort`,
       url: `${appUrl}/login`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: { APP_URL: appUrl, BETTER_AUTH_URL: appUrl, REDIS_URL: redisUrl },
     },
     {
-      command: "pnpm --filter @sellbridge/worker start",
+      command: "pnpm --filter @sellbridge/worker exec tsx src/testing/start-e2e.ts",
       url: `http://localhost:${workerHealthPort}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: {
         APP_URL: appUrl,
         REDIS_URL: redisUrl,
-        MOCK_LATENCY_MILLISECONDS: "150",
         WORKER_HEALTH_PORT: String(workerHealthPort),
       },
     },

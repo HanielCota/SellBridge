@@ -34,9 +34,6 @@ export const tokenEncryptionKeyEnvironmentSchema = z
     message: "deve ser uma chave de 32 bytes em base64",
   });
 
-/** Mock connector only: without it the simulated store is shown as not configured. */
-export const mockWebhookSecretEnvironmentSchema = z.string().min(16).optional();
-
 /**
  * Chat webhook that receives error logs (item 32.a); unset keeps alerts off. HTTPS only: the
  * alert carries the log line, already redacted, and must not travel in clear text.

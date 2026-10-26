@@ -1,4 +1,5 @@
-import { getAdminSupplier, listAdminCategories } from "@sellbridge/database/repositories";
+import { loadProductCategories } from "@/lib/server/reference-data";
+import { getAdminSupplier } from "@sellbridge/database/repositories";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { parseProductCsv, type ProductCsvError } from "@sellbridge/shared/product-csv";
@@ -148,7 +149,7 @@ export async function confirmSupplierImport(
 export async function loadSupplierImportFiles(supplierId: string) {
   const [, categories] = await Promise.all([
     getAdminSupplier(database, supplierId),
-    listAdminCategories(database),
+    loadProductCategories(),
   ]);
   const options = categories.map((category) => ({ name: category.name, slug: category.slug }));
   return {

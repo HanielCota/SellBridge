@@ -16,7 +16,6 @@ import {
   useResendDescription,
 } from "@/features/listings/use-listing-actions";
 import { ToneStatus } from "@/components/data/tone-status";
-import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 import { EditPriceDialog } from "./edit-price-dialog";
 import { ListingMenu } from "./listing-actions";
@@ -28,7 +27,7 @@ import { Hint, HintedText } from "@/components/ui/hint";
 /** Every store and its status, for the tooltip of the status line. */
 function storesSummary(row: ListingOverviewRow): string {
   return row.stores
-    .map((store) => `${displayStoreName(store.storeName)}: ${LISTING_STATUS_LABELS[store.status]}`)
+    .map((store) => `${store.storeName}: ${LISTING_STATUS_LABELS[store.status]}`)
     .join("\n");
 }
 

@@ -9,7 +9,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Skeleton } from "@/components/ui/skeleton";
 import { linkMyTicketOrder } from "@/features/support/support.functions";
 import { myLinkableOrdersQueryOptions } from "@/features/support/support.queries";
-import { displayStoreName } from "@/features/stores/store-name";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { errorMessage } from "@/lib/errors";
 
@@ -31,7 +30,7 @@ function OrderOption({ order, onPick }: { order: LinkedOrder; onPick: () => void
         <span className="min-w-0">
           <span className="block truncate font-medium">#{order.externalOrderId}</span>
           <span className="block truncate text-xs text-muted-foreground">
-            {displayStoreName(order.storeName)} · {order.buyerName ?? "Comprador"}
+            {order.storeName} · {order.buyerName ?? "Comprador"}
           </span>
         </span>
         <span className="shrink-0 text-right text-xs text-muted-foreground">

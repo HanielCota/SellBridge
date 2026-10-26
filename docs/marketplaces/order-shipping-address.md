@@ -23,7 +23,7 @@ Two ways for a connector to deliver the address:
 2. **With its own call** (optional capability):
    `connector.readShippingAddress?(credentials, externalOrderId)`. Mercado Livre implements it with the shipment calls it already
    makes (`readMercadoLivreShippingAddress` in `mercado-livre/shipping.ts`). Shopee and TikTok Shop
-   (`unavailable-connector.ts`) answer `not_supported`; the mock sends it with the order instead.
+   (`unavailable-connector.ts`) answer `not_supported`.
 
 ## Where to plug the connector call
 
@@ -45,8 +45,6 @@ Two ways for a connector to deliver the address:
 - The web app opens it only in `loadFulfillmentDetail`
   (`apps/web/src/features/fulfillment/fulfillment-detail.server.ts`), and only while the order is
   paid and not yet forwarded. The browser receives the opened address, never the ciphertext.
-- Simulated sales (`SIM-…`, `mock-sale.server.ts`) carry a made-up São Paulo address so the filled
-  form can be seen locally.
 
 ## Privacy
 

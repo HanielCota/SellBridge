@@ -16,6 +16,8 @@ export function getRouter() {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreload: "intent",
+    // QueryClient owns freshness; re-run loaders so a stale preloaded query is refreshed.
+    defaultPreloadStaleTime: 0,
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: NotFound,
   });

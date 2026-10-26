@@ -116,7 +116,7 @@ describe("presentNotification", () => {
       at,
       externalOrderId: "MOCK ORD/1",
       totalCents: 4990,
-      storeName: "Ana Moda (loja simulada)",
+      storeName: "Ana Moda",
       product: null,
     });
     expect(notification).toMatchObject({ id: "sale:order-1", kind: "sale", at });
@@ -138,7 +138,7 @@ describe("presentNotification", () => {
       at,
       externalOrderId: "MOCK-2",
       totalCents: 12590,
-      storeName: "Ana Moda (loja simulada)",
+      storeName: "Ana Moda",
       product,
     });
     expect(notification.detail).toBe("Moletom canguru - Rosa · Ana Moda");
@@ -164,12 +164,12 @@ describe("presentNotification", () => {
     });
   });
 
-  it("asks to reconnect a store without the simulated suffix", () => {
+  it("asks to reconnect a store with its marketplace name", () => {
     const notification = presentNotification({
       kind: "store_problem",
       entityId: "store-1",
       at,
-      storeName: "Ana Casa (loja simulada)",
+      storeName: "Ana Casa",
     });
     expect(notification).toMatchObject({
       id: `store:store-1:${at.getTime()}`,

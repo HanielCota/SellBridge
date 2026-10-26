@@ -379,6 +379,13 @@
       "when": 1793021845967,
       "tag": "0053_supplier_shipment_index",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793027043326,
+      "tag": "0054_retire_simulated_stores",
+      "breakpoints": true
     }
   ]
 }

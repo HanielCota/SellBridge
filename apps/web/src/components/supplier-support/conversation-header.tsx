@@ -6,7 +6,6 @@ import { ticketCode } from "@sellbridge/shared/ticket-rules";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { TONE_DOT_CLASSES, type StatusTone } from "@/components/data/tone-status";
-import { displayStoreName } from "@/features/stores/store-name";
 import {
   conversationState,
   type ConversationTone,
@@ -37,7 +36,7 @@ function AboutLine({
     conversation.topic === null ? null : SUPPLIER_CONVERSATION_TOPIC_LABELS[conversation.topic];
   return (
     <p className="text-sm text-muted-foreground">
-      {displayStoreName(conversation.storeName)} · {conversation.supplierName}
+      {conversation.storeName} · {conversation.supplierName}
       {topic === null ? null : ` · ${topic}`}
       {orders.map((order) => (
         <span key={order.orderId}>

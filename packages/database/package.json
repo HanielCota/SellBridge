@@ -15,7 +15,8 @@
     "seed": "node --env-file-if-exists=../../.env --import tsx src/seed/index.ts",
     "studio": "node --env-file-if-exists=../../.env node_modules/drizzle-kit/bin.cjs studio",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:test": "node --env-file-if-exists=../../.env --import tsx src/testing/seed/index.ts"
   },
   "dependencies": {
     "@sellbridge/shared": "workspace:*",

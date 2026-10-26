@@ -45,3 +45,30 @@ describe("createCitiesLookup", () => {
     expect(fetchCities).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("city cache freshness", () => {
+  it("coalesces concurrent requests and refreshes successful results after a day", async () => {
+    let now = 0;
+    const fetchCities = vi.fn<FetchCities>(async () => jsonReply([{ nome: "Manaus" }]));
+    const lookup = createCitiesLookup(fetchCities, () => now);
+    expect(await Promise.all([lookup("AM"), lookup("AM")])).toEqual([["Manaus"], ["Manaus"]]);
+    expect(fetchCities).toHaveBeenCalledTimes(1);
+    now = 24 * 60 * 60_000;
+    await lookup("AM");
+    expect(fetchCities).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries an empty fallback after its short cooldown", async () => {
+    let now = 0;
+    const fetchCities = vi
+      .fn<FetchCities>()
+      .mockResolvedValueOnce(jsonReply({ unexpected: true }))
+      .mockImplementation(async () => jsonReply([{ nome: "Macapá" }]));
+    const lookup = createCitiesLookup(fetchCities, () => now);
+    expect(await lookup("AP")).toEqual([]);
+    expect(await lookup("AP")).toEqual([]);
+    expect(fetchCities).toHaveBeenCalledTimes(1);
+    now = 30_000;
+    expect(await lookup("AP")).toEqual(["Macapá"]);
+  });
+});

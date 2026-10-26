@@ -1,8 +1,14 @@
 import { SUPPORT_TOPICS } from "@sellbridge/shared/support-topics";
 import { eq, inArray } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { storeConnections, ticketEvents, ticketMessages, tickets, user } from "../schema/index.ts";
-import { ensureAccount } from "./accounts.ts";
+import type { Database } from "../../client.ts";
+import {
+  storeConnections,
+  ticketEvents,
+  ticketMessages,
+  tickets,
+  user,
+} from "../../schema/index.ts";
+import { ensureAccount } from "../../seed/accounts.ts";
 import { createRandom, type Random } from "./random.ts";
 import type { SupportAuthor } from "./support.ts";
 

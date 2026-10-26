@@ -4,7 +4,7 @@ import { DEMO_USER, signIn } from "./helpers";
 import { requireEnvironmentVariable } from "./environment";
 import { simulateSale } from "./sales";
 
-const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
+const MOCK_SECRET = requireEnvironmentVariable("E2E_MARKETPLACE_SECRET");
 
 function sign(body: string): string {
   return createHmac("sha256", MOCK_SECRET).update(body).digest("hex");
@@ -13,7 +13,7 @@ function sign(body: string): string {
 test.describe("endpoint de webhooks", () => {
   test("recusa assinatura inválida e marketplace desconhecido", async ({ request }) => {
     const body = JSON.stringify({ id: randomUUID(), topic: "orders", shopId: "x", resource: "y" });
-    const invalid = await request.post("/api/webhooks/mock", {
+    const invalid = await request.post("/api/webhooks/mercado_livre", {
       data: body,
       headers: { "content-type": "application/json", "x-mock-signature": "00" },
     });
@@ -30,16 +30,16 @@ test.describe("endpoint de webhooks", () => {
       resource: "y",
     });
     const headers = { "content-type": "application/json", "x-mock-signature": sign(body) };
-    const first = await request.post("/api/webhooks/mock", { data: body, headers });
+    const first = await request.post("/api/webhooks/mercado_livre", { data: body, headers });
     expect(first.status()).toBe(200);
     expect(await first.json()).toEqual({ status: "recebido" });
-    const retry = await request.post("/api/webhooks/mock", { data: body, headers });
+    const retry = await request.post("/api/webhooks/mercado_livre", { data: body, headers });
     expect(await retry.json()).toEqual({ status: "duplicado" });
   });
 
   test("recusa payloads grandes demais", async ({ request }) => {
     const body = JSON.stringify({ id: randomUUID(), topic: "orders", padding: "x".repeat(70_000) });
-    const response = await request.post("/api/webhooks/mock", {
+    const response = await request.post("/api/webhooks/mercado_livre", {
       data: body,
       headers: { "content-type": "application/json", "x-mock-signature": sign(body) },
     });

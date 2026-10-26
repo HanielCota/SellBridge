@@ -8,7 +8,7 @@ describe("describeIssue", () => {
       stores: [
         {
           marketplace: "shopee",
-          shopName: "Loja Ana (loja simulada)",
+          shopName: "Loja Ana",
           status: "expired",
           supplierName: null,
         },

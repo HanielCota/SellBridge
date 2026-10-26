@@ -26,7 +26,7 @@ SellBridge is a dropshipping/reselling SaaS: resellers connect their stores on m
 ## Features
 
 - **Suppliers from anywhere in Brazil** — onboarding asks for the holder (full name and CPF, one account per CPF) and the supplier of the first store; each store sells a single supplier, and the directory filters by the supplier's state and city.
-- **Connected stores** — OAuth with the marketplaces (real Mercado Livre connector, plus a simulated store for testing) and automatic token renewal.
+- **Connected stores** — OAuth with the marketplaces (real Mercado Livre connector) and automatic token renewal.
 - **Bulk publishing** — publish one listing to one or many stores through a job queue, with trackable status and retries.
 - **Sync** — periodic stock and price sync, orders received through idempotent webhooks.
 - **Dashboard and finances** — KPIs, comparison with the previous period, profit, fees, returns, and CSV export.
@@ -53,11 +53,11 @@ Decisions live in [docs/decisions.md](docs/decisions.md); architecture and code 
 Requirements: Node 24+, Docker, and corepack (`corepack enable`).
 
 ```bash
-cp .env.example .env          # generate BETTER_AUTH_SECRET, TOKEN_ENCRYPTION_KEY and MOCK_WEBHOOK_SECRET (simulated store)
+cp .env.example .env          # generate BETTER_AUTH_SECRET and TOKEN_ENCRYPTION_KEY
 pnpm install
 pnpm services:up              # Postgres + Redis
 pnpm database:migrate
-pnpm database:seed
+pnpm database:seed            # optional: configure BOOTSTRAP_ADMIN_* first
 pnpm dev                      # web on http://localhost:3000 + worker (queues)
 ```
 
@@ -73,28 +73,31 @@ Server function failures also emit `web.server_function_error` before production
 
 The receiver does not require a working database or session. It accepts only same-origin JSON, validates its schema, limits bodies to 8 KiB and admits at most 60 reports per minute per server process. The browser coalesces identical failures for 30 seconds and sends at most 10 reports per minute. Reporting failures never block retrying the page; offline, blocked or rate-limited reports are not queued, and the reference appears only after the server accepts the report. Logs follow the container's existing retention policy; this feature does not add a database table or external monitoring service. Browser reports are untrusted diagnostic evidence.
 
-### Demo accounts (created by the seed)
+### Setup data and test fixtures
 
-| Account                  | Password     | What it has                                                                    |
-| ------------------------ | ------------ | ------------------------------------------------------------------------------ |
-| `demo@sellbridge.local`  | `demo12345`  | Belo Horizonte/MG region, 2 simulated stores, 14 listings, ~6 months of orders |
-| `admin@sellbridge.local` | `admin12345` | Administrator role                                                             |
+`pnpm database:seed` creates the product category taxonomy and an administrator using
+`BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME`, and `BOOTSTRAP_ADMIN_PASSWORD` (at least 12 characters).
+It does not create sample customers, suppliers, products, stores, sales, reviews, or tickets and
+refuses `--reset`. Configure the operator email in `ADMIN_EMAILS` when applicable.
 
-Passwords come from `SEED_DEMO_PASSWORD` and `SEED_ADMIN_PASSWORD` in `.env` (the values above are the `.env.example` defaults); the E2E tests use the same variables. `pnpm database:seed -- --reset` wipes domain data and recreates everything.
+The application connects to real marketplaces only. Mercado Livre requires its client credentials;
+Shopee and TikTok Shop remain explicitly unavailable until their real connectors exist. Carrier
+tracking reports that it is disconnected rather than generating tracking events.
 
-### Password reset and Google sign-in
+Synthetic datasets and adapters live under `testing/` and `e2e/`. To prepare a disposable browser
+test database, set `TEST_DATABASE_URL` to a dedicated database whose name contains `test` or `e2e`,
+set `DATABASE_URL` to that same URL for the app, and provide generated `TOKEN_ENCRYPTION_KEY`,
+`SEED_DEMO_PASSWORD`, and `SEED_ADMIN_PASSWORD` values. Then run:
 
-Password reset sends the link by email through [Resend](https://resend.com) (`RESEND_API_KEY`, `EMAIL_FROM`). Without the key, in development the email with the link shows up in the server log (`email.development_preview`); in production it is not sent.
+```bash
+NODE_ENV=test pnpm --filter @sellbridge/database seed:test
+pnpm test:e2e
+```
 
-For Google sign-in, create an OAuth client in Google Cloud with the redirect `{BETTER_AUTH_URL}/api/auth/callback/google` and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Without both variables, the "Continuar com Google" button is hidden.
-
-### Mercado Livre
-
-Create an app at developers.mercadolivre.com.br, configure the redirect `{APP_URL}/api/oauth/mercado_livre/callback` and the notifications URL `{APP_URL}/api/webhooks/mercado_livre` (topic `orders_v2`), and set `MERCADO_LIVRE_CLIENT_ID` and `MERCADO_LIVRE_CLIENT_SECRET`. Without these variables, the option shows as "Em breve" (coming soon). Endpoint reference: [docs/marketplaces/mercado-livre.md](docs/marketplaces/mercado-livre.md).
-
-### Testing publishing with the simulated marketplace
-
-The app UI is in Portuguese. In **Lojas conectadas** (connected stores), use **Conectar Loja simulada** (connect simulated store). In a listing, put `[falha]` in the title to simulate a permanent rejection, or `[instavel]` to simulate instability (the job is retried with backoff until attempts run out). In **Publicações** (publications), the **Simular venda** (simulate sale) button sends a signed webhook that becomes an order in the finances view.
+Playwright starts a separate Vite configuration and worker entry point that inject test adapters.
+The normal build and worker never load them. Test seeding requires `TEST_DATABASE_URL` explicitly
+and does not fall back to the normal application's database. Historical simulated connections are
+retired by migration `0054_retire_simulated_stores`; existing records are retained for auditability.
 
 ## Managing the supplier catalog
 
@@ -149,7 +152,7 @@ The pre-commit hook (lefthook) formats, lints, and runs `check:no-else`. CI on G
 apps/web               TanStack Start (dashboard)
 apps/worker            BullMQ queues (publishing, sync, webhooks)
 packages/database      Drizzle schema, migrations, seeds, tenant-scoped repositories
-packages/marketplaces  connectors (mock, Mercado Livre, Shopee, TikTok Shop)
+packages/marketplaces  connectors (Mercado Livre; Shopee and TikTok Shop unavailable)
 packages/shared        Zod schemas, money in cents, CEP, errors, environment, logger
 packages/config        base tsconfig
 ```
@@ -158,7 +161,7 @@ packages/config        base tsconfig
 
 - **Phase 4:** support with attachments (validated by content), history and status, and an admin view to reply/close; real Mercado Livre connector (OAuth with PKCE, publishing, stock/price, orders, notifications) behind the same interface; idempotent queued webhooks; periodic stock and price sync; "Simular venda" to test the flow end to end; E2E tests for critical flows.
 - **Phase 3:** dashboard with KPIs (sales, revenue, profit, average order value), comparison with the previous period, daily/weekly trend chart, filters by period and store, sales by store and best-selling products; finances with profit, fees, returns, and refunds per order and per period, a table with server-side sorting/filtering/pagination and CSV export; empty states and a getting-started checklist.
-- **Phase 2:** `marketplaces` package (single interface, mock connector, token encryption, HTTP with retry/backoff and rate limiting), stores connected via OAuth (mock), publishing to one or many stores through a BullMQ queue in the worker, trackable status and retries, automatic token renewal.
+- **Phase 2:** `marketplaces` package (single interface, test adapters, token encryption, HTTP with retry/backoff and rate limiting), stores connected via marketplace OAuth, publishing to one or many stores through a BullMQ queue in the worker, trackable status and retries, automatic token renewal.
 - **Phase 1:** domain schema (region, suppliers, stores, listings, orders, webhooks, support), deterministic seeds, onboarding by CEP (later replaced by CPF and supplier choice, see docs/decisions.md 2026-10-15), suppliers filtered by region, and a catalog with search, filters, sorting, and pagination in the URL.
 - **Phase 0:** monorepo, tooling (Oxlint, Prettier, lefthook, `check:no-else`), Docker Compose, CI, base layout (collapsible sidebar, light/dark mode), and authentication (sign-up, login, logout, one organization per user, admin role).
 

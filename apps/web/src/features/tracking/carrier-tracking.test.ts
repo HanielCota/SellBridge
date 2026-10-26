@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   carrierEventsOf,
-  carrierTrackingResultSchema,
   isCorreiosCode,
   normalizeTrackingInput,
   trackingQuerySchema,
 } from "./carrier-tracking";
 import { createCarrierTrackingProvider } from "./carrier-tracking-provider";
-import { simulatedCarrierTracking, simulatedScenarioIndex } from "./simulated-carrier-tracking";
 import { explainTracking } from "./tracking-explanation";
 
 const now = new Date("2026-10-22T15:00:00Z");
@@ -34,44 +32,12 @@ describe("tracking code format", () => {
   });
 });
 
-describe("simulated carrier tracking", () => {
-  it("tells the same story for the same code and dispatch date", () => {
-    const request = { code: "AA123456789BR", handedOverAt: new Date("2026-10-15T12:00:00Z"), now };
-    expect(simulatedCarrierTracking(request)).toEqual(simulatedCarrierTracking(request));
-  });
-
-  it("marks its events as a demonstration and never dates one in the future", () => {
-    const result = simulatedCarrierTracking({ code: "QB987654321BR", handedOverAt: null, now });
-    expect(carrierTrackingResultSchema.parse(result)).toMatchObject({ simulated: true });
-    const events = result.state === "found" ? result.events : [];
-    expect(events.every((event) => event.at.getTime() <= now.getTime())).toBe(true);
-  });
-
-  it("starts every scenario with the posting, after the dispatch", () => {
-    const handedOverAt = new Date("2026-10-10T12:00:00Z");
-    const codes = Array.from({ length: 24 }, (_, index) => `AB${String(index).padStart(9, "0")}BR`);
-    for (const code of codes) {
-      const result = simulatedCarrierTracking({ code, handedOverAt, now });
-      const first = result.state === "found" ? result.events[0] : undefined;
-      expect(first?.kind).toBe("posted");
-      expect(first?.at.getTime()).toBeGreaterThan(handedOverAt.getTime());
-    }
-    expect(new Set(codes.map(simulatedScenarioIndex)).size).toBeGreaterThan(1);
-  });
-});
-
 describe("createCarrierTrackingProvider", () => {
   it("answers 'not connected' when no carrier is configured", async () => {
     const provider = createCarrierTrackingProvider("off");
     await expect(
       provider.trackParcel({ code: "AA123456789BR", handedOverAt: null }),
     ).resolves.toEqual({ state: "not_connected" });
-  });
-
-  it("answers simulated events when asked for the demonstration", async () => {
-    const provider = createCarrierTrackingProvider("simulated", () => now);
-    const result = await provider.trackParcel({ code: "AA123456789BR", handedOverAt: null });
-    expect(result).toMatchObject({ state: "found", carrier: "Correios", simulated: true });
   });
 });
 
@@ -107,8 +73,6 @@ describe("carrierEventsOf", () => {
     const events = [
       { at: now, place: null, kind: "posted" as const, description: "Objeto postado" },
     ];
-    expect(
-      carrierEventsOf({ state: "found", carrier: "Correios", simulated: false, events }),
-    ).toEqual(events);
+    expect(carrierEventsOf({ state: "found", carrier: "Correios", events })).toEqual(events);
   });
 });

@@ -22,7 +22,7 @@ apps/worker
   src/lib/                 apoio aos processadores: acesso à loja, rate limiter
 packages/database          schema Drizzle, migrations, seeds e repositórios por tenant
   src/repositories/sql/    fragmentos SQL reutilizados pelos repositórios
-packages/marketplaces      interface MarketplaceConnector e conectores (mock/, mercado-livre/)
+packages/marketplaces      MarketplaceConnector interface and real marketplace connectors (mercado-livre/)
 packages/shared            código sem dependência de outros pacotes do monorepo
   src/domain/              regras de negócio puras: dinheiro, finanças, período, CEP, regras
                            de anúncio e de chamado
@@ -85,3 +85,11 @@ As overrides em `.oxlintrc.json` são poucas e por arquivo, nunca por comentári
 
 - `promise/prefer-await-to-then` desligada só em `packages/shared/src/schemas/fallback.ts`: o `.catch()` do Zod não é uma Promise; o helper concentra o falso positivo num único lugar.
 - `max-lines-per-function` e `max-nested-callbacks` desligadas em testes (`*.test.ts`, `e2e/**`): blocos `describe` agrupam casos e não são funções de produção.
+
+## Reference caches and test adapters (2026-10-26)
+
+The current cache policy and removal of application simulations are documented in
+[the cache and synthetic data review](reviews/2026-10-26-cache-and-synthetic-data-review.md).
+Synthetic adapters and seeds are test-only; the production registry contains the real Mercado
+Livre connector and explicitly unavailable integrations. Earlier design notes describing simulated
+OAuth, sales or carrier histories are historical and no longer describe application behavior.

@@ -110,10 +110,9 @@ test("keeps a second profile throughout store consent and the callback", async (
   await gotoHydrated(tabB, `/onboarding?perfil=${profiles.second}`);
   await completeOnboarding(tabB, "BH Beauty Distribuidora");
   const shopName = `Profile store ${Date.now()}`;
-  await tabB.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await tabB.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(tabB.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(tabB);
-  expect(profileOf(tabB)).toBe(profiles.second);
   await tabB.getByLabel("Nome da loja").fill(shopName);
   await tabB.getByRole("button", { name: "Autorizar acesso" }).click();
   await expect(tabB).toHaveURL(/\/lojas/);

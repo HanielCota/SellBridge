@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import { DAY_MILLISECONDS } from "@sellbridge/shared/time";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { and, asc, count, eq, inArray } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { listingIdempotencyKey } from "../repositories/listings.ts";
+import type { Database } from "../../client.ts";
+import { listingIdempotencyKey } from "../../repositories/listings.ts";
 import {
   listings,
   listingTargets,
@@ -14,7 +14,7 @@ import {
   storeConnections,
   supplierProducts,
   suppliers,
-} from "../schema/index.ts";
+} from "../../schema/index.ts";
 import { DEMO_STORES, type SeedStore } from "./data.ts";
 import type { Random } from "./random.ts";
 import { behavioursById, REPUTATION_BEHAVIOURS } from "./reputation.ts";
@@ -140,7 +140,7 @@ async function ensureDemoStores(
     .values(
       stores.map((store) => ({
         tenantId,
-        marketplace: "mock" as const,
+        marketplace: "mercado_livre" as const,
         externalShopId: store.externalShopId,
         shopName: store.shopName,
         supplierId: supplierIds.get(store.supplierName) ?? null,

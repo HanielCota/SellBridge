@@ -15,7 +15,6 @@ import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/des
 import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { displayStoreName } from "@/features/stores/store-name";
 
 export const Route = createFileRoute("/_app/suporte/fornecedores/novo")({
   validateSearch: newSupplierConversationSearchSchema,
@@ -49,7 +48,7 @@ function StoreAndTopicSteps({ flow }: { flow: Flow }) {
     <>
       <AnsweredStep
         number={1}
-        answer={`${displayStoreName(store.storeName)} · ${store.supplierName ?? ""}`}
+        answer={`${store.storeName} · ${store.supplierName ?? ""}`}
         changeLabel="Alterar a loja"
         onChange={() => flow.pickStore(null)}
       />

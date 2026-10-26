@@ -1,27 +1,33 @@
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
-import { count, eq, inArray } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDatabase, type Database } from "../client.ts";
+import { createDatabase, type Database } from "../../client.ts";
 import {
   listings,
+  listingTargets,
+  oauthStates,
+  orders,
+  webhookEvents,
   member,
   storeConnections,
   tenantProfile,
   ticketMessages,
   tickets,
   user,
-} from "../schema/index.ts";
+} from "../../schema/index.ts";
 import { runSeed } from "./run.ts";
 
 /** Migrations, catalog and ~6 months of sales for several accounts, twice. */
 const SEED_TEST_TIMEOUT = 240_000;
 
-const migrationsFolder = fileURLToPath(new URL("../../migrations", import.meta.url));
+const migrationsFolder = fileURLToPath(new URL("../../../migrations", import.meta.url));
 const databaseName = `sb_seed_${randomBytes(6).toString("hex")}`;
 let admin: postgres.Sql;
 let database: Database;
@@ -140,3 +146,89 @@ describe("seed", { timeout: SEED_TEST_TIMEOUT }, () => {
     expect(await totals()).toEqual(before);
   });
 });
+
+it(
+  "retires legacy simulated integrations while preserving real stores and order history",
+  async () => {
+    const tenantId = await tenantOf("demo@sellbridge.local");
+    const realStores = await storesOf(tenantId);
+    const [history] = await database.select({ total: count() }).from(orders);
+    const [store] = await database
+      .insert(storeConnections)
+      .values({
+        tenantId,
+        marketplace: "mock",
+        externalShopId: randomUUID(),
+        shopName: "Retired fixture",
+        accessTokenEnc: "test-token",
+        refreshTokenEnc: "test-refresh",
+      })
+      .returning();
+    const product = await database.query.supplierProducts.findFirst();
+    if (!store || !product) throw new Error("Migration fixtures were not created.");
+    const [listing] = await database
+      .insert(listings)
+      .values({
+        tenantId,
+        supplierProductId: product.id,
+        title: "Retired fixture listing",
+        description: "Retired fixture description",
+        priceCents: 4990,
+      })
+      .returning();
+    if (!listing) throw new Error("Migration listing was not created.");
+    const [target] = await database
+      .insert(listingTargets)
+      .values({
+        tenantId,
+        listingId: listing.id,
+        storeConnectionId: store.id,
+        idempotencyKey: randomUUID(),
+        status: "published",
+        externalUrl: "https://example.test/fixture",
+      })
+      .returning();
+    const state = randomUUID();
+    await database
+      .insert(oauthStates)
+      .values({ state, tenantId, marketplace: "mock", expiresAt: new Date(Date.now() + 60000) });
+    const [event] = await database
+      .insert(webhookEvents)
+      .values({
+        marketplace: "mock",
+        externalEventId: randomUUID(),
+        topic: "orders",
+        rawPayload: {},
+        signatureValid: true,
+      })
+      .returning();
+    const migration = await readFile(
+      new URL("../../../migrations/0054_retire_simulated_stores.sql", import.meta.url),
+      "utf8",
+    );
+    await database.transaction(async (transaction) => {
+      for (const statement of migration.split("--> statement-breakpoint"))
+        await transaction.execute(sql.raw(statement));
+    });
+    expect(
+      await database.query.oauthStates.findFirst({ where: eq(oauthStates.state, state) }),
+    ).toBeUndefined();
+    expect(
+      await database.query.storeConnections.findFirst({ where: eq(storeConnections.id, store.id) }),
+    ).toMatchObject({ status: "disconnected", accessTokenEnc: null, refreshTokenEnc: null });
+    if (!target || !event) throw new Error("Migration target or event was not created.");
+    expect(
+      await database.query.listingTargets.findFirst({ where: eq(listingTargets.id, target.id) }),
+    ).toMatchObject({ status: "paused", externalUrl: null });
+    expect(
+      (await database.query.webhookEvents.findFirst({ where: eq(webhookEvents.id, event.id) }))
+        ?.processedAt,
+    ).toBeInstanceOf(Date);
+    const [preserved] = await database.select({ total: count() }).from(orders);
+    expect(preserved?.total).toBe(history?.total);
+    expect((await storesOf(tenantId)).filter((value) => value.status === "connected")).toHaveLength(
+      realStores.length,
+    );
+  },
+  SEED_TEST_TIMEOUT,
+);

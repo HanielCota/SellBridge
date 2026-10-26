@@ -59,7 +59,7 @@ const CARRIER_STATE_MESSAGES: Record<Exclude<CarrierTrackingResult["state"], "fo
   unavailable: "Não conseguimos consultar a transportadora agora. Tente de novo em alguns minutos.",
 };
 
-/** The carrier's steps, newest first, with a clear note when they are a demonstration. */
+/** The carrier's steps, newest first. */
 export function CarrierHistory({ result }: { result: CarrierTrackingResult }) {
   if (result.state !== "found") {
     return <p className="text-sm text-muted-foreground">{CARRIER_STATE_MESSAGES[result.state]}</p>;
@@ -67,11 +67,6 @@ export function CarrierHistory({ result }: { result: CarrierTrackingResult }) {
   const events = carrierEventsOldestFirst(result.events).toReversed();
   return (
     <div className="space-y-3">
-      {result.simulated ? (
-        <p className="rounded-lg border border-dashed px-3 py-2 text-footnote text-muted-foreground">
-          Demonstração: estes passos são simulados, não vêm da transportadora.
-        </p>
-      ) : null}
       {events.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           A transportadora ainda não registrou nenhum passo.

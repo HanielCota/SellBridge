@@ -1,5 +1,5 @@
 import { createDatabase } from "@sellbridge/database/client";
-import { requireEnvironmentVariable } from "./environment";
+import { requireEnvironmentVariable } from "./environment.ts";
 
 /**
  * Connections each spec file may open. The local Postgres takes 100 and is shared by every chat

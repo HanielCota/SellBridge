@@ -1,14 +1,14 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { member, orders, storeConnections, user, webhookEvents } from "@sellbridge/database/schema";
-import { encodeMockOrderResource } from "@sellbridge/marketplaces";
+import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
 import { and, eq } from "drizzle-orm";
 import { DEMO_USER } from "./helpers";
 import { requireEnvironmentVariable } from "./environment";
 import { e2eDatabase } from "./database";
 
 const database = e2eDatabase();
-const MOCK_SECRET = requireEnvironmentVariable("MOCK_WEBHOOK_SECRET");
+const MOCK_SECRET = requireEnvironmentVariable("E2E_MARKETPLACE_SECRET");
 let storeId = "";
 let shopId = "";
 
@@ -18,7 +18,7 @@ test.beforeAll(async () => {
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
     .innerJoin(storeConnections, eq(storeConnections.tenantId, member.organizationId))
-    .where(and(eq(user.email, DEMO_USER.email), eq(storeConnections.marketplace, "mock")))
+    .where(and(eq(user.email, DEMO_USER.email), eq(storeConnections.marketplace, "mercado_livre")))
     .limit(1);
   if (!store) {
     throw new Error("Conta demo sem loja simulada no banco de teste");
@@ -68,7 +68,9 @@ test("a sale that arrives while the store has expired comes in after reconnectin
     });
 
   await setStoreStatus("expired");
-  expect((await request.post("/api/webhooks/mock", { data: body, headers })).status()).toBe(200);
+  expect(
+    (await request.post("/api/webhooks/mercado_livre", { data: body, headers })).status(),
+  ).toBe(200);
   // The worker holds the sale with the reason instead of dropping it.
   await expect(async () => {
     const event = await eventOf();
@@ -78,7 +80,9 @@ test("a sale that arrives while the store has expired comes in after reconnectin
 
   await setStoreStatus("connected");
   // Marketplaces resend unanswered notifications; a pending duplicate is queued again.
-  expect((await request.post("/api/webhooks/mock", { data: body, headers })).status()).toBe(200);
+  expect(
+    (await request.post("/api/webhooks/mercado_livre", { data: body, headers })).status(),
+  ).toBe(200);
   await expect(async () => {
     const order = await database.query.orders.findFirst({
       where: eq(orders.externalOrderId, externalOrderId),

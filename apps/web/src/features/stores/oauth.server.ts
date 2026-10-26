@@ -170,16 +170,12 @@ export async function handleOAuthStart(request: Request, marketplaceParam: strin
     ttlMilliseconds: STATE_TTL_MILLISECONDS,
     supplierId,
   });
-  const appOrigin = appOriginFor(request.url);
-  const authorizationUrl = oauthAuthorizationUrl(
-    marketplace,
-    { state, redirectUri: oauthCallbackUrl(marketplace, appOrigin), codeVerifier },
-    appOrigin,
-  );
+  const authorizationUrl = oauthAuthorizationUrl(marketplace, {
+    state,
+    redirectUri: oauthCallbackUrl(marketplace),
+    codeVerifier,
+  });
   const url = new URL(authorizationUrl);
-  if (marketplace === "mock" && session.profileSlug !== null) {
-    url.searchParams.set("perfil", session.profileSlug);
-  }
   return Response.redirect(url, 302);
 }
 
@@ -298,7 +294,7 @@ async function completeOAuthConnection(
       code: stateRecord.code,
       codeVerifier: stateRecord.codeVerifier,
       supplierId: stateRecord.supplierId,
-      redirectUri: oauthCallbackUrl(marketplace, appOriginFor(request.url)),
+      redirectUri: oauthCallbackUrl(marketplace),
     });
     if (store === null) {
       logger.info("store.connect_needs_verified_email", {
