@@ -543,12 +543,15 @@ describe("unread replies", () => {
       attachments: [],
     });
     const staffThread = await getTicketThread(database, ticketId, null);
+    const internalNote = staffThread.messages.find((message) => message.isInternal);
+    if (internalNote === undefined)
+      throw new Error("Expected an internal note in the staff thread");
     await expect(
       markTicketRead(database, {
         ticketId,
         userId: reseller,
         tenantId: tenantA,
-        lastMessageId: staffThread.messages.at(-1)?.id ?? "",
+        lastMessageId: internalNote.id,
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });

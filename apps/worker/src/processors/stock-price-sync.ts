@@ -116,7 +116,12 @@ async function syncStoreTargets(
 function groupByStore(targets: readonly TargetNeedingSync[]): TargetNeedingSync[][] {
   const byStore = new Map<string, TargetNeedingSync[]>();
   for (const target of targets) {
-    byStore.set(target.store.id, [...(byStore.get(target.store.id) ?? []), target]);
+    const storeTargets = byStore.get(target.store.id);
+    if (storeTargets !== undefined) {
+      storeTargets.push(target);
+      continue;
+    }
+    byStore.set(target.store.id, [target]);
   }
   return [...byStore.values()];
 }

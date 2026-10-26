@@ -1,14 +1,12 @@
 import {
   countPendingReviews,
+  countFailedListingTargets,
   countUnreadSupportReplies,
-  listListingTargets,
 } from "@sellbridge/database/repositories";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
 import { accountMiddleware } from "@/lib/server/middleware";
 import { reviewableSince } from "@/features/orders/review-window";
-
-const COUNT_ONLY = { page: 1, pageSize: 1 } as const;
 
 /**
  * What needs attention in the header: unread support replies for any profile, and for a seller
@@ -26,12 +24,12 @@ export const getAttentionCounts = createServerFn({ method: "GET" })
       return { failedListings: 0, unreadSupportReplies, pendingReviews: 0 };
     }
     const [failedListings, unreadSupportReplies, pendingReviews] = await Promise.all([
-      listListingTargets(database, context.tenantId, { status: "error" }, COUNT_ONLY),
+      countFailedListingTargets(database, context.tenantId),
       countUnreadSupportReplies(database, context.tenantId, context.userId),
       countPendingReviews(database, context.tenantId, reviewableSince(new Date())),
     ]);
     return {
-      failedListings: failedListings.total,
+      failedListings,
       unreadSupportReplies,
       pendingReviews: pendingReviews.total,
     };
