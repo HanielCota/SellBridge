@@ -9,6 +9,7 @@ import type { DatabaseExecutor } from "@sellbridge/database/client";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
+import { assertEmailConfirmed } from "@/lib/server/email-confirmed";
 import { generateApiKeySecret } from "./api-key-secret.server";
 import {
   apiKeyStatus,
@@ -60,6 +61,7 @@ export async function issueApiKey(input: {
   userId: string;
   request: CreateApiKeyRequest;
 }): Promise<IssuedApiKey> {
+  await assertEmailConfirmed(input.userId, "criar chaves de API");
   const now = new Date();
   const expiresAt = futureExpiration(input.request.expiresAt, now);
   const generated = generateApiKeySecret();
