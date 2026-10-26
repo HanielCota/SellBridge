@@ -42,6 +42,19 @@ jobs:
       - run: pnpm database:migrate
       - run: pnpm test
 
+  production-images:
+    name: Production container smoke tests
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: docker build --target web --build-arg SOURCE_COMMIT="$GITHUB_SHA" -t sellbridge-runtime-web:ci .
+      - run: docker build --target worker -t sellbridge-runtime-worker:ci .
+      - run: node scripts/check-production-images.mjs
+
   e2e:
     name: E2E tests (Playwright)
     runs-on: ubuntu-latest
