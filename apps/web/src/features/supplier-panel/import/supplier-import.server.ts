@@ -135,7 +135,7 @@ export async function confirmSupplierImport(
       `Link de imagem inválido (recebido: "${shortValue(insecureUrl)}"); esperado: um link que comece com https://`,
     );
   }
-  const imported = await confirmAdminProductCsv(input, { reviewAt: new Date() });
+  const imported = await confirmAdminProductCsv(input);
   logger.info("supplier_panel.import_confirmed", {
     supplierId: input.supplierId,
     created: imported.created,

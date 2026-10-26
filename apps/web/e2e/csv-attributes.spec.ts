@@ -51,9 +51,11 @@ async function importProductWithAttributes(page: Page) {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}`);
+  // Complete (category and photo): since 2026-10-25 the admin's import goes through review too,
+  // and only a complete product reaches the review queue instead of staying a draft.
   const csv = [
-    "sku;titulo;descricao;custo;estoque;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm",
-    `${SKU};${TITLE};Escova de cerdas macias para cabelos finos;19,90;8;Escova Bela;EB-10;7891234567895;350;6;12;25`,
+    "sku;titulo;descricao;custo;estoque;categoria;imagens;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm",
+    `${SKU};${TITLE};Escova de cerdas macias para cabelos finos;19,90;8;beleza;https://imagens.sellbridge.test/escova.jpg;Escova Bela;EB-10;7891234567895;350;6;12;25`,
   ].join("\n");
   await page
     .getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx")
@@ -65,6 +67,19 @@ async function importProductWithAttributes(page: Page) {
   await page.getByRole("button", { name: "Confirmar importação" }).click();
   // Other specs may leave listings the import pauses: the sentence then goes on after the counts.
   await expect(page.getByText(/^Importação concluída: 1 criados e 0 atualizados/)).toBeVisible();
+  await approveImportedProduct(page);
+}
+
+/** The imported product waits in the review queue until the admin approves it. */
+async function approveImportedProduct(page: Page) {
+  const [product] = await database
+    .select({ id: supplierProducts.id, reviewStatus: supplierProducts.reviewStatus })
+    .from(supplierProducts)
+    .where(and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.sku, SKU)));
+  expect(product?.reviewStatus).toBe("in_review");
+  await gotoHydrated(page, `/admin/fornecedores/analise/${product?.id ?? ""}`);
+  await page.getByRole("button", { name: /^Aprovar/ }).click();
+  await expect(page.getByText("Produto aprovado")).toBeVisible();
 }
 
 async function connectMockStore(page: Page, shopName: string) {
