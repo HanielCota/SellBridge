@@ -50,6 +50,8 @@ health, rendered assets and immutable headers, request-body rejection, and all w
 queues. It also checks non-root execution and the absence of development executables and
 application test adapters. Test billing is explicitly unlimited; real service credentials
 are never read from the developer environment.
+Missing service images have a separate download budget, and startup-event inspection tolerates
+plain-text container banners alongside structured logs.
 
 The same checks run in the new production-container CI job. Run locally after building both
 targets:

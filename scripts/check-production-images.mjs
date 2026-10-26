@@ -27,13 +27,29 @@ const environment = {
   TOKEN_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
 };
 
-async function docker(args) {
+async function docker(args, timeout = 120_000) {
   const result = await execute("docker", args, {
     encoding: "utf8",
     maxBuffer: 4 * 1024 * 1024,
-    timeout: 120_000,
+    timeout,
   });
   return result.stdout.trim();
+}
+
+async function ensureImage(image) {
+  try {
+    await docker(["image", "inspect", "--format", "{{.Id}}", image]);
+  } catch {
+    await docker(["pull", image], 300_000);
+  }
+}
+
+function parseStructuredLog(line) {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return undefined;
+  }
 }
 
 async function eventually(description, check) {
@@ -53,6 +69,8 @@ async function eventually(description, check) {
 async function start(name, image, variables) {
   return docker([
     "run",
+    "--pull",
+    "never",
     "-d",
     "--name",
     name,
@@ -103,6 +121,8 @@ async function inspectWeb() {
 }
 
 try {
+  await ensureImage("postgres:18-alpine");
+  await ensureImage("redis:8-alpine");
   await docker(["network", "create", prefix]);
   await start(names.postgres, "postgres:18-alpine", {
     POSTGRES_USER: "sellbridge",
@@ -194,10 +214,19 @@ try {
       'import { QUEUE_NAMES } from "@sellbridge/shared/queues"; console.log(JSON.stringify(Object.values(QUEUE_NAMES)));',
     ]),
   );
+  // Exercise mixed plain-text and structured container output.
+  await docker([
+    "exec",
+    names.worker,
+    "node",
+    "-e",
+    'require("node:fs").writeFileSync("/proc/1/fd/1", "Packaging smoke banner\\n");',
+  ]);
   const startup = (await docker(["logs", names.worker]))
     .split("\n")
-    .map((line) => JSON.parse(line))
-    .find((entry) => entry.event === "worker.started");
+    .map(parseStructuredLog)
+    .find((entry) => entry?.event === "worker.started");
+  strictAssert.ok(startup, "Worker emitted its structured startup event");
   strictAssert.deepEqual(startup?.queues.toSorted(), expectedQueues.toSorted());
   process.stdout.write(
     "Production images passed: migrations, web assets, body limits, and all worker queues.\n",
