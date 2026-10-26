@@ -88,7 +88,9 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-2xl px-6 pt-2 pb-6 sm:flex-row sm:justify-end",
+        // No bleed into the dialog's padding: with a dialog padded less than 24 px the bleed
+        // overshot the bottom and the dialog scrolled by the difference.
+        "flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
