@@ -115,6 +115,14 @@ user measurements and should not be generalized to every page.
 - Stabilized the webhook retry fixture's simulated clock so PostgreSQL submillisecond default
   timestamps do not occasionally leave a just-created delivery outside its due window.
 
+After rebasing onto `734956d8`, the production build, workspace and root TypeScript checks,
+full-repository formatting, lint, no-else check and migrations passed again. Validation passed
+3,212 unit and integration tests: 1,132 shared, 208 marketplace, 581 database, 1,179 web,
+105 worker and 7 root checks. A timing-sensitive support fixture was also corrected to select
+the internal note explicitly instead of assuming it sorts last when timestamps tie; the full
+database suite then passed. The browser suite and performance measurements were not repeated
+after the rebase and retain their original-checkout context above.
+
 Apply migration `0053_supplier_shipment_index` with the normal database migration step before
 measuring the supplier-query gain in a deployment. The frontend and worker changes require a
 new build and restart. Production response times, database load and concurrent-user behavior
