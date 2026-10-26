@@ -57,7 +57,13 @@ export const ticketSubjectSchema = freeText()
   .min(5, "O assunto deve ter ao menos 5 caracteres")
   .max(120, "O assunto deve ter no máximo 120 caracteres");
 
+/**
+ * Multipart form encoding turns every line break into CRLF, so a body that fit the field's
+ * 5,000-character cap arrived longer than that. Counting each break once, as the field does,
+ * keeps the field and the server on the same limit.
+ */
 export const ticketBodySchema = freeText()
+  .overwrite((value) => value.replace(/\r\n?/g, "\n"))
   .trim()
   .min(10, "Descreva com ao menos 10 caracteres")
   .max(5000, "A mensagem deve ter no máximo 5.000 caracteres");
