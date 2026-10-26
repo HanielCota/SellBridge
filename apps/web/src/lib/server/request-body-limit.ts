@@ -15,13 +15,34 @@ const AUTH_PREFIX = "/api/auth/";
 
 /** The cap for a request path, or null when the route enforces its own. */
 export function bodyLimitFor(pathname: string): number | null {
-  if (pathname.startsWith(SERVER_FUNCTION_PREFIX)) {
+  const routed = routedPathname(pathname);
+  if (routed.startsWith(SERVER_FUNCTION_PREFIX)) {
     return MAX_SERVER_FUNCTION_BODY_BYTES;
   }
-  if (pathname.startsWith(AUTH_PREFIX)) {
+  if (routed.startsWith(AUTH_PREFIX)) {
     return MAX_AUTH_BODY_BYTES;
   }
   return null;
+}
+
+/**
+ * The path as TanStack Start routes it: it decodes each segment before deciding that a request
+ * is a server function, so `/%5FserverFn/<id>` reaches one too and must get the same cap.
+ */
+function routedPathname(pathname: string): string {
+  return pathname.split("/").map(decodeSegment).join("/");
+}
+
+/** A malformed escape stays as written, as TanStack Start keeps it, so the segment still compares. */
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURI(segment);
+  } catch (error) {
+    if (error instanceof URIError) {
+      return segment;
+    }
+    throw error;
+  }
 }
 
 export function payloadTooLarge(): Response {
