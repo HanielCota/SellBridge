@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
-import type { MarketplaceOrder, StoreCredentials } from "@sellbridge/marketplaces";
-import { eq } from "drizzle-orm";
+import { recordWebhookEvent } from "@sellbridge/database/repositories";
+import {
+  encodeMockOrderResource,
+  type MarketplaceOrder,
+  type StoreCredentials,
+} from "@sellbridge/marketplaces";
+import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPublishedTestTarget,
@@ -16,11 +21,18 @@ const environment = createWorkerTestEnvironment();
 const { database } = environment;
 const listOrders =
   vi.fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrder[]>>();
+const mockConnector = environment.connectors.mock;
+const fetchOrder = vi.fn<
+  (credentials: StoreCredentials, resource: string) => Promise<MarketplaceOrder>
+>(async (credentials, resource) => mockConnector.fetchOrder(credentials, resource));
 const requestStockSync = vi.fn<() => Promise<void>>();
 const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
 const processWebhook = createWebhookEventProcessor({
   ...environment,
-  connectors: { ...environment.connectors, mock: { ...environment.connectors.mock, listOrders } },
+  connectors: {
+    ...environment.connectors,
+    mock: { ...environment.connectors.mock, listOrders, fetchOrder },
+  },
   requestStockSync,
   requestAutoForward,
 });
@@ -28,6 +40,8 @@ const processWebhook = createWebhookEventProcessor({
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
 let catalog: Awaited<ReturnType<typeof createTestProduct>>;
 let storeId = "";
+let shopId = "";
+const eventIds: string[] = [];
 
 beforeAll(async () => {
   tenants = await createTestTenants(database, 1);
@@ -38,6 +52,7 @@ beforeAll(async () => {
   });
   const store = await createTestStore(environment, tenants.first);
   storeId = store.id;
+  shopId = store.externalShopId;
   await createPublishedTestTarget(database, {
     tenantId: tenants.first,
     productId: catalog.productId,
@@ -48,6 +63,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await database.delete(schema.webhookEvents).where(inArray(schema.webhookEvents.id, eventIds));
   await tenants.cleanup();
   await catalog.cleanup();
   await database.$client.end();
@@ -55,6 +71,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   listOrders.mockReset();
+  fetchOrder.mockClear();
   requestStockSync.mockReset();
   requestStockSync.mockResolvedValue(undefined);
   requestAutoForward.mockReset();
@@ -133,5 +150,49 @@ describe("store order catch-up after a reconnection", () => {
         .set({ status: "connected" })
         .where(eq(schema.storeConnections.id, storeId));
     }
+  });
+
+  it("checks the sales notified while the store had no access, once", async () => {
+    const externalOrderId = `CU-HELD-${randomUUID()}`;
+    const resource = encodeMockOrderResource({
+      ...sale(externalOrderId),
+      orderedAt: new Date().toISOString(),
+    });
+    const recorded = await recordWebhookEvent(database, {
+      marketplace: "mock",
+      externalEventId: randomUUID(),
+      topic: "orders",
+      rawPayload: { shopId, resource },
+      signatureValid: true,
+    });
+    if (recorded.status !== "created") throw new Error("evento não criado");
+    eventIds.push(recorded.id);
+    await database
+      .update(schema.storeConnections)
+      .set({ status: "expired" })
+      .where(eq(schema.storeConnections.id, storeId));
+    expect(
+      await processWebhook({
+        data: { webhookEventId: recorded.id },
+        attemptsMade: 0,
+        maxAttempts: 5,
+      }),
+    ).toBe("awaiting_reconnection");
+    await database
+      .update(schema.storeConnections)
+      .set({ status: "connected" })
+      .where(eq(schema.storeConnections.id, storeId));
+    listOrders.mockResolvedValue([]);
+
+    await processWebhook(catchUpJob(new Date(Date.now() - 60_000).toISOString()));
+    expect(await ordersOf([externalOrderId])).toHaveLength(1);
+    const event = await database.query.webhookEvents.findFirst({
+      where: eq(schema.webhookEvents.id, recorded.id),
+    });
+    expect(event?.error).toBeNull();
+
+    fetchOrder.mockClear();
+    await processWebhook(catchUpJob(new Date(Date.now() - 120_000).toISOString()));
+    expect(fetchOrder).not.toHaveBeenCalled();
   });
 });

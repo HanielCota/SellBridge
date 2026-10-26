@@ -20,7 +20,7 @@ import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
 import { decryptStoreCredentials } from "../lib/store-access.ts";
 import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
-import { catchUpStoreOrders } from "./store-order-catch-up.ts";
+import { catchUpStoreOrders, heldEventNote } from "./store-order-catch-up.ts";
 
 export interface WebhookDependencies extends OrderIntakeDependencies {
   connectors: ConnectorRegistry;
@@ -96,8 +96,8 @@ async function stampStoreWebhook(
 
 /**
  * No usable store for the event. A store that lost its access (expired, refused token) reads its
- * sales from the marketplace once the reseller reconnects it (store-order-catch-up.ts), so the
- * event is closed with the reason right away. Kept open, anyone who knows the app's public id
+ * sales from the marketplace once the reseller reconnects it, and checks these events again once
+ * (store-order-catch-up.ts), so the event is closed with the reason, naming the store, right away. Kept open, anyone who knows the app's public id
  * could pile up events that were retried every 5 minutes and never deleted. A shop we never knew
  * is skipped for good.
  */
@@ -115,7 +115,7 @@ async function holdOrSkip(
   if (awaiting) {
     // The marketplace still talks about the shop while it waits on a reconnection.
     await stampStoreWebhook(dependencies, awaiting.id, event.receivedAt);
-    const note = "Loja sem acesso: as vendas entram pela busca feita quando a loja for reconectada";
+    const note = heldEventNote(awaiting.id);
     return skipEvent(dependencies, { eventId, note, outcome: "awaiting_reconnection" });
   }
   const note = "Nenhuma loja conectada corresponde ao evento";

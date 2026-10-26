@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -155,6 +155,32 @@ export async function findStoreAwaitingReconnection(
     columns: { id: true, connectedAt: true },
   });
   return row ?? null;
+}
+
+/**
+ * Events closed while their store had no access, newest first: the worker closes them with a
+ * note that names the store, and checks them once more when the store reconnects.
+ */
+export async function findHeldWebhookEvents(
+  database: Database,
+  held: { marketplace: Marketplace; note: string; receivedAfter: Date; limit: number },
+) {
+  return database
+    .select({
+      id: webhookEvents.id,
+      topic: webhookEvents.topic,
+      rawPayload: webhookEvents.rawPayload,
+    })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.marketplace, held.marketplace),
+        gte(webhookEvents.receivedAt, held.receivedAfter),
+        eq(webhookEvents.error, held.note),
+      ),
+    )
+    .orderBy(desc(webhookEvents.receivedAt))
+    .limit(held.limit);
 }
 
 /** The store a reconnection catch-up reads from, while it is still connected. */

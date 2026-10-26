@@ -264,8 +264,9 @@ describe("webhook-event processor: stock and held sales", () => {
       });
       // Processed: the sweeper leaves it alone and the 30-day pruning removes it.
       expect(closed?.processedAt).not.toBeNull();
-      expect(closed?.error).toBe(
-        "Loja sem acesso: as vendas entram pela busca feita quando a loja for reconectada",
+      // The note names the store, so its reconnection checks the event once more.
+      expect(closed?.error).toMatch(
+        /^Loja sem acesso: as vendas entram pela busca feita quando a loja for reconectada \(loja [0-9a-f-]{36}\)$/,
       );
 
       await setStoreStatus("connected");
