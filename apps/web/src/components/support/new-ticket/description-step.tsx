@@ -8,6 +8,8 @@ import { STEP_HEADING_IDS, StepHeading } from "./step-parts";
 
 export const DESCRIPTION_FIELD_ID = "new-ticket-body";
 const SHORT_MESSAGE_ID = "new-ticket-body-short";
+/** Same cap as `ticketBodySchema`, so a long text stops at the field instead of failing on send. */
+const MAX_DESCRIPTION_LENGTH = 5000;
 
 export function DescriptionStep({
   number,
@@ -44,6 +46,7 @@ export function DescriptionStep({
       <Textarea
         id={DESCRIPTION_FIELD_ID}
         rows={4}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         value={value}
         aria-labelledby={STEP_HEADING_IDS.description}
         aria-invalid={isTooShort}
