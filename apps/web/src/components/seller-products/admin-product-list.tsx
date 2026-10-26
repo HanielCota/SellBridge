@@ -21,7 +21,8 @@ export function AdminProductsToolbar({
 }) {
   return (
     <div className="flex flex-wrap items-end gap-4">
-      <div className="min-w-0 flex-1">
+      {/* On a phone each field takes its own row: side by side the search shrank to a sliver. */}
+      <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
         <Label htmlFor="admin-product-search">Buscar produto, código, cliente ou fornecedor</Label>
         <Input
           id="admin-product-search"
@@ -29,11 +30,11 @@ export function AdminProductsToolbar({
           onChange={(event) => onChange({ query: event.target.value || undefined, page: 1 })}
         />
       </div>
-      <div>
+      <div className="w-full sm:w-auto">
         <Label htmlFor="admin-product-origin">Origem do produto</Label>
         <select
           id="admin-product-origin"
-          className="h-11 rounded-xl border border-input bg-background px-3"
+          className="h-11 w-full rounded-xl border border-input bg-background px-3 sm:w-auto"
           value={search.origin}
           onChange={(event) =>
             onChange({
