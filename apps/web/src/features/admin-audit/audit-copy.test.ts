@@ -45,7 +45,7 @@ describe("audit copy", () => {
         action: "supplier.flag_applied",
         details: { flagId: "f-1", reason: "slow_support" },
       }),
-    ).toBe("Aplicou uma flag ao fornecedor: Atraso para responder");
+    ).toBe("Aplicou uma advertência ao fornecedor: Atraso para responder");
     expect(
       describeAuditEntry({
         ...base,
@@ -53,17 +53,17 @@ describe("audit copy", () => {
         action: "supplier.flag_applied",
         details: { flagId: "f-1", reason: "unknown" },
       }),
-    ).toBe("Aplicou uma flag ao fornecedor");
+    ).toBe("Aplicou uma advertência ao fornecedor");
     expect(
       describeAuditEntry({ ...base, source: "catalog", action: "supplier.flag_revoked" }),
-    ).toBe("Retirou uma flag do fornecedor");
+    ).toBe("Retirou uma advertência do fornecedor");
   });
 
   it("says when the 3rd flag put the supplier out, apart from a deactivation by hand", () => {
     const deactivated = { ...base, source: "catalog" as const, action: "supplier.deactivated" };
     expect(
       describeAuditEntry({ ...deactivated, details: { pausedTargets: 2, cause: "third_flag" } }),
-    ).toBe("Desativou o fornecedor na 3ª flag");
+    ).toBe("Desativou o fornecedor na 3ª advertência");
     expect(describeAuditEntry({ ...deactivated, details: { pausedTargets: 2 } })).toBe(
       "Desativou o fornecedor",
     );

@@ -18,7 +18,7 @@ import { errorMessage } from "@/lib/errors";
 import { ApplyFlagDialog, RevokeFlagDialog } from "./supplier-flag-dialogs";
 
 const COUNTER_HINT =
-  "Flags que ainda contam: cada uma vale 90 dias. Na 3ª flag ativa o fornecedor é desligado, depois que quem aplica confirma.";
+  "Advertências que ainda contam: cada uma vale 90 dias. Na 3ª advertência ativa o fornecedor é desligado, depois que quem aplica confirma.";
 
 function FlagRow({
   flag,
@@ -44,7 +44,7 @@ function FlagRow({
       </div>
       {onRevoke === null ? null : (
         <Button variant="ghost" size="sm" onClick={() => onRevoke(flag.id)}>
-          Retirar flag
+          Retirar advertência
         </Button>
       )}
     </li>
@@ -112,8 +112,8 @@ function FlagLimitAlert({
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          Fornecedor desligado: chegou a {activeCount} flags ativas. Só um administrador reativa a
-          conta, pela ficha do fornecedor.
+          Fornecedor desligado: chegou a {activeCount} advertências ativas. Só um administrador
+          reativa a conta, pela ficha do fornecedor.
         </AlertDescription>
       </Alert>
     );
@@ -121,8 +121,8 @@ function FlagLimitAlert({
   return (
     <Alert variant="destructive">
       <AlertDescription>
-        Este fornecedor tem {activeCount} flags ativas e foi reativado. Uma nova flag desliga a
-        conta de novo.
+        Este fornecedor tem {activeCount} advertências ativas e foi reativado. Uma nova advertência
+        desliga a conta de novo.
       </AlertDescription>
     </Alert>
   );
@@ -138,7 +138,7 @@ function FlagsHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-1">
-        <h2 className="text-subhead font-semibold">Flags</h2>
+        <h2 className="text-subhead font-semibold">Advertências</h2>
         <p className="text-sm text-muted-foreground">
           <HintedText label={COUNTER_HINT} className="hinted-term">
             {supplierFlagCountLabel(activeCount)}
@@ -147,7 +147,7 @@ function FlagsHeader({
       </div>
       {onApply === null ? null : (
         <Button variant="outline" onClick={onApply}>
-          Aplicar flag
+          Aplicar advertência
         </Button>
       )}
     </div>
@@ -180,13 +180,16 @@ export function SupplierFlagsPanel({
   const active = flags.filter((flag) => flag.status === "active");
   const past = flags.filter((flag) => flag.status !== "active");
   return (
-    <section aria-label="Flags" className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6">
+    <section
+      aria-label="Advertências"
+      className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6"
+    >
       <FlagsHeader activeCount={activeCount} onApply={canManage ? () => setApplying(true) : null} />
       {reachedLimit ? (
         <FlagLimitAlert activeCount={activeCount} supplierActive={supplierActive} />
       ) : null}
       {active.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma flag ativa.</p>
+        <p className="text-sm text-muted-foreground">Nenhuma advertência ativa.</p>
       ) : (
         <ul className="[&>li+li]:border-t [&>li+li]:border-border/60">
           {active.map((flag) => (
@@ -222,7 +225,7 @@ export function SupplierFlagsPanel({
 export function SupplierFlagsSection({ supplierId }: { supplierId: string }) {
   const query = useQuery(supplierFlagsQueryOptions(supplierId));
   if (query.isPending) {
-    return <Skeleton className="h-32 rounded-3xl" aria-label="Carregando flags" />;
+    return <Skeleton className="h-32 rounded-3xl" aria-label="Carregando advertências" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;

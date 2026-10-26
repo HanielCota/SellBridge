@@ -71,7 +71,7 @@ export function supplierFlagCountLabel(activeCount: number): string {
 }
 
 /** What the supplier reads under the counter. */
-export const SUPPLIER_FLAG_LIMIT_WARNING = `Na ${SUPPLIER_FLAG_LIMIT}ª flag a conta é desligada.`;
+export const SUPPLIER_FLAG_LIMIT_WARNING = `Na ${SUPPLIER_FLAG_LIMIT}ª advertência a conta é desligada.`;
 
 export function reachedFlagLimit(activeCount: number): boolean {
   return activeCount >= SUPPLIER_FLAG_LIMIT;
@@ -95,9 +95,9 @@ export function flagDeactivatesSupplier(supplier: {
 export function deactivatingFlagNotice(activeFlagCount: number): string {
   const next = activeFlagCount + 1;
   if (next <= SUPPLIER_FLAG_LIMIT) {
-    return `Esta é a flag ${next} de ${SUPPLIER_FLAG_LIMIT}: o fornecedor será desligado`;
+    return `Esta é a advertência ${next} de ${SUPPLIER_FLAG_LIMIT}: o fornecedor será desligado`;
   }
-  return `O fornecedor foi reativado com ${activeFlagCount} flags ativas: esta flag o desliga de novo`;
+  return `O fornecedor foi reativado com ${activeFlagCount} advertências ativas: esta advertência o desliga de novo`;
 }
 
 /** Most recent first; a tie keeps the order it came in. Returns a new array. */
@@ -155,9 +155,11 @@ export type ApplySupplierFlagInput = z.infer<typeof applySupplierFlagSchema>;
 
 export const revokeSupplierFlagSchema = z.object({
   supplierId: supplierIdSchema,
-  flagId: z.uuid({ error: "Flag inválida" }),
+  flagId: z.uuid({ error: "Advertência inválida" }),
   revokeNote: flagNote().pipe(
-    z.string().min(1, "Conte por que a flag está sendo retirada. Exemplo: aplicada por engano."),
+    z
+      .string()
+      .min(1, "Conte por que a advertência está sendo retirada. Exemplo: aplicada por engano."),
   ),
 });
 export type RevokeSupplierFlagInput = z.infer<typeof revokeSupplierFlagSchema>;

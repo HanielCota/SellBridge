@@ -65,9 +65,9 @@ describe("TeamNoticesCard", () => {
   it("lists each flag with its own contest link and the count", () => {
     const markup = render(clientWith([notice]));
     expect(markup).toContain("Erro em pedido");
-    expect(markup).toContain("Contestar esta flag");
+    expect(markup).toContain("Contestar esta advertência");
     expect(markup).toContain("1 de 3 em 90 dias");
-    expect(markup).not.toContain("Nenhuma flag");
+    expect(markup).not.toContain("Nenhuma advertência");
   });
 
   it("says the account is off for a switched-off supplier", () => {

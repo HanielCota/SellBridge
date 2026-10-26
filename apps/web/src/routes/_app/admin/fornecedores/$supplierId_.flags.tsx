@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/admin/fornecedores/$supplierId_/flag
   loader: async ({ context, params }) => {
     await prefetchOnServer(context.queryClient, supplierFlagsQueryOptions(params.supplierId));
   },
-  head: () => ({ meta: [{ title: "Flags do fornecedor | SellBridge" }] }),
+  head: () => ({ meta: [{ title: "Advertências do fornecedor | SellBridge" }] }),
   component: FlagsPage,
 });
 

@@ -21,8 +21,8 @@ import { e2eDatabase } from "./database";
  */
 const database = e2eDatabase();
 const run = Date.now();
-const SUPPLIER_NAME = `Ateliê Flags E2E ${run}`;
-const OTHER_SUPPLIER_NAME = `Outro Ateliê Flags E2E ${run}`;
+const SUPPLIER_NAME = `Ateliê Advertências E2E ${run}`;
+const OTHER_SUPPLIER_NAME = `Outro Ateliê Advertências E2E ${run}`;
 const NOTE = "Telefone pessoal na descrição do produto Vaso Azul.";
 const REVOKE_NOTE = "Aplicada por engano no fornecedor errado.";
 const supplierIds: string[] = [];
@@ -106,7 +106,7 @@ let otherSupplierId = "";
 let supplierEmail = "";
 let applyCall: CapturedCall | null = null;
 
-test("supervisor aplica uma flag pela página das flags", async ({ browser }) => {
+test("supervisor aplica uma advertência pela página das advertências", async ({ browser }) => {
   test.setTimeout(120_000);
   const supplierPage = await browser.newPage();
   supplierEmail = await signUpAsSupplier(supplierPage, SUPPLIER_NAME);
@@ -122,21 +122,21 @@ test("supervisor aplica uma flag pela página das flags", async ({ browser }) =>
   const { context, page } = await teamMemberPage(browser, "Supervisora Flags", "supervisor");
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
   await expect(page.getByRole("heading", { name: SUPPLIER_NAME, level: 1 })).toBeVisible();
-  await expect(page.getByText("Nenhuma flag ativa.")).toBeVisible();
+  await expect(page.getByText("Nenhuma advertência ativa.")).toBeVisible();
   await expect(page.getByText("0 de 3 em 90 dias")).toBeVisible();
 
-  await page.getByRole("button", { name: "Aplicar flag" }).click();
-  const dialog = page.getByRole("dialog", { name: "Aplicar flag" });
+  await page.getByRole("button", { name: "Aplicar advertência" }).click();
+  const dialog = page.getByRole("dialog", { name: "Aplicar advertência" });
   await dialog.getByRole("combobox", { name: "Motivo" }).click();
   await page.getByRole("option", { name: "Outro" }).click();
-  await dialog.getByRole("button", { name: "Aplicar flag" }).click();
+  await dialog.getByRole("button", { name: "Aplicar advertência" }).click();
   await expect(dialog.getByText("explique na observação")).toBeVisible();
 
   await dialog.getByRole("combobox", { name: "Motivo" }).click();
   await page.getByRole("option", { name: "Tentou passar contato fora da plataforma" }).click();
   await dialog.getByLabel(/Observação/).fill(NOTE);
   applyCall = await captureCall(page, "contact_attempt", async () => {
-    await dialog.getByRole("button", { name: "Aplicar flag" }).click();
+    await dialog.getByRole("button", { name: "Aplicar advertência" }).click();
   });
   await expect(dialog).toBeHidden();
   await expect(page.getByText(NOTE)).toBeVisible();
@@ -144,13 +144,13 @@ test("supervisor aplica uma flag pela página das flags", async ({ browser }) =>
   await context.close();
 });
 
-test("atendente só vê as flags e o servidor recusa a aplicação", async ({ browser }) => {
+test("atendente só vê as advertências e o servidor recusa a aplicação", async ({ browser }) => {
   if (applyCall === null) throw new Error("a chamada de aplicar não foi capturada");
   const { context, page } = await teamMemberPage(browser, "Atendente Flags", "agent");
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
   await expect(page.getByText(NOTE)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Aplicar flag" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Retirar flag" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aplicar advertência" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retirar advertência" })).toHaveCount(0);
 
   expect(await replayStatus(context, applyCall)).toBe(403);
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}`);
@@ -158,7 +158,7 @@ test("atendente só vê as flags e o servidor recusa a aplicação", async ({ br
   await context.close();
 });
 
-test("fornecedor vê o aviso sem saber quem aplicou e não chega às flags da equipe", async ({
+test("fornecedor vê o aviso sem saber quem aplicou e não chega às advertências da equipe", async ({
   browser,
 }) => {
   if (applyCall === null) throw new Error("a chamada de aplicar não foi capturada");
@@ -176,15 +176,15 @@ test("fornecedor vê o aviso sem saber quem aplicou e não chega às flags da eq
   await expect(card).toContainText("Tentou passar contato fora da plataforma");
   await expect(card).toContainText(NOTE);
   await expect(card).toContainText("1 de 3 em 90 dias");
-  await expect(card).toContainText("Na 3ª flag a conta é desligada.");
+  await expect(card).toContainText("Na 3ª advertência a conta é desligada.");
   await expect(card).toContainText("Regra 5: Converse só pela SellBridge");
   await expect(card).toContainText("problema na sua conta de fornecedor");
   await expect(card).not.toContainText("Supervisora Flags");
   // Each flag is contested on its own: the ticket opens naming it, with the text started.
-  await card.getByRole("link", { name: "Contestar esta flag" }).click();
+  await card.getByRole("link", { name: "Contestar esta advertência" }).click();
   await expect(page).toHaveURL(/categoria=other/);
   await expect(page.locator("#new-ticket-body")).toHaveValue(
-    /^Quero contestar a flag "Tentou passar contato fora da plataforma" de \d{2}\/\d{2}\/\d{4}\. Motivo: $/,
+    /^Quero contestar a advertência "Tentou passar contato fora da plataforma" de \d{2}\/\d{2}\/\d{4}\. Motivo: $/,
   );
   await gotoHydrated(page, "/fornecedor/painel");
 
@@ -210,7 +210,9 @@ test("fornecedor vê o aviso sem saber quem aplicou e não chega às flags da eq
   await context.close();
 });
 
-test("revendedor e visitante sem conta não abrem a página das flags", async ({ browser }) => {
+test("revendedor e visitante sem conta não abrem a página das advertências", async ({
+  browser,
+}) => {
   if (applyCall === null) throw new Error("a chamada de aplicar não foi capturada");
   const anonymous = await browser.newContext({ locale: "pt-BR" });
   const anonymousPage = await anonymous.newPage();
@@ -229,19 +231,19 @@ test("revendedor e visitante sem conta não abrem a página das flags", async ({
   await seller.close();
 });
 
-test("supervisor retira a flag com uma observação e o fornecedor deixa de ver", async ({
+test("supervisor retira a advertência com uma observação e o fornecedor deixa de ver", async ({
   browser,
 }) => {
   const { context, page } = await teamMemberPage(browser, "Supervisor Retira", "supervisor");
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
-  await page.getByRole("button", { name: "Retirar flag" }).click();
-  const dialog = page.getByRole("dialog", { name: "Retirar flag?" });
-  await dialog.getByRole("button", { name: "Retirar flag" }).click();
-  await expect(dialog.getByText("Conte por que a flag está sendo retirada")).toBeVisible();
+  await page.getByRole("button", { name: "Retirar advertência" }).click();
+  const dialog = page.getByRole("dialog", { name: "Retirar advertência?" });
+  await dialog.getByRole("button", { name: "Retirar advertência" }).click();
+  await expect(dialog.getByText("Conte por que a advertência está sendo retirada")).toBeVisible();
   await dialog.getByLabel("Por que retirar?").fill(REVOKE_NOTE);
-  await dialog.getByRole("button", { name: "Retirar flag" }).click();
+  await dialog.getByRole("button", { name: "Retirar advertência" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText("Nenhuma flag ativa.")).toBeVisible();
+  await expect(page.getByText("Nenhuma advertência ativa.")).toBeVisible();
   await page.getByText("Histórico (1)").click();
   await expect(page.getByText(`Motivo da retirada: ${REVOKE_NOTE}`)).toBeVisible();
   await context.close();
@@ -258,32 +260,36 @@ test("supervisor retira a flag com uma observação e o fornecedor deixa de ver"
   await gotoHydrated(supplierPage, "/fornecedor/painel");
   await expect(supplierPage.getByRole("heading", { name: "Painel do fornecedor" })).toBeVisible();
   await expect(supplierPage.getByRole("region", { name: "Avisos da equipe" })).toHaveCount(0);
-  // No flag left: "Sem flags" in the health section on top of the list, the rules one tap away.
+  // No flag left: "Sem advertências" in the health section on top of the list, the rules one tap away.
   const standing = supplierPage.getByRole("region", { name: "Sua conta" });
-  await expect(standing).toContainText("Sem flags");
-  await expect(standing).toContainText("Sua conta está em dia. Na 3ª flag a conta é desligada.");
+  await expect(standing).toContainText("Sem advertências");
+  await expect(standing).toContainText(
+    "Sua conta está em dia. Na 3ª advertência a conta é desligada.",
+  );
   await expect(standing.getByRole("link", { name: "Ver as 5 regras" })).toBeVisible();
   await supplierContext.close();
 });
 
-test("admin vê as flags na ficha e a ação na auditoria", async ({ page }) => {
+test("admin vê as advertências na ficha e a ação na auditoria", async ({ page }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}`);
-  const section = page.getByRole("region", { name: "Flags" });
-  await expect(section.getByRole("button", { name: "Aplicar flag" })).toBeVisible();
+  const section = page.getByRole("region", { name: "Advertências" });
+  await expect(section.getByRole("button", { name: "Aplicar advertência" })).toBeVisible();
   await expect(section.getByText("Histórico (1)")).toBeVisible();
 
   await gotoHydrated(page, `/admin/auditoria?query=${encodeURIComponent(SUPPLIER_NAME)}`);
   await expect(
     page.getByRole("cell", {
-      name: "Aplicou uma flag ao fornecedor: Tentou passar contato fora da plataforma",
+      name: "Aplicou uma advertência ao fornecedor: Tentou passar contato fora da plataforma",
     }),
   ).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Retirou uma flag do fornecedor" })).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "Retirou uma advertência do fornecedor" }),
+  ).toBeVisible();
 });
 
-test("uma retirada recusada atualiza a lista e não reaparece na próxima flag", async ({
+test("uma retirada recusada atualiza a lista e não reaparece na próxima advertência", async ({
   browser,
 }) => {
   const [admin] = await database
@@ -306,7 +312,7 @@ test("uma retirada recusada atualiza a lista e não reaparece na próxima flag",
 
   const { context, page } = await teamMemberPage(browser, "Supervisora Atrasada", "supervisor");
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}/flags`);
-  await expect(page.getByRole("button", { name: "Retirar flag" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Retirar advertência" })).toHaveCount(2);
   // Another team member revokes the newest flag while this page still shows it.
   await revokeSupplierFlag(database, {
     supplierId,
@@ -316,22 +322,22 @@ test("uma retirada recusada atualiza a lista e não reaparece na próxima flag",
     now: new Date(),
   });
 
-  await page.getByRole("button", { name: "Retirar flag" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Retirar flag?" });
+  await page.getByRole("button", { name: "Retirar advertência" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Retirar advertência?" });
   await dialog.getByLabel("Por que retirar?").fill(REVOKE_NOTE);
-  await dialog.getByRole("button", { name: "Retirar flag" }).click();
-  await expect(dialog.getByText("Esta flag já foi retirada.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Retirar advertência" }).click();
+  await expect(dialog.getByText("Esta advertência já foi retirada.")).toBeVisible();
   await dialog.getByRole("button", { name: "Cancelar" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("button", { name: "Retirar flag" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Retirar advertência" })).toHaveCount(1);
 
-  await page.getByRole("button", { name: "Retirar flag" }).click();
+  await page.getByRole("button", { name: "Retirar advertência" }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Esta flag já foi retirada.")).toHaveCount(0);
+  await expect(dialog.getByText("Esta advertência já foi retirada.")).toHaveCount(0);
   await context.close();
 });
 
-test("a 3ª flag ativa pede confirmação e desliga o fornecedor", async ({ browser }) => {
+test("a 3ª advertência ativa pede confirmação e desliga o fornecedor", async ({ browser }) => {
   const [admin] = await database
     .select({ id: user.id })
     .from(user)
@@ -350,19 +356,25 @@ test("a 3ª flag ativa pede confirmação e desliga o fornecedor", async ({ brow
   await expect(page.getByText("2 de 3 em 90 dias")).toBeVisible();
   await expect(page.getByText("Regra 2: Envie exatamente o produto anunciado")).toBeVisible();
 
-  await page.getByRole("button", { name: "Aplicar flag" }).click();
-  const dialog = page.getByRole("dialog", { name: "Aplicar flag" });
+  await page.getByRole("button", { name: "Aplicar advertência" }).click();
+  const dialog = page.getByRole("dialog", { name: "Aplicar advertência" });
   await dialog.getByRole("combobox", { name: "Motivo" }).click();
   await page.getByRole("option", { name: "Atraso para responder" }).click();
   await expect(dialog.getByText("Quebra a Regra 4: Responda em até 1 dia útil.")).toBeVisible();
-  await expect(dialog.getByText("Esta é a flag 3 de 3: o fornecedor será desligado")).toBeVisible();
+  await expect(
+    dialog.getByText("Esta é a advertência 3 de 3: o fornecedor será desligado"),
+  ).toBeVisible();
   await dialog.getByRole("button", { name: "Aplicar e desligar" }).click();
   await expect(dialog.getByText("Marque a confirmação para desligar o fornecedor.")).toBeVisible();
 
-  await dialog.getByRole("checkbox", { name: /Confirmo: aplicar a flag e desligar/ }).click();
+  await dialog
+    .getByRole("checkbox", { name: /Confirmo: aplicar a advertência e desligar/ })
+    .click();
   await dialog.getByRole("button", { name: "Aplicar e desligar" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText("Fornecedor desligado: chegou a 3 flags ativas")).toBeVisible();
+  await expect(
+    page.getByText("Fornecedor desligado: chegou a 3 advertências ativas"),
+  ).toBeVisible();
   await context.close();
 
   const [supplier] = await database

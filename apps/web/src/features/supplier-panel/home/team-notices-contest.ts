@@ -12,7 +12,7 @@ import { formatFlagDate } from "@/features/admin-suppliers/supplier-flag-copy";
 const CONTEST_CATEGORY = "other";
 
 /**
- * The "Contestar esta flag" link of one notice: the ticket opens with the flag named in the
+ * The "Contestar esta advertência" link of one notice: the ticket opens with the flag named in the
  * subject and the text already started, so the team knows which flag without asking back.
  */
 export function contestTicketSearch(notice: {
@@ -22,8 +22,8 @@ export function contestTicketSearch(notice: {
   const label = SUPPLIER_FLAG_REASON_LABELS[notice.reason];
   return {
     categoria: CONTEST_CATEGORY,
-    assunto: `Contestar flag: ${label}`,
-    texto: `Quero contestar a flag "${label}" de ${formatFlagDate(notice.createdAt)}. Motivo: `,
+    assunto: `Contestar advertência: ${label}`,
+    texto: `Quero contestar a advertência "${label}" de ${formatFlagDate(notice.createdAt)}. Motivo: `,
   };
 }
 

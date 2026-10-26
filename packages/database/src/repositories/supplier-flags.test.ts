@@ -27,7 +27,12 @@ function staffId(): string {
 async function createSupplier(): Promise<string> {
   const [supplier] = await database
     .insert(suppliers)
-    .values({ name: "Fornecedor de teste das flags", niche: "Teste", state: "ZZ", city: "X" })
+    .values({
+      name: "Fornecedor de teste das advertências",
+      niche: "Teste",
+      state: "ZZ",
+      city: "X",
+    })
     .returning({ id: suppliers.id });
   if (supplier === undefined) {
     throw new Error("fornecedor não criado");
@@ -42,7 +47,7 @@ async function appliedAt(flagId: string): Promise<Date> {
     .from(supplierFlags)
     .where(eq(supplierFlags.id, flagId));
   if (flag === undefined) {
-    throw new Error("flag não encontrada");
+    throw new Error("advertência não encontrada");
   }
   return flag.createdAt;
 }
@@ -273,7 +278,7 @@ describe("supplier flags", () => {
     await database.update(suppliers).set({ active: true }).where(eq(suppliers.id, supplierId));
 
     await expect(applySupplierFlag(database, flagInput(supplierId, "order_error"))).rejects.toThrow(
-      "O fornecedor foi reativado com 3 flags ativas",
+      "O fornecedor foi reativado com 3 advertências ativas",
     );
   });
 
@@ -305,7 +310,7 @@ describe("supplier flags", () => {
   it("reads only the supplier's name and whether it is active for the team's flags page", async () => {
     const supplierId = await createSupplier();
     expect(await getFlaggableSupplier(database, supplierId)).toEqual({
-      name: "Fornecedor de teste das flags",
+      name: "Fornecedor de teste das advertências",
       active: true,
     });
     await expect(

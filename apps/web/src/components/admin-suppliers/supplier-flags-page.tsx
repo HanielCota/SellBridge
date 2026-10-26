@@ -25,7 +25,7 @@ export function SupplierFlagsPage({
     <BackLink to="/admin/chamados" label="Chamados" />
   );
   if (query.isPending) {
-    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando flags" />;
+    return <Skeleton className="h-64 rounded-3xl" aria-label="Carregando advertências" />;
   }
   if (query.isError) {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
@@ -35,7 +35,7 @@ export function SupplierFlagsPage({
       <PageHeader
         back={back}
         title={query.data.supplierName}
-        description="Flags do fornecedor. Cada uma vale 90 dias e o fornecedor vê no painel."
+        description="Advertências do fornecedor. Cada uma vale 90 dias e o fornecedor vê no painel."
       />
       <SupplierFlagsPanel supplierId={supplierId} data={query.data} />
     </div>

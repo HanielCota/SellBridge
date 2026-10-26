@@ -216,7 +216,7 @@ export function HomeQueue({ supplierId, data, hrefFor, active }: HomeQueueProps)
             <OrderGroup
               id={GROUP_ANCHORS.accept}
               title="Aceitar"
-              hint="Confirme se você tem o produto para vender. Pedido sem aceite no prazo vira flag."
+              hint="Confirme se você tem o produto para vender. Pedido sem aceite no prazo vira advertência."
               rows={accept}
               total={orderTotals.accept}
               now={now}

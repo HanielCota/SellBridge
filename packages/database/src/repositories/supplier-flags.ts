@@ -263,12 +263,12 @@ async function explainUnrevokable(
     .where(and(eq(supplierFlags.id, input.flagId), eq(supplierFlags.supplierId, input.supplierId)))
     .limit(1);
   if (flag === undefined) {
-    throw notFoundError(`Flag ${input.flagId} não encontrada neste fornecedor.`);
+    throw notFoundError(`Advertência ${input.flagId} não encontrada neste fornecedor.`);
   }
   if (flag.revokedAt !== null) {
-    throw conflictError("Esta flag já foi retirada.");
+    throw conflictError("Esta advertência já foi retirada.");
   }
-  throw conflictError("Esta flag já venceu e não conta mais.");
+  throw conflictError("Esta advertência já venceu e não conta mais.");
 }
 
 interface FlagRevocation {

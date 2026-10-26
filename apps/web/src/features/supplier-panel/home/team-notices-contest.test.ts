@@ -14,8 +14,10 @@ describe("contestTicketSearch", () => {
 
   it("names the flag and its date in the subject and the started text", () => {
     const search = contestTicketSearch({ reason: "order_error", createdAt: CREATED_AT });
-    expect(search.assunto).toBe("Contestar flag: Erro em pedido");
-    expect(search.texto).toBe('Quero contestar a flag "Erro em pedido" de 23/10/2026. Motivo: ');
+    expect(search.assunto).toBe("Contestar advertência: Erro em pedido");
+    expect(search.texto).toBe(
+      'Quero contestar a advertência "Erro em pedido" de 23/10/2026. Motivo: ',
+    );
   });
 
   it("builds a link the new-ticket page accepts for every reason", () => {
