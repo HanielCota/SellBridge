@@ -7,6 +7,7 @@
     "./money": "./src/domain/money.ts",
     "./product-csv": "./src/domain/product-csv.ts",
     "./catalog-spreadsheet": "./src/domain/catalog-spreadsheet.ts",
+    "./supplier-catalog-file": "./src/domain/supplier-catalog-file.ts",
     "./xlsx-reader": "./src/runtime/xlsx-reader.ts",
     "./supplier-panel-import": "./src/domain/supplier-panel-import.ts",
     "./supplier-panel-import-columns": "./src/domain/supplier-panel-import-columns.ts",

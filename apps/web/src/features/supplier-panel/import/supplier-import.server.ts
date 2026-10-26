@@ -1,8 +1,10 @@
 import { loadProductCategories } from "@/lib/server/reference-data";
 import { getAdminSupplier } from "@sellbridge/database/repositories";
+import { findSourceLine, type CatalogImport } from "@sellbridge/shared/catalog-spreadsheet";
 import { conflictError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { parseProductCsv, type ProductCsvError } from "@sellbridge/shared/product-csv";
+import { readSupplierCatalogFile } from "@sellbridge/shared/supplier-catalog-file";
 import {
   normalizeImportFile,
   type NormalizedImport,
@@ -18,7 +20,10 @@ import {
   insecureImageErrors,
   shortValue,
 } from "@sellbridge/shared/supplier-panel-image-urls";
-import { groupIssuesByRow } from "@sellbridge/shared/supplier-panel-import-issues";
+import {
+  groupIssuesByRow,
+  type ImportRowIssues,
+} from "@sellbridge/shared/supplier-panel-import-issues";
 import type {
   SupplierImportConfirmInput,
   SupplierImportPreview,
@@ -79,7 +84,39 @@ async function prepareConfirmation(supplierId: string, content: string) {
   return { preview, confirmation: { content, previewToken: preview.previewToken } };
 }
 
-function fileInfo(normalized: NormalizedImport): SupplierImportPreview["file"] {
+/**
+ * The file as the supplier sent it. An EnvioVelox catalog is read as the admin import reads it
+ * and previewed as the panel's own CSV; its errors still name the spreadsheet's rows.
+ */
+async function readSupplierFile(input: SupplierImportPreviewInput) {
+  const bytes = Buffer.from(input.fileBase64, "base64");
+  const catalog = await readSupplierCatalogFile(bytes, input.fileName, loadProductCategories);
+  if (catalog === null) {
+    return { normalized: normalizeImportFile(bytes), catalog };
+  }
+  return { normalized: normalizeImportFile(new TextEncoder().encode(catalog.csv)), catalog };
+}
+
+function onSpreadsheetRows(
+  issues: readonly ImportRowIssues[],
+  catalog: CatalogImport | null,
+): ImportRowIssues[] {
+  if (catalog === null) {
+    return [...issues];
+  }
+  return issues.map((row) => ({
+    ...row,
+    line: findSourceLine(catalog.lines, row.line)?.rowNumber ?? row.line,
+  }));
+}
+
+function fileInfo(
+  normalized: NormalizedImport,
+  catalog: CatalogImport | null,
+): SupplierImportPreview["file"] {
+  if (catalog !== null) {
+    return { format: "xlsx", encodingLabel: null, delimiterLabel: null };
+  }
   return {
     format: normalized.format,
     encodingLabel:
@@ -92,7 +129,7 @@ function fileInfo(normalized: NormalizedImport): SupplierImportPreview["file"] {
 export async function previewSupplierImport(
   input: SupplierImportPreviewInput,
 ): Promise<SupplierImportPreview> {
-  const normalized = normalizeImportFile(Buffer.from(input.fileBase64, "base64"));
+  const { normalized, catalog } = await readSupplierFile(input);
   const ruleErrors = await productRuleErrors(input.supplierId, normalized);
   const issues = groupIssuesByRow(
     originalErrors(normalized, ruleErrors),
@@ -105,19 +142,19 @@ export async function previewSupplierImport(
     valid.rowCount === 0 ? null : await prepareConfirmation(input.supplierId, valid.content);
   logger.info("supplier_panel.import_previewed", {
     supplierId: input.supplierId,
-    format: normalized.format,
+    format: catalog === null ? normalized.format : "envio-velox",
     encoding: normalized.encoding,
     totalRows: normalized.records.size,
     failedRows: issues.length,
   });
   return {
-    file: fileInfo(normalized),
+    file: fileInfo(normalized, catalog),
     totalRows: normalized.records.size,
     validRows: valid.rowCount,
     failedRows: issues.length,
     created: prepared?.preview.created ?? 0,
     updated: prepared?.preview.updated ?? 0,
-    issues,
+    issues: onSpreadsheetRows(issues, catalog),
     failedRowsCsv:
       issues.length === 0 ? "" : buildFailedRowsCsv(normalized, normalized.records, issues),
     confirmation: prepared?.confirmation ?? null,
