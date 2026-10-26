@@ -77,6 +77,7 @@ export async function ownSellableListing(database: Database, email: string) {
   const cipher = createTokenCipher(requireEnvironmentVariable("TOKEN_ENCRYPTION_KEY"));
   const store = await upsertStoreConnection(database, {
     ...testStoreInput(tenantId, `stock-e2e-${stamp}`),
+    marketplace: "mercado_livre",
     accessTokenEnc: cipher.encrypt("mock-access-token"),
     refreshTokenEnc: cipher.encrypt("mock-refresh-token"),
     supplierId,

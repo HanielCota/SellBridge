@@ -64,7 +64,6 @@ import { Route as ApiV1StoresRouteImport } from './routes/api/v1/stores'
 import { Route as ApiWebhooksMarketplaceRouteImport } from './routes/api/webhooks/$marketplace'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api/webhooks/stripe'
 import { Route as FornecedorPedidoTokenRouteImport } from './routes/fornecedor/pedido/$token'
-import { Route as OauthMockAutorizarRouteImport } from './routes/oauth/mock/autorizar'
 import { Route as AppAdminChamadosIndexRouteImport } from './routes/_app/admin/chamados/index'
 import { Route as AppAdminChamadosTicketIdRouteImport } from './routes/_app/admin/chamados/$ticketId'
 import { Route as AppAdminChamadosMetricasRouteImport } from './routes/_app/admin/chamados/metricas'
@@ -383,11 +382,6 @@ const FornecedorPedidoTokenRoute = FornecedorPedidoTokenRouteImport.update({
   path: '/fornecedor/pedido/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OauthMockAutorizarRoute = OauthMockAutorizarRouteImport.update({
-  id: '/oauth/mock/autorizar',
-  path: '/oauth/mock/autorizar',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppAdminChamadosIndexRoute = AppAdminChamadosIndexRouteImport.update({
   id: '/chamados/',
   path: '/chamados/',
@@ -682,7 +676,6 @@ export interface FileRoutesByFullPath {
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
-  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores/': typeof AppFornecedoresIndexRoute
   '/pedidos/': typeof AppPedidosIndexRoute
   '/publicacoes/': typeof AppPublicacoesIndexRoute
@@ -777,7 +770,6 @@ export interface FileRoutesByTo {
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
-  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/fornecedores': typeof AppFornecedoresIndexRoute
   '/pedidos': typeof AppPedidosIndexRoute
   '/publicacoes': typeof AppPublicacoesIndexRoute
@@ -878,7 +870,6 @@ export interface FileRoutesById {
   '/api/webhooks/$marketplace': typeof ApiWebhooksMarketplaceRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
   '/fornecedor/pedido/$token': typeof FornecedorPedidoTokenRoute
-  '/oauth/mock/autorizar': typeof OauthMockAutorizarRoute
   '/_app/fornecedores/': typeof AppFornecedoresIndexRoute
   '/_app/pedidos/': typeof AppPedidosIndexRoute
   '/_app/publicacoes/': typeof AppPublicacoesIndexRoute
@@ -978,7 +969,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
-    | '/oauth/mock/autorizar'
     | '/fornecedores/'
     | '/pedidos/'
     | '/publicacoes/'
@@ -1073,7 +1063,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
-    | '/oauth/mock/autorizar'
     | '/fornecedores'
     | '/pedidos'
     | '/publicacoes'
@@ -1173,7 +1162,6 @@ export interface FileRouteTypes {
     | '/api/webhooks/$marketplace'
     | '/api/webhooks/stripe'
     | '/fornecedor/pedido/$token'
-    | '/oauth/mock/autorizar'
     | '/_app/fornecedores/'
     | '/_app/pedidos/'
     | '/_app/publicacoes/'
@@ -1246,7 +1234,6 @@ export interface RootRouteChildren {
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
-  OauthMockAutorizarRoute: typeof OauthMockAutorizarRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
@@ -1655,13 +1642,6 @@ declare module '@tanstack/react-router' {
       path: '/fornecedor/pedido/$token'
       fullPath: '/fornecedor/pedido/$token'
       preLoaderRoute: typeof FornecedorPedidoTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/oauth/mock/autorizar': {
-      id: '/oauth/mock/autorizar'
-      path: '/oauth/mock/autorizar'
-      fullPath: '/oauth/mock/autorizar'
-      preLoaderRoute: typeof OauthMockAutorizarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/admin/chamados/': {
@@ -2165,7 +2145,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
-  OauthMockAutorizarRoute: OauthMockAutorizarRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,

@@ -7,6 +7,6 @@ export const stateCitiesQueryOptions = (state: BrazilianState | null) =>
   queryOptions({
     queryKey: ["cities", state],
     queryFn: state === null ? skipToken : () => getStateCities({ data: { state } }),
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
+    staleTime: (query) => (query.state.data?.length ? 24 * 60 * 60_000 : 30_000),
+    gcTime: 24 * 60 * 60_000,
   });

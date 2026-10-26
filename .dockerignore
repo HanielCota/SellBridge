@@ -11,3 +11,10 @@ coverage
 .env.*
 .claude
 .agents
+# Keep test adapters and synthetic datasets out of runtime images.
+**/testing
+apps/web/e2e
+**/*.test.ts
+**/*.test.tsx
+**/fixtures
+**/*.fixtures.ts

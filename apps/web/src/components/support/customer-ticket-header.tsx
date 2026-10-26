@@ -12,7 +12,6 @@ import {
   type CustomerTicketFacts,
   type CustomerTicketTone,
 } from "@/features/support/customer-ticket-state";
-import { displayStoreName } from "@/features/stores/store-name";
 import { useNow } from "@/hooks/use-now";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +50,7 @@ function aboutLabels(subject: TicketSubjectLabels, orders: readonly LinkedOrder[
   }
   const labels = [...orderIds].map((id) => `Pedido #${id}`);
   if (subject.store) {
-    labels.push(displayStoreName(subject.store.name));
+    labels.push(subject.store.name);
   }
   if (subject.listing) {
     labels.push(subject.listing.title);

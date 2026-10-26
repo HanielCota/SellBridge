@@ -59,7 +59,7 @@ describe("listingHealth", () => {
   });
 
   it("names the store where the listing is live when there is only one", () => {
-    expect(listingHealth(listing([store("Loja A (loja simulada)", "published")]))).toEqual({
+    expect(listingHealth(listing([store("Loja A", "published")]))).toEqual({
       tone: "live",
       label: "No ar na Loja A",
       reason: null,

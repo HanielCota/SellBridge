@@ -19,7 +19,7 @@ test("admin vê o fornecedor de cada loja do cliente e troca o de uma delas", as
   const email = await signUp(customer, "Cliente Fornecedor Admin");
   await completeOnboarding(customer, "BH Beauty Distribuidora");
   await expect(customer).toHaveURL(/\/lojas/);
-  await customer.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await customer.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(customer.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(customer);
   await customer.getByLabel("Nome da loja").fill("Loja Cliente Admin");

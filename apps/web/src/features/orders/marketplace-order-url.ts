@@ -2,7 +2,7 @@ import type { Marketplace } from "@sellbridge/shared/schemas";
 
 /**
  * The sale's page in the marketplace's seller area, or null when there is none to open (a
- * simulated store, or an order number that is not one). Mercado Livre's address is still to be
+ * retired integration, or an order number that is not one). Mercado Livre's address is still to be
  * confirmed with the test account (docs/marketplaces/mercado-livre.md).
  */
 export function marketplaceOrderUrl(

@@ -2,13 +2,11 @@ import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   requestDescriptionResend,
   getSellableCatalogProduct,
-  getTargetForPublishing,
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
   storesListingProduct,
 } from "@sellbridge/database/repositories";
-import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   createListingSchema,
@@ -21,11 +19,6 @@ import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import {
-  buildMockOrderWebhook,
-  requireMockWebhookSecret,
-  sendMockWebhook,
-} from "@/features/listings/mock-sale.server";
 import {
   createListingForTenant,
   setListingsPausedForTenant,
@@ -128,35 +121,5 @@ export const updateListingPriceFn = createServerFn({ method: "POST" })
   .validator(z.object({ listingId: z.uuid(), priceCents: listingPriceCentsSchema }))
   .handler(async ({ context, data }) => {
     await updateListingPriceForTenant(context.tenantId, data.listingId, data.priceCents);
-    return { ok: true };
-  });
-
-/**
- * Simulated marketplace only: produces a signed "orders" webhook for a published listing
- * and sends it to our own endpoint, exercising the real webhook → queue → worker path.
- */
-export const simulateMockSale = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
-  .validator(z.object({ listingTargetId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    const row = await getTargetForPublishing(database, context.tenantId, data.listingTargetId);
-    if (row.store.marketplace !== "mock") {
-      throw validationError("Só é possível simular vendas em lojas simuladas");
-    }
-    if (row.target.status !== "published" || !row.target.externalId) {
-      throw validationError("O anúncio precisa estar publicado para simular uma venda");
-    }
-    const mockWebhookSecret = requireMockWebhookSecret();
-    const rawBody = buildMockOrderWebhook({
-      externalShopId: row.store.externalShopId,
-      externalListingId: row.target.externalId,
-      title: row.listing.title,
-      priceCents: row.listing.priceCents,
-    });
-    await sendMockWebhook(rawBody, mockWebhookSecret);
-    logger.info("listing.mock_sale_simulated", {
-      tenantId: context.tenantId,
-      listingTargetId: data.listingTargetId,
-    });
     return { ok: true };
   });

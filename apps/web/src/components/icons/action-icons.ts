@@ -281,7 +281,6 @@ export const CONTROL_HINTS = {
   sellSupplier: "Conectar uma loja para vender os produtos deste fornecedor",
   listingActions: "Editar preço, pausar e outras ações deste anúncio",
   publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
-  simulateSale: "Cria um pedido de teste; não cobra ninguém",
   orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
   batchAccept: "Marque para aceitar vários pedidos de uma vez",
   viewOrder: "Ver os dados, o histórico e os documentos do pedido",

@@ -1,8 +1,8 @@
+import { loadProductCategories } from "@/lib/server/reference-data";
 import { createHash } from "node:crypto";
 import {
   getAdminSupplier,
   importSupplierProducts,
-  listAdminCategories,
   listAdminSupplierProducts,
   listAdminSuppliers,
   listSupplierSellers,
@@ -37,7 +37,7 @@ export async function loadAdminSuppliers(search: AdminSupplierSearch) {
 export async function loadAdminSupplier(supplierId: string) {
   const [detail, categories, sellers] = await Promise.all([
     getAdminSupplier(database, supplierId),
-    listAdminCategories(database),
+    loadProductCategories(),
     listSupplierSellers(database, supplierId),
   ]);
   return { ...detail, categories, sellers };

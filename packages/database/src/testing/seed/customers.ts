@@ -1,14 +1,14 @@
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
 import { asc, eq } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database } from "../../client.ts";
 import {
   type BillingHolderValues,
   saveBillingHolder,
   saveStarterSupplier,
-} from "../repositories/region.ts";
-import { listings, supplierProducts } from "../schema/index.ts";
-import { ensureAccount, type SeededAccount } from "./accounts.ts";
+} from "../../repositories/region.ts";
+import { listings, supplierProducts } from "../../schema/index.ts";
+import { ensureAccount, type SeededAccount } from "../../seed/accounts.ts";
 import type { SeedStore } from "./data.ts";
 import type { Random } from "./random.ts";
 import { seedDemoSales } from "./sales.ts";
@@ -17,7 +17,7 @@ import { seedDemoSales } from "./sales.ts";
 export const ADMIN_STORES: readonly SeedStore[] = [
   {
     externalShopId: "mock-shop-admin-vitrine",
-    shopName: "Vitrine SellBridge (loja simulada)",
+    shopName: "Vitrine SellBridge",
     supplierName: "Curitiba Tech Acessórios",
   },
 ];
@@ -44,7 +44,7 @@ export const CUSTOMERS: readonly SeedCustomer[] = [
     stores: [
       {
         externalShopId: "mock-shop-bruno-pe",
-        shopName: "Bruno Pé no Chão (loja simulada)",
+        shopName: "Bruno Pé no Chão",
         supplierName: "Franca Calçados Direto da Fábrica",
       },
     ],
@@ -57,7 +57,7 @@ export const CUSTOMERS: readonly SeedCustomer[] = [
     stores: [
       {
         externalShopId: "mock-shop-carla-pet",
-        shopName: "Carla Pet (loja simulada)",
+        shopName: "Carla Pet",
         supplierName: "Rio Pet Atacado",
         status: "expired",
       },

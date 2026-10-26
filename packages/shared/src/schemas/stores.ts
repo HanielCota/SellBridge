@@ -2,9 +2,10 @@ import { z } from "zod";
 import { freeText, pageNumberSchema, sliceWholeCharacters, searchQuery } from "./common.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
 
-export const MARKETPLACES = ["mock", "mercado_livre", "shopee", "tiktok_shop"] as const;
+export const MARKETPLACES = ["mercado_livre", "shopee", "tiktok_shop"] as const;
 export const marketplaceSchema = z.enum(MARKETPLACES);
-export type Marketplace = z.infer<typeof marketplaceSchema>;
+/** Includes the retired value only to read historical database records. */
+export type Marketplace = z.infer<typeof marketplaceSchema> | "mock";
 
 export const STORE_STATUSES = ["connected", "expired", "error", "disconnected"] as const;
 export type StoreStatus = (typeof STORE_STATUSES)[number];

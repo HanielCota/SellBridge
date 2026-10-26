@@ -1,6 +1,6 @@
 import { count } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { categories, supplierProducts, suppliers } from "../schema/index.ts";
+import type { Database } from "../../client.ts";
+import { categories, supplierProducts, suppliers } from "../../schema/index.ts";
 import { CATEGORIES, NICHE_PRODUCTS, SUPPLIERS, type ProductTemplate } from "./data.ts";
 import type { Random } from "./random.ts";
 

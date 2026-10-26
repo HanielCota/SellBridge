@@ -1,6 +1,6 @@
 import { count, inArray } from "drizzle-orm";
-import type { Database } from "../client.ts";
-import { ticketMessages, tickets } from "../schema/index.ts";
+import type { Database } from "../../client.ts";
+import { ticketMessages, tickets } from "../../schema/index.ts";
 
 const HOUR_MILLISECONDS = 3_600_000;
 

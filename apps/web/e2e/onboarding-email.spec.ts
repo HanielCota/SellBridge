@@ -14,7 +14,7 @@ test("a conta sem e-mail confirmado vê a etapa e não conecta loja nova", async
   await completeOnboarding(page);
   await expect(page).toHaveURL(/\/lojas/);
   await waitForHydration(page);
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill("Loja Sem Confirmar");

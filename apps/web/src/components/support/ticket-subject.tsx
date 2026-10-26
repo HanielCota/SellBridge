@@ -1,5 +1,4 @@
 import { MegaphoneIcon, PackageIcon, PlugsConnectedIcon, type Icon } from "@phosphor-icons/react";
-import { displayStoreName } from "@/features/stores/store-name";
 
 export interface TicketSubjectLabels {
   order?: { id: string; externalOrderId: string } | null;
@@ -29,7 +28,7 @@ function subjectRows(subject: TicketSubjectLabels): SubjectRow[] {
       key: "store",
       icon: PlugsConnectedIcon,
       kind: "Loja",
-      label: displayStoreName(subject.store.name),
+      label: subject.store.name,
     });
   }
   if (subject.listing) {

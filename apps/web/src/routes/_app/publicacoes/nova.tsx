@@ -40,7 +40,6 @@ import {
   wholeMarginPercent,
 } from "@/features/listings/profit";
 import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
-import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
@@ -625,23 +624,6 @@ function PriceField({
   );
 }
 
-function storeSubtitle(store: ListingStore): string | null {
-  return displayStoreName(store.shopName) === store.shopName
-    ? null
-    : "Loja simulada · pedidos de teste";
-}
-
-/** Under the store name: that it already sells the product, or what kind of store it is. */
-function StoreNote({ listed, subtitle }: { listed: boolean; subtitle: string | null }) {
-  if (listed) {
-    return <ToneStatus tone="success" label="Já publicado aqui" />;
-  }
-  if (subtitle === null) {
-    return null;
-  }
-  return <span className="block text-xs text-muted-foreground">{subtitle}</span>;
-}
-
 function StoreOption({
   store,
   checked,
@@ -651,7 +633,6 @@ function StoreOption({
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
 }) {
-  const subtitle = storeSubtitle(store);
   return (
     <Label
       htmlFor={`store-${store.id}`}
@@ -664,9 +645,9 @@ function StoreOption({
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate font-medium", store.listed && "text-muted-foreground")}>
-          {displayStoreName(store.shopName)}
+          {store.shopName}
         </span>
-        <StoreNote listed={store.listed} subtitle={subtitle} />
+        {store.listed ? <ToneStatus tone="success" label="Já publicado aqui" /> : null}
       </span>
       <Checkbox
         id={`store-${store.id}`}
@@ -759,7 +740,7 @@ function ListingSidebar({
 function publishSummary(selected: readonly ListingStore[]): string {
   const [only] = selected;
   if (selected.length === 1 && only) {
-    return `Vai para ${displayStoreName(only.shopName)}`;
+    return `Vai para ${only.shopName}`;
   }
   if (selected.length === 0) {
     return "Escolha ao menos uma loja";

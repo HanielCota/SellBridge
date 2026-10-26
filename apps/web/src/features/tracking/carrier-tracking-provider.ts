@@ -1,9 +1,4 @@
-import {
-  carrierTrackingResultSchema,
-  type CarrierTrackingProviderName,
-  type CarrierTrackingResult,
-} from "./carrier-tracking";
-import { simulatedCarrierTracking } from "./simulated-carrier-tracking";
+import { type CarrierTrackingProviderName, type CarrierTrackingResult } from "./carrier-tracking";
 
 export interface TrackParcelRequest {
   /** Already normalized (`normalizeTrackingInput`). */
@@ -24,16 +19,8 @@ const offProvider: CarrierTrackingProvider = {
   trackParcel: async () => ({ state: "not_connected" }),
 };
 
-function simulatedProvider(now: () => Date): CarrierTrackingProvider {
-  return {
-    name: "simulated",
-    trackParcel: async (request) =>
-      carrierTrackingResultSchema.parse(simulatedCarrierTracking({ ...request, now: now() })),
-  };
-}
-
 /*
- * The Correios provider goes here, as a third name. Per CLAUDE.local.md it must:
+ * The Correios provider can be added here. It must:
  * - call the API with `AbortSignal.timeout` on every request;
  * - retry with backoff only on transient errors (network, 429, 5xx), never on 4xx;
  * - parse the answer with `carrierTrackingResultSchema` (map the Correios event codes to
@@ -41,11 +28,7 @@ function simulatedProvider(now: () => Date): CarrierTrackingProvider {
  * - read its credentials from the validated server environment, never from code.
  */
 export function createCarrierTrackingProvider(
-  name: CarrierTrackingProviderName,
-  now: () => Date = () => new Date(),
+  _name: CarrierTrackingProviderName,
 ): CarrierTrackingProvider {
-  if (name === "simulated") {
-    return simulatedProvider(now);
-  }
   return offProvider;
 }

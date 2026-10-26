@@ -30,7 +30,7 @@ async function onboardWithBhBeauty(page: Page) {
 async function connectMockStore(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
   await expect(page.getByText("Nenhuma loja conectada").filter({ visible: true })).toBeVisible();
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
 
   // The consent page arrives through a server redirect, i.e. a full page load.
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
@@ -88,7 +88,7 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   await page.getByRole("button", { name: "Ações de Produto publicado pelo teste E2E" }).click();
   await expect(page.getByRole("menuitem", { name: /^Loja E2E/ })).toHaveAttribute(
     "href",
-    /\/oauth\/mock\/anuncio\//,
+    /\/__e2e\/listing\//,
   );
 });
 

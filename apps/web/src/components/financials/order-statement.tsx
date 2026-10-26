@@ -13,7 +13,6 @@ import {
   formatDayHeading,
   groupOrdersByDay,
 } from "@/features/reports/financial-rows";
-import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 import { isVoidOrder, ProfitAmount, signedCents } from "./order-parts";
 import { OrderDetail } from "./order-detail";
@@ -80,7 +79,7 @@ function RowSummary({
         {showStore ? (
           <>
             <span aria-hidden="true">·</span>
-            <span className="truncate">{displayStoreName(row.storeName)}</span>
+            <span className="truncate">{row.storeName}</span>
           </>
         ) : null}
         {NOTABLE_STATUSES.has(row.status) ? (
@@ -247,7 +246,7 @@ function GroupSummaryLine({
       {showStore ? (
         <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
           <span aria-hidden="true">·</span>
-          <span className="truncate">{displayStoreName(first.storeName)}</span>
+          <span className="truncate">{first.storeName}</span>
         </span>
       ) : null}
       {NOTABLE_STATUSES.has(first.status) ? (

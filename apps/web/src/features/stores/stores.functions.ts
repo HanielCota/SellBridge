@@ -1,24 +1,15 @@
 import {
   EMPTY_STORE_ACTIVITY,
   getStoreActivity,
-  isStoreNameTaken,
   listStoreConnections,
 } from "@sellbridge/database/repositories";
-import {
-  encodeMockAuthorizationCode,
-  MARKETPLACE_LABELS,
-  type MarketplaceId,
-} from "@sellbridge/marketplaces";
-import { conflictError, validationError } from "@sellbridge/shared/errors";
+import { MARKETPLACE_LABELS, type MarketplaceId } from "@sellbridge/marketplaces";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestUrl } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { appOriginFor } from "@/lib/server/app-origin";
 import { database } from "@/lib/server/database";
-import { connectors, oauthCallbackUrl } from "@/lib/server/marketplaces";
+import { connectors } from "@/lib/server/marketplaces";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { disconnectStoreForTenant } from "./disconnect-store.server";
-import { freeText } from "@sellbridge/shared/schemas";
 
 export interface MarketplaceOption {
   id: MarketplaceId;
@@ -26,7 +17,7 @@ export interface MarketplaceOption {
   available: boolean;
 }
 
-const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_shop", "mock"];
+const MARKETPLACE_ORDER: MarketplaceId[] = ["mercado_livre", "shopee", "tiktok_shop"];
 
 export const listStores = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -60,53 +51,3 @@ export const disconnectStoreFn = createServerFn({ method: "POST" })
       pauseListings: data.pauseListings,
     }),
   );
-
-/** The mock callback on the trusted host this request came in on (see `appOriginFor`). */
-function mockCallbackUrl(): string {
-  return oauthCallbackUrl("mock", appOriginFor(getRequestUrl().href));
-}
-
-/**
- * Where the consent screen of the simulated marketplace sends the user back, or null when
- * the simulated store is off (production without `MOCK_WEBHOOK_SECRET`).
- */
-export const getMockConsentCallback = createServerFn({ method: "GET" })
-  .middleware([tenantMiddleware])
-  .handler(async (): Promise<{ callbackUrl: string | null }> => {
-    if (!connectors.mock.isConfigured()) {
-      return { callbackUrl: null };
-    }
-    return { callbackUrl: mockCallbackUrl() };
-  });
-
-/**
- * Consent screen of the simulated marketplace: issues an authorization code for the
- * callback URL. Only our own mock callback is accepted, so it cannot be an open redirect.
- */
-export const approveMockAuthorization = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
-  .validator(
-    z.object({
-      shopName: freeText().trim().min(3, "Informe o nome da loja").max(80),
-      state: z.string().min(1),
-      redirectUri: z.url(),
-    }),
-  )
-  .handler(async ({ context, data }) => {
-    if (!connectors.mock.isConfigured()) {
-      throw validationError("A loja simulada não está disponível");
-    }
-    if (data.redirectUri !== mockCallbackUrl()) {
-      throw validationError("Endereço de retorno não autorizado");
-    }
-    const shop = { tenantId: context.tenantId, shopName: data.shopName };
-    if (await isStoreNameTaken(database, shop)) {
-      throw conflictError(
-        `O nome "${data.shopName}" não está disponível: você já tem uma loja com ele`,
-      );
-    }
-    const url = new URL(data.redirectUri);
-    url.searchParams.set("code", encodeMockAuthorizationCode(data.shopName));
-    url.searchParams.set("state", data.state);
-    return { redirectTo: url.toString() };
-  });

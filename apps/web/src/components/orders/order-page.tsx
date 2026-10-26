@@ -19,7 +19,6 @@ import type { getOrderPageFn } from "@/features/orders/orders.functions";
 import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
 import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supplier-button";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
-import { displayStoreName } from "@/features/stores/store-name";
 
 type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
 
@@ -63,7 +62,7 @@ function OrderHeader({ page }: { page: OrderPageData }) {
           <OrderStatusBadge status={order.status} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {displayStoreName(order.storeName)} · {displayBuyerName(order.buyerName)} ·{" "}
+          {order.storeName} · {displayBuyerName(order.buyerName)} ·{" "}
           <SmartDate date={order.orderedAt} />
         </p>
       </div>

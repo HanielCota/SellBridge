@@ -2,14 +2,14 @@ import { tagsForRating } from "@sellbridge/shared/schemas";
 import { REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
 import { DAY_MILLISECONDS, daysBefore } from "@sellbridge/shared/time";
 import { and, count, eq, inArray } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database } from "../../client.ts";
 import {
   orderItems,
   orders,
   supplierProducts,
   supplierReviews,
   suppliers,
-} from "../schema/index.ts";
+} from "../../schema/index.ts";
 import { SUPPLIERS, type SupplierReputationProfile } from "./data.ts";
 import type { Random } from "./random.ts";
 

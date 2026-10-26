@@ -19,7 +19,7 @@ test("admin vê quem vende o fornecedor e o impacto antes de desativar", async (
   await signUp(seller, sellerName);
   await completeOnboarding(seller, "Rio Pet Atacado");
   await expect(seller).toHaveURL(/\/lojas/);
-  await seller.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await seller.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(seller.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(seller);
   await seller.getByLabel("Nome da loja").fill(shopName);

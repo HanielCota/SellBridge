@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { displayStoreName } from "@/features/stores/store-name";
 
 /** A store the catalog can follow; the server already left out disconnected ones. */
 export interface ScopeStoreOption {
@@ -26,7 +25,7 @@ export function storeOptionLabel(
   store: Pick<ScopeStoreOption, "shopName" | "marketplaceLabel" | "hasSupplier">,
 ): { name: string; note: string | null } {
   return {
-    name: `${displayStoreName(store.shopName)} · ${store.marketplaceLabel}`,
+    name: `${store.shopName} · ${store.marketplaceLabel}`,
     note: store.hasSupplier ? null : "sem fornecedor",
   };
 }
@@ -87,7 +86,7 @@ export function catalogDescription(
     return "Cada loja vende os produtos de um fornecedor.";
   }
   if (scope.kind === "store" && storeName !== null) {
-    return `Produtos de ${supplierName} para a loja ${displayStoreName(storeName)}. Selecione vários para publicar de uma vez.`;
+    return `Produtos de ${supplierName} para a loja ${storeName}. Selecione vários para publicar de uma vez.`;
   }
   return `Produtos de ${supplierName}, o fornecedor que você escolheu. Selecione vários para publicar de uma vez.`;
 }

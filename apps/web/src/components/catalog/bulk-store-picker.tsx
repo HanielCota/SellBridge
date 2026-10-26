@@ -1,7 +1,6 @@
 import type { SellableCatalogProduct } from "@sellbridge/database/repositories";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { displayStoreName } from "@/features/stores/store-name";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -38,7 +37,7 @@ export function storesForProducts(
 function storeSummary(chosen: PublishStore[], stores: PublishStore[]): string {
   const [only] = chosen;
   if (chosen.length === 1 && only) {
-    return displayStoreName(only.shopName);
+    return only.shopName;
   }
   if (chosen.length === 0) {
     return "Nenhuma loja escolhida";
@@ -141,7 +140,7 @@ function StoreSwitchRow({
   return (
     <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-muted">
       <MarketplaceMark marketplace={store.marketplace} className="size-8 rounded-lg" />
-      <span className="min-w-0 flex-1 truncate text-sm">{displayStoreName(store.shopName)}</span>
+      <span className="min-w-0 flex-1 truncate text-sm">{store.shopName}</span>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </label>
   );

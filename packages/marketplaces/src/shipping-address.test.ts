@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { describe, expect, it } from "vitest";
-import { decodeMockOrderResource, encodeMockOrderResource } from "./mock/codec.ts";
+import { decodeMockOrderResource, encodeMockOrderResource } from "./testing/codec.ts";
 import { createUnavailableConnector } from "./unavailable-connector.ts";
 import { openShippingAddress, sealShippingAddress } from "./shipping-address-seal.ts";
 import { shippingAddressReading } from "./shipping-address.ts";

@@ -10,7 +10,7 @@ describe("catalog description", () => {
       catalogDescription(
         { kind: "store", storeId: STORE, supplierId: "x" },
         "BH Beauty Distribuidora",
-        "Ana Moda (loja simulada)",
+        "Ana Moda",
       ),
     ).toBe(
       "Produtos de BH Beauty Distribuidora para a loja Ana Moda. Selecione vários para publicar de uma vez.",

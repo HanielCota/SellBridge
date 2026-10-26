@@ -1,7 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { createDatabase, type Database, schema } from "@sellbridge/database";
 import { createListingWithTargets, markTargetPublished } from "@sellbridge/database/repositories";
-import { createConnectorRegistry, encodeMockAuthorizationCode } from "@sellbridge/marketplaces";
+import { createConnectorRegistry } from "@sellbridge/marketplaces";
+import { createMockConnector, encodeMockAuthorizationCode } from "@sellbridge/marketplaces/testing";
 import { createTokenCipher } from "@sellbridge/shared/token-cipher";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
 import { eq, inArray } from "drizzle-orm";
@@ -15,10 +16,11 @@ export function createWorkerTestEnvironment() {
   }
   const database = createDatabase(databaseUrl, { maxConnections: 2 });
   const cipher = createTokenCipher(randomBytes(32).toString("base64"));
-  const connectors = createConnectorRegistry({
+  const connectors = createConnectorRegistry({});
+  connectors.mock = createMockConnector({
     appUrl: "http://localhost:3000",
-    mockWebhookSecret: "segredo-de-teste-123",
-    mockLatencyMilliseconds: 0,
+    webhookSecret: "segredo-de-teste-123",
+    latencyMilliseconds: 0,
   });
   return { database, cipher, connectors };
 }

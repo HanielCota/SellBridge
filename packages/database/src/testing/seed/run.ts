@@ -1,13 +1,14 @@
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
-import type { Database } from "../client.ts";
-import { saveBillingHolder } from "../repositories/region.ts";
-import { recordTermsAcceptance } from "../repositories/terms-acceptances.ts";
-import { ensureAccount, ensureExtraProfile, type SeededAccount } from "./accounts.ts";
+import type { Database } from "../../client.ts";
+import { saveBillingHolder } from "../../repositories/region.ts";
+import { recordTermsAcceptance } from "../../repositories/terms-acceptances.ts";
+import { ensureAccount, type SeededAccount } from "../../seed/accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { seedAdminWorkspace, seedCustomers, seedStarterSupplierFromListings } from "./customers.ts";
 import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
+import { ensureExtraProfile } from "./profiles.ts";
 import { createRandom, type Random } from "./random.ts";
 import { seedDemoReviews } from "./reputation.ts";
 import { seedDemoSales } from "./sales.ts";

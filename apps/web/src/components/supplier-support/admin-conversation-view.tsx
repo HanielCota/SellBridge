@@ -12,7 +12,6 @@ import { TEAM_CONVERSATION } from "@/components/supplier-support/conversation-pe
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { TicketThread } from "@/components/support/ticket-thread";
 import { Skeleton } from "@/components/ui/skeleton";
-import { displayStoreName } from "@/features/stores/store-name";
 import type { ConversationView } from "@/features/supplier-support/conversation-thread";
 import { staffConversationQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import { errorMessage } from "@/lib/errors";
@@ -50,8 +49,7 @@ function ConversationTitle({ view }: { view: ConversationView }) {
       </div>
       <p className="text-sm text-muted-foreground">
         <span className="font-mono">#{ticketCode(conversation.id)}</span> ·{" "}
-        {conversation.resellerName} ({displayStoreName(conversation.storeName)}) →{" "}
-        {conversation.supplierName}
+        {conversation.resellerName} ({conversation.storeName}) → {conversation.supplierName}
         {topic === null ? null : ` · ${topic}`}
         {orders.length > 0 ? ` · ${orders.join(", ")}` : null} · aberta{" "}
         <SmartDate date={conversation.createdAt} />

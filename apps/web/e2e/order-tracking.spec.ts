@@ -109,7 +109,10 @@ test("reseller tracks an order by code, by order number, by hand and from the or
   await expect(parcel).toBeVisible();
   await expect(parcel.getByText("O que aconteceu com o pedido")).toBeVisible();
   await expect(parcel.getByText("Onde está agora:")).toBeVisible();
-  await expect(parcel.getByText(/Demonstração/)).toBeVisible();
+  await expect(
+    parcel.getByText(/A consulta direto na transportadora ainda não está ligada/),
+  ).toBeVisible();
+  await expect(parcel.getByText(/Demonstração/)).toHaveCount(0);
 
   await searchBox.fill(externalId);
   await page.getByRole("button", { name: "Rastrear" }).click();
@@ -121,7 +124,10 @@ test("reseller tracks an order by code, by order number, by hand and from the or
   await page.getByRole("button", { name: "Rastrear" }).click();
   const manual = page.getByRole("region", { name: `Rastreio do código ${manualCode}` });
   await expect(manual).toBeVisible();
-  await expect(manual.getByText(/Demonstração/)).toBeVisible();
+  await expect(
+    manual.getByText(/A consulta direto na transportadora ainda não está ligada/),
+  ).toBeVisible();
+  await expect(manual.getByText(/Demonstração/)).toHaveCount(0);
 
   // The same text again looks again: the carrier may have scanned the parcel since.
   const lookAgain = page.waitForRequest(

@@ -3,7 +3,6 @@ import {
   unavailableListingLabel,
   unavailableListingMessage,
 } from "@sellbridge/shared/catalog-availability";
-import { displayStoreName } from "@/features/stores/store-name";
 
 export type ListingHealthTone = "live" | "error" | "attention" | "busy" | "paused";
 
@@ -28,7 +27,7 @@ function storesWith(
 function whereLabel(stores: readonly ListingStoreStatus[]): string {
   const [onlyStore] = stores;
   if (stores.length === 1 && onlyStore) {
-    return `na ${displayStoreName(onlyStore.storeName)}`;
+    return `na ${onlyStore.storeName}`;
   }
   return `em ${stores.length} lojas`;
 }

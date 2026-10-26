@@ -1,22 +1,4 @@
-export interface SeedCategory {
-  slug: string;
-  name: string;
-}
-
-export const CATEGORIES: SeedCategory[] = [
-  { slug: "moda-feminina", name: "Moda feminina" },
-  { slug: "moda-masculina", name: "Moda masculina" },
-  { slug: "calcados", name: "Calçados" },
-  { slug: "acessorios", name: "Acessórios" },
-  { slug: "beleza", name: "Beleza e cuidados" },
-  { slug: "casa", name: "Casa e decoração" },
-  { slug: "cozinha", name: "Cozinha" },
-  { slug: "eletronicos", name: "Eletrônicos e acessórios" },
-  { slug: "pet", name: "Pet shop" },
-  { slug: "fitness", name: "Fitness" },
-  { slug: "papelaria", name: "Papelaria" },
-  { slug: "infantil", name: "Infantil e brinquedos" },
-];
+export { CATEGORIES } from "../../seed/categories.ts";
 
 export interface ProductTemplate {
   title: string;
@@ -255,12 +237,12 @@ export interface SeedStore {
 export const DEMO_STORES: readonly SeedStore[] = [
   {
     externalShopId: "mock-shop-ana-moda",
-    shopName: "Ana Moda (loja simulada)",
+    shopName: "Ana Moda",
     supplierName: "Ateliê Divinópolis Confecções",
   },
   {
     externalShopId: "mock-shop-ana-casa",
-    shopName: "Ana Casa & Beleza (loja simulada)",
+    shopName: "Ana Casa & Beleza",
     supplierName: "BH Beauty Distribuidora",
   },
 ];

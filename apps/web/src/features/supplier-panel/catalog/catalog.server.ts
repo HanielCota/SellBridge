@@ -1,7 +1,7 @@
+import { loadProductCategories } from "@/lib/server/reference-data";
 import {
   approveSupplierPanelProduct,
   getSupplierPanelProduct,
-  listAdminCategories,
   listSupplierPanelProducts,
   rejectSupplierPanelProduct,
   reserveShortItems,
@@ -35,7 +35,7 @@ export async function loadPanelProductForm(input: {
           supplierId: input.supplierId,
           productId: input.productId,
         }),
-    listAdminCategories(database),
+    loadProductCategories(),
   ]);
   return { product, categories };
 }

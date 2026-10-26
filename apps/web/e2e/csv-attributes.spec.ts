@@ -69,7 +69,7 @@ async function importProductWithAttributes(page: Page) {
 
 async function connectMockStore(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill(shopName);

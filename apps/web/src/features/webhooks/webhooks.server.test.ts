@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/marketplaces", () => ({
-  connectors: { mock: { verifyWebhook: mocks.verifyWebhook } },
+  connectors: { mercado_livre: { verifyWebhook: mocks.verifyWebhook } },
 }));
 vi.mock("@/lib/server/queues", () => ({ enqueueWebhookEvent: mocks.enqueueWebhookEvent }));
 vi.mock("@sellbridge/database/repositories", () => ({
@@ -18,14 +18,14 @@ vi.mock("@sellbridge/database/repositories", () => ({
 const { handleWebhook } = await import("./webhooks.server");
 
 function notification(): Request {
-  return new Request("http://localhost/api/webhooks/mock", {
+  return new Request("http://localhost/api/webhooks/mercado_livre", {
     method: "POST",
     body: JSON.stringify({ id: "evt-1" }),
   });
 }
 
 async function deliver() {
-  const response = await handleWebhook(notification(), "mock");
+  const response = await handleWebhook(notification(), "mercado_livre");
   return { status: response.status, body: await response.json() };
 }
 
@@ -86,7 +86,7 @@ function streamed(bytes: number): Request {
       sent += size;
     },
   });
-  return new Request("http://localhost/api/webhooks/mock", {
+  return new Request("http://localhost/api/webhooks/mercado_livre", {
     method: "POST",
     body,
     duplex: "half",
@@ -96,8 +96,8 @@ function streamed(bytes: number): Request {
 describe("webhook body limits", () => {
   it("reads a body of exactly 64 KB and refuses one byte more, even without Content-Length", async () => {
     mocks.recordWebhookEvent.mockResolvedValue({ status: "created", id: "wh-1", pending: true });
-    expect((await handleWebhook(streamed(64 * 1024), "mock")).status).toBe(200);
-    expect((await handleWebhook(streamed(64 * 1024 + 1), "mock")).status).toBe(413);
+    expect((await handleWebhook(streamed(64 * 1024), "mercado_livre")).status).toBe(200);
+    expect((await handleWebhook(streamed(64 * 1024 + 1), "mercado_livre")).status).toBe(413);
     expect(mocks.verifyWebhook).toHaveBeenCalledTimes(1);
   });
 
@@ -107,7 +107,7 @@ describe("webhook body limits", () => {
       reason: "forma inválida",
       payload: { body: "a".repeat(10_000) },
     });
-    expect((await handleWebhook(notification(), "mock")).status).toBe(401);
+    expect((await handleWebhook(notification(), "mercado_livre")).status).toBe(401);
     expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
   });
 
@@ -117,7 +117,7 @@ describe("webhook body limits", () => {
       valid: true,
       event: { externalEventId: "evt-2", topic: "orders", payload: { note: "a\u0000b" } },
     });
-    await handleWebhook(notification(), "mock");
+    await handleWebhook(notification(), "mercado_livre");
     expect(mocks.recordWebhookEvent.mock.calls[0]?.[1]).toMatchObject({
       rawPayload: { note: "ab" },
     });
@@ -132,24 +132,30 @@ describe("webhook text", () => {
       pending: true,
     });
     const response = await handleWebhook(
-      new Request("http://localhost/api/webhooks/mock", {
+      new Request("http://localhost/api/webhooks/mercado_livre", {
         method: "POST",
         body: String.raw`{"_id":"😀"}`,
       }),
-      "mock",
+      "mercado_livre",
     );
     expect(response.status).toBe(200);
   });
 
   it("refuses half of a UTF-16 pair on its own before storing anything", async () => {
     const response = await handleWebhook(
-      new Request("http://localhost/api/webhooks/mock", {
+      new Request("http://localhost/api/webhooks/mercado_livre", {
         method: "POST",
         body: String.raw`{"_id":"\ud800","topic":"orders_v2"}`,
       }),
-      "mock",
+      "mercado_livre",
     );
     expect(response.status).toBe(400);
     expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
   });
+});
+
+it("rejects the retired mock endpoint before reading or recording its payload", async () => {
+  expect((await handleWebhook(notification(), "mock")).status).toBe(404);
+  expect(mocks.verifyWebhook).not.toHaveBeenCalled();
+  expect(mocks.recordWebhookEvent).not.toHaveBeenCalled();
 });

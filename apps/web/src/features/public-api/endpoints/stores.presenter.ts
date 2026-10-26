@@ -24,7 +24,7 @@ export type StoreDto = z.input<typeof storeSchema>;
 
 /** Public view of a store connection: never its tokens, shop id on the marketplace or errors. */
 export function presentStore(store: StoreConnectionSummary): StoreDto | null {
-  if (store.status === "disconnected") {
+  if (store.status === "disconnected" || store.marketplace === "mock") {
     return null;
   }
   return {
