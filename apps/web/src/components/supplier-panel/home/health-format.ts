@@ -32,7 +32,7 @@ export function metricHint(metric: HealthMetric): string {
     accept_on_time: `Pedidos aceitos antes do prazo; a meta é ${goal} ou mais`,
     dispatch_on_time: `Pedidos despachados antes do prazo; a meta é ${goal} ou mais`,
     supplier_cancellations: `Pedidos que você cancelou; a meta é até ${goal}`,
-    supplier_returns: `Pedidos entregues que o comprador devolveu; a meta é até ${goal}. Também pesa no seu score público`,
+    supplier_returns: `Pedidos entregues que o comprador devolveu; a meta é até ${goal}. Também pesa na sua nota pública`,
     average_rating: `Média das notas dos revendedores; a meta é ${goal} ou mais`,
   };
   return sentences[metric.key];

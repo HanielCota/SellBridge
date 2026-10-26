@@ -178,7 +178,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
           event.pending === 1
             ? "1 pedido esperando sua avaliação"
             : `${event.pending} pedidos esperando sua avaliação`,
-        detail: "Avalie os fornecedores para formar o score deles.",
+        detail: "Avalie os fornecedores para formar a nota deles.",
         href: "/pedidos?view=reviews&review=pending",
       };
   }

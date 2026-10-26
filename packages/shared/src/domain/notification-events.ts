@@ -162,7 +162,7 @@ export function orderDeliveredContent(order: OrderDeliveredNotice): Notification
     heading: "Pedido entregue",
     paragraphs: [
       `O comprador recebeu o pedido ${order.externalOrderId}.`,
-      "Avalie o fornecedor: a sua nota forma o score dele.",
+      "Avalie o fornecedor: a sua avaliação forma a nota dele.",
     ],
     actionLabel: "Ver pedido",
     actionPath: `/pedidos/${order.orderId}`,

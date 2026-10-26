@@ -35,8 +35,8 @@ function ScoreHeadline({ reputation }: { reputation: SupplierReputation }) {
         <p className="text-2xl font-semibold tracking-tight">Novo fornecedor</p>
         <p className="text-sm text-muted-foreground">
           {missing === 1
-            ? "Falta 1 avaliação para o score aparecer."
-            : `Faltam ${missing} avaliações para o score aparecer.`}
+            ? "Falta 1 avaliação para a nota aparecer."
+            : `Faltam ${missing} avaliações para a nota aparecer.`}
         </p>
       </div>
     );
@@ -70,7 +70,7 @@ function ScoreColumn({ reputation }: { reputation: SupplierReputation }) {
   return (
     <div className="space-y-3">
       <p className="text-footnote text-muted-foreground">
-        Score do fornecedor · últimos {SCORE_WINDOW_DAYS} dias
+        Nota do fornecedor · últimos {SCORE_WINDOW_DAYS} dias
       </p>
       <ScoreHeadline reputation={reputation} />
       <ReputationThermometer level={reputation.level} />

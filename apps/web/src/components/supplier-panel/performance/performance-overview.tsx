@@ -26,8 +26,8 @@ function scoreLine(reputation: SupplierReputation): string {
   if (reputation.score === null || reputation.average === null) {
     const missing = MIN_REVIEWS_FOR_SCORE - reputation.reviewCount;
     return missing === 1
-      ? "Falta 1 avaliação para o score aparecer."
-      : `Faltam ${missing} avaliações para o score aparecer.`;
+      ? "Falta 1 avaliação para a nota aparecer."
+      : `Faltam ${missing} avaliações para a nota aparecer.`;
   }
   const reviews = reputation.reviewCount === 1 ? "avaliação" : "avaliações";
   return `Média ${formatAverage(reputation.average)} em ${reputation.reviewCount} ${reviews}. É o que os revendedores veem.`;
@@ -40,7 +40,7 @@ function PublicScore({ reputation }: { reputation: SupplierReputation }) {
       <div className="flex items-baseline gap-2">
         <h2 className="flex-1 text-subhead font-semibold">
           <HintedText label={TERM_HINTS.publicScore} className="hinted-term">
-            Score público
+            Nota pública
           </HintedText>
         </h2>
         {score === null || level === null ? null : (

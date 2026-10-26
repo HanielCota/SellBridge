@@ -138,7 +138,7 @@ export function buildAttentionItems(
       icon: ReviewBubbleIcon,
       tone: "review",
       title: plural(pendingReviews, "pedido para avaliar", "pedidos para avaliar"),
-      description: "Conte como o fornecedor se saiu e ajude a formar o score.",
+      description: "Conte como o fornecedor se saiu e ajude a formar a nota.",
       to: "/pedidos",
       search: { view: "reviews", review: "pending" },
     });
