@@ -44,3 +44,12 @@ test("o revendedor não vê o caminho da equipe", async ({ page }) => {
     0,
   );
 });
+
+// Regression: an /admin link opened with the mode off bounced to the sales dashboard in silence.
+test("um link da área de admin abre a tela e liga o modo", async ({ page }) => {
+  await startWithAdminModeOff(page);
+  await page.goto("/admin/clientes");
+  await expect(page).toHaveURL(/\/admin\/clientes/);
+  await expect(page.getByRole("heading", { name: "Clientes" })).toBeVisible();
+  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+});
