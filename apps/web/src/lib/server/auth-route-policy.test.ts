@@ -54,6 +54,13 @@ describe("isClosedToBrowsers", () => {
     },
   );
 
+  // Regression (security audit, 26/10/2026): /verify-password answered right or wrong to any
+  // session at 100 tries per 10 s, also during a team visit, while /delete-user allows 5 a minute.
+  it("closes the password check over HTTP and keeps it for server calls", () => {
+    expect(isClosedToBrowsers(overHttp("/verify-password"))).toBe(true);
+    expect(isClosedToBrowsers(fromServer("/verify-password"))).toBe(false);
+  });
+
   it("closes an admin route the plugin may add in a later version", () => {
     expect(isClosedToBrowsers(overHttp("/admin/some-new-route"))).toBe(true);
   });

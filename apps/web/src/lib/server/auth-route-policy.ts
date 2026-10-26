@@ -14,6 +14,13 @@ const ADMIN_ROUTES_OPEN_TO_BROWSERS: ReadonlySet<string> = new Set([
   "/admin/stop-impersonating",
 ]);
 
+/**
+ * Core routes the app never calls over HTTP. /verify-password answers "right or wrong password"
+ * to any session under the generic 100-per-10 s limit, so a stolen session or a team visit could
+ * guess the password far faster than the 5 per minute /delete-user allows.
+ */
+const CORE_ROUTES_CLOSED_TO_BROWSERS: ReadonlySet<string> = new Set(["/verify-password"]);
+
 function isAdminPluginRoute(path: string): boolean {
   return path.startsWith("/admin/");
 }
@@ -57,6 +64,9 @@ export function isClosedToBrowsers(call: AuthRouteCall): boolean {
     return false;
   }
   if (isOrganizationPluginRoute(call.path)) {
+    return true;
+  }
+  if (CORE_ROUTES_CLOSED_TO_BROWSERS.has(call.path)) {
     return true;
   }
   return isAdminPluginRoute(call.path) && !ADMIN_ROUTES_OPEN_TO_BROWSERS.has(call.path);
