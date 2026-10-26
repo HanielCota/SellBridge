@@ -36,7 +36,8 @@ export function teamHomeFor(role: string, teamModeOn: boolean): "/admin/chamados
   if (!teamModeOn) {
     return null;
   }
-  if (role === "admin" || !isStaffRole(role)) {
+  // The roles whose mode starts on are the ones with no store: the same rule, never a copy.
+  if (!isTeamModeOn(role, undefined)) {
     return null;
   }
   return "/admin/chamados";
