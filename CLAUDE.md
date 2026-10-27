@@ -33,6 +33,7 @@ Leia também `AGENTS.md` (Turborepo) e, para trabalho por itens, `docs/prompts/e
 ## Git
 
 - Commits e pull requests atômicos, em inglês, no padrão Conventional Commits.
+- **Ao concluir qualquer alteração no código, faça commit com uma mensagem descritiva, dê push para a branch remota e abra um pull request para `main`.** Não precisa pedir permissão. Nunca commitar nem dar push direto em `main`: criar antes uma branch curta para a tarefa.
 - Fluxo de cada implementação no website: implementar → validar (portões e testes verdes, verificação no navegador) → revisar → commit → push → abrir PR para `main`.
 - Push e PR só depois de validado e revisado; se algum portão falhar, não commitar nem subir: deixar as mudanças na árvore e explicar.
 - Se a branch já tem um PR aberto, o push atualiza esse PR em vez de abrir outro.
