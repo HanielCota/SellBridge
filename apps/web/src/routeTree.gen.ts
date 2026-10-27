@@ -82,6 +82,7 @@ import { Route as AppSuporteConversasTicketIdRouteImport } from './routes/_app/s
 import { Route as AppSuporteFornecedoresIndexRouteImport } from './routes/_app/suporte/fornecedores/index'
 import { Route as AppSuporteFornecedoresNovoRouteImport } from './routes/_app/suporte/fornecedores/novo'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
+import { Route as ApiFornecedorVendasExportarRouteImport } from './routes/api/fornecedor/vendas/exportar'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
 import { Route as ApiPedidosOrderIdEtiquetaRouteImport } from './routes/api/pedidos/$orderId/etiqueta'
@@ -487,6 +488,12 @@ const ApiFornecedorProdutosImagensRoute =
     path: '/api/fornecedor/produtos/imagens',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiFornecedorVendasExportarRoute =
+  ApiFornecedorVendasExportarRouteImport.update({
+    id: '/api/fornecedor/vendas/exportar',
+    path: '/api/fornecedor/vendas/exportar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiOauthMarketplaceCallbackRoute =
   ApiOauthMarketplaceCallbackRouteImport.update({
     id: '/api/oauth/$marketplace/callback',
@@ -693,6 +700,7 @@ export interface FileRoutesByFullPath {
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -787,6 +795,7 @@ export interface FileRoutesByTo {
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -887,6 +896,7 @@ export interface FileRoutesById {
   '/_app/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/_app/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
+  '/api/fornecedor/vendas/exportar': typeof ApiFornecedorVendasExportarRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
   '/api/pedidos/$orderId/etiqueta': typeof ApiPedidosOrderIdEtiquetaRoute
@@ -986,6 +996,7 @@ export interface FileRouteTypes {
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
     | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1080,6 +1091,7 @@ export interface FileRouteTypes {
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
     | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1179,6 +1191,7 @@ export interface FileRouteTypes {
     | '/_app/suporte/conversas/$ticketId'
     | '/_app/suporte/fornecedores/novo'
     | '/api/fornecedor/produtos/imagens'
+    | '/api/fornecedor/vendas/exportar'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
     | '/api/pedidos/$orderId/etiqueta'
@@ -1235,6 +1248,7 @@ export interface RootRouteChildren {
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
+  ApiFornecedorVendasExportarRoute: typeof ApiFornecedorVendasExportarRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
   ApiPedidosOrderIdEtiquetaRoute: typeof ApiPedidosOrderIdEtiquetaRoute
@@ -1770,6 +1784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFornecedorProdutosImagensRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/fornecedor/vendas/exportar': {
+      id: '/api/fornecedor/vendas/exportar'
+      path: '/api/fornecedor/vendas/exportar'
+      fullPath: '/api/fornecedor/vendas/exportar'
+      preLoaderRoute: typeof ApiFornecedorVendasExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/oauth/$marketplace/callback': {
       id: '/api/oauth/$marketplace/callback'
       path: '/api/oauth/$marketplace/callback'
@@ -2146,6 +2167,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
+  ApiFornecedorVendasExportarRoute: ApiFornecedorVendasExportarRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,
   ApiPedidosOrderIdEtiquetaRoute: ApiPedidosOrderIdEtiquetaRoute,

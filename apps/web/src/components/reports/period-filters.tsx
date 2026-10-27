@@ -5,7 +5,14 @@ import { PERIOD_PRESETS, type PeriodPreset, type PeriodSearch } from "@sellbridg
 type PeriodChoice = PeriodPreset | "all";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useCallback, useRef, useState, type ComponentProps, type RefObject } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -65,7 +72,10 @@ interface PeriodFiltersProps<Period extends PeriodChoice> {
   search: Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period };
   /** The periods offered, in order; reports use the fixed presets. */
   presets?: readonly Period[];
-  stores: { id: string; name: string }[];
+  /** The store choice of the reseller's reports; left out where there is no store to pick. */
+  stores?: { id: string; name: string }[];
+  /** Controls of the screen's own, beside the period (the supplier home's product filter). */
+  extra?: ReactNode;
   resolvedFrom: string;
   resolvedTo: string;
   onChange: (
@@ -77,6 +87,7 @@ export function PeriodFilters<Period extends PeriodChoice>({
   search,
   presets,
   stores,
+  extra,
   resolvedFrom,
   resolvedTo,
   onChange,
@@ -102,11 +113,14 @@ export function PeriodFilters<Period extends PeriodChoice>({
             );
           }}
         />
-        <StoreSelect
-          store={search.store}
-          stores={stores}
-          onStoreChange={(store) => onChange({ store })}
-        />
+        {stores === undefined ? null : (
+          <StoreSelect
+            store={search.store}
+            stores={stores}
+            onStoreChange={(store) => onChange({ store })}
+          />
+        )}
+        {extra}
       </div>
       {customPeriod ? (
         <CustomRange
@@ -216,7 +230,7 @@ function StoreSelect({
   onStoreChange,
 }: {
   store: PeriodSearch["store"];
-  stores: PeriodFiltersProps<PeriodChoice>["stores"];
+  stores: NonNullable<PeriodFiltersProps<PeriodChoice>["stores"]>;
   onStoreChange: (store: string | undefined) => void;
 }) {
   return (

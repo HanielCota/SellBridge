@@ -10,7 +10,7 @@ describe("seller navigation", () => {
 
   it("keeps the supplier panel's products tab", () => {
     expect(SUPPLIER_NAV_ITEMS).toContainEqual(
-      expect.objectContaining({ label: "Meus produtos", to: "/fornecedor/painel/produtos" }),
+      expect.objectContaining({ label: "Produtos", to: "/fornecedor/painel/produtos" }),
     );
   });
 });
@@ -24,5 +24,22 @@ describe("team navigation", () => {
         permission: "reviews.moderate",
       }),
     );
+  });
+});
+
+describe("supplier navigation", () => {
+  it("has the five tabs in the order of the day", () => {
+    expect(SUPPLIER_NAV_ITEMS.map((item) => item.label)).toEqual([
+      "Início",
+      "Pedidos",
+      "Produtos",
+      "Desempenho",
+      "Marca",
+    ]);
+  });
+
+  it("keeps the spreadsheet import under the products tab", () => {
+    const products = SUPPLIER_NAV_ITEMS.find((item) => item.label === "Produtos");
+    expect(products?.also).toContain("/fornecedor/painel/importar");
   });
 });

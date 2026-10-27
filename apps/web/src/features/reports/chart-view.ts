@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { createChartKindStore } from "./chart-kind-store";
 import type { MetricPoint } from "./dashboard-metrics";
 
 export const CHART_KINDS = ["area", "bars", "waterfall", "margin", "cumulative"] as const;
@@ -7,62 +7,13 @@ export type ChartKind = (typeof CHART_KINDS)[number];
 /** The chart every account sees until its owner picks another one as default. */
 export const FACTORY_CHART_KIND: ChartKind = "area";
 
-const STORAGE_KEY = "sellbridge-dashboard-chart";
-const CHART_EVENT = "sellbridge-dashboard-chart-change";
-
-function isChartKind(value: unknown): value is ChartKind {
-  return CHART_KINDS.some((kind) => kind === value);
-}
-
-function subscribe(onChange: () => void): () => void {
-  window.addEventListener(CHART_EVENT, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(CHART_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function getSnapshot(): ChartKind {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return isChartKind(saved) ? saved : FACTORY_CHART_KIND;
-  } catch {
-    // Storage may be unavailable (private mode); the dashboard opens with the factory chart.
-    return FACTORY_CHART_KIND;
-  }
-}
-
-function getServerSnapshot(): ChartKind {
-  return FACTORY_CHART_KIND;
-}
-
-function writeDefault(kind: ChartKind): void {
-  if (kind === FACTORY_CHART_KIND) {
-    localStorage.removeItem(STORAGE_KEY);
-    return;
-  }
-  localStorage.setItem(STORAGE_KEY, kind);
-}
-
-function saveDefault(kind: ChartKind): void {
-  try {
-    writeDefault(kind);
-  } catch {
-    // Storage may be unavailable (private mode); the choice still applies to this page.
-  }
-  window.dispatchEvent(new Event(CHART_EVENT));
-}
-
 /** The chart the dashboard opens with: the factory one, or the one this browser saved. */
-export function useDefaultChartKind(): {
-  defaultKind: ChartKind;
-  setDefaultKind: (kind: ChartKind) => void;
-} {
-  const defaultKind = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const setDefaultKind = useCallback((kind: ChartKind) => saveDefault(kind), []);
-  return { defaultKind, setDefaultKind };
-}
+export const useDefaultChartKind = createChartKindStore({
+  storageKey: "sellbridge-dashboard-chart",
+  eventName: "sellbridge-dashboard-chart-change",
+  kinds: CHART_KINDS,
+  factory: FACTORY_CHART_KIND,
+});
 
 export interface ChartPoint {
   date: string;

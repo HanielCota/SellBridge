@@ -717,3 +717,13 @@ A página `/admin/chamados/metricas` passa a se chamar "Desempenho do suporte". 
 - **Amostra mínima de 5**: vale para resolvidos, para cada taxa da pessoa, para o "Melhor resultado" e para "Precisa de treino em". Abaixo disso, não há cor nem julgamento.
 - **Em experiência** marca atendentes e supervisores com menos de 90 dias, contados a partir de `user.createdAt`. Administradores nunca ficam em experiência.
 - O chamado guarda a situação escolhida no formulário guiado (`tickets.situation_id`).
+
+## 2026-10-24: Início do fornecedor com vendas e logística (item 38)
+
+- **O Início é o painel do revendedor com os números do fornecedor.** Mesma frase de resumo, filtro de período, indicadores, gráfico (Evolução, Acumulado e um tipo novo, Por produto), exportação e "Precisa de você". Composição, Cascata, Margem e "Custo pendente" ficam de fora, porque dependem do lucro do revendedor.
+- **Privacidade básica.** O fornecedor vê o que recebe (`unit_cost_cents × quantity`) e quantos revendedores venderam, nunca o nome deles, a loja, o comprador ou o preço de venda. O CSV segue a mesma regra. Revisar com o feedback dos fornecedores.
+- **Venda conta a partir de paga.** O filtro "Situação" tem "Todos, sem cancelados" (padrão: pago, enviado, entregue), "Em andamento", "Entregues" e "Cancelados e devolvidos". Pedido não pago nunca entra.
+- **"Seus pedidos" mistura agora e período, com rótulo.** Esperando aceite, Separando e Enviados contam o que está aberto agora (os mesmos números de Pedidos e do contador do menu); "Entregues no período" e "Devolvidos no período" contam os pedidos do período.
+- **"Acabando" é o estoque disponível que dura até 14 dias** no ritmo dos últimos 30 dias (`stockDaysLeft`).
+- **Menu:** Início, Pedidos (com o número esperando aceite), Produtos, Desempenho, Marca. "Importar produtos" virou botão em Produtos. A lista de tarefas antiga saiu do Início; os pedidos se resolvem em Pedidos.
+- Fica de fora: ranking por tamanho e cor (o cadastro não guarda variação).

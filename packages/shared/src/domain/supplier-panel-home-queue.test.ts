@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogFixes, photoSkuOf, splitHomeOrders } from "./supplier-panel-home-queue.ts";
+import { catalogFixes, splitHomeOrders } from "./supplier-panel-home-queue.ts";
 
 const stockRow = {
   productId: "p1",
@@ -31,14 +31,6 @@ describe("splitHomeOrders", () => {
     const groups = splitHomeOrders(rows);
     expect(groups.accept.map((row) => row.id)).toEqual(["b", "d"]);
     expect(groups.progress.map((row) => row.id)).toEqual(["a", "c"]);
-  });
-});
-
-describe("photoSkuOf", () => {
-  it("uses the first item's SKU, and none when it is blank or missing", () => {
-    expect(photoSkuOf([{ sku: "VAS-P" }, { sku: "BOW-5" }])).toBe("VAS-P");
-    expect(photoSkuOf([{ sku: "" }])).toBeNull();
-    expect(photoSkuOf([])).toBeNull();
   });
 });
 

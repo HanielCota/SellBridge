@@ -116,7 +116,7 @@ function amount(percent: number): string {
 }
 
 /** The two levers in plain words: "Foram 22% mais vendas, mas cada uma valeu 9% menos." */
-function reason(orders: number, ticket: number | null): string {
+export function reason(orders: number, ticket: number | null): string {
   const count = direction(orders);
   const value = direction(ticket);
   const countText = `${amount(orders)} vendas`;
@@ -141,7 +141,7 @@ const wholeReais = new Intl.NumberFormat("pt-BR", {
 });
 
 /** Whole reais, except under one real, where rounding would say "R$ 0" for a real loss. */
-function sentenceReais(cents: number): string {
+export function sentenceReais(cents: number): string {
   return Math.abs(cents) < 100 ? formatCents(cents) : wholeReais.format(cents / 100);
 }
 
@@ -210,7 +210,7 @@ function PendingCostNote({ current }: { current: Totals }) {
   );
 }
 
-function Tone({ up, children }: { up: boolean; children: ReactNode }) {
+export function Tone({ up, children }: { up: boolean; children: ReactNode }) {
   return (
     <span className={cn("font-medium", up ? "text-brand-text" : "text-destructive")}>
       {children}
@@ -218,25 +218,25 @@ function Tone({ up, children }: { up: boolean; children: ReactNode }) {
   );
 }
 
-function Strong({ children }: { children: ReactNode }) {
+export function Strong({ children }: { children: ReactNode }) {
   return <span className="font-medium text-foreground">{children}</span>;
 }
 
 /** Ends the sentence without doubling the dot of an abbreviated month ("14 de set."). */
-const BEST_BUCKET_LEAD: Record<TimeBucket, string> = {
+export const BEST_BUCKET_LEAD: Record<TimeBucket, string> = {
   hour: "Seu melhor horário foi às ",
   day: "Seu melhor dia foi ",
   week: "Sua melhor semana começou em ",
 };
 
 /** "14h" for an hour; the first day inside the period for a day or a week. */
-function bestBucketLabel(date: string, bucket: TimeBucket, fromDate: string): string {
+export function bestBucketLabel(date: string, bucket: TimeBucket, fromDate: string): string {
   if (bucket === "hour") {
     return formatAxisDate(date, "hour");
   }
   return formatPointDate(firstDayWithin(date, fromDate));
 }
 
-function withPeriod(text: string): string {
+export function withPeriod(text: string): string {
   return text.endsWith(".") ? text : `${text}.`;
 }
