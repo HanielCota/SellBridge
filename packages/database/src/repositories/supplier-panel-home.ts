@@ -43,10 +43,10 @@ function toDate(value: string | null): Date | null {
 }
 
 /** Start of the parcel's current round with the supplier: its latest real forward. */
-const roundStartedAt = sql`coalesce(${latestForwardedAt}, ${orderShipments.createdAt})`;
+export const roundStartedAt = sql`coalesce(${latestForwardedAt}, ${orderShipments.createdAt})`;
 
 /** First step past the accept in the current round: a supplier may jump straight ahead. */
-const firstAcceptedAt = sql<Date | null>`(
+export const firstAcceptedAt = sql<Date | null>`(
   select min(accepted.created_at) from shipment_events accepted
   where accepted.shipment_id = ${orderShipments.id}
     and accepted.status in ('accepted', 'picking', 'ready', 'shipped')
@@ -57,7 +57,7 @@ const firstAcceptedAt = sql<Date | null>`(
  * The supplier cancelled the parcel through its link ("Não consigo enviar"), in any round: a
  * re-forward after it does not erase the cancellation.
  */
-const cancelledBySupplier = sql<boolean>`exists (
+export const cancelledBySupplier = sql<boolean>`exists (
   select 1 from shipment_events cancelled
   where cancelled.shipment_id = ${orderShipments.id}
     and cancelled.status = 'cancelled'

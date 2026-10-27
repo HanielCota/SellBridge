@@ -11,3 +11,7 @@ export {
 export { subjectKeyOf } from "./subjects.ts";
 export { periodBounds, supportHourColumns } from "./calendar.ts";
 export { buildSupportPerformanceReport } from "./report.ts";
+// The monthly admin report reuses the same rules on calendar months, so both screens agree.
+export { answeredOnTime, buildTeam, onTimeOf, ratingRate } from "./team.ts";
+export { median, minutesBetween, noReopenOf } from "./rules.ts";
+export { brazilWeekdayHour, isSupportHour } from "./calendar.ts";

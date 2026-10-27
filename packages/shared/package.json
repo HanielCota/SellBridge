@@ -31,6 +31,7 @@
     "./fee-model": "./src/domain/fee-model.ts",
     "./finance": "./src/domain/finance.ts",
     "./period-range": "./src/domain/period-range.ts",
+    "./report-period": "./src/domain/report-period.ts",
     "./time": "./src/domain/time.ts",
     "./text": "./src/domain/text.ts",
     "./bulk-publish-plan": "./src/domain/bulk-publish-plan.ts",

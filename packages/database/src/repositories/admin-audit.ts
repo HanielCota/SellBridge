@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import { adminAuditEvents } from "../schema/index.ts";
+import { timestampOf } from "./sql/raw-values.ts";
 
 /**
  * Item 28.b: the platform-wide trail of what the team did. Two sources, read as one list:
@@ -20,6 +21,10 @@ export interface AuditSearch {
   actorId?: string | undefined;
   /** Matched against the action, the actor's name and what was acted on. */
   query?: string | undefined;
+  /** Only entries from this moment on (the audit spreadsheet's period). */
+  from?: Date | undefined;
+  /** Only entries before this moment (exclusive). */
+  to?: Date | undefined;
 }
 
 export interface AuditEntry {
@@ -114,6 +119,12 @@ function auditFilters(search: AuditSearch) {
   }
   if (search.actorId !== undefined) {
     conditions.push(sql`"audit"."actor_id" = ${search.actorId}`);
+  }
+  if (search.from !== undefined) {
+    conditions.push(sql`"audit"."created_at" >= ${timestampOf(search.from)}`);
+  }
+  if (search.to !== undefined) {
+    conditions.push(sql`"audit"."created_at" < ${timestampOf(search.to)}`);
   }
   const query = search.query?.trim();
   if (query !== undefined && query !== "") {

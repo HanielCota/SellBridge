@@ -17,3 +17,4 @@ export * from "./fulfillment.ts";
 export * from "./billing.ts";
 export * from "./terms.ts";
 export * from "./return-claims.ts";
+export * from "./report-snapshots.ts";
