@@ -24,6 +24,17 @@ test("a coordenação abre o desempenho pela fila e navega pelas seções", asyn
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
 
+  // Each metric opens the tickets behind it, like the supplier's Desempenho.
+  await expect(page.getByText(/Saúde do suporte em 30 dias/)).toBeVisible();
+  await page
+    .getByRole("group", { name: "Metas do suporte" })
+    .getByRole("button", { name: /^Resolvidos sem reabrir/ })
+    .click();
+  await expect(page).toHaveURL(/metrica=no_reopen/);
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Resolvidos sem reabrir" }),
+  ).toBeVisible();
+
   const sections = page.getByRole("group", { name: "Seção" });
   await sections.getByRole("button", { name: "Equipe" }).click();
   await expect(page).toHaveURL(/secao=equipe/);
@@ -41,21 +52,16 @@ test("a coordenação abre o desempenho pela fila e navega pelas seções", asyn
 
 test("o período e o tipo de cliente ficam na URL e sobrevivem ao recarregar", async ({ page }) => {
   await gotoHydrated(page, "/admin/chamados/metricas");
-  await page
-    .getByRole("group", { name: "Período" })
-    .getByRole("button", { name: "7 dias" })
-    .click();
+  await page.getByRole("group", { name: "Período" }).getByText("7 dias").click();
   await page
     .getByRole("group", { name: "Quem abriu" })
     .getByRole("button", { name: "Revendedores" })
     .click();
-  await expect(page).toHaveURL(/days=7/);
+  await expect(page).toHaveURL(/period=7d/);
   await expect(page).toHaveURL(/origem=revendedor/);
 
   await page.reload();
-  await expect(
-    page.getByRole("group", { name: "Período" }).getByRole("button", { name: "7 dias" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("radio", { name: "7 dias" })).toBeChecked();
   // Seven whole days, Monday to Sunday or wherever today falls: one bar label per day.
   await expect(page.getByRole("figure", { name: /entraram e foram resolvidos/ })).toBeVisible();
 });

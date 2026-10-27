@@ -1,6 +1,7 @@
-import { STAFF_ROLES } from "@sellbridge/shared/staff-access";
-import { sql } from "drizzle-orm";
+import { isStaffRole, STAFF_ROLES } from "@sellbridge/shared/staff-access";
+import { eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import type { DatabaseExecutor } from "../client.ts";
 import { tickets, user } from "../schema/index.ts";
 
 /** The ticket's assignee, joined under its own name next to the requester's `user` row. */
@@ -26,3 +27,13 @@ export const activeAssigneeIdSql = sql<
 export const activeAssigneeNameSql = sql<
   string | null
 >`case when ${withoutActiveAssigneeSql} then null else ${assignee.name} end`;
+
+/** Whether `userId` is on the support team now: a staff role and not blocked. */
+export async function isActiveStaff(executor: DatabaseExecutor, userId: string): Promise<boolean> {
+  const [row] = await executor
+    .select({ role: user.role, banned: user.banned })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row !== undefined && isStaffRole(row.role) && row.banned !== true;
+}

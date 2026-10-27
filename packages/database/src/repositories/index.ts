@@ -24,6 +24,7 @@ export * from "./orders.ts";
 export * from "./support.ts";
 export * from "./support-create.ts";
 export * from "./support-performance.ts";
+export * from "./support-reassign.ts";
 export type { StaffTicketFilters } from "./support-staff-filters.ts";
 export * from "./supplier-conversations.ts";
 export * from "./supplier-conversation-notices.ts";

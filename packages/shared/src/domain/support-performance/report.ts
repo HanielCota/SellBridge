@@ -1,15 +1,7 @@
 import { OTHER_SITUATION_ID } from "../support-topics.ts";
+import { bucketStarts } from "./calendar.ts";
+import { buildHeatmap } from "./heatmap.ts";
 import {
-  brazilWeekdayHour,
-  bucketKind,
-  bucketOf,
-  bucketStarts,
-  isSupportHour,
-  periodBounds,
-  supportHourColumns,
-} from "./calendar.ts";
-import {
-  median,
   minutesBetween,
   noReopenOf,
   OPEN_ENDED_ATTENTION_SHARE,
@@ -18,23 +10,25 @@ import {
   RISING_SUBJECT_MIN_GROWTH,
   RISING_SUBJECT_MIN_INCREASE,
 } from "./rules.ts";
+import { buildSupportHealth } from "./health.ts";
 import { buildSubjects, subjectKeyOf } from "./subjects.ts";
+import { buildSeries, firstResponseMinutes } from "./series.ts";
 import { buildTeam, onTimeOf, ratingRate } from "./team.ts";
+import { buildToday } from "./today.ts";
 import type {
   AgentPerformance,
   AttentionItem,
-  HeatCell,
   OpenedTicketRow,
   QueueRow,
   Rate,
   RatingRow,
   ResolutionRow,
-  SeriesPoint,
   SubjectPerformance,
+  SupportBucket,
   SupportOrigin,
   SupportPerformanceReport,
   SupportPerformanceRows,
-  SupportPeriodDays,
+  SupportPeriodPreset,
 } from "./types.ts";
 
 const ORIGIN_KIND = { revendedor: "seller", fornecedor: "supplier" } as const;
@@ -48,73 +42,18 @@ function forOrigin<Row extends { origin: string }>(rows: readonly Row[], origin:
 
 interface Bounds {
   since: Date;
+  /** Exclusive end of the period; a custom range in the past ends before today. */
+  until: Date;
   previousSince: Date;
 }
 
 function splitAt<Row>(rows: readonly Row[], bounds: Bounds, dateOf: (row: Row) => Date) {
   return {
-    current: rows.filter((row) => dateOf(row) >= bounds.since),
+    current: rows.filter((row) => dateOf(row) >= bounds.since && dateOf(row) < bounds.until),
     previous: rows.filter(
       (row) => dateOf(row) >= bounds.previousSince && dateOf(row) < bounds.since,
     ),
   };
-}
-
-function firstResponseMinutes(rows: readonly OpenedTicketRow[]): number | null {
-  return median(
-    rows.flatMap((row) =>
-      row.firstResponseAt === null ? [] : [minutesBetween(row.createdAt, row.firstResponseAt)],
-    ),
-  );
-}
-
-function countByCategory(rows: readonly OpenedTicketRow[]) {
-  const tally: Partial<Record<OpenedTicketRow["category"], number>> = {};
-  for (const row of rows) {
-    tally[row.category] = (tally[row.category] ?? 0) + 1;
-  }
-  return tally;
-}
-
-function series(input: {
-  opened: readonly OpenedTicketRow[];
-  resolutions: readonly ResolutionRow[];
-  ratings: readonly RatingRow[];
-  starts: readonly string[];
-  activeAgents: number;
-  now: Date;
-}): SeriesPoint[] {
-  const { opened, resolutions, starts, activeAgents } = input;
-  const inBucket = (date: Date, start: string) => bucketOf(date, starts) === start;
-  return starts.map((start) => {
-    const openedHere = opened.filter((row) => inBucket(row.createdAt, start));
-    const resolvedHere = resolutions.filter((row) => inBucket(row.closedAt, start));
-    const byTeam = resolvedHere.filter((row) => row.resolverId !== null).length;
-    const ratedHere = input.ratings.filter((row) => inBucket(row.ratedAt, start));
-    return {
-      start,
-      opened: openedHere.length,
-      resolved: resolvedHere.length,
-      firstResponseMinutes: firstResponseMinutes(openedHere),
-      teamResolvedPerAgent: activeAgents === 0 ? 0 : byTeam / activeAgents,
-      noReopenRate: noReopenOf(resolvedHere, input.now).value,
-      rating: ratingRate(ratedHere).value,
-      openedByCategory: countByCategory(openedHere),
-    };
-  });
-}
-
-function heatmap(opened: readonly OpenedTicketRow[]): HeatCell[] {
-  const columns: (number | "outside")[] = [...supportHourColumns(), "outside"];
-  const tally = new Map<string, number>();
-  for (const row of opened) {
-    const { weekday, hour } = brazilWeekdayHour(row.createdAt);
-    const key = `${weekday}|${isSupportHour(hour) ? hour : "outside"}`;
-    tally.set(key, (tally.get(key) ?? 0) + 1);
-  }
-  return [0, 1, 2, 3, 4, 5, 6].flatMap((weekday) =>
-    columns.map((hour) => ({ weekday, hour, opened: tally.get(`${weekday}|${hour}`) ?? 0 })),
-  );
 }
 
 function queueSummary(queue: readonly QueueRow[]) {
@@ -298,55 +237,106 @@ function rowsOfPeriod(
     resolutions: splitAt(forOrigin(rows.resolutions, origin), bounds, (row) => row.closedAt),
     ratings: splitAt(forOrigin(rows.ratings, origin), bounds, (row) => row.ratedAt),
     queue: forOrigin(rows.queue, origin),
-    replies: forOrigin(rows.replies, origin).filter((row) => row.createdAt >= bounds.since),
+    replies: forOrigin(rows.replies, origin).filter(
+      (row) => row.createdAt >= bounds.since && row.createdAt < bounds.until,
+    ),
   };
 }
+
+/** The period as the report is asked for: the reports' resolved period plus its preset. */
+export interface SupportReportPeriod {
+  preset: SupportPeriodPreset;
+  from: Date;
+  to: Date;
+  previousFrom: Date;
+  days: number;
+  bucket: SupportBucket;
+  fromDate: string;
+  toDate: string;
+}
+
+const DAYS_PER_WEEK = 7;
+const DAY_MILLISECONDS = 86_400_000;
 
 /** Builds the whole support performance report from the raw rows of two periods. */
 export function buildSupportPerformanceReport(input: {
   rows: SupportPerformanceRows;
   now: Date;
-  days: SupportPeriodDays;
+  period: SupportReportPeriod;
   origin: SupportOrigin;
 }): SupportPerformanceReport {
-  const bounds = periodBounds(input.now, input.days);
-  const starts = bucketStarts(bounds.since, input.now, bucketKind(input.days));
+  const { period, now } = input;
+  const bounds = { since: period.from, until: period.to, previousSince: period.previousFrom };
+  const until = new Date(Math.min(now.getTime(), period.to.getTime()));
+  const starts = bucketStarts(period.from, until, period.bucket);
   const { opened, resolutions, ratings, queue, replies } = rowsOfPeriod(input, bounds);
   const subjects = buildSubjects({
     opened: opened.current,
     previousOpened: opened.previous,
     resolutions: resolutions.current,
     ratings: ratings.current,
-    now: input.now,
+    now,
   });
   const team = buildTeam(
     { staff: input.rows.staff, opened: opened.current, resolutions: resolutions.current },
     { previousResolutions: resolutions.previous, ratings: ratings.current, replies, queue },
-    {
-      now: input.now,
-      bucketStarts: starts,
-      teamBySubject: teamBySubject(resolutions.current, input.now),
-    },
+    { now, bucketStarts: starts, teamBySubject: teamBySubject(resolutions.current, now) },
   );
   return {
-    days: input.days,
+    period: reportPeriodOf(period),
     origin: input.origin,
-    since: bounds.since.toISOString(),
-    until: input.now.toISOString(),
-    bucket: bucketKind(input.days),
-    overview: overviewOf({ opened, resolutions, ratings }, bounds, input.now),
+    since: period.from.toISOString(),
+    until: until.toISOString(),
+    bucket: period.bucket,
+    overview: overviewOf({ opened, resolutions, ratings }, bounds, now),
     queue: queueSummary(queue),
-    series: series({
-      opened: opened.current,
-      resolutions: resolutions.current,
+    series: buildSeries({
+      opened,
+      resolutions,
       ratings: ratings.current,
       starts,
       activeAgents: team.filter((agent) => (agent.resolved.current ?? 0) > 0).length,
-      now: input.now,
+      now,
+      shiftMilliseconds: period.days * DAY_MILLISECONDS,
     }),
-    heatmap: heatmap(opened.current),
+    heatmap: buildHeatmap({ opened: opened.current, replies, weeks: weeksIn(period), now }),
     subjects,
     team,
-    attention: attention({ queue, now: input.now, subjects, team, opened: opened.current }),
+    attention: attention({ queue, now, subjects, team, opened: opened.current }),
+    health: buildSupportHealth({ opened, resolutions, ratings, queue, now }),
+    today:
+      period.days === 1
+        ? buildToday({
+            ...currentRows({ opened, resolutions, ratings }),
+            replies,
+            fromDate: period.fromDate,
+            now,
+          })
+        : null,
+  };
+}
+
+function currentRows<Opened, Resolution, Rating>(rows: {
+  opened: { current: Opened };
+  resolutions: { current: Resolution };
+  ratings: { current: Rating };
+}): { opened: Opened; resolutions: Resolution; ratings: Rating } {
+  return {
+    opened: rows.opened.current,
+    resolutions: rows.resolutions.current,
+    ratings: rows.ratings.current,
+  };
+}
+
+function weeksIn(period: Pick<SupportReportPeriod, "days">): number {
+  return Math.max(1, period.days / DAYS_PER_WEEK);
+}
+
+function reportPeriodOf(period: SupportReportPeriod): SupportPerformanceReport["period"] {
+  return {
+    preset: period.preset,
+    fromDate: period.fromDate,
+    toDate: period.toDate,
+    days: period.days,
   };
 }

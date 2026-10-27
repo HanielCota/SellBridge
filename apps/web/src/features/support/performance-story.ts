@@ -5,7 +5,7 @@ import {
   type AttentionItem,
   type SupportOrigin,
   type SupportPerformanceReport,
-  type SupportPeriodDays,
+  type SupportPeriod,
 } from "@sellbridge/shared/support-performance";
 import { OTHER_SITUATION_ID } from "@sellbridge/shared/support-topics";
 import { formatPercent } from "@/lib/percent";
@@ -13,6 +13,7 @@ import {
   ORIGIN_LABELS,
   formatMinutes,
   formatRate,
+  periodSearch,
   subjectFullLabel,
   subjectQueueSearch,
   topicLabel,
@@ -132,7 +133,7 @@ export interface AttentionCopy {
 
 /** The report the item came from: its links keep the same period and customers. */
 export interface AttentionScope {
-  days: SupportPeriodDays;
+  period: SupportPeriod;
   origin: SupportOrigin;
 }
 
@@ -174,7 +175,7 @@ export function attentionCopy(item: AttentionItem, scope: AttentionScope): Atten
       tone: "review",
       link: {
         to: "/admin/chamados/metricas",
-        search: { pessoa: item.agentId, days: scope.days, origem: scope.origin },
+        search: { pessoa: item.agentId, ...periodSearch(scope.period), origem: scope.origin },
       },
     };
   }

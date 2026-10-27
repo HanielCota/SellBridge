@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSupportPerformanceReport } from "./report.ts";
+import { resolvePeriod } from "../period-range.ts";
+import { buildSupportPerformanceReport, type SupportReportPeriod } from "./report.ts";
 import { agentStanding, expectedRate, median } from "./rules.ts";
 import type {
   OpenedTicketRow,
@@ -12,6 +13,10 @@ import type {
 
 const NOW = new Date("2026-10-24T15:00:00Z");
 const DAY = 86_400_000;
+
+function periodOf(preset: "today" | "7d" | "30d" | "90d"): SupportReportPeriod {
+  return { preset, ...resolvePeriod({ period: preset }, NOW) };
+}
 
 function daysAgo(days: number, hours = 0): Date {
   return new Date(NOW.getTime() - days * DAY - hours * 3_600_000);
@@ -82,7 +87,12 @@ function report(
   overrides: Partial<SupportPerformanceRows>,
   origin: "todos" | "revendedor" | "fornecedor" = "todos",
 ) {
-  return buildSupportPerformanceReport({ rows: rowsWith(overrides), now: NOW, days: 30, origin });
+  return buildSupportPerformanceReport({
+    rows: rowsWith(overrides),
+    now: NOW,
+    period: periodOf("30d"),
+    origin,
+  });
 }
 
 function agent(result: ReturnType<typeof report>, id: string) {
@@ -260,6 +270,8 @@ describe("buildSupportPerformanceReport", () => {
       {
         ticketId: "t1",
         origin: "seller",
+        category: "order",
+        situationId: "order-late",
         assigneeId: "bia",
         awaitingSince: daysAgo(2),
         overdue: true,
@@ -267,6 +279,8 @@ describe("buildSupportPerformanceReport", () => {
       {
         ticketId: "t2",
         origin: "seller",
+        category: "order",
+        situationId: "order-late",
         assigneeId: null,
         awaitingSince: daysAgo(0, 2),
         overdue: false,
@@ -291,11 +305,19 @@ describe("buildSupportPerformanceReport", () => {
     expect(result.overview.onTime).toEqual({ value: 2 / 3, sample: 3 });
   });
 
-  it("splits the period in weekly buckets for 30 days", () => {
-    const result = report({ resolutions: [resolution()] });
-    expect(result.bucket).toBe("week");
-    expect(result.series.reduce((sum, point) => sum + point.resolved, 0)).toBe(1);
-    expect(result.series.every((point) => /^\d{4}-\d{2}-\d{2}$/.test(point.start))).toBe(true);
+  it("uses the reports' buckets: day by day up to six weeks, week by week beyond", () => {
+    const month = report({ resolutions: [resolution()] });
+    expect(month.bucket).toBe("day");
+    expect(month.series).toHaveLength(30);
+    expect(month.series.reduce((sum, point) => sum + point.resolved, 0)).toBe(1);
+    const quarter = buildSupportPerformanceReport({
+      rows: rowsWith({ resolutions: [resolution()] }),
+      now: NOW,
+      period: periodOf("90d"),
+      origin: "todos",
+    });
+    expect(quarter.bucket).toBe("week");
+    expect(quarter.series.every((point) => /^\d{4}-\d{2}-\d{2}$/.test(point.start))).toBe(true);
   });
 });
 
@@ -385,7 +407,7 @@ describe("review findings (2026-10-25)", () => {
     const week = buildSupportPerformanceReport({
       rows: rowsWith({}),
       now: NOW,
-      days: 7,
+      period: periodOf("7d"),
       origin: "todos",
     });
     expect(week.series).toHaveLength(7);

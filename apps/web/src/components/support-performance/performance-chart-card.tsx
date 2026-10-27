@@ -2,26 +2,33 @@ import type { SupportPerformanceReport } from "@sellbridge/shared/support-perfor
 import type { SupportPerformanceChart } from "@sellbridge/shared/schemas";
 import { useState, type ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
+import {
+  KINDS_WITH_SERIES,
+  kindHeadline,
+  SUPPORT_CHART_COPY,
+  useDefaultSupportChart,
+  type SupportChartKind,
+} from "@/features/support/support-chart-kinds";
+import { cn } from "@/lib/utils";
 import { HoursHeatmap } from "./hours-heatmap";
-import { ResponseChart, VolumeChart, type VolumeSeries } from "./performance-charts";
+import { SupportChartKindMenu } from "./support-chart-kind-menu";
+import { VolumeKindChart, type VolumeSeries } from "./volume-charts";
 
 const CHART_TABS = [
   { value: "volume", label: "Volume" },
-  { value: "resposta", label: "1ª resposta" },
   { value: "horarios", label: "Horários" },
 ] as const satisfies readonly { value: SupportPerformanceChart; label: string }[];
-
-const CHART_TITLES: Record<SupportPerformanceChart, string> = {
-  volume: "Chamados que entraram e foram resolvidos",
-  resposta: "Primeira resposta ao longo do período",
-  horarios: "Quando os chamados chegam",
-};
 
 const SERIES = [
   { key: "both", label: "Tudo", color: null },
   { key: "resolved", label: "Resolvidos", color: "var(--chart-brand)" },
   { key: "opened", label: "Entraram", color: "var(--muted-foreground)" },
 ] as const satisfies readonly { key: VolumeSeries; label: string; color: string | null }[];
+
+const CAPTIONS: Partial<Record<SupportChartKind, string>> = {
+  balance: "Vermelho: a fila cresceu. Verde: a equipe resolveu mais do que entrou.",
+  rate: "Linha tracejada: 100%, quando sai o mesmo tanto que entra.",
+};
 
 /** The pills double as the legend, like the sales chart's: each carries its series' dot. */
 function SeriesPills({
@@ -61,101 +68,112 @@ function SeriesPills({
   );
 }
 
-function ResponseLegend() {
+function Headline({ report, kind }: { report: SupportPerformanceReport; kind: SupportChartKind }) {
+  const headline = kindHeadline(report, kind);
   return (
-    <ul className="flex h-10 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <li className="flex items-center gap-2">
-        <span aria-hidden="true" className="size-2 rounded-full bg-chart-brand" />
-        Primeira resposta (mediana)
-      </li>
-      <li className="flex items-center gap-2">
-        <span aria-hidden="true" className="h-0 w-3 border-t-2 border-dashed border-destructive" />
-        Prazo do urgente
-      </li>
-    </ul>
+    <div className="space-y-1.5">
+      <h2 id="support-chart-title" className="text-subhead font-medium text-muted-foreground">
+        {SUPPORT_CHART_COPY[kind].title}
+      </h2>
+      <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <span
+          className={cn(
+            "text-3xl font-semibold tracking-tight tabular-nums",
+            headline.tone === "bad" && "text-destructive",
+            headline.tone === "good" && "text-brand-text",
+          )}
+        >
+          {headline.value}
+        </span>
+        {headline.change === null ? null : (
+          <span
+            className={cn(
+              "text-xs font-medium tabular-nums",
+              headline.changeGood === true && "text-brand-text",
+              headline.changeGood === false && "text-destructive",
+              headline.changeGood === null && "text-muted-foreground",
+            )}
+          >
+            {headline.change}
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">{headline.note}</span>
+      </p>
+    </div>
   );
 }
 
-function ChartBody({
-  chart,
-  report,
-  series,
-}: {
-  chart: SupportPerformanceChart;
-  report: SupportPerformanceReport;
-  series: VolumeSeries;
-}) {
-  if (chart === "horarios") {
-    return <HoursHeatmap cells={report.heatmap} />;
-  }
+/** The kind on screen: the one picked here, or else the default saved in this browser. */
+function useChartKind() {
+  const { defaultKind, setDefaultKind } = useDefaultSupportChart();
+  const [picked, setPicked] = useState<SupportChartKind | null>(null);
+  return { kind: picked ?? defaultKind, defaultKind, setPicked, setDefaultKind };
+}
+
+function VolumeView({ report }: { report: SupportPerformanceReport }) {
+  const { kind, defaultKind, setPicked, setDefaultKind } = useChartKind();
+  const [series, setSeries] = useState<VolumeSeries>("both");
+  const [compare, setCompare] = useState(false);
+  const caption = CAPTIONS[kind];
   return (
-    // Nothing drawn may leave the figure, not even for a frame while the card resizes.
-    <figure
-      aria-label={`Gráfico: ${CHART_TITLES[chart].toLowerCase()}`}
-      className="relative min-h-72 flex-1 overflow-hidden"
-    >
-      {chart === "volume" ? (
-        <VolumeChart report={report} series={series} />
-      ) : (
-        <ResponseChart report={report} />
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <Headline report={report} kind={kind} />
+        <SupportChartKindMenu
+          kind={kind}
+          defaultKind={defaultKind}
+          compare={compare}
+          onKindChange={setPicked}
+          onSetDefault={setDefaultKind}
+          onCompareChange={setCompare}
+        />
+      </div>
+      {KINDS_WITH_SERIES.has(kind) ? <SeriesPills value={series} onChange={setSeries} /> : null}
+      {caption === undefined ? null : (
+        <p className="flex min-h-10 items-center text-sm text-muted-foreground">{caption}</p>
       )}
-    </figure>
+      {/* Nothing drawn may leave the figure, not even for a frame while the card resizes. */}
+      <figure
+        aria-label={`Gráfico: ${SUPPORT_CHART_COPY[kind].title.toLowerCase()}`}
+        className="relative min-h-72 flex-1 overflow-hidden"
+      >
+        <VolumeKindChart report={report} kind={kind} series={series} compare={compare} />
+      </figure>
+    </>
   );
 }
 
-/** The big chart card of the overview: three views of the period, filters in its header. */
+/** The main chart card of the overview: volume in five kinds, or when tickets arrive. */
 export function PerformanceChartCard({
   report,
   chart,
   onChartChange,
-  filters,
 }: {
   report: SupportPerformanceReport;
   chart: SupportPerformanceChart;
   onChartChange: (next: SupportPerformanceChart) => void;
-  filters: ReactNode;
 }) {
-  const [series, setSeries] = useState<VolumeSeries>("both");
   return (
     <section
       aria-labelledby="support-chart-title"
-      className="surface-card flex h-full min-w-0 flex-col gap-5 rounded-3xl bg-card p-5"
+      className="surface-card flex min-w-0 flex-col gap-5 rounded-3xl bg-card p-5"
     >
-      <h2 id="support-chart-title" className="sr-only">
-        {CHART_TITLES[chart]}
-      </h2>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <FilterTabs legend="Gráfico" tabs={CHART_TABS} value={chart} onChange={onChartChange} />
-        <div className="flex max-w-full min-w-0 flex-wrap gap-2">{filters}</div>
-      </div>
-      {chart === "volume" ? <SeriesPills value={series} onChange={setSeries} /> : null}
-      {chart === "resposta" ? <ResponseLegend /> : null}
-      <ChartBody chart={chart} report={report} series={series} />
+      <FilterTabs legend="Gráfico" tabs={CHART_TABS} value={chart} onChange={onChartChange} />
+      {chart === "horarios" ? <HoursHeatmap report={report} /> : <VolumeView report={report} />}
     </section>
   );
 }
 
 /** The same card frame for a person's sheet: their line against the team's. */
-export function PersonChartCard({
-  title,
-  filters,
-  children,
-}: {
-  title: string;
-  filters: ReactNode;
-  children: ReactNode;
-}) {
+export function PersonChartCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section
       aria-labelledby="person-chart-title"
       className="surface-card flex h-full min-w-0 flex-col gap-5 rounded-3xl bg-card p-5"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="person-chart-title" className="text-subhead font-medium text-muted-foreground">
-          {title}
-        </h2>
-        <div className="flex max-w-full min-w-0 flex-wrap gap-2">{filters}</div>
-      </div>
+      <h2 id="person-chart-title" className="text-subhead font-medium text-muted-foreground">
+        {title}
+      </h2>
       {children}
     </section>
   );

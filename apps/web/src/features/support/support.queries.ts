@@ -76,7 +76,7 @@ export const supportTeamQueryOptions = () =>
 
 export const supportPerformanceQueryOptions = (input: SupportPerformanceInput) =>
   queryOptions({
-    queryKey: ["tickets", "admin", "performance", input.days, input.origem],
+    queryKey: ["tickets", "admin", "performance", input.period, input.from, input.to, input.origem],
     queryFn: () => staffSupportPerformance({ data: input }),
     placeholderData: keepPreviousData,
   });

@@ -1,6 +1,7 @@
 import {
   addTicketFollower,
   assignTicket,
+  reassignOverdueTickets,
   closeTicketForCustomer,
   countStaffQueues,
   countUnreadSupportReplies,
@@ -30,6 +31,7 @@ import { logger } from "@sellbridge/shared/logger";
 import {
   addTicketFollowerSchema,
   assignTicketSchema,
+  reassignOverdueSchema,
   linkableOrdersSchema,
   rateTicketSchema,
   setTicketCategorySchema,
@@ -42,10 +44,8 @@ import {
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { isAssistantMessage } from "@sellbridge/shared/support-assistant";
-import {
-  buildSupportPerformanceReport,
-  periodBounds,
-} from "@sellbridge/shared/support-performance";
+import { buildSupportPerformanceReport } from "@sellbridge/shared/support-performance";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { customerContactForStaff } from "@/features/admin/customer-contact";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
@@ -382,9 +382,32 @@ export const staffSupportPerformance = createServerFn({ method: "GET" })
   .validator(supportPerformanceInputSchema)
   .handler(async ({ data }) => {
     const now = new Date();
-    const { since, previousSince } = periodBounds(now, data.days);
-    const rows = await getSupportPerformanceRows(database, { previousSince, since, now });
-    return buildSupportPerformanceReport({ rows, now, days: data.days, origin: data.origem });
+    const period = { preset: data.period, ...resolvePeriod(data, now) };
+    const rows = await getSupportPerformanceRows(database, {
+      previousSince: period.previousFrom,
+      since: period.from,
+      now,
+    });
+    return buildSupportPerformanceReport({ rows, now, period, origin: data.origem });
+  });
+
+/** Hands a person's late tickets to a colleague with room; supervisors and admins only. */
+export const staffReassignOverdue = createServerFn({ method: "POST" })
+  .middleware([staffMiddleware("support.assign_others")])
+  .validator(reassignOverdueSchema)
+  .handler(async ({ context, data }) => {
+    const moved = await reassignOverdueTickets(database, {
+      fromId: data.fromId,
+      toId: data.toId,
+      actorId: context.userId,
+    });
+    logger.info("support.reassigned_overdue", {
+      fromId: data.fromId,
+      toId: data.toId,
+      moved,
+      staffId: context.userId,
+    });
+    return { moved };
   });
 
 const ticketAboutPreviewInput = z.object({

@@ -9,7 +9,12 @@ import {
   type TicketPriority,
 } from "../domain/ticket-rules.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
-import { SUPPORT_ORIGINS, SUPPORT_PERIOD_DAYS } from "../domain/support-performance/types.ts";
+import {
+  HEALTH_METRIC_KEYS,
+  SUPPORT_ORIGINS,
+  SUPPORT_PERIODS,
+} from "../domain/support-performance/types.ts";
+import { isoDateSchema } from "./period.ts";
 
 export { TICKET_CATEGORIES, TICKET_PRIORITIES, type TicketCategory, type TicketPriority };
 
@@ -202,6 +207,12 @@ export const assignTicketSchema = z.object({
   assigneeId: z.string().min(1).nullable(),
 });
 
+/** Hands a person's late tickets to someone with room (performance screen, person sheet). */
+export const reassignOverdueSchema = z.object({
+  fromId: z.string().trim().min(1).max(64),
+  toId: z.string().trim().min(1).max(64),
+});
+
 export const setTicketPrioritySchema = z.object({
   ticketId: ticketIdSchema,
   priority: ticketPrioritySchema,
@@ -247,16 +258,18 @@ export const rateTicketSchema = z.object({
 export const SUPPORT_PERFORMANCE_SECTIONS = ["geral", "equipe", "assuntos"] as const;
 export type SupportPerformanceSection = (typeof SUPPORT_PERFORMANCE_SECTIONS)[number];
 
-export const SUPPORT_PERFORMANCE_CHARTS = ["volume", "resposta", "horarios"] as const;
+// "resposta" became the "1ª resposta no prazo" metric; old links fall back to "volume".
+export const SUPPORT_PERFORMANCE_CHARTS = ["volume", "horarios"] as const;
 export type SupportPerformanceChart = (typeof SUPPORT_PERFORMANCE_CHARTS)[number];
 
-const supportPeriodSchema = z.coerce
-  .number()
-  .pipe(z.union(SUPPORT_PERIOD_DAYS.map((days) => z.literal(days))));
-
-/** What the support performance report is computed for: the server function's input. */
+/**
+ * What the support performance report is computed for: the server function's input. The period
+ * uses the reports' names (`period`, `from`, `to`), so the same calendar and links work here.
+ */
 export const supportPerformanceInputSchema = z.object({
-  days: withFallback(supportPeriodSchema.default(30), 30),
+  period: withFallback(z.enum(SUPPORT_PERIODS).default("30d"), "30d"),
+  from: optionalParameter(isoDateSchema),
+  to: optionalParameter(isoDateSchema),
   origem: withFallback(z.enum(SUPPORT_ORIGINS).default("todos"), "todos"),
 });
 export type SupportPerformanceInput = z.infer<typeof supportPerformanceInputSchema>;
@@ -269,5 +282,6 @@ export const supportMetricsSearchSchema = supportPerformanceInputSchema.extend({
   secao: withFallback(z.enum(SUPPORT_PERFORMANCE_SECTIONS).default("geral"), "geral"),
   grafico: withFallback(z.enum(SUPPORT_PERFORMANCE_CHARTS).default("volume"), "volume"),
   pessoa: optionalParameter(z.string().trim().min(1).max(64)),
+  metrica: withFallback(z.enum(HEALTH_METRIC_KEYS).default("on_time"), "on_time"),
 });
 export type SupportMetricsSearch = z.infer<typeof supportMetricsSearchSchema>;

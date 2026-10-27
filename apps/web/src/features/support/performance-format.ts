@@ -5,6 +5,8 @@ import type {
   AgentStanding,
   Rate,
   SubjectKey,
+  SupportBucket,
+  SupportPeriod,
 } from "@sellbridge/shared/support-performance";
 import {
   findSupportSituation,
@@ -92,19 +94,6 @@ export function formatMinutes(minutes: number | null): string {
   return formatDuration(minutes * 60_000);
 }
 
-const axisHours = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-
-/** Short axis ticks: "0", "30 min", "1,5 h". */
-export function formatAxisMinutes(minutes: number): string {
-  if (minutes === 0) {
-    return "0";
-  }
-  if (minutes < 60) {
-    return `${Math.round(minutes)} min`;
-  }
-  return `${axisHours.format(minutes / 60)} h`;
-}
-
 export function formatRate(rate: Rate): string {
   return rate.value === null ? EMPTY_FIGURE : formatPercent(rate.value);
 }
@@ -158,19 +147,47 @@ const shortDate = new Intl.DateTimeFormat("pt-BR", {
 });
 const weekdayShort = new Intl.DateTimeFormat("pt-BR", { weekday: "short", timeZone: "UTC" });
 
-/** A bucket's label on the axis: "seg" for days, "22/09" for weeks. */
-export function bucketLabel(start: string, bucket: "day" | "week"): string {
-  const date = new Date(`${start}T12:00:00Z`);
-  if (bucket === "day") {
-    return weekdayShort.format(date).replace(".", "");
-  }
-  return shortDate.format(date);
+/** The hour of an hourly bucket ("2026-10-25T09" → 9). */
+function bucketHour(start: string): number {
+  return Number(start.slice(11, 13));
 }
 
-/** A bucket in a tooltip: the weekday and date of a day, or the week's first date. */
-export function bucketTitle(start: string, bucket: "day" | "week"): string {
-  const date = bucketLabel(start, "week");
-  return bucket === "day" ? `${bucketLabel(start, "day")}, ${date}` : `Semana de ${date}`;
+/** A bucket's label on the axis: "9h" for hours, "seg" for days, "22/09" for weeks. */
+export function bucketLabel(start: string, bucket: SupportBucket): string {
+  if (bucket === "hour") {
+    return `${bucketHour(start)}h`;
+  }
+  return shortDate.format(new Date(`${start.slice(0, 10)}T12:00:00Z`));
+}
+
+/** A bucket in a tooltip: "9h às 10h", "seg, 20/10" or "Semana de 20/10". */
+export function bucketTitle(start: string, bucket: SupportBucket): string {
+  if (bucket === "hour") {
+    return `${bucketHour(start)}h às ${bucketHour(start) + 1}h`;
+  }
+  const date = new Date(`${start.slice(0, 10)}T12:00:00Z`);
+  const day = shortDate.format(date);
+  return bucket === "day"
+    ? `${weekdayShort.format(date).replace(".", "")}, ${day}`
+    : `Semana de ${day}`;
+}
+
+/** "hoje", "em 30 dias" or "no período escolhido", after a figure's name. */
+export function periodWhen(period: SupportPeriod): string {
+  if (period.preset === "today") {
+    return "hoje";
+  }
+  return period.preset === "custom" ? "no período escolhido" : `em ${period.days} dias`;
+}
+
+/** "a semana anterior", "o dia anterior" or "a hora anterior". */
+export function previousBucketText(bucket: SupportBucket): string {
+  const words: Record<SupportBucket, string> = {
+    hour: "a hora anterior",
+    day: "o dia anterior",
+    week: "a semana anterior",
+  };
+  return words[bucket];
 }
 
 const longDate = new Intl.DateTimeFormat("pt-BR", {
@@ -180,8 +197,13 @@ const longDate = new Intl.DateTimeFormat("pt-BR", {
 });
 
 /** "25 de setembro a 24 de outubro". */
-export function periodCaption(since: string, until: string): string {
-  return `${longDate.format(new Date(since))} a ${longDate.format(new Date(until))}`;
+export function periodCaption(period: SupportPeriod): string {
+  // Noon UTC stays on the same calendar day in Brasília.
+  const from = longDate.format(new Date(`${period.fromDate}T12:00:00Z`));
+  if (period.days === 1) {
+    return period.preset === "today" ? `Hoje, ${from}` : from;
+  }
+  return `${from} a ${longDate.format(new Date(`${period.toDate}T12:00:00Z`))}`;
 }
 
 /** "entrou em 02/10 · em experiência" or "desde mar/2026". */
@@ -257,4 +279,16 @@ export function changeCopy(input: {
     label: changeLabel(kind, current, previous),
     good: input.lowerIsBetter === true ? !up : up,
   };
+}
+
+/** The period as URL search params, so links keep the period the coordinator is looking at. */
+export function periodSearch(period: SupportPeriod): {
+  period: SupportPeriod["preset"];
+  from?: string;
+  to?: string;
+} {
+  if (period.preset !== "custom") {
+    return { period: period.preset };
+  }
+  return { period: "custom", from: period.fromDate, to: period.toDate };
 }
