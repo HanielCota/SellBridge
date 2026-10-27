@@ -34,6 +34,27 @@ describe("evaluateCompleteness", () => {
     expect(report).toEqual({ score: 100, blocking: [], improvements: [], canSubmit: true });
   });
 
+  it("blocks a product from a category the marketplaces refuse", () => {
+    const report = evaluateCompleteness(
+      product({ title: "Suplemento em cápsulas 60 doses - Preta" }),
+    );
+    expect(report.canSubmit).toBe(false);
+    expect(report.blocking).toEqual([
+      {
+        field: "title",
+        rule: "prohibited_item",
+        severity: "blocking",
+        message: expect.stringContaining("Suplementos e encapsulados".toLowerCase()),
+      },
+    ]);
+  });
+
+  it("keeps a complete non-restricted tool eligible for submission", () => {
+    const report = evaluateCompleteness(product({ title: "Pistola de cola quente 20W" }));
+    expect(report.canSubmit).toBe(true);
+    expect(report.blocking).toEqual([]);
+  });
+
   it("lists every blocking rule of an empty draft with its field", () => {
     const report = evaluateCompleteness({
       sku: " ",
