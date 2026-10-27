@@ -141,7 +141,16 @@ export const shipmentUpdateSchema = z
           .superRefine(refuseContactLink),
       ])
       .default(""),
-    note: freeText().trim().max(1000).superRefine(refuseContactDetails).default(""),
+    note: freeText()
+      .trim()
+      .max(1000)
+      .superRefine(refuseContactDetails)
+      // Only the server writes that step (with the code it replaced); typed, it would fake one.
+      .refine(
+        (note) => !isTrackingCodeCorrection(note),
+        "Use outras palavras: só o botão Corrigir código registra a troca de código",
+      )
+      .default(""),
   })
   .superRefine((data, context) => {
     // Shipping needs the carrier and code; an occurrence on a parcel already shipped (it has a
