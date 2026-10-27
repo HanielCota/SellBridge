@@ -123,7 +123,12 @@ function AppLayout() {
           endsAt={session.impersonationEndsAt}
         />
       ) : null}
-      <TopNav user={session.user} adminMode={session.adminMode} profileKind={session.profileKind} />
+      <TopNav
+        user={session.user}
+        adminMode={session.adminMode}
+        profileKind={session.profileKind}
+        profiles={session.profiles}
+      />
       <main
         id="main-content"
         tabIndex={-1}

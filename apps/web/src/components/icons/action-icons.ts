@@ -2,6 +2,8 @@ import {
   ArrowCounterClockwiseIcon,
   ArrowUpRightIcon,
   BellZIcon,
+  BriefcaseIcon,
+  CubeIcon,
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
@@ -44,10 +46,12 @@ import {
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
+  StarHalfIcon,
   StarIcon,
   StorefrontIcon,
   TrashIcon,
   WalletIcon,
+  WarehouseIcon,
   XIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -166,6 +170,19 @@ export const ACTION_ICONS = {
     icon: IdentificationBadgeIcon,
     hint: "Quem trabalha na administração e o que cada um pode fazer",
   },
+  /** Every product on the platform; the reseller's catalog keeps the package. */
+  adminProducts: {
+    icon: CubeIcon,
+    hint: "Estoque dos revendedores e produtos dos fornecedores, com histórico",
+  },
+  /** Moderating reviews; the half star never reads as `setCover`'s full star. */
+  reviewModeration: {
+    icon: StarHalfIcon,
+    hint: "O que os revendedores escreveram sobre os fornecedores",
+  },
+  /** The folded profile tabs in admin mode; the label already names the profile. */
+  resellerTabs: { icon: BriefcaseIcon },
+  supplierTabs: { icon: WarehouseIcon },
   /** The team's queue of customer issues (Clientes > Pendências). Snoozing is not `overdue`'s clock. */
   assignIssue: { icon: UserCheckIcon, hint: "A pendência fica com você e sai da fila dos colegas" },
   releaseIssue: { icon: UserMinusIcon, hint: "Devolve a pendência para a fila da equipe" },
@@ -322,8 +339,10 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",
   "/fornecedor/painel/marca": "brand",
+  "/admin/products": "adminProducts",
   "/admin/clientes": "clients",
   "/admin/fornecedores": "adminSuppliers",
+  "/admin/avaliacoes": "reviewModeration",
   "/admin/chamados": "tickets",
   "/admin/equipe": "staff",
 };

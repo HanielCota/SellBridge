@@ -8,15 +8,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BADGE_DESCRIPTIONS, type NavBadge, type NavItem } from "@/features/navigation/nav-items";
-import { chooseOnPlainClick, navTabClassName, TabBadge } from "./nav-tab-parts";
+import { isCurrentSection, type ProfileSection } from "@/features/navigation/profile-sections";
+import { chooseOnPlainClick, navTabAction, navTabClassName, TabBadge } from "./nav-tab-parts";
 
 /**
- * In team mode the seller (or supplier) tabs fold into one tab: with the team's five tabs the
- * twelve never fit the 1440px row and the hidden-scrollbar capsule clipped Chamados mid-word.
+ * In team mode each profile's tabs fold into one menu tab, Revendedor and then Fornecedor: with
+ * the team's six tabs the twelve never fit the 1440px row and the hidden-scrollbar capsule
+ * clipped Chamados mid-word. The other profile's menu opens its pages there (`?perfil=`).
  */
 export function ProfileTabsMenu({
-  label,
-  items,
+  section,
   activeTo,
   counts,
   paintsOwnPill,
@@ -24,8 +25,7 @@ export function ProfileTabsMenu({
   triggerRef,
   onChoose,
 }: {
-  label: string;
-  items: readonly NavItem[];
+  section: ProfileSection;
   activeTo: NavItem["to"] | null;
   counts: Record<NavBadge, number>;
   paintsOwnPill: boolean;
@@ -33,17 +33,20 @@ export function ProfileTabsMenu({
   triggerRef: Ref<HTMLButtonElement>;
   onChoose: (to: NavItem["to"]) => void;
 }) {
-  const isActive = items.some((item) => item.to === activeTo);
-  const failedListings = items.some((item) => item.badge === "failedListings")
-    ? counts.failedListings
-    : 0;
+  const isCurrent = isCurrentSection(section);
+  const isActive = isCurrent && section.items.some((item) => item.to === activeTo);
+  // The counters belong to the tab's own profile; the other one's would need its own query.
+  const failedListings =
+    isCurrent && section.items.some((item) => item.badge === "failedListings")
+      ? counts.failedListings
+      : 0;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         ref={triggerRef}
         className={navTabClassName({ isActive, paintsOwnPill, padding })}
       >
-        {label}
+        {section.label}
         {failedListings > 0 ? (
           <TabBadge
             isError
@@ -54,12 +57,13 @@ export function ProfileTabsMenu({
         <CaretDownIcon className="size-3.5 shrink-0" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-52">
-        {items.map((item) => (
+        {section.items.map((item) => (
           <ProfileTabsMenuItem
             key={item.to}
             item={item}
-            isActive={item.to === activeTo}
-            count={item.badge === undefined ? 0 : counts[item.badge]}
+            isActive={isCurrent && item.to === activeTo}
+            count={isCurrent && item.badge !== undefined ? counts[item.badge] : 0}
+            profileSlug={section.slug}
             onChoose={onChoose}
           />
         ))}
@@ -72,21 +76,33 @@ function ProfileTabsMenuItem({
   item,
   isActive,
   count,
+  profileSlug,
   onChoose,
 }: {
   item: NavItem;
   isActive: boolean;
   count: number;
+  /** Another profile of the account; null stays on the tab's profile. */
+  profileSlug: string | null;
   onChoose: (to: NavItem["to"]) => void;
 }) {
+  const ItemIcon = navTabAction(item.to)?.icon;
   return (
     <DropdownMenuItem asChild>
       <Link
         to={item.to}
+        {...(profileSlug === null ? {} : { search: { perfil: profileSlug } })}
         aria-current={isActive ? "page" : undefined}
         className={isActive ? "font-medium" : undefined}
-        onClick={(event) => chooseOnPlainClick(event, () => onChoose(item.to))}
+        onClick={(event) => {
+          // A link to another profile leaves this page, so it lights no pill here.
+          if (profileSlug !== null) {
+            return;
+          }
+          chooseOnPlainClick(event, () => onChoose(item.to));
+        }}
       >
+        {ItemIcon ? <ItemIcon className="size-4 shrink-0" aria-hidden="true" /> : null}
         <span className="flex-1">{item.label}</span>
         {item.badge !== undefined && count > 0 ? (
           <TabBadge
