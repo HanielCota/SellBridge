@@ -19,10 +19,11 @@ import {
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
 import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
+import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import {
+  activeNavItemTo,
   ADMIN_NAV_ITEMS,
   BADGE_DESCRIPTIONS,
-  isActivePath,
   NAV_ITEMS,
   SUPPLIER_NAV_ITEMS,
   SUPPORT_NAV_ITEM,
@@ -81,41 +82,41 @@ const LAYOUTS = {
   },
 } as const;
 
+type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
+
 /**
- * The supplier's six tabs are narrower than the seller's, so their icons fit from xl: with the
- * account name at its cap, the capsule keeps 28px from the logo at 1280px.
+ * The supplier's tabs used icons from xl; with "Mensagens" as a seventh tab the capsule ran 89px
+ * past its track at 1280px, so they follow the seller's 1440px rule (regular layout).
  */
-const SUPPLIER_LAYOUT = { ...LAYOUTS.regular, tabIcon: "hidden size-4 xl:block" } as const;
-
-type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS] | typeof SUPPLIER_LAYOUT;
-
-function layoutFor(adminMode: boolean, isSupplier: boolean): Layout {
+function layoutFor(adminMode: boolean): Layout {
   if (adminMode) {
     return LAYOUTS.dense;
   }
-  return isSupplier ? SUPPLIER_LAYOUT : LAYOUTS.regular;
+  return LAYOUTS.regular;
 }
 
-/** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
-function useNavCounts(isAdmin: boolean, canReview: boolean) {
+interface NavCountsAccess {
+  readonly isAdmin: boolean;
+  /** Only role admin reviews supplier products (the queue's server functions check it). */
+  readonly canReview: boolean;
+  /** Only suppliers have the "Mensagens" tab that counts the stores' unread conversations. */
+  readonly isSupplier: boolean;
+}
+
+function useNavCounts({ isAdmin, canReview, isSupplier }: NavCountsAccess) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
   const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
+  const storeMessages = useQuery({ ...myUnreadConversationsQueryOptions(), enabled: isSupplier });
   return {
     counts: {
       failedListings: attention.data?.failedListings ?? 0,
       openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
       productReviews: canReview ? (productReviews.data ?? 0) : 0,
+      storeMessages: isSupplier ? (storeMessages.data ?? 0) : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
     } satisfies BadgeCounts,
   };
-}
-
-function isItemActive(item: NavItem, pathname: string): boolean {
-  if (item.exact === true) {
-    return pathname === item.to;
-  }
-  return [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
 }
 
 function NavTab({
@@ -151,6 +152,9 @@ function NavTab({
       ref={tabRef}
       to={item.to}
       aria-current={isActive ? "page" : undefined}
+      // The router sets aria-current on any prefix match, so "Suporte" was also current under
+      // "/suporte/revendedores"; tabs other than the lit one only count an exact match.
+      activeOptions={{ exact: !isActive }}
       onClick={onNavigate}
       className={navTabClassName({ isActive, paintsOwnPill, padding })}
     >
@@ -213,6 +217,8 @@ function MobileNav({
   layout: Layout;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const sheetItems = [...items, SUPPORT_NAV_ITEM];
+  const activeTo = activeNavItemTo(sheetItems, pathname);
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <Hint label={ACTION_ICONS.menu.hint} openOnTap={false}>
@@ -234,12 +240,12 @@ function MobileNav({
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
-          {[...items, SUPPORT_NAV_ITEM].map((item, index, all) => (
+          {sheetItems.map((item, index, all) => (
             <Fragment key={item.to}>
               {startsTeamArea(all, index) ? <TeamDivider vertical={false} /> : null}
               <NavTab
                 item={item}
-                isActive={isItemActive(item, pathname)}
+                isActive={item.to === activeTo}
                 count={item.badge ? counts[item.badge] : 0}
                 onNavigate={() => setIsOpen(false)}
               />
@@ -290,7 +296,7 @@ function DesktopNav({
   layout: Layout;
 }) {
   const allItems = [...(profileGroup?.items ?? []), ...items];
-  const activeTo = allItems.find((item) => isItemActive(item, pathname))?.to ?? null;
+  const activeTo = activeNavItemTo(allItems, pathname);
   const { chosen, containerRef, indicator, canAnimate, registerTab } = useTabPill(activeTo);
   return (
     <nav
@@ -432,11 +438,15 @@ function navigationFor(user: SessionUser, adminMode: boolean, isSupplier: boolea
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
-  const supportReplies = counts.supportReplies;
   const isSupplier = profileKind === "supplier";
+  const { counts } = useNavCounts({
+    isAdmin: adminMode,
+    canReview: adminMode && user.role === "admin",
+    isSupplier,
+  });
+  const supportReplies = counts.supportReplies;
   const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);
-  const layout = layoutFor(adminMode, isSupplier);
+  const layout = layoutFor(adminMode);
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}

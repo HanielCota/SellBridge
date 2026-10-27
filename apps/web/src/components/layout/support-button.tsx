@@ -79,7 +79,8 @@ export function SupportButton({
           className="z-50 w-[min(22rem,calc(100vw-2rem))] space-y-2 rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >
           <TeamSupportHeading onNavigate={close} />
-          <SupplierConversationsEntry kind={profileKind} onNavigate={close} />
+          {/* The supplier's conversations with the stores have their own "Mensagens" tab. */}
+          {profileKind === "seller" ? <SupplierConversationsEntry onNavigate={close} /> : null}
           <RecentTickets onNavigate={close} />
         </Popover.Content>
       </Popover.Portal>

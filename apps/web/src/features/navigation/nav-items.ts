@@ -2,7 +2,8 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
-export type NavBadge = "failedListings" | "openTickets" | "productReviews" | "supportReplies";
+export type NavBadge =
+  "failedListings" | "openTickets" | "productReviews" | "storeMessages" | "supportReplies";
 
 export interface NavItem {
   label: string;
@@ -29,6 +30,8 @@ export const NAV_ITEMS: NavItem[] = [
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
   { label: "Pedidos", to: "/fornecedor/painel/pedidos" },
+  // The stores' messages used to hide inside the support card; a tab keeps them in sight.
+  { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages" },
   { label: "Meus produtos", to: "/fornecedor/painel/produtos" },
   { label: "Importar produtos", to: "/fornecedor/painel/importar" },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
@@ -71,10 +74,32 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
   openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,
   productReviews: (count) =>
     `${count} ${count === 1 ? "produto esperando análise" : "produtos esperando análise"}`,
+  storeMessages: (count) =>
+    `${count} ${count === 1 ? "conversa de loja sem ler" : "conversas de lojas sem ler"}`,
   supportReplies: (count) =>
     `${count} ${count === 1 ? "chamado com resposta nova" : "chamados com resposta nova"}`,
 };
 
 export function isActivePath(pathname: string, target: string): boolean {
   return pathname === target || pathname.startsWith(`${target}/`);
+}
+
+function matchesItem(item: NavItem, pathname: string): boolean {
+  if (item.exact === true) {
+    return pathname === item.to;
+  }
+  return [item.to, ...(item.also ?? [])].some((target) => isActivePath(pathname, target));
+}
+
+/**
+ * The one tab to light for this page. "Suporte" also matches "/suporte/revendedores", so the
+ * longest matching route wins and the supplier's "Mensagens" tab is lit alone.
+ */
+export function activeNavItemTo(items: readonly NavItem[], pathname: string): NavItem["to"] | null {
+  const matches = items.filter((item) => matchesItem(item, pathname));
+  const mostSpecific = matches.toSorted((first, second) => second.to.length - first.to.length)[0];
+  if (mostSpecific === undefined) {
+    return null;
+  }
+  return mostSpecific.to;
 }

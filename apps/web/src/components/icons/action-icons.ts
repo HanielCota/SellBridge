@@ -144,6 +144,7 @@ export const ACTION_ICONS = {
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
   performance: { icon: GaugeIcon, hint: "Prazos, cancelamentos e notas que os revendedores veem" },
   brand: { icon: PaletteIcon, hint: "Logo e cores que aparecem para os revendedores" },
+  storeMessages: { icon: ChatsCircleIcon, hint: "Conversas com as lojas que vendem seus produtos" },
   /** Time left before a deadline; once it passes, `overdue` takes over. */
   deadline: { icon: ClockIcon },
   createProduct: { icon: PlusIcon, hint: "Cadastrar um produto novo, passo a passo" },
@@ -316,6 +317,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/lojas": "stores",
   "/financeiro": "financials",
   "/suporte": "support",
+  "/suporte/revendedores": "storeMessages",
   "/fornecedor/painel": "supplierHome",
   "/fornecedor/painel/pedidos": "supplierOrders",
   "/fornecedor/painel/produtos": "supplierProducts",

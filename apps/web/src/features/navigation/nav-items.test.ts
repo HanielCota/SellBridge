@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_NAV_ITEMS, NAV_ITEMS, SUPPLIER_NAV_ITEMS } from "./nav-items";
+import {
+  activeNavItemTo,
+  ADMIN_NAV_ITEMS,
+  NAV_ITEMS,
+  SUPPLIER_NAV_ITEMS,
+  SUPPORT_NAV_ITEM,
+} from "./nav-items";
 
 // MVP: sellers sell only supplier products, so their own-product page leaves the menu.
 describe("seller navigation", () => {
@@ -24,5 +30,40 @@ describe("team navigation", () => {
         permission: "reviews.moderate",
       }),
     );
+  });
+});
+
+describe("supplier messages tab", () => {
+  it("puts the stores' messages right after the orders tab, with an unread count", () => {
+    const labels = SUPPLIER_NAV_ITEMS.map((item) => item.label);
+    expect(labels.indexOf("Mensagens")).toBe(labels.indexOf("Pedidos") + 1);
+    expect(SUPPLIER_NAV_ITEMS).toContainEqual({
+      label: "Mensagens",
+      to: "/suporte/revendedores",
+      badge: "storeMessages",
+    });
+  });
+
+  it("lights only the messages tab on a store conversation, not support", () => {
+    const sheetItems = [...SUPPLIER_NAV_ITEMS, SUPPORT_NAV_ITEM];
+    expect(activeNavItemTo(sheetItems, "/suporte/revendedores")).toBe("/suporte/revendedores");
+    expect(activeNavItemTo(sheetItems, "/suporte/revendedores/ticket-1")).toBe(
+      "/suporte/revendedores",
+    );
+    expect(activeNavItemTo(sheetItems, "/suporte/novo")).toBe("/suporte");
+  });
+});
+
+describe("active tab", () => {
+  it("keeps the supplier home lit only on its own page", () => {
+    expect(activeNavItemTo(SUPPLIER_NAV_ITEMS, "/fornecedor/painel")).toBe("/fornecedor/painel");
+    expect(activeNavItemTo(SUPPLIER_NAV_ITEMS, "/fornecedor/painel/pedidos")).toBe(
+      "/fornecedor/painel/pedidos",
+    );
+  });
+
+  it("lights a tab for the sections that live under it and nothing elsewhere", () => {
+    expect(activeNavItemTo(NAV_ITEMS, "/fornecedores/abc")).toBe("/catalogo");
+    expect(activeNavItemTo(NAV_ITEMS, "/conta")).toBeNull();
   });
 });
