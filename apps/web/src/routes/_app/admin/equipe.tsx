@@ -16,11 +16,11 @@ import { TeamInviteDialog } from "@/components/admin/team-invite-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { UserAvatar } from "@/components/layout/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { adminListTeam, adminResendTeamInvite } from "@/features/admin/team.functions";
 import { errorMessage } from "@/lib/errors";
-import { initials } from "@/lib/initials";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { DisabledHint, Hint, HintedText } from "@/components/ui/hint";
 import { ACTION_ICONS, STAFF_ROLE_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
@@ -98,12 +98,7 @@ function MemberStatus({ member }: { member: StaffMember }) {
 function MemberIdentity({ member }: { member: StaffMember }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span
-        className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium"
-        aria-hidden="true"
-      >
-        {initials(member.name)}
-      </span>
+      <UserAvatar name={member.name} image={member.image} className="size-9 text-xs" />
       <div className="min-w-0">
         <Link
           to="/admin/clientes/$userId"

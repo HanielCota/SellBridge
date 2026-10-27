@@ -16,7 +16,9 @@ import {
   orders,
   webhookEvents,
   member,
+  organization,
   storeConnections,
+  suppliers,
   tenantProfile,
   ticketMessages,
   tickets,
@@ -138,6 +140,17 @@ describe("seed", { timeout: SEED_TEST_TIMEOUT }, () => {
     const closed = rows.filter((row) => row.status === "closed");
     expect(closed.every((row) => row.closedAt !== null)).toBe(true);
     expect(closed.some((row) => row.rating !== null)).toBe(true);
+  });
+
+  // Regression: no seeded supplier could log in, so the supplier panel had nobody to open it.
+  it("gives a supplier a login of its own, tied to a supplier the demo store sells", async () => {
+    const tenantId = await tenantOf("fornecedor@sellbridge.local");
+    const [profile] = await database
+      .select({ kind: organization.kind, supplier: suppliers.name })
+      .from(organization)
+      .innerJoin(suppliers, eq(suppliers.organizationId, organization.id))
+      .where(eq(organization.id, tenantId));
+    expect(profile).toEqual({ kind: "supplier", supplier: "Ateliê Divinópolis Confecções" });
   });
 
   it("changes nothing when it runs again", async () => {

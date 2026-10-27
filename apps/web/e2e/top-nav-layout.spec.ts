@@ -110,8 +110,11 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
  * A fresh admin account with a supplier profile besides its seller one: adding a profile to the
  * shared admin would change its menus for the specs running beside this one.
  */
-async function signInAdminWithSupplierProfile(page: Page): Promise<{ slug: string }> {
-  const email = await signUp(page, "Admin Com Marca");
+async function signInAdminWithSupplierProfile(
+  page: Page,
+  displayName = "Admin Com Marca",
+): Promise<{ slug: string }> {
+  const email = await signUp(page, displayName);
   await database.update(user).set({ role: "admin" }).where(eq(user.email, email));
   const supplierProfile = await addSupplierProfile(database, await accountId(database, email));
   extraSupplierProfiles.push(supplierProfile.id);
@@ -120,6 +123,27 @@ async function signInAdminWithSupplierProfile(page: Page): Promise<{ slug: strin
   await enableAdminMode(page);
   return { slug: supplierProfile.slug };
 }
+
+test("staff can enter team mode from the supplier profile without clipping its tabs", async ({
+  page,
+}) => {
+  const profile = await signInAdminWithSupplierProfile(
+    page,
+    "Staff with a deliberately long account display name",
+  );
+  await gotoHydrated(page, `/fornecedor/painel?perfil=${profile.slug}`);
+  await page.getByRole("button", { name: "Menu do usuário" }).click();
+  const toggle = page.getByRole("menuitemcheckbox", { name: "Modo administrador" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await page.keyboard.press("Escape");
+  await expectClearHeader(page);
+  await expectEveryTabVisible(page);
+  await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/products/);
+  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fornecedor" })).toBeVisible();
+});
 
 test("admin header gives each profile its own menu and still fits", async ({ page }) => {
   const supplierProfile = await signInAdminWithSupplierProfile(page);

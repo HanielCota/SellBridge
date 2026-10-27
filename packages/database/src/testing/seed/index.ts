@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../../client.ts";
 import { CUSTOMERS } from "./customers.ts";
 import { SUPPORT_TEAM_EMAILS, supportTeamSlug } from "./support-performance.ts";
-import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
+import { ADMIN_ACCOUNT, DEMO_ACCOUNT, SUPPLIER_ACCOUNT } from "./data.ts";
 import {
   ADMIN_ORGANIZATION_SLUG,
   DEMO_ORGANIZATION_SLUG,
@@ -55,6 +55,7 @@ async function resetDomain(database: Database): Promise<void> {
   const emails = [
     DEMO_ACCOUNT.email,
     ADMIN_ACCOUNT.email,
+    SUPPLIER_ACCOUNT.email,
     ...CUSTOMERS.map((item) => item.email),
     ...SUPPORT_TEAM_EMAILS,
   ];
@@ -62,6 +63,7 @@ async function resetDomain(database: Database): Promise<void> {
     DEMO_ORGANIZATION_SLUG,
     DEMO_SECOND_PROFILE.slug,
     ADMIN_ORGANIZATION_SLUG,
+    SUPPLIER_ACCOUNT.slug,
     ...CUSTOMERS.map((item) => item.slug),
     ...SUPPORT_TEAM_EMAILS.map(supportTeamSlug),
   ];

@@ -4,7 +4,7 @@ import {
   type PeriodSearch,
 } from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "@/components/reports/cash-flow-chart";
 import { DashboardHeader, DashboardIntro } from "@/components/reports/dashboard-hero";
@@ -17,6 +17,7 @@ import { StoreBreakdown, TopProducts } from "@/components/reports/sales-breakdow
 import { SetupGuide } from "@/components/onboarding/setup-guide";
 import { findNextStep } from "@/features/onboarding/setup-progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { teamHomeFor } from "@/features/auth/team-mode";
 import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
 import { dashboardQueryOptions, financialExportUrl } from "@/features/reports/reports.queries";
 import { errorMessage } from "@/lib/errors";
@@ -25,6 +26,13 @@ import { useTabProfileLink } from "@/lib/tab-profile";
 
 export const Route = createFileRoute("/_app/dashboard")({
   validateSearch: periodSearchSchema,
+  // Agents and supervisors have no store: their start is the ticket queue.
+  beforeLoad: ({ context }) => {
+    const teamHome = teamHomeFor(context.session.user.role, context.session.adminMode);
+    if (teamHome !== null) {
+      throw redirect({ to: teamHome });
+    }
+  },
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps: search }) =>
     prefetchOnServer(context.queryClient, dashboardQueryOptions(search)),

@@ -8,6 +8,7 @@ import { activeNavItemTo, SUPPORT_NAV_ITEM, type NavItem } from "@/features/navi
 import { PROFILE_LABELS, type ProfileSection } from "@/features/navigation/profile-sections";
 import { cn } from "@/lib/utils";
 import { isItemActive, NavTab, TeamDivider, type BadgeCounts } from "./nav-tab";
+import { TeamModeMenuEntry } from "./team-mode-entry";
 
 const MenuIcon = ACTION_ICONS.menu.icon;
 
@@ -30,6 +31,7 @@ export function MobileNav({
   pathname,
   counts,
   triggerClassName,
+  teamModeRole,
 }: {
   navigation: MobileNavigation;
   profileKind: ProfileKind;
@@ -37,6 +39,8 @@ export function MobileNav({
   counts: BadgeCounts;
   /** Hides the trigger where the desktop capsule takes over. */
   triggerClassName: string;
+  /** Offers the team workspace while a staff member has its mode off. */
+  teamModeRole: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [shownKind, setShownKind] = useState<ProfileKind>(profileKind);
@@ -46,7 +50,6 @@ export function MobileNav({
     setIsOpen(open);
   };
   const close = () => setIsOpen(false);
-  const activeTo = currentMobileTab(navigation, pathname);
   return (
     <Sheet open={isOpen} onOpenChange={openSheet}>
       <MenuTrigger className={triggerClassName} />
@@ -61,29 +64,62 @@ export function MobileNav({
           aria-label="Principal"
           className={cn("grid gap-1", hasProfileSwitch(navigation) ? "mt-3" : "mt-10")}
         >
-          <ProfileTabs
+          <MobileNavLinks
             navigation={navigation}
             shownKind={shownKind}
             pathname={pathname}
             counts={counts}
             onNavigate={close}
-          />
-          <TeamTabs
-            items={navigation.teamItems}
-            pathname={pathname}
-            counts={counts}
-            onNavigate={close}
-          />
-          <TeamDivider vertical={false} />
-          <NavTab
-            item={SUPPORT_NAV_ITEM}
-            isActive={activeTo === SUPPORT_NAV_ITEM.to}
-            count={counts.supportReplies}
-            onNavigate={close}
+            teamModeRole={teamModeRole}
           />
         </nav>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function MobileNavLinks({
+  navigation,
+  shownKind,
+  pathname,
+  counts,
+  onNavigate,
+  teamModeRole,
+}: {
+  navigation: MobileNavigation;
+  shownKind: ProfileKind;
+  pathname: string;
+  counts: BadgeCounts;
+  onNavigate: () => void;
+  teamModeRole: string | null;
+}) {
+  const activeTo = currentMobileTab(navigation, pathname);
+  return (
+    <>
+      {teamModeRole === null ? null : (
+        <TeamModeMenuEntry role={teamModeRole} onEnter={onNavigate} />
+      )}
+      <ProfileTabs
+        navigation={navigation}
+        shownKind={shownKind}
+        pathname={pathname}
+        counts={counts}
+        onNavigate={onNavigate}
+      />
+      <TeamTabs
+        items={navigation.teamItems}
+        pathname={pathname}
+        counts={counts}
+        onNavigate={onNavigate}
+      />
+      <TeamDivider vertical={false} />
+      <NavTab
+        item={SUPPORT_NAV_ITEM}
+        isActive={activeTo === SUPPORT_NAV_ITEM.to}
+        count={counts.supportReplies}
+        onNavigate={onNavigate}
+      />
+    </>
   );
 }
 

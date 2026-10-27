@@ -13,7 +13,13 @@ const lastSeen = new Date("2026-01-02T10:00:00.000Z");
 
 beforeAll(async () => {
   await database.insert(user).values([
-    { id: agent, name: "Atendente", email: `${agent}@sellbridge.test`, role: "agent" },
+    {
+      id: agent,
+      name: "Atendente",
+      email: `${agent}@sellbridge.test`,
+      role: "agent",
+      image: "https://fotos.sellbridge.test/atendente.jpg",
+    },
     { id: reseller, name: "Revendedora", email: `${reseller}@sellbridge.test` },
     { id: invited, name: "Convidada", email: `${invited}@sellbridge.test`, role: "supervisor" },
   ]);
@@ -33,6 +39,8 @@ describe("listStaffMembers", () => {
       role: "agent",
       lastSeenAt: lastSeen,
       banned: false,
+      // Regression: the team list drew initials because the photo never left the database.
+      image: "https://fotos.sellbridge.test/atendente.jpg",
     });
     expect(team.some((member) => member.id === reseller)).toBe(false);
   });

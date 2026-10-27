@@ -1,6 +1,6 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ import { SupportButton } from "./support-button";
 import { teamModeActiveTag } from "@/features/auth/team-mode";
 import { accountLabel } from "@/features/auth/account-label";
 import { UserMenu } from "./user-menu";
+import { TeamModeButton } from "./team-mode-entry";
 
 /**
  * Reserve the side controls before allocating space to the navigation capsule. Admin mode
@@ -327,6 +328,51 @@ function HomeLink({ isSupplier }: { isSupplier: boolean }) {
   );
 }
 
+/** The header's right side: search, support, the team's way in, the bell and the account. */
+function HeaderActions({
+  user,
+  adminMode,
+  profileKind,
+  supportReplies,
+  teamModeRole,
+  layout,
+}: {
+  user: SessionUser;
+  adminMode: boolean;
+  profileKind: ProfileKind;
+  supportReplies: number;
+  teamModeRole: string | null;
+  layout: Layout;
+}) {
+  const isSupplier = profileKind === "supplier";
+  return (
+    <div className="flex items-center gap-2 justify-self-end">
+      {/* The search looks through the seller's orders, listings and stores. */}
+      {isSupplier ? null : <CommandPalette />}
+      {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
+      {adminMode ? null : (
+        <div className="hidden sm:block">
+          <SupportButton unread={supportReplies} profileKind={profileKind} />
+        </div>
+      )}
+      {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
+      {teamModeRole === null ? null : (
+        <div className="hidden sm:block">
+          <TeamModeButton role={teamModeRole} />
+        </div>
+      )}
+      <NotificationBell />
+      <AccountChip
+        user={user}
+        supportReplies={supportReplies}
+        adminMode={adminMode}
+        profileKind={profileKind}
+        layout={layout}
+      />
+    </div>
+  );
+}
+
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind, profiles }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -340,6 +386,7 @@ export function TopNav({ user, adminMode, profileKind, profiles }: TopNavProps) 
   const supportReplies = counts.supportReplies;
   const navigation = navigationFor(user, adminMode, profileKind, profiles);
   const layout = layoutFor(adminMode);
+  const teamModeRole = isStaffRole(user.role) && !adminMode ? user.role : null;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}
@@ -356,6 +403,7 @@ export function TopNav({ user, adminMode, profileKind, profiles }: TopNavProps) 
             pathname={pathname}
             counts={counts}
             triggerClassName={layout.sheetTrigger}
+            teamModeRole={teamModeRole}
           />
           <HomeLink isSupplier={isSupplier} />
         </div>
@@ -366,24 +414,14 @@ export function TopNav({ user, adminMode, profileKind, profiles }: TopNavProps) 
           counts={counts}
           layout={layout}
         />
-        <div className="flex items-center gap-2 justify-self-end">
-          {/* The search looks through the seller's orders, listings and stores. */}
-          {isSupplier ? null : <CommandPalette />}
-          {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
-          {adminMode ? null : (
-            <div className="hidden sm:block">
-              <SupportButton unread={supportReplies} profileKind={profileKind} />
-            </div>
-          )}
-          <NotificationBell />
-          <AccountChip
-            user={user}
-            supportReplies={supportReplies}
-            adminMode={adminMode}
-            profileKind={profileKind}
-            layout={layout}
-          />
-        </div>
+        <HeaderActions
+          user={user}
+          adminMode={adminMode}
+          profileKind={profileKind}
+          supportReplies={supportReplies}
+          teamModeRole={teamModeRole}
+          layout={layout}
+        />
       </div>
     </header>
   );
