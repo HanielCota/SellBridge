@@ -2,7 +2,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { marketplaceError } from "../errors.ts";
 import type { MarketplaceOrder, StoreCredentials } from "../types.ts";
 import { type MercadoLivreContext, requestJson } from "./client.ts";
-import { type MercadoLivreOrder, orderSchema, ordersSearchSchema } from "./schemas.ts";
+import { type MercadoLivreOrder, ordersSearchSchema, sellerOrderSchema } from "./schemas.ts";
 
 const ORDERS_PAGE_SIZE = 50;
 /** Stops paginating order searches after this many results. */
@@ -148,9 +148,14 @@ export async function fetchOrder(
     });
   }
   const raw = await requestJson(context, {
-    schema: orderSchema,
+    schema: sellerOrderSchema,
     path: `/orders/${match[1]}`,
     init: { accessToken: store.accessToken },
   });
+  // The notification is unsigned and a buyer token can read its own purchases, so an order id
+  // known to another seller must not land as a sale of this store (review 2026-10-27).
+  if (String(raw.seller.id) !== store.externalShopId) {
+    throw marketplaceError("Pedido não pertence à loja conectada", { retryable: false });
+  }
   return mapMercadoLivreOrder(raw);
 }
