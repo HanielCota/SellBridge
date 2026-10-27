@@ -10,10 +10,12 @@ import {
 } from "../testing/fixtures.ts";
 import { findTargetsNeedingSync, markTargetSynced, markTargetSyncFailed } from "./listing-sync.ts";
 import {
+  claimTargetForPublishing,
   createListingWithTargets,
   listListingTargets,
   markTargetFailed,
   markTargetPublished,
+  setTargetCreationStarted,
 } from "./listings.ts";
 import { upsertStoreConnection } from "./stores.ts";
 
@@ -201,6 +203,47 @@ describe("listing events", () => {
       externalId: "EXT-LATE",
       errorReason: null,
     });
+  });
+});
+
+async function claimedAttempts(listingTargetId: string): Promise<number> {
+  expect(await claimTargetForPublishing(database, listingTargetId)).toBe(true);
+  const [row] = await database
+    .select({ attempts: listingTargets.attempts })
+    .from(listingTargets)
+    .where(eq(listingTargets.id, listingTargetId));
+  if (row === undefined) {
+    throw new Error("destino");
+  }
+  return row.attempts;
+}
+
+describe("publication claims", () => {
+  it("lets only the current claim start the marketplace creation", async () => {
+    const { targetId } = await createTarget("Anúncio reprocessado durante a publicação");
+    const staleClaim = await claimedAttempts(targetId);
+    // The stalled sweeper gives up on the slow run, then the reseller reprocesses the target.
+    // Done on this target alone: the sweeper itself would end every run in the shared database.
+    await database
+      .update(listingTargets)
+      .set({ status: "error", errorReason: "Interrompida" })
+      .where(eq(listingTargets.id, targetId));
+    await database
+      .update(listingTargets)
+      .set({ status: "pending", errorReason: null })
+      .where(eq(listingTargets.id, targetId));
+    const currentClaim = await claimedAttempts(targetId);
+
+    await expect(
+      setTargetCreationStarted(database, { listingTargetId: targetId, attempts: staleClaim }, true),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      setTargetCreationStarted(
+        database,
+        { listingTargetId: targetId, attempts: currentClaim },
+        true,
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 
