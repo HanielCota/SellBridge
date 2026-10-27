@@ -191,3 +191,24 @@ test("a bolha recolhe quando uma tabela rolada de lado leva um botão para baixo
     await expect(label).toBeHidden({ timeout: 1_000 });
   }).toPass({ timeout: 3_000 });
 });
+
+test("abre a conversa com o fornecedor pelo menu do anúncio", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/publicacoes?status=published");
+  await page
+    .getByRole("button", { name: /^Ações de / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Falar com o fornecedor" }).click();
+  await expect(page).toHaveURL(/\/suporte\/fornecedores\/novo\?loja=[0-9a-f-]{36}/);
+  await expect(page.getByRole("heading", { name: "Falar com o fornecedor" })).toBeVisible();
+});
+
+test("abre a conversa com o fornecedor pelo menu da loja", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/lojas");
+  await page.getByRole("button", { name: "Opções de Ana Moda" }).click();
+  await page.getByRole("menuitem", { name: "Falar com o fornecedor" }).click();
+  await expect(page).toHaveURL(/\/suporte\/fornecedores\/novo\?loja=[0-9a-f-]{36}/);
+  await expect(page.getByRole("heading", { name: "Falar com o fornecedor" })).toBeVisible();
+});
