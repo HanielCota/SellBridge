@@ -269,18 +269,25 @@ test("seller header stays clear with a long account name", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("supplier header shows the tab icons from 1280px and stays clear", async ({ page }) => {
+// With "Mensagens" as a seventh tab, icons from 1280px ran the capsule 89px past its track.
+test("supplier header shows the tab icons from 1440px and stays clear", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expectClearHeader(page);
   await expectEveryTabVisible(page);
   const nav = page.getByRole("navigation", { name: "Principal" });
-  for (const width of [1280, 1366]) {
+  for (const [width, hasIcons] of [
+    [1280, false],
+    [1366, false],
+    [1440, true],
+  ] as const) {
     await page.setViewportSize({ width, height: 900 });
-    for (const label of ["Início", "Pedidos", "Desempenho", "Marca"]) {
-      await expect(
-        nav.getByRole("link", { name: label, exact: true }).locator("svg"),
-        `${label} icon at ${width}px`,
-      ).toBeVisible();
+    for (const label of ["Início", "Pedidos", "Mensagens", "Desempenho", "Marca"]) {
+      const icon = nav.getByRole("link", { name: label, exact: true }).locator("svg");
+      if (hasIcons) {
+        await expect(icon, `${label} icon at ${width}px`).toBeVisible();
+        continue;
+      }
+      await expect(icon, `${label} icon at ${width}px`).toBeHidden();
     }
   }
 });
