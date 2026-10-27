@@ -258,10 +258,10 @@ test("supervisor retira a flag com uma observação e o fornecedor deixa de ver"
   await gotoHydrated(supplierPage, "/fornecedor/painel");
   await expect(supplierPage.getByRole("heading", { name: "Painel do fornecedor" })).toBeVisible();
   await expect(supplierPage.getByRole("region", { name: "Avisos da equipe" })).toHaveCount(0);
-  // No flag left: the green "em dia" card, with the rules one tap away.
+  // No flag left: "Sem flags" in the health section on top of the list, the rules one tap away.
   const standing = supplierPage.getByRole("region", { name: "Sua conta" });
-  await expect(standing).toContainText("Nenhuma flag: sua conta está em dia");
-  await expect(standing).toContainText("na 3ª flag a conta é desligada");
+  await expect(standing).toContainText("Sem flags");
+  await expect(standing).toContainText("Sua conta está em dia. Na 3ª flag a conta é desligada.");
   await expect(standing.getByRole("link", { name: "Ver as 5 regras" })).toBeVisible();
   await supplierContext.close();
 });

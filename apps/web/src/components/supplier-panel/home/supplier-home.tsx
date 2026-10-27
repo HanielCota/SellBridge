@@ -1,50 +1,43 @@
 import type { SupplierAttentionTarget } from "@sellbridge/shared/supplier-panel-attention";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
-import { ErrorState } from "@/components/feedback/error-state";
-import { DashboardHeader, DashboardIntro } from "@/components/reports/dashboard-hero";
+import { PlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
-import { SUPPLIER_PANEL_BASE_PATH } from "@/features/supplier-panel/home/attention-links";
-import type { SupplierHomeData } from "@/features/supplier-panel/home/home-types";
+import { ErrorState } from "@/components/feedback/error-state";
+import { PageHeader } from "@/components/layout/page-header";
 import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.queries";
 import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
-import type { SupplierSalesSearch } from "@/features/supplier-panel/sales/sales-search";
-import {
-  supplierSalesQueryOptions,
-  type SupplierSalesData,
-} from "@/features/supplier-panel/sales/sales.queries";
-import { errorMessage } from "@/lib/errors";
-import { useTabProfileLink } from "@/lib/tab-profile";
-import { cn } from "@/lib/utils";
-import { SupplierAttentionPanel } from "../sales/supplier-attention-panel";
-import { SupplierFirstSteps } from "../sales/supplier-first-steps";
-import { SupplierKpiTiles } from "../sales/supplier-kpi-tiles";
-import { SupplierPeriodSummary } from "../sales/supplier-period-summary";
-import { ParcelStagesCard, SupplierTopProducts } from "../sales/supplier-sales-cards";
-import { SupplierSalesChart } from "../sales/supplier-sales-chart";
-import { SupplierSalesFilters } from "../sales/supplier-sales-filters";
-import { HealthStrip } from "./health-strip";
+import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
 import { TeamNoticesCard } from "./team-notices-card";
-
-type HrefFor = (target: SupplierAttentionTarget) => string;
+import { SupplierSalesOverview } from "./supplier-sales-overview";
+import type { SupplierSalesSearch } from "@/features/supplier-panel/sales/sales-search";
 
 interface SupplierHomeProps {
   supplierId: string;
   search: SupplierSalesSearch;
   onSearchChange: (patch: Partial<SupplierSalesSearch>) => void;
-  hrefFor: HrefFor;
+  hrefFor: (target: SupplierAttentionTarget) => string;
 }
 
-const TITLE = "Painel do fornecedor";
-
-function HomeActions() {
-  const active = usePanelSupplierActive();
+/**
+ * The shortcuts beside "Cadastrar produto", so the products, the spreadsheet import and the brand
+ * sit in the header instead of a card of their own above the list.
+ */
+function SupplierHeaderActions({ active }: { active: boolean }) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <>
+      <Button asChild variant="outline">
+        <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
+      </Button>
       {/* A switched-off supplier adds no products (the server refuses them too). */}
+      {active ? (
+        <Button asChild variant="outline">
+          <Link to="/fornecedor/painel/importar">Importar por planilha</Link>
+        </Button>
+      ) : null}
+      <Button asChild variant="outline">
+        <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
+      </Button>
       {active ? (
         <Button asChild>
           <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
@@ -53,168 +46,41 @@ function HomeActions() {
           </Link>
         </Button>
       ) : null}
-      <Button variant="outline" asChild>
-        <Link to="/fornecedor/painel/marca">
-          <PencilSimpleIcon aria-hidden="true" />
-          Editar minha marca
-        </Link>
-      </Button>
-    </div>
-  );
-}
-
-function HomeSkeleton() {
-  // Same sizes as the loaded layout, so nothing jumps when the data arrives.
-  return (
-    <output className="block space-y-6" aria-busy="true" aria-label="Carregando o Início">
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-72 max-w-full" />
-        <Skeleton className="h-6 w-full max-w-2xl" />
-      </div>
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton key={index} className="h-36 rounded-3xl" />
-          ))}
-        </div>
-        <Skeleton className="h-[426px] rounded-3xl xl:h-auto" />
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-80 rounded-3xl" />
-        ))}
-      </div>
-    </output>
-  );
-}
-
-/** The team's flags, or the green "em dia" card once the home says whether it is highlighted. */
-function HomeTeamNotices({
-  supplierId,
-  home,
-}: {
-  supplierId: string;
-  home: SupplierHomeData | undefined;
-}) {
-  const active = usePanelSupplierActive();
-  return (
-    <TeamNoticesCard
-      supplierId={supplierId}
-      active={active}
-      highlighted={home?.highlighted ?? false}
-    />
-  );
-}
-
-interface ContentProps extends SupplierHomeProps {
-  data: SupplierSalesData;
-  home: SupplierHomeData | undefined;
-}
-
-/** Before the first sale: the first steps, and whatever already needs the supplier. */
-function FirstSteps({ data, home, supplierId, hrefFor }: ContentProps) {
-  return (
-    <>
-      <DashboardHeader title={TITLE} actions={<HomeActions />} />
-      <HomeTeamNotices supplierId={supplierId} home={home} />
-      <SupplierFirstSteps setup={data.setup} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SupplierAttentionPanel home={home} runningOut={data.runningOut} hrefFor={hrefFor} />
-      </div>
     </>
-  );
-}
-
-function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor }: ContentProps) {
-  const profileLink = useTabProfileLink();
-  const exportSearch = new URLSearchParams({ supplierId, ...exportParams(search) });
-  return (
-    <>
-      <DashboardIntro
-        title={TITLE}
-        actions={<HomeActions />}
-        caption={formatPeriodCaption(data.period)}
-        summary={
-          <SupplierPeriodSummary
-            current={data.summary}
-            previous={data.previous}
-            points={data.timeseries}
-            bucket={data.period.bucket}
-            fromDate={data.period.fromDate}
-            situation={search.situation}
-          />
-        }
-      />
-      {/* The team's notices sit above the numbers, as on the old home. */}
-      <HomeTeamNotices supplierId={supplierId} home={home} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <SupplierKpiTiles
-          summary={data.summary}
-          previous={data.previous}
-          points={data.timeseries}
-          situation={search.situation}
-        />
-        <SupplierSalesChart
-          data={data}
-          situation={search.situation}
-          exportUrl={profileLink(`/api/fornecedor/vendas/exportar?${exportSearch.toString()}`)}
-          filters={<SupplierSalesFilters data={data} search={search} onChange={onSearchChange} />}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ParcelStagesCard stages={data.parcelStages} />
-        <SupplierTopProducts products={data.topProducts} />
-        <SupplierAttentionPanel home={home} runningOut={data.runningOut} hrefFor={hrefFor} />
-      </div>
-      {home === undefined ? null : (
-        <HealthStrip
-          health={home.health}
-          href={profileLink(`${SUPPLIER_PANEL_BASE_PATH}/desempenho`)}
-        />
-      )}
-    </>
-  );
-}
-
-/** The search as plain text pairs for the export link, without the empty filters. */
-function exportParams(search: SupplierSalesSearch): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(search).flatMap(([key, value]) => (value === undefined ? [] : [[key, value]])),
   );
 }
 
 /**
- * The supplier's "Início" (item 38): the reseller's sales dashboard with the supplier's numbers
- * (what it receives, pieces, best sellers and where the parcels are) and what needs it now.
+ * "Início" of the supplier panel, one list first (Mercado Livre's "Vendas", Shopee's "Lista de
+ * tarefas"): the account's health on top, then what waits for the accept, what is under way and
+ * what to fix in the catalog, each with the product photo, in a single card.
  */
 export function SupplierHome(props: SupplierHomeProps) {
-  const sales = useQuery(supplierSalesQueryOptions(props.supplierId, props.search));
-  const home = useQuery(supplierHomeQueryOptions(props.supplierId));
-  const header = <DashboardHeader title={TITLE} actions={<HomeActions />} />;
-  // A failed background refresh keeps the numbers already on screen.
-  if (sales.isError && sales.data === undefined) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <ErrorState message={errorMessage(sales.error)} onRetry={() => void sales.refetch()} />
-      </div>
-    );
-  }
-  if (sales.data === undefined) {
-    return (
-      <div className="space-y-6">
-        {header}
-        <HomeSkeleton />
-      </div>
-    );
-  }
-  const content = { ...props, data: sales.data, home: home.data };
+  const { supplierId, hrefFor } = props;
+  const query = useQuery(supplierHomeQueryOptions(supplierId));
+  const active = usePanelSupplierActive();
+  const header = (
+    <PageHeader
+      title="Painel do fornecedor"
+      {...(query.data === undefined ? {} : { description: query.data.supplierName })}
+      actions={<SupplierHeaderActions active={active} />}
+    />
+  );
   return (
-    <div
-      aria-busy={sales.isPlaceholderData}
-      className={cn("space-y-6 transition-opacity", sales.isPlaceholderData && "opacity-60")}
-    >
-      {sales.data.setup.hasSales ? <SalesOverview {...content} /> : <FirstSteps {...content} />}
+    <div className="space-y-4">
+      {header}
+      <TeamNoticesCard supplierId={supplierId} active={active} />
+      {query.isError && query.data === undefined ? (
+        <ErrorState message="Não foi possível carregar as ações pendentes." onRetry={() => void query.refetch()} />
+      ) : query.data === undefined ? (
+        <HomeQueueSkeleton />
+      ) : (
+        <HomeQueue supplierId={supplierId} data={query.data} hrefFor={hrefFor} active={active} />
+      )}
+      <section aria-label="Vendas do fornecedor" className="space-y-6 pt-4">
+        <h2 className="text-2xl font-semibold tracking-tight">Suas vendas</h2>
+        <SupplierSalesOverview {...props} />
+      </section>
     </div>
   );
 }
