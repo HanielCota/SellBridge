@@ -2,9 +2,10 @@ import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { newTicketSearchSchema, type NewTicketSearch } from "@sellbridge/shared/schemas";
 import { supportTopicsFor } from "@sellbridge/shared/support-topics";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { FormErrorAlert } from "@/components/form/form-feedback";
-import { BackLink, PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/page-header";
 import { AttachmentInput } from "@/components/support/attachment-input";
 import { AssistantAnswer, ResolvedButton } from "@/components/support/new-ticket/assistant-answer";
 import { SituationStep, TopicStep } from "@/components/support/new-ticket/choice-steps";
@@ -12,7 +13,9 @@ import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/des
 import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
 import { useNewTicket } from "@/components/support/new-ticket/use-new-ticket";
 import { TicketSubjectList, hasTicketSubject } from "@/components/support/ticket-subject";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { newTicketOrigin } from "@/features/support/new-ticket-origin";
 import { responsePromise } from "@/features/support/support-copy";
 import { getTicketAboutPreview } from "@/features/support/support.functions";
 
@@ -117,12 +120,40 @@ function NewTicketForm({ kind, search }: { kind: ProfileKind; search: NewTicketS
   );
 }
 
+/**
+ * Back to where the form was opened: stepping back in history keeps that page's filters (a
+ * listing opened from "No ar" returns to "No ar"); opened from a shared link, it goes to the page.
+ */
+function BackToOrigin({ search }: { search: NewTicketSearch }) {
+  const origin = newTicketOrigin(search);
+  const canGoBack = useCanGoBack();
+  const router = useRouter();
+  return (
+    <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit print:hidden">
+      <Link
+        {...origin}
+        onClick={(event) => {
+          if (!canGoBack) return;
+          // A new-tab click keeps the plain link.
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+          event.preventDefault();
+          router.history.back();
+        }}
+      >
+        <ArrowLeftIcon aria-hidden="true" />
+        {origin.label}
+      </Link>
+    </Button>
+  );
+}
+
 function NewTicketPage() {
   const { session } = Route.useRouteContext();
   const search = Route.useSearch();
+  // As wide as the navigation bar above it, like every other page of the app.
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
-      <PageHeader back={<BackLink to="/suporte" label="Suporte" />} title="Novo chamado" />
+    <div className="w-full space-y-6">
+      <PageHeader back={<BackToOrigin search={search} />} title="Novo chamado" />
       <Card>
         <CardContent className="space-y-6">
           <TicketAboutPreview />

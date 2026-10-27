@@ -8,36 +8,59 @@ import { RecentTickets } from "@/components/support/recent-tickets";
 import { SupplierConversationsEntry } from "@/components/supplier-support/supplier-conversations-entry";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
-import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
-import { SUPPORT_HOURS_TEXT, unreadRepliesText } from "@/features/support/response-time";
+import {
+  outOfHoursNotice,
+  shortSupportHoursText,
+  unreadRepliesText,
+} from "@/features/support/response-time";
+import { useNow } from "@/hooks/use-now";
+import { cn } from "@/lib/utils";
 
 const SupportIcon = ACTION_ICONS.support.icon;
 
-/**
- * Help one tap away from every page: open a ticket, or jump back into one. The badge counts
- * tickets with a support reply you have not read yet.
- */
-/** The team's hours and the way into a new ticket: the first thing the card offers. */
-function TeamSupportHeading({ onNavigate }: { onNavigate: () => void }) {
+/** One short line: the hours, or, outside them, when answers start again, in the body colour. */
+function SupportHoursLine() {
+  const now = useNow();
+  const isOutOfHours = outOfHoursNotice(now) !== null;
+  return (
+    <p
+      className={cn(
+        "text-xs",
+        isOutOfHours ? "font-medium text-foreground" : "text-muted-foreground",
+      )}
+    >
+      {shortSupportHoursText(now)}
+    </p>
+  );
+}
+
+/** The two ways out of the card, side by side in weight: the team's ticket and the supplier. */
+function SupportActions({ kind, onNavigate }: { kind: ProfileKind; onNavigate: () => void }) {
   return (
     <div className="space-y-3 px-2.5 pt-2 pb-1">
       <div className="space-y-0.5">
         <h2 id="support-panel-title" className="text-sm font-semibold">
           Precisa de ajuda?
         </h2>
-        <p className="text-xs text-muted-foreground">{SUPPORT_HOURS_TEXT}</p>
-        <OutOfHoursNotice className="text-xs" />
+        <SupportHoursLine />
       </div>
-      <Button asChild size="sm" className="w-full">
-        <Link to="/suporte/novo" onClick={onNavigate}>
-          <PlusIcon aria-hidden="true" />
-          Abrir chamado
-        </Link>
-      </Button>
+      <div className="space-y-2">
+        <Button asChild className="w-full">
+          <Link to="/suporte/novo" onClick={onNavigate}>
+            <PlusIcon aria-hidden="true" />
+            Abrir chamado
+          </Link>
+        </Button>
+        {kind === "seller" ? <SupplierConversationsEntry onNavigate={onNavigate} /> : null}
+      </div>
     </div>
   );
 }
 
+/**
+ * Help one tap away from every page: open a ticket, or jump back into one. The badge counts
+ * tickets with a support reply you have not read yet.
+ */
 export function SupportButton({
   unread,
   profileKind,
@@ -78,8 +101,7 @@ export function SupportButton({
           aria-labelledby="support-panel-title"
           className="z-50 w-[min(22rem,calc(100vw-2rem))] space-y-2 rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >
-          <TeamSupportHeading onNavigate={close} />
-          <SupplierConversationsEntry kind={profileKind} onNavigate={close} />
+          <SupportActions kind={profileKind} onNavigate={close} />
           <RecentTickets onNavigate={close} />
         </Popover.Content>
       </Popover.Portal>

@@ -27,7 +27,7 @@ function render(client: QueryClient, active = true): string {
   return renderToStaticMarkup(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-        <TeamNoticesCard supplierId={supplierId} active={active} highlighted={false} />
+        <TeamNoticesCard supplierId={supplierId} active={active} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -53,8 +53,8 @@ function clientWithFailedNotices(): QueryClient {
 }
 
 describe("TeamNoticesCard", () => {
-  it("shows the green card only once the supplier's flags loaded empty", () => {
-    expect(render(clientWith([]))).toContain("Nenhuma flag: sua conta está em dia");
+  it("shows nothing for an active supplier without flags: the health section says it", () => {
+    expect(render(clientWith([]))).toBe("");
   });
 
   it("shows nothing while the flags load or when they fail to load", () => {

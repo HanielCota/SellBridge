@@ -2,6 +2,8 @@ import {
   ArrowCounterClockwiseIcon,
   ArrowUpRightIcon,
   BellZIcon,
+  BriefcaseIcon,
+  CubeIcon,
   BellIcon,
   CalendarBlankIcon,
   ChartBarIcon,
@@ -44,10 +46,12 @@ import {
   PlusIcon,
   ShoppingBagIcon,
   SquaresFourIcon,
+  StarHalfIcon,
   StarIcon,
   StorefrontIcon,
   TrashIcon,
   WalletIcon,
+  WarehouseIcon,
   XIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -144,6 +148,7 @@ export const ACTION_ICONS = {
   importProducts: { icon: FileArrowUpIcon, hint: "Cadastrar ou atualizar produtos por planilha" },
   performance: { icon: GaugeIcon, hint: "Prazos, cancelamentos e notas que os revendedores veem" },
   brand: { icon: PaletteIcon, hint: "Logo e cores que aparecem para os revendedores" },
+  storeMessages: { icon: ChatsCircleIcon, hint: "Conversas com as lojas que vendem seus produtos" },
   /** Time left before a deadline; once it passes, `overdue` takes over. */
   deadline: { icon: ClockIcon },
   createProduct: { icon: PlusIcon, hint: "Cadastrar um produto novo, passo a passo" },
@@ -166,6 +171,19 @@ export const ACTION_ICONS = {
     icon: IdentificationBadgeIcon,
     hint: "Quem trabalha na administração e o que cada um pode fazer",
   },
+  /** Every product on the platform; the reseller's catalog keeps the package. */
+  adminProducts: {
+    icon: CubeIcon,
+    hint: "Estoque dos revendedores e produtos dos fornecedores, com histórico",
+  },
+  /** Moderating reviews; the half star never reads as `setCover`'s full star. */
+  reviewModeration: {
+    icon: StarHalfIcon,
+    hint: "O que os revendedores escreveram sobre os fornecedores",
+  },
+  /** The folded profile tabs in admin mode; the label already names the profile. */
+  resellerTabs: { icon: BriefcaseIcon },
+  supplierTabs: { icon: WarehouseIcon },
   /** The team's queue of customer issues (Clientes > Pendências). Snoozing is not `overdue`'s clock. */
   assignIssue: { icon: UserCheckIcon, hint: "A pendência fica com você e sai da fila dos colegas" },
   releaseIssue: { icon: UserMinusIcon, hint: "Devolve a pendência para a fila da equipe" },
@@ -187,6 +205,8 @@ export type ActionIconName = keyof typeof ACTION_ICONS;
 /** Legends for terms a reseller may not know, in the GLOSSARIO-UX.md voice. */
 export const TERM_HINTS = {
   averageTicket: "Valor médio de cada pedido no período",
+  supplierReceivable: "O que você recebe pelos seus produtos: seu preço vezes as peças vendidas",
+  supplierAverageOrder: "Quanto você recebe, em média, por pedido no período",
   published: "Este produto já está à venda em uma das suas lojas",
   scoreLevel: "Score de 0 a 100, pelas avaliações de quem já vendeu os produtos",
   highlightedSupplier: "Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos",
@@ -316,14 +336,18 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/lojas": "stores",
   "/financeiro": "financials",
   "/suporte": "support",
+  "/suporte/revendedores": "storeMessages",
   "/fornecedor/painel": "supplierHome",
   "/fornecedor/painel/pedidos": "supplierOrders",
   "/fornecedor/painel/produtos": "supplierProducts",
   "/fornecedor/painel/importar": "importProducts",
   "/fornecedor/painel/desempenho": "performance",
   "/fornecedor/painel/marca": "brand",
+  "/admin/products": "adminProducts",
   "/admin/clientes": "clients",
   "/admin/fornecedores": "adminSuppliers",
+  "/admin/avaliacoes": "reviewModeration",
+  "/admin/envios": "orders",
   "/admin/chamados": "tickets",
   "/admin/equipe": "staff",
 };

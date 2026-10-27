@@ -48,9 +48,19 @@ function deadlineOf(row: OpenedTicketRow): number {
  */
 export function onTimeOf(rows: readonly OpenedTicketRow[], now: Date): Rate {
   return rateOf(
-    rows.filter((row) => row.firstResponseAt !== null || deadlineOf(row) < now.getTime()),
+    rows.filter((row) => judgedOnTime(row, now)),
     answeredOnTime,
   );
+}
+
+/** Answered, or past its deadline without an answer: either way "no prazo" can tell. */
+function judgedOnTime(row: OpenedTicketRow, now: Date): boolean {
+  return row.firstResponseAt !== null || deadlineOf(row) < now.getTime();
+}
+
+/** A ticket that counts against "no prazo": answered late, or still unanswered past due. */
+export function lateFirstResponse(row: OpenedTicketRow, now: Date): boolean {
+  return judgedOnTime(row, now) && !answeredOnTime(row);
 }
 
 export function ratingRate(rows: readonly RatingRow[]): Rate {
@@ -188,6 +198,7 @@ function performanceOf(member: StaffRow, rows: TeamRows, context: TeamContext): 
     rating: ratingRate(rows.ratings.filter((row) => row.resolverId === member.id)),
     ...queue,
     lastReplyAt: lastReplyOf(replies),
+    replies: replies.length,
     resolvedSeries: context.bucketStarts.map((start) => perBucket.get(start) ?? 0),
     subjects: agentSubjects(own, context),
     lowRatings: lowRatingsOf(rows.ratings.filter((row) => row.resolverId === member.id)),

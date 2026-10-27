@@ -86,6 +86,19 @@ export function outOfHoursNotice(now: Date): string | null {
   return `Estamos fora do horário. Respondemos a partir das ${opensAtHour}h.`;
 }
 
+/**
+ * The support card's one short line: the hours while the team is at work, otherwise when answers
+ * start again. The full sentence lives on the ticket screens. The Brasília clock stays named: a
+ * customer in Manaus reading "das 8h às 18h" at 17h30 local (18h30 in Brasília) would not see why
+ * the card says the team is out.
+ */
+export function shortSupportHoursText(now: Date): string {
+  if (isWithinSupportHours(now)) {
+    return `Todos os dias, das ${opensAtHour}h às ${closesAtHour}h (horário de Brasília)`;
+  }
+  return `Fora do horário · respondemos a partir das ${opensAtHour}h (horário de Brasília)`;
+}
+
 /** The hours and, outside them, the notice, for screens with a single line of text. */
 export function supportHoursText(now: Date): string {
   const notice = outOfHoursNotice(now);

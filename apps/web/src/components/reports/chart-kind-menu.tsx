@@ -4,6 +4,9 @@ import { Hint } from "@/components/ui/hint";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { CHART_KINDS, FACTORY_CHART_KIND, type ChartKind } from "@/features/reports/chart-view";
+
+/** Every chart a dashboard menu can offer: the reseller's five, plus the supplier's per product. */
+export type MenuChartKind = ChartKind | "products";
 import { cn } from "@/lib/utils";
 
 const BRAND = "var(--chart-brand)";
@@ -16,7 +19,7 @@ const MINI_BARS = [
 ];
 
 /** Tiny drawings of each chart, so the choice reads at a glance instead of by name. */
-const THUMBNAILS: Record<ChartKind, ReactNode> = {
+const THUMBNAILS: Record<MenuChartKind, ReactNode> = {
   area: (
     <>
       <path d="M2 22 C10 20 14 12 22 14 S34 6 42 4 V26 H2 Z" fill={BRAND} fillOpacity={0.25} />
@@ -87,29 +90,56 @@ const THUMBNAILS: Record<ChartKind, ReactNode> = {
       />
     </>
   ),
+  products: (
+    <>
+      <path
+        d="M2 20 L12 12 L22 15 L32 7 L42 9"
+        fill="none"
+        stroke={BRAND}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 24 L12 21 L22 23 L32 17 L42 19"
+        fill="none"
+        stroke="currentColor"
+        strokeOpacity={0.5}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </>
+  ),
 };
 
-const KIND_COPY: Record<ChartKind, { label: string; hint: string }> = {
+const KIND_COPY: Record<MenuChartKind, { label: string; hint: string }> = {
   area: { label: "Evolução", hint: "Receita e lucro ao longo do tempo" },
   bars: { label: "Composição", hint: "Quanto de cada venda virou lucro" },
   waterfall: { label: "Cascata", hint: "Da receita ao lucro, passo a passo" },
   margin: { label: "Margem", hint: "Lucro como % da receita, por semana" },
   cumulative: { label: "Acumulado", hint: "Total somado desde o início" },
+  products: { label: "Por produto", hint: "Os mais vendidos, cada um na sua linha" },
 };
+
+/** A dashboard's own words for what each chart shows, over the reseller's. */
+export type KindHints = Partial<Record<MenuChartKind, string>>;
 
 /** One cell of the two-column grid: the drawing and the name; the hint sits under the grid. */
 function KindOption({
   kind,
   checked,
   isDefault,
+  hint,
   onSelect,
 }: {
-  kind: ChartKind;
+  kind: MenuChartKind;
   checked: boolean;
   isDefault: boolean;
-  onSelect: (kind: ChartKind) => void;
+  hint: string;
+  onSelect: (kind: MenuChartKind) => void;
 }) {
-  const copy = KIND_COPY[kind];
+  const copy = { label: KIND_COPY[kind].label, hint };
   return (
     <label
       title={copy.hint}
@@ -148,11 +178,13 @@ function KindOption({
 function DefaultFooter({
   kind,
   defaultKind,
+  factoryKind,
   onSetDefault,
 }: {
-  kind: ChartKind;
-  defaultKind: ChartKind;
-  onSetDefault: (kind: ChartKind) => void;
+  kind: MenuChartKind;
+  defaultKind: MenuChartKind;
+  factoryKind: MenuChartKind;
+  onSetDefault: (kind: MenuChartKind) => void;
 }) {
   if (kind !== defaultKind) {
     return (
@@ -168,10 +200,10 @@ function DefaultFooter({
   return (
     <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
       <output>O painel abre com este gráfico.</output>
-      {defaultKind === FACTORY_CHART_KIND ? null : (
+      {defaultKind === factoryKind ? null : (
         <button
           type="button"
-          onClick={() => onSetDefault(FACTORY_CHART_KIND)}
+          onClick={() => onSetDefault(factoryKind)}
           className="shrink-0 rounded-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Restaurar original
@@ -190,12 +222,13 @@ export interface ChartLayers {
 }
 
 /** Which layers each chart can draw: only the areas charts have a timeline to lay them over. */
-const LAYERS_BY_KIND: Record<ChartKind, readonly (keyof ChartLayers)[]> = {
+const LAYERS_BY_KIND: Record<MenuChartKind, readonly (keyof ChartLayers)[]> = {
   area: ["compare", "average"],
   bars: [],
   waterfall: [],
   margin: [],
   cumulative: ["compare"],
+  products: [],
 };
 
 const LAYER_COPY: Record<keyof ChartLayers, string> = {
@@ -234,11 +267,16 @@ function LayerSwitches({
   );
 }
 
-interface ChartKindMenuProps {
-  kind: ChartKind;
-  defaultKind: ChartKind;
-  onKindChange: (kind: ChartKind) => void;
-  onSetDefault: (kind: ChartKind) => void;
+interface ChartKindMenuProps<Kind extends MenuChartKind> {
+  kind: Kind;
+  defaultKind: Kind;
+  onKindChange: (kind: Kind) => void;
+  onSetDefault: (kind: Kind) => void;
+  /** The charts offered, in order; the reseller dashboard's five when left out. */
+  kinds?: readonly Kind[];
+  /** The chart "Restaurar original" goes back to; the reseller's when left out. */
+  factoryKind?: Kind;
+  hints?: KindHints;
   layers: ChartLayers;
   onLayersChange: (layers: ChartLayers) => void;
   /** The average only means something over daily points. */
@@ -300,17 +338,91 @@ function ChartKindTrigger({ triggerRef }: { triggerRef: RefObject<HTMLButtonElem
   );
 }
 
-export function ChartKindMenu({
+/**
+ * The charts a dashboard offers, and its callbacks narrowed to them: the menu's options are
+ * every kind, the dashboard only hears about its own.
+ */
+function useOfferedKinds<Kind extends MenuChartKind>({
+  kinds,
+  hints = {},
+  onKindChange,
+  onSetDefault,
+}: {
+  kinds: readonly Kind[] | undefined;
+  hints: KindHints | undefined;
+  onKindChange: (kind: Kind) => void;
+  onSetDefault: (kind: Kind) => void;
+}) {
+  const offered: readonly MenuChartKind[] = kinds ?? CHART_KINDS;
+  const isOffered = (value: MenuChartKind): value is Kind => offered.includes(value);
+  return {
+    offered,
+    choose: (value: MenuChartKind) => {
+      if (isOffered(value)) onKindChange(value);
+    },
+    saveDefault: (value: MenuChartKind) => {
+      if (isOffered(value)) onSetDefault(value);
+    },
+    hintOf: (value: MenuChartKind) => hints[value] ?? KIND_COPY[value].hint,
+  };
+}
+
+function KindGrid({
+  offered,
+  kind,
+  defaultKind,
+  hintOf,
+  onSelect,
+}: {
+  offered: readonly MenuChartKind[];
+  kind: MenuChartKind;
+  defaultKind: MenuChartKind;
+  hintOf: (kind: MenuChartKind) => string;
+  onSelect: (kind: MenuChartKind) => void;
+}) {
+  return (
+    <fieldset className="min-w-0">
+      {/* The trigger already says "Tipo de gráfico"; the thumbnails need no visible title. */}
+      <legend className="sr-only">Tipo de gráfico</legend>
+      <div className="grid grid-cols-2 gap-1">
+        {offered.map((option) => (
+          <KindOption
+            key={option}
+            kind={option}
+            checked={option === kind}
+            isDefault={option === defaultKind}
+            hint={hintOf(option)}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+      <p aria-hidden="true" className="truncate px-1.5 pt-2 text-xs text-muted-foreground">
+        {hintOf(kind)}
+      </p>
+    </fieldset>
+  );
+}
+
+export function ChartKindMenu<Kind extends MenuChartKind>({
   kind,
   defaultKind,
   onKindChange,
   onSetDefault,
+  kinds,
+  factoryKind,
+  hints,
   layers,
   onLayersChange,
   canAverage,
   canCompare,
   boundary,
-}: ChartKindMenuProps) {
+}: ChartKindMenuProps<Kind>) {
+  const { offered, choose, saveDefault, hintOf } = useOfferedKinds({
+    kinds,
+    hints,
+    onKindChange,
+    onSetDefault,
+  });
   const available = LAYERS_BY_KIND[kind].filter((layer) =>
     layer === "average" ? canAverage : canCompare,
   );
@@ -324,27 +436,15 @@ export function ChartKindMenu({
         collisionPadding={8}
         className="max-h-(--radix-popover-content-available-height) w-88 max-w-(--radix-popover-content-available-width) overflow-y-auto overscroll-contain p-2"
       >
-        <fieldset className="min-w-0">
-          {/* The trigger already says "Tipo de gráfico"; the thumbnails need no visible title. */}
-          <legend className="sr-only">Tipo de gráfico</legend>
-          <div className="grid grid-cols-2 gap-1">
-            {CHART_KINDS.map((option) => (
-              <KindOption
-                key={option}
-                kind={option}
-                checked={option === kind}
-                isDefault={option === defaultKind}
-                onSelect={onKindChange}
-              />
-            ))}
-          </div>
-          <p aria-hidden="true" className="truncate px-1.5 pt-2 text-xs text-muted-foreground">
-            {KIND_COPY[kind].hint}
-          </p>
-        </fieldset>
+        <KindGrid {...{ offered, kind, defaultKind, hintOf }} onSelect={choose} />
         <LayerSwitches available={available} layers={layers} onChange={onLayersChange} />
         <div className="mt-2 border-t border-border px-1 pt-2 pb-1">
-          <DefaultFooter kind={kind} defaultKind={defaultKind} onSetDefault={onSetDefault} />
+          <DefaultFooter
+            kind={kind}
+            defaultKind={defaultKind}
+            factoryKind={factoryKind ?? FACTORY_CHART_KIND}
+            onSetDefault={saveDefault}
+          />
         </div>
       </PopoverContent>
     </Popover>

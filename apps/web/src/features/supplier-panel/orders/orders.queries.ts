@@ -3,6 +3,7 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   countSupplierShipmentsFn,
   getSupplierPanelShipmentFn,
+  getSupplierParcelTrackingFn,
   listSupplierShipmentsFn,
 } from "./orders.functions";
 
@@ -26,6 +27,12 @@ export const supplierShipmentCountsQueryOptions = (supplierId: string, query: st
     queryFn: () => countSupplierShipmentsFn({ data: { supplierId, query } }),
     placeholderData: keepPreviousData,
     refetchInterval: QUEUE_REFRESH_MILLISECONDS,
+  });
+
+export const supplierParcelTrackingQueryOptions = (supplierId: string, shipmentId: string) =>
+  queryOptions({
+    queryKey: [...supplierOrdersKey(supplierId), "tracking", shipmentId],
+    queryFn: () => getSupplierParcelTrackingFn({ data: { supplierId, shipmentId } }),
   });
 
 export const supplierPanelShipmentQueryOptions = (supplierId: string, shipmentId: string) =>

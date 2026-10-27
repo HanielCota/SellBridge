@@ -8,6 +8,7 @@ import {
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CaretDownIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import { AdminDownloadMenu } from "@/components/admin-report/admin-download-menu";
 import { CustomerAttentionTiles } from "@/components/admin/customer-attention-tiles";
 import { CustomerIssuesInbox } from "@/components/admin/customer-issues-inbox";
 import { CustomerJourneyBoard } from "@/components/admin/customer-journey-board";
@@ -204,6 +205,7 @@ function useSearchTerm(search: CustomersSearch) {
 
 function CustomersPage() {
   const search = Route.useSearch();
+  const { session } = Route.useRouteContext();
   const updateSearch = useUpdateSearch();
   const { term, setTerm } = useSearchTerm(search);
   return (
@@ -211,6 +213,7 @@ function CustomersPage() {
       <PageHeader
         title="Clientes"
         description="Quem precisa de ajuda aparece primeiro. Resolva daqui ou abra o cliente para editar a conta."
+        actions={<AdminDownloadMenu role={session.user.role} kinds={["clientes"]} />}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterTabs

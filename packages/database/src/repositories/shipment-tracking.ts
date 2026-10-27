@@ -9,7 +9,27 @@ import { shipmentTimingColumns, withShipmentDelay } from "./shipment-timing.ts";
  */
 export type TrackedParcelFilter =
   | { kind: "order"; orderId: string }
+  | { kind: "shipment"; shipmentId: string }
   | { kind: "search"; trackingCode: string; externalOrderId: string };
+
+/**
+ * Who reads: the reseller (its tenant), a supplier (only its own parcels, never the reseller's
+ * own-stock ones) or staff answering a ticket (any parcel; the route checks the permission).
+ */
+export type TrackedParcelScope = { tenantId: string } | { supplierId: string } | { staff: true };
+
+function trackedParcelScope(scope: TrackedParcelScope): SQL | undefined {
+  if ("tenantId" in scope) {
+    return and(eq(orderShipments.tenantId, scope.tenantId), eq(orders.tenantId, scope.tenantId));
+  }
+  if ("supplierId" in scope) {
+    return and(
+      eq(orderShipments.supplierId, scope.supplierId),
+      eq(suppliers.catalogKind, "supplier"),
+    );
+  }
+  return undefined;
+}
 
 /** Spaces, dots and dashes are typing noise in a code: compared without them, in capitals. */
 const normalizedTrackingCode = sql`upper(regexp_replace(${orderShipments.trackingCode}, '[[:space:].-]', '', 'g'))`;
@@ -17,6 +37,9 @@ const normalizedTrackingCode = sql`upper(regexp_replace(${orderShipments.trackin
 function trackedParcelCondition(filter: TrackedParcelFilter): SQL | undefined {
   if (filter.kind === "order") {
     return eq(orders.id, filter.orderId);
+  }
+  if (filter.kind === "shipment") {
+    return eq(orderShipments.id, filter.shipmentId);
   }
   const byOrderNumber = sql`upper(${orders.externalOrderId}) = upper(${filter.externalOrderId})`;
   // Text that is only typing noise ("." or "-") normalizes to nothing: it names no code, and
@@ -44,10 +67,10 @@ const trackedParcelColumns = {
   ...shipmentTimingColumns,
 };
 
-/** The reseller's parcels for the tracking screen, with what is late and the supplier's dates. */
+/** Parcels for the tracking screen, with what is late and the supplier's dates. */
 export async function listTrackedParcels(
   database: Database,
-  tenantId: string,
+  scope: TrackedParcelScope,
   filter: TrackedParcelFilter,
 ) {
   const rows = await database
@@ -56,13 +79,7 @@ export async function listTrackedParcels(
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
     .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
-    .where(
-      and(
-        eq(orderShipments.tenantId, tenantId),
-        eq(orders.tenantId, tenantId),
-        trackedParcelCondition(filter),
-      ),
-    )
+    .where(and(trackedParcelScope(scope), trackedParcelCondition(filter)))
     .orderBy(desc(orders.orderedAt), asc(orderShipments.createdAt))
     .limit(TRACKED_PARCELS_LIMIT);
   const now = new Date();

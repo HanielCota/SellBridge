@@ -1,5 +1,6 @@
 import { ArrowRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ResendVerificationButton } from "@/components/onboarding/resend-verification-button";
 import { Button } from "@/components/ui/button";
@@ -67,14 +68,22 @@ function StepAction({ step, done = false }: { step: SetupStep; done?: boolean })
   );
 }
 
-function StepCard({
-  step,
+/** One numbered step of a first-steps guide; the supplier home's guide uses it too (item 38). */
+export function StepCard({
+  title,
+  description,
+  estimatedMinutes,
   index,
   state,
+  action,
 }: {
-  step: SetupStep;
+  title: string;
+  description: string;
+  /** Shown while the step is not done; left out where there is no estimate. */
+  estimatedMinutes?: number;
   index: number;
   state: "done" | "next" | "later";
+  action: ReactNode;
 }) {
   return (
     <li
@@ -101,17 +110,13 @@ function StepCard({
         )}
       </span>
       <div className="flex-1 space-y-1">
-        <p className={cn("font-medium", state === "done" && "text-muted-foreground")}>
-          {step.title}
-        </p>
-        {state === "done" ? null : (
-          <p className="text-caption text-muted-foreground tabular-nums">
-            ~{step.estimatedMinutes} min
-          </p>
+        <p className={cn("font-medium", state === "done" && "text-muted-foreground")}>{title}</p>
+        {state === "done" || estimatedMinutes === undefined ? null : (
+          <p className="text-caption text-muted-foreground tabular-nums">~{estimatedMinutes} min</p>
         )}
-        <p className="text-sm text-muted-foreground">{step.description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      <StepAction step={step} done={state === "done"} />
+      {action}
     </li>
   );
 }
@@ -150,14 +155,20 @@ export function SetupGuide({ progress }: { progress: SetupProgress }) {
         </div>
       </div>
       <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {getSetupSteps().map((step, index) => (
-          <StepCard
-            key={step.key}
-            step={step}
-            index={index}
-            state={stepState(progress, step.key, nextKey)}
-          />
-        ))}
+        {getSetupSteps().map((step, index) => {
+          const state = stepState(progress, step.key, nextKey);
+          return (
+            <StepCard
+              key={step.key}
+              title={step.title}
+              description={step.description}
+              estimatedMinutes={step.estimatedMinutes}
+              index={index}
+              state={state}
+              action={<StepAction step={step} done={state === "done"} />}
+            />
+          );
+        })}
       </ol>
     </section>
   );

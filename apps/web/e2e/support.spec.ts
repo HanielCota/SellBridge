@@ -246,6 +246,8 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   await reseller.getByRole("button", { name: "Desfazer" }).click();
   await reseller.waitForTimeout(6000);
   await reseller.reload({ waitUntil: "networkidle" });
+  // Before hydration the "Não" click landed on the server-rendered button and did nothing.
+  await waitForHydration(reseller);
   await expect(reseller.getByText("O suporte respondeu.")).toBeVisible();
 
   // "Não" reaches support at once: the ticket goes back to the queue, no typing required.

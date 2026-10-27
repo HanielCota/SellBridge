@@ -5,6 +5,7 @@ import {
   ChatCircleDotsIcon,
   DotsThreeIcon,
   ProhibitIcon,
+  StorefrontIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -229,7 +230,27 @@ function TalkToSupportItem({ row }: { row: ListingOverviewRow }) {
           Falar com o suporte
         </Link>
       </DropdownMenuItem>
+      <TalkToSupplierItem row={row} />
     </>
+  );
+}
+
+/**
+ * Opens a conversation with the supplier of the product. Every store of a listing sells that
+ * same supplier (one store, one supplier), so the first store is enough to reach them.
+ */
+function TalkToSupplierItem({ row }: { row: ListingOverviewRow }) {
+  const store = row.stores[0];
+  if (store === undefined) {
+    return null;
+  }
+  return (
+    <DropdownMenuItem asChild className={ACTION_ITEM}>
+      <Link to="/suporte/fornecedores/novo" search={{ loja: store.storeConnectionId }}>
+        <StorefrontIcon weight="duotone" aria-hidden="true" />
+        Falar com o fornecedor
+      </Link>
+    </DropdownMenuItem>
   );
 }
 

@@ -9,6 +9,8 @@ export interface StoreActivity {
   /** Listings live in the store (published or paused). */
   liveListings: number;
   failedListings: number;
+  /** Listings queued or on their way to the marketplace: chosen, just not live yet. */
+  publishingListings: number;
   /** Last 30 days, ignoring cancelled and returned orders. */
   orders: number;
   revenueCents: number;
@@ -19,6 +21,7 @@ export interface StoreActivity {
 export const EMPTY_STORE_ACTIVITY: StoreActivity = {
   liveListings: 0,
   failedListings: 0,
+  publishingListings: 0,
   orders: 0,
   revenueCents: 0,
   lastSyncedAt: null,
@@ -34,6 +37,10 @@ async function listingCounts(database: Database, tenantId: string, storeIds: str
       failed: sql<number>`count(*) filter (where ${listingTargets.status} = 'error')`.mapWith(
         Number,
       ),
+      publishing:
+        sql<number>`count(*) filter (where ${listingTargets.status} in ('pending', 'publishing'))`.mapWith(
+          Number,
+        ),
       lastSyncedAt: max(listingTargets.syncedAt),
     })
     .from(listingTargets)
@@ -93,6 +100,7 @@ export async function getStoreActivity(
         {
           liveListings: listingCount?.live ?? EMPTY_STORE_ACTIVITY.liveListings,
           failedListings: listingCount?.failed ?? EMPTY_STORE_ACTIVITY.failedListings,
+          publishingListings: listingCount?.publishing ?? EMPTY_STORE_ACTIVITY.publishingListings,
           orders: sales?.orders ?? EMPTY_STORE_ACTIVITY.orders,
           revenueCents: sales?.revenueCents ?? EMPTY_STORE_ACTIVITY.revenueCents,
           lastSyncedAt: listingCount?.lastSyncedAt ?? EMPTY_STORE_ACTIVITY.lastSyncedAt,

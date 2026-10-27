@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { DISPATCHED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { ShipmentPanel } from "@/components/fulfillment/shipment-panel";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -16,6 +17,7 @@ import { supplierPanelShipmentQueryOptions } from "@/features/supplier-panel/ord
 import { useSupplierShipmentUpdate } from "@/features/supplier-panel/orders/use-order-actions";
 import { errorMessage } from "@/lib/errors";
 import { useTabProfileLink } from "@/lib/tab-profile";
+import { SupplierParcelTracking } from "./supplier-parcel-tracking";
 
 /**
  * Opens the marketplace label in a new tab, like the supplier link's page does, but from the
@@ -63,6 +65,7 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
   const blocked = isShippingBlocked(query.data.orderStatus);
+  const tracked = DISPATCHED_FULFILLMENT_STATUSES.includes(query.data.status);
   return (
     <div className="space-y-4">
       {blocked ? (
@@ -71,11 +74,13 @@ function PanelBody({ supplierId, shipmentId }: { supplierId: string; shipmentId:
           <AlertDescription>Fale com o revendedor antes de separar ou despachar.</AlertDescription>
         </Alert>
       ) : null}
+      {tracked ? <SupplierParcelTracking supplierId={supplierId} shipmentId={shipmentId} /> : null}
       <ShipmentPanel
         shipment={query.data}
         externalOrderId={query.data.externalOrderId}
         actsAs="supplier"
         blocked={blocked}
+        showHistory={!tracked}
         onUpdate={onUpdate}
       >
         {query.data.marketplace === "mercado_livre" ? (

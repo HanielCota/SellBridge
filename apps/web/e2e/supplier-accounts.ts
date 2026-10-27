@@ -41,3 +41,33 @@ export function supplierAccounts(database: Database) {
 
   return { signUp, removeAll };
 }
+
+/** Stands in for the brand step: links a new supplier to the account's profile. */
+export async function giveTestBrand(
+  database: Database,
+  email: string,
+  name: string,
+): Promise<string> {
+  const [profile] = await database
+    .select({ organizationId: member.organizationId })
+    .from(user)
+    .innerJoin(member, eq(member.userId, user.id))
+    .where(eq(user.email, email));
+  if (profile === undefined) {
+    throw new Error(`Conta de teste sem perfil: ${email}`);
+  }
+  const [created] = await database
+    .insert(suppliers)
+    .values({
+      name,
+      niche: "Casa e decoração",
+      state: "SP",
+      city: "Campinas",
+      organizationId: profile.organizationId,
+    })
+    .returning({ id: suppliers.id });
+  if (created === undefined) {
+    throw new Error(`Marca de teste não criada: ${name}`);
+  }
+  return created.id;
+}

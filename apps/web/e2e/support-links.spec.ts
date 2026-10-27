@@ -104,6 +104,12 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await signIn(page, DEMO_USER);
+    // Only the overlap probe is visible: real dashboard actions can correctly fold the label first.
+    await page.addInitScript(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync("#main-content > :not(#e2e-covered) { display: none !important; }");
+      document.adoptedStyleSheets = [sheet];
+    });
     await gotoHydrated(page, "/dashboard");
     const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
     await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
@@ -190,4 +196,46 @@ test("a bolha recolhe quando uma tabela rolada de lado leva um botão para baixo
     });
     await expect(label).toBeHidden({ timeout: 1_000 });
   }).toPass({ timeout: 3_000 });
+});
+
+test("volta para Publicações com o filtro de onde o chamado foi aberto", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/publicacoes?status=published");
+  await page
+    .getByRole("button", { name: /^Ações de / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Falar com o suporte" }).click();
+  await expect(page).toHaveURL(/\/suporte\/novo\?categoria=listing/);
+
+  // The form spans the page like the navigation bar: its left edge lines up with the logo.
+  const logo = await page.getByRole("link", { name: "SellBridge, visão geral" }).boundingBox();
+  const form = await page.locator("form").boundingBox();
+  expect(Math.abs((form?.x ?? 0) - (logo?.x ?? 0))).toBeLessThan(40);
+  expect(form?.width ?? 0).toBeGreaterThan(1100);
+
+  await page.getByRole("main").getByRole("link", { name: "Publicações", exact: true }).click();
+  await expect(page).toHaveURL(/\/publicacoes\?.*status=published/);
+});
+
+test("abre a conversa com o fornecedor pelo menu do anúncio", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/publicacoes?status=published");
+  await page
+    .getByRole("button", { name: /^Ações de / })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Falar com o fornecedor" }).click();
+  await expect(page).toHaveURL(/\/suporte\/fornecedores\/novo\?loja=[0-9a-f-]{36}/);
+  await expect(page.getByRole("heading", { name: "Falar com o fornecedor" })).toBeVisible();
+});
+
+test("abre a conversa com o fornecedor pelo menu da loja", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/lojas");
+  await page.getByRole("button", { name: "Opções de Ana Moda" }).click();
+  await page.getByRole("menuitem", { name: "Falar com o fornecedor" }).click();
+  await expect(page).toHaveURL(/\/suporte\/fornecedores\/novo\?loja=[0-9a-f-]{36}/);
+  await expect(page.getByRole("heading", { name: "Falar com o fornecedor" })).toBeVisible();
 });

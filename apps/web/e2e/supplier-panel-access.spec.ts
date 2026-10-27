@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { member, suppliers, supplierProducts, user } from "@sellbridge/database/schema";
+import { supplierProducts } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 import { e2eDatabase } from "./database";
-import { supplierAccounts } from "./supplier-accounts";
+import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
 const database = e2eDatabase();
 const accounts = supplierAccounts(database);
@@ -13,23 +13,8 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
-/** Stands in for the brand step: links a new supplier to the account's profile. */
 async function giveBrand(email: string, name: string): Promise<void> {
-  const [profile] = await database
-    .select({ organizationId: member.organizationId })
-    .from(user)
-    .innerJoin(member, eq(member.userId, user.id))
-    .where(eq(user.email, email));
-  if (profile === undefined) {
-    throw new Error(`Conta de teste sem perfil: ${email}`);
-  }
-  await database.insert(suppliers).values({
-    name,
-    niche: "Casa e decoração",
-    state: "SP",
-    city: "Campinas",
-    organizationId: profile.organizationId,
-  });
+  await giveTestBrand(database, email, name);
 }
 
 test("fornecedor recém-cadastrado vai direto para o cadastro da marca", async ({ page }) => {
@@ -49,18 +34,25 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
   await giveBrand(email, "Ateliê Com Marca");
 
   await gotoHydrated(page, "/fornecedor/painel");
-  await expect(page.getByRole("heading", { name: "Nada esperando por você" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Meus produtos" }).first()).toBeVisible();
+  // Item 38: before the first sale the home shows the first steps and what needs the supplier.
+  await expect(
+    page.getByRole("heading", { name: "Falta pouco para sua primeira venda" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Precisa de você" })).toBeVisible();
   await expect(page.getByText("Fornecedor", { exact: true }).first()).toBeVisible();
 
   const profile = new URL(page.url()).searchParams.get("perfil");
-  for (const name of ["Ver pedidos", "Ver desempenho"]) {
+  for (const name of ["Cadastrar o primeiro produto", "Editar minha marca"]) {
     const href = await page.getByRole("link", { name, exact: true }).getAttribute("href");
     expect(new URL(href ?? "", page.url()).searchParams.get("perfil")).toBe(profile);
   }
 
-  await page.getByRole("link", { name: "Meus produtos" }).first().click();
+  await page
+    .getByRole("navigation", { name: "Principal" })
+    .getByRole("link", { name: "Produtos", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "Produtos" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Importar planilha" })).toBeVisible();
 });
 
 for (const mobile of [false, true]) {

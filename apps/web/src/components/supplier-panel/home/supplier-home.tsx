@@ -9,93 +9,81 @@ import { supplierHomeQueryOptions } from "@/features/supplier-panel/home/home.qu
 import { usePanelSupplierActive } from "@/features/supplier-panel/use-panel-supplier";
 import { HomeQueue, HomeQueueSkeleton } from "./home-queue";
 import { TeamNoticesCard } from "./team-notices-card";
+import { SupplierSalesOverview } from "./supplier-sales-overview";
+import type { SupplierSalesSearch } from "@/features/supplier-panel/sales/sales-search";
 
 interface SupplierHomeProps {
   supplierId: string;
+  search: SupplierSalesSearch;
+  onSearchChange: (patch: Partial<SupplierSalesSearch>) => void;
   hrefFor: (target: SupplierAttentionTarget) => string;
 }
 
 /**
- * "Início" of the supplier panel, one list first (Mercado Livre's "Vendas", Shopee's "Lista de
- * tarefas"): what waits for the accept, what is under way, what to fix in the catalog, each with
- * the product photo, and the health in one line underneath.
+ * The shortcuts beside "Cadastrar produto", so the products, the spreadsheet import and the brand
+ * sit in the header instead of a card of their own above the list.
  */
-export function SupplierHome({ supplierId, hrefFor }: SupplierHomeProps) {
+function SupplierHeaderActions({ active }: { active: boolean }) {
+  return (
+    <>
+      <Button asChild variant="outline">
+        <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
+      </Button>
+      {/* A switched-off supplier adds no products (the server refuses them too). */}
+      {active ? (
+        <Button asChild variant="outline">
+          <Link to="/fornecedor/painel/importar">Importar por planilha</Link>
+        </Button>
+      ) : null}
+      <Button asChild variant="outline">
+        <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
+      </Button>
+      {active ? (
+        <Button asChild>
+          <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
+            <PlusIcon aria-hidden="true" />
+            Cadastrar produto
+          </Link>
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * "Início" of the supplier panel, one list first (Mercado Livre's "Vendas", Shopee's "Lista de
+ * tarefas"): the account's health on top, then what waits for the accept, what is under way and
+ * what to fix in the catalog, each with the product photo, in a single card.
+ */
+export function SupplierHome(props: SupplierHomeProps) {
+  const { supplierId, hrefFor } = props;
   const query = useQuery(supplierHomeQueryOptions(supplierId));
   const active = usePanelSupplierActive();
   const header = (
     <PageHeader
       title="Painel do fornecedor"
       {...(query.data === undefined ? {} : { description: query.data.supplierName })}
-      actions={
-        // A switched-off supplier adds no products (the server refuses them too).
-        active ? (
-          <Button asChild>
-            <Link to="/fornecedor/painel/produtos" search={{ product: "novo" }}>
-              <PlusIcon aria-hidden="true" />
-              Cadastrar produto
-            </Link>
-          </Button>
-        ) : undefined
-      }
+      actions={<SupplierHeaderActions active={active} />}
     />
   );
-  // A failed background refresh keeps the list already on screen.
-  if (query.isError && query.data === undefined) {
-    return (
-      <div className="space-y-6">
-        {header}
+  return (
+    <div className="space-y-4">
+      {header}
+      <TeamNoticesCard supplierId={supplierId} active={active} />
+      {query.isError && query.data === undefined ? (
         <ErrorState
-          message="Não foi possível carregar o Início, tente de novo."
+          message="Não foi possível carregar as ações pendentes."
           onRetry={() => void query.refetch()}
         />
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-6">
-      {header}
-      <TeamNoticesCard
-        supplierId={supplierId}
-        active={active}
-        highlighted={query.data?.highlighted ?? false}
-      />
-      <SupplierQuickLinks canAddProducts={active} />
-      {query.data === undefined ? (
+      ) : query.data === undefined ? (
         <HomeQueueSkeleton />
       ) : (
-        <HomeQueue supplierId={supplierId} data={query.data} hrefFor={hrefFor} />
+        <HomeQueue supplierId={supplierId} data={query.data} hrefFor={hrefFor} active={active} />
       )}
+      <section aria-label="Vendas do fornecedor" className="space-y-6 pt-4">
+        <h2 className="text-2xl font-semibold tracking-tight">Suas vendas</h2>
+        <SupplierSalesOverview {...props} />
+      </section>
     </div>
-  );
-}
-
-function SupplierQuickLinks({ canAddProducts }: { canAddProducts: boolean }) {
-  return (
-    <section
-      aria-label="Atalhos do fornecedor"
-      className="surface-card space-y-4 rounded-3xl bg-card p-5 sm:p-6"
-    >
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Seus produtos, do cadastro às vendas</h2>
-        <p className="text-sm text-muted-foreground">
-          Cadastre fotos, preço e estoque. Envie o produto para análise para que os revendedores
-          possam encontrá-lo no catálogo. Você pode voltar e editar os dados depois.
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline">
-          <Link to="/fornecedor/painel/produtos">Meus produtos</Link>
-        </Button>
-        {canAddProducts ? (
-          <Button asChild variant="outline">
-            <Link to="/fornecedor/painel/importar">Importar produtos por planilha</Link>
-          </Button>
-        ) : null}
-        <Button asChild variant="outline">
-          <Link to="/fornecedor/painel/marca">Editar minha marca</Link>
-        </Button>
-      </div>
-    </section>
   );
 }

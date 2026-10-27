@@ -8,6 +8,7 @@ import {
   orders,
   shipmentEvents,
   storeConnections,
+  suppliers,
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { forwardableProduct } from "./catalog-fixtures";
@@ -24,6 +25,8 @@ function uniqueCorreiosCode(prefix: string): string {
 
 const trackingCode = uniqueCorreiosCode("TK");
 let orderId = "";
+let storeName = "";
+let supplierName = "";
 
 test.beforeAll(async () => {
   const [tenant] = await database
@@ -37,6 +40,7 @@ test.beforeAll(async () => {
     .where(eq(storeConnections.tenantId, tenant.id));
   const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
+  storeName = store.shopName;
   const [order] = await database
     .insert(orders)
     .values({
@@ -75,6 +79,12 @@ test.beforeAll(async () => {
     notes: "",
   });
   if (!link) throw new Error("Shipment missing");
+  const [supplier] = await database
+    .select({ name: suppliers.name })
+    .from(suppliers)
+    .innerJoin(orderShipments, eq(orderShipments.supplierId, suppliers.id))
+    .where(eq(orderShipments.id, link.shipmentId));
+  supplierName = supplier?.name ?? "";
   // Sent two days ago with a Correios code, as the supplier registers it.
   await database
     .update(orderShipments)
@@ -158,4 +168,37 @@ test("reseller tracks an order by code, by order number, by hand and from the or
   await page.getByRole("dialog").getByRole("link", { name: "Acompanhar rastreio" }).click();
   await expect(page).toHaveURL(/view=tracking/);
   await expect(parcel).toBeVisible();
+});
+
+test("buyer opens the store's tracking link without signing in", async ({ page, browser }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/pedidos?view=tracking");
+  await page.getByLabel("Código de rastreio ou número do pedido").fill(trackingCode);
+  await page.getByRole("button", { name: "Rastrear" }).click();
+  const parcel = page.getByRole("region", { name: `Rastreio do pedido ${externalId}` });
+  await parcel.getByRole("button", { name: "Enviar link ao comprador" }).click();
+  const link = parcel.getByText(/\/rastreio\/[a-f0-9]{64}$/);
+  await expect(link).toBeVisible();
+  const url = (await link.textContent()) ?? "";
+
+  // A fresh browser: the buyer has no account.
+  const buyer = await browser.newContext({ locale: "pt-BR" });
+  const buyerPage = await buyer.newPage();
+  const response = await buyerPage.goto(url);
+  expect(response?.headers()["cache-control"]).toBe("no-store");
+  expect(response?.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  await expect(buyerPage.getByRole("heading", { name: "A caminho" })).toBeVisible();
+  await expect(buyerPage.getByText(storeName, { exact: true })).toBeVisible();
+  await expect(buyerPage.getByText("São Paulo/SP")).toBeVisible();
+  await expect(buyerPage.getByText(trackingCode)).toBeVisible();
+  const text = await buyerPage.locator("main").innerText();
+  expect(text).not.toContain("Rua das Flores");
+  expect(text).not.toContain("Maria Silva");
+  expect(supplierName).not.toBe("");
+  expect(text).not.toContain(supplierName);
+
+  // A token no parcel has reads the same as a mistyped one.
+  await buyerPage.goto(`/rastreio/${"0".repeat(64)}`);
+  await expect(buyerPage.getByRole("heading", { name: "Link de rastreio inválido" })).toBeVisible();
+  await buyer.close();
 });

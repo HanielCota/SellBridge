@@ -3,6 +3,7 @@ import {
   formatDeadline,
   formatDuration,
   outOfHoursNotice,
+  shortSupportHoursText,
   supportHoursText,
   staffResponseStateText,
   unreadRepliesText,
@@ -74,6 +75,20 @@ describe("supportHoursText", () => {
   it("reads the Brasília clock, not UTC", () => {
     // 22:00 UTC is 19:00 in Brasília: closed, though UTC hours alone could not tell.
     expect(supportHoursText(new Date("2026-10-21T22:00:00Z"))).toContain("fora do horário");
+  });
+});
+
+describe("shortSupportHoursText", () => {
+  it("states the hours on the Brasília clock while the team is at work", () => {
+    expect(shortSupportHoursText(new Date("2026-10-24T10:00:00-03:00"))).toBe(
+      "Todos os dias, das 8h às 18h (horário de Brasília)",
+    );
+  });
+
+  it("swaps the hours for when answers start again, on the Brasília clock", () => {
+    expect(shortSupportHoursText(new Date("2026-10-24T22:00:00-03:00"))).toBe(
+      "Fora do horário · respondemos a partir das 8h (horário de Brasília)",
+    );
   });
 });
 

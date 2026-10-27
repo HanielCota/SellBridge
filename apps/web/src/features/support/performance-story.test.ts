@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import {
   bucketTitle,
   changeCopy,
-  formatAxisMinutes,
   standingCopy,
   subjectFullLabel,
   subjectLabel,
@@ -18,6 +17,14 @@ import { attentionCopy, boardStory, personStory } from "./performance-story";
 function text(segments: readonly { text: string }[]): string {
   return segments.map((segment) => segment.text).join("");
 }
+
+const PERIOD_30 = {
+  preset: "30d",
+  fromDate: "2026-09-25",
+  toDate: "2026-10-24",
+  days: 30,
+} as const;
+const PERIOD_7 = { preset: "7d", fromDate: "2026-10-18", toDate: "2026-10-24", days: 7 } as const;
 
 function report(
   overrides: Partial<SupportPerformanceReport["overview"]> = {},
@@ -38,7 +45,7 @@ function report(
     ...overrides,
   };
   const full: SupportPerformanceReport = {
-    days: 30,
+    period: PERIOD_30,
     origin: "todos",
     since: "2026-09-24T15:00:00.000Z",
     until: "2026-10-24T15:00:00.000Z",
@@ -50,6 +57,8 @@ function report(
     subjects: [],
     team: [],
     attention,
+    health: { level: "insufficient", metrics: [], ratingCounts: [0, 0, 0, 0, 0] },
+    today: null,
   };
   return full;
 }
@@ -73,6 +82,7 @@ const BASE_AGENT: AgentPerformance = {
   overdueNow: 0,
   oldestAwaitingMinutes: null,
   lastReplyAt: null,
+  replies: 0,
   resolvedSeries: [],
   subjects: [],
   lowRatings: [],
@@ -119,13 +129,7 @@ describe("changeCopy", () => {
   });
 });
 
-describe("axis and tenure", () => {
-  it("keeps axis ticks short", () => {
-    expect(formatAxisMinutes(0)).toBe("0");
-    expect(formatAxisMinutes(30)).toBe("30 min");
-    expect(formatAxisMinutes(90)).toBe("1,5 h");
-  });
-
+describe("tenure", () => {
   it("marks new team members as on probation with their start date", () => {
     expect(tenureText(BASE_AGENT)).toBe("entrou em 02/10 · em experiência");
   });
@@ -194,7 +198,7 @@ describe("attentionCopy", () => {
   it("opens the overdue queue from the late tickets item", () => {
     const copy = attentionCopy(
       { kind: "overdue", count: 3, oldestAwaitingMinutes: 570 },
-      { days: 30, origin: "todos" },
+      { period: PERIOD_30, origin: "todos" },
     );
     expect(copy.title).toBe("3 chamados fora do prazo");
     expect(copy.link).toEqual({ to: "/admin/chamados", search: { queue: "overdue" } });
@@ -209,13 +213,13 @@ describe("attentionCopy", () => {
         onTime: { value: 0.71, sample: 17 },
         noReopen: { value: 0.82, sample: 17 },
       },
-      { days: 7, origin: "fornecedor" },
+      { period: PERIOD_7, origin: "fornecedor" },
     );
     expect(copy.description).toBe("71% no prazo · 82% sem reabrir");
     // The sheet opens on the same period and customers that flagged the person.
     expect(copy.link).toEqual({
       to: "/admin/chamados/metricas",
-      search: { pessoa: "camila", days: 7, origem: "fornecedor" },
+      search: { pessoa: "camila", period: "7d", origem: "fornecedor" },
     });
   });
 });

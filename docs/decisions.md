@@ -717,3 +717,31 @@ A página `/admin/chamados/metricas` passa a se chamar "Desempenho do suporte". 
 - **Amostra mínima de 5**: vale para resolvidos, para cada taxa da pessoa, para o "Melhor resultado" e para "Precisa de treino em". Abaixo disso, não há cor nem julgamento.
 - **Em experiência** marca atendentes e supervisores com menos de 90 dias, contados a partir de `user.createdAt`. Administradores nunca ficam em experiência.
 - O chamado guarda a situação escolhida no formulário guiado (`tickets.situation_id`).
+
+## 2026-10-24: Início do fornecedor com vendas e logística (item 38)
+
+- **O Início é o painel do revendedor com os números do fornecedor.** Mesma frase de resumo, filtro de período, indicadores, gráfico (Evolução, Acumulado e um tipo novo, Por produto), exportação e "Precisa de você". Composição, Cascata, Margem e "Custo pendente" ficam de fora, porque dependem do lucro do revendedor.
+- **Privacidade básica.** O fornecedor vê o que recebe (`unit_cost_cents × quantity`) e quantos revendedores venderam, nunca o nome deles, a loja, o comprador ou o preço de venda. O CSV segue a mesma regra. Revisar com o feedback dos fornecedores.
+- **Venda conta a partir de paga.** O filtro "Situação" tem "Todos, sem cancelados" (padrão: pago, enviado, entregue), "Em andamento", "Entregues" e "Cancelados e devolvidos". Pedido não pago nunca entra.
+- **"Seus pedidos" mistura agora e período, com rótulo.** Esperando aceite, Separando e Enviados contam o que está aberto agora (os mesmos números de Pedidos e do contador do menu); "Entregues no período" e "Devolvidos no período" contam os pedidos do período.
+- **"Acabando" é o estoque disponível que dura até 14 dias** no ritmo dos últimos 30 dias (`stockDaysLeft`).
+- **Menu:** Início, Pedidos (com o número esperando aceite), Produtos, Desempenho, Marca. "Importar produtos" virou botão em Produtos. A lista de tarefas antiga saiu do Início; os pedidos se resolvem em Pedidos.
+- Fica de fora: ranking por tamanho e cor (o cadastro não guarda variação).
+
+## 2026-10-27: Relatório mensal com gráficos e planilhas por perfil
+
+Revendedor, fornecedor e administração ganham o mesmo modelo de relatório (`MonthlyReport`), com a página que vira PDF pela impressão e planilhas CSV ao lado. O download tradicional do revendedor continua igual no menu "Baixar".
+
+- **Período**: mês (`mes=AAAA-MM`) ou intervalo (`de`/`ate`), em dias inteiros de Brasília. Um intervalo que é um mês inteiro volta para o modo mês. O mês atual é "parcial" e é comparado com os mesmos dias vividos do mês anterior.
+- **Mês fechado não muda**: o primeiro acesso depois que o mês fecha guarda os números em `report_snapshots` (migration 0055). Daí em diante, a tela e o PDF leem o que foi guardado. Não há job no dia 1º: guardar na primeira leitura dá o mesmo resultado sem processar quem nunca abre o relatório. Um snapshot de versão antiga é recalculado na hora e o guardado não é tocado.
+- **Planilhas**: mesmo formato do export financeiro (`;`, vírgula decimal, BOM, proteção contra fórmula, horário de Brasília) e limite de 20 mil linhas.
+- **Alternativas descartadas**: gerar PDF no servidor (exigiria um navegador headless no deploy) e um job agendado para o fechamento (o mesmo efeito com mais peças).
+- **Revisar se**: o relatório passar a ser enviado por e-mail automático (aí o job no dia 1º passa a valer a pena).
+
+## 2026-10-27: Rastreio por perfil (revendedor, fornecedor, equipe e comprador)
+
+Um cartão de rastreio só (`TrackingParcel`) para todos, com o histórico juntando as etapas do SellBridge e os passos da transportadora; o que cada um pode fazer vem em `actions`. O fornecedor vê só os pacotes dele e nunca o nome da loja do revendedor. A equipe lê todos os clientes em `/admin/envios` com a permissão nova `shipments.view` (atendente, supervisor e admin), só leitura. O comprador recebe `/rastreio/<token>`: o token é um HMAC do id do pacote com `BETTER_AUTH_SECRET`, então pedir o link de novo dá o mesmo link; no banco fica só o SHA-256 (`order_shipments.buyer_token_hash`). A página mostra a loja, a cidade e as etapas com palavras do comprador, nunca o fornecedor nem o endereço. Código corrigido depois do envio vira etapa ("Código corrigido de X para Y"), não mensagem. "Não entregue" e "Devolvido" vindos do marketplace avisam revendedor e fornecedor (`shipment_problem`).
+
+Alternativas descartadas: token aleatório guardado em hash (cada pedido de link invalidaria o anterior que o comprador já tem); tela de rastreio separada por perfil (três telas divergiriam).
+
+Revisar se: o segredo do Better Auth for trocado (todos os links de comprador mudam) ou se ligarmos a API dos Correios/Melhor Envio (os passos aparecem sozinhos pelo `CarrierTrackingProvider`).

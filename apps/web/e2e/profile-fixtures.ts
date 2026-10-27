@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import type { Database } from "@sellbridge/database/client";
-import { member, organization, user } from "@sellbridge/database/schema";
+import { member, organization, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 
 /** Accounts with more than one profile, for the profile-per-tab specs. */
@@ -51,6 +51,37 @@ export async function addExtraProfile(
     userId,
     role: "owner",
     createdAt: new Date(),
+  });
+  return { slug, id };
+}
+
+/**
+ * A supplier profile with its brand, for an account made by the test. The brand starts inactive,
+ * so it never shows up in a reseller's supplier picker while the spec runs.
+ */
+export async function addSupplierProfile(
+  database: Database,
+  userId: string,
+): Promise<{ slug: string; id: string }> {
+  const id = randomUUID();
+  const slug = `fornecedor-extra-${id.slice(0, 8)}`;
+  await database
+    .insert(organization)
+    .values({ id, name: "Marca extra", slug, kind: "supplier", createdAt: new Date() });
+  await database.insert(member).values({
+    id: randomUUID(),
+    organizationId: id,
+    userId,
+    role: "owner",
+    createdAt: new Date(),
+  });
+  await database.insert(suppliers).values({
+    name: "Marca extra",
+    niche: "Casa",
+    state: "SP",
+    city: "São Paulo",
+    active: false,
+    organizationId: id,
   });
   return { slug, id };
 }

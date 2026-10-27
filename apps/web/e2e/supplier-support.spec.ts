@@ -78,7 +78,7 @@ test("a store writes to its supplier from Suporte, the supplier answers and the 
   // From the "Suporte" card: store (its supplier comes with it), topic, situation, message.
   await gotoHydrated(resellerPage, "/pedidos");
   await resellerPage.getByRole("button", { name: "Suporte" }).click();
-  await resellerPage.getByRole("link", { name: /Falar com um fornecedor/ }).click();
+  await resellerPage.getByRole("link", { name: /Falar com fornecedor/ }).click();
   await resellerPage.getByRole("button", { name: new RegExp(storeName) }).click();
   await resellerPage.getByRole("button", { name: /^Pedido/ }).click();
   await resellerPage.getByRole("button", { name: /O pedido está atrasado/ }).click();
@@ -104,8 +104,20 @@ test("a store writes to its supplier from Suporte, the supplier answers and the 
     );
   expect(audits).toHaveLength(1);
 
-  // The supplier finds it in "Revendedores", with the store's name, and answers.
-  await gotoHydrated(supplierPage, "/suporte/revendedores");
+  // The supplier finds it from its own "Mensagens" tab, with the store's name, and answers.
+  await gotoHydrated(supplierPage, "/fornecedor/painel");
+  const principal = supplierPage.getByRole("navigation", { name: "Principal" });
+  await principal.getByRole("link", { name: /^Mensagens/ }).click();
+  await expect(supplierPage).toHaveURL(/\/suporte\/revendedores/);
+  await expect(principal.getByRole("link", { name: /^Mensagens/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  // The support card no longer repeats the way in.
+  await supplierPage.getByRole("button", { name: /^Suporte/ }).click();
+  await expect(supplierPage.getByRole("dialog").getByText("Abrir chamado")).toBeVisible();
+  await expect(supplierPage.getByText("Mensagens de revendedores")).toHaveCount(0);
+  await supplierPage.keyboard.press("Escape");
   const row = supplierPage.getByRole("link", { name: "O pedido está atrasado" });
   await expect(
     supplierPage.getByText(new RegExp(storeName)).filter({ visible: true }),

@@ -115,6 +115,25 @@ export function ReviewBubbleIcon({ className }: IconProps) {
   );
 }
 
+/** An open box with a "+": it rises and the plus pops in. A store waits for its first products. */
+export function CatalogBoxIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <g className="glyph glyph-rise" {...OUTLINE}>
+        <path d="M3.5 8 12 4l8.5 4v8.5L12 20.5l-8.5-4z" {...WASH} />
+        <path d="M3.5 8 12 12l8.5-4M12 12v8.5" />
+      </g>
+      <path
+        className="glyph glyph-mark glyph-pop"
+        d="M19 1.5V6M16.75 3.75h4.5"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** A rocket on its pad: it lifts off and the flame flickers. The first steps are not done. */
 export function OnboardingRocketIcon({ className }: IconProps) {
   return (

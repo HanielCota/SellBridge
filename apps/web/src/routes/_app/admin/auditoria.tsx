@@ -6,6 +6,7 @@ import {
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { AdminDownloadMenu } from "@/components/admin-report/admin-download-menu";
 import { AuditTable } from "@/components/admin-audit/audit-table";
 import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
@@ -54,6 +55,7 @@ function auditSummary(total: number, filtered: boolean): string {
 
 function AuditPage() {
   const search = Route.useSearch();
+  const { session } = Route.useRouteContext();
   const updateSearch = useUpdateSearch();
   const query = useQuery(auditQueryOptions(search));
   const { term, setTerm } = useUrlSearchQuery({
@@ -66,6 +68,7 @@ function AuditPage() {
       <PageHeader
         title="Auditoria"
         description="Tudo o que a equipe fez nas contas dos clientes, no catálogo e nos chamados, do mais recente para o mais antigo."
+        actions={<AdminDownloadMenu role={session.user.role} kinds={["auditoria"]} />}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterTabs

@@ -38,10 +38,18 @@ export type StaffPermission =
    * Reads the comments resellers leave on supplier reviews. Only moderation reads them: a
    * reseller may blame the supplier for the marketplace's logistics.
    */
-  | "reviews.moderate";
+  | "reviews.moderate"
+  /** Reads every customer's parcels and their tracking, to answer "cadê meu pedido?". */
+  | "shipments.view";
 
 const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
-  agent: ["support.answer", "support.triage", "suppliers.view_flags", "customers.impersonate"],
+  agent: [
+    "support.answer",
+    "support.triage",
+    "suppliers.view_flags",
+    "customers.impersonate",
+    "shipments.view",
+  ],
   supervisor: [
     "support.answer",
     "support.triage",
@@ -52,6 +60,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "reviews.moderate",
     "support.credit_returns",
     "customers.impersonate",
+    "shipments.view",
   ],
   admin: [
     "support.answer",
@@ -65,6 +74,7 @@ const PERMISSIONS: Record<StaffRole, readonly StaffPermission[]> = {
     "suppliers.view_flags",
     "suppliers.flag",
     "reviews.moderate",
+    "shipments.view",
   ],
 };
 

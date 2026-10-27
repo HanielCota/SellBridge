@@ -1,7 +1,4 @@
-import type {
-  AgentPerformance,
-  SupportPerformanceReport,
-} from "@sellbridge/shared/support-performance";
+import type { AgentPerformance } from "@sellbridge/shared/support-performance";
 import { DeltaBadge } from "@/components/reports/figures";
 import { StatTile, type StatTileProps } from "@/components/reports/stat-tile";
 import {
@@ -15,7 +12,7 @@ import {
 import { formatPercent } from "@/lib/percent";
 
 /*
- * The column of tiles beside the chart: the same anatomy as the sales dashboard's (name, figure,
+ * The column of tiles beside a person's chart: the same anatomy as the sales dashboard's (name, figure,
  * how it moved, sparkline). Arrows show the direction; the color says whether it is good news,
  * so a first response that drops reads green.
  */
@@ -56,12 +53,6 @@ function Figure({ value, unit }: { value: string; unit?: string }) {
   );
 }
 
-function numbers(values: readonly (number | null)[]): number[] {
-  return values.flatMap((value) => (value === null ? [] : [value]));
-}
-
-const VERSUS = "vs. anterior";
-
 function TileColumn({ tiles }: { tiles: readonly StatTileProps[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -70,77 +61,6 @@ function TileColumn({ tiles }: { tiles: readonly StatTileProps[] }) {
       ))}
     </div>
   );
-}
-
-function boardVolumeTiles(report: SupportPerformanceReport): StatTileProps[] {
-  const { overview, series } = report;
-  return [
-    {
-      label: "Resolvidos",
-      hint: "Chamados encerrados no período, por qualquer pessoa ou pelo próprio cliente",
-      figure: <Figure value={count.format(overview.resolved.current ?? 0)} />,
-      change: <Change copy={changeCopy({ ...overview.resolved, kind: "count" })} suffix={VERSUS} />,
-      trend: series.map((point) => point.resolved),
-    },
-    {
-      label: "Primeira resposta",
-      isTerm: true,
-      hint: "Metade dos chamados recebeu a primeira resposta em até esse tempo (mediana)",
-      figure: <Figure value={formatMinutes(overview.firstResponseMinutes.current)} />,
-      change: (
-        <Change
-          copy={changeCopy({
-            ...overview.firstResponseMinutes,
-            kind: "minutes",
-            lowerIsBetter: true,
-          })}
-          suffix={VERSUS}
-        />
-      ),
-      trend: numbers(series.map((point) => point.firstResponseMinutes)),
-    },
-  ];
-}
-
-function boardQualityTiles(report: SupportPerformanceReport): StatTileProps[] {
-  const { overview, series } = report;
-  const ratingShare = overview.ratingRate === null ? null : formatPercent(overview.ratingRate);
-  const noReopenChange = changeCopy({
-    current: overview.noReopen.value,
-    previous: overview.previousNoReopen.value,
-    kind: "rate",
-  });
-  return [
-    {
-      label: "Resolvidos sem reabrir",
-      isTerm: true,
-      hint: `Encerrados há mais de 7 dias que o cliente não reabriu nem trouxe de volta: ${rateSampleText(overview.noReopen, "encerrados")}`,
-      figure: <Figure value={formatRate(overview.noReopen)} />,
-      change:
-        overview.noReopen.sample === 0 && (overview.resolved.current ?? 0) > 0 ? (
-          <span className="text-muted-foreground">Encerrados há menos de 7 dias</span>
-        ) : (
-          <Change copy={noReopenChange} suffix={VERSUS} />
-        ),
-      trend: numbers(series.map((point) => point.noReopenRate)),
-    },
-    {
-      label: "Nota dos clientes",
-      hint: `Média das avaliações: ${overview.rating.sample} no período`,
-      figure: <Figure value={formatRating(overview.rating.value)} unit="/ 5" />,
-      change: (
-        <span className="text-muted-foreground">
-          {ratingShare === null ? "Sem avaliações" : `${ratingShare} dos resolvidos avaliaram`}
-        </span>
-      ),
-      trend: numbers(series.map((point) => point.rating)),
-    },
-  ];
-}
-
-/** The team's four tiles: how much, how fast, how well and how the customers felt. */
-export function BoardTiles({ report }: { report: SupportPerformanceReport }) {
-  return <TileColumn tiles={[...boardVolumeTiles(report), ...boardQualityTiles(report)]} />;
 }
 
 /** The team's own figures, the yardstick on a person's sheet. */

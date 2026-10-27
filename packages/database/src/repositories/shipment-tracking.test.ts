@@ -71,24 +71,36 @@ afterAll(async () => {
 
 describe("tracked parcels stay inside the reseller's account", () => {
   it("finds its own parcel by the code saved with spaces, dots and lower case", async () => {
-    const parcels = await listTrackedParcels(database, tenants.tenantB, {
-      kind: "search",
-      trackingCode: codeOfTenantB,
-      externalOrderId: "",
-    });
+    const parcels = await listTrackedParcels(
+      database,
+      { tenantId: tenants.tenantB },
+      {
+        kind: "search",
+        trackingCode: codeOfTenantB,
+        externalOrderId: "",
+      },
+    );
     expect(parcels.map((parcel) => parcel.orderId)).toEqual([orderOfTenantB]);
   });
 
   it("never returns another reseller's parcel by its tracking code or order number", async () => {
-    const byCode = await listTrackedParcels(database, tenants.tenantA, {
-      kind: "search",
-      trackingCode: codeOfTenantB,
-      externalOrderId: orderNumberOfTenantB,
-    });
-    const byOrder = await listTrackedParcels(database, tenants.tenantA, {
-      kind: "order",
-      orderId: orderOfTenantB,
-    });
+    const byCode = await listTrackedParcels(
+      database,
+      { tenantId: tenants.tenantA },
+      {
+        kind: "search",
+        trackingCode: codeOfTenantB,
+        externalOrderId: orderNumberOfTenantB,
+      },
+    );
+    const byOrder = await listTrackedParcels(
+      database,
+      { tenantId: tenants.tenantA },
+      {
+        kind: "order",
+        orderId: orderOfTenantB,
+      },
+    );
     expect(byCode).toEqual([]);
     expect(byOrder).toEqual([]);
   });
@@ -102,11 +114,15 @@ describe("tracked parcels stay inside the reseller's account", () => {
 
   it("finds no parcel by a search that is only typing noise", async () => {
     await shippedParcel(tenants.tenantB, `8${runDigits}`, "-");
-    const parcels = await listTrackedParcels(database, tenants.tenantB, {
-      kind: "search",
-      trackingCode: "",
-      externalOrderId: ".",
-    });
+    const parcels = await listTrackedParcels(
+      database,
+      { tenantId: tenants.tenantB },
+      {
+        kind: "search",
+        trackingCode: "",
+        externalOrderId: ".",
+      },
+    );
     expect(parcels).toEqual([]);
   });
 });

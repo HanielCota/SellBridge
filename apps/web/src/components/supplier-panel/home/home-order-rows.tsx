@@ -1,4 +1,4 @@
-import type { QueueDeadline } from "@sellbridge/shared/supplier-panel-orders";
+import { type QueueDeadline, shortCountdownLabel } from "@sellbridge/shared/supplier-panel-orders";
 import { Button } from "@/components/ui/button";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
@@ -28,10 +28,13 @@ export function unitsOf(items: SupplierHomeOrderRow["items"]): number {
 
 /**
  * The deadline as plain text: gray while there is time, amber within the working day, red with
- * the alarm when under two hours or late. Only the pressing ones carry an icon.
+ * the alarm when under two hours or late. Only the pressing ones carry an icon. The group title
+ * already says which deadline it is, so the row says only the time ("Atrasado há 3 h").
  */
 function DeadlineText({ deadline, now }: { deadline: QueueDeadline | null; now: Date }) {
-  const { urgency, label } = liveUrgency(deadline, now);
+  const { urgency } = liveUrgency(deadline, now);
+  const remainingMilliseconds = deadline === null ? null : deadline.at.getTime() - now.getTime();
+  const label = shortCountdownLabel({ deadline, remainingMilliseconds });
   const pressing = urgency === "overdue" || urgency === "danger";
   return (
     <HintedText
@@ -91,9 +94,9 @@ export function HomeOrderRow({
           <HintedText label={TERM_HINTS.orderStore} focusable={false} className="shrink-0">
             <MarketplaceMark marketplace={row.marketplace} className="size-4 rounded-[5px]" />
           </HintedText>
+          {/* The order number waits in the open row: the closed one stays short to scan. */}
           <span className="truncate">
-            {units} un. · {row.destinationCity}, {row.destinationState} · Pedido{" "}
-            {row.externalOrderId}
+            {units} un. · {row.destinationCity}, {row.destinationState}
           </span>
         </>
       }
@@ -114,6 +117,9 @@ export function HomeOrderRow({
               Ver pedido
             </Button>
           ) : null}
+          <span className="ml-auto text-footnote text-muted-foreground tabular-nums">
+            Pedido {row.externalOrderId}
+          </span>
         </div>
       </div>
     </HomeListRow>

@@ -1,7 +1,7 @@
 import type { SupplierAttentionTarget } from "@sellbridge/shared/supplier-panel-attention";
 import { Button } from "@/components/ui/button";
 import type { SupplierHomeCatalogFix } from "@/features/supplier-panel/home/home-types";
-import { HomeListRow, HomePhoto } from "./home-list";
+import { HomeActionRow, HomePhoto } from "./home-list";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 
@@ -38,32 +38,31 @@ function StatusWord({ fix }: { fix: SupplierHomeCatalogFix }) {
   );
 }
 
+/** A catalog fix has one thing to do, so its button sits on the row instead of behind a tap. */
 export function HomeCatalogRow({
   fix,
-  expanded,
-  onToggle,
   hrefFor,
 }: {
   fix: SupplierHomeCatalogFix;
-  expanded: boolean;
-  onToggle: () => void;
   hrefFor: (target: SupplierAttentionTarget) => string;
 }) {
   const soldOut = fix.kind === "out_of_stock";
   return (
-    <HomeListRow
-      id={`product-${fix.productId}`}
-      expanded={expanded}
-      onToggle={onToggle}
+    <HomeActionRow
       photo={<HomePhoto imageUrl={fix.imageUrl} title={fix.title} soldOut={soldOut} />}
       title={fix.title}
-      detail={<span className="truncate">{fix.reason}</span>}
-      trailing={<StatusWord fix={fix} />}
-    >
-      <HomePhoto imageUrl={fix.imageUrl} title={fix.title} soldOut={soldOut} large />
-      <Button size="sm" asChild>
-        <a href={hrefFor(targetOf(fix))}>{soldOut ? "Atualizar estoque" : "Corrigir produto"}</a>
-      </Button>
-    </HomeListRow>
+      detail={
+        <>
+          <StatusWord fix={fix} />
+          <span aria-hidden="true">·</span>
+          <span className="truncate">{fix.reason}</span>
+        </>
+      }
+      action={
+        <Button size="sm" asChild>
+          <a href={hrefFor(targetOf(fix))}>{soldOut ? "Atualizar estoque" : "Corrigir produto"}</a>
+        </Button>
+      }
+    />
   );
 }
