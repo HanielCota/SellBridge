@@ -152,9 +152,11 @@ function SalesOverview({ data, home, supplierId, search, onSearchChange, hrefFor
           summary={data.summary}
           previous={data.previous}
           points={data.timeseries}
+          situation={search.situation}
         />
         <SupplierSalesChart
           data={data}
+          situation={search.situation}
           exportUrl={profileLink(`/api/fornecedor/vendas/exportar?${exportSearch.toString()}`)}
           filters={<SupplierSalesFilters data={data} search={search} onChange={onSearchChange} />}
         />

@@ -8,7 +8,9 @@ import {
 } from "@/components/reports/chart-kind-menu";
 import { ExportLink } from "@/components/reports/export-link";
 import { MoneyFigure, TrendBadge } from "@/components/reports/figures";
+import type { SupplierSalesSituation } from "@sellbridge/shared/supplier-panel-sales";
 import { buildChartPoints } from "@/features/reports/chart-view";
+import { supplierAmountLabels } from "@/features/supplier-panel/sales/amount-labels";
 import { createChartKindStore } from "@/features/reports/chart-kind-store";
 import type { SupplierSalesData } from "@/features/supplier-panel/sales/sales.queries";
 import {
@@ -40,25 +42,27 @@ const KIND_TITLES: Record<SupplierChartKind, string> = {
   products: "Vendas dos mais vendidos",
 };
 
-const SERIES: readonly { key: SupplierSeries; label: string }[] = [
-  { key: "receivable", label: "A receber" },
-  { key: "units", label: "Peças" },
-];
-
 const count = new Intl.NumberFormat("pt-BR");
 
 /** The reseller chart's pills, with the supplier's two series (one at a time). */
 function SeriesPills({
   value,
+  amountLabel,
   onChange,
 }: {
   value: SupplierSeries;
+  /** "A receber", or "Ficou de fora" for cancelled and returned orders. */
+  amountLabel: string;
   onChange: (series: SupplierSeries) => void;
 }) {
+  const options: readonly { key: SupplierSeries; label: string }[] = [
+    { key: "receivable", label: amountLabel },
+    { key: "units", label: "Peças" },
+  ];
   return (
     <fieldset className="flex flex-wrap gap-1 sm:gap-1.5">
       <legend className="sr-only">Série do gráfico</legend>
-      {SERIES.map((series) => (
+      {options.map((series) => (
         <label
           key={series.key}
           className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-border px-3 text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:border-foreground has-checked:bg-foreground has-checked:font-medium has-checked:text-background has-focus-visible:ring-3 has-focus-visible:ring-ring/40 sm:px-4"
@@ -78,14 +82,28 @@ function SeriesPills({
   );
 }
 
-function Headline({ data, series }: { data: SupplierSalesData; series: SupplierSeries }) {
+type HeadlineTotals = Pick<SupplierSalesData["summary"], "units" | "receivableCents">;
+
+/** The series' total and how it moved, named after the orders the situation filter keeps. */
+export function SupplierChartHeadline({
+  summary,
+  previous: previousTotals,
+  series,
+  situation,
+}: {
+  summary: HeadlineTotals;
+  previous: HeadlineTotals;
+  series: SupplierSeries;
+  situation: SupplierSalesSituation;
+}) {
   const isUnits = series === "units";
-  const current = isUnits ? data.summary.units : data.summary.receivableCents;
-  const previous = isUnits ? data.previous.units : data.previous.receivableCents;
+  const labels = supplierAmountLabels(situation);
+  const current = isUnits ? summary.units : summary.receivableCents;
+  const previous = isUnits ? previousTotals.units : previousTotals.receivableCents;
   return (
     <div className="min-w-0">
       <p className="text-sm text-muted-foreground">
-        {isUnits ? "Peças vendidas no período" : "A receber no período"}
+        {isUnits ? labels.unitsInPeriod : labels.amountInPeriod}
       </p>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {isUnits ? (
@@ -173,12 +191,15 @@ function ChartBody({
   kind,
   series,
   layers,
+  situation,
 }: {
   data: SupplierSalesData;
   kind: SupplierChartKind;
   series: SupplierSeries;
   layers: ChartLayers;
+  situation: SupplierSalesSituation;
 }) {
+  const valueLabel = series === "units" ? "Peças" : supplierAmountLabels(situation).amount;
   const grain = data.period.bucket;
   if (kind === "products") {
     const rows = buildProductRows(
@@ -197,7 +218,7 @@ function ChartBody({
     },
     cumulative,
   });
-  return <TimelinePlot {...{ points, series, grain, layers, cumulative }} />;
+  return <TimelinePlot {...{ points, series, grain, layers, cumulative, valueLabel }} />;
 }
 
 /** Kind and layers on screen, and the gear menu that changes them (the reseller's, three kinds). */
@@ -236,14 +257,17 @@ export function SupplierSalesChart({
   data,
   filters,
   exportUrl,
+  situation,
 }: {
   data: SupplierSalesData;
   filters: ReactNode;
   exportUrl: string;
+  situation: SupplierSalesSituation;
 }) {
   const [series, setSeries] = useState<SupplierSeries>("receivable");
   const [card, setCard] = useState<HTMLElement | null>(null);
   const { kind, layers, menu } = useSupplierChartMenu(data.period.bucket === "day", card);
+  const labels = supplierAmountLabels(situation);
   const tools = (
     <div className="flex shrink-0 gap-1.5 sm:gap-2">
       <ChartKindMenu {...menu} />
@@ -261,8 +285,18 @@ export function SupplierSalesChart({
       </h2>
       <FiltersWithTools filters={filters} tools={tools} />
       <div className="mt-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <HeadlineWithTools headline={<Headline data={data} series={series} />} tools={tools} />
-        <SeriesPills value={series} onChange={setSeries} />
+        <HeadlineWithTools
+          headline={
+            <SupplierChartHeadline
+              summary={data.summary}
+              previous={data.previous}
+              series={series}
+              situation={situation}
+            />
+          }
+          tools={tools}
+        />
+        <SeriesPills value={series} amountLabel={labels.amount} onChange={setSeries} />
       </div>
       <Legend kind={kind} layers={layers} products={data.topProducts} />
       {/* Grows to the height of the tiles beside it; nothing drawn may leave it. */}
@@ -270,7 +304,7 @@ export function SupplierSalesChart({
         aria-label={`Gráfico: ${KIND_TITLES[kind].toLowerCase()}`}
         className="relative mt-5 min-h-72 flex-1 overflow-hidden"
       >
-        <ChartBody data={data} kind={kind} series={series} layers={layers} />
+        <ChartBody {...{ data, kind, series, layers, situation }} />
       </figure>
     </section>
   );

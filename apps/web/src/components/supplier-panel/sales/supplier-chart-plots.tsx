@@ -67,9 +67,19 @@ interface TooltipInput {
   grain: PointGrain;
   layers: ChartLayers;
   cumulative: boolean;
+  /** The main row's name: "Peças", "A receber" or, for cancelled orders, "Ficou de fora". */
+  valueLabel: string;
 }
 
-function TimelineTooltip({ active, payload, series, grain, layers, cumulative }: TooltipInput) {
+function TimelineTooltip({
+  active,
+  payload,
+  series,
+  grain,
+  layers,
+  cumulative,
+  valueLabel,
+}: TooltipInput) {
   const point = payload?.[0]?.payload;
   if (!active || point === undefined) {
     return null;
@@ -80,7 +90,7 @@ function TimelineTooltip({ active, payload, series, grain, layers, cumulative }:
     <TooltipCard title={cumulative ? `Acumulado até ${date}` : date}>
       <TooltipRow
         color={VALUE_COLOR}
-        label={series === "units" ? "Peças" : "A receber"}
+        label={valueLabel}
         value={formatSeriesValue(point.revenue, series)}
         strong
       />
@@ -181,6 +191,7 @@ export function TimelinePlot({
   grain,
   layers,
   cumulative,
+  valueLabel,
 }: Omit<TooltipInput, "active" | "payload"> & { points: ChartPoint[] }) {
   const scale = niceScale(timelineValues(points, layers));
   const smooth = layers.average;
@@ -196,7 +207,7 @@ export function TimelinePlot({
         })}
         <ChartTooltip
           cursor={LINE_CURSOR}
-          content={<TimelineTooltip {...{ series, grain, layers, cumulative }} />}
+          content={<TimelineTooltip {...{ series, grain, layers, cumulative, valueLabel }} />}
         />
         {layers.compare ? renderPreviousLine(smooth) : null}
         {renderValueArea(smooth)}
