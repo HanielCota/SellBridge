@@ -2,8 +2,8 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { ORDER_STATUS_LABELS, orderStatusSchema } from "@sellbridge/shared/schemas";
 
 /** Excel in pt-BR expects `;` as separator and `,` as decimal mark; the BOM keeps accents. */
-const SEPARATOR = ";";
-const BOM = "﻿";
+export const SEPARATOR = ";";
+export const BOM = "﻿";
 
 const HEADERS = [
   "Data",
@@ -23,7 +23,7 @@ const HEADERS = [
   "Custo pendente",
 ];
 
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+export const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeStyle: "short",
   timeZone: "America/Sao_Paulo",
@@ -48,7 +48,7 @@ export function centsToCsv(cents: number): string {
   return `${sign}${Math.floor(absolute / 100)},${String(absolute % 100).padStart(2, "0")}`;
 }
 
-function statusLabel(status: string): string {
+export function statusLabel(status: string): string {
   const parsed = orderStatusSchema.safeParse(status);
   return parsed.success ? ORDER_STATUS_LABELS[parsed.data] : status;
 }

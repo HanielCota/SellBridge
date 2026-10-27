@@ -31,15 +31,6 @@ export function splitHomeOrders<TRow extends { status: FulfillmentStatus }>(
   };
 }
 
-/** The SKU whose photo stands for the parcel: its first item's, or null without a SKU. */
-export function photoSkuOf(items: readonly { sku: string }[]): string | null {
-  const [first] = items;
-  if (first === undefined || first.sku === "") {
-    return null;
-  }
-  return first.sku;
-}
-
 export type CatalogFixKind = "out_of_stock" | "rejected";
 
 /** A product to fix, as one row of the home list. */

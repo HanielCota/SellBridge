@@ -4,7 +4,6 @@ import {
   getSupplierReputationStats,
   listSupplierHealthDrillDown,
   listSupplierOutOfStockListed,
-  listSupplierProductPhotos,
   listSupplierRejectedProducts,
   listSupplierHomeShipments,
   loadSupplierHealthInput,
@@ -14,7 +13,6 @@ import { logger } from "@sellbridge/shared/logger";
 import {
   catalogFixes,
   HOME_GROUP_LIMIT,
-  photoSkuOf,
   splitHomeOrders,
   type CatalogFix,
   type HomeOrderGroups,
@@ -61,8 +59,8 @@ export async function loadSupplierPerformance(supplierId: string): Promise<Suppl
   return { supplierName: profile.name, health: computeSupplierHealth(healthInput), reputation };
 }
 
-/** A parcel of the home list, with the main photo of its first item. */
-export type SupplierHomeOrderRow = SupplierShipmentRow & { imageUrl: string | null };
+/** A parcel of the home's attention list (item 38 dropped the photos with the old list). */
+export type SupplierHomeOrderRow = SupplierShipmentRow;
 
 export interface SupplierHome {
   supplierName: string;
@@ -76,19 +74,13 @@ export interface SupplierHome {
   highlighted: boolean;
 }
 
-/** The queue's most urgent parcels (the "A fazer" tab), each with its product photo. */
+/** The queue's most urgent parcels (the "A fazer" tab) and the size of each group. */
 async function loadHomeOrders(supplierId: string, now: Date) {
   const [shipments, counts] = await Promise.all([
     listSupplierHomeShipments(database, supplierId, HOME_GROUP_LIMIT, now),
     countSupplierShipmentsByTab(database, { supplierId, query: "" }, now),
   ]);
-  const skus = shipments.map((row) => photoSkuOf(row.items)).filter((sku) => sku !== null);
-  const photos = await listSupplierProductPhotos(database, { supplierId, skus });
-  const rows = shipments.map((row) => {
-    const sku = photoSkuOf(row.items);
-    return { ...row, imageUrl: sku === null ? null : (photos.get(sku) ?? null) };
-  });
-  const groups = splitHomeOrders(rows);
+  const groups = splitHomeOrders(shipments);
   return {
     orders: {
       accept: groups.accept.slice(0, HOME_GROUP_LIMIT),
@@ -98,7 +90,7 @@ async function loadHomeOrders(supplierId: string, now: Date) {
   };
 }
 
-/** The "Início" page: one list of what needs the supplier, and the health in one line. */
+/** What needs the supplier on the "Início" (the "Precisa de você" card) and the health line. */
 export async function loadSupplierHome(supplierId: string): Promise<SupplierHome> {
   const now = new Date();
   const [profile, healthInput, orders, stock, rejectedProducts, reputation] = await Promise.all([

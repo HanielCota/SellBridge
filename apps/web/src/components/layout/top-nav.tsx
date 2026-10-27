@@ -107,6 +107,7 @@ function useNavCounts(isAdmin: boolean, canReview: boolean) {
       openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
       productReviews: canReview ? (productReviews.data ?? 0) : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
+      ordersToAccept: attention.data?.ordersToAccept ?? 0,
     } satisfies BadgeCounts,
   };
 }

@@ -10,7 +10,6 @@ import {
   Area,
   Bar,
   BarChart,
-  CartesianGrid,
   Cell,
   ComposedChart,
   LabelList,
@@ -21,6 +20,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  axisMoney,
+  CHART_MARGIN,
+  DASHED_KEY,
+  formatMoney,
+  formatMoneyTick,
+  LINE_CURSOR,
+  renderActiveDot,
+  renderFrame,
+  SOLID_KEY,
+} from "@/components/reports/chart-frame";
 import { ChartKindMenu, type ChartLayers } from "@/components/reports/chart-kind-menu";
 import { ExportLink } from "@/components/reports/export-link";
 import { DeltaBadge, MoneyFigure, TrendBadge } from "@/components/reports/figures";
@@ -112,27 +122,8 @@ function SeriesPills({
   );
 }
 
-/** Axis labels stay short: "R$ 1,2 mil". */
-const axisMoney = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-const tooltipMoney = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  maximumFractionDigits: 0,
-});
-
 const percent = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
-function formatMoney(cents: number): string {
-  return tooltipMoney.format(Math.round(cents / 100));
-}
-
-const formatMoneyTick = (cents: number) => axisMoney.format(cents / 100);
 const formatPercentTick = (value: number) => `${percent.format(value)}%`;
 
 // ── Tooltips ────────────────────────────────────────────────────────────────
@@ -360,9 +351,6 @@ function WaterfallTooltip({
 
 // ── Shared frame ────────────────────────────────────────────────────────────
 
-// The bottom margin holds the date labels' whole line box inside the plot, not just their glyphs.
-const CHART_MARGIN = { left: 0, right: 8, top: 24, bottom: 4 };
-const LINE_CURSOR = { stroke: "var(--foreground)", strokeOpacity: 0.35, strokeDasharray: "4 4" };
 const BAR_CURSOR = { fill: "var(--muted)", fillOpacity: 0.5 };
 
 /** Clicking a day picks it; clicking the picked day again lets it go. Daily charts only. */
@@ -466,74 +454,6 @@ function renderPickedLine(pick: DayPick | null) {
   );
 }
 
-/**
- * Which x labels survive when they do not all fit: categories keep every one; an hourly day keeps
- * its first and last hour (thinning from the start dropped "0h" late in the day); dates keep the
- * latest one.
- */
-function xTickInterval(
-  everyTick: boolean,
-  keepStart: boolean,
-): 0 | "preserveStartEnd" | "preserveEnd" {
-  if (everyTick) {
-    return 0;
-  }
-  return keepStart ? "preserveStartEnd" : "preserveEnd";
-}
-
-/**
- * Grid and axes every chart shares, so switching kinds never moves the frame. The grid is a
- * solid hairline (dashes are kept for reference lines); zero gets a firmer line when the chart
- * dips below it.
- */
-function renderFrame({
-  scale,
-  formatY,
-  xKey = "date",
-  formatX = (value) => value,
-  everyTick = false,
-  keepStart = false,
-}: {
-  scale: { domain: [number, number]; ticks: number[] };
-  formatY: (value: number) => string;
-  xKey?: string;
-  formatX?: (value: string) => string;
-  /** Categories (not dates): every one is labeled, none may be skipped. */
-  everyTick?: boolean;
-  /** Hours of one day: the first label always shows where the day starts. */
-  keepStart?: boolean;
-}) {
-  return [
-    <CartesianGrid key="grid" vertical={false} stroke="var(--border)" strokeOpacity={0.6} />,
-    <XAxis
-      key="x"
-      dataKey={xKey}
-      tickLine={false}
-      axisLine={false}
-      tickMargin={12}
-      minTickGap={40}
-      interval={xTickInterval(everyTick, keepStart)}
-      tickFormatter={formatX}
-    />,
-    <YAxis
-      key="y"
-      // Sized to the widest label, so "R$ 2,5 mil" keeps its "R" and starts on the card's edge.
-      width="auto"
-      tickLine={false}
-      axisLine={false}
-      tickMargin={8}
-      domain={scale.domain}
-      ticks={scale.ticks}
-      // A line sitting on zero keeps its whole stroke inside the plot.
-      padding={{ top: 0, bottom: 4 }}
-      tickFormatter={formatY}
-    />,
-    scale.domain[0] < 0 ? (
-      <ReferenceLine key="zero" y={0} stroke="var(--foreground)" strokeOpacity={0.4} />
-    ) : null,
-  ];
-}
-
 /** The diagonal stripes of the revenue whose cost is unknown (see `PENDING_FILL`). */
 function renderHatch() {
   return (
@@ -572,13 +492,6 @@ function renderGradients() {
         <stop offset="100%" stopColor="var(--color-profit)" stopOpacity={0.02} />
       </linearGradient>
     </defs>
-  );
-}
-
-/** Hover dot ringed with the card color, so it lifts off the line beneath it. */
-function renderActiveDot(color: string, radius: number) {
-  return ({ cx, cy }: { cx?: number | undefined; cy?: number | undefined }) => (
-    <circle cx={cx} cy={cy} r={radius} fill={color} stroke="var(--card)" strokeWidth={2} />
   );
 }
 
@@ -1213,16 +1126,11 @@ function ChartHeadline({
   );
 }
 
-const SOLID_KEY = <span aria-hidden="true" className="h-0.5 w-4 rounded-full bg-foreground/70" />;
 const COST_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-muted-foreground/30" />;
 const PROFIT_KEY = <span aria-hidden="true" className="size-2.5 rounded-sm bg-chart-brand" />;
 const PENDING_KEY = (
   <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />
 );
-const DASHED_KEY = (
-  <span aria-hidden="true" className="w-4 border-t-2 border-dashed border-foreground/50" />
-);
-
 interface LegendInput {
   kind: ChartKind;
   layers: ChartLayers;
@@ -1314,7 +1222,7 @@ function ChartTools({
   menu,
   exportUrl,
 }: {
-  menu: ComponentProps<typeof ChartKindMenu>;
+  menu: ComponentProps<typeof ChartKindMenu<ChartKind>>;
   exportUrl: string;
 }) {
   return (
@@ -1352,7 +1260,7 @@ function useChartMenu({
     average: pickedLayers.average && canAverage,
     compare: pickedLayers.compare && canCompare,
   };
-  const menu: ComponentProps<typeof ChartKindMenu> = {
+  const menu: ComponentProps<typeof ChartKindMenu<ChartKind>> = {
     kind,
     defaultKind,
     onKindChange: setPickedKind,
@@ -1367,7 +1275,7 @@ function useChartMenu({
 }
 
 /** What the page shows (period, store) on the left; the chart tools beside it from sm up. */
-function FiltersWithTools({ filters, tools }: { filters: ReactNode; tools: ReactNode }) {
+export function FiltersWithTools({ filters, tools }: { filters: ReactNode; tools: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 flex-1">{filters}</div>
@@ -1377,7 +1285,7 @@ function FiltersWithTools({ filters, tools }: { filters: ReactNode; tools: React
 }
 
 /** The headline number; on phones the chart tools sit next to it instead of up top. */
-function HeadlineWithTools({ headline, tools }: { headline: ReactNode; tools: ReactNode }) {
+export function HeadlineWithTools({ headline, tools }: { headline: ReactNode; tools: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3 max-sm:w-full">
       {headline}

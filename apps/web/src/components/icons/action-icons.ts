@@ -187,6 +187,8 @@ export type ActionIconName = keyof typeof ACTION_ICONS;
 /** Legends for terms a reseller may not know, in the GLOSSARIO-UX.md voice. */
 export const TERM_HINTS = {
   averageTicket: "Valor médio de cada pedido no período",
+  supplierReceivable: "O que você recebe pelos seus produtos: seu preço vezes as peças vendidas",
+  supplierAverageOrder: "Quanto você recebe, em média, por pedido no período",
   published: "Este produto já está à venda em uma das suas lojas",
   scoreLevel: "Score de 0 a 100, pelas avaliações de quem já vendeu os produtos",
   highlightedSupplier: "Score 90 ou mais, nota 4,7 ou mais e pelo menos 30 pedidos",
