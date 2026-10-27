@@ -5,10 +5,11 @@ import {
   getSalesSummary,
   getSalesTimeseries,
   getTopProducts,
+  getListingActivity,
   isUserEmailVerified,
-  listListingTargets,
   listOrderFinancials,
   listStoreConnections,
+  listSupplierCredits,
   type ReportScope,
 } from "@sellbridge/database/repositories";
 import {
@@ -33,11 +34,12 @@ const MONTHLY_FROM_DAYS = 120;
 async function loadOnboardingState(
   tenantId: string,
   userId: string,
+  storesPromise = listStoreConnections(database, tenantId),
 ): Promise<SetupProgressSnapshot> {
   const [profile, stores, listings, emailVerified] = await Promise.all([
     findOnboardingProfile(database, tenantId),
-    listStoreConnections(database, tenantId),
-    listListingTargets(database, tenantId, { status: "published" }, { page: 1, pageSize: 5 }),
+    storesPromise,
+    getListingActivity(database, tenantId),
     isUserEmailVerified(database, userId),
   ]);
   return {
@@ -51,7 +53,7 @@ async function loadOnboardingState(
     // An account that already has a store is past this step; /lojas explains it for a new one.
     hasVerifiedEmail: emailVerified || stores.length > 0,
     hasStore: stores.length > 0,
-    hasPublishedListing: listings.total > 0,
+    hasPublishedListing: listings.hasPublished,
     isPublishing: listings.hasActive,
   };
 }
@@ -74,6 +76,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       ...scope,
       range: comparablePreviousRange(period, now),
     };
+    const storesPromise = listStoreConnections(database, context.tenantId);
     const [
       summary,
       previous,
@@ -93,8 +96,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       period.days > MONTHLY_FROM_DAYS ? getSalesTimeseries(database, scope, "month") : null,
       getSalesByStore(database, scope),
       getTopProducts(database, scope),
-      listStoreConnections(database, context.tenantId),
-      loadOnboardingState(context.tenantId, context.userId),
+      storesPromise,
+      loadOnboardingState(context.tenantId, context.userId, storesPromise),
     ]);
     return {
       period: {
@@ -169,6 +172,10 @@ export const getFinancials = createServerFn({ method: "GET" })
       listOrderFinancials(database, picked.scope, statementQuery(data, picked.day)),
       listStoreConnections(database, context.tenantId),
     ]);
+    const returnedOrderIds = orders.items
+      .filter((row) => row.status === "returned")
+      .map((row) => row.id);
+    const supplierCredits = await listSupplierCredits(database, context.tenantId, returnedOrderIds);
     return {
       period: {
         fromDate: period.fromDate,
@@ -190,6 +197,8 @@ export const getFinancials = createServerFn({ method: "GET" })
       previousTimeseries,
       monthly,
       orders,
+      /** Where the supplier's credit stands for each returned order on this page. */
+      supplierCredits,
       stores: stores.map((store) => ({ id: store.id, name: store.shopName })),
     };
   });

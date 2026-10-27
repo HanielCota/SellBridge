@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { firstErrorMessage } from "@/components/form/form-field";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { HintedText } from "@/components/ui/hint";
 
 interface TextareaFieldProps extends Omit<
   ComponentProps<typeof Textarea>,
@@ -9,6 +10,8 @@ interface TextareaFieldProps extends Omit<
 > {
   id: string;
   label: string;
+  /** A legend on the label, opened on hover or tap (the label stays the field's name). */
+  hint?: string | undefined;
   value: string;
   errors: readonly unknown[];
   onValueChange: (value: string) => void;
@@ -18,6 +21,7 @@ interface TextareaFieldProps extends Omit<
 export function TextareaField({
   id,
   label,
+  hint,
   value,
   errors,
   onValueChange,
@@ -27,7 +31,15 @@ export function TextareaField({
   const errorId = `${id}-error`;
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>
+        {hint === undefined ? (
+          label
+        ) : (
+          <HintedText label={hint} focusable={false} className="hinted-term">
+            {label}
+          </HintedText>
+        )}
+      </Label>
       <Textarea
         id={id}
         value={value}

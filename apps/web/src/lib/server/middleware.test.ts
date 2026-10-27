@@ -135,6 +135,19 @@ describe("staff middleware", () => {
     await expect(run(staffMiddleware("support.answer"), next)).resolves.toEqual({ ok: true });
     expect(next).toHaveBeenCalledWith({ context: { userId: "agent", role: "agent" } });
   });
+
+  it("refuses review comments to an agent and opens them to a supervisor", async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: "agent", role: "agent" } });
+    const refused = vi.fn<Next>();
+    await expect(run(staffMiddleware("reviews.moderate"), refused)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(refused).not.toHaveBeenCalled();
+
+    mocks.getSession.mockResolvedValue({ user: { id: "lead", role: "supervisor" } });
+    const allowed = vi.fn<Next>().mockResolvedValue({ ok: true });
+    await expect(run(staffMiddleware("reviews.moderate"), allowed)).resolves.toEqual({ ok: true });
+  });
 });
 
 const post = (name: string): CallInfo => ({ method: "POST", serverFnMeta: { name } });

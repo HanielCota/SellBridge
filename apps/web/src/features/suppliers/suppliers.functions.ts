@@ -2,9 +2,9 @@ import {
   getDirectorySupplier,
   listActiveNiches,
   listCatalogProducts,
-  listRecentSupplierReviews,
   listSupplierCategories,
   listSupplierDirectory,
+  listStoreConnections,
   listSupplierLocations,
 } from "@sellbridge/database/repositories";
 import { compareReputation } from "@sellbridge/shared/supplier-score";
@@ -13,7 +13,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { database } from "@/lib/server/database";
 import { tenantMiddleware } from "@/lib/server/middleware";
-import { loadReputations } from "./reputation.server";
+import { loadReputations, loadSupplierReputation } from "./reputation.server";
+import { canPublishSupplier } from "./supplier-publish-access";
 
 export const listSuppliers = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -47,27 +48,20 @@ export const listSuppliers = createServerFn({ method: "GET" })
     return { suppliers, niches, locations };
   });
 
-/** Score, breakdown and latest written reviews of any active supplier. */
+/** Score and breakdown of any active supplier; review comments never leave the server here. */
 export const getSupplierReputation = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(z.object({ supplierId: z.uuid() }))
-  .handler(async ({ data }) => {
-    const supplier = await getDirectorySupplier(database, data.supplierId);
-    const [reputationOf, recentReviews] = await Promise.all([
-      loadReputations([supplier.id]),
-      listRecentSupplierReviews(database, supplier.id),
-    ]);
-    return { reputation: reputationOf(supplier.id), recentReviews };
-  });
+  .handler(async ({ data }) => await loadSupplierReputation(data.supplierId));
 
 const supplierCatalogInputSchema = catalogSearchSchema.extend({ supplierId: z.uuid() });
 
 export const getSupplierCatalog = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(supplierCatalogInputSchema)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const supplier = await getDirectorySupplier(database, data.supplierId);
-    const [products, categories] = await Promise.all([
+    const [products, categories, stores] = await Promise.all([
       listCatalogProducts(
         database,
         supplier.id,
@@ -82,6 +76,8 @@ export const getSupplierCatalog = createServerFn({ method: "GET" })
         { page: data.page, pageSize: data.pageSize },
       ),
       listSupplierCategories(database, supplier.id),
+      listStoreConnections(database, context.tenantId),
     ]);
-    return { supplier, products, categories };
+    // The directory stays open (coordinator decision, function 1); publishing needs a store of it.
+    return { supplier, products, categories, canPublish: canPublishSupplier(stores, supplier.id) };
   });

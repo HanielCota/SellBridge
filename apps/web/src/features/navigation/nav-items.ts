@@ -18,7 +18,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
-  { label: "Meus produtos", to: "/products" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
   { label: "Pedidos", to: "/pedidos" },
@@ -45,6 +44,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     badge: "productReviews",
     permission: "customers.manage",
   },
+  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
+  { label: "Avaliações", to: "/admin/avaliacoes", permission: "reviews.moderate" },
   {
     label: "Chamados",
     to: "/admin/chamados",

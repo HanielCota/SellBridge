@@ -36,18 +36,18 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   // The first shop sells the supplier picked during onboarding, without asking again.
   await expect(page.getByText("A nova loja vende")).toBeVisible();
   await expect(page.getByText("BH Beauty Distribuidora", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await authorizeMockStore(page, "Loja Beleza");
   await expect(storeRow(page, "Loja Beleza").getByText("BH Beauty Distribuidora")).toBeVisible();
 
   // A second shop waits for its own supplier.
   await expect(page.getByText("Nenhum fornecedor escolhido")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Conectar Loja simulada" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Conectar Mercado Livre" })).toHaveCount(0);
   await page.getByRole("button", { name: "Escolher", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Fornecedor da nova loja" });
   await pickSupplier(page, "Rio Pet Atacado");
   await picker.getByRole("button", { name: "Usar este fornecedor" }).click();
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await authorizeMockStore(page, "Loja Pet");
   await expect(storeRow(page, "Loja Pet").getByText("Rio Pet Atacado")).toBeVisible();
 
@@ -68,14 +68,16 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
   await page.getByLabel("Só com estoque").click();
   await expect(page).toHaveURL(/inStock=true/);
-  await page.getByRole("link", { name: "Publicar" }).first().click();
-  await expect(page.getByText("Nenhuma loja vende BH Beauty Distribuidora")).toBeVisible();
-  await page.getByRole("link", { name: "Conectar uma loja para este fornecedor" }).click();
+  await expect(
+    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
+  await page.getByRole("link", { name: "Vender este fornecedor" }).click();
 
   // The new shop comes with that supplier picked, so connecting it unblocks publishing.
   await expect(page).toHaveURL(/\/lojas/);
   await expect(page.getByText("BH Beauty Distribuidora", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
 
   // A name the account already uses is refused, ignoring case.
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
@@ -85,7 +87,7 @@ test("cada loja vende um único fornecedor, escolhido ao conectar e trocado depo
   await expect(page.getByText('O nome "loja pet" não está disponível')).toBeVisible({
     timeout: SETTLE_TIMEOUT,
   });
-  await expect(page).toHaveURL(/\/oauth\/mock\/autorizar/);
+  await expect(page).toHaveURL(/\/__e2e\/consent/);
 
   await authorizeMockStore(page, "Loja Beleza Nova");
   await expect(

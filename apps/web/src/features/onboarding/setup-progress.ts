@@ -4,7 +4,7 @@ import type { ProductSourceMode } from "@sellbridge/shared/product-sources";
 export interface SetupProgress {
   /** Full name and CPF of who invoices and charges go to. */
   hasHolder: boolean;
-  /** Product sources are configured, including own-only sellers. Kept for existing consumers. */
+  /** A supplier is chosen (the MVP sells only supplier products). */
   hasSupplier: boolean;
   productSourceMode?: ProductSourceMode | null;
   /** The signed-in person confirmed the e-mail: a new store waits for it (item 26.b). */
@@ -59,10 +59,10 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   },
   {
     key: "hasSupplier",
-    title: "Escolher origem dos produtos",
-    description: "Venda seus próprios produtos, produtos de fornecedores ou os dois.",
+    title: "Escolha seu fornecedor",
+    description: "Quem guarda o estoque e envia os produtos aos seus clientes.",
     to: "/onboarding",
-    cta: "Escolher origem dos produtos",
+    cta: "Escolher fornecedor",
     estimatedMinutes: 2,
   },
   {
@@ -91,19 +91,9 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   },
 ];
 
-export function getSetupSteps(progress: SetupProgress): readonly SetupStep[] {
-  if (progress.productSourceMode !== "own") return SETUP_STEPS;
-  return SETUP_STEPS.map((step) =>
-    step.key === "hasPublishedListing"
-      ? {
-          ...step,
-          title: "Publique seus produtos",
-          description: "Cadastre seus produtos e publique em uma loja conectada.",
-          to: "/products",
-          cta: "Abrir meus produtos",
-        }
-      : step,
-  );
+/** The same steps for every account: the MVP sells only supplier products (own-only included). */
+export function getSetupSteps(): readonly SetupStep[] {
+  return SETUP_STEPS;
 }
 
 export function countDoneSteps(progress: SetupProgress): number {
@@ -112,7 +102,7 @@ export function countDoneSteps(progress: SetupProgress): number {
 
 /** The first step still pending, or undefined when the setup is done. */
 export function findNextStep(progress: SetupProgress): SetupStep | undefined {
-  return getSetupSteps(progress).find((step) => !progress[step.key]);
+  return getSetupSteps().find((step) => !progress[step.key]);
 }
 
 /** Share of the steps already done, 0 to 100. */

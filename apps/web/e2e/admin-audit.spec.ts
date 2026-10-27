@@ -1,12 +1,11 @@
 import { type Browser, expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /* Item 28.b: what the team did, in one trail at /admin/auditoria, for admins only. */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const RUN = Date.now();
 const SUPPLIER = `Fornecedor auditoria ${RUN}`;
 const PRODUCT = `Produto auditado ${RUN}`;
@@ -32,6 +31,15 @@ test.afterAll(async () => {
   await database.delete(suppliers).where(eq(suppliers.id, supplierId));
   await database.$client.end();
 });
+
+async function nameOf(email: string): Promise<string> {
+  const [account] = await database
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.email, email));
+  if (account === undefined) throw new Error(`Conta ${email} não encontrada`);
+  return account.name;
+}
 
 /** A fresh account given a team role straight in the database. */
 async function agentPage(browser: Browser) {
@@ -63,7 +71,9 @@ test("a desativação de um produto aparece na auditoria do admin", async ({ pag
   await expect(page).toHaveURL(/query=/);
   const row = page.getByRole("row", { name: new RegExp(PRODUCT) });
   await expect(row).toContainText("Desativou o produto");
-  await expect(row).toContainText("Admin SellBridge");
+  // The name the trail shows is whatever the shared database holds for the seeded admin, which
+  // other work may have renamed; the seed's "Admin SellBridge" is only the starting value.
+  await expect(row).toContainText(await nameOf(ADMIN_USER.email));
 });
 
 test("só o admin abre a auditoria: atendente e revendedor ficam de fora", async ({ browser }) => {

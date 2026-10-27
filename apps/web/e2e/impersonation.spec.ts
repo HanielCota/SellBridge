@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   enableAdminMode,
@@ -12,8 +10,9 @@ import {
   uniqueEmail,
   waitForHydration,
 } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 test.afterAll(async () => {
   await database.$client.end();

@@ -4,6 +4,7 @@ import {
   supplierImportSupplierSchema,
 } from "@sellbridge/shared/supplier-panel-import-schemas";
 import { createServerFn } from "@tanstack/react-start";
+import { assertSupplierAcceptsProducts } from "@/features/supplier-panel/catalog/supplier-active-guard";
 import { supplierPanelMiddleware } from "@/lib/server/middleware";
 import {
   confirmSupplierImport,
@@ -19,7 +20,10 @@ export const supplierImportPreview = createServerFn({ method: "POST" })
 export const supplierImportConfirm = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierImportConfirmSchema)
-  .handler(async ({ data }) => await confirmSupplierImport(data));
+  .handler(async ({ data }) => {
+    await assertSupplierAcceptsProducts(data.supplierId);
+    return await confirmSupplierImport(data);
+  });
 
 export const supplierImportFiles = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])

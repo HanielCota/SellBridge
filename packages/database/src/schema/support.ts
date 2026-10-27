@@ -16,7 +16,10 @@ import { organization, user } from "./auth.ts";
 import { listings } from "./listings.ts";
 import { orders } from "./orders.ts";
 import { storeConnections } from "./stores.ts";
+import { suppliers } from "./suppliers.ts";
 import {
+  supplierConversationTopicEnum,
+  ticketAudienceEnum,
   ticketCategoryEnum,
   ticketEventTypeEnum,
   ticketPriorityEnum,
@@ -53,6 +56,21 @@ export const tickets = pgTable(
     storeConnectionId: uuid().references(() => storeConnections.id, { onDelete: "set null" }),
     /** The listing the ticket is about, when opened from Publicações (item 27.a). */
     listingId: uuid().references(() => listings.id, { onDelete: "set null" }),
+    /**
+     * `supplier`: a conversation between the reseller (`tenantId`) and the supplier of the store
+     * (`storeConnectionId`). The supplier answers it; the team only reads it.
+     */
+    audience: ticketAudienceEnum().notNull().default("platform"),
+    /** The supplier a `supplier` conversation was sent to; kept when the store changes supplier. */
+    supplierId: uuid().references(() => suppliers.id, { onDelete: "set null" }),
+    /** What a `supplier` conversation is about, from the supplier conversation topics. */
+    supplierTopic: supplierConversationTopicEnum(),
+    /**
+     * What the customer said is going on, from the support topics (`SupportSituation.id`, stable
+     * across label changes). Null for tickets opened before the guided form and for topics
+     * without situations; drives the complaints-by-subject metrics.
+     */
+    situationId: text(),
     /** First public support reply, for the first-response metrics. */
     firstResponseAt: timestamp({ withTimezone: true }),
     closedAt: timestamp({ withTimezone: true }),
@@ -69,7 +87,21 @@ export const tickets = pgTable(
   (table) => [
     index("tickets_tenant_idx").on(table.tenantId),
     index("tickets_queue_idx").on(table.status, table.assigneeId),
+    index("tickets_supplier_idx").on(table.supplierId, table.updatedAt),
+    // The performance screen reads tickets opened since a date.
+    index("tickets_created_idx").on(table.createdAt),
+    // A repeat of the same complaint (support performance: "came back") is looked up by these.
+    index("tickets_subject_idx").on(
+      table.tenantId,
+      table.category,
+      table.situationId,
+      table.createdAt,
+    ),
     check("tickets_rating_range", sql`${table.rating} between 1 and 5`),
+    check(
+      "tickets_supplier_topic_check",
+      sql`(${table.audience} = 'supplier') = (${table.supplierTopic} is not null)`,
+    ),
   ],
 );
 
@@ -84,12 +116,19 @@ export const ticketMessages = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     isAdmin: boolean().notNull().default(false),
-    /** Support-only note: never shown to the reseller and never changes the ticket status. */
+    /**
+     * Support-only note: never shown to the reseller and never changes the ticket status. With
+     * `isAdmin` false it is the support assistant's answer the customer read before sending.
+     */
     isInternal: boolean().notNull().default(false),
     body: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("ticket_messages_ticket_idx").on(table.ticketId)],
+  (table) => [
+    index("ticket_messages_ticket_idx").on(table.ticketId),
+    // The performance screen reads team replies since a date.
+    index("ticket_messages_created_idx").on(table.createdAt),
+  ],
 );
 
 export const ticketAttachments = pgTable(
@@ -133,7 +172,11 @@ export const ticketEvents = pgTable(
     toValue: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("ticket_events_ticket_idx").on(table.ticketId, table.id)],
+  (table) => [
+    index("ticket_events_ticket_idx").on(table.ticketId, table.id),
+    // The performance screen reads closes and ratings since a date.
+    index("ticket_events_type_created_idx").on(table.type, table.createdAt),
+  ],
 );
 
 /** Up to when each person read a thread: drives the "new reply" dots on both sides. */

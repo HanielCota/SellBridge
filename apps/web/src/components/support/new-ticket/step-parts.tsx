@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 
 /** Ids the flow moves focus to when a step opens, so screen readers hear the next question. */
 export const STEP_HEADING_IDS = {
+  store: "new-ticket-store",
   topic: "new-ticket-topic",
   situation: "new-ticket-situation",
   description: "new-ticket-description",
+  assistant: "new-ticket-assistant",
 } as const;
 
 export type StepHeadingId = (typeof STEP_HEADING_IDS)[keyof typeof STEP_HEADING_IDS];

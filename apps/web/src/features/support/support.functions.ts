@@ -4,8 +4,10 @@ import {
   closeTicketForCustomer,
   countStaffQueues,
   countUnreadSupportReplies,
-  getSupportMetrics,
+  getSupportPerformanceRows,
   describeTicketAbout,
+  findBillingHolder,
+  findReturnClaimByTicket,
   getTicketSubject,
   getTicketThread,
   linkTicketOrder,
@@ -22,8 +24,8 @@ import {
   setTicketNotifications,
   setTicketPriority,
   setTicketStatus,
-  unlinkTicketOrder,
 } from "@sellbridge/database/repositories";
+import type { ReturnClaimView } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import {
   addTicketFollowerSchema,
@@ -33,12 +35,18 @@ import {
   setTicketCategorySchema,
   setTicketPrioritySchema,
   staffTicketsSearchSchema,
-  supportMetricsSearchSchema,
+  supportPerformanceInputSchema,
   ticketNotificationsSchema,
   ticketOrderLinkSchema,
   ticketsSearchSchema,
 } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+import { isAssistantMessage } from "@sellbridge/shared/support-assistant";
+import {
+  buildSupportPerformanceReport,
+  periodBounds,
+} from "@sellbridge/shared/support-performance";
+import { customerContactForStaff } from "@/features/admin/customer-contact";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -50,13 +58,24 @@ import { staffMiddleware, accountMiddleware } from "@/lib/server/middleware";
 const RELATED_TICKETS_LIMIT = 5;
 /** Tickets listed in the support button's menu. */
 const RECENT_TICKETS_LIMIT = 3;
-const DAY_MILLISECONDS = 86_400_000;
 /** Orders offered at once in the "link an order" picker. */
 const LINKABLE_ORDERS_LIMIT = 8;
 
 const ticketIdInput = z.object({ ticketId: z.uuid() });
 /** The last message on screen when the thread was marked read. */
 const readInput = z.object({ ticketId: z.uuid(), lastMessageId: z.uuid() });
+
+/**
+ * The claim as the ticket's customer reads it: the supplier must never learn who the reseller
+ * is, so the reseller's name stays with the team.
+ */
+function customerReturnClaim(claim: ReturnClaimView | null) {
+  if (claim === null) {
+    return null;
+  }
+  const { sellerName: _sellerName, decidedByName: _decidedByName, ...visible } = claim;
+  return visible;
+}
 
 /** An admin looking around as the customer must not clear the customer's unread replies. */
 async function isImpersonating(): Promise<boolean> {
@@ -98,10 +117,11 @@ export const getMyTicket = createServerFn({ method: "GET" })
   .validator(ticketIdInput)
   .handler(async ({ context, data }) => {
     const thread = await getTicketThread(database, data.ticketId, context.tenantId);
-    const [orders, followers, subject] = await Promise.all([
+    const [orders, followers, subject, returnClaim] = await Promise.all([
       listTicketOrders(database, thread.ticket.id),
       listTicketFollowers(database, thread.ticket.id),
       getTicketSubject(database, thread.ticket.id),
+      findReturnClaimByTicket(database, thread.ticket.id),
     ]);
     const me = followers.find((follower) => follower.userId === context.userId);
     return {
@@ -109,6 +129,7 @@ export const getMyTicket = createServerFn({ method: "GET" })
       orders,
       followers,
       subject,
+      returnClaim: customerReturnClaim(returnClaim),
       viewerId: context.userId,
       notifyMe: me?.notify ?? false,
     };
@@ -131,18 +152,6 @@ export const linkMyTicketOrder = createServerFn({ method: "POST" })
   .validator(ticketOrderLinkSchema)
   .handler(async ({ context, data }) => {
     await linkTicketOrder(database, {
-      ...data,
-      tenantId: context.tenantId,
-      actorId: context.userId,
-    });
-    return { ok: true };
-  });
-
-export const unlinkMyTicketOrder = createServerFn({ method: "POST" })
-  .middleware([accountMiddleware])
-  .validator(ticketOrderLinkSchema)
-  .handler(async ({ context, data }) => {
-    await unlinkTicketOrder(database, {
       ...data,
       tenantId: context.tenantId,
       actorId: context.userId,
@@ -235,6 +244,9 @@ export const staffListTickets = createServerFn({ method: "GET" })
         status: data.status,
         priority: data.priority,
         category: data.category,
+        situationId: data.situacao,
+        assigneeId: data.responsavel,
+        customerKind: customerKindOf(data.origem),
         search: data.query,
         viewerId: context.userId,
       },
@@ -249,9 +261,9 @@ export const staffQueueCounts = createServerFn({ method: "GET" })
 export const staffGetTicket = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("support.answer")])
   .validator(ticketIdInput)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const thread = await getTicketThread(database, data.ticketId, null);
-    const [history, orders] = await Promise.all([
+    const [history, orders, holder] = await Promise.all([
       listTenantTickets(
         database,
         thread.ticket.tenantId,
@@ -259,12 +271,21 @@ export const staffGetTicket = createServerFn({ method: "GET" })
         { page: 1, pageSize: RELATED_TICKETS_LIMIT + 1 },
       ),
       listTicketOrders(database, thread.ticket.id),
+      findBillingHolder(database, thread.ticket.tenantId),
     ]);
-    const subject = await getTicketSubject(database, thread.ticket.id);
+    const [subject, returnClaim] = await Promise.all([
+      getTicketSubject(database, thread.ticket.id),
+      findReturnClaimByTicket(database, thread.ticket.id),
+    ]);
     return {
       ...thread,
+      // The assistant's answer opens the thread on its own card, outside the conversation.
+      messages: thread.messages.filter((message) => !isAssistantMessage(message)),
+      assistantAnswer: thread.messages.find(isAssistantMessage) ?? null,
       orders,
       subject,
+      returnClaim,
+      customerContact: customerContactForStaff(context.role, holder),
       relatedTickets: history.items
         .filter((item) => item.id !== thread.ticket.id)
         .slice(0, RELATED_TICKETS_LIMIT),
@@ -349,13 +370,21 @@ export const staffSetTicketCategory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const staffSupportMetrics = createServerFn({ method: "GET" })
+const CUSTOMER_KINDS = { revendedor: "seller", fornecedor: "supplier" } as const;
+
+function customerKindOf(origem: "revendedor" | "fornecedor" | undefined) {
+  return origem === undefined ? undefined : CUSTOMER_KINDS[origem];
+}
+
+/** The support performance report: the period and the one before it, for the comparisons. */
+export const staffSupportPerformance = createServerFn({ method: "GET" })
   .middleware([staffMiddleware("support.metrics")])
-  .validator(supportMetricsSearchSchema)
+  .validator(supportPerformanceInputSchema)
   .handler(async ({ data }) => {
     const now = new Date();
-    const since = new Date(now.getTime() - data.days * DAY_MILLISECONDS);
-    return getSupportMetrics(database, { since, now });
+    const { since, previousSince } = periodBounds(now, data.days);
+    const rows = await getSupportPerformanceRows(database, { previousSince, since, now });
+    return buildSupportPerformanceReport({ rows, now, days: data.days, origin: data.origem });
   });
 
 const ticketAboutPreviewInput = z.object({

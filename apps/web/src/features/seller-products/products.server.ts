@@ -1,7 +1,7 @@
+import { loadProductCategories } from "@/lib/server/reference-data";
 import {
   ensureSellerCatalog,
   getSellerProduct,
-  listAdminCategories,
   reserveShortItems,
   saveSellerProductDraft,
   saveAdminSellerProduct,
@@ -18,7 +18,7 @@ export async function loadSellerProductForm(tenantId: string, productId: string)
     if (hasErrorCode(error, "NOT_FOUND")) return null;
     throw error;
   });
-  return { sourceId: source.id, product, categories: await listAdminCategories(database) };
+  return { sourceId: source.id, product, categories: await loadProductCategories() };
 }
 
 export async function propagateSellerProduct(productId: string) {

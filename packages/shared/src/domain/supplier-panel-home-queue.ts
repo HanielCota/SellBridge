@@ -85,7 +85,9 @@ function reasonTitle(reason: RejectionReason): string {
   if (title !== OTHER_REASON_TITLE) {
     return title;
   }
-  return `Revisar ${reviewFieldLabel(reason.field).toLowerCase()}`;
+  // The label's parenthesis ("Código de barras (GTIN)") reads as noise once lowercased.
+  const label = reviewFieldLabel(reason.field).replace(/\s*\([^)]*\)$/, "");
+  return `Revisar ${label.toLowerCase()}`;
 }
 
 /** "Imagem fora do padrão", or "Imagem fora do padrão e mais 2 motivos" for several. */

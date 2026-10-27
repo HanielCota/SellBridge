@@ -1,10 +1,6 @@
-import { type ComponentProps, type Dispatch, type SetStateAction, useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  deliveryAddressSchema,
-  type DeliveryAddress,
-  SETTLED_FULFILLMENT_STATUSES,
-} from "@sellbridge/shared/schemas";
+import { SETTLED_FULFILLMENT_STATUSES } from "@sellbridge/shared/schemas";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Button } from "@/components/ui/button";
@@ -25,13 +21,11 @@ import {
   rotateSupplierLinkFn,
   updateShipmentFn,
 } from "@/features/fulfillment/fulfillment.functions";
-import {
-  getMarketplaceShippingFn,
-  refreshMarketplaceTrackingFn,
-} from "@/features/fulfillment/marketplace.functions";
+import { refreshMarketplaceTrackingFn } from "@/features/fulfillment/marketplace.functions";
 import { errorMessage } from "@/lib/errors";
-import { AddressImportBar } from "./label-import";
-import { Field, ShipmentPanel } from "./shipment-panel";
+import { ForwardForm } from "./forward-form";
+import { ShipmentPanel } from "./shipment-panel";
+import { TrackParcelLink } from "@/components/tracking/track-parcel-link";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { ShipmentActionHint, ShipmentActionIcon } from "./shipment-hints";
 
@@ -106,6 +100,7 @@ function ShipmentList({
           }}
         />
       ) : null}
+      {shipment.trackingCode === null ? null : <TrackParcelLink orderId={detail.order.id} />}
       {shipment.catalogKind === "seller" ? null : (
         <SupplierLink
           shipmentId={shipment.id}
@@ -134,6 +129,8 @@ export function OrderOperations({ orderId }: { orderId: string }) {
       client.invalidateQueries({ queryKey: ["order-reviews"] }),
       client.invalidateQueries({ queryKey: ["financials"] }),
       client.invalidateQueries({ queryKey: ["dashboard"] }),
+      client.invalidateQueries({ queryKey: ["order-tracking", orderId] }),
+      client.invalidateQueries({ queryKey: ["parcels-in-transit"] }),
     ]);
   }
   async function onForwarded(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
@@ -309,108 +306,6 @@ function OwnRestartButton({
   );
 }
 
-const ADDRESS_KEYS = [
-  "recipient",
-  "street",
-  "number",
-  "complement",
-  "neighborhood",
-  "city",
-  "state",
-  "postalCode",
-] as const;
-const ADDRESS_LABELS: Record<keyof DeliveryAddress, string> = {
-  recipient: "Destinatário",
-  street: "Rua",
-  number: "Número",
-  complement: "Complemento",
-  neighborhood: "Bairro",
-  city: "Cidade",
-  state: "UF",
-  postalCode: "CEP",
-};
-/**
- * Limits and the phone keyboard for the fields that need them (a house number can be "s/n", so it
- * keeps the full keyboard). Autofill stays off: the browser would offer the reseller's own
- * addresses, and this is the buyer's.
- */
-const ADDRESS_INPUTS: Partial<
-  Record<keyof DeliveryAddress, Pick<ComponentProps<"input">, "inputMode" | "maxLength">>
-> = {
-  state: { maxLength: 2 },
-  postalCode: { inputMode: "numeric", maxLength: 9 },
-};
-function ForwardForm({
-  detail,
-  onForwarded,
-}: {
-  detail: Detail;
-  onForwarded: (links: Awaited<ReturnType<typeof forwardOrderFn>>) => Promise<void>;
-}) {
-  const { address, setAddress, notes, setNotes, loadAddress, forward } = useForwardForm(
-    detail,
-    onForwarded,
-  );
-  const ownsItems = detail.items.some((item) => item.catalogKind === "seller");
-  const unmapped = !detail.items.length || detail.items.some((item) => !item.supplierId);
-  return (
-    <form
-      noValidate
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        forward.mutate();
-      }}
-    >
-      {/* Forwarding creates the supplier orders. Enter in an address field would submit the form
-          through its first submit button; this disabled one comes first, so only a click sends. */}
-      <button type="submit" disabled hidden aria-hidden="true" />
-      <ForwardItems detail={detail} />
-      <AddressImportBar
-        onAddress={(found) => setAddress((previous) => ({ ...previous, ...found }))}
-        marketplaceImport={detail.order.marketplace === "mercado_livre" ? loadAddress : null}
-      />
-      <AddressFields
-        address={address}
-        onChange={(key, value) => setAddress((previous) => ({ ...previous, [key]: value }))}
-      />
-      <Field
-        label={ownsItems ? "Shipping instructions" : "Instruções para o fornecedor"}
-        value={notes}
-        onChange={setNotes}
-      />
-      {unmapped ? (
-        <p className="text-sm text-destructive">
-          Um item deste pedido não é de um fornecedor ativo do SellBridge: encaminhe-o por fora.
-        </p>
-      ) : null}
-      {/* The label is long: on a narrow phone it wraps inside the button instead of overflowing. */}
-      <Button
-        type="submit"
-        className="h-auto min-h-9 w-full py-2 text-balance whitespace-normal sm:w-auto"
-        disabled={forward.isPending || unmapped || detail.order.status !== "paid"}
-      >
-        {forward.isPending
-          ? "Preparing…"
-          : ownsItems
-            ? "Prepare shipments"
-            : "Criar ordens e encaminhar aos fornecedores"}
-      </Button>
-      <PreparationExplanation ownsItems={ownsItems} />
-    </form>
-  );
-}
-
-function PreparationExplanation({ ownsItems }: { ownsItems: boolean }) {
-  return (
-    <p className="text-xs text-muted-foreground">
-      {ownsItems
-        ? "Você prepara e envia seus produtos; cada fornecedor recebe apenas os itens dele."
-        : "Cada fornecedor recebe apenas os itens dele. Compartilhe o link de acesso exibido em cada envio do fornecedor."}
-    </p>
-  );
-}
-
 function CopySupplierLink({ url, emailed }: { url: string; emailed: boolean }) {
   return (
     <div className="space-y-2">
@@ -441,61 +336,6 @@ function CopySupplierLink({ url, emailed }: { url: string; emailed: boolean }) {
   );
 }
 
-function useForwardForm(
-  detail: Detail,
-  onForwarded: (links: Awaited<ReturnType<typeof forwardOrderFn>>) => Promise<void>,
-) {
-  const [address, setAddress] = useState<DeliveryAddress>({
-    recipient: detail.order.buyerName ?? "",
-    street: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    state: "",
-    postalCode: "",
-  });
-  const [notes, setNotes] = useState("");
-  const loadAddress = useMutation({
-    mutationFn: () => getMarketplaceShippingFn({ data: { orderId: detail.order.id } }),
-    onSuccess: (result) => {
-      if (result.address) {
-        setAddress(result.address);
-        return;
-      }
-      toast.error("O marketplace não informou o endereço completo");
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  const forward = useMutation({
-    mutationFn: async () => {
-      const parsed = deliveryAddressSchema.safeParse(address);
-      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira o endereço");
-      return forwardOrderFn({ data: { orderId: detail.order.id, address: parsed.data, notes } });
-    },
-    onSuccess: onForwarded,
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-  return { address, setAddress, notes, setNotes, loadAddress, forward };
-}
-
-function ForwardItems({ detail }: { detail: Detail }) {
-  return (
-    <ul className="space-y-2 text-sm">
-      {detail.items.map((item) => (
-        <li key={item.id}>
-          {item.quantity} × {item.title} ·{" "}
-          <span className={item.supplierId ? "text-muted-foreground" : "text-destructive"}>
-            {item.catalogKind === "seller"
-              ? "Você envia este item"
-              : (item.supplierName ?? "Sem fornecedor vinculado")}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function supplierLinks(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
   return Object.fromEntries(
     result.map((link): [string, SupplierLinkView] => [
@@ -505,29 +345,6 @@ function supplierLinks(result: Awaited<ReturnType<typeof forwardOrderFn>>) {
         emailed: link.emailed,
       },
     ]),
-  );
-}
-
-function AddressFields({
-  address,
-  onChange,
-}: {
-  address: DeliveryAddress;
-  onChange: (key: keyof DeliveryAddress, value: string) => void;
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {ADDRESS_KEYS.map((key) => (
-        <Field
-          key={key}
-          label={ADDRESS_LABELS[key]}
-          autoComplete="off"
-          {...ADDRESS_INPUTS[key]}
-          value={address[key]}
-          onChange={(value) => onChange(key, key === "state" ? value.toUpperCase() : value)}
-        />
-      ))}
-    </div>
   );
 }
 

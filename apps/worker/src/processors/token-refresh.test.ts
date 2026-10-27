@@ -1,4 +1,5 @@
-import { marketplaceError, MOCK_REVOKED_REFRESH_TOKEN } from "@sellbridge/marketplaces";
+import { marketplaceError } from "@sellbridge/marketplaces";
+import { MOCK_REVOKED_REFRESH_TOKEN } from "@sellbridge/marketplaces/testing";
 import { schema } from "@sellbridge/database";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

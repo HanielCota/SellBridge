@@ -96,7 +96,11 @@ Este é um e-mail automático; respostas não são lidas.
 </td></tr>`;
 }
 
-function renderHtml(content: ActionEmailContent, appUrl: string): string {
+function renderHtml(
+  content: { subject: string; preview: string },
+  body: string,
+  appUrl: string,
+): string {
   return `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>${escapeHtml(content.subject)}</title></head>
 <body style="margin:0;padding:0;background:${BRAND.mist};">
@@ -104,7 +108,7 @@ function renderHtml(content: ActionEmailContent, appUrl: string): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BRAND.mist};"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;">
 ${renderHeader(appUrl)}
-${renderBody(content)}
+${body}
 </table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 ${renderFooter()}
@@ -117,6 +121,36 @@ export function renderActionEmail(content: ActionEmailContent, appUrl: string): 
   return {
     subject: content.subject,
     text: renderText(content),
-    html: renderHtml(content, appUrl),
+    html: renderHtml(content, renderBody(content), appUrl),
+  };
+}
+
+/** A notice with nothing to click: for a reader who has no account and no new link to get. */
+export type NoticeEmailContent = Omit<ActionEmailContent, "actionLabel" | "actionUrl">;
+
+function renderParagraphs(paragraphs: readonly string[]): string {
+  return paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px 0;font-size:16px;line-height:24px;color:${BRAND.ink};">${escapeHtml(paragraph)}</p>`,
+    )
+    .join("\n");
+}
+
+function renderNoticeBody(content: NoticeEmailContent): string {
+  return `<tr><td style="padding:16px 40px 32px 40px;font-family:${FONT_STACK};">
+<h1 style="margin:0 0 16px 0;font-size:24px;line-height:32px;font-weight:700;color:${BRAND.ink};">${escapeHtml(content.heading)}</h1>
+${renderParagraphs(content.paragraphs)}
+<p style="margin:0;padding-top:20px;border-top:1px solid ${BRAND.sage};font-size:13px;line-height:20px;color:${BRAND.inkSoft};">${escapeHtml(content.footnote)}</p>
+</td></tr>`;
+}
+
+/** Same frame as `renderActionEmail`, without the button and its fallback address. */
+export function renderNoticeEmail(content: NoticeEmailContent, appUrl: string): RenderedEmail {
+  const lines = [content.heading, "", ...content.paragraphs.flatMap((line) => [line, ""])];
+  return {
+    subject: content.subject,
+    text: [...lines, content.footnote, "", "SellBridge"].join("\n"),
+    html: renderHtml(content, renderNoticeBody(content), appUrl),
   };
 }

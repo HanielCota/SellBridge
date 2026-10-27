@@ -32,6 +32,18 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("supervisor", "audit.view")).toBe(false);
   });
 
+  it("lets admins and supervisors apply supplier flags, and every team member see them", () => {
+    expect(hasStaffPermission("admin", "suppliers.flag")).toBe(true);
+    expect(hasStaffPermission("supervisor", "suppliers.flag")).toBe(true);
+    expect(hasStaffPermission("agent", "suppliers.flag")).toBe(false);
+    expect(hasStaffPermission("agent", "suppliers.view_flags")).toBe(true);
+    expect(hasStaffPermission("supervisor", "suppliers.view_flags")).toBe(true);
+    expect(hasStaffPermission("admin", "suppliers.view_flags")).toBe(true);
+    expect(hasStaffPermission("user", "suppliers.view_flags")).toBe(false);
+    expect(hasStaffPermission("user", "suppliers.flag")).toBe(false);
+    expect(hasStaffPermission(null, "suppliers.flag")).toBe(false);
+  });
+
   it("gives admins everything and resellers nothing", () => {
     expect(hasStaffPermission("admin", "customers.manage")).toBe(true);
     expect(hasStaffPermission("admin", "support.metrics")).toBe(true);
@@ -39,5 +51,20 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("user", "audit.view")).toBe(false);
     expect(hasStaffPermission("user", "support.answer")).toBe(false);
     expect(hasStaffPermission(null, "support.answer")).toBe(false);
+  });
+
+  it("lets only supervisors and admins read review comments", () => {
+    expect(hasStaffPermission("admin", "reviews.moderate")).toBe(true);
+    expect(hasStaffPermission("supervisor", "reviews.moderate")).toBe(true);
+    expect(hasStaffPermission("agent", "reviews.moderate")).toBe(false);
+    expect(hasStaffPermission("user", "reviews.moderate")).toBe(false);
+    expect(hasStaffPermission(null, "reviews.moderate")).toBe(false);
+  });
+
+  it("lets only supervisors and admins decide a supplier credit for a returned order", () => {
+    expect(hasStaffPermission("agent", "support.credit_returns")).toBe(false);
+    expect(hasStaffPermission("supervisor", "support.credit_returns")).toBe(true);
+    expect(hasStaffPermission("admin", "support.credit_returns")).toBe(true);
+    expect(hasStaffPermission("user", "support.credit_returns")).toBe(false);
   });
 });

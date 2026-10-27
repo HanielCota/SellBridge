@@ -1,9 +1,4 @@
-import type { PublicSupplierReview } from "@sellbridge/database/repositories";
-import {
-  REVIEW_ASPECT_LABELS,
-  REVIEW_TAG_LABELS,
-  reviewTagSchema,
-} from "@sellbridge/shared/schemas";
+import { REVIEW_ASPECT_LABELS } from "@sellbridge/shared/schemas";
 import {
   MIN_REVIEWS_FOR_SCORE,
   OPERATION_METRIC_LABELS,
@@ -11,22 +6,15 @@ import {
   SCORE_WINDOW_DAYS,
   type SupplierReputation,
 } from "@sellbridge/shared/supplier-score";
-import { CheckCircleIcon, StarIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { SmartDate } from "@/components/data/smart-date";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supplierReputationQueryOptions } from "@/features/suppliers/suppliers.queries";
 import { formatPercent } from "@/lib/percent";
 import { TERM_HINTS } from "@/components/icons/action-icons";
 import { HintedText } from "@/components/ui/hint";
 import { cn } from "@/lib/utils";
-import {
-  formatAverage,
-  HighlightBadge,
-  LEVEL_COLORS,
-  ReputationThermometer,
-  StarAverage,
-} from "./reputation";
+import { HighlightBadge, LEVEL_COLORS, ReputationThermometer, StarAverage } from "./reputation";
 
 const precisePercent = new Intl.NumberFormat("pt-BR", {
   style: "percent",
@@ -178,47 +166,10 @@ function BreakdownColumn({ reputation }: { reputation: SupplierReputation }) {
   );
 }
 
-function tagLabel(tag: string): string | null {
-  const parsed = reviewTagSchema.safeParse(tag);
-  return parsed.success ? REVIEW_TAG_LABELS[parsed.data] : null;
-}
-
-function RecentReviews({ reviews }: { reviews: readonly PublicSupplierReview[] }) {
-  if (reviews.length === 0) {
-    return null;
-  }
-  return (
-    <div className="mt-6 border-t pt-5">
-      <h3 className="text-footnote font-medium text-muted-foreground">
-        O que outros revendedores disseram
-      </h3>
-      <ul className="mt-3 grid gap-3 md:grid-cols-2">
-        {reviews.map((review) => (
-          <li key={review.id} className="space-y-1.5 rounded-2xl bg-muted/50 p-3.5">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-medium tabular-nums">
-                <StarIcon weight="fill" className="size-3.5 text-amber-500" aria-hidden="true" />
-                {formatAverage(review.rating)}
-              </span>
-              <SmartDate date={review.createdAt} className="text-muted-foreground" />
-            </div>
-            <p className="text-sm">{review.comment}</p>
-            {review.tags.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {review.tags
-                  .map((tag) => tagLabel(tag))
-                  .filter((label) => label !== null)
-                  .join(" · ")}
-              </p>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Reputation block of the supplier page, between the header and the catalog. */
+/**
+ * Reputation block of the supplier page, between the header and the catalog. Review comments
+ * are not here: only moderation reads them (see `reviews.moderate`).
+ */
 export function ReputationPanel({ supplierId }: { supplierId: string }) {
   const query = useQuery(supplierReputationQueryOptions(supplierId));
   if (query.isPending) {
@@ -228,7 +179,7 @@ export function ReputationPanel({ supplierId }: { supplierId: string }) {
   if (query.isError) {
     return null;
   }
-  const { reputation, recentReviews } = query.data;
+  const { reputation } = query.data;
   return (
     <section
       aria-label="Reputação do fornecedor"
@@ -238,7 +189,6 @@ export function ReputationPanel({ supplierId }: { supplierId: string }) {
         <ScoreColumn reputation={reputation} />
         <BreakdownColumn reputation={reputation} />
       </div>
-      <RecentReviews reviews={recentReviews} />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { PlayIcon, TagIcon, FlaskIcon, type Icon as PhosphorIcon } from "@phosphor-icons/react";
+import { PlayIcon, TagIcon, type Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { useRef, type ReactNode, type RefObject } from "react";
 import { prefersReducedMotion } from "@/lib/rewind";
 
@@ -94,33 +94,6 @@ export function usePlayMotion(): MenuIconMotion {
         duration: 380,
         easing: EASE_OUT,
       }),
-  };
-}
-
-/** The flask tilts on its base, a small shake of the test tube. */
-export function useFlaskMotion(): MenuIconMotion {
-  const ref = useRef<SVGSVGElement>(null);
-  return {
-    icon: (
-      <FlaskIcon
-        ref={ref}
-        weight="duotone"
-        aria-hidden="true"
-        style={{ transformOrigin: "50% 90%" }}
-      />
-    ),
-    onHighlight: () =>
-      play(
-        ref.current,
-        [
-          { rotate: "0deg" },
-          { rotate: "10deg" },
-          { rotate: "-7deg" },
-          { rotate: "3deg" },
-          { rotate: "0deg" },
-        ],
-        { duration: 600, easing: EASE_OUT },
-      ),
   };
 }
 

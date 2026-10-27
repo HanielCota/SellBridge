@@ -2,13 +2,11 @@ import { billingConfigured } from "@/features/billing/stripe.server";
 import {
   requestDescriptionResend,
   getSellableCatalogProduct,
-  getTargetForPublishing,
   listListingOverview,
   listStoreConnections,
   resetListingErrorsForRetry,
   storesListingProduct,
 } from "@sellbridge/database/repositories";
-import { validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   createListingSchema,
@@ -22,15 +20,11 @@ import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import {
-  buildMockOrderWebhook,
-  requireMockWebhookSecret,
-  sendMockWebhook,
-} from "@/features/listings/mock-sale.server";
-import {
   createListingForTenant,
   setListingsPausedForTenant,
   updateListingPriceForTenant,
 } from "./listing-commands.server";
+import { chooseNewListingStores } from "./new-listing-stores";
 import { enqueueTargets } from "./publish-listing.server";
 
 export const getNewListingData = createServerFn({ method: "GET" })
@@ -44,19 +38,7 @@ export const getNewListingData = createServerFn({ method: "GET" })
     ]);
     // One listing per product and store: a store that already sells it is shown, not offered.
     const listedIds = new Set(listedOn.map((store) => store.storeId));
-    const connected = stores.filter((store) => store.status === "connected");
-    // Each store sells a single supplier: only the ones selling this product's supplier qualify.
-    return {
-      product,
-      stores: connected
-        .filter(
-          (store) => product.catalogKind === "seller" || store.supplierId === product.supplierId,
-        )
-        .map((store) => ({ ...store, listed: listedIds.has(store.id) })),
-      hasOtherStores:
-        product.catalogKind !== "seller" &&
-        connected.some((store) => store.supplierId !== product.supplierId),
-    };
+    return { product, ...chooseNewListingStores(product, stores, listedIds) };
   });
 
 export const createListing = createServerFn({ method: "POST" })
@@ -139,35 +121,5 @@ export const updateListingPriceFn = createServerFn({ method: "POST" })
   .validator(z.object({ listingId: z.uuid(), priceCents: listingPriceCentsSchema }))
   .handler(async ({ context, data }) => {
     await updateListingPriceForTenant(context.tenantId, data.listingId, data.priceCents);
-    return { ok: true };
-  });
-
-/**
- * Simulated marketplace only: produces a signed "orders" webhook for a published listing
- * and sends it to our own endpoint, exercising the real webhook → queue → worker path.
- */
-export const simulateMockSale = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
-  .validator(z.object({ listingTargetId: z.uuid() }))
-  .handler(async ({ context, data }) => {
-    const row = await getTargetForPublishing(database, context.tenantId, data.listingTargetId);
-    if (row.store.marketplace !== "mock") {
-      throw validationError("Só é possível simular vendas em lojas simuladas");
-    }
-    if (row.target.status !== "published" || !row.target.externalId) {
-      throw validationError("O anúncio precisa estar publicado para simular uma venda");
-    }
-    const mockWebhookSecret = requireMockWebhookSecret();
-    const rawBody = buildMockOrderWebhook({
-      externalShopId: row.store.externalShopId,
-      externalListingId: row.target.externalId,
-      title: row.listing.title,
-      priceCents: row.listing.priceCents,
-    });
-    await sendMockWebhook(rawBody, mockWebhookSecret);
-    logger.info("listing.mock_sale_simulated", {
-      tenantId: context.tenantId,
-      listingTargetId: data.listingTargetId,
-    });
     return { ok: true };
   });

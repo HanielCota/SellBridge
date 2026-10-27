@@ -121,7 +121,7 @@ function StoreMenuEntries({
       <StoreMenuHeader store={store} storeName={storeName} marketplaceLabel={marketplaceLabel} />
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="gap-2.5 py-1.5 pl-1.5">
-        <Link to="/catalogo">
+        <Link to="/catalogo" search={{ store: store.id }}>
           <MenuTile tone="publish">
             <PublishIcon weight="bold" />
           </MenuTile>

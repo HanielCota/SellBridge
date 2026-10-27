@@ -1,11 +1,15 @@
 import { CircleNotchIcon } from "@phosphor-icons/react";
-import type { ClipboardEvent } from "react";
+import type { ClipboardEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { OutOfHoursNotice } from "@/components/support/out-of-hours-notice";
+import { cn } from "@/lib/utils";
 import { STEP_HEADING_IDS, StepHeading } from "./step-parts";
 
 export const DESCRIPTION_FIELD_ID = "new-ticket-body";
 const SHORT_MESSAGE_ID = "new-ticket-body-short";
+/** Same cap as `ticketBodySchema`, so a long text stops at the field instead of failing on send. */
+const MAX_DESCRIPTION_LENGTH = 5000;
 
 export function DescriptionStep({
   number,
@@ -16,6 +20,7 @@ export function DescriptionStep({
   isTooShort,
   onChange,
   onPaste,
+  tooShortMessage = "Conte um pouco mais para a equipe entender o caso.",
 }: {
   number: number;
   question: string;
@@ -26,6 +31,8 @@ export function DescriptionStep({
   isTooShort: boolean;
   onChange: (value: string) => void;
   onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
+  /** Who needs to understand the case: the team by default, the supplier in a conversation. */
+  tooShortMessage?: string;
 }) {
   return (
     <div className="grid gap-2.5">
@@ -39,6 +46,7 @@ export function DescriptionStep({
       <Textarea
         id={DESCRIPTION_FIELD_ID}
         rows={4}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         value={value}
         aria-labelledby={STEP_HEADING_IDS.description}
         aria-invalid={isTooShort}
@@ -48,7 +56,7 @@ export function DescriptionStep({
       />
       {isTooShort ? (
         <p id={SHORT_MESSAGE_ID} role="alert" className="text-sm text-destructive">
-          Conte um pouco mais para a equipe entender o caso.
+          {tooShortMessage}
         </p>
       ) : null}
       {/* Plain text, not a box: a boxed sample reads as an answer already filled in. */}
@@ -57,23 +65,53 @@ export function DescriptionStep({
   );
 }
 
-export function SendFooter({ promise, isSending }: { promise: string; isSending: boolean }) {
+/**
+ * The send button and what happens next. While the assistant's answer is on screen the button
+ * reads "Ainda preciso de ajuda" and `children` adds "Resolveu meu problema" beside it.
+ */
+export function SendFooter({
+  promise,
+  isSending,
+  busyLabel = "Enviando…",
+  submitLabel = "Enviar chamado",
+  showsSupportHours = true,
+  children,
+}: {
+  promise: string;
+  isSending: boolean;
+  busyLabel?: string;
+  submitLabel?: string;
+  /** The team's hours; off when the supplier, not the team, answers. */
+  showsSupportHours?: boolean;
+  children?: ReactNode;
+}) {
+  // Two buttons beside the text squeezed it into a narrow column: they get their own row.
+  const hasTwoButtons = children !== undefined && children !== null;
   return (
-    <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      className={cn(
+        "flex flex-col gap-3 border-t pt-4",
+        !hasTwoButtons && "sm:flex-row sm:items-end sm:justify-between",
+      )}
+    >
       <div className="text-sm">
         <p className="font-medium">O que acontece depois</p>
         <p className="text-muted-foreground">{promise}</p>
+        {showsSupportHours ? <OutOfHoursNotice /> : null}
       </div>
       {/* Never disabled: a click with something missing points to it instead. */}
-      <Button
-        type="submit"
-        aria-busy={isSending}
-        aria-disabled={isSending}
-        className="w-full shrink-0 sm:w-auto"
-      >
-        {isSending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
-        {isSending ? "Enviando…" : "Enviar chamado"}
-      </Button>
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row-reverse">
+        <Button
+          type="submit"
+          aria-busy={isSending}
+          aria-disabled={isSending}
+          className="w-full sm:w-auto"
+        >
+          {isSending ? <CircleNotchIcon className="animate-spin" aria-hidden="true" /> : null}
+          {isSending ? busyLabel : submitLabel}
+        </Button>
+        {children}
+      </div>
     </div>
   );
 }

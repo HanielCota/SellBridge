@@ -1,4 +1,5 @@
 import type { StaffTicketSummary } from "@sellbridge/database/repositories";
+import { CONVERSATION_STATUS_LABELS } from "@sellbridge/shared/supplier-conversation-topics";
 import {
   staffTicketsSearchSchema,
   TICKET_CATEGORIES,
@@ -7,15 +8,16 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_QUEUE_LABELS,
   TICKET_QUEUES,
+  TICKET_STATUS_LABELS,
   type StaffTicketsSearch,
   type TicketQueue,
 } from "@sellbridge/shared/schemas";
-import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ChartBarIcon, TrayIcon } from "@phosphor-icons/react";
+import { TrayIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { FilterTabs } from "@/components/data/filter-tabs";
+import { REQUESTER_KIND_LABELS } from "@/features/support/ticket-audience";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { SmartDate } from "@/components/data/smart-date";
@@ -28,9 +30,10 @@ import {
   TicketPriorityBadge,
   UnreadDot,
 } from "@/components/support/ticket-badges";
+import { StaffShortcutFilters } from "@/components/support/staff-shortcut-filters";
+import { SupportAreaTabs } from "@/components/support-performance/support-area-tabs";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -48,6 +51,8 @@ import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
+import { TERM_HINTS } from "@/components/icons/action-icons";
+import { HintedText } from "@/components/ui/hint";
 
 export const Route = createFileRoute("/_app/admin/chamados/")({
   validateSearch: staffTicketsSearchSchema,
@@ -60,9 +65,12 @@ export const Route = createFileRoute("/_app/admin/chamados/")({
 
 const ALL = "__all__";
 
-/** A closed ticket asks nothing of the team: its last message is history, not a to-do. */
+/**
+ * A closed ticket asks nothing of the team: its last message is history, not a to-do. Nor does a
+ * supplier conversation, which the supplier answers.
+ */
 function showsUnread(ticket: StaffTicketSummary): boolean {
-  return ticket.hasUnread && ticket.status !== "closed";
+  return ticket.hasUnread && ticket.status !== "closed" && ticket.audience === "platform";
 }
 
 const columnHelper = createServerColumnHelper<StaffTicketSummary>();
@@ -81,7 +89,8 @@ const columns = columnHelper.columns([
             {ticket.subject}
           </Link>
           <p className="flex flex-wrap items-center gap-x-2 text-footnote text-muted-foreground">
-            <TicketCategoryLabel category={ticket.category} />
+            <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} />
+            {ticket.supplierName === null ? null : <span>Para {ticket.supplierName}</span>}
             {showsUnread(ticket) ? <UnreadDot label="Mensagem nova" /> : null}
           </p>
         </div>
@@ -89,16 +98,22 @@ const columns = columnHelper.columns([
     },
   }),
   columnHelper.accessor("tenantName", {
-    header: "Revendedor",
+    header: "Cliente",
     cell: (info) => (
       <div className="space-y-0.5">
         <p>{info.getValue()}</p>
-        <p className="text-xs text-muted-foreground">{info.row.original.createdByEmail}</p>
+        <p className="text-xs text-muted-foreground">
+          {REQUESTER_KIND_LABELS[info.row.original.tenantKind]} · {info.row.original.createdByEmail}
+        </p>
       </div>
     ),
   }),
   columnHelper.accessor("priority", {
-    header: "Prioridade",
+    header: () => (
+      <HintedText label={TERM_HINTS.ticketPriority} className="hinted-term">
+        Prioridade
+      </HintedText>
+    ),
     cell: (info) => <TicketPriorityBadge priority={info.getValue()} />,
   }),
   columnHelper.accessor("assigneeName", {
@@ -110,10 +125,17 @@ const columns = columnHelper.columns([
     header: "Status",
     cell: (info) => {
       const ticket = info.row.original;
+      // A supplier conversation waits for the supplier: no team deadline applies to it.
+      if (ticket.audience === "supplier") {
+        return (
+          <TicketStatusBadge status={ticket.status} labels={CONVERSATION_STATUS_LABELS.reseller} />
+        );
+      }
       return (
         <div className="flex flex-col items-start gap-1">
           <TicketStatusBadge status={ticket.status} />
           <ResponseDeadlineBadge
+            focusable={false}
             status={ticket.status}
             priority={ticket.priority}
             awaitingSince={ticket.awaitingSince}
@@ -139,20 +161,27 @@ function MobileTicketRow({ row }: { row: StaffTicketSummary }) {
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 font-medium">{row.subject}</p>
-        <TicketPriorityBadge priority={row.priority} />
+        <TicketPriorityBadge priority={row.priority} focusable={false} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <TicketStatusBadge status={row.status} />
-        <ResponseDeadlineBadge
+        <TicketStatusBadge
           status={row.status}
-          priority={row.priority}
-          awaitingSince={row.awaitingSince}
+          labels={
+            row.audience === "supplier" ? CONVERSATION_STATUS_LABELS.reseller : TICKET_STATUS_LABELS
+          }
         />
+        {row.audience === "supplier" ? null : (
+          <ResponseDeadlineBadge
+            status={row.status}
+            priority={row.priority}
+            awaitingSince={row.awaitingSince}
+          />
+        )}
         {showsUnread(row) ? <UnreadDot label="Mensagem nova" /> : null}
       </div>
       <p className="truncate text-xs text-muted-foreground">
-        {row.tenantName} · {row.assigneeName ?? "Sem responsável"} ·{" "}
-        <SmartDate date={row.updatedAt} />
+        {row.tenantName} · {REQUESTER_KIND_LABELS[row.tenantKind]} ·{" "}
+        {row.assigneeName ?? "Sem responsável"} · <SmartDate date={row.updatedAt} />
       </p>
     </Link>
   );
@@ -167,22 +196,64 @@ function QueueTabs({
 }) {
   const counts = useQuery(staffQueueCountsQueryOptions());
   const countOf = (queue: TicketQueue) => {
-    if (!counts.data || queue === "all") {
+    if (!counts.data || queue === "all" || queue === "suppliers") {
       return undefined;
     }
     return counts.data[queue];
   };
+  const tabs = TICKET_QUEUES.map((queue) => ({
+    value: queue,
+    label: TICKET_QUEUE_LABELS[queue],
+    count: countOf(queue),
+  }));
   return (
-    <FilterTabs
-      legend="Fila de chamados"
+    <>
+      {/* On a phone the four tabs never fit, and "Atrasados" sat past the edge with no cue. */}
+      <div className="sm:hidden">
+        <QueueSelect tabs={tabs} value={value} onChange={onChange} />
+      </div>
+      <div className="hidden sm:block">
+        <FilterTabs legend="Fila de chamados" value={value} onChange={onChange} tabs={tabs} />
+      </div>
+    </>
+  );
+}
+
+function queueOptionLabel(tab: { label: string; count: number | undefined }): string {
+  return tab.count === undefined ? tab.label : `${tab.label} · ${tab.count}`;
+}
+
+function QueueSelect({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: readonly { value: TicketQueue; label: string; count: number | undefined }[];
+  value: TicketQueue;
+  onChange: (queue: TicketQueue) => void;
+}) {
+  const current = tabs.find((tab) => tab.value === value);
+  return (
+    <Select
       value={value}
-      onChange={onChange}
-      tabs={TICKET_QUEUES.map((queue) => ({
-        value: queue,
-        label: TICKET_QUEUE_LABELS[queue],
-        count: countOf(queue),
-      }))}
-    />
+      onValueChange={(next) => {
+        const queue = TICKET_QUEUES.find((option) => option === next);
+        if (queue !== undefined) {
+          onChange(queue);
+        }
+      }}
+    >
+      <SelectTrigger className="w-full" aria-label="Fila de chamados">
+        <SelectValue>{current ? queueOptionLabel(current) : ""}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {tabs.map((tab) => (
+          <SelectItem key={tab.value} value={tab.value}>
+            {queueOptionLabel(tab)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -223,20 +294,13 @@ function OptionFilter<TValue extends string>({
 
 function StaffTicketsHeader({ role }: { role: string }) {
   return (
-    <PageHeader
-      title="Chamados"
-      description="Pegue os chamados sem responsável e responda dentro do prazo de cada prioridade."
-      actions={
-        hasStaffPermission(role, "support.metrics") ? (
-          <Button asChild variant="outline">
-            <Link to="/admin/chamados/metricas">
-              <ChartBarIcon aria-hidden="true" />
-              Métricas
-            </Link>
-          </Button>
-        ) : null
-      }
-    />
+    <>
+      <SupportAreaTabs role={role} current="fila" />
+      <PageHeader
+        title="Chamados"
+        description="Pegue os chamados sem responsável e responda dentro do prazo de cada prioridade."
+      />
+    </>
   );
 }
 
@@ -299,7 +363,10 @@ function StaffTicketsPage() {
     search.query !== undefined ||
     search.status !== undefined ||
     search.priority !== undefined ||
-    search.category !== undefined;
+    search.category !== undefined ||
+    search.situacao !== undefined ||
+    search.responsavel !== undefined ||
+    search.origem !== undefined;
 
   return (
     <>
@@ -308,6 +375,7 @@ function StaffTicketsPage() {
         <QueueTabs value={search.queue} onChange={(queue) => updateSearch({ queue })} />
       </div>
       <StaffTicketFilters search={search} onChange={updateSearch} />
+      <StaffShortcutFilters search={search} onChange={updateSearch} />
       <StaffTicketsTable
         query={query}
         queue={search.queue}
@@ -334,6 +402,11 @@ const EMPTY_QUEUE_TEXT: Record<TicketQueue, { title: string; description: string
   all: {
     title: "Nenhum chamado",
     description: "Os chamados abertos pelos revendedores aparecem aqui.",
+  },
+  suppliers: {
+    title: "Nenhuma conversa entre revendedor e fornecedor",
+    description:
+      "As conversas aparecem aqui para a equipe acompanhar. Quem responde é o fornecedor.",
   },
 };
 

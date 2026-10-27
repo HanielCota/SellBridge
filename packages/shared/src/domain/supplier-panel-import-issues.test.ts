@@ -80,6 +80,20 @@ describe("groupIssuesByRow", () => {
   });
 });
 
+describe("a contact in a spreadsheet cell", () => {
+  it('names the column and says what is not allowed instead of "valor inválido"', () => {
+    const normalized = normalizeImportFile(
+      utf8([TEMPLATE_HEADER, "BAD-9;Vaso;Chama no zap 11 98765-4321;10,00;1;;;sim"].join("\r\n")),
+    );
+    const [row] = review(normalized);
+    expect(row?.issues[0]).toMatchObject({
+      column: "descricao",
+      problem: "Tem telefone, e-mail ou rede social",
+      expected: "Sem telefone, e-mail nem redes sociais (por segurança)",
+    });
+  });
+});
+
 describe("failed rows export", () => {
   const normalized = normalizeImportFile(utf8(partialFile));
   const rows = review(normalized);

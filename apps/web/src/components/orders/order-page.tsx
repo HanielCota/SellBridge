@@ -1,13 +1,14 @@
 import { formatCents } from "@sellbridge/shared/money";
 import { REVIEW_WINDOW_DAYS } from "@sellbridge/shared/supplier-score";
 import { ORDER_STATUS_LABELS } from "@sellbridge/shared/schemas";
-import { ArrowLeftIcon, ArrowSquareOutIcon, ChatCircleDotsIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { Link, useCanGoBack, useRouter, useSearch } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
 import { SmartDate } from "@/components/data/smart-date";
 import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { OrderBreakdown } from "@/components/financials/order-parts";
+import { SupplierCreditLines } from "@/components/financials/supplier-credit";
 import { OrderOperations } from "@/components/fulfillment/order-dialog";
 import { ReviewAction } from "@/components/orders/review-action";
 import { ReviewDialog, type ReviewTarget } from "@/components/orders/review-dialog";
@@ -15,8 +16,9 @@ import { ORDER_TONES, OrderStatusBadge } from "@/components/reports/order-status
 import { Button } from "@/components/ui/button";
 import { displayBuyerName } from "@/features/orders/buyer-name";
 import type { getOrderPageFn } from "@/features/orders/orders.functions";
+import { TalkToSupportButton } from "@/components/support/talk-to-support-button";
+import { TalkToSupplierButton } from "@/components/supplier-support/talk-to-supplier-button";
 import { supportTicketSearch } from "@/features/support/talk-to-support";
-import { displayStoreName } from "@/features/stores/store-name";
 
 type OrderPageData = Awaited<ReturnType<typeof getOrderPageFn>>;
 
@@ -60,24 +62,15 @@ function OrderHeader({ page }: { page: OrderPageData }) {
           <OrderStatusBadge status={order.status} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {displayStoreName(order.storeName)} · {displayBuyerName(order.buyerName)} ·{" "}
+          {order.storeName} · {displayBuyerName(order.buyerName)} ·{" "}
           <SmartDate date={order.orderedAt} />
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline">
-          <Link
-            to="/suporte/novo"
-            search={supportTicketSearch({
-              kind: "order",
-              id: order.id,
-              name: order.externalOrderId,
-            })}
-          >
-            <ChatCircleDotsIcon aria-hidden="true" />
-            Falar com o suporte
-          </Link>
-        </Button>
+        <TalkToSupplierButton orderId={order.id} />
+        <TalkToSupportButton
+          search={supportTicketSearch({ kind: "order", id: order.id, name: order.externalOrderId })}
+        />
         {page.marketplaceUrl ? (
           <Button asChild variant="outline">
             <a href={page.marketplaceUrl} target="_blank" rel="noopener noreferrer">
@@ -206,6 +199,7 @@ function OrderAside({ page }: { page: OrderPageData }) {
     >
       <PageSection id="order-money" title="Dinheiro" card>
         <OrderBreakdown row={page.finance} />
+        <SupplierCreditLines credits={page.supplierCredits} className="mt-3" />
       </PageSection>
       <PageSection id="order-progress" title="Andamento do pedido" card>
         <OrderProgress history={page.history} />

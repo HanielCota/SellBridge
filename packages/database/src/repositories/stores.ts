@@ -49,7 +49,7 @@ export async function listStoreConnections(
     .where(
       and(eq(storeConnections.tenantId, tenantId), ne(storeConnections.status, "disconnected")),
     )
-    .orderBy(asc(storeConnections.connectedAt));
+    .orderBy(asc(storeConnections.connectedAt), asc(storeConnections.id));
 }
 
 /** Returns only the requested stores that belong to the tenant and are connected. */

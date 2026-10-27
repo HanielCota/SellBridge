@@ -1,5 +1,4 @@
 import { expect, type Page, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { createListingWithTargets } from "@sellbridge/database/repositories";
 import {
   listingTargets,
@@ -11,9 +10,9 @@ import {
 } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const SUPPLIER = "BH Beauty Distribuidora";
 
 test.afterAll(async () => {
@@ -22,7 +21,7 @@ test.afterAll(async () => {
 
 async function connectMockStore(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill(shopName);

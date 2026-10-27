@@ -330,6 +330,62 @@
       "when": 1792522130003,
       "tag": "0046_portuguese_category_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792677898382,
+      "tag": "0047_supplier_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792711253044,
+      "tag": "0048_tenant_billing_address",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792761510200,
+      "tag": "0049_order_shipping_address",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792775899800,
+      "tag": "0050_return_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792809112781,
+      "tag": "0051_supplier_conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792904289713,
+      "tag": "0052_ticket_situation",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793021845967,
+      "tag": "0053_supplier_shipment_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793027043326,
+      "tag": "0054_retire_simulated_stores",
+      "breakpoints": true
     }
   ]
 }

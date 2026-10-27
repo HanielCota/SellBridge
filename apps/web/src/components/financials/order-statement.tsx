@@ -1,5 +1,4 @@
 import type { OrderFinancialRow } from "@sellbridge/database/repositories";
-import { formatCents } from "@sellbridge/shared/money";
 import { REPORT_TIME_ZONE } from "@sellbridge/shared/period-range";
 import { ProductVisual } from "@/components/catalog/product-visual";
 import { SmartDate } from "@/components/data/smart-date";
@@ -14,13 +13,12 @@ import {
   formatDayHeading,
   groupOrdersByDay,
 } from "@/features/reports/financial-rows";
-import { displayStoreName } from "@/features/stores/store-name";
 import { cn } from "@/lib/utils";
 import { isVoidOrder, ProfitAmount, signedCents } from "./order-parts";
 import { OrderDetail } from "./order-detail";
-import { TERM_HINTS } from "@/components/icons/action-icons";
 import { PendingCostStatus } from "@/components/reports/pending-cost";
-import { Hint, HintedText } from "@/components/ui/hint";
+import { Hint } from "@/components/ui/hint";
+import { AmountNote } from "./supplier-credit";
 
 export interface DayTotal {
   date: string;
@@ -81,7 +79,7 @@ function RowSummary({
         {showStore ? (
           <>
             <span aria-hidden="true">·</span>
-            <span className="truncate">{displayStoreName(row.storeName)}</span>
+            <span className="truncate">{row.storeName}</span>
           </>
         ) : null}
         {NOTABLE_STATUSES.has(row.status) ? (
@@ -91,24 +89,6 @@ function RowSummary({
         ) : null}
       </span>
     </span>
-  );
-}
-
-/** What the row says under its amount: the sale it came from, or why it is out of the math. */
-function AmountNote({ row, revenueCents }: { row: OrderFinancialRow; revenueCents: number }) {
-  if (isVoidOrder(row)) {
-    return (
-      <HintedText label={TERM_HINTS.notASale} focusable={false} className="hinted-term">
-        não conta como venda
-      </HintedText>
-    );
-  }
-  return (
-    <>
-      de {formatCents(revenueCents)}
-      {/* On a phone the status above already says it; the line stays as short as its siblings'. */}
-      {row.costPending ? <span className="max-sm:hidden"> · fora do lucro</span> : null}
-    </>
   );
 }
 
@@ -130,7 +110,7 @@ function RowAmount({ row }: { row: OrderFinancialRow }) {
     <span className="shrink-0 space-y-0.5 text-right">
       <RowProfit row={row} profitCents={row.profitCents} />
       <span className="block text-xs text-muted-foreground tabular-nums">
-        <AmountNote row={row} revenueCents={row.revenueCents} />
+        <AmountNote rows={[row]} revenueCents={row.revenueCents} />
       </span>
     </span>
   );
@@ -266,7 +246,7 @@ function GroupSummaryLine({
       {showStore ? (
         <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
           <span aria-hidden="true">·</span>
-          <span className="truncate">{displayStoreName(first.storeName)}</span>
+          <span className="truncate">{first.storeName}</span>
         </span>
       ) : null}
       {NOTABLE_STATUSES.has(first.status) ? (
@@ -352,7 +332,7 @@ function GroupRow({ rows, showStore }: { rows: readonly OrderFinancialRow[]; sho
         <span className="shrink-0 space-y-0.5 text-right">
           <RowProfit row={first} profitCents={profit} />
           <span className="block text-xs text-muted-foreground tabular-nums">
-            <AmountNote row={first} revenueCents={revenue} />
+            <AmountNote rows={rows} revenueCents={revenue} />
           </span>
         </span>
         <CaretDownIcon

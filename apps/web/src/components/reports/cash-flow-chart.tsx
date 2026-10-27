@@ -25,6 +25,7 @@ import { ChartKindMenu, type ChartLayers } from "@/components/reports/chart-kind
 import { ExportLink } from "@/components/reports/export-link";
 import { DeltaBadge, MoneyFigure, TrendBadge } from "@/components/reports/figures";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
+import { TooltipCard, TooltipRow, type TooltipProps } from "@/components/reports/chart-tooltip";
 import {
   buildChartPoints,
   buildWaterfall,
@@ -135,84 +136,6 @@ const formatMoneyTick = (cents: number) => axisMoney.format(cents / 100);
 const formatPercentTick = (value: number) => `${percent.format(value)}%`;
 
 // ── Tooltips ────────────────────────────────────────────────────────────────
-
-interface TooltipProps<Payload> {
-  active?: boolean;
-  payload?: { payload?: Payload }[];
-}
-
-type SwatchVariant = "solid" | "faded" | "dashed" | "hatched";
-
-/** Same color as the mark it describes, so the card reads like a legend; dashed for the past. */
-function Swatch({ color, variant = "solid" }: { color: string; variant?: SwatchVariant }) {
-  if (variant === "hatched") {
-    return <span aria-hidden="true" className={cn("size-2.5 rounded-sm", PENDING_HATCH_CLASS)} />;
-  }
-  if (variant === "dashed") {
-    return (
-      <span
-        aria-hidden="true"
-        className="h-0 w-2.5 border-t-2 border-dashed"
-        style={{ borderColor: color }}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className={cn("size-2 rounded-full", variant === "faded" && "opacity-40")}
-      style={{ backgroundColor: color }}
-    />
-  );
-}
-
-function TooltipRow({
-  color,
-  label,
-  value,
-  variant = "solid",
-  strong = false,
-}: {
-  color: string;
-  label: string;
-  value: string;
-  variant?: SwatchVariant;
-  strong?: boolean;
-}) {
-  return (
-    <>
-      <Swatch color={color} variant={variant} />
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn("text-right tabular-nums", strong ? "font-semibold" : "font-medium")}>
-        {value}
-      </dd>
-    </>
-  );
-}
-
-function TooltipCard({
-  title,
-  children,
-  footnote,
-}: {
-  title: string;
-  children: ReactNode;
-  footnote?: ReactNode;
-}) {
-  return (
-    <div className="min-w-52 rounded-xl border border-border bg-popover px-3.5 py-3 text-popover-foreground shadow-md">
-      <p className="text-xs text-muted-foreground">{title}</p>
-      <dl className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1.5 text-sm">
-        {children}
-      </dl>
-      {footnote ? (
-        <p className="mt-2.5 border-t border-border pt-2 text-xs text-muted-foreground">
-          {footnote}
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
 function MarginFootnote({ margin }: { margin: number | null }) {
   if (margin === null) {

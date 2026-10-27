@@ -2,11 +2,16 @@ import {
   alertWebhookUrlEnvironmentSchema,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
-  mockWebhookSecretEnvironmentSchema,
   nodeEnvironmentSchema,
+  shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
+import { SUPPORT_ASSISTANT_PROVIDERS } from "@sellbridge/shared/support-assistant";
 import { z } from "zod";
+import {
+  CARRIER_TRACKING_PROVIDERS,
+  type CarrierTrackingProviderName,
+} from "@/features/tracking/carrier-tracking";
 
 /** The value .env.example ships with: fine locally, never in production. */
 const PLACEHOLDER_SECRET_PREFIX = "troque-por-";
@@ -54,6 +59,8 @@ const serverEnvironmentShape = z.object({
   MIN_MARGIN_PERCENT: z.coerce.number().int().min(0).max(90).default(0),
   /** Units the sync keeps off the marketplaces (the worker's own); none of them may be published. */
   STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
+  /** Units the worker adds to Shopee listings (the worker's own); screens show the real units. */
+  SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
   UPLOADS_DIR: z.string().min(1).default("./uploads"),
   ADMIN_EMAILS: z
     .string()
@@ -64,7 +71,6 @@ const serverEnvironmentShape = z.object({
         .map((email) => email.trim().toLowerCase())
         .filter((email) => email.length > 0),
     ),
-  MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
   ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
   /** Transactional e-mail (password reset). Without it, development logs the message. */
@@ -90,6 +96,13 @@ const serverEnvironmentShape = z.object({
    * on in production only, so tests and local sign-ups never depend on the outside service.
    */
   LEAKED_PASSWORD_CHECK: z.enum(["auto", "on", "off"]).default("auto"),
+  /** Carrier tracking stays off until a real integration is configured. */
+  CARRIER_TRACKING_PROVIDER: z.enum(CARRIER_TRACKING_PROVIDERS).optional(),
+  /**
+   * Who writes the automatic first answer in support. "deepseek" is not wired yet: it reports
+   * "not configured" and the local FAQ answers instead.
+   */
+  SUPPORT_ASSISTANT_PROVIDER: z.enum(SUPPORT_ASSISTANT_PROVIDERS).default("faq"),
 });
 
 const STRIPE_REQUIRED_KEYS = [
@@ -135,5 +148,12 @@ export const serverEnvironmentSchema = serverEnvironmentShape.superRefine((value
   checkPlaceholderSecret(value, context);
   checkProductionBilling(value, context);
 });
+
+/** No synthetic tracking is available in any environment. */
+export function carrierTrackingProviderName(
+  environment: Pick<ServerEnvironmentShape, "CARRIER_TRACKING_PROVIDER">,
+): CarrierTrackingProviderName {
+  return environment.CARRIER_TRACKING_PROVIDER ?? "off";
+}
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;

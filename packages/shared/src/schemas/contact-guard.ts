@@ -1,0 +1,138 @@
+import type { z } from "zod";
+import { findContactDetails } from "../domain/contact-detection.ts";
+
+export { type ContactKind, findContactDetails } from "../domain/contact-detection.ts";
+
+/** Marks the issue, so the server can log the attempt (field and kind, never the text). */
+export const CONTACT_DETAILS_REASON = "contact_details";
+
+export const CONTACT_DETAILS_REFUSED =
+  "Por segurança, telefone, e-mail e redes sociais não podem ser enviados por aqui. Converse pelas mensagens do pedido.";
+
+/** For the supplier's brand and products, which every reseller reads. */
+export const SUPPLIER_TEXT_CONTACT_REFUSED =
+  "Por segurança, telefone, e-mail e redes sociais não podem aparecer na marca nem nos produtos.";
+
+/** For the support conversations between a reseller and their supplier. */
+export const CONVERSATION_CONTACT_REFUSED =
+  "Por segurança, telefone, e-mail, WhatsApp e redes sociais não podem ser enviados por aqui. Continue a conversa pelo SellBridge.";
+
+/** Every message a contact refusal carries; the server logs the issues that have one. */
+export const CONTACT_REFUSAL_MESSAGES: readonly string[] = [
+  CONTACT_DETAILS_REFUSED,
+  SUPPLIER_TEXT_CONTACT_REFUSED,
+  CONVERSATION_CONTACT_REFUSED,
+];
+
+/** Sites that open a chat, a profile or a short link to either, by their exact host. */
+const CONTACT_HOSTS = new Set([
+  "wa.me",
+  "wa.link",
+  "t.me",
+  "t.co",
+  "x.com",
+  "is.gd",
+  "ow.ly",
+  "rb.gy",
+  "goo.gl",
+]);
+
+/** Any part of the host naming one of these is a chat, a profile or a link shortener. */
+const CONTACT_HOST_LABELS = new Set([
+  "whatsapp",
+  "telegram",
+  "instagram",
+  "instagr",
+  "facebook",
+  "fb",
+  "tiktok",
+  "kwai",
+  "twitter",
+  "threads",
+  "youtube",
+  "youtu",
+  "linktr",
+  "linkedin",
+  "lnkd",
+  "discord",
+  "messenger",
+  "bit",
+  "tinyurl",
+  "cutt",
+]);
+
+/** A query or path asking for a phone: "?tel=…", "/whats/…". */
+const PHONE_PARAMETER = /(?:tel|phone|fone|celular|whats|zap|wpp)[=:/]/i;
+
+function contactHost(hostname: string): boolean {
+  // A final dot ("wa.me.") names the same site.
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  return CONTACT_HOSTS.has(host) || host.split(".").some((label) => CONTACT_HOST_LABELS.has(label));
+}
+
+function decoded(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    // A broken escape: read it as typed.
+    return text;
+  }
+}
+
+/**
+ * Whether a link would hand the other side a way to talk outside SellBridge: a chat, profile or
+ * short-link host, or a contact in its path or query. Phone-looking numbers in the path are
+ * allowed (carrier tracking pages have long numeric ids) unless a parameter asks for a phone.
+ */
+function contactLink(url: URL): boolean {
+  const rest = decoded(`${url.pathname}${url.search}${url.hash}`);
+  const kinds = findContactDetails(rest).filter((kind) => kind !== "phone");
+  return contactHost(url.hostname) || kinds.length > 0 || PHONE_PARAMETER.test(rest);
+}
+
+function refuseWith(message: string) {
+  return (text: string, context: z.RefinementCtx): void => {
+    const kinds = findContactDetails(text);
+    if (kinds.length === 0) {
+      return;
+    }
+    context.addIssue({
+      code: "custom",
+      message,
+      params: { reason: CONTACT_DETAILS_REASON, kinds },
+    });
+  };
+}
+
+/**
+ * Refuses free text that carries a phone, e-mail, chat link or social network user. Reseller
+ * and supplier must not be able to reach each other outside the platform (the user's rule).
+ */
+export const refuseContactDetails = refuseWith(CONTACT_DETAILS_REFUSED);
+
+/** The same rule for the supplier's brand and product texts, with words for the supplier. */
+export const refuseSupplierTextContact = refuseWith(SUPPLIER_TEXT_CONTACT_REFUSED);
+
+/** The same rule for reseller and supplier support conversations, in both directions. */
+export const refuseConversationContact = refuseWith(CONVERSATION_CONTACT_REFUSED);
+
+/**
+ * The first of `texts` (by key) that carries a contact, or null. For texts saved before the
+ * rule existed, checked again when the product goes to review or is approved.
+ */
+export function firstTextWithContact(texts: Readonly<Record<string, string>>): string | null {
+  const found = Object.entries(texts).find(([, text]) => findContactDetails(text).length > 0);
+  return found === undefined ? null : found[0];
+}
+
+/** The same for a link field, where links are expected: only chat and profile hosts are refused. */
+export function refuseContactLink(url: string, context: z.RefinementCtx): void {
+  if (!URL.canParse(url) || !contactLink(new URL(url))) {
+    return;
+  }
+  context.addIssue({
+    code: "custom",
+    message: CONTACT_DETAILS_REFUSED,
+    params: { reason: CONTACT_DETAILS_REASON, kinds: ["link"] },
+  });
+}

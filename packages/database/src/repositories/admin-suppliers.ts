@@ -179,8 +179,9 @@ async function pauseUnsellableListings(
   return paused.length;
 }
 
+/** Also joins a caller's transaction (the 3rd flag deactivates in the flag's own transaction). */
 export async function setAdminSupplierActive(
-  database: Database,
+  database: DatabaseExecutor,
   supplierId: string,
   active: boolean,
 ) {

@@ -1,5 +1,4 @@
 import { formatCents } from "@sellbridge/shared/money";
-import { ISSUE_SEVERITY, ONBOARDING_STEPS } from "@sellbridge/shared/customer-health";
 import {
   customersSearchSchema,
   type CustomerSort,
@@ -8,19 +7,20 @@ import {
 } from "@sellbridge/shared/schemas";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  CaretDownIcon,
-  CheckCircleIcon,
-  LockSimpleIcon,
-  UsersThreeIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import { CustomerAttentionTiles } from "@/components/admin/customer-attention-tiles";
 import { CustomerIssuesInbox } from "@/components/admin/customer-issues-inbox";
 import { CustomerJourneyBoard } from "@/components/admin/customer-journey-board";
 import { CustomerQuickView } from "@/components/admin/customer-quick-view";
 import { CustomerRowActions } from "@/components/admin/customer-row-actions";
+import {
+  CustomerHealthBadges,
+  CustomerScore,
+  CustomerStores,
+  supplierSummary,
+} from "@/components/admin/customer-cells";
 import { HealthRing } from "@/components/admin/health-ring";
-import { SEVERITY_BADGE } from "@/components/admin/issue-style";
+import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { FilterTabs, type FilterTab } from "@/components/data/filter-tabs";
 import { PaginationBar } from "@/components/data/pagination-bar";
@@ -28,9 +28,8 @@ import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { MarketplaceMark } from "@/components/stores/marketplace-mark";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Hint, HintedText } from "@/components/ui/hint";
 import {
   Select,
   SelectContent,
@@ -46,7 +45,6 @@ import {
   customerJourneyQueryOptions,
   customersQueryOptions,
 } from "@/features/admin/customers.queries";
-import { describeIssue } from "@/features/admin/issue-copy";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
@@ -91,9 +89,6 @@ const SORT_TABS: FilterTab<CustomerSort>[] = [
   { value: "recent", label: "Recentes" },
 ];
 
-/** Chips shown per row before the rest collapse into "+N". */
-const VISIBLE_ISSUE_BADGES = 2;
-
 function useUpdateSearch() {
   const navigate = useNavigate({ from: Route.fullPath });
   return (patch: Partial<CustomersSearch>) =>
@@ -106,124 +101,29 @@ function CustomerToggle({ customer }: { customer: RankedCustomer }) {
   const updateSearch = useUpdateSearch();
   const isOpen = open === customer.id;
   return (
-    <button
-      type="button"
-      aria-expanded={isOpen}
-      onClick={() => updateSearch({ open: isOpen ? undefined : customer.id })}
-      className="group/toggle flex min-w-52 items-center gap-1.5 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <span className="min-w-0 space-y-0.5">
-        <span className="block truncate font-medium underline-offset-4 group-hover/toggle:underline">
-          {customer.name}
-        </span>
-        <span className="block truncate text-xs text-muted-foreground">{customer.email}</span>
-      </span>
-      <CaretDownIcon
-        weight="bold"
-        aria-hidden="true"
-        className={cn(
-          "size-3.5 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-          isOpen && "rotate-180",
-        )}
-      />
-    </button>
-  );
-}
-
-/** Who the customer sells, from the suppliers of their shops; pending shops are flagged. */
-function supplierSummary(customer: RankedCustomer): { text: string; pending: number } {
-  const names = [
-    ...new Set(
-      customer.stores.flatMap((store) => (store.supplierName === null ? [] : [store.supplierName])),
-    ),
-  ];
-  const pending = customer.stores.filter((store) => store.supplierName === null).length;
-  if (customer.stores.length === 0) {
-    return { text: "Sem loja", pending };
-  }
-  return { text: names.length > 0 ? names.join(", ") : "Sem fornecedor", pending };
-}
-
-function CustomerStores({ customer }: { customer: RankedCustomer }) {
-  const summary = supplierSummary(customer);
-  return (
-    <div className="flex items-center gap-2">
-      {customer.stores.length > 0 ? (
-        <span className="flex gap-1">
-          {customer.stores.map((store) => {
-            const broken = store.status === "expired" || store.status === "error";
-            return (
-              <span
-                key={`${store.marketplace}-${store.shopName}`}
-                title={`${store.shopName}${broken ? " (desconectada)" : ""}`}
-                className="relative"
-              >
-                <MarketplaceMark marketplace={store.marketplace} className="size-6 rounded-lg" />
-                {broken ? (
-                  <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive ring-2 ring-card" />
-                ) : null}
-              </span>
-            );
-          })}
-        </span>
-      ) : null}
-      <span className="min-w-0 space-y-0.5 text-footnote">
-        <span
-          className={cn(
-            "block max-w-56 truncate",
-            customer.stores.length === 0 && "text-muted-foreground",
-          )}
-          title={summary.text}
-        >
-          {summary.text}
-        </span>
-        {summary.pending > 0 ? (
-          <span className="block font-medium text-amber-700 dark:text-amber-400">
-            {summary.pending === 1
-              ? "1 loja sem fornecedor"
-              : `${summary.pending} lojas sem fornecedor`}
+    <Hint label={CONTROL_HINTS.customerQuickView} openOnTap={false}>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => updateSearch({ open: isOpen ? undefined : customer.id })}
+        className="group/toggle flex min-w-52 items-center gap-1.5 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="min-w-0 space-y-0.5">
+          <span className="block truncate font-medium underline-offset-4 group-hover/toggle:underline">
+            {customer.name}
           </span>
-        ) : null}
-      </span>
-    </div>
-  );
-}
-
-function CustomerHealthBadges({ customer }: { customer: RankedCustomer }) {
-  if (customer.banned) {
-    return (
-      <Badge variant="destructive">
-        <LockSimpleIcon weight="fill" />
-        Bloqueado
-      </Badge>
-    );
-  }
-  const { issues, completedSteps, nextStep } = customer.health;
-  if (issues.length === 0 && nextStep) {
-    return (
-      <Badge variant="secondary">
-        Primeiros passos {completedSteps}/{ONBOARDING_STEPS.length}
-      </Badge>
-    );
-  }
-  if (issues.length === 0) {
-    return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-        <CheckCircleIcon weight="fill" />
-        Tudo em dia
-      </Badge>
-    );
-  }
-  const hidden = issues.length - VISIBLE_ISSUE_BADGES;
-  return (
-    <span className="flex flex-wrap gap-1">
-      {issues.slice(0, VISIBLE_ISSUE_BADGES).map((issue) => (
-        <Badge key={issue.kind} className={SEVERITY_BADGE[ISSUE_SEVERITY[issue.kind]]}>
-          {describeIssue(issue).badge}
-        </Badge>
-      ))}
-      {hidden > 0 ? <Badge variant="secondary">+{hidden}</Badge> : null}
-    </span>
+          <span className="block truncate text-xs text-muted-foreground">{customer.email}</span>
+        </span>
+        <CaretDownIcon
+          weight="bold"
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            isOpen && "rotate-180",
+          )}
+        />
+      </button>
+    </Hint>
   );
 }
 
@@ -240,8 +140,12 @@ const columnHelper = createServerColumnHelper<RankedCustomer>();
 const columns = columnHelper.columns([
   columnHelper.display({
     id: "health",
-    header: "Nota",
-    cell: (info) => <HealthRing score={info.row.original.health.score} size="sm" />,
+    header: () => (
+      <HintedText label={TERM_HINTS.customerScore} className="hinted-term">
+        Nota
+      </HintedText>
+    ),
+    cell: (info) => <CustomerScore score={info.row.original.health.score} />,
   }),
   columnHelper.accessor("name", {
     header: "Cliente",
@@ -284,7 +188,7 @@ function MobileCustomerRow({ row }: { row: RankedCustomer }) {
             {supplierSummary(row).text} · {formatCents(row.recentRevenueCents)} em 30 dias
           </p>
         </div>
-        <CustomerHealthBadges customer={row} />
+        <CustomerHealthBadges customer={row} withHints={false} />
       </div>
     </Link>
   );

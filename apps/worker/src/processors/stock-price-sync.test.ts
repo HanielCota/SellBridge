@@ -100,6 +100,7 @@ const sync = createStockPriceSyncProcessor({
   cipher,
   acquireRateLimit: async () => {},
   safetyUnits: 0,
+  showcaseUnits: 0,
 });
 
 describe("stock-price-sync processor", () => {
@@ -112,6 +113,7 @@ describe("stock-price-sync processor", () => {
       cipher,
       acquireRateLimit: async () => {},
       safetyUnits: 0,
+      showcaseUnits: 0,
       runBudgetMilliseconds: 0,
     });
     expect(await outOfTime()).toEqual({ synced: 0, failed: 0 });
@@ -191,6 +193,7 @@ describe("stock-price-sync processor", () => {
       cipher,
       acquireRateLimit: async () => {},
       safetyUnits: 0,
+      showcaseUnits: 0,
       runBudgetMilliseconds: 1_500,
       batchSize: 1,
     });

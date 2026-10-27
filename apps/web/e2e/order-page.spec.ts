@@ -1,18 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
-import {
-  organization,
-  orderItems,
-  orders,
-  storeConnections,
-  supplierProducts,
-} from "@sellbridge/database/schema";
+import { organization, orderItems, orders, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
+import { forwardableProduct } from "./catalog-fixtures";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const externalId = `E2E-PAGE-${randomUUID()}`;
 const deliveredId = `E2E-RATE-${randomUUID()}`;
 const lateId = `E2E-LATE-${randomUUID()}`;
@@ -38,7 +32,7 @@ async function insertOrder(order: SeedOrder): Promise<string> {
     .select()
     .from(storeConnections)
     .where(eq(storeConnections.tenantId, tenant.id));
-  const [product] = await database.select().from(supplierProducts).limit(1);
+  const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [created] = await database
     .insert(orders)

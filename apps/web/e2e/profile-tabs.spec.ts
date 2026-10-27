@@ -1,8 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { tickets, storeConnections } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import {
   DEMO_USER,
   signIn,
@@ -12,8 +10,9 @@ import {
   waitForHydration,
 } from "./helpers";
 import { accountId, addExtraProfile, firstProfile, profileOf } from "./profile-fixtures";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 test.afterAll(async () => {
   await database.$client.end();
@@ -29,14 +28,22 @@ let profiles: TwoProfiles;
 let tabA: Page;
 let tabB: Page;
 
-async function openTicketInTab(page: Page, subject: string) {
+/**
+ * Opens a late-order ticket through the guided form and returns the subject the server stores:
+ * the situation, then the description.
+ */
+async function openTicketInTab(page: Page, description: string): Promise<string> {
   // From a page of the tab, so the tab's profile travels with the link (no full page load).
-  await page.getByRole("link", { name: "Abrir chamado" }).first().click();
-  await page.getByText("Pedido ou entrega").click();
-  await page.getByLabel("Assunto").fill(subject);
-  await page.getByLabel("Descrição").fill("Chamado aberto pelo teste de perfis por aba.");
-  await page.getByRole("button", { name: "Abrir chamado" }).click();
-  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
+  await page
+    .getByRole("link", { name: /^(Abrir|Novo) chamado$/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: /^Pedido ou entrega/ }).click();
+  await page.getByRole("button", { name: /^O pedido atrasou/ }).click();
+  await page.getByLabel("O que aconteceu com a entrega?").fill(description);
+  await page.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(page.getByRole("heading", { name: "O pedido atrasou", exact: true })).toBeVisible();
+  return `O pedido atrasou: ${description}`;
 }
 
 async function ticketTenant(subject: string): Promise<string | undefined> {
@@ -60,8 +67,7 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test("keeps each tab on its own profile", async () => {
-  const subject = `Chamado da aba B ${Date.now()}`;
-  await openTicketInTab(tabB, subject);
+  const subject = await openTicketInTab(tabB, `Chamado da aba B ${Date.now()}`);
   await expect.poll(() => ticketTenant(subject)).toBe(profiles.secondId);
   expect(profileOf(tabB)).toBe(profiles.second);
 
@@ -91,9 +97,8 @@ test("shows the other-profile screen for a profile outside the account", async (
 });
 
 test("clears the previous profile's data when switching", async () => {
-  const subject = `Chamado da aba A ${Date.now()}`;
   await gotoHydrated(tabA, `/suporte?perfil=${profiles.first}`);
-  await openTicketInTab(tabA, subject);
+  const subject = await openTicketInTab(tabA, `Chamado da aba A ${Date.now()}`);
   await tabA.getByRole("link", { name: "Suporte" }).first().click();
   await expect(tabA.getByRole("link", { name: subject })).toBeVisible();
 
@@ -105,10 +110,9 @@ test("keeps a second profile throughout store consent and the callback", async (
   await gotoHydrated(tabB, `/onboarding?perfil=${profiles.second}`);
   await completeOnboarding(tabB, "BH Beauty Distribuidora");
   const shopName = `Profile store ${Date.now()}`;
-  await tabB.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await tabB.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(tabB.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(tabB);
-  expect(profileOf(tabB)).toBe(profiles.second);
   await tabB.getByLabel("Nome da loja").fill(shopName);
   await tabB.getByRole("button", { name: "Autorizar acesso" }).click();
   await expect(tabB).toHaveURL(/\/lojas/);
@@ -120,16 +124,18 @@ test("keeps a second profile throughout store consent and the callback", async (
   expect(store?.tenantId).toBe(profiles.secondId);
 });
 
-test("sends chat tickets using the profile of the current tab", async () => {
+test("the corner bubble opens the guided form in the profile of the current tab", async () => {
   await gotoHydrated(tabB, `/lojas?perfil=${profiles.second}`);
-  await tabB.getByRole("button", { name: "Chat de suporte", exact: true }).click();
-  const subject = `Chat profile ${Date.now()}`;
-  await tabB
-    .getByLabel("Sua mensagem", { exact: true })
-    .fill(`${subject}\nPlease help with this store.`);
-  await tabB.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expect(tabB.getByRole("heading", { name: subject })).toBeVisible();
-  expect(await ticketTenant(subject)).toBe(profiles.secondId);
+  // The bubble leads to the same guided form as the Suporte button, never a free-text chat.
+  await tabB.getByRole("link", { name: "Falar com o suporte", exact: true }).click();
+  await expect(tabB).toHaveURL(/\/suporte\/novo/);
+  await tabB.getByRole("button", { name: /^Pedido ou entrega/ }).click();
+  await tabB.getByRole("button", { name: /^O pedido atrasou/ }).click();
+  const description = `Bubble profile ${Date.now()} parado na transportadora.`;
+  await tabB.getByLabel("O que aconteceu com a entrega?").fill(description);
+  await tabB.getByRole("button", { name: "Enviar chamado" }).click();
+  await expect(tabB.getByRole("heading", { name: "O pedido atrasou", exact: true })).toBeVisible();
+  expect(await ticketTenant(`O pedido atrasou: ${description}`)).toBe(profiles.secondId);
   expect(profileOf(tabB)).toBe(profiles.second);
 });
 

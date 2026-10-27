@@ -1,12 +1,15 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { termsAcceptances, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
-import { gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
+import { e2eDatabase } from "./database";
+import { fillBillingAddress, gotoHydrated, pickSupplier, testCpf, uniqueEmail } from "./helpers";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
+
+test.afterAll(async () => {
+  await database.$client.end();
+});
 
 async function acceptedVersions(email: string): Promise<string[]> {
   const rows = await database
@@ -74,6 +77,7 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("11987654321");
   await expect(page.getByLabel("Telefone com DDD")).toHaveValue("(11) 98765-4321");
+  await fillBillingAddress(page);
   await page.getByLabel("Vendo como empresa (CNPJ)").check();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000182");
   await page.getByLabel("Razão social").fill("Revendedora Empresa Ltda");
@@ -81,9 +85,9 @@ test("os dados da conta guardam telefone e, para empresa, CNPJ e razão social",
   await expect(page.getByText("Confira o CNPJ: os dígitos não batem")).toBeVisible();
   await page.getByLabel("CNPJ", { exact: true }).fill("11222333000181");
   await page.getByRole("button", { name: "Continuar" }).click();
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   await pickSupplier(page, "BH Beauty Distribuidora");
-  await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
 
   await gotoHydrated(page, "/onboarding");

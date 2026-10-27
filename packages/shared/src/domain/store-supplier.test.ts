@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { storeSupplierRefusal, storeSupplierRefusalMessage } from "./store-supplier.ts";
+import {
+  catalogSourceRefusal,
+  storeSupplierRefusal,
+  storeSupplierRefusalMessage,
+} from "./store-supplier.ts";
 
 describe("storeSupplierRefusal", () => {
   it("accepts a product of the shop's supplier", () => {
@@ -17,5 +21,20 @@ describe("storeSupplierRefusal", () => {
   it("tells the seller what to do for each refusal", () => {
     expect(storeSupplierRefusalMessage("supplier_pending")).toMatch(/Escolha o fornecedor/);
     expect(storeSupplierRefusalMessage("other_supplier")).toMatch(/outro fornecedor/);
+  });
+});
+
+// MVP (coordinator decision, 2026-10-22): resellers sell only suppliers' products.
+describe("catalogSourceRefusal", () => {
+  it("accepts a supplier's product", () => {
+    expect(catalogSourceRefusal("supplier")).toBeNull();
+  });
+
+  // Review finding (function 1): the reseller reads this message, so it is plain language;
+  // the received and expected values go to the log instead.
+  it("refuses a reseller's own product in plain language", () => {
+    const message = catalogSourceRefusal("seller");
+    expect(message).toContain("só produtos de fornecedor");
+    expect(message).not.toMatch(/recebido|esperado/i);
   });
 });

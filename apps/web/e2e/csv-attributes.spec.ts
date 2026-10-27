@@ -1,8 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts, suppliers } from "@sellbridge/database/schema";
 import { and, eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import {
   ADMIN_USER,
   completeOnboarding,
@@ -12,13 +10,14 @@ import {
   signUp,
   waitForHydration,
 } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /*
  * Item 18: a product imported by CSV with brand, model and barcode publishes without a missing
  * attribute error. "[exige atributos]" makes the simulated marketplace refuse the listing
  * without BRAND, MODEL and GTIN, as a Mercado Livre category that requires them does.
  */
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const SUPPLIER = "BH Beauty Distribuidora";
 const RUN = Date.now();
 const SKU = `CSV-ATTR-${RUN}`;
@@ -57,7 +56,7 @@ async function importProductWithAttributes(page: Page) {
     `${SKU};${TITLE};Escova de cerdas macias para cabelos finos;19,90;8;Escova Bela;EB-10;7891234567895;350;6;12;25`,
   ].join("\n");
   await page
-    .getByLabel("Arquivo CSV (UTF-8)")
+    .getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx")
     .setInputFiles({ name: "atributos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByRole("button", { name: "Gerar prévia" }).click();
   await expect(
@@ -70,7 +69,7 @@ async function importProductWithAttributes(page: Page) {
 
 async function connectMockStore(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill(shopName);

@@ -1,11 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { supplierProducts } from "@sellbridge/database/schema";
 import { eq, sql } from "drizzle-orm";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
   "base64",
@@ -14,7 +13,32 @@ test.afterAll(async () => {
   await database.$client.end();
 });
 
-test("seller can start a product from the dashboard and read Portuguese product filters", async ({
+// MVP (function 1): the seller's own-product screens are hidden; data and server functions stay
+// for phase 2, so the screen tests below are skipped until the feature comes back.
+
+test("sellers land on the catalog and the product image routes stay closed to them", async ({
+  page,
+}) => {
+  await signUp(page, "Supplier Only Seller");
+  await gotoHydrated(page, "/products");
+  await expect(page).toHaveURL(/\/catalogo(?:\?|$)/);
+  await expect(
+    page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: "Meus produtos" }),
+  ).toHaveCount(0);
+  const denied = await page.request.post("/api/admin/product-images", {
+    multipart: { file: { name: "product.png", mimeType: "image/png", buffer: PIXEL_PNG } },
+  });
+  expect(denied.status()).toBe(403);
+  const csrf = await page.request.post("/api/products/images", {
+    headers: { origin: "https://untrusted.example" },
+    multipart: { file: { name: "product.png", mimeType: "image/png", buffer: PIXEL_PNG } },
+  });
+  expect(csrf.status()).toBe(403);
+});
+
+test.skip("seller can start a product from the dashboard and read Portuguese product filters", async ({
   page,
 }) => {
   await signUp(page, "Product navigation fixture");
@@ -69,7 +93,7 @@ async function createProduct(page: Page, sku: string) {
   return id;
 }
 
-test("seller drafts resume, preserve live stock, duplicate safely and archive", async ({
+test.skip("seller drafts resume, preserve live stock, duplicate safely and archive", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -104,7 +128,10 @@ test("seller drafts resume, preserve live stock, duplicate safely and archive", 
   await expect(page.getByLabel("Estoque total")).toHaveValue("0");
 });
 
-test("a second seller cannot see or modify another seller's product", async ({ page, browser }) => {
+test.skip("a second seller cannot see or modify another seller's product", async ({
+  page,
+  browser,
+}) => {
   test.setTimeout(120_000);
   await signUp(page, "First Private Seller");
   const sku = `ISOLATED-${Date.now()}`;
@@ -131,7 +158,7 @@ test("a second seller cannot see or modify another seller's product", async ({ p
   }
 });
 
-test("admin corrections require a reason and platform blocks survive owner edits", async ({
+test.skip("admin corrections require a reason and platform blocks survive owner edits", async ({
   page,
   browser,
 }) => {
@@ -181,7 +208,7 @@ test("admin corrections require a reason and platform blocks survive owner edits
   }
 });
 
-test("the product editor remains usable on a phone", async ({ page }, testInfo) => {
+test.skip("the product editor remains usable on a phone", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await signUp(page, "Mobile Product Customer");
@@ -196,7 +223,7 @@ test("the product editor remains usable on a phone", async ({ page }, testInfo) 
   });
 });
 
-test("unsaved product changes stay when leaving is cancelled", async ({ page }) => {
+test.skip("unsaved product changes stay when leaving is cancelled", async ({ page }) => {
   test.setTimeout(120_000);
   await signUp(page, "Unsaved Product Customer");
   await gotoHydrated(page, "/products");

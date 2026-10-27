@@ -20,7 +20,7 @@ function store(
     externalUrl: null,
     publishedAt: null,
     storeName: "Loja",
-    marketplace: "mock",
+    marketplace: "mercado_livre",
     ...overrides,
   };
 }
@@ -68,6 +68,12 @@ describe("summarizeListingStatus", () => {
 });
 
 describe("presentListing", () => {
+  it("omits retired simulated targets from the public API", () => {
+    const dto = presentListing(listing([store("published", { marketplace: "mock" })]));
+    expect(dto.targets).toEqual([]);
+    expect(dto.targetCounts.published).toBe(0);
+  });
+
   it("maps each store to a target with ISO dates", () => {
     const live = store("published", {
       externalUrl: "https://example.com/item",
@@ -86,7 +92,7 @@ describe("presentListing", () => {
       {
         storeId: "store-published",
         storeName: "Loja",
-        marketplace: "mock",
+        marketplace: "mercado_livre",
         status: "published",
         externalUrl: "https://example.com/item",
         errorReason: null,

@@ -1,6 +1,10 @@
 import type { TicketSummary } from "@sellbridge/database/repositories";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { ticketsSearchSchema, type TicketsSearch } from "@sellbridge/shared/schemas";
+import {
+  ticketsSearchSchema,
+  type TicketCategory,
+  type TicketsSearch,
+} from "@sellbridge/shared/schemas";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { HeadsetIcon, PlusIcon } from "@phosphor-icons/react";
@@ -10,15 +14,18 @@ import { PaginationBar } from "@/components/data/pagination-bar";
 import { SearchInput } from "@/components/data/search-input";
 import { TicketCategoryLabel, UnreadDot } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
+import { CUSTOMER_TICKET_STATUS_LABELS } from "@/features/support/customer-ticket-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { TicketStatusFilter } from "@/components/support/ticket-status-filter";
+import { SupportAreaTabs } from "@/components/supplier-support/support-area-tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { myTicketsQueryOptions } from "@/features/support/support.queries";
-import { responseTargetText } from "@/features/support/response-time";
+import { supportHoursText } from "@/features/support/response-time";
 import { noTicketsDescription } from "@/features/support/support-copy";
+import { useNow } from "@/hooks/use-now";
 import { useUrlSearchQuery } from "@/hooks/use-url-search-query";
 import { AUTO_CLOSE_AFTER_DAYS } from "@sellbridge/shared/ticket-rules";
 import { errorMessage } from "@/lib/errors";
@@ -44,8 +51,22 @@ function TicketSubject({ ticket }: { ticket: TicketSummary }) {
       >
         {ticket.subject}
       </Link>
-      <TicketCategoryLabel category={ticket.category} className="block" />
+      <AccountTopicLabel category={ticket.category} className="block" />
     </div>
+  );
+}
+
+/** The topic in the words this account saw when opening the ticket. */
+function AccountTopicLabel({
+  category,
+  className,
+}: {
+  category: TicketCategory;
+  className?: string | undefined;
+}) {
+  const { session } = Route.useRouteContext();
+  return (
+    <TicketCategoryLabel category={category} kind={session.profileKind} className={className} />
   );
 }
 
@@ -54,7 +75,7 @@ function TicketState({ ticket }: { ticket: TicketSummary }) {
   if (ticket.hasUnread) {
     return <UnreadDot />;
   }
-  return <TicketStatusBadge status={ticket.status} />;
+  return <TicketStatusBadge status={ticket.status} labels={CUSTOMER_TICKET_STATUS_LABELS} />;
 }
 
 const columns = columnHelper.columns([
@@ -82,26 +103,31 @@ function MobileTicketRow({ row }: { row: TicketSummary }) {
         <TicketState ticket={row} />
       </div>
       <p className="text-xs text-muted-foreground">
-        <TicketCategoryLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
+        <AccountTopicLabel category={row.category} /> · <SmartDate date={row.updatedAt} />
       </p>
     </Link>
   );
 }
 
 function SupportHeader() {
+  const now = useNow();
+  const { session } = Route.useRouteContext();
   return (
-    <PageHeader
-      title="Suporte"
-      description={`${responseTargetText("normal")}. Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
-      actions={
-        <Button asChild>
-          <Link to="/suporte/novo">
-            <PlusIcon aria-hidden="true" />
-            Novo chamado
-          </Link>
-        </Button>
-      }
-    />
+    <>
+      <PageHeader
+        title="Suporte"
+        description={`${supportHoursText(now)} Chamados respondidos ficam abertos por ${AUTO_CLOSE_AFTER_DAYS} dias esperando seu retorno.`}
+        actions={
+          <Button asChild>
+            <Link to="/suporte/novo">
+              <PlusIcon aria-hidden="true" />
+              Novo chamado
+            </Link>
+          </Button>
+        }
+      />
+      <SupportAreaTabs current="platform" kind={session.profileKind} />
+    </>
   );
 }
 
@@ -173,6 +199,35 @@ function TicketsTable({ tickets, onPageChange }: TicketsTableProps) {
   );
 }
 
+function TicketFilters({
+  term,
+  onTermChange,
+  status,
+  onStatusChange,
+}: {
+  term: string;
+  onTermChange: (term: string) => void;
+  status: TicketsSearch["status"];
+  onStatusChange: (status: TicketsSearch["status"]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <SearchInput
+        label="Buscar chamados"
+        placeholder="Buscar pelo assunto"
+        className="flex-1"
+        value={term}
+        onValueChange={onTermChange}
+      />
+      <TicketStatusFilter
+        labels={CUSTOMER_TICKET_STATUS_LABELS}
+        value={status}
+        onChange={onStatusChange}
+      />
+    </div>
+  );
+}
+
 function SupportPage() {
   const { session } = Route.useRouteContext();
   const search = Route.useSearch();
@@ -211,19 +266,12 @@ function SupportPage() {
     <>
       <SupportHeader />
       {isEmpty && !isFiltered ? null : (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <SearchInput
-            label="Buscar chamados"
-            placeholder="Buscar pelo assunto"
-            className="flex-1"
-            value={term}
-            onValueChange={setTerm}
-          />
-          <TicketStatusFilter
-            value={search.status}
-            onChange={(status) => updateSearch({ status })}
-          />
-        </div>
+        <TicketFilters
+          term={term}
+          onTermChange={setTerm}
+          status={search.status}
+          onStatusChange={(status) => updateSearch({ status })}
+        />
       )}
       {isEmpty ? (
         <NoTickets

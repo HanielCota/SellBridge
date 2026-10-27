@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { user } from "../schema/index.ts";
+import { organization, user } from "../schema/index.ts";
 import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
 import {
   addTicketMessage,
@@ -11,7 +11,6 @@ import {
   countUnreadSupportReplies,
   findTicketForMessage,
   getAttachment,
-  getSupportMetrics,
   getTicketThread,
   listStaffTickets,
   listTenantTickets,
@@ -104,6 +103,31 @@ async function staffQueue(queue: "unassigned" | "mine" | "overdue" | "all", now:
 }
 
 describe("support tickets", () => {
+  it("keeps the assistant's answer for the team only, before the customer's message", async () => {
+    const now = new Date();
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "listing",
+      subject: `Anúncio parado · ${RUN}`,
+      body: "O anúncio do tênis foi pausado ontem.",
+      attachments: [],
+      assistantNote: "Por que um anúncio fica pausado\n1. Abra Publicações.",
+      now,
+    });
+    const customer = await getTicketThread(database, ticketId, tenantA);
+    expect(customer.messages.map((message) => message.body)).toEqual([
+      "O anúncio do tênis foi pausado ontem.",
+    ]);
+    const staff = await getTicketThread(database, ticketId, null);
+    expect(staff.messages.map((message) => [message.isAdmin, message.isInternal])).toEqual([
+      [false, true],
+      [false, false],
+    ]);
+    expect(staff.ticket.firstResponseAt).toBeNull();
+    expect(await countUnreadSupportReplies(database, tenantA, reseller)).toBe(0);
+  });
+
   it("creates a ticket with attachment and keeps it inside the tenant", async () => {
     const { ticketId } = await createTicket(database, {
       tenantId: tenantA,
@@ -154,6 +178,32 @@ describe("support tickets", () => {
     await expect(
       closeTicketForCustomer(database, { ticketId, tenantId: tenantB, userId: otherReseller }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("delivers the reseller's message to both sides with each author's photo", async () => {
+    const photo = `/api/avatars/${reseller}.webp`;
+    await database.update(user).set({ image: photo }).where(eq(user.id, reseller));
+    try {
+      const ticketId = await openTicket("Foto no chamado");
+      await reply(ticketId);
+
+      const resellerThread = await getTicketThread(database, ticketId, tenantA);
+      const staffThread = await getTicketThread(database, ticketId, null);
+      for (const thread of [resellerThread, staffThread]) {
+        expect(
+          thread.messages.map(({ body, isAdmin, authorImage }) => ({ body, isAdmin, authorImage })),
+        ).toEqual([
+          {
+            body: "Descrição do problema com detalhes suficientes.",
+            isAdmin: false,
+            authorImage: photo,
+          },
+          { body: "Resposta do suporte.", isAdmin: true, authorImage: null },
+        ]);
+      }
+    } finally {
+      await database.update(user).set({ image: null }).where(eq(user.id, reseller));
+    }
   });
 
   it("moves status between answered, open and closed and keeps the history", async () => {
@@ -272,6 +322,83 @@ describe("support queues and response deadlines", () => {
     expect(await staffQueue("overdue", at(13))).toContain(ticketId);
   });
 
+  it("lists the most overdue ticket first, by deadline rather than by how long it waited", async () => {
+    const low = await openTicket("Baixa esperando muito", at(100));
+    await setTicketPriority(database, {
+      ticketId: low,
+      priority: "low",
+      actorId: agent,
+      now: at(100),
+    });
+    const urgent = await openTicket("Urgente atrasado", at(140));
+    await setTicketPriority(database, {
+      ticketId: urgent,
+      priority: "urgent",
+      actorId: agent,
+      now: at(140),
+    });
+    // At 150h the low one waited 50h but is 2h late (48h target); the urgent one waited 10h
+    // and is 8h late (2h target).
+    const queue = await staffQueue("overdue", at(150));
+    expect(queue).toContain(urgent);
+    expect(queue.indexOf(urgent)).toBeLessThan(queue.indexOf(low));
+  });
+
+  it("finds a ticket by words the customer wrote past the subject's excerpt", async () => {
+    const code = `rastreio-${RUN}-zz`;
+    const { ticketId } = await createTicket(database, {
+      tenantId: tenantA,
+      userId: reseller,
+      category: "order",
+      subject: "O pedido atrasou: Comprei faz 10 dias e o pedido ainda não chegou",
+      body: `Comprei faz 10 dias e o pedido ainda não chegou, o rastreio parou. Código ${code}.`,
+      attachments: [],
+    });
+    const page = await listStaffTickets(
+      database,
+      { queue: "all", viewerId: agent, now: new Date(), search: code },
+      PAGE,
+    );
+    expect(page.items.map((item) => item.id)).toEqual([ticketId]);
+  });
+
+  it("tells the team whether a ticket comes from a supplier or a reseller", async () => {
+    await database
+      .update(organization)
+      .set({ kind: "supplier" })
+      .where(eq(organization.id, tenantB));
+    try {
+      const { ticketId: fromSupplier } = await createTicket(database, {
+        tenantId: tenantB,
+        userId: otherReseller,
+        category: "order",
+        subject: `Pedido encaminhado: endereço incompleto · ${RUN}`,
+        body: "O pedido chegou sem número da casa e não consigo despachar.",
+        attachments: [],
+      });
+      const fromReseller = await openTicket("Pedido do revendedor");
+      expect((await getTicketThread(database, fromSupplier, null)).ticket.tenantKind).toBe(
+        "supplier",
+      );
+      expect((await getTicketThread(database, fromReseller, null)).ticket.tenantKind).toBe(
+        "seller",
+      );
+      const page = await listStaffTickets(
+        database,
+        { queue: "all", viewerId: agent, now: new Date(), search: RUN },
+        PAGE,
+      );
+      const kinds = new Map(page.items.map((item) => [item.id, item.tenantKind]));
+      expect(kinds.get(fromSupplier)).toBe("supplier");
+      expect(kinds.get(fromReseller)).toBe("seller");
+    } finally {
+      await database
+        .update(organization)
+        .set({ kind: "seller" })
+        .where(eq(organization.id, tenantB));
+    }
+  });
+
   it("only hands tickets to the support team", async () => {
     const ticketId = await openTicket("Atribuição");
     const self = { ticketId, actorId: agent, mayAssignOthers: false };
@@ -319,6 +446,19 @@ describe("support queues and response deadlines", () => {
     await database.update(user).set({ role: "user" }).where(eq(user.id, teammate));
     try {
       expect(await staffQueue("unassigned", new Date())).toContain(ticketId);
+      // The screens show it unassigned too, so an agent gets "Assumir chamado" instead of a
+      // former member's name inside the "Sem responsável" queue.
+      const thread = await getTicketThread(database, ticketId, null);
+      expect(thread.ticket).toMatchObject({ assigneeId: null, assigneeName: null });
+      const queue = await listStaffTickets(
+        database,
+        { queue: "unassigned", viewerId: agent, now: new Date(), search: RUN },
+        PAGE,
+      );
+      expect(queue.items.find((item) => item.id === ticketId)).toMatchObject({
+        assigneeId: null,
+        assigneeName: null,
+      });
       await assignTicket(database, {
         ticketId,
         assigneeId: agent,
@@ -403,12 +543,15 @@ describe("unread replies", () => {
       attachments: [],
     });
     const staffThread = await getTicketThread(database, ticketId, null);
+    const internalNote = staffThread.messages.find((message) => message.isInternal);
+    if (internalNote === undefined)
+      throw new Error("Expected an internal note in the staff thread");
     await expect(
       markTicketRead(database, {
         ticketId,
         userId: reseller,
         tenantId: tenantA,
-        lastMessageId: staffThread.messages.at(-1)?.id ?? "",
+        lastMessageId: internalNote.id,
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
@@ -485,50 +628,6 @@ describe("closing and rating", () => {
       toValue: "closed",
     });
     expect((await getTicketThread(database, waiting, null)).ticket.status).toBe("open");
-  });
-});
-
-describe("support metrics", () => {
-  it("keeps a rating in the metrics after the ticket is reopened", async () => {
-    const ticketId = await openTicket("Nota que não pode sumir", at(2000));
-    await reply(ticketId, at(2001));
-    await closeTicketForCustomer(database, {
-      ticketId,
-      tenantId: tenantA,
-      userId: reseller,
-      now: at(2002),
-    });
-    await rateTicket(database, {
-      ticketId,
-      tenantId: tenantA,
-      userId: reseller,
-      rating: 1,
-      now: at(2003),
-    });
-    const before = await getSupportMetrics(database, { since: at(1999), now: at(2004) });
-
-    await setTicketStatus(database, { ticketId, status: "open", actorId: agent, now: at(2004) });
-    await setTicketStatus(database, { ticketId, status: "closed", actorId: agent, now: at(2005) });
-
-    const after = await getSupportMetrics(database, { since: at(1999), now: at(2006) });
-    expect(after.ratings).toBe(before.ratings);
-    expect(after.averageRating).toBe(before.averageRating);
-    expect(after.byAgent.find((row) => row.agentId === agent)?.averageRating).not.toBeNull();
-  });
-
-  it("measures first replies against the target and lists the team", async () => {
-    const onTime = await openTicket("Métrica no prazo", at(1000));
-    await reply(onTime, at(1001));
-    const late = await openTicket("Métrica atrasada", at(1000));
-    await reply(late, at(1030));
-
-    const metrics = await getSupportMetrics(database, { since: at(999), now: at(1031) });
-    expect(metrics.opened).toBeGreaterThanOrEqual(2);
-    expect(metrics.withinTargetRate).not.toBeNull();
-    expect(metrics.averageFirstResponseMinutes).not.toBeNull();
-    expect(metrics.byCategory.find((row) => row.category === "order")?.total).toBeGreaterThan(0);
-    const agentRow = metrics.byAgent.find((row) => row.agentId === agent);
-    expect(agentRow?.replies).toBeGreaterThanOrEqual(2);
   });
 });
 

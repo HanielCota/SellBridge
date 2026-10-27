@@ -1,41 +1,24 @@
 import { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
-import { createMockConnector } from "./mock/mock-connector.ts";
 import type { MarketplaceConnector, MarketplaceId } from "./types.ts";
 import { createUnavailableConnector } from "./unavailable-connector.ts";
 
 export interface ConnectorRegistryConfig {
-  appUrl: string;
-  /** Without it the simulated store is unavailable (e.g. production with real marketplaces only). */
-  mockWebhookSecret?: string | undefined;
-  mockLatencyMilliseconds?: number;
   mercadoLivre?: { clientId: string | undefined; clientSecret: string | undefined };
 }
 
 export type ConnectorRegistry = Record<MarketplaceId, MarketplaceConnector>;
 
 export const MARKETPLACE_LABELS: Record<MarketplaceId, string> = {
-  mock: "Loja simulada",
+  mock: "Integração descontinuada",
   mercado_livre: "Mercado Livre",
   shopee: "Shopee",
   tiktok_shop: "TikTok Shop",
 };
 
-function createMockOrUnavailableConnector(config: ConnectorRegistryConfig): MarketplaceConnector {
-  if (config.mockWebhookSecret === undefined) {
-    return createUnavailableConnector("mock", MARKETPLACE_LABELS.mock);
-  }
-  return createMockConnector({
-    appUrl: config.appUrl,
-    webhookSecret: config.mockWebhookSecret,
-    ...(config.mockLatencyMilliseconds === undefined
-      ? {}
-      : { latencyMilliseconds: config.mockLatencyMilliseconds }),
-  });
-}
-
 export function createConnectorRegistry(config: ConnectorRegistryConfig): ConnectorRegistry {
   return {
-    mock: createMockOrUnavailableConnector(config),
+    // Historical rows retain this enum value; no executable adapter remains.
+    mock: createUnavailableConnector("mock", MARKETPLACE_LABELS.mock),
     mercado_livre: createMercadoLivreConnector({
       clientId: config.mercadoLivre?.clientId,
       clientSecret: config.mercadoLivre?.clientSecret,

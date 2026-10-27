@@ -5,12 +5,12 @@ import {
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
-import { createDatabase } from "@sellbridge/database/client";
 import { DESCRIPTION_AUTOMATIC_ATTEMPTS } from "@sellbridge/database/repositories";
 import { listings, listingTargets, supplierProducts, suppliers } from "@sellbridge/database/schema";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, gt, like } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
 import { completeOnboarding, gotoHydrated, signUp, waitForHydration } from "./helpers";
+import { e2eDatabase } from "./database";
 
 /** Worker round trip (queue + mocked marketplace latency) before a status settles. */
 const STATUS_TIMEOUT = 20_000;
@@ -30,7 +30,7 @@ async function onboardWithBhBeauty(page: Page) {
 async function connectMockStore(page: Page, shopName: string) {
   await gotoHydrated(page, "/lojas");
   await expect(page.getByText("Nenhuma loja conectada").filter({ visible: true })).toBeVisible();
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
 
   // The consent page arrives through a server redirect, i.e. a full page load.
   await expect(page.getByRole("heading", { name: "Autorizar o SellBridge" })).toBeVisible();
@@ -88,7 +88,7 @@ test("conecta loja simulada, publica produto e acompanha o status", async ({ pag
   await page.getByRole("button", { name: "Ações de Produto publicado pelo teste E2E" }).click();
   await expect(page.getByRole("menuitem", { name: /^Loja E2E/ })).toHaveAttribute(
     "href",
-    /\/oauth\/mock\/anuncio\//,
+    /\/__e2e\/listing\//,
   );
 });
 
@@ -254,7 +254,7 @@ async function requestDescriptionSync(): Promise<void> {
 }
 
 async function exhaustDescriptionRetries(title: string): Promise<void> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     await requestDescriptionSync();
     await expect
@@ -276,7 +276,7 @@ async function exhaustDescriptionRetries(title: string): Promise<void> {
 }
 
 async function repairDescription(title: string): Promise<void> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     await database
       .update(listings)
@@ -287,9 +287,32 @@ async function repairDescription(title: string): Promise<void> {
   }
 }
 
+/** A BH Beauty product with stock: what the publish form opens for. */
+async function inStockProductId(): Promise<string> {
+  const database = e2eDatabase();
+  try {
+    const [row] = await database
+      .select({ id: supplierProducts.id })
+      .from(supplierProducts)
+      .innerJoin(suppliers, eq(suppliers.id, supplierProducts.supplierId))
+      .where(
+        and(
+          like(suppliers.name, "BH Beauty%"),
+          eq(supplierProducts.active, true),
+          gt(supplierProducts.stock, 0),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new Error("Seed sem produto da BH Beauty com estoque");
+    return row.id;
+  } finally {
+    await database.$client.end();
+  }
+}
+
 /** A BH Beauty product the supplier has none of: the server must refuse to publish it. */
 async function outOfStockProductId(): Promise<string> {
-  const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+  const database = e2eDatabase();
   try {
     const [row] = await database
       .select({ id: supplierProducts.id })
@@ -325,7 +348,15 @@ test("recusa no servidor publicar um produto sem estoque", async ({ page }) => {
 test("publicar sem lojas conectadas leva à conexão de loja", async ({ page }) => {
   await signUp(page, "Revendedor Sem Loja");
   await onboardWithBhBeauty(page);
-  await openPublishFormForFirstProduct(page);
+  // No store sells BH Beauty yet: the supplier page disables "Publicar" and says why.
+  await gotoHydrated(page, "/fornecedores");
+  await page.getByRole("link", { name: "BH Beauty Distribuidora" }).click();
+  await expect(
+    page.getByText("Para publicar, escolha este fornecedor para uma das suas lojas."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publicar" }).first()).toBeDisabled();
+  // An old link to the publish form still points to connecting a store.
+  await gotoHydrated(page, `/publicacoes/nova?productId=${await inStockProductId()}`);
   await expect(
     page.getByText("Conecte uma loja antes de publicar").filter({ visible: true }),
   ).toBeVisible();

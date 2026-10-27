@@ -70,7 +70,8 @@ export function availableUnits(stock: number, reserved: number): number {
 /**
  * Units offered on the marketplaces: what is sellable minus a safety margin, so a shelf count
  * that lags behind reality does not turn into a sale nobody can ship. Mirrors `liveStock` in
- * the database package.
+ * the database package. The real units: what is sent adds the Shopee showcase on top
+ * (`marketplaceUnits`), and SellBridge screens show these.
  */
 export function offeredUnits(stock: number, reserved: number, safetyUnits: number): number {
   return Math.max(0, availableUnits(stock, reserved) - safetyMargin(safetyUnits));

@@ -26,11 +26,32 @@ export const ADMIN_ACTIONS = [
   "issue_snoozed",
   "issue_unsnoozed",
   "team_invited",
+  "contact_blocked",
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
 function isAdminAction(action: string): action is AdminAction {
   return ADMIN_ACTIONS.some((known) => known === action);
+}
+
+const CONTACT_KIND_LABELS: Readonly<Record<string, string>> = {
+  phone: "telefone",
+  email: "e-mail",
+  link: "link de contato",
+  social: "rede social",
+};
+
+/** "telefone e e-mail", from the comma list the blocked-contact audit stores. */
+export function contactKindsLabel(details: AdminEventDetails | null): string {
+  const kinds = typeof details?.kinds === "string" ? details.kinds.split(",") : [];
+  const labels = kinds.flatMap((kind) => {
+    const label = CONTACT_KIND_LABELS[kind];
+    return label === undefined ? [] : [label];
+  });
+  if (labels.length === 0) {
+    return "um contato";
+  }
+  return new Intl.ListFormat("pt-BR", { type: "conjunction" }).format(labels);
 }
 
 function issueLabel(details: AdminEventDetails | null): string {
@@ -61,7 +82,7 @@ export const IMPERSONATED_ACTION_COPY: Readonly<Record<string, string>> = {
   closeMyTicket: "encerrou um chamado",
   rateMyTicket: "avaliou um chamado",
   saveOnboardingSupplier: "escolheu o fornecedor inicial",
-  saveOnboardingProductSources: "alterou a origem dos produtos",
+  saveOnboardingProductSources: "alterou o fornecedor do cadastro",
   // Routes outside the server functions, named "area.action".
   "support.createTicket": "abriu um chamado",
   "support.reply": "respondeu um chamado",
@@ -74,8 +95,16 @@ function impersonatedActionLabel(details: AdminEventDetails | null): string {
   return label ?? "fez uma alteração";
 }
 
+/** "Entrou como o fornecedor pelo chamado #6CFB95": who was entered and, for the team, why. */
+function visitLabel(details: AdminEventDetails | null): string {
+  const who = details?.profileKind === "supplier" ? "o fornecedor" : "o cliente";
+  const ticket = details?.ticketCode;
+  const reason = typeof ticket === "string" ? ` pelo chamado #${ticket}` : "";
+  return `Entrou como ${who}${reason}`;
+}
+
 const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => string> = {
-  impersonated: () => "Entrou como o cliente",
+  impersonated: (details) => visitLabel(details),
   impersonation_ended: () => "Saiu da conta do cliente",
   acted_as_customer: (details) => `Como o cliente: ${impersonatedActionLabel(details)}`,
   email_changed: () => "Trocou o e-mail (aguarda confirmação)",
@@ -107,6 +136,8 @@ const ACTION_COPY: Record<AdminAction, (details: AdminEventDetails | null) => st
       ? `Reenviou o convite para a equipe${as}`
       : `Convidou para a equipe${as}`;
   },
+  // Not the team's doing: the customer tried to send a contact and the server refused it.
+  contact_blocked: (details) => `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`,
 };
 
 /** One line of the customer's timeline, in the admin's words. */

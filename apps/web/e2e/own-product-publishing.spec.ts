@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+
+// MVP (function 1): the seller's own-product screens are hidden; data and server functions stay
+// for phase 2, so these screen tests are skipped until the feature comes back.
+test.skip(true, "Own products are hidden from sellers in the MVP (phase 2).");
 import { fillBillingHolder, gotoHydrated, signUp, waitForHydration } from "./helpers";
 
 const TITLE = "Seller-owned cotton accessory";
@@ -37,7 +41,7 @@ test("seller-owned product publishes and archives through a supplier-free store"
   await page.getByRole("radio", { name: /^Meus próprios produtos/ }).check();
   await page.getByRole("button", { name: "Salvar origem dos produtos", exact: true }).click();
   await expect(page).toHaveURL(/\/lojas(?:\?|$)/);
-  await page.getByRole("link", { name: "Conectar Loja simulada" }).click();
+  await page.getByRole("link", { name: "Conectar Mercado Livre" }).click();
   await waitForHydration(page);
   await page.getByLabel("Nome da loja").fill("Own Publishing Store");
   await page.getByRole("button", { name: "Autorizar acesso" }).click();

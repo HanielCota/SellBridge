@@ -1,10 +1,6 @@
 import { formatCents } from "@sellbridge/shared/money";
-import { Link, type LinkProps } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import { profitMargin } from "@/features/reports/dashboard-insights";
-import { ACTION_ICONS } from "@/components/icons/action-icons";
-import { Hint } from "@/components/ui/hint";
-import { displayStoreName } from "@/features/stores/store-name";
+import { BreakdownSection } from "@/components/reports/breakdown-section";
 import { formatPercent } from "@/lib/percent";
 
 interface StoreRow {
@@ -20,44 +16,6 @@ interface ProductRow {
   title: string;
   units: number;
   revenueCents: number;
-}
-
-const SeeAllIcon = ACTION_ICONS.seeAll.icon;
-
-function BreakdownSection({
-  title,
-  to,
-  hint,
-  children,
-}: {
-  title: string;
-  to: NonNullable<LinkProps["to"]>;
-  /** Tooltip naming where "Ver tudo" leads. */
-  hint: string;
-  children: ReactNode;
-}) {
-  // The link's hit area is stretched over the whole card (`after:inset-0`), so a click anywhere
-  // opens the full view while screen readers still hear one short link, not every row.
-  return (
-    <section className="group surface-interactive flex h-full flex-col rounded-3xl bg-card p-5 has-[a:focus-visible]:ring-[3px] has-[a:focus-visible]:ring-ring/50">
-      <div className="-my-1 flex h-8 items-center justify-between gap-3">
-        <h2 className="text-subhead font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-          {title}
-        </h2>
-        <Hint label={hint} openOnTap={false}>
-          <Link
-            to={to}
-            aria-label={`Ver tudo em ${title.toLowerCase()}`}
-            className="-mr-1.5 flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors group-hover:bg-foreground group-hover:text-background outline-none after:absolute after:inset-0"
-          >
-            <span aria-hidden="true">Ver tudo</span>
-            <SeeAllIcon className="size-3.5" weight="bold" aria-hidden="true" />
-          </Link>
-        </Hint>
-      </div>
-      <div className="mt-5 flex flex-1 flex-col">{children}</div>
-    </section>
-  );
 }
 
 function EmptyRows() {
@@ -77,7 +35,7 @@ function marginText(store: StoreRow): string {
 
 function StoreShare({ store, totalRevenue }: { store: StoreRow; totalRevenue: number }) {
   const share = totalRevenue > 0 ? store.revenueCents / totalRevenue : 0;
-  const name = displayStoreName(store.storeName);
+  const name = store.storeName;
   return (
     <li className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 text-sm">

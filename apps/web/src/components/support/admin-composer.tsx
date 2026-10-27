@@ -1,11 +1,5 @@
 import type { TicketStatus } from "@sellbridge/shared/schemas";
-import {
-  CaretDownIcon,
-  CircleNotchIcon,
-  LightningIcon,
-  LockOpenIcon,
-  LockSimpleIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon, CircleNotchIcon } from "@phosphor-icons/react";
 import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { submitHandler } from "@/components/form/form-bindings";
 import { FormErrorAlert } from "@/components/form/form-feedback";
@@ -16,7 +10,6 @@ import {
   COMPOSER_TEXTAREA_CLASS,
   COMPOSER_TOOLBAR_CLASS,
   FileError,
-  IconAction,
   submitOnModEnter,
   useComposerFiles,
 } from "@/components/support/composer-parts";
@@ -31,9 +24,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ComposerModeSwitch, type ComposerMode } from "@/components/support/composer-mode-switch";
+import { TemplateMenu } from "@/components/support/template-menu";
+import { ClosedNotice } from "@/components/support/closed-notice";
 import {
-  REPLY_TEMPLATES,
   fillTemplate,
   insertAt,
   type ReplyTemplate,
@@ -43,11 +37,11 @@ import { postMultipart } from "@/features/support/upload";
 import { errorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-export type ComposerMode = "reply" | "note";
+export type { ComposerMode };
 
 /** Lets the thread push text (a quote) into the composer at the admin's caret. */
 export interface ComposerHandle {
-  insert: (text: string, mode?: ComposerMode) => void;
+  insert: (text: string) => void;
 }
 
 const MAX_BODY_LENGTH = 5000;
@@ -56,7 +50,7 @@ const COUNTER_THRESHOLD = 4000;
 const MIN_BODY_LENGTH: Record<ComposerMode, number> = { reply: 10, note: 2 };
 
 const SEND_OPTIONS: readonly { value: TicketStatus; menuLabel: string; buttonLabel: string }[] = [
-  { value: "answered", menuLabel: "Enviar e marcar respondido", buttonLabel: "Enviar" },
+  { value: "answered", menuLabel: "Enviar e marcar respondido", buttonLabel: "Enviar ao cliente" },
   { value: "open", menuLabel: "Enviar e manter aguardando", buttonLabel: "Enviar e aguardar" },
   { value: "closed", menuLabel: "Enviar e encerrar", buttonLabel: "Enviar e encerrar" },
 ];
@@ -66,6 +60,8 @@ const countFormatter = new Intl.NumberFormat("pt-BR");
 interface AdminComposerProps {
   ticketId: string;
   isClosed: boolean;
+  /** Ready answers that fit who opened the ticket (see `replyTemplatesFor`). */
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   isChangingStatus: boolean;
   onChangeStatus: (status: "open" | "closed") => void;
@@ -160,50 +156,6 @@ function useComposerState() {
 
 type ComposerState = ReturnType<typeof useComposerState>[0];
 
-function TemplateMenu({
-  context,
-  onPick,
-}: {
-  context: TemplateContext;
-  onPick: (template: ReplyTemplate) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Respostas prontas"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LightningIcon aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Respostas prontas</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent align="start" className="w-80">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Respostas prontas
-        </DropdownMenuLabel>
-        {REPLY_TEMPLATES.map((template) => (
-          <DropdownMenuItem
-            key={template.id}
-            className="flex-col items-start gap-0.5"
-            onSelect={() => onPick(template)}
-          >
-            <span className="font-medium text-foreground">{template.label}</span>
-            <span className="line-clamp-1 text-xs">{fillTemplate(template.body, context)}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function SendOptionsMenu({
   state,
   disabled,
@@ -246,10 +198,7 @@ function SendOptionsMenu({
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onCloseWithoutReply}>
-          <LockSimpleIcon aria-hidden="true" />
-          Encerrar sem responder
-        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onCloseWithoutReply}>Encerrar sem responder</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -315,11 +264,13 @@ function CharacterCount({ length }: { length: number }) {
 
 function ComposerToolbar({
   state,
+  templates,
   templateContext,
   isSending,
   onCloseWithoutReply,
 }: {
   state: ComposerState;
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   isSending: boolean;
   onCloseWithoutReply: () => void;
@@ -335,21 +286,10 @@ function ComposerToolbar({
 
   return (
     <div className={COMPOSER_TOOLBAR_CLASS}>
-      <TemplateMenu context={templateContext} onPick={pickTemplate} />
+      {isNote ? null : (
+        <TemplateMenu templates={templates} context={templateContext} onPick={pickTemplate} />
+      )}
       <AttachmentButton onAdd={state.addFiles} />
-      <IconAction
-        label={isNote ? "Voltar a responder o cliente" : "Nota interna"}
-        pressed={isNote}
-        className={cn(isNote && "bg-amber-500/15 text-amber-600 dark:text-amber-400")}
-        onClick={() => state.setMode(isNote ? "reply" : "note")}
-      >
-        <LockSimpleIcon aria-hidden="true" />
-      </IconAction>
-      {isNote ? (
-        <span className="ml-1.5 truncate text-xs text-amber-700 dark:text-amber-400">
-          Nota interna · só a equipe vê
-        </span>
-      ) : null}
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <CharacterCount length={state.body.length} />
         <SendButton state={state} isSending={isSending} onCloseWithoutReply={onCloseWithoutReply} />
@@ -383,38 +323,6 @@ function ComposerTextarea({
       onKeyUp={state.rememberSelection}
       onKeyDown={(event) => submitOnModEnter(event, onSubmitShortcut)}
     />
-  );
-}
-
-function ClosedNotice({
-  isChangingStatus,
-  onReopen,
-  onWriteNote,
-}: {
-  isChangingStatus: boolean;
-  onReopen: () => void;
-  onWriteNote: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed px-5 py-4">
-      <p className="text-sm text-muted-foreground">Chamado encerrado. Reabra para responder.</p>
-      <div className="flex gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onWriteNote}>
-          <LockSimpleIcon aria-hidden="true" />
-          Nota interna
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isChangingStatus}
-          onClick={onReopen}
-        >
-          <LockOpenIcon aria-hidden="true" />
-          Reabrir chamado
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -470,12 +378,14 @@ function useComposerSubmit(
 function ComposerBox({
   state,
   textareaRef,
+  templates,
   templateContext,
   submission,
   onCloseWithoutReply,
 }: {
   state: ComposerState;
   textareaRef: Ref<HTMLTextAreaElement>;
+  templates: readonly ReplyTemplate[];
   templateContext: TemplateContext;
   submission: ReturnType<typeof useComposerSubmit>;
   onCloseWithoutReply: () => void;
@@ -493,6 +403,7 @@ function ComposerBox({
         )}
         onSubmit={submitHandler(submission.submit)}
       >
+        <ComposerModeSwitch mode={state.mode} onChange={state.setMode} />
         <ComposerTextarea
           state={state}
           textareaRef={textareaRef}
@@ -506,6 +417,7 @@ function ComposerBox({
         <AttachedFiles files={state.files} onRemove={state.removeFile} />
         <ComposerToolbar
           state={state}
+          templates={templates}
           templateContext={templateContext}
           isSending={submission.isSending}
           onCloseWithoutReply={onCloseWithoutReply}
@@ -524,6 +436,7 @@ function ComposerBox({
 export function AdminComposer({
   ticketId,
   isClosed,
+  templates,
   templateContext,
   isChangingStatus,
   onChangeStatus,
@@ -534,9 +447,10 @@ export function AdminComposer({
   const submission = useComposerSubmit(ticketId, state, onSent);
 
   useImperativeHandle(ref, () => ({
-    insert: (text, mode) => {
-      if (mode) {
-        state.setMode(mode);
+    insert: (text) => {
+      // A closed ticket only takes notes; the quote went into the hidden reply box before.
+      if (isClosed) {
+        state.setMode("note");
       }
       state.insert(text);
     },
@@ -555,6 +469,7 @@ export function AdminComposer({
     <ComposerBox
       state={state}
       textareaRef={textareaRef}
+      templates={templates}
       templateContext={templateContext}
       submission={submission}
       onCloseWithoutReply={() => onChangeStatus("closed")}

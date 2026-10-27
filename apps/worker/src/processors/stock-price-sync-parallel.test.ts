@@ -101,6 +101,7 @@ describe("stock-price-sync per store", () => {
       cipher,
       acquireRateLimit: async () => {},
       safetyUnits: 0,
+      showcaseUnits: 0,
     });
     await sync();
 

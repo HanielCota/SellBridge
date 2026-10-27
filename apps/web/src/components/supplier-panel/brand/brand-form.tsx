@@ -14,6 +14,7 @@ import {
   updateOwnBrandFn,
 } from "@/features/supplier-panel/brand/brand.functions";
 import { errorMessage } from "@/lib/errors";
+import { TERM_HINTS } from "@/components/icons/action-icons";
 
 type BrandValues = ReturnType<typeof brandFormValues>;
 
@@ -120,6 +121,7 @@ export function BrandForm({ brand, loginEmail, onSaved }: BrandFormProps) {
               <TextareaField
                 id="brand-description"
                 label="Descrição"
+                hint={TERM_HINTS.brandDescription}
                 value={values.description}
                 maxLength={10_000}
                 errors={errors.description ?? []}

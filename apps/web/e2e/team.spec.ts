@@ -1,12 +1,11 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { requireEnvironmentVariable } from "./environment";
 import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp, uniqueEmail } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 test.afterAll(async () => {
   await database.$client.end();
@@ -24,6 +23,12 @@ test("o dono convida uma pessoa para a equipe já com o cargo", async ({ page })
 
   await page.getByRole("button", { name: "Convidar pessoa" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Convidar para a equipe" });
+  // Audit the settled dialog: axe can freeze its opening fade partway through a snapshot.
+  await dialog.evaluate(async (element) => {
+    await Promise.allSettled(
+      element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+    );
+  });
   expect(
     (await new AxeBuilder({ page }).include("[role=dialog]").analyze()).violations.map(
       (item) => item.id,

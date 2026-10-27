@@ -30,6 +30,12 @@ export const orders = pgTable(
     totalCents: integer().notNull(),
     marketplaceFeeCents: integer().notNull().default(0),
     buyerName: text(),
+    /**
+     * The buyer's shipping address the marketplace sent with the order, encrypted with the token
+     * key (`sealShippingAddress` in @sellbridge/marketplaces). Only the reseller's forward form
+     * opens it; never logged, exported or sent to integrators.
+     */
+    shippingAddressEnc: text(),
     orderedAt: timestamp({ withTimezone: true }).notNull(),
     /**
      * When the order was first seen as delivered: the marketplaces don't send a delivery date.

@@ -3,7 +3,10 @@ import {
   storeSupplierRefusal,
   storeSupplierRefusalMessage,
 } from "@sellbridge/shared/store-supplier";
-import { STORE_SUPPLIER_CHANGED_MESSAGE } from "@sellbridge/shared/store-supplier";
+import {
+  catalogSourceRefusal,
+  STORE_SUPPLIER_CHANGED_MESSAGE,
+} from "@sellbridge/shared/store-supplier";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
@@ -172,12 +175,17 @@ export async function assertStoresSellSupplier(
   storeConnectionIds: readonly string[],
   supplierId: string,
 ): Promise<void> {
-  if (storeConnectionIds.length === 0) {
-    return;
-  }
   const source = await executor.query.suppliers.findFirst({ where: eq(suppliers.id, supplierId) });
-  if (source?.catalogKind === "seller") {
-    if (source.ownerTenantId !== tenantId) throw notFoundError("Origem do produto não encontrada.");
+  if (source?.catalogKind === "seller" && source.ownerTenantId !== tenantId) {
+    throw notFoundError("Origem do produto não encontrada.");
+  }
+  // MVP (coordinator decision, 2026-10-22): own products take no new publication, checked
+  // before the store list so an empty list cannot skip it.
+  const sourceRefusal = source === undefined ? null : catalogSourceRefusal(source.catalogKind);
+  if (sourceRefusal !== null) {
+    throw conflictError(sourceRefusal);
+  }
+  if (storeConnectionIds.length === 0) {
     return;
   }
   const stores = await executor

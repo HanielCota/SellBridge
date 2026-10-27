@@ -20,6 +20,8 @@ import { TextareaField } from "@/components/form/textarea-field";
 import { TONE_DOT_CLASSES, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/errors";
+import { contactWarning } from "@/features/fulfillment/contact-warning";
+import { dispatchFieldsFor } from "@/features/fulfillment/dispatch-fields";
 import { printShipment } from "@/features/fulfillment/print-shipment";
 import {
   FULFILLMENT_TONES,
@@ -32,6 +34,8 @@ import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-h
 import { Field } from "./shipment-field";
 export { Field } from "./shipment-field";
 import { OwnShipmentActions } from "./own-shipment-actions";
+import { OrderMessages } from "./order-messages";
+import { splitShipmentEvents } from "@/features/fulfillment/order-messages";
 
 export interface ShipmentView {
   catalogKind?: "seller" | "supplier";
@@ -99,7 +103,10 @@ export function ShipmentPanel({
           actsAs={actsAs}
         />
       )}
-      <ShipmentHistory shipment={shipment} />
+      {shipment.catalogKind === "seller" ? null : (
+        <OrderMessages shipment={shipment} reader={actsAs} canWrite={!closed} onUpdate={onUpdate} />
+      )}
+      <ShipmentHistory shipment={shipment} reader={actsAs} />
     </section>
   );
 }
@@ -137,7 +144,7 @@ function ShipmentToolbar({
             >
               <ShipmentActionIcon action="printOrder" />
               {shipment.catalogKind === "seller"
-                ? "Print packing list"
+                ? "Imprimir lista de separação"
                 : "Imprimir ordem de fornecimento"}
             </Button>
           </ShipmentActionHint>
@@ -180,7 +187,24 @@ function DispatchFields({ update }: { update: ShipmentUpdate }) {
   );
 }
 
-const EMPTY_OCCURRENCE = "Escreva a ocorrência antes de registrar";
+/**
+ * The note that goes with the next step or the cancel: a contact in it never leaves the form.
+ * Talking to the other side is in "Mensagens do pedido".
+ */
+function useStepNote(update: ShipmentUpdate) {
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const contactInNote = contactWarning(update.note);
+  // A contact is pointed out when leaving the field or sending, not on every key: a long order
+  // number looks like a phone until it is typed in full.
+  const sendWithNote = (status: FulfillmentStatus) => {
+    if (contactInNote !== null) {
+      setNoteError(contactInNote);
+      return;
+    }
+    update.mutation.mutate({ status, note: update.note });
+  };
+  return { noteError, setNoteError, contactInNote, sendWithNote };
+}
 
 function ShipmentActions({
   update,
@@ -193,16 +217,9 @@ function ShipmentActions({
   next: FulfillmentStatus | null;
   actsAs: ShipmentOperator;
 }) {
-  const [noteError, setNoteError] = useState<string | null>(null);
+  const { noteError, setNoteError, contactInNote, sendWithNote } = useStepNote(update);
   const pending = update.mutation.isPending;
   const operator = actsAs;
-  const registerOccurrence = () => {
-    if (!update.note.trim()) {
-      setNoteError(EMPTY_OCCURRENCE);
-      return;
-    }
-    update.mutation.mutate({ status: shipment.status, note: update.note });
-  };
   return (
     <div className="space-y-3">
       {/* Shipped, seen by the supplier: say who confirms the delivery instead of offering it. */}
@@ -211,9 +228,10 @@ function ShipmentActions({
       ) : null}
       {next === "shipped" ? <DispatchFields update={update} /> : null}
       <Field
-        label="Ocorrência ou observação"
+        label="Observação da etapa (opcional)"
         value={update.note}
         error={noteError}
+        onBlur={() => setNoteError(contactInNote)}
         onChange={(value) => {
           update.setNote(value);
           setNoteError(null);
@@ -225,15 +243,9 @@ function ShipmentActions({
             next={next}
             operator={operator}
             disabled={pending}
-            onAdvance={() => update.mutation.mutate({ status: next, note: update.note })}
+            onAdvance={() => sendWithNote(next)}
           />
         ) : null}
-        <ShipmentActionHint action="occurrence" operator={operator}>
-          <Button variant="outline" disabled={pending} onClick={registerOccurrence}>
-            <ShipmentActionIcon action="occurrence" />
-            Registrar ocorrência
-          </Button>
-        </ShipmentActionHint>
         {DISPATCHED_FULFILLMENT_STATUSES.includes(shipment.status) ? null : (
           <CancelShipment update={update} supplierName={shipment.supplierName} actsAs={actsAs} />
         )}
@@ -352,9 +364,11 @@ function useShipmentUpdate(
       const parsed = shipmentUpdateSchema.safeParse({
         shipmentId: shipment.id,
         status: change.status,
-        carrier,
-        trackingCode,
-        trackingUrl,
+        ...dispatchFieldsFor(shipment.status, change.status, {
+          carrier,
+          trackingCode,
+          trackingUrl,
+        }),
         note: change.note,
       });
       if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Confira os dados");
@@ -436,12 +450,22 @@ function ShipmentSummary({ shipment }: { shipment: ShipmentView }) {
   );
 }
 
-/** Newest first on a rail, like the customer timeline: each step in its status color. */
-function ShipmentHistory({ shipment }: { shipment: ShipmentView }) {
+/**
+ * Newest first on a rail, like the customer timeline: each step in its status color. Messages
+ * live in "Mensagens do pedido", so no note shows twice.
+ */
+function ShipmentHistory({
+  shipment,
+  reader,
+}: {
+  shipment: ShipmentView;
+  reader: ShipmentOperator;
+}) {
+  const { steps } = splitShipmentEvents(shipment.events, reader);
   return (
     <div className="border-t pt-4">
       <DotTimeline label="Histórico do envio">
-        {shipmentTimeline(shipment.events).map((event) => (
+        {shipmentTimeline(steps).map((event) => (
           <DotTimelineItem
             key={event.id}
             dotClassName={TONE_DOT_CLASSES[FULFILLMENT_TONES[event.status]]}

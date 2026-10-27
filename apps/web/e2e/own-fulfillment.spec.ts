@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { ensureSellerCatalog, upsertStoreConnection } from "@sellbridge/database/repositories";
 import {
   member,
@@ -13,10 +12,10 @@ import {
 } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { testStoreInput } from "../../../packages/database/src/testing/fixtures";
-import { requireEnvironmentVariable } from "./environment";
 import { gotoHydrated, signUp } from "./helpers";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const externalId = `OWN-FUL-${randomUUID()}`;
 let tenantId = "";
 let sourceId = "";
@@ -122,7 +121,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     await dialog.getByLabel(label, { exact: true }).fill(value);
   }
   await expect(dialog.getByText("Você envia este item")).toBeVisible();
-  await dialog.getByRole("button", { name: "Prepare shipments", exact: true }).click();
+  await dialog.getByRole("button", { name: "Preparar envios", exact: true }).click();
   const own = dialog
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Seu envio", exact: true }) });
@@ -160,7 +159,7 @@ test("mixed parcels separate access and let the owner stop, restart and ship the
     fullPage: true,
   });
   const popupPromise = page.waitForEvent("popup");
-  await own.getByRole("button", { name: "Print packing list", exact: true }).click();
+  await own.getByRole("button", { name: "Imprimir lista de separação", exact: true }).click();
   const popup = await popupPromise;
   await expect(popup.getByRole("heading", { name: "Lista de separação" })).toBeVisible();
   await expect(popup.getByText("Private packing item", { exact: true })).toBeVisible();

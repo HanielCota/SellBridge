@@ -1,21 +1,14 @@
 import { formatCents } from "@sellbridge/shared/money";
 import {
-  ChartLineUpIcon,
-  ChatCircleTextIcon,
   type Icon,
   MagnifyingGlassIcon,
   MegaphoneIcon,
   PackageIcon,
   PlugIcon,
-  PlugsConnectedIcon,
   PlusCircleIcon,
   ReceiptIcon,
-  SquaresFourIcon,
-  StorefrontIcon,
-  UserCircleIcon,
-  WalletIcon,
 } from "@phosphor-icons/react";
-import { type LinkProps, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Command } from "cmdk";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
@@ -24,52 +17,7 @@ import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { searchResultHref } from "@/features/search/search-targets";
 import { matchesCommand } from "@/features/navigation/command-matching";
-
-interface PageCommand {
-  label: string;
-  to: NonNullable<LinkProps["to"]>;
-  icon: Icon;
-  keywords: string;
-}
-
-const PAGES: PageCommand[] = [
-  {
-    label: "Meus produtos",
-    to: "/products",
-    icon: PackageIcon,
-    keywords: "cadastrar cadastro criar editar estoque sku próprios",
-  },
-  {
-    label: "Meu cadastro",
-    to: "/onboarding",
-    icon: UserCircleIcon,
-    keywords: "onboarding dados cpf editar origem produtos fornecedor",
-  },
-  {
-    label: "Visão geral",
-    to: "/dashboard",
-    icon: ChartLineUpIcon,
-    keywords: "painel vendas lucro",
-  },
-  {
-    label: "Catálogo",
-    to: "/catalogo",
-    icon: SquaresFourIcon,
-    keywords: "produtos fornecedores publicar",
-  },
-  { label: "Publicações", to: "/publicacoes", icon: MegaphoneIcon, keywords: "anúncios" },
-  { label: "Pedidos", to: "/pedidos", icon: ReceiptIcon, keywords: "vendas envio etiqueta" },
-  { label: "Lojas", to: "/lojas", icon: StorefrontIcon, keywords: "marketplace conectar" },
-  { label: "Financeiro", to: "/financeiro", icon: WalletIcon, keywords: "pedidos lucro csv" },
-  {
-    label: "Integrações",
-    to: "/integracoes",
-    icon: PlugsConnectedIcon,
-    keywords: "api chave token webhook erp desenvolvedor",
-  },
-  { label: "Meu perfil", to: "/perfil", icon: UserCircleIcon, keywords: "foto conta" },
-  { label: "Ajuda e suporte", to: "/suporte", icon: ChatCircleTextIcon, keywords: "chamado ajuda" },
-];
+import { PAGE_COMMANDS } from "@/features/navigation/command-pages";
 
 interface ActionCommand {
   label: string;
@@ -228,7 +176,9 @@ function SearchButton({ onClick }: { onClick: () => void }) {
 /** Pages and actions, both matched locally against the term before the remote results. */
 function QuickCommands({ term, go }: { term: string; go: (href: string) => void }) {
   const trimmed = term.trim();
-  const pages = trimmed ? PAGES.filter((page) => matchesCommand(page, trimmed)) : PAGES;
+  const pages = trimmed
+    ? PAGE_COMMANDS.filter((page) => matchesCommand(page, trimmed))
+    : PAGE_COMMANDS;
   const actions = trimmed ? ACTIONS.filter((action) => matchesCommand(action, trimmed)) : ACTIONS;
   return (
     <>

@@ -13,3 +13,9 @@ export function usePanelSupplierId(): string {
   }
   return supplier.id;
 }
+
+/** Whether the panel's supplier is still on: false after the team switched it off (3rd flag). */
+export function usePanelSupplierActive(): boolean {
+  const { supplier } = panelRoute.useLoaderData();
+  return supplier?.active ?? true;
+}

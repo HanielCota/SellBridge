@@ -1,10 +1,10 @@
 import { expect, type Page } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 
 /** Marks the account's e-mail as confirmed, as opening the link sent on sign-up would. */
 export async function confirmEmail(email: string): Promise<void> {
@@ -124,11 +124,23 @@ export function testCpf(): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-/** First onboarding step: full name, a fresh CPF and the phone of the billing holder. */
+/** The billing address of the first onboarding step, typed by hand (no CEP lookup yet). */
+export async function fillBillingAddress(page: Page) {
+  await page.getByLabel("CEP").fill("01310100");
+  await page.getByLabel("Rua").fill("Avenida Paulista");
+  await page.getByLabel("Número").fill("1578");
+  await page.getByLabel("Bairro").fill("Bela Vista");
+  await page.getByLabel("Estado").click();
+  await page.getByRole("option", { name: "São Paulo" }).click();
+  await page.getByLabel("Cidade").fill("São Paulo");
+}
+
+/** First onboarding step: full name, a fresh CPF, the phone and the billing address. */
 export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
   await page.getByLabel("Nome completo").fill(fullName);
   await page.getByLabel("CPF").fill(testCpf());
   await page.getByLabel("Telefone com DDD").fill("(11) 98765-4321");
+  await fillBillingAddress(page);
   await page.getByRole("button", { name: "Continuar" }).click();
 }
 
@@ -151,9 +163,9 @@ export async function completeOnboarding(
   supplierName = "BH Beauty Distribuidora",
 ): Promise<void> {
   await fillBillingHolder(page);
-  await expect(page.getByText("Etapa 2 de 2 · Origem dos produtos")).toBeVisible();
+  await expect(page.getByText("Etapa 2 de 2 · Fornecedor")).toBeVisible();
   await pickSupplier(page, supplierName);
-  await page.getByRole("button", { name: "Salvar origem dos produtos" }).click();
+  await page.getByRole("button", { name: "Salvar fornecedor" }).click();
 }
 
 /** Turns on admin mode from the profile menu (team accounts only; it is off by default). */

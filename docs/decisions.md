@@ -644,3 +644,76 @@ O formulário de chamado pedia tema, assunto e descrição livres, e o cliente n
 - Anexos: cada arquivo é avaliado sozinho (um arquivo ruim não recusa o lote), com motivo em português simples, miniatura sem corte, colar e arrastar print. Vale também para a resposta do chamado.
 
 Fica para a fase 2: seletor de itens com busca (hoje o item vem pelo atalho da tela do pedido, loja ou anúncio), rascunho salvo, diagnóstico e aviso de chamado duplicado, coluna `situation` e tema `catalog` (migração), horário comercial com feriados, 4 status para o cliente com as 3 ações de envio do admin, tela de confirmação, linha do tempo, avaliação 👍/👎, reabrir em Y dias, resumo do cliente e filtros no admin, métricas do funil, botão fixo no rodapé do celular e o texto "Minha loja conectada" com o nome do marketplace quando o cliente pedir.
+
+## 2026-10-21: Chamado na visão do cliente (estados e veredito)
+
+Uma linha de status cobre as situações que os 3 status escondem: esperando, atrasado, respondido (com a data do encerramento automático), encerrado por alguém e encerrado por falta de resposta. A promessa é sempre "Respondemos em até 1 dia útil": a meta da equipe conta horas corridas, e um horário prometido à noite seria quebrado de manhã; quando a meta passa, a página admite o atraso em vez de mostrar uma hora no passado. "Não" envia "Ainda não resolveu." na hora e devolve o chamado à fila, porque só preencher a caixa deixava o chamado respondido, e ele fechava sozinho em 7 dias com o cliente achando que tinha avisado. "Sim, resolveu" tem 5 s para desfazer. Painel lateral e respostas rápidas saem da visão do cliente.
+
+## 2026-10-22: Só produtos de fornecedores (PR #97)
+
+O revendedor vende só produtos de fornecedores. Sai "Meus produtos" do revendedor, com bloqueio também no servidor. Nada é apagado, e os anúncios antigos continuam sincronizando.
+
+## 2026-10-22: Um fornecedor por loja (PR #96)
+
+Cada loja tem um fornecedor. O catálogo mostra só o fornecedor da loja escolhida; uma loja sem fornecedor mostra o catálogo vazio com um aviso. O diretório `/fornecedores` continua aberto para escolher ou trocar o fornecedor. O botão "Publicar" fica desativado quando o fornecedor não pertence a nenhuma loja da conta.
+
+## 2026-10-22: Comentário da avaliação do fornecedor só para a moderação (PR #84)
+
+O comentário da avaliação do fornecedor é lido só pela moderação (admin e supervisor), na página `/admin/avaliacoes`. A nota e os motivos continuam contando na pontuação. O autor exporta o próprio comentário (direito de acesso da LGPD).
+
+## 2026-10-22: Suporte entra na conta do cliente (PR #85)
+
+- Atendente e supervisor só entram com chamado aberto; um chamado reaberto pela equipe não conta.
+- O admin entra em qualquer conta.
+- Ninguém entra em conta da equipe.
+- A visita ao fornecedor abre no painel dele, e as ações sensíveis ficam bloqueadas.
+
+## 2026-10-22: Horário do suporte (PR #89)
+
+O horário exibido é todos os dias, das 8h às 18h, horário de Brasília. Fora do horário aparece um aviso, mas o chamado continua podendo ser aberto.
+
+## 2026-10-22: Vitrine da Shopee (PR #90)
+
+O sistema envia 1.000 unidades fixas (configurável em `SHOPEE_SHOWCASE_UNITS`) mais as unidades reais, e envia 0 quando as reais acabam. Fica inerte até existir o conector da Shopee. Pedido acima do estoque fica com o suporte.
+
+## 2026-10-22: Proibido trocar contato entre revendedor e fornecedor (PRs #87 e #92)
+
+Telefone, e-mail, WhatsApp e redes sociais são recusados no servidor em instruções, endereço, ocorrências, rastreio, mensagens do pedido, marca, produtos e planilha. Cada tentativa vai para a auditoria, sem o texto.
+
+## 2026-10-22: Mensagens do pedido entre revendedor e fornecedor (PR #94)
+
+- O revendedor recebe sino e e-mail; o fornecedor recebe só e-mail, sem o texto.
+- No máximo 1 e-mail a cada 15 minutos por envio e por autor, com um aviso no fim da janela.
+- Não é gerado link novo para fornecedor que só tem o link.
+
+## 2026-10-22: Flags manuais do fornecedor (PR #91)
+
+Motivos fixos, validade de 90 dias, contador "X de 3", contestação por chamado e nenhuma punição automática. A rota `/admin/fornecedores/:id/flags` fica aberta a toda a equipe; só admin e supervisor aplicam ou retiram.
+
+## 2026-10-22: Regras de ouro e terceira flag (PR #108)
+
+Cinco regras de ouro do fornecedor (`@sellbridge/shared/supplier-golden-rules`); cada motivo de flag aponta a regra que quebra ("Outro" não tem regra). Três flags e fora: a flag que seria a 3ª ativa de um fornecedor ativo pede confirmação a quem aplica e, confirmada, desativa o fornecedor pelo mesmo mecanismo da ficha (`setAdminSupplierActive`, que pausa os anúncios), na mesma transação. Nada acontece sozinho; só um administrador reativa.
+
+## 2026-10-22: Lugares fixos para novidades no sino (PR #93)
+
+O sino reserva 5 lugares fixos para novidades quando os problemas abertos lotam o sino.
+
+## 2026-10-22: Fica para a fase 2 (reunião do MVP)
+
+Nota fiscal e Bling, endereço completo do revendedor, conector da Shopee, IA no suporte, vídeo, rastreio público, flags automáticas, prazo do suporte contado em horário comercial, sino do fornecedor, tela de envios da equipe e anexos nas mensagens.
+
+## 2026-10-25: Desempenho do suporte
+
+A página `/admin/chamados/metricas` passa a se chamar "Desempenho do suporte". O acesso fica dentro de Chamados, com o seletor "Fila · Desempenho", e não ganha aba própria no menu: o modo admin já tem 12 abas. As regras de medição ficam em `@sellbridge/shared/support-performance`, testadas:
+
+- **Quem resolveu** é o autor da última resposta pública da equipe antes do encerramento, contando só respostas depois do encerramento anterior. Isso vale também no encerramento automático. Reabrir e fechar de novo sem resposta nova não credita ninguém. A nota vai para quem resolveu o encerramento avaliado.
+- **Voltou** quando o chamado é reaberto em até 7 dias, ou quando o mesmo cliente abre o mesmo tema e situação sobre a mesma loja, anúncio ou pedido. Sem referência em comum não conta, porque pode ser outro pedido.
+- **"Sem reabrir" só conta encerramentos com mais de 7 dias**, que já tiveram a janela inteira para voltar.
+- **A comparação é justa**: o "sem reabrir" de cada pessoa é comparado com o que a equipe consegue na mesma mistura de assuntos, considerando só os encerramentos feitos por alguém da equipe.
+- **"No prazo" da equipe** inclui os chamados nunca respondidos cujo prazo já passou.
+- **Taxa de avaliação** = notas de encerramentos do período ÷ encerramentos do período, nunca acima de 100%.
+- **O período usa dias inteiros de Brasília**: "7 dias" vai de hoje até seis dias atrás, a partir da meia-noite, e a primeira semana começa no primeiro dia do período.
+- **Tempos** usam a mediana, em horas corridas, igual ao prazo.
+- **Amostra mínima de 5**: vale para resolvidos, para cada taxa da pessoa, para o "Melhor resultado" e para "Precisa de treino em". Abaixo disso, não há cor nem julgamento.
+- **Em experiência** marca atendentes e supervisores com menos de 90 dias, contados a partir de `user.createdAt`. Administradores nunca ficam em experiência.
+- O chamado guarda a situação escolhida no formulário guiado (`tickets.situation_id`).

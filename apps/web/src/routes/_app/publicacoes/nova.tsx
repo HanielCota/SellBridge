@@ -40,7 +40,6 @@ import {
   wholeMarginPercent,
 } from "@/features/listings/profit";
 import { feeScheduleQueryOptions, useFeeSchedule } from "@/features/reports/fee-schedule.queries";
-import { displayStoreName } from "@/features/stores/store-name";
 import { errorMessage } from "@/lib/errors";
 import { prefetchOnServer } from "@/lib/prefetch";
 import { cn } from "@/lib/utils";
@@ -79,9 +78,10 @@ function ProductBackLink({
   return (
     <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
       {product.catalogKind === "seller" ? (
-        <Link to="/products" search={{ product: product.id }}>
+        // Own products left the seller menu in the MVP; their old listings still open here.
+        <Link to="/catalogo">
           <ArrowLeftIcon aria-hidden="true" />
-          Meus produtos
+          Catálogo
         </Link>
       ) : (
         <Link to="/fornecedores/$supplierId" params={{ supplierId: product.supplierId }}>
@@ -109,7 +109,16 @@ function NewListingPage() {
     return <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />;
   }
 
-  const { product, stores, hasOtherStores } = query.data;
+  const { product, stores, hasOtherStores, ownProductClosed } = query.data;
+  if (ownProductClosed) {
+    return (
+      <>
+        <ProductBackLink product={product} />
+        <PageHeader title="Nova publicação" />
+        <OwnProductClosedState />
+      </>
+    );
+  }
   return (
     <>
       <ProductBackLink product={product} />
@@ -144,6 +153,22 @@ function NewListingPage() {
         <ListingForm product={product} stores={stores} />
       )}
     </>
+  );
+}
+
+/** MVP (2026-10-22): an own product opened by URL or an old link is refused before the form. */
+function OwnProductClosedState() {
+  return (
+    <EmptyState
+      icon={StorefrontIcon}
+      title="Produtos próprios não podem mais ser publicados"
+      description="Agora o SellBridge vende só produtos de fornecedor. Os anúncios que você já tem continuam no ar."
+      action={
+        <Button asChild>
+          <Link to="/catalogo">Ir ao Catálogo</Link>
+        </Button>
+      }
+    />
   );
 }
 
@@ -599,23 +624,6 @@ function PriceField({
   );
 }
 
-function storeSubtitle(store: ListingStore): string | null {
-  return displayStoreName(store.shopName) === store.shopName
-    ? null
-    : "Loja simulada · pedidos de teste";
-}
-
-/** Under the store name: that it already sells the product, or what kind of store it is. */
-function StoreNote({ listed, subtitle }: { listed: boolean; subtitle: string | null }) {
-  if (listed) {
-    return <ToneStatus tone="success" label="Já publicado aqui" />;
-  }
-  if (subtitle === null) {
-    return null;
-  }
-  return <span className="block text-xs text-muted-foreground">{subtitle}</span>;
-}
-
 function StoreOption({
   store,
   checked,
@@ -625,7 +633,6 @@ function StoreOption({
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
 }) {
-  const subtitle = storeSubtitle(store);
   return (
     <Label
       htmlFor={`store-${store.id}`}
@@ -638,9 +645,9 @@ function StoreOption({
       <MarketplaceMark marketplace={store.marketplace} className="size-9 rounded-lg" />
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate font-medium", store.listed && "text-muted-foreground")}>
-          {displayStoreName(store.shopName)}
+          {store.shopName}
         </span>
-        <StoreNote listed={store.listed} subtitle={subtitle} />
+        {store.listed ? <ToneStatus tone="success" label="Já publicado aqui" /> : null}
       </span>
       <Checkbox
         id={`store-${store.id}`}
@@ -733,7 +740,7 @@ function ListingSidebar({
 function publishSummary(selected: readonly ListingStore[]): string {
   const [only] = selected;
   if (selected.length === 1 && only) {
-    return `Vai para ${displayStoreName(only.shopName)}`;
+    return `Vai para ${only.shopName}`;
   }
   if (selected.length === 0) {
     return "Escolha ao menos uma loja";

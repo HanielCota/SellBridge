@@ -17,10 +17,22 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { productListableColumn, sellableOnMarketplace } from "./sql/sellable.ts";
+import { listingCoversCostColumn, listingSellable, productListableColumn } from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
-import { listUnreadSupportReplies } from "./support.ts";
+import {
+  orderMessageEvents,
+  supportReplyEvents,
+  type OrderMessageEvent,
+  type SupportReplyEvent,
+} from "./notification-reply-events.ts";
+
+import {
+  supplierConversationEvents,
+  type SupplierConversationEvent,
+} from "./notification-conversation-events.ts";
+
+export type { OrderMessageEvent, SupportReplyEvent, SupplierConversationEvent };
 
 const WINDOW_DAYS = 14;
 const PER_KIND = 10;
@@ -67,11 +79,6 @@ export interface StoreProblemEvent extends EventBase {
   storeName: string;
 }
 
-export interface SupportReplyEvent extends EventBase {
-  kind: "support_reply";
-  subject: string;
-}
-
 /** Delivered orders whose supplier the reseller has not reviewed yet, as a single entry. */
 export interface ReviewPendingEvent extends EventBase {
   kind: "review_pending";
@@ -109,6 +116,8 @@ export type NotificationEvent =
   | ListingErrorEvent
   | StoreProblemEvent
   | SupportReplyEvent
+  | OrderMessageEvent
+  | SupplierConversationEvent
   | ReviewPendingEvent
   | StockShortageEvent
   | ShipmentCancelledEvent
@@ -306,6 +315,7 @@ async function listingUnavailableEvents(
       at: lastChange,
       productActive: productListableColumn(),
       supplierActive: suppliers.active,
+      priceCoversCost: listingCoversCostColumn(),
     })
     .from(listings)
     .innerJoin(supplierProducts, eq(supplierProducts.id, listings.supplierProductId))
@@ -313,14 +323,14 @@ async function listingUnavailableEvents(
     .where(
       and(
         eq(listings.tenantId, tenantId),
-        sql`not ${sellableOnMarketplace()}`,
+        sql`not ${listingSellable()}`,
         sql`${lastChange} is not null`,
       ),
     )
     .orderBy(desc(lastChange))
     .limit(PER_KIND);
-  return rows.flatMap(({ productActive, supplierActive, ...row }) => {
-    const reason = unavailableReason({ productActive, supplierActive });
+  return rows.flatMap(({ productActive, supplierActive, priceCoversCost, ...row }) => {
+    const reason = unavailableReason({ productActive, supplierActive, priceCoversCost });
     return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
   });
 }
@@ -366,19 +376,6 @@ async function storeProblemEvents(
 }
 
 /** Tickets with a support reply this user has not opened yet: opening the thread clears it. */
-async function supportReplyEvents(
-  database: Database,
-  reader: NotificationReader,
-): Promise<SupportReplyEvent[]> {
-  const rows = await listUnreadSupportReplies(database, reader.tenantId, reader.userId, PER_KIND);
-  return rows.map((row) => ({
-    kind: "support_reply" as const,
-    entityId: row.ticketId,
-    subject: row.subject,
-    at: row.repliedAt,
-  }));
-}
-
 async function reviewPendingEvents(
   database: Database,
   tenantId: string,
@@ -433,6 +430,8 @@ export async function listNotificationEvents(
     listingErrors,
     stores,
     support,
+    messages,
+    conversations,
     reviews,
     read,
   ] = await Promise.all([
@@ -443,7 +442,9 @@ export async function listNotificationEvents(
     listingUnavailableEvents(database, input.tenantId),
     listingErrorEvents(database, input.tenantId),
     storeProblemEvents(database, input.tenantId),
-    supportReplyEvents(database, input),
+    supportReplyEvents(database, input, PER_KIND),
+    orderMessageEvents(database, { tenantId: input.tenantId, since: since(), limit: PER_KIND }),
+    supplierConversationEvents(database, input, PER_KIND),
     reviewPendingEvents(database, input.tenantId, input.reviewableSince),
     readState(database, input),
   ]);
@@ -456,6 +457,8 @@ export async function listNotificationEvents(
     ...listingErrors,
     ...stores,
     ...support,
+    ...messages,
+    ...conversations,
     ...reviews,
   ];
   const { clearedAt } = read;

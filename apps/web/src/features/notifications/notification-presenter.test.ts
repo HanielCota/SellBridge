@@ -17,10 +17,19 @@ describe("presentNotification", () => {
       kind: "listing_unavailable",
     });
     expect(notification.title).toBe("Anúncio pausado: Moletom canguru - Rosa");
-    expect(notification.detail).toBe(
-      "Este produto está indisponível. Os anúncios ficam pausados até ele estar disponível novamente e você reativá-los.",
-    );
+    expect(notification.detail).toBe("Produto indisponível no fornecedor.");
     expect(notification.href).toBe("/publicacoes?query=Moletom%20canguru%20-%20Rosa");
+  });
+
+  it("keeps the fix in the bell line when the cost passed the price", () => {
+    const notification = presentNotification({
+      kind: "listing_unavailable",
+      entityId: "listing-5",
+      at,
+      listingTitle: "Moletom canguru - Rosa",
+      reason: "cost_above_price",
+    });
+    expect(notification.detail).toBe("Custo subiu. Aumente o preço para vender.");
   });
 
   it("tells the reseller which order is short and what to do about it", () => {
@@ -107,7 +116,7 @@ describe("presentNotification", () => {
       at,
       externalOrderId: "MOCK ORD/1",
       totalCents: 4990,
-      storeName: "Ana Moda (loja simulada)",
+      storeName: "Ana Moda",
       product: null,
     });
     expect(notification).toMatchObject({ id: "sale:order-1", kind: "sale", at });
@@ -129,7 +138,7 @@ describe("presentNotification", () => {
       at,
       externalOrderId: "MOCK-2",
       totalCents: 12590,
-      storeName: "Ana Moda (loja simulada)",
+      storeName: "Ana Moda",
       product,
     });
     expect(notification.detail).toBe("Moletom canguru - Rosa · Ana Moda");
@@ -155,12 +164,12 @@ describe("presentNotification", () => {
     });
   });
 
-  it("asks to reconnect a store without the simulated suffix", () => {
+  it("asks to reconnect a store with its marketplace name", () => {
     const notification = presentNotification({
       kind: "store_problem",
       entityId: "store-1",
       at,
-      storeName: "Ana Casa (loja simulada)",
+      storeName: "Ana Casa",
     });
     expect(notification).toMatchObject({
       id: `store:store-1:${at.getTime()}`,
@@ -209,5 +218,22 @@ describe("presentNotificationFeed", () => {
     });
     expect(presented.items.map((item) => item.id)).toEqual([`ticket:ticket-1:${at.getTime()}`]);
     expect(presented).toMatchObject({ unread: 1, seenAt: null });
+  });
+});
+
+describe("an order message in the bell", () => {
+  it("says the supplier wrote and opens the order, without the message", () => {
+    const presented = presentNotification({
+      kind: "order_message",
+      entityId: "order-1",
+      at,
+      externalOrderId: "2000012345",
+      supplierName: "Ateliê Divinópolis",
+    });
+    expect(presented).toMatchObject({
+      title: "Nova mensagem do fornecedor",
+      detail: "Pedido 2000012345 · Ateliê Divinópolis",
+      href: "/pedidos/order-1",
+    });
   });
 });

@@ -35,6 +35,8 @@ import {
   type ShipmentOperator,
   type operationsSearchSchema,
   type shipmentUpdateSchema,
+  SHIPMENT_EVENTS_FULL,
+  SHIPMENT_EVENTS_LIMIT,
 } from "@sellbridge/shared/schemas";
 import type { z } from "zod";
 import type { Database, Transaction } from "../client.ts";
@@ -259,6 +261,8 @@ export async function getFulfillmentDetail(database: Database, tenantId: string,
       status: order.status,
       buyerName: order.buyerName,
       marketplace: store.marketplace,
+      /** Encrypted; the web app opens it for the forward form only (never sent as is). */
+      shippingAddressEnc: order.shippingAddressEnc,
     },
     items,
     shipments: shipments.map((shipment) => ({
@@ -445,7 +449,7 @@ export async function getSupplierShipment(database: Database, token: string) {
  * again and again through a supplier link that anyone holding it can call: without a ceiling, a
  * script could bloat the history every page of the order loads in full.
  */
-export const MAX_SHIPMENT_EVENTS = 100;
+export const MAX_SHIPMENT_EVENTS = SHIPMENT_EVENTS_LIMIT;
 
 async function assertRoomForNote(transaction: Transaction, shipmentId: string) {
   const [row] = await transaction
@@ -453,9 +457,7 @@ async function assertRoomForNote(transaction: Transaction, shipmentId: string) {
     .from(shipmentEvents)
     .where(eq(shipmentEvents.shipmentId, shipmentId));
   if ((row?.events ?? 0) >= MAX_SHIPMENT_EVENTS) {
-    throw conflictError(
-      `Este envio já tem ${MAX_SHIPMENT_EVENTS} registros no histórico, o máximo de ocorrências.`,
-    );
+    throw conflictError(SHIPMENT_EVENTS_FULL);
   }
 }
 

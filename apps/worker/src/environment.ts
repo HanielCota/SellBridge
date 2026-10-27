@@ -2,9 +2,9 @@ import {
   alertWebhookUrlEnvironmentSchema,
   booleanFlagEnvironmentSchema,
   logLevelEnvironmentSchema,
-  mockWebhookSecretEnvironmentSchema,
   nodeEnvironmentSchema,
   parseEnvironment,
+  shopeeShowcaseUnitsEnvironmentSchema,
   tokenEncryptionKeyEnvironmentSchema,
 } from "@sellbridge/shared/environment";
 import { loadRootEnvironmentFile } from "@sellbridge/shared/environment-file";
@@ -18,11 +18,8 @@ const workerEnvironmentSchema = z.object({
   REDIS_URL: z.url(),
   APP_URL: z.url(),
   TOKEN_ENCRYPTION_KEY: tokenEncryptionKeyEnvironmentSchema,
-  MOCK_WEBHOOK_SECRET: mockWebhookSecretEnvironmentSchema,
   LOG_LEVEL: logLevelEnvironmentSchema,
   ALERT_WEBHOOK_URL: alertWebhookUrlEnvironmentSchema,
-  // A simulated delay; past a minute it only stalls jobs (and setTimeout overflows at 2^31 ms).
-  MOCK_LATENCY_MILLISECONDS: z.coerce.number().int().min(0).max(60_000).default(800),
   MERCADO_LIVRE_CLIENT_ID: z.string().optional(),
   MERCADO_LIVRE_CLIENT_SECRET: z.string().optional(),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
@@ -31,6 +28,8 @@ const workerEnvironmentSchema = z.object({
    * that lag behind reality. 0 (the default) offers everything that is sellable.
    */
   STOCK_SAFETY_UNITS: z.coerce.number().int().min(0).max(1000).default(0),
+  /** Units Shopee listings show on top of the real ones while there are real units to sell. */
+  SHOPEE_SHOWCASE_UNITS: shopeeShowcaseUnitsEnvironmentSchema,
   /** When set, exposes GET /health on this port (container probes, E2E readiness). */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
   /**
@@ -53,5 +52,4 @@ export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 export const environment: WorkerEnvironment = parseEnvironment(
   workerEnvironmentSchema,
   process.env,
-  { renamedVariables: { MOCK_LATENCY_MS: "MOCK_LATENCY_MILLISECONDS" } },
 );

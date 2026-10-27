@@ -4,7 +4,7 @@ import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
+import { Fragment, useEffect, useRef, useState, type MouseEvent, type Ref } from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -30,6 +30,8 @@ import {
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { UserAvatar } from "./user-avatar";
+import { chooseOnPlainClick, navTabClassName, TabBadge } from "./nav-tab-parts";
+import { ProfileTabsMenu } from "./profile-tabs-menu";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { SupportButton } from "./support-button";
@@ -38,6 +40,11 @@ import { accountLabel } from "@/features/auth/account-label";
 import { UserMenu } from "./user-menu";
 
 type BadgeCounts = Record<NavBadge, number>;
+
+interface ProfileGroup {
+  label: string;
+  items: readonly NavItem[];
+}
 
 /**
  * Reserve the side controls before allocating space to the navigation capsule. Admin mode
@@ -50,8 +57,9 @@ const LAYOUTS = {
     row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
     desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo.
-    tab: "px-3 text-[0.9375rem] gap-1.5",
+    // Slightly tighter than the sheet's tabs: at full size the capsule pressed against the logo,
+    // and with icons and px-3 the seven tabs overflowed the 1440px row and clipped Financeiro.
+    tab: "px-2.5 text-[0.9375rem] gap-1",
     // Account names stay visible on desktop; their text is capped until the row has more room.
     accountName: "hidden sm:block lg:hidden xl:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
@@ -62,17 +70,31 @@ const LAYOUTS = {
     row: "xl:grid-cols-[auto_minmax(0,1fr)_auto]",
     desktopNav: "min-w-0 max-w-full overflow-x-auto justify-self-center xl:flex",
     sheetTrigger: "xl:hidden",
-    tab: "px-2",
+    // Below 1440px the ten tabs and the team divider clipped "Equipe" (admin section 0).
+    tab: "px-1.5 min-[1440px]:px-2",
     // The row stops growing at 1440px, so with ten tabs the name never fits: it pushed the
     // capsule over the logo from 2xl up. It stays readable to screen readers; a badge shows the mode.
     accountName: "sr-only",
-    // Ten tabs already fill the capsule; icons wait for the admin area's own review.
+    // Ten tabs fill the capsule, so the icons stay in the phone sheet (admin section 0).
     tabIcon: "hidden",
     modeBadge: "flex",
   },
 } as const;
 
-type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
+/**
+ * The supplier's six tabs are narrower than the seller's, so their icons fit from xl: with the
+ * account name at its cap, the capsule keeps 28px from the logo at 1280px.
+ */
+const SUPPLIER_LAYOUT = { ...LAYOUTS.regular, tabIcon: "hidden size-4 xl:block" } as const;
+
+type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS] | typeof SUPPLIER_LAYOUT;
+
+function layoutFor(adminMode: boolean, isSupplier: boolean): Layout {
+  if (adminMode) {
+    return LAYOUTS.dense;
+  }
+  return isSupplier ? SUPPLIER_LAYOUT : LAYOUTS.regular;
+}
 
 /** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
 function useNavCounts(isAdmin: boolean, canReview: boolean) {
@@ -130,14 +152,7 @@ function NavTab({
       to={item.to}
       aria-current={isActive ? "page" : undefined}
       onClick={onNavigate}
-      className={cn(
-        "relative flex h-10 items-center gap-2 rounded-full text-base whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
-        isActive
-          ? "font-medium text-background"
-          : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-        isActive && paintsOwnPill && "bg-foreground",
-        padding,
-      )}
+      className={navTabClassName({ isActive, paintsOwnPill, padding })}
     >
       {TabIcon ? <TabIcon className={cn("shrink-0", iconClassName)} aria-hidden="true" /> : null}
       {item.label}
@@ -157,31 +172,6 @@ function NavTab({
   );
 }
 
-function TabBadge({
-  isError,
-  count,
-  description,
-}: {
-  isError: boolean;
-  count: number;
-  description: string;
-}) {
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-          isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text",
-        )}
-      >
-        {count}
-      </span>
-      <span className="sr-only">, {description}</span>
-    </>
-  );
-}
-
 function tabAction(item: NavItem): ActionIcon | undefined {
   const name = NAV_TAB_ICONS[item.to];
   if (name === undefined) {
@@ -191,6 +181,25 @@ function tabAction(item: NavItem): ActionIcon | undefined {
 }
 
 const MenuIcon = ACTION_ICONS.menu.icon;
+
+/** Where the team's own tabs begin, so a hairline can set them apart from the profile's. */
+function startsTeamArea(items: readonly NavItem[], index: number): boolean {
+  const item = items[index];
+  const previous = items[index - 1];
+  if (item === undefined || previous === undefined) {
+    return false;
+  }
+  return ADMIN_NAV_ITEMS.includes(item) && !ADMIN_NAV_ITEMS.includes(previous);
+}
+
+function TeamDivider({ vertical }: { vertical: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("shrink-0 bg-border", vertical ? "mx-1 h-5 w-px" : "mx-3 my-1.5 h-px")}
+    />
+  );
+}
 
 function MobileNav({
   items,
@@ -225,19 +234,41 @@ function MobileNav({
       <SheetContent side="left" className="w-72 p-4">
         <SheetTitle className="sr-only">Navegação</SheetTitle>
         <nav aria-label="Principal" className="mt-10 grid gap-1">
-          {[...items, SUPPORT_NAV_ITEM].map((item) => (
-            <NavTab
-              key={item.to}
-              item={item}
-              isActive={isItemActive(item, pathname)}
-              count={item.badge ? counts[item.badge] : 0}
-              onNavigate={() => setIsOpen(false)}
-            />
+          {[...items, SUPPORT_NAV_ITEM].map((item, index, all) => (
+            <Fragment key={item.to}>
+              {startsTeamArea(all, index) ? <TeamDivider vertical={false} /> : null}
+              <NavTab
+                item={item}
+                isActive={isItemActive(item, pathname)}
+                count={item.badge ? counts[item.badge] : 0}
+                onNavigate={() => setIsOpen(false)}
+              />
+            </Fragment>
           ))}
         </nav>
       </SheetContent>
     </Sheet>
   );
+}
+
+/** The lit pill under the chosen tab; a tab registers under every page it stands for. */
+function useTabPill(activeTo: NavItem["to"] | null) {
+  const chosen = useOptimisticChoice(activeTo);
+  const containerRef = useRef<HTMLElement>(null);
+  const tabRefs = useRef(new Map<string | null, HTMLElement>());
+  const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
+  const canAnimate = useAnimateAfterFirstPaint(indicator !== null);
+  // The profile menu's tab registers for each of its pages, so the pill lands on it.
+  const registerTab = (targets: readonly NavItem[], node: HTMLElement | null) => {
+    for (const target of targets) {
+      if (!node) {
+        tabRefs.current.delete(target.to);
+        continue;
+      }
+      tabRefs.current.set(target.to, node);
+    }
+  };
+  return { chosen, containerRef, indicator, canAnimate, registerTab };
 }
 
 /**
@@ -246,21 +277,21 @@ function MobileNav({
  */
 function DesktopNav({
   items,
+  profileGroup,
   pathname,
   counts,
   layout,
 }: {
   items: NavItem[];
+  /** Team mode folds the profile's own tabs into one menu tab ahead of the team's. */
+  profileGroup: ProfileGroup | null;
   pathname: string;
   counts: BadgeCounts;
   layout: Layout;
 }) {
-  const activeTo = items.find((item) => isItemActive(item, pathname))?.to ?? null;
-  const chosen = useOptimisticChoice(activeTo);
-  const containerRef = useRef<HTMLElement>(null);
-  const tabRefs = useRef(new Map<string | null, HTMLElement>());
-  const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
-  const canAnimate = useAnimateAfterFirstPaint(indicator !== null);
+  const allItems = [...(profileGroup?.items ?? []), ...items];
+  const activeTo = allItems.find((item) => isItemActive(item, pathname))?.to ?? null;
+  const { chosen, containerRef, indicator, canAnimate, registerTab } = useTabPill(activeTo);
   return (
     <nav
       ref={containerRef}
@@ -273,6 +304,20 @@ function DesktopNav({
       {indicator && chosen.value !== null ? (
         <TrackPill box={indicator} canAnimate={canAnimate} className="inset-y-1.5" />
       ) : null}
+      {profileGroup ? (
+        <ProfileTabsMenu
+          label={profileGroup.label}
+          items={profileGroup.items}
+          activeTo={chosen.value}
+          counts={counts}
+          paintsOwnPill={indicator === null}
+          padding={layout.tab}
+          triggerRef={(node) => registerTab(profileGroup.items, node)}
+          onChoose={chosen.choose}
+        />
+      ) : null}
+      {/* Where the team tabs begin (admin section 0 of the icons plan). */}
+      {profileGroup && items.length > 0 ? <TeamDivider vertical /> : null}
       {items.map((item) => (
         <NavTab
           key={item.to}
@@ -283,20 +328,8 @@ function DesktopNav({
           padding={layout.tab}
           withHint
           iconClassName={layout.tabIcon}
-          tabRef={(node) => {
-            if (!node) {
-              tabRefs.current.delete(item.to);
-              return;
-            }
-            tabRefs.current.set(item.to, node);
-          }}
-          onNavigate={(event) => {
-            // A click that opens a new tab leaves this page where it is.
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
-              return;
-            }
-            chosen.choose(item.to);
-          }}
+          tabRef={(node) => registerTab([item], node)}
+          onNavigate={(event) => chooseOnPlainClick(event, () => chosen.choose(item.to))}
         />
       ))}
     </nav>
@@ -380,18 +413,30 @@ interface TopNavProps {
   readonly profileKind: ProfileKind;
 }
 
+/** Tabs for the phone sheet (all of them) and for the desktop capsule (profile ones folded). */
+function navigationFor(user: SessionUser, adminMode: boolean, isSupplier: boolean) {
+  const profileItems = isSupplier ? SUPPLIER_NAV_ITEMS : NAV_ITEMS;
+  if (!adminMode) {
+    return { items: profileItems, desktopItems: profileItems, profileGroup: null };
+  }
+  const teamItems = ADMIN_NAV_ITEMS.filter(
+    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
+  );
+  return {
+    items: [...profileItems, ...teamItems],
+    desktopItems: teamItems,
+    profileGroup: { label: isSupplier ? "Fornecedor" : "Revendedor", items: profileItems },
+  };
+}
+
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
   const supportReplies = counts.supportReplies;
-  const teamItems = ADMIN_NAV_ITEMS.filter(
-    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
-  );
   const isSupplier = profileKind === "supplier";
-  const profileItems = isSupplier ? SUPPLIER_NAV_ITEMS : NAV_ITEMS;
-  const items = adminMode ? [...profileItems, ...teamItems] : profileItems;
-  const layout = adminMode ? LAYOUTS.dense : LAYOUTS.regular;
+  const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);
+  const layout = layoutFor(adminMode, isSupplier);
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}
@@ -411,14 +456,20 @@ export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
             <BrandIcon className="size-10" />
           </Link>
         </div>
-        <DesktopNav items={items} pathname={pathname} counts={counts} layout={layout} />
+        <DesktopNav
+          items={desktopItems}
+          profileGroup={profileGroup}
+          pathname={pathname}
+          counts={counts}
+          layout={layout}
+        />
         <div className="flex items-center gap-2 justify-self-end">
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier ? null : <CommandPalette />}
           {/* In admin mode the team is answering tickets; their own support stays in the menu. */}
           {adminMode ? null : (
             <div className="hidden sm:block">
-              <SupportButton unread={supportReplies} />
+              <SupportButton unread={supportReplies} profileKind={profileKind} />
             </div>
           )}
           <NotificationBell />

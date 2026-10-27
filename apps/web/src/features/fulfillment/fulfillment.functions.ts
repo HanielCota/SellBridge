@@ -1,5 +1,4 @@
 import {
-  getFulfillmentDetail,
   getSupplierShipment,
   listOperationalOrders,
   reforwardShipment,
@@ -17,8 +16,10 @@ import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { database } from "@/lib/server/database";
 import { publicMiddleware, tenantMiddleware } from "@/lib/server/middleware";
+import { loadFulfillmentDetail } from "./fulfillment-detail.server";
 import { forwardAndNotify } from "./forward.server";
 import { writeShipmentUpdate } from "./shipments.server";
 
@@ -39,13 +40,13 @@ export const listOperationsFn = createServerFn({ method: "GET" })
 export const getFulfillmentFn = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
   .validator(idSchema)
-  .handler(({ context, data }) => getFulfillmentDetail(database, context.tenantId, data.orderId));
+  .handler(({ context, data }) => loadFulfillmentDetail(context.tenantId, data.orderId));
 export const forwardOrderFn = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([tenantMiddleware, blockedContactLogging("seller_app")])
   .validator(forwardOrderSchema)
   .handler(({ context, data }) => forwardAndNotify(context.tenantId, data));
 export const updateShipmentFn = createServerFn({ method: "POST" })
-  .middleware([tenantMiddleware])
+  .middleware([tenantMiddleware, blockedContactLogging("seller_app")])
   .validator(shipmentUpdateSchema)
   .handler(({ context, data }) => writeShipmentUpdate(data, { tenantId: context.tenantId }));
 export const rotateSupplierLinkFn = createServerFn({ method: "POST" })
@@ -82,7 +83,7 @@ export const getSupplierShipmentFn = createServerFn({ method: "POST" })
     return getSupplierShipment(database, data.token);
   });
 export const updateSupplierShipmentFn = createServerFn({ method: "POST" })
-  .middleware([publicMiddleware])
+  .middleware([publicMiddleware, blockedContactLogging("supplier_link")])
   .validator(z.object({ token: supplierTokenSchema, update: shipmentUpdateSchema }))
   .handler(({ data }) => {
     privateResponse();

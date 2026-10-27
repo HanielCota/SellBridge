@@ -9,6 +9,7 @@ import {
   type TicketPriority,
 } from "../domain/ticket-rules.ts";
 import { withFallback, optionalParameter } from "./fallback.ts";
+import { SUPPORT_ORIGINS, SUPPORT_PERIOD_DAYS } from "../domain/support-performance/types.ts";
 
 export { TICKET_CATEGORIES, TICKET_PRIORITIES, type TicketCategory, type TicketPriority };
 
@@ -56,13 +57,19 @@ export const ticketSubjectSchema = freeText()
   .min(5, "O assunto deve ter ao menos 5 caracteres")
   .max(120, "O assunto deve ter no máximo 120 caracteres");
 
+/**
+ * Multipart form encoding turns every line break into CRLF, so a body that fit the field's
+ * 5,000-character cap arrived longer than that. Counting each break once, as the field does,
+ * keeps the field and the server on the same limit.
+ */
 export const ticketBodySchema = freeText()
+  .overwrite((value) => value.replace(/\r\n?/g, "\n"))
   .trim()
   .min(10, "Descreva com ao menos 10 caracteres")
   .max(5000, "A mensagem deve ter no máximo 5.000 caracteres");
 
 /** An optional text field of a multipart form: empty means not sent. */
-function optionalFormText(max: number) {
+export function optionalFormText(max: number) {
   return z
     .string()
     .optional()
@@ -80,12 +87,30 @@ export const createTicketSchema = z.object({
   /** What the ticket is about when opened from an order, store or listing ("Pedido 123"). */
   about: optionalFormText(120),
   body: ticketBodySchema,
+  /** The automatic answer the customer read before pressing "Ainda preciso de ajuda". */
+  assistantAnswerId: optionalFormText(40),
+});
+
+/** What the support assistant reads: the same topic, situation and text the ticket would carry. */
+export const askSupportAssistantSchema = z.object({
+  category: ticketCategorySchema,
+  situation: optionalFormText(40),
+  body: ticketBodySchema,
+});
+
+/** "Resolveu meu problema": only ids, never the customer's text. */
+export const supportAssistantOutcomeSchema = z.object({
+  category: ticketCategorySchema,
+  situation: optionalFormText(40),
+  answerId: z.string().trim().min(1).max(40),
 });
 
 /** Prefills the new-ticket form from a page that links to it (an error card, a listing). */
 export const newTicketSearchSchema = z.object({
   categoria: optionalParameter(ticketCategorySchema),
   assunto: optionalParameter(freeText().trim().max(120)),
+  /** Text the description starts with, e.g. which flag a supplier contests. */
+  texto: optionalParameter(freeText().max(300)),
   /** The order, store or listing the ticket is about (item 27.a); checked against the account. */
   pedido: optionalParameter(z.uuid()),
   loja: optionalParameter(z.uuid()),
@@ -93,7 +118,7 @@ export const newTicketSearchSchema = z.object({
 });
 
 /** An optional id from the new-ticket form: empty means nothing linked, anything else a uuid. */
-const optionalFormId = z
+export const optionalFormId = z
   .string()
   .optional()
   .transform((value) => (value === undefined || value === "" ? undefined : value))
@@ -134,8 +159,11 @@ export const ticketsSearchSchema = z.object({
 });
 export type TicketsSearch = z.infer<typeof ticketsSearchSchema>;
 
-/** Slices of the support inbox; the default (all) comes first, then what needs someone. */
-export const TICKET_QUEUES = ["all", "unassigned", "mine", "overdue"] as const;
+/**
+ * Slices of the support inbox; the default (all) comes first, then what needs someone, then the
+ * reseller ↔ supplier conversations the team only reads.
+ */
+export const TICKET_QUEUES = ["all", "unassigned", "mine", "overdue", "suppliers"] as const;
 export const ticketQueueSchema = z.enum(TICKET_QUEUES);
 export type TicketQueue = z.infer<typeof ticketQueueSchema>;
 
@@ -144,14 +172,27 @@ export const TICKET_QUEUE_LABELS: Record<TicketQueue, string> = {
   mine: "Minha caixa",
   overdue: "Atrasados",
   all: "Todos",
+  suppliers: "Revendedor ↔ fornecedor",
 };
 
 export const staffTicketsSearchSchema = ticketsSearchSchema.extend({
   queue: withFallback(ticketQueueSchema.default("all"), "all"),
   priority: optionalParameter(ticketPrioritySchema),
   category: optionalParameter(ticketCategorySchema),
+  /**
+   * A support-topic situation id, from the performance screen's subjects; `sem-detalhe` lists
+   * the tickets opened before the guided form recorded one.
+   */
+  situacao: optionalParameter(z.string().trim().min(1).max(40)),
+  /** Only resellers' or only suppliers' tickets, as the performance screen counted them. */
+  origem: optionalParameter(z.enum(["revendedor", "fornecedor"])),
+  /** A team member's id, from the performance screen's people. */
+  responsavel: optionalParameter(z.string().trim().min(1).max(64)),
 });
 export type StaffTicketsSearch = z.infer<typeof staffTicketsSearchSchema>;
+
+/** The `situacao` value for tickets without a recorded situation. */
+export const NO_SITUATION_FILTER = "sem-detalhe";
 
 const ticketIdSchema = z.uuid();
 
@@ -203,7 +244,30 @@ export const rateTicketSchema = z.object({
     .optional(),
 });
 
-export const supportMetricsSearchSchema = z.object({
-  days: withFallback(z.coerce.number().int().min(1).max(90).default(30), 30),
+export const SUPPORT_PERFORMANCE_SECTIONS = ["geral", "equipe", "assuntos"] as const;
+export type SupportPerformanceSection = (typeof SUPPORT_PERFORMANCE_SECTIONS)[number];
+
+export const SUPPORT_PERFORMANCE_CHARTS = ["volume", "resposta", "horarios"] as const;
+export type SupportPerformanceChart = (typeof SUPPORT_PERFORMANCE_CHARTS)[number];
+
+const supportPeriodSchema = z.coerce
+  .number()
+  .pipe(z.union(SUPPORT_PERIOD_DAYS.map((days) => z.literal(days))));
+
+/** What the support performance report is computed for: the server function's input. */
+export const supportPerformanceInputSchema = z.object({
+  days: withFallback(supportPeriodSchema.default(30), 30),
+  origem: withFallback(z.enum(SUPPORT_ORIGINS).default("todos"), "todos"),
+});
+export type SupportPerformanceInput = z.infer<typeof supportPerformanceInputSchema>;
+
+/**
+ * The performance page's URL. Not `perfil`: that one switches the session's profile. `pessoa`
+ * opens a team member's sheet.
+ */
+export const supportMetricsSearchSchema = supportPerformanceInputSchema.extend({
+  secao: withFallback(z.enum(SUPPORT_PERFORMANCE_SECTIONS).default("geral"), "geral"),
+  grafico: withFallback(z.enum(SUPPORT_PERFORMANCE_CHARTS).default("volume"), "volume"),
+  pessoa: optionalParameter(z.string().trim().min(1).max(64)),
 });
 export type SupportMetricsSearch = z.infer<typeof supportMetricsSearchSchema>;

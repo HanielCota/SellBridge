@@ -75,7 +75,8 @@ export function countTargetStatuses(
   };
 }
 
-function presentTarget(store: ListingStoreStatus): ListingDto["targets"][number] {
+function presentTarget(store: ListingStoreStatus): ListingDto["targets"][number] | null {
+  if (store.marketplace === "mock") return null;
   return {
     storeId: store.storeConnectionId,
     storeName: store.storeName,
@@ -93,7 +94,11 @@ function lastUpdate(row: ListingOverviewRow): Date {
 }
 
 export function presentListing(row: ListingOverviewRow): ListingDto {
-  const statuses = row.stores.map((store) => store.status);
+  const targets = row.stores.flatMap((store) => {
+    const target = presentTarget(store);
+    return target === null ? [] : [target];
+  });
+  const statuses = targets.map((target) => target.status);
   return {
     id: row.listingId,
     title: row.title,
@@ -104,7 +109,7 @@ export function presentListing(row: ListingOverviewRow): ListingDto {
     stock: row.stock,
     status: summarizeListingStatus(statuses),
     targetCounts: countTargetStatuses(statuses),
-    targets: row.stores.map(presentTarget),
+    targets,
     unitsSoldLast30Days: row.unitsSold,
     createdAt: row.createdAt.toISOString(),
     updatedAt: lastUpdate(row).toISOString(),

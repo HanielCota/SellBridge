@@ -5,7 +5,11 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
 } from "@sellbridge/shared/schemas";
-import { describeAdminEvent } from "@/features/admin/admin-actions";
+import { contactKindsLabel, describeAdminEvent } from "@/features/admin/admin-actions";
+import {
+  SUPPLIER_FLAG_REASON_LABELS,
+  SUPPLIER_FLAG_REASONS,
+} from "@sellbridge/shared/supplier-flags";
 
 type AuditDetails = AuditEntry["details"];
 type DescribedEntry = Pick<AuditEntry, "source" | "action" | "details" | "subjectLabel">;
@@ -21,6 +25,8 @@ const CATALOG_COPY: Readonly<Record<string, string>> = {
   "product.updated": "Editou o produto",
   "product.activated": "Ativou o produto",
   "product.deactivated": "Desativou o produto",
+  "supplier.flag_applied": "Aplicou uma flag ao fornecedor",
+  "supplier.flag_revoked": "Retirou uma flag do fornecedor",
 };
 
 const STATUS_LABELS: Readonly<Record<string, string>> = TICKET_STATUS_LABELS;
@@ -41,7 +47,25 @@ function plural(count: number, one: string, other: string): string {
   return `${count} ${count === 1 ? one : other}`;
 }
 
+/** "Aplicou uma flag ao fornecedor: Erro em pedido" (MVP function 6). */
+function describeFlagApplied(details: AuditDetails): string {
+  const reason = SUPPLIER_FLAG_REASONS.find((known) => known === textDetail(details, "reason"));
+  if (reason === undefined) {
+    return "Aplicou uma flag ao fornecedor";
+  }
+  return `Aplicou uma flag ao fornecedor: ${SUPPLIER_FLAG_REASON_LABELS[reason]}`;
+}
+
 function describeCatalog(action: string, details: AuditDetails): string {
+  if (action === "supplier.flag_applied") {
+    return describeFlagApplied(details);
+  }
+  if (action === "supplier.deactivated" && textDetail(details, "cause") === "third_flag") {
+    return "Desativou o fornecedor na 3ª flag";
+  }
+  if (action === "contact_blocked") {
+    return `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`;
+  }
   if (action === "catalog.csv_imported") {
     const created = plural(countDetail(details, "created"), "criado", "criados");
     const updated = plural(countDetail(details, "updated"), "atualizado", "atualizados");
@@ -91,3 +115,19 @@ export const AUDIT_SOURCE_LABELS: Record<AuditEntry["source"], string> = {
   catalog: "Catálogo",
   support: "Suporte",
 };
+
+/**
+ * Who did it. A refused contact is the customer's own try (or the supplier's, through its link),
+ * so it has no team member; any other entry without one lost its author.
+ */
+export function auditActorLabel(
+  entry: Pick<AuditEntry, "action" | "actorName" | "source">,
+): string {
+  if (entry.actorName !== null) {
+    return entry.actorName;
+  }
+  if (entry.action !== "contact_blocked") {
+    return "Usuário removido";
+  }
+  return entry.source === "catalog" ? "Fornecedor pelo link" : "O próprio cliente";
+}

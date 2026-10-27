@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { freeText, MAX_PAGE, searchQuery } from "./common.ts";
+import { refuseContactDetails, refuseContactLink } from "./contact-guard.ts";
 import { optionalParameter, withFallback } from "./fallback.ts";
 import { isoDateSchema, PERIOD_PRESETS } from "./period.ts";
 
@@ -54,6 +55,12 @@ export type ShipmentOperator = Exclude<keyof typeof SHIPMENT_ACTORS, "marketplac
 /** Why the supplier link stops at dispatch; said by the server and shown on the link alike. */
 export const DELIVERY_CONFIRMED_BY =
   "Quem confirma a entrega é a loja que fez a venda, ou o rastreio do Mercado Livre quando a venda é de lá.";
+/**
+ * Events one parcel keeps, steps and messages alike: the supplier link can be called by anyone
+ * holding it, and without a ceiling a script could bloat the history every order page loads.
+ */
+export const SHIPMENT_EVENTS_LIMIT = 100;
+export const SHIPMENT_EVENTS_FULL = `Este pedido chegou ao limite de ${SHIPMENT_EVENTS_LIMIT} registros e não recebe mais mensagens. Se precisar combinar algo, fale com o suporte.`;
 export const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   forwarded: "Aguardando fornecedor",
   accepted: "Aceito",
@@ -77,12 +84,12 @@ export const FULFILLMENT_NEXT: Record<FulfillmentStatus, FulfillmentStatus | nul
   returned: null,
 };
 export const deliveryAddressSchema = z.object({
-  recipient: freeText().trim().min(2).max(120),
-  street: freeText().trim().min(2).max(200),
-  number: freeText().trim().min(1).max(30),
-  complement: freeText().trim().max(150).default(""),
-  neighborhood: freeText().trim().min(2).max(100),
-  city: freeText().trim().min(2).max(100),
+  recipient: freeText().trim().min(2).max(120).superRefine(refuseContactDetails),
+  street: freeText().trim().min(2).max(200).superRefine(refuseContactDetails),
+  number: freeText().trim().min(1).max(30).superRefine(refuseContactDetails),
+  complement: freeText().trim().max(150).superRefine(refuseContactDetails).default(""),
+  neighborhood: freeText().trim().min(2).max(100).superRefine(refuseContactDetails),
+  city: freeText().trim().min(2).max(100).superRefine(refuseContactDetails),
   state: freeText()
     .trim()
     .regex(/^[A-Z]{2}$/, "Informe a UF com duas letras"),
@@ -94,24 +101,33 @@ export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
 export const forwardOrderSchema = z.object({
   orderId: z.uuid(),
   address: deliveryAddressSchema,
-  notes: freeText().trim().max(1000).default(""),
+  notes: freeText().trim().max(1000).superRefine(refuseContactDetails).default(""),
 });
 export const shipmentUpdateSchema = z
   .object({
     shipmentId: z.uuid(),
     status: z.enum(FULFILLMENT_STATUSES),
-    carrier: freeText().trim().max(100).default(""),
-    trackingCode: freeText().trim().max(100).default(""),
+    carrier: freeText().trim().max(100).superRefine(refuseContactDetails).default(""),
+    trackingCode: freeText()
+      .trim()
+      .max(100)
+      .regex(/^[A-Za-z0-9 .-]*$/, "Use só letras, números, pontos e hífens no código de rastreio")
+      .superRefine(refuseContactDetails)
+      .default(""),
     trackingUrl: z
       .union([
         z.literal(""),
         z
           .url()
           .max(2048, "Use um endereço de até 2048 caracteres")
-          .refine((value) => new URL(value).protocol === "https:", "Use um endereço HTTPS"),
+          .refine(
+            (value) => URL.canParse(value) && new URL(value).protocol === "https:",
+            "Use um endereço HTTPS",
+          )
+          .superRefine(refuseContactLink),
       ])
       .default(""),
-    note: freeText().trim().max(1000).default(""),
+    note: freeText().trim().max(1000).superRefine(refuseContactDetails).default(""),
   })
   .superRefine((data, context) => {
     // Shipping needs the carrier and code; an occurrence on a parcel already shipped (it has a
@@ -153,7 +169,12 @@ export const operationsSearchSchema = z.object({
  * an order (or sharing the link) keeps them. The reviews tab keeps its own `query` and `page`.
  */
 export const operationsUrlSearchSchema = z.object({
-  view: withFallback(z.enum(["operations", "reviews"]).default("operations"), "operations"),
+  view: withFallback(
+    z.enum(["operations", "reviews", "tracking"]).default("operations"),
+    "operations",
+  ),
+  /** The order the tracking tab opens on (from the order dialog); codes never go in the URL. */
+  trackOrder: optionalParameter(z.uuid()),
   opQuery: optionalParameter(searchQuery()),
   stage: withFallback(z.enum(OPERATION_STAGES).default("all"), "all"),
   period: withFallback(z.enum(OPERATION_PERIODS).default("all"), "all"),

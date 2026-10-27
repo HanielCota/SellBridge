@@ -33,3 +33,22 @@ export function storeSupplierRefusalMessage(refusal: StoreSupplierRefusal): stri
 /** Error left on publications a shop stopped selling when its supplier changed. */
 export const STORE_SUPPLIER_CHANGED_MESSAGE =
   "Esta loja passou a vender os produtos de outro fornecedor. Publique este produto em uma loja do fornecedor dele.";
+
+/**
+ * MVP (coordinator decision, 2026-10-22): resellers sell only suppliers' products. An own product
+ * takes no new publication; listings published before the rule keep selling and syncing.
+ */
+export const OWN_PRODUCT_PUBLICATION_MESSAGE =
+  "Agora o SellBridge vende só produtos de fornecedor. Escolha um produto no Catálogo.";
+
+/** Creating, editing and uploading images of own products is closed for the same reason. */
+export const OWN_PRODUCT_WRITE_MESSAGE =
+  "O cadastro de produtos próprios foi encerrado. Venda os produtos do seu fornecedor pelo Catálogo.";
+
+/** Why a product source cannot be published, or null when it is a supplier's catalog. */
+export function catalogSourceRefusal(catalogKind: "seller" | "supplier"): string | null {
+  if (catalogKind === "seller") {
+    return OWN_PRODUCT_PUBLICATION_MESSAGE;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import { PROFILE_KINDS, type ProfileKind } from "./profile-kind.ts";
 import {
   OTHER_SITUATION_ID,
   SUPPORT_TOPICS,
+  customerTicketTitle,
   findSupportTopic,
   minimumDescriptionLength,
   planSupportTicket,
@@ -83,7 +84,11 @@ describe("planSupportTicket", () => {
       about: "Pedido 2000012345",
       description: LONG_ENOUGH,
     });
-    expect(plan).toEqual({ priority: "normal", subject: "O pedido atrasou: Pedido 2000012345" });
+    expect(plan).toEqual({
+      priority: "normal",
+      subject: "O pedido atrasou: Pedido 2000012345",
+      situationId: "order-late",
+    });
   });
 
   it("opens an other-topic ticket without a situation", () => {
@@ -95,6 +100,7 @@ describe("planSupportTicket", () => {
       description: "Quero entender como funciona a coleta dos pedidos na minha cidade.",
     });
     expect(plan.subject.startsWith("Outra coisa: Quero entender")).toBe(true);
+    expect(plan.situationId).toBeNull();
   });
 
   it("refuses a topic the profile does not have", () => {
@@ -127,6 +133,7 @@ describe("Outro problema", () => {
     expect(plan).toEqual({
       priority: "normal",
       subject: "Produtos e catálogo: O produto aparece com o nome de outra marca no catálogo.",
+      situationId: "other-issue",
     });
   });
 
@@ -152,5 +159,24 @@ describe("supportTicketSubject", () => {
     expect(subject).not.toContain("\n");
     expect(subject.length).toBeLessThanOrEqual(120);
     expect(subject.endsWith("…")).toBe(true);
+  });
+});
+
+describe("customerTicketTitle", () => {
+  it("shows only the heading of a guided subject, not the customer's own words", () => {
+    const { subject } = planSupportTicket({
+      kind: "seller",
+      category: "order",
+      situationId: OTHER_SITUATION_ID,
+      about: undefined,
+      description: "NAO TA INDO OQUE EU SOLICITE VEJA ISTO, preciso de ajuda",
+    });
+    const topic = findSupportTopic("seller", "order");
+    expect(customerTicketTitle(subject)).toBe(topic?.label);
+  });
+
+  it("keeps a subject typed before the guided form whole", () => {
+    expect(customerTicketTitle("Pedido 123 não chegou")).toBe("Pedido 123 não chegou");
+    expect(customerTicketTitle("Dúvida: como publicar")).toBe("Dúvida: como publicar");
   });
 });

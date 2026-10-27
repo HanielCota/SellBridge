@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database/client";
 import { DELIVERY_CONFIRMED_BY } from "@sellbridge/shared/schemas";
 import { applyMarketplaceShipment, forwardOrder } from "@sellbridge/database/repositories";
 import { and, eq } from "drizzle-orm";
@@ -15,8 +14,9 @@ import {
   suppliers,
 } from "@sellbridge/database/schema";
 import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+import { forwardableProduct } from "./catalog-fixtures";
+import { e2eDatabase } from "./database";
+const database = e2eDatabase();
 let orderId = "";
 const externalId = `E2E-FUL-${randomUUID()}`;
 test.beforeAll(async () => {
@@ -29,7 +29,7 @@ test.beforeAll(async () => {
     .select()
     .from(storeConnections)
     .where(eq(storeConnections.tenantId, tenant.id));
-  const [product] = await database.select().from(supplierProducts).limit(1);
+  const product = await forwardableProduct(database);
   if (!store || !product) throw new Error("Seed catalog missing");
   const [order] = await database
     .insert(orders)
@@ -329,8 +329,8 @@ test("a supplier's tap on Cancelar envio asks first and needs a reason", async (
     await expect(confirm).toHaveCount(0);
     await expect(history.getByRole("listitem").first()).not.toContainText("Cancelado");
 
-    // The occurrence typed before opens as the reason; erased, the dialog refuses to go on.
-    await supplier.getByLabel("Ocorrência ou observação").fill("Sem estoque da cor pedida");
+    // The step note typed before opens as the reason; erased, the dialog refuses to go on.
+    await supplier.getByLabel("Observação da etapa (opcional)").fill("Sem estoque da cor pedida");
     await cancel.click();
     const reason = confirm.getByLabel("Motivo do cancelamento");
     await expect(reason).toHaveValue("Sem estoque da cor pedida");
@@ -372,20 +372,16 @@ test("the reseller confirms before cancelling a supplier's parcel", async ({ pag
   }
 });
 
-test("Registrar ocorrência says what is missing instead of staying grey", async ({ browser }) => {
+test("an empty order message says what is missing instead of staying grey", async ({ browser }) => {
   const { order, link } = await forwardedOrder("E2E-OCC");
   const context = await browser.newContext();
   const supplier = await context.newPage();
   try {
     await gotoHydrated(supplier, `/fornecedor/pedido/${link.token}`);
-    const register = supplier.getByRole("button", { name: "Registrar ocorrência" });
-    await expect(register).toBeEnabled();
-    await register.click();
-    await expect(supplier.getByRole("alert")).toHaveText("Escreva a ocorrência antes de registrar");
-    await expect(supplier.getByLabel("Ocorrência ou observação")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
+    const send = supplier.getByRole("button", { name: "Enviar mensagem" });
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect(supplier.getByText("Escreva a mensagem antes de enviar")).toBeVisible();
   } finally {
     await context.close();
     await database.delete(orders).where(eq(orders.id, order.id));
@@ -436,9 +432,12 @@ test("a parcel past its delivery estimate shows as late in operations, the order
   page,
 }) => {
   const { order, link, externalOrderId } = await forwardedOrder("E2E-LATE");
+  // The bell lists the 10 delays that started first. The shared demo seller carries parcels
+  // late on accept or dispatch from other runs, so a parcel late for three days fell out of the
+  // list; a delivery estimate older than any of them keeps this one in it, whatever is there.
   await database
     .update(orderShipments)
-    .set({ status: "shipped", estimatedDeliveryAt: new Date(Date.now() - 3 * 86_400_000) })
+    .set({ status: "shipped", estimatedDeliveryAt: new Date("2000-01-03T12:00:00Z") })
     .where(eq(orderShipments.id, link.shipmentId));
   try {
     await signIn(page, DEMO_USER);

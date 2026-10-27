@@ -45,3 +45,28 @@ export function shipmentStatusLabel(
 ) {
   return catalogKind === "seller" ? SELLER_FULFILLMENT_LABELS[status] : FULFILLMENT_LABELS[status];
 }
+
+/** What the order list shows under an order before any parcel exists. */
+const NOT_FORWARDED_YET = "Ainda não encaminhado ao fornecedor";
+
+/**
+ * One line per parcel ("Seu envio: Separando · Fornecedor X: Enviado"), or the not-forwarded
+ * line. The empty case used to read "Shipments have not been prepared", in English.
+ */
+export function shipmentsSummary(
+  shipments: readonly {
+    status: FulfillmentStatus;
+    catalogKind: "seller" | "supplier";
+    supplierName: string;
+  }[],
+): string {
+  if (shipments.length === 0) {
+    return NOT_FORWARDED_YET;
+  }
+  return shipments
+    .map((shipment) => {
+      const who = shipment.catalogKind === "seller" ? "Seu envio" : shipment.supplierName;
+      return `${who}: ${shipmentStatusLabel(shipment.status, shipment.catalogKind)}`;
+    })
+    .join(" · ");
+}

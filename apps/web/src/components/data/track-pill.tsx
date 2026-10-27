@@ -20,7 +20,8 @@ export function TrackPill({
       className={cn(
         "absolute inset-y-1 left-0 rounded-full bg-foreground shadow-sm",
         canAnimate &&
-          "transition-[transform,width] duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          box.glides &&
+          "transition-[transform,width] duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
         className,
       )}
       style={{ transform: `translateX(${box.left}px)`, width: box.width }}

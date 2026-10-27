@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createDatabase } from "@sellbridge/database";
 import { suppliers } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
-import { requireEnvironmentVariable } from "./environment";
+import { e2eDatabase } from "./database";
 
-const database = createDatabase(requireEnvironmentVariable("DATABASE_URL"));
+const database = e2eDatabase();
 const supplierName = `Fornecedor CSV E2E ${Date.now()}`;
 test.afterAll(async () => {
   await database.delete(suppliers).where(eq(suppliers.name, supplierName));
@@ -28,7 +27,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   await expect(page).toHaveURL(/\/admin\/fornecedores\/[a-f0-9-]+/);
 
   await page.getByRole("button", { name: "Novo produto", exact: true }).click();
-  await page.getByLabel("SKU", { exact: true }).fill("CSV-MANUAL");
+  await page.getByLabel("Código", { exact: true }).fill("CSV-MANUAL");
   await page.getByLabel("Título", { exact: true }).fill("Produto manual");
   await page.getByLabel("Custo (R$)", { exact: true }).fill("12,90");
   await page.getByLabel("Preço sugerido (R$)").fill("19,90");
@@ -39,7 +38,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Baixar modelo CSV" }).click();
   expect((await downloadPromise).suggestedFilename()).toBe("modelo-produtos.csv");
-  await page.getByLabel("Arquivo CSV (UTF-8)").setInputFiles({
+  await page.getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx").setInputFiles({
     name: "invalido.csv",
     mimeType: "text/csv",
     buffer: Buffer.from("sku;titulo;custo;estoque\nCSV-NEW;Novo;12,90;1\nCSV-NEW;Duplicado;1;1"),
@@ -51,7 +50,7 @@ test("admin cadastra fornecedor, edita produtos e confirma CSV no desktop e celu
   const csv =
     "sku;titulo;custo;estoque\nCSV-MANUAL;Produto atualizado;14.50;20\nCSV-NEW;Produto importado;12,90;5";
   await page
-    .getByLabel("Arquivo CSV (UTF-8)")
+    .getByLabel("Arquivo CSV (UTF-8) ou planilhas .xlsx")
     .setInputFiles({ name: "produtos.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   const requestPromise = page.waitForRequest(
     (request) =>

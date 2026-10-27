@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_auth/cadastro_/fornecedor")({
     meta: shareMeta({
       title: "Seja fornecedor | SellBridge",
       description:
-        "Cadastre seus produtos uma vez e venda por revendedores de todo o Brasil no Mercado Livre, na Shopee e no TikTok Shop.",
+        "Cadastre seus produtos uma vez e venda por revendedores de todo o Brasil no Mercado Livre. Shopee e TikTok Shop em breve.",
     }),
   }),
   component: SupplierSignUpPage,

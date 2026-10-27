@@ -7,7 +7,7 @@ import {
   type OnboardingProfile,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
-import { productSourceChoiceSchema } from "@sellbridge/shared/product-sources";
+import { supplierSourceChoiceSchema } from "@sellbridge/shared/product-sources";
 import { billingHolderSchema, starterSupplierSchema } from "@sellbridge/shared/schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { database } from "@/lib/server/database";
@@ -44,7 +44,7 @@ export const saveOnboardingSupplier = createServerFn({ method: "POST" })
 
 export const saveOnboardingProductSources = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
-  .validator(productSourceChoiceSchema)
+  .validator(supplierSourceChoiceSchema)
   .handler(async ({ context, data }): Promise<void> => {
     await saveProductSourceChoice(database, context.tenantId, data);
     logger.info("onboarding.product_sources_saved", {

@@ -3,9 +3,8 @@ import type {
   NotificationKind,
   SaleProduct,
 } from "@sellbridge/database/repositories";
-import { unavailableListingMessage } from "@sellbridge/shared/catalog-availability";
+import { unavailableBellLine } from "@sellbridge/shared/catalog-availability";
 import { formatCents } from "@sellbridge/shared/money";
-import { displayStoreName } from "@/features/stores/store-name";
 import type { NotificationFeed } from "./notification-feed";
 
 export type { NotificationKind };
@@ -101,8 +100,31 @@ function listingUnavailable(
   return {
     id: `unavailable:${event.entityId}`,
     title: `Anúncio pausado: ${event.listingTitle}`,
-    detail: unavailableListingMessage(event.reason),
+    detail: unavailableBellLine(event.reason),
     href: `/publicacoes?query=${encodeURIComponent(event.listingTitle)}`,
+  };
+}
+
+/** The supplier wrote in an order's messages: one entry per order, opening its page. */
+function orderMessage(event: Extract<NotificationEvent, { kind: "order_message" }>) {
+  return {
+    id: `order-message:${event.entityId}:${event.at.getTime()}`,
+    title: "Nova mensagem do fornecedor",
+    detail: `Pedido ${event.externalOrderId} · ${event.supplierName}`,
+    href: `/pedidos/${event.entityId}`,
+  };
+}
+
+/** A new message between store and supplier, worded for whoever reads it. */
+function supplierConversation(
+  event: Extract<NotificationEvent, { kind: "supplier_conversation" }>,
+) {
+  const store = event.storeName ?? "Loja";
+  return {
+    id: `conversation:${event.entityId}:${event.at.getTime()}`,
+    title: event.from === "supplier" ? "O fornecedor respondeu" : "Mensagem de um revendedor",
+    detail: `${event.subject} · ${store}`,
+    href: `/suporte/conversas/${event.entityId}`,
   };
 }
 
@@ -117,7 +139,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
         id: `sale:${event.entityId}`,
         title: `Nova venda de ${formatCents(event.totalCents)}`,
         // The product says more than the order code; the code is still one click away.
-        detail: `${event.product?.title ?? event.externalOrderId} · ${displayStoreName(event.storeName)}`,
+        detail: `${event.product?.title ?? event.externalOrderId} · ${event.storeName}`,
         href: `/financeiro?query=${encodeURIComponent(event.externalOrderId)}`,
         product: event.product,
       };
@@ -133,7 +155,7 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return {
         ...base,
         id: `store:${event.entityId}:${event.at.getTime()}`,
-        title: `${displayStoreName(event.storeName)} precisa ser reconectada`,
+        title: `${event.storeName} precisa ser reconectada`,
         detail: "Pedidos e estoque estão parados nesta loja.",
         href: "/lojas",
       };
@@ -144,6 +166,10 @@ export function presentNotification(event: NotificationEvent): AppNotification {
       return { ...base, ...shipmentLate(event) };
     case "listing_unavailable":
       return { ...base, ...listingUnavailable(event) };
+    case "order_message":
+      return { ...base, ...orderMessage(event) };
+    case "supplier_conversation":
+      return { ...base, ...supplierConversation(event) };
     case "review_pending":
       return {
         ...base,

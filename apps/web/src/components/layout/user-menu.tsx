@@ -229,13 +229,16 @@ function AccountLinks({
   );
 }
 
-/** The team's switch and, in admin mode, the audit log; nothing for a customer. */
+/**
+ * The team's switch and, in admin mode, the page the header has no room for: the audit log
+ * (admins). Review moderation is a team tab of its own. Nothing for a customer.
+ */
 function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
   return (
     <>
       {isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null}
       {adminMode && hasStaffPermission(role, "audit.view") ? (
-        // Item 28.b: the header already holds nine tabs in admin mode, so it lives here.
+        // Item 28.b: the admin-mode header has no room for another tab, so it lives here.
         <DropdownMenuItem asChild className={MENU_ROW}>
           <Link to="/admin/auditoria">
             <ClockCounterClockwiseIcon aria-hidden="true" />

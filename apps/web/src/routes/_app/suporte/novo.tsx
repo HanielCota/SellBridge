@@ -6,6 +6,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FormErrorAlert } from "@/components/form/form-feedback";
 import { BackLink, PageHeader } from "@/components/layout/page-header";
 import { AttachmentInput } from "@/components/support/attachment-input";
+import { AssistantAnswer, ResolvedButton } from "@/components/support/new-ticket/assistant-answer";
 import { SituationStep, TopicStep } from "@/components/support/new-ticket/choice-steps";
 import { DescriptionStep, SendFooter } from "@/components/support/new-ticket/description-step";
 import { AnsweredStep } from "@/components/support/new-ticket/step-parts";
@@ -73,16 +74,36 @@ function WritingSteps({ flow }: { flow: ReturnType<typeof useNewTicket> }) {
         onAdd={attachments.addFiles}
         onRemove={attachments.removeFile}
       />
+      {flow.assistantAnswer === null ? null : <AssistantAnswer answer={flow.assistantAnswer} />}
       <FormErrorAlert
         message={
           flow.sendError === null ? null : `${flow.sendError} O que você escreveu continua aqui.`
         }
       />
-      <SendFooter
-        promise={responsePromise(situation?.priority ?? "normal")}
-        isSending={flow.isSending}
-      />
+      <WritingFooter flow={flow} />
     </>
+  );
+}
+
+/** Sends the ticket; once the assistant answered, also offers "Resolveu meu problema". */
+function WritingFooter({ flow }: { flow: ReturnType<typeof useNewTicket> }) {
+  const promise = responsePromise(flow.situation?.priority ?? "normal");
+  if (flow.assistantAnswer === null) {
+    return (
+      <SendFooter
+        promise={promise}
+        isSending={flow.isSending || flow.isAskingAssistant}
+        busyLabel={flow.isAskingAssistant ? "Um momento…" : "Enviando…"}
+      />
+    );
+  }
+  return (
+    <SendFooter promise={promise} isSending={flow.isSending} submitLabel="Ainda preciso de ajuda">
+      <ResolvedButton
+        isResolving={flow.isResolvingWithAssistant}
+        onResolve={() => void flow.resolveWithAssistant()}
+      />
+    </SendFooter>
   );
 }
 

@@ -58,7 +58,7 @@ export const REVIEW_FIELD_LABELS: Readonly<Record<ReviewField, string>> = {
   imageUrls: "Imagens",
   categoryId: "Categoria",
   description: "Descrição",
-  sku: "SKU",
+  sku: "Código",
   costCents: "Custo",
   suggestedPriceCents: "Preço sugerido",
   stock: "Estoque",
@@ -149,7 +149,7 @@ export function reviewFieldLabel(field: string): string {
  * click into a reason, so the reason reads as words and never as its rule code.
  */
 const COMPLETENESS_RULE_TITLES: Readonly<Record<string, string>> = {
-  sku_required: "SKU ausente",
+  sku_required: "Código ausente",
   title_min_length: "Título curto",
   cost_required: "Custo ausente",
   stock_required: "Estoque zerado",

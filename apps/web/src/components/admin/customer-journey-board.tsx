@@ -7,11 +7,12 @@ import {
   WrenchIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
-import { HealthRing } from "@/components/admin/health-ring";
+import { CustomerScore } from "@/components/admin/customer-cells";
 import { MarketplaceMark } from "@/components/stores/marketplace-mark";
 import type { JourneyColumn, RankedCustomer } from "@/features/admin/customer-ranking";
 import { healthHeadline } from "@/features/admin/issue-copy";
 import { cn } from "@/lib/utils";
+import { HintedText } from "@/components/ui/hint";
 
 const STAGES: Record<
   CustomerStage,
@@ -60,7 +61,7 @@ function JourneyCard({ customer }: { customer: RankedCustomer }) {
         className="surface-interactive block space-y-2 rounded-2xl bg-card p-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span className="flex items-center gap-2">
-          <HealthRing score={customer.health.score} size="sm" />
+          <CustomerScore score={customer.health.score} focusable={false} />
           <span className="min-w-0 truncate text-sm font-medium">{customer.name}</span>
         </span>
         <span className="block text-footnote text-muted-foreground">
@@ -69,11 +70,13 @@ function JourneyCard({ customer }: { customer: RankedCustomer }) {
         {customer.stores.length > 0 ? (
           <span className="flex gap-1">
             {customer.stores.map((store) => (
-              <MarketplaceMark
+              <HintedText
                 key={`${store.marketplace}-${store.shopName}`}
-                marketplace={store.marketplace}
-                className="size-5 rounded-md"
-              />
+                label={store.shopName}
+                focusable={false}
+              >
+                <MarketplaceMark marketplace={store.marketplace} className="size-5 rounded-md" />
+              </HintedText>
             ))}
           </span>
         ) : null}

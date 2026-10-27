@@ -44,6 +44,7 @@ const processPublish = createPublishListingProcessor({
   },
   acquireRateLimit: async () => {},
   safetyUnits: 0,
+  showcaseUnits: 0,
 });
 
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;

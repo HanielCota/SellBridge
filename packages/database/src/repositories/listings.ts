@@ -257,6 +257,7 @@ export async function getTargetForPublishing(
         row.listing.tenantId === tenantId &&
         (row.source.catalogKind === "supplier" || row.source.ownerTenantId === tenantId),
       supplierActive,
+      priceCoversCost: row.listing.priceCents > row.product.costCents,
     },
   };
 }

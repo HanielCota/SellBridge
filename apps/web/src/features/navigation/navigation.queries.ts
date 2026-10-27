@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import { getAttentionCounts, getOpenTicketCount } from "./navigation.functions";
+import { staffQueueCountsQueryOptions } from "@/features/support/support.queries";
+import { getAttentionCounts } from "./navigation.functions";
 
 const REFRESH_MILLISECONDS = 60_000;
 
@@ -12,9 +13,13 @@ export const attentionCountsQueryOptions = () =>
     refetchInterval: REFRESH_MILLISECONDS,
   });
 
+/**
+ * The nav badge reads the queue counts the ticket list already keeps: a query of its own ran the
+ * same count on the server under another key, twice per cycle on the queue page.
+ */
 export const openTicketCountQueryOptions = () =>
   queryOptions({
-    queryKey: ["tickets", "admin", "open-count"],
-    queryFn: () => getOpenTicketCount(),
+    ...staffQueueCountsQueryOptions(),
     refetchInterval: REFRESH_MILLISECONDS,
+    select: (counts) => counts.open,
   });

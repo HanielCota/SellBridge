@@ -1,7 +1,7 @@
 import type { ListingOverviewRow, ListingStoreStatus } from "@sellbridge/database/repositories";
 import { unavailableListingMessage } from "@sellbridge/shared/catalog-availability";
 import { describe, expect, it } from "vitest";
-import { listingHealth, listingRunState } from "./listing-health";
+import { listingHealth, listingNamedState, listingRunState } from "./listing-health";
 
 function store(
   storeName: string,
@@ -59,7 +59,7 @@ describe("listingHealth", () => {
   });
 
   it("names the store where the listing is live when there is only one", () => {
-    expect(listingHealth(listing([store("Loja A (loja simulada)", "published")]))).toEqual({
+    expect(listingHealth(listing([store("Loja A", "published")]))).toEqual({
       tone: "live",
       label: "No ar na Loja A",
       reason: null,
@@ -108,5 +108,23 @@ describe("listingRunState", () => {
   it("is off when a store failed or the supplier ran out", () => {
     expect(listingRunState(listing([store("A", "error")]))).toBe("off");
     expect(listingRunState(listing([store("A", "published")], 0))).toBe("off");
+  });
+});
+
+describe("listingNamedState", () => {
+  it("names a listing the catalog stops as paused, the tab that counts it", () => {
+    const stopped = listing([store("A", "published")], 10, "cost_above_price");
+    expect(listingRunState(stopped)).toBe("off");
+    expect(listingNamedState(stopped)).toBe("paused");
+  });
+
+  it("keeps the run state of a stopped listing that never went live, as its tab does", () => {
+    const failed = listing([store("A", "error")], 10, "cost_above_price");
+    expect(listingNamedState(failed)).toBe("off");
+  });
+
+  it("keeps the run state for every other listing", () => {
+    expect(listingNamedState(listing([store("A", "error")]))).toBe("off");
+    expect(listingNamedState(listing([store("A", "published")]))).toBe("live");
   });
 });

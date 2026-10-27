@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/onboarding")({
   component: OnboardingPage,
 });
 
-const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Origem dos produtos" }] as const;
+const SIGNUP_STEPS = [{ title: "Seus dados" }, { title: "Fornecedor" }] as const;
 
 /** Minutes of the two steps of this page, from the setup estimates (item 26.c). */
 const SIGNUP_MINUTES = SETUP_STEPS.filter(
@@ -74,7 +74,7 @@ function OnboardingStepEditor({
         </Link>
       </Button>
       <PageHeader
-        title={step === "details" ? "Seus dados" : "Origem dos seus produtos"}
+        title={step === "details" ? "Seus dados" : "Seu fornecedor"}
         description="Confira os dados salvos. Você pode voltar e editar quando quiser."
       />
       <section className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-8">
@@ -108,18 +108,15 @@ function useFinishOnboarding() {
   const router = useRouter();
   const queryClient = useQueryClient();
   return async function finish() {
-    await router.invalidate();
-    const progress = await queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 });
+    // Settle the saved profile before navigating; a background reload can leave old form data.
+    const [, progress] = await Promise.all([
+      router.invalidate({ sync: true }),
+      queryClient.fetchQuery({ ...setupProgressQueryOptions(), staleTime: 0 }),
+    ]);
     await navigate({
       to:
         search.redirect ??
-        (search.step
-          ? "/dashboard"
-          : progress.hasStore
-            ? progress.productSourceMode === "own"
-              ? "/products"
-              : "/catalogo"
-            : "/lojas"),
+        (search.step ? "/dashboard" : progress.hasStore ? "/catalogo" : "/lojas"),
     });
   };
 }

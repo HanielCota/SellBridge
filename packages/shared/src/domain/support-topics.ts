@@ -48,7 +48,9 @@ export const OTHER_SITUATION_ID = "other-issue";
  * The way out inside a topic: the customer got the topic right but the case is not on the
  * list. It asks the topic's own question, so the customer still knows what to write.
  */
-function otherSituation(topic: SupportTopic): SupportSituation {
+export function otherSituation(
+  topic: Pick<SupportTopic, "question" | "example">,
+): SupportSituation {
   return {
     id: OTHER_SITUATION_ID,
     label: "Outro problema",
@@ -102,7 +104,7 @@ export function findSupportSituation(
 }
 
 /** True when the team has nothing but the text to go on: no situation, or "Outro problema". */
-function isOpenEnded(situation: SupportSituation | undefined): boolean {
+export function isOpenEnded(situation: SupportSituation | undefined): boolean {
   return situation === undefined || situation.id === OTHER_SITUATION_ID;
 }
 
@@ -138,6 +140,8 @@ export function supportTicketSubject(input: {
 export interface SupportTicketPlan {
   priority: SupportSituationPriority;
   subject: string;
+  /** The checked situation id, stored on the ticket; null when the topic has none. */
+  situationId: string | null;
 }
 
 /**
@@ -172,5 +176,26 @@ export function planSupportTicket(input: {
   return {
     priority: situation?.priority ?? "normal",
     subject: supportTicketSubject({ heading, about: input.about, description: input.description }),
+    situationId: situation?.id ?? null,
   };
+}
+
+/** Every heading a guided ticket subject can start with, longest first so prefixes never win. */
+const SUBJECT_HEADINGS: readonly string[] = Object.values(SUPPORT_TOPICS)
+  .flatMap((topics) =>
+    topics.flatMap((topic) => [
+      topic.label,
+      ...topic.situations.map((situation) => situation.label),
+    ]),
+  )
+  .toSorted((first, second) => second.length - first.length);
+
+/**
+ * What the customer reads as the ticket title: the heading of a guided subject ("O pedido
+ * atrasou"), without the excerpt of their own message that follows it for the team. Subjects
+ * typed before the guided form stay whole.
+ */
+export function customerTicketTitle(subject: string): string {
+  const heading = SUBJECT_HEADINGS.find((label) => subject.startsWith(`${label}: `));
+  return heading ?? subject;
 }

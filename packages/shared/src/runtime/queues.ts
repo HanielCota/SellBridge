@@ -20,6 +20,8 @@ export const QUEUE_NAMES = {
   orderAutoForward: "order-auto-forward",
   /** Sends queued e-mail and push notifications to people (item 25). */
   notificationDelivery: "notification-delivery",
+  /** The "new message" e-mail held back to the end of its 15-minute window (item 5). */
+  orderMessageFollowUp: "order-message-follow-up",
 } as const;
 
 export const publishListingJobSchema = z.object({
@@ -153,3 +155,24 @@ export async function pingQueueConnection(queue: RedisBackedQueue): Promise<bool
   // BullMQ runs `client[name](...args)`: the ioredis method name, lowercase ("PING" is not one).
   return (await client.runCommand("ping", [])) === "PONG";
 }
+
+export const orderMessageFollowUpJobSchema = z.object({
+  shipmentId: z.uuid(),
+  author: z.enum(["reseller", "supplier"]),
+});
+export type OrderMessageFollowUpJob = z.infer<typeof orderMessageFollowUpJobSchema>;
+
+/**
+ * One job per parcel, author and window end: every message held back in the same window asks for
+ * the same job, and BullMQ keeps only the first.
+ */
+export function orderMessageFollowUpJobId(job: OrderMessageFollowUpJob, runAt: Date): string {
+  return `order-message:${job.shipmentId}:${job.author}:${runAt.getTime()}`;
+}
+
+export const ORDER_MESSAGE_FOLLOW_UP_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 30_000 },
+  removeOnComplete: { age: 24 * 3600 },
+  removeOnFail: { age: 7 * 24 * 3600 },
+} as const;
