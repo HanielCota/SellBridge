@@ -1,14 +1,9 @@
-import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { StorefrontIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 
-const ENTRY_LABEL: Record<ProfileKind, string> = {
-  seller: "Falar com fornecedor",
-  supplier: "Mensagens de revendedores",
-};
 
 /** Loaded only while the support card is open, like the recent tickets under it. */
 function UnreadCount() {
@@ -28,21 +23,15 @@ function UnreadCount() {
  * The second way out of the support card, a full button under "Abrir chamado" so it is found at a
  * glance: a store reaches the supplier of one of its stores; a supplier, the stores that wrote to it.
  */
-export function SupplierConversationsEntry({
-  kind,
-  onNavigate,
-}: {
-  kind: ProfileKind;
-  onNavigate: () => void;
-}) {
+export function SupplierConversationsEntry({ onNavigate }: { onNavigate: () => void }) {
   return (
     <Button asChild variant="outline" className="w-full">
       <Link
-        to={kind === "seller" ? "/suporte/fornecedores/novo" : "/suporte/revendedores"}
+        to="/suporte/fornecedores/novo"
         onClick={onNavigate}
       >
         <StorefrontIcon aria-hidden="true" />
-        {ENTRY_LABEL[kind]}
+        Falar com fornecedor
         <UnreadCount />
       </Link>
     </Button>

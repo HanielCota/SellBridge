@@ -56,6 +56,7 @@ export function NavTab({
       to={item.to}
       {...(profileSlug === null ? {} : { search: { perfil: profileSlug } })}
       aria-current={isActive ? "page" : undefined}
+      activeOptions={{ exact: !isActive }}
       onClick={onNavigate}
       className={navTabClassName({ isActive, paintsOwnPill, padding })}
     >

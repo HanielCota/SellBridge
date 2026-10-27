@@ -16,16 +16,17 @@ import {
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
 import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
-import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from "@/features/navigation/nav-items";
+import { activeNavItemTo, ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from "@/features/navigation/nav-items";
 import { staffShipmentCountsQueryOptions } from "@/features/admin-shipments/shipments.queries";
 import {
   adminProfileSections,
   isCurrentSection,
   type ProfileSection,
 } from "@/features/navigation/profile-sections";
+import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 import { UserAvatar } from "./user-avatar";
 import { chooseOnPlainClick } from "./nav-tab-parts";
-import { isItemActive, NavTab, TeamDivider, type BadgeCounts } from "./nav-tab";
+import { NavTab, TeamDivider, type BadgeCounts } from "./nav-tab";
 import { MobileNav, type MobileNavigation } from "./mobile-nav";
 import { ProfileTabsMenu } from "./profile-tabs-menu";
 import { CommandPalette } from "./command-palette";
@@ -71,26 +72,18 @@ const LAYOUTS = {
   },
 } as const;
 
-/**
- * The supplier's six tabs are narrower than the seller's, so their icons fit from xl: with the
- * account name at its cap, the capsule keeps 28px from the logo at 1280px.
- */
-const SUPPLIER_LAYOUT = { ...LAYOUTS.regular, tabIcon: "hidden size-4 xl:block" } as const;
+type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
 
-type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS] | typeof SUPPLIER_LAYOUT;
-
-function layoutFor(adminMode: boolean, isSupplier: boolean): Layout {
-  if (adminMode) {
-    return LAYOUTS.dense;
-  }
-  return isSupplier ? SUPPLIER_LAYOUT : LAYOUTS.regular;
+function layoutFor(adminMode: boolean): Layout {
+  return adminMode ? LAYOUTS.dense : LAYOUTS.regular;
 }
 
 /** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
-function useNavCounts(isAdmin: boolean, canReview: boolean, canSeeShipments: boolean) {
+function useNavCounts({ isAdmin, canReview, canSeeShipments, isSupplier }: { isAdmin: boolean; canReview: boolean; canSeeShipments: boolean; isSupplier: boolean }) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
   const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
+  const storeMessages = useQuery({ ...myUnreadConversationsQueryOptions(), enabled: isSupplier });
   const shipments = useQuery({ ...staffShipmentCountsQueryOptions(), enabled: canSeeShipments });
   return {
     counts: {
@@ -101,6 +94,7 @@ function useNavCounts(isAdmin: boolean, canReview: boolean, canSeeShipments: boo
       staffParcelAlerts: canSeeShipments
         ? (shipments.data?.late ?? 0) + (shipments.data?.problem ?? 0)
         : 0,
+      storeMessages: isSupplier ? (storeMessages.data ?? 0) : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
       ordersToAccept: attention.data?.ordersToAccept ?? 0,
     } satisfies BadgeCounts,
@@ -147,7 +141,7 @@ function DesktopNav({
 }) {
   const currentItems = profileSections.find(isCurrentSection)?.items ?? [];
   const allItems = [...currentItems, ...items];
-  const activeTo = allItems.find((item) => isItemActive(item, pathname))?.to ?? null;
+  const activeTo = activeNavItemTo(allItems, pathname);
   const { chosen, containerRef, indicator, canAnimate, registerTab } = useTabPill(activeTo);
   return (
     <nav
@@ -321,15 +315,16 @@ function HomeLink({ isSupplier }: { isSupplier: boolean }) {
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind, profiles }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { counts } = useNavCounts(
-    adminMode,
-    adminMode && user.role === "admin",
-    adminMode && hasStaffPermission(user.role, "shipments.view"),
-  );
-  const supportReplies = counts.supportReplies;
   const isSupplier = profileKind === "supplier";
+  const { counts } = useNavCounts({
+    isAdmin: adminMode,
+    canReview: adminMode && user.role === "admin",
+    canSeeShipments: adminMode && hasStaffPermission(user.role, "shipments.view"),
+    isSupplier,
+  });
+  const supportReplies = counts.supportReplies;
   const navigation = navigationFor(user, adminMode, profileKind, profiles);
-  const layout = layoutFor(adminMode, isSupplier);
+  const layout = layoutFor(adminMode);
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       {/* Side columns reserve their content; the capsule uses the space between them. */}

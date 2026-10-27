@@ -4,7 +4,7 @@ import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { SegmentedControl } from "@/components/data/segmented-control";
 import { Hint } from "@/components/ui/hint";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { SUPPORT_NAV_ITEM, type NavItem } from "@/features/navigation/nav-items";
+import { activeNavItemTo, SUPPORT_NAV_ITEM, type NavItem } from "@/features/navigation/nav-items";
 import { PROFILE_LABELS, type ProfileSection } from "@/features/navigation/profile-sections";
 import { cn } from "@/lib/utils";
 import { isItemActive, NavTab, TeamDivider, type BadgeCounts } from "./nav-tab";
@@ -46,6 +46,8 @@ export function MobileNav({
     setIsOpen(open);
   };
   const close = () => setIsOpen(false);
+  const currentItems = navigation.profileSections.find((section) => section.slug === null)?.items ?? navigation.profileItems;
+  const activeTo = activeNavItemTo([...currentItems, ...navigation.teamItems, SUPPORT_NAV_ITEM], pathname);
   return (
     <Sheet open={isOpen} onOpenChange={openSheet}>
       <MenuTrigger className={triggerClassName} />
@@ -76,7 +78,7 @@ export function MobileNav({
           <TeamDivider vertical={false} />
           <NavTab
             item={SUPPORT_NAV_ITEM}
-            isActive={isItemActive(SUPPORT_NAV_ITEM, pathname)}
+            isActive={activeTo === SUPPORT_NAV_ITEM.to}
             count={counts.supportReplies}
             onNavigate={close}
           />
@@ -155,11 +157,12 @@ function ProfileTabs({
   const section = navigation.profileSections.find((candidate) => candidate.kind === shownKind);
   const items = section?.items ?? navigation.profileItems;
   const profileSlug = section?.slug ?? null;
+  const activeTo = activeNavItemTo([...items, SUPPORT_NAV_ITEM], pathname);
   return items.map((item) => (
     <NavTab
       key={item.to}
       item={item}
-      isActive={profileSlug === null && isItemActive(item, pathname)}
+      isActive={profileSlug === null && item.to === activeTo}
       // The counters belong to the tab's own profile, not to the one being peeked at.
       count={item.badge && profileSlug === null ? counts[item.badge] : 0}
       profileSlug={profileSlug}

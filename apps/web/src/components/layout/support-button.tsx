@@ -51,7 +51,7 @@ function SupportActions({ kind, onNavigate }: { kind: ProfileKind; onNavigate: (
             Abrir chamado
           </Link>
         </Button>
-        <SupplierConversationsEntry kind={kind} onNavigate={onNavigate} />
+        {kind === "seller" ? <SupplierConversationsEntry onNavigate={onNavigate} /> : null}
       </div>
     </div>
   );
