@@ -4,7 +4,7 @@ import type { LinkProps } from "@tanstack/react-router";
 /** Counters shown next to a tab when something there needs attention. */
 export type NavBadge =
   | "storeMessages"
-  | "ordersToAccept"
+  | "supplierOrders"
   | "failedListings"
   | "openTickets"
   | "parcelAlerts"
@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
  */
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
-  { label: "Pedidos", to: "/fornecedor/painel/pedidos", badge: "ordersToAccept" },
+  { label: "Pedidos", to: "/fornecedor/painel/pedidos", badge: "supplierOrders" },
   { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages" },
   { label: "Produtos", to: "/fornecedor/painel/produtos", also: ["/fornecedor/painel/importar"] },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
@@ -97,8 +97,8 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
     `${count} ${count === 1 ? "conversa de loja sem ler" : "conversas de lojas sem ler"}`,
   supportReplies: (count) =>
     `${count} ${count === 1 ? "chamado com resposta nova" : "chamados com resposta nova"}`,
-  ordersToAccept: (count) =>
-    `${count} ${count === 1 ? "pedido esperando aceite" : "pedidos esperando aceite"}`,
+  supplierOrders: (count) =>
+    `${count} ${count === 1 ? "pedido para aceitar, atrasado ou com problema" : "pedidos para aceitar, atrasados ou com problema"}`,
 };
 
 export function isActivePath(pathname: string, target: string): boolean {

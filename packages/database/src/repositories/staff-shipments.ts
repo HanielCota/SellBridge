@@ -121,10 +121,16 @@ export async function listStaffShipments(
  */
 export async function countParcelAlerts(
   database: Database,
-  scope: { tenantId: string } | { supplierOrganizationId: string },
+  scope: { tenantId: string } | { supplierOrganizationId: string; includeForwarded?: boolean },
 ): Promise<number> {
   const now = new Date();
-  const alerts = or(groupCondition("late", now), groupCondition("problem", now));
+  const alerts = or(
+    groupCondition("late", now),
+    groupCondition("problem", now),
+    "supplierOrganizationId" in scope && scope.includeForwarded === true
+      ? eq(orderShipments.status, "forwarded")
+      : undefined,
+  );
   const owner =
     "tenantId" in scope
       ? eq(orderShipments.tenantId, scope.tenantId)

@@ -271,7 +271,7 @@ export function SupplierSalesChart({
   const tools = (
     <div className="flex shrink-0 gap-1.5 sm:gap-2">
       <ChartKindMenu {...menu} />
-      <ExportLink href={exportUrl} />
+      <ExportLink href={exportUrl} reportTo="/fornecedor/painel/relatorio" />
     </div>
   );
   return (

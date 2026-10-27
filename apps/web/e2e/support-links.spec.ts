@@ -104,6 +104,12 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await signIn(page, DEMO_USER);
+    // Only the overlap probe is visible: real dashboard actions can correctly fold the label first.
+    await page.addInitScript(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync("#main-content > :not(#e2e-covered) { display: none !important; }");
+      document.adoptedStyleSheets = [sheet];
+    });
     await gotoHydrated(page, "/dashboard");
     const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
     await expect(bubble.getByText("Falar com o suporte")).toBeVisible();

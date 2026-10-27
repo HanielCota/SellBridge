@@ -6,6 +6,7 @@ import {
   MAX_CUSTOMERS_RANKED,
   type ProfileExportFacts,
 } from "@sellbridge/database/repositories";
+import { validationError } from "@sellbridge/shared/errors";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { rankCustomers, type RankedCustomer } from "@/features/admin/customer-ranking";
 import { database } from "@/lib/server/database";
@@ -65,8 +66,13 @@ function clientRow(
 /** Every customer account (the team's own accounts left out), as the "Clientes" list ranks it. */
 export async function loadClientsCsv(input: ExportLoadInput): Promise<CsvTable> {
   const signals = await listCustomerSignals(database, {}, input.now);
+  if (signals.length > MAX_CUSTOMERS_RANKED) {
+    throw validationError(
+      `A lista de clientes excede o limite de ${MAX_CUSTOMERS_RANKED.toLocaleString("pt-BR")} perfis desta exportação.`,
+    );
+  }
   const customers = rankCustomers(
-    signals.slice(0, MAX_CUSTOMERS_RANKED).filter((row) => !isStaffRole(row.role)),
+    signals.filter((row) => !isStaffRole(row.role)),
     input.now,
   );
   const tenantIds = customers.flatMap((customer) =>

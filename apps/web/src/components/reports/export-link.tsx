@@ -37,7 +37,13 @@ function OptionText({
  * screen) or the monthly report with charts. The report link keeps the tab's `perfil` because
  * the app layout retains it on every navigation.
  */
-export function ExportLink({ href }: { href: string }) {
+export function ExportLink({
+  href,
+  reportTo = "/financeiro/relatorio",
+}: {
+  href: string;
+  reportTo?: "/financeiro/relatorio" | "/fornecedor/painel/relatorio";
+}) {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
@@ -67,7 +73,7 @@ export function ExportLink({ href }: { href: string }) {
         </DropdownMenuItem>
         <DropdownMenuItem
           className="min-h-11 items-start"
-          onSelect={() => void navigate({ to: "/financeiro/relatorio" })}
+          onSelect={() => void navigate({ to: reportTo })}
         >
           <OptionText
             icon={ChartBarIcon}

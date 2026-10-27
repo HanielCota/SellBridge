@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/supplier-support.queries";
 
-
 /** Loaded only while the support card is open, like the recent tickets under it. */
 function UnreadCount() {
   const query = useQuery(myUnreadConversationsQueryOptions());
@@ -26,10 +25,7 @@ function UnreadCount() {
 export function SupplierConversationsEntry({ onNavigate }: { onNavigate: () => void }) {
   return (
     <Button asChild variant="outline" className="w-full">
-      <Link
-        to="/suporte/fornecedores/novo"
-        onClick={onNavigate}
-      >
+      <Link to="/suporte/fornecedores/novo" onClick={onNavigate}>
         <StorefrontIcon aria-hidden="true" />
         Falar com fornecedor
         <UnreadCount />

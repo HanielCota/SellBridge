@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 import { acceptSupplierShipmentsFn, updateSupplierPanelShipmentFn } from "./orders.functions";
+import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
 import { supplierOrdersKey } from "./orders.queries";
 
 /** One page of the supplier's queue, as the list function returns it. */
@@ -18,7 +19,12 @@ export type ShipmentUpdateInput = Parameters<
 /** Refreshes the list, the tab counts and the open panel after any write. */
 function useRefreshOrders(supplierId: string) {
   const client = useQueryClient();
-  return async () => await client.invalidateQueries({ queryKey: supplierOrdersKey(supplierId) });
+  return async () =>
+    await Promise.all([
+      client.invalidateQueries({ queryKey: supplierOrdersKey(supplierId) }),
+      client.invalidateQueries({ queryKey: ["supplier-panel", supplierId] }),
+      client.invalidateQueries({ queryKey: attentionCountsQueryOptions().queryKey }),
+    ]);
 }
 
 /** A step or occurrence from the shipment panel, as the supplier. */

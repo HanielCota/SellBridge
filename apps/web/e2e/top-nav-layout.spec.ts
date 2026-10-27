@@ -47,6 +47,9 @@ async function headerBoxes(page: Page) {
 }
 
 async function expectClearHeader(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
   for (const width of DESKTOP_WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     const boxes = await headerBoxes(page);
@@ -81,8 +84,11 @@ async function expectEveryTabVisible(page: Page) {
     if (!(await nav.isVisible())) {
       continue;
     }
-    const clippedWidth = await nav.evaluate((element) => element.scrollWidth - element.clientWidth);
-    expect(clippedWidth, `every tab fits the capsule at ${width}px`).toBeLessThanOrEqual(0);
+    await expect
+      .poll(() => nav.evaluate((element) => element.scrollWidth - element.clientWidth), {
+        message: `every tab fits the capsule at ${width}px`,
+      })
+      .toBeLessThanOrEqual(0);
   }
 }
 
@@ -129,7 +135,11 @@ test("admin header gives each profile its own menu and still fits", async ({ pag
   await nav.getByRole("button", { name: "Fornecedor" }).click();
   await expect(page.getByRole("menuitem", { name: "Visão geral" })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Início" }).click();
-  await expect(page).toHaveURL(`/fornecedor/painel?perfil=${supplierProfile.slug}`);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/fornecedor/painel" &&
+      url.searchParams.get("perfil") === supplierProfile.slug,
+  );
   // On the supplier profile the menus keep their places: Revendedor first, then Fornecedor.
   const menus = nav.getByRole("button", { name: /^(Revendedor|Fornecedor)/ });
   await expect(menus).toHaveText([/Revendedor/, /Fornecedor/]);
@@ -158,9 +168,13 @@ test("admin phone menu switches between the reseller and the supplier screens", 
   await expect(nav.getByRole("heading", { name: "Administração" })).toBeVisible();
   await sheet.getByRole("button", { name: "Fornecedor" }).click();
   await expect(nav.getByRole("link", { name: "Catálogo" })).toHaveCount(0);
-  await expect(nav.getByRole("link", { name: "Meus produtos" })).toBeVisible();
+  await expect(nav.locator('a[href^="/fornecedor/painel/produtos"]')).toHaveText("Produtos");
   await nav.getByRole("link", { name: "Início" }).click();
-  await expect(page).toHaveURL(`/fornecedor/painel?perfil=${supplierProfile.slug}`);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/fornecedor/painel" &&
+      url.searchParams.get("perfil") === supplierProfile.slug,
+  );
 });
 
 test("opening a profile page in a new tab leaves the admin pill on the current tab", async ({
@@ -272,6 +286,7 @@ test("seller header stays clear with a long account name", async ({ page }) => {
 // With "Mensagens" as a seventh tab, icons from 1280px ran the capsule 89px past its track.
 test("supplier header shows the tab icons from 1440px and stays clear", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
+  await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
   await expectClearHeader(page);
   await expectEveryTabVisible(page);
   const nav = page.getByRole("navigation", { name: "Principal" });
@@ -279,6 +294,7 @@ test("supplier header shows the tab icons from 1440px and stays clear", async ({
     [1280, false],
     [1366, false],
     [1440, true],
+    [1920, true],
   ] as const) {
     await page.setViewportSize({ width, height: 900 });
     for (const label of ["Início", "Pedidos", "Mensagens", "Desempenho", "Marca"]) {

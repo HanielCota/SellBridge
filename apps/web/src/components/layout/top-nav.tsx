@@ -16,7 +16,12 @@ import {
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
 import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
-import { activeNavItemTo, ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from "@/features/navigation/nav-items";
+import {
+  activeNavItemTo,
+  ADMIN_NAV_ITEMS,
+  NAV_ITEMS,
+  type NavItem,
+} from "@/features/navigation/nav-items";
 import { staffShipmentCountsQueryOptions } from "@/features/admin-shipments/shipments.queries";
 import {
   adminProfileSections,
@@ -79,7 +84,17 @@ function layoutFor(adminMode: boolean): Layout {
 }
 
 /** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
-function useNavCounts({ isAdmin, canReview, canSeeShipments, isSupplier }: { isAdmin: boolean; canReview: boolean; canSeeShipments: boolean; isSupplier: boolean }) {
+function useNavCounts({
+  isAdmin,
+  canReview,
+  canSeeShipments,
+  isSupplier,
+}: {
+  isAdmin: boolean;
+  canReview: boolean;
+  canSeeShipments: boolean;
+  isSupplier: boolean;
+}) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
   const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
@@ -96,7 +111,7 @@ function useNavCounts({ isAdmin, canReview, canSeeShipments, isSupplier }: { isA
         : 0,
       storeMessages: isSupplier ? (storeMessages.data ?? 0) : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
-      ordersToAccept: attention.data?.ordersToAccept ?? 0,
+      supplierOrders: attention.data?.supplierOrders ?? 0,
     } satisfies BadgeCounts,
   };
 }

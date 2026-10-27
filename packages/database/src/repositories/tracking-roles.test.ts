@@ -238,3 +238,27 @@ describe("delivery problems", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe("supplier order attention", () => {
+  it("counts pending acceptance and delivery alerts once within the supplier workspace", async () => {
+    const scope = { supplierOrganizationId: tenants.tenantB, includeForwarded: true };
+    const before = await countParcelAlerts(database, scope);
+    const pending = await sentParcel("QB000000008BR");
+    const late = await sentParcel("QB000000009BR");
+    await database
+      .update(orderShipments)
+      .set({ status: "forwarded" })
+      .where(eq(orderShipments.id, pending.shipmentId));
+    await database
+      .update(orderShipments)
+      .set({ status: "forwarded", dispatchDeadlineAt: new Date(0) })
+      .where(eq(orderShipments.id, late.shipmentId));
+    expect(await countParcelAlerts(database, scope)).toBe(before + 2);
+    expect(
+      await countParcelAlerts(database, {
+        supplierOrganizationId: tenants.tenantA,
+        includeForwarded: true,
+      }),
+    ).toBe(0);
+  });
+});

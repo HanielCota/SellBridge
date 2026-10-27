@@ -1,4 +1,5 @@
 import { recordReportExport, type AdminExportKind } from "@sellbridge/database/repositories";
+import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import {
   resolveReportPeriod,
@@ -104,6 +105,12 @@ export async function handleAdminExport(
     }
     return await buildExport(spec, request, requester.userId);
   } catch (error) {
+    if (isAppError(error) && error.code === "VALIDATION") {
+      return new Response(error.userMessage, {
+        status: 422,
+        headers: { "cache-control": "no-store" },
+      });
+    }
     logger.error("admin.report_export_failed", { kind: spec.kind, error });
     return new Response("Não foi possível gerar a planilha agora. Tente de novo em instantes.", {
       status: 500,

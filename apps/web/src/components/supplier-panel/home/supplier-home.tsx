@@ -71,7 +71,10 @@ export function SupplierHome(props: SupplierHomeProps) {
       {header}
       <TeamNoticesCard supplierId={supplierId} active={active} />
       {query.isError && query.data === undefined ? (
-        <ErrorState message="Não foi possível carregar as ações pendentes." onRetry={() => void query.refetch()} />
+        <ErrorState
+          message="Não foi possível carregar as ações pendentes."
+          onRetry={() => void query.refetch()}
+        />
       ) : query.data === undefined ? (
         <HomeQueueSkeleton />
       ) : (

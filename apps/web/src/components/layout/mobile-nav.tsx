@@ -46,8 +46,7 @@ export function MobileNav({
     setIsOpen(open);
   };
   const close = () => setIsOpen(false);
-  const currentItems = navigation.profileSections.find((section) => section.slug === null)?.items ?? navigation.profileItems;
-  const activeTo = activeNavItemTo([...currentItems, ...navigation.teamItems, SUPPORT_NAV_ITEM], pathname);
+  const activeTo = currentMobileTab(navigation, pathname);
   return (
     <Sheet open={isOpen} onOpenChange={openSheet}>
       <MenuTrigger className={triggerClassName} />
@@ -86,6 +85,13 @@ export function MobileNav({
       </SheetContent>
     </Sheet>
   );
+}
+
+function currentMobileTab(navigation: MobileNavigation, pathname: string) {
+  const currentItems =
+    navigation.profileSections.find((section) => section.slug === null)?.items ??
+    navigation.profileItems;
+  return activeNavItemTo([...currentItems, ...navigation.teamItems, SUPPORT_NAV_ITEM], pathname);
 }
 
 function hasProfileSwitch(navigation: MobileNavigation): boolean {

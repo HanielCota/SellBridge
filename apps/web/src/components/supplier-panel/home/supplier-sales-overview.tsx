@@ -1,7 +1,6 @@
 import type { SupplierAttentionTarget } from "@sellbridge/shared/supplier-panel-attention";
 import { useQuery } from "@tanstack/react-query";
 import { ErrorState } from "@/components/feedback/error-state";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPeriodCaption } from "@/features/reports/dashboard-metrics";
 import type { SupplierHomeData } from "@/features/supplier-panel/home/home-types";

@@ -146,6 +146,8 @@ function sampleActivity(): Pick<AdminReportRows["performance"], "replies" | "que
     queue: [
       {
         ticketId: "q1",
+        category: "other",
+        situationId: null,
         origin: "seller",
         assigneeId: ANA.id,
         awaitingSince: at("2026-10-26T12:00:00.000Z"),
@@ -153,6 +155,8 @@ function sampleActivity(): Pick<AdminReportRows["performance"], "replies" | "que
       },
       {
         ticketId: "q2",
+        category: "other",
+        situationId: null,
         origin: "supplier",
         assigneeId: null,
         awaitingSince: null,

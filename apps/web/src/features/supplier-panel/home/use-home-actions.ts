@@ -33,14 +33,13 @@ export function useHomeActions(supplierId: string) {
       return;
     }
     const input = { shipmentId: row.id, status: row.action.status };
-    advance.mutate(input, { onSettled: () => void refresh() });
+    advance.mutate(input);
   };
   const acceptAll = (rows: readonly SupplierHomeOrderRow[]) => {
     const shipmentIds = rows.filter((row) => isBatchSelectable(row)).map((row) => row.id);
     batch.mutate(shipmentIds, {
       onSuccess: announceBatch,
       onError: (error) => toast.error(errorMessage(error)),
-      onSettled: () => void refresh(),
     });
   };
   return {

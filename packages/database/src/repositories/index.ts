@@ -74,6 +74,7 @@ export * from "./supplier-product-review-queue.ts";
 export * from "./supplier-panel-orders.ts";
 export * from "./supplier-panel-orders-detail.ts";
 export * from "./supplier-panel-home.ts";
+export * from "./supplier-panel-home-photos.ts";
 export * from "./supplier-panel-sales.ts";
 export * from "./supplier-panel-sales-products.ts";
 export * from "./supplier-panel-sales-export.ts";

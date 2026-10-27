@@ -109,21 +109,46 @@ test("o Início do fornecedor mostra vendas, mais vendidos e o que precisa dele"
   await expect(page.getByText(/Suas primeiras vendas chegaram: R\$\s80 a receber/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Ver a receber nos pedidos" })).toContainText("80");
 
+  const queue = page.getByRole("region", { name: "Aceitar", exact: true });
+  const sales = page.getByRole("region", { name: "Vendas do fornecedor" });
+  await expect(queue).toBeVisible();
+  const queueBox = await queue.boundingBox();
+  const salesBox = await sales.boundingBox();
+  expect(queueBox?.y).toBeLessThan(salesBox?.y ?? 0);
+
   const best = page.getByRole("list", { name: "Produtos mais vendidos no período" });
   await expect(best.getByText(PRODUCT)).toBeVisible();
   await expect(best.getByText("2 peças")).toBeVisible();
-  await expect(page.getByRole("link", { name: /1 pedido para aceitar/ })).toBeVisible();
+  await expect(sales.getByRole("link", { name: /1 pedido para aceitar/ })).toBeVisible();
 
   // The reseller's store, buyer and sale price never reach the supplier's spreadsheet.
+  await sales.getByRole("button", { name: "Baixar planilha ou relatório" }).click();
   const exportHref = await page
-    .getByRole("link", { name: "Exportar CSV do período" })
-    .first()
+    .getByRole("menuitem", { name: /^Planilha dos pedidos/ })
     .getAttribute("href");
+  await page.keyboard.press("Escape");
   const csv = await (await page.request.get(exportHref ?? "")).text();
   expect(csv).toContain(PRODUCT);
   expect(csv).toContain("80,00");
   expect(csv).not.toContain("Paula Ribeiro");
   expect(csv).not.toContain("99,00");
+
+  // Accepting from the home refreshes the operational queue, sales stages and header together.
+  await queue.getByRole("button", { name: new RegExp(PRODUCT) }).click();
+  await queue.getByRole("button", { name: "Aceitar", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Separar e despachar" })).toContainText(PRODUCT);
+  await expect(sales.getByRole("link", { name: /1 pedido para aceitar/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: /^Pedidos/ }),
+  ).toHaveAccessibleName("Pedidos");
+  await expect(sales.getByRole("listitem").filter({ hasText: "Esperando aceite" })).toHaveText(
+    "Esperando aceite0",
+  );
+
+  await sales.getByRole("button", { name: "Baixar planilha ou relatório" }).click();
+  await page.getByRole("menuitem", { name: /^Relatório com gráficos/ }).click();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/relatorio/);
+  await gotoHydrated(page, "/fornecedor/painel?period=7d");
 
   await page.getByRole("combobox", { name: "Situação dos pedidos" }).click();
   await page.getByRole("option", { name: "Cancelados e devolvidos" }).click();
