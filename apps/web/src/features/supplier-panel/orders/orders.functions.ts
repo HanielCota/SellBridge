@@ -17,6 +17,7 @@ import {
   loadSupplierShipments,
   writeSupplierShipmentUpdate,
 } from "./orders.server";
+import { loadSupplierParcelTracking } from "./parcel-tracking.server";
 
 export const listSupplierShipmentsFn = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])
@@ -32,6 +33,11 @@ export const getSupplierPanelShipmentFn = createServerFn({ method: "GET" })
   .middleware([supplierPanelMiddleware])
   .validator(supplierShipmentDetailSchema)
   .handler(async ({ data }) => await loadSupplierShipment(data));
+
+export const getSupplierParcelTrackingFn = createServerFn({ method: "GET" })
+  .middleware([supplierPanelMiddleware])
+  .validator(supplierShipmentDetailSchema)
+  .handler(async ({ data }) => await loadSupplierParcelTracking(data));
 
 export const updateSupplierPanelShipmentFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware, blockedContactLogging("supplier_panel")])

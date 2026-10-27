@@ -33,6 +33,7 @@ import { ShipmentActionHint, ShipmentActionIcon, StepButton } from "./shipment-h
 
 import { Field } from "./shipment-field";
 export { Field } from "./shipment-field";
+import { CorrectTrackingCode } from "./correct-tracking-code";
 import { OwnShipmentActions } from "./own-shipment-actions";
 import { OrderMessages } from "./order-messages";
 import { splitShipmentEvents } from "@/features/fulfillment/order-messages";
@@ -75,12 +76,15 @@ export function ShipmentPanel({
   children,
   blocked = false,
   actsAs = "reseller",
+  showHistory = true,
 }: {
   shipment: ShipmentView;
   externalOrderId: string;
   blocked?: boolean;
   /** Who works the panel: the supplier (by link) cannot declare the delivery. */
   actsAs?: ShipmentOperator;
+  /** Off where the tracking card above already shows the same history. */
+  showHistory?: boolean;
   onUpdate: (input: ReturnType<typeof shipmentUpdateSchema.parse>) => Promise<unknown>;
   children?: React.ReactNode;
 }) {
@@ -103,10 +107,16 @@ export function ShipmentPanel({
           actsAs={actsAs}
         />
       )}
+      {shipment.status === "shipped" && shipment.trackingCode !== null && !blocked ? (
+        <CorrectTrackingCode
+          shipment={{ ...shipment, trackingCode: shipment.trackingCode }}
+          onUpdate={onUpdate}
+        />
+      ) : null}
       {shipment.catalogKind === "seller" ? null : (
         <OrderMessages shipment={shipment} reader={actsAs} canWrite={!closed} onUpdate={onUpdate} />
       )}
-      <ShipmentHistory shipment={shipment} reader={actsAs} />
+      {showHistory ? <ShipmentHistory shipment={shipment} reader={actsAs} /> : null}
     </section>
   );
 }

@@ -68,3 +68,11 @@ describe("hasStaffPermission", () => {
     expect(hasStaffPermission("user", "support.credit_returns")).toBe(false);
   });
 });
+
+describe("shipments.view", () => {
+  it("lets every team role read customers' parcels", () => {
+    expect(hasStaffPermission("agent", "shipments.view")).toBe(true);
+    expect(hasStaffPermission("supervisor", "shipments.view")).toBe(true);
+    expect(hasStaffPermission("admin", "shipments.view")).toBe(true);
+  });
+});

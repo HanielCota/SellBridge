@@ -345,6 +345,7 @@ export const NAV_TAB_ICONS: Readonly<Record<string, ActionIconName>> = {
   "/admin/clientes": "clients",
   "/admin/fornecedores": "adminSuppliers",
   "/admin/avaliacoes": "reviewModeration",
+  "/admin/envios": "orders",
   "/admin/chamados": "tickets",
   "/admin/equipe": "staff",
 };

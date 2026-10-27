@@ -42,6 +42,8 @@ export const orderShipments = pgTable(
     trackingUrl: text(),
     supplierTokenHash: text(),
     supplierTokenExpiresAt: timestamp({ withTimezone: true }),
+    /** The buyer's tracking page (`/rastreio/<token>`): only the SHA-256 of its token is kept. */
+    buyerTokenHash: text(),
     /** The marketplace's delivery estimate and dispatch deadline, as last read. */
     estimatedDeliveryAt: timestamp({ withTimezone: true }),
     dispatchDeadlineAt: timestamp({ withTimezone: true }),
@@ -53,6 +55,7 @@ export const orderShipments = pgTable(
   (table) => [
     uniqueIndex("order_shipments_order_supplier_idx").on(table.orderId, table.supplierId),
     uniqueIndex("order_shipments_token_idx").on(table.supplierTokenHash),
+    uniqueIndex("order_shipments_buyer_token_idx").on(table.buyerTokenHash),
     index("order_shipments_tenant_status_idx").on(table.tenantId, table.status),
     // Supplier queues and health reports read parcels across reseller tenants.
     index("order_shipments_supplier_status_idx").on(table.supplierId, table.status),

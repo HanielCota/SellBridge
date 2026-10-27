@@ -32,9 +32,11 @@ import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-sen
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
+import { Route as AppAdminEnviosRouteImport } from './routes/_app/admin/envios'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
 import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
@@ -230,6 +232,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RastreioTokenRoute = RastreioTokenRouteImport.update({
+  id: '/rastreio/$token',
+  path: '/rastreio/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppAdminAuditoriaRoute = AppAdminAuditoriaRouteImport.update({
   id: '/auditoria',
   path: '/auditoria',
@@ -243,6 +250,11 @@ const AppAdminAvaliacoesRoute = AppAdminAvaliacoesRouteImport.update({
 const AppAdminClientesRouteRoute = AppAdminClientesRouteRouteImport.update({
   id: '/clientes',
   path: '/clientes',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminEnviosRoute = AppAdminEnviosRouteImport.update({
+  id: '/envios',
+  path: '/envios',
   getParentRoute: () => AppAdminRouteRoute,
 } as any)
 const AppAdminEquipeRoute = AppAdminEquipeRouteImport.update({
@@ -715,10 +727,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/envios': typeof AppAdminEnviosRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
@@ -821,8 +835,10 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/admin/envios': typeof AppAdminEnviosRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
   '/admin/relatorio': typeof AppAdminRelatorioRoute
@@ -929,10 +945,12 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
   '/_app/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
+  '/_app/admin/envios': typeof AppAdminEnviosRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
   '/_app/admin/relatorio': typeof AppAdminRelatorioRoute
@@ -1038,10 +1056,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/api/health'
+    | '/rastreio/$token'
     | '/admin/clientes'
     | '/fornecedor/painel'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
+    | '/admin/envios'
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
@@ -1144,8 +1164,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/api/health'
+    | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
+    | '/admin/envios'
     | '/admin/equipe'
     | '/admin/products'
     | '/admin/relatorio'
@@ -1251,10 +1273,12 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/redefinir-senha'
     | '/api/health'
+    | '/rastreio/$token'
     | '/_app/admin/clientes'
     | '/_app/fornecedor/painel'
     | '/_app/admin/auditoria'
     | '/_app/admin/avaliacoes'
+    | '/_app/admin/envios'
     | '/_app/admin/equipe'
     | '/_app/admin/products'
     | '/_app/admin/relatorio'
@@ -1346,6 +1370,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  RastreioTokenRoute: typeof RastreioTokenRoute
   ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContaExportarRoute: typeof ApiContaExportarRoute
@@ -1554,6 +1579,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rastreio/$token': {
+      id: '/rastreio/$token'
+      path: '/rastreio/$token'
+      fullPath: '/rastreio/$token'
+      preLoaderRoute: typeof RastreioTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/admin/auditoria': {
       id: '/_app/admin/auditoria'
       path: '/auditoria'
@@ -1573,6 +1605,13 @@ declare module '@tanstack/react-router' {
       path: '/clientes'
       fullPath: '/admin/clientes'
       preLoaderRoute: typeof AppAdminClientesRouteRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/envios': {
+      id: '/_app/admin/envios'
+      path: '/envios'
+      fullPath: '/admin/envios'
+      preLoaderRoute: typeof AppAdminEnviosRouteImport
       parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/admin/equipe': {
@@ -2164,6 +2203,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminClientesRouteRoute: typeof AppAdminClientesRouteRouteWithChildren
   AppAdminAuditoriaRoute: typeof AppAdminAuditoriaRoute
   AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
+  AppAdminEnviosRoute: typeof AppAdminEnviosRoute
   AppAdminEquipeRoute: typeof AppAdminEquipeRoute
   AppAdminProductsRoute: typeof AppAdminProductsRoute
   AppAdminRelatorioRoute: typeof AppAdminRelatorioRoute
@@ -2181,6 +2221,7 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminClientesRouteRoute: AppAdminClientesRouteRouteWithChildren,
   AppAdminAuditoriaRoute: AppAdminAuditoriaRoute,
   AppAdminAvaliacoesRoute: AppAdminAvaliacoesRoute,
+  AppAdminEnviosRoute: AppAdminEnviosRoute,
   AppAdminEquipeRoute: AppAdminEquipeRoute,
   AppAdminProductsRoute: AppAdminProductsRoute,
   AppAdminRelatorioRoute: AppAdminRelatorioRoute,
@@ -2340,6 +2381,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
+  RastreioTokenRoute: RastreioTokenRoute,
   ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContaExportarRoute: ApiContaExportarRoute,

@@ -12,6 +12,7 @@ export * from "./support.ts";
 export * from "./admin.ts";
 export * from "./reviews.ts";
 export * from "./admin-suppliers.ts";
+export * from "./staff-shipments.ts";
 export * from "./fulfillment.ts";
 export * from "./internal-path.ts";
 export * from "./contact-guard.ts";
