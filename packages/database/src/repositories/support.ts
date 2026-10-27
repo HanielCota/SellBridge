@@ -5,7 +5,7 @@ import {
   validationError,
 } from "@sellbridge/shared/errors";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { isStaffRole, STAFF_ROLES } from "@sellbridge/shared/staff-access";
+import { STAFF_ROLES } from "@sellbridge/shared/staff-access";
 import {
   assertCanRate,
   assertCanReply,
@@ -38,6 +38,7 @@ import {
   activeAssigneeIdSql,
   activeAssigneeNameSql,
   assignee,
+  isActiveStaff,
   STAFF_ROLE_LIST,
   withoutActiveAssigneeSql,
 } from "./support-assignee.ts";
@@ -519,15 +520,6 @@ export async function assignTicket(
       createdAt: now,
     });
   });
-}
-
-async function isActiveStaff(executor: DatabaseExecutor, userId: string): Promise<boolean> {
-  const [row] = await executor
-    .select({ role: user.role, banned: user.banned })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  return row !== undefined && isStaffRole(row.role) && row.banned !== true;
 }
 
 async function assertOnlyTouchesSelf(
