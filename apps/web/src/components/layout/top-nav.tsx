@@ -19,6 +19,7 @@ import {
   openTicketCountQueryOptions,
 } from "@/features/navigation/navigation.queries";
 import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
+import { staffShipmentCountsQueryOptions } from "@/features/admin-shipments/shipments.queries";
 import {
   ADMIN_NAV_ITEMS,
   BADGE_DESCRIPTIONS,
@@ -97,15 +98,20 @@ function layoutFor(adminMode: boolean, isSupplier: boolean): Layout {
 }
 
 /** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
-function useNavCounts(isAdmin: boolean, canReview: boolean) {
+function useNavCounts(isAdmin: boolean, canReview: boolean, canSeeShipments: boolean) {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
   const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
+  const shipments = useQuery({ ...staffShipmentCountsQueryOptions(), enabled: canSeeShipments });
   return {
     counts: {
       failedListings: attention.data?.failedListings ?? 0,
       openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
+      parcelAlerts: attention.data?.parcelAlerts ?? 0,
       productReviews: canReview ? (productReviews.data ?? 0) : 0,
+      staffParcelAlerts: canSeeShipments
+        ? (shipments.data?.late ?? 0) + (shipments.data?.problem ?? 0)
+        : 0,
       supportReplies: attention.data?.unreadSupportReplies ?? 0,
     } satisfies BadgeCounts,
   };
@@ -432,7 +438,11 @@ function navigationFor(user: SessionUser, adminMode: boolean, isSupplier: boolea
 /** App header: logo, the pill navigation and the account chip, as one floating row. */
 export function TopNav({ user, adminMode, profileKind }: TopNavProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { counts } = useNavCounts(adminMode, adminMode && user.role === "admin");
+  const { counts } = useNavCounts(
+    adminMode,
+    adminMode && user.role === "admin",
+    adminMode && hasStaffPermission(user.role, "shipments.view"),
+  );
   const supportReplies = counts.supportReplies;
   const isSupplier = profileKind === "supplier";
   const { items, desktopItems, profileGroup } = navigationFor(user, adminMode, isSupplier);

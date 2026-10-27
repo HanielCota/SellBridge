@@ -1,4 +1,5 @@
 import {
+  isTrackingCodeCorrection,
   SHIPMENT_ACTORS,
   type FulfillmentStatus,
   type ShipmentOperator,
@@ -41,7 +42,8 @@ function isMessage(event: ShipmentEventRecord, previous: ShipmentEventRecord | u
     previous !== undefined &&
     previous.status === event.status &&
     PEOPLE.has(event.actor) &&
-    event.note.trim() !== ""
+    event.note.trim() !== "" &&
+    !isTrackingCodeCorrection(event.note)
   );
 }
 

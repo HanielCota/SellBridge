@@ -1,7 +1,9 @@
 import {
   listParcelsInTransit,
+  listShipmentEventsFor,
   listTrackedParcels,
   type TrackedParcelFilter,
+  type TrackedParcelScope,
 } from "@sellbridge/database/repositories";
 import { logger } from "@sellbridge/shared/logger";
 import { database } from "@/lib/server/database";
@@ -15,6 +17,7 @@ import {
 } from "./carrier-tracking";
 import { lookUpEachCodeOnce } from "./carrier-lookups";
 import { createCarrierTrackingProvider } from "./carrier-tracking-provider";
+import { trackingStepsByShipment, type TrackingStep } from "./parcel-history";
 import { explainTracking } from "./tracking-explanation";
 import type { TrackedParcelView, TrackingSearchResult } from "./tracking-views";
 
@@ -23,7 +26,10 @@ const carrierTracking = createCarrierTrackingProvider(carrierTrackingProviderNam
 type TrackedParcelRow = Awaited<ReturnType<typeof listTrackedParcels>>[number];
 
 /** A failing carrier never breaks the screen: the parcel shows without its events. */
-async function trackCode(code: string, handedOverAt: Date | null): Promise<CarrierTrackingResult> {
+export async function trackCode(
+  code: string,
+  handedOverAt: Date | null,
+): Promise<CarrierTrackingResult> {
   try {
     return await carrierTracking.trackParcel({ code, handedOverAt });
   } catch (error) {
@@ -33,7 +39,7 @@ async function trackCode(code: string, handedOverAt: Date | null): Promise<Carri
 }
 
 /** The Correios code a parcel can be read by; null without a code or for another carrier. */
-function correiosCodeOf(row: TrackedParcelRow): string | null {
+export function correiosCodeOf(row: { trackingCode: string | null }): string | null {
   if (row.trackingCode === null) {
     return null;
   }
@@ -44,6 +50,7 @@ function correiosCodeOf(row: TrackedParcelRow): string | null {
 function parcelView(
   row: TrackedParcelRow,
   tracked: CarrierTrackingResult | null,
+  steps: TrackingStep[],
   now: Date,
 ): TrackedParcelView {
   const explanation = explainTracking({
@@ -64,23 +71,30 @@ function parcelView(
     trackingUrl: row.trackingUrl,
     carrierTracking: tracked,
     explanation,
+    steps,
   };
 }
 
 /** Each distinct code is read once, a few at a time, then every parcel gets its answer. */
-async function trackedParcelViews(tenantId: string, filter: TrackedParcelFilter) {
-  const rows = await listTrackedParcels(database, tenantId, filter);
+export async function trackedParcelViews(scope: TrackedParcelScope, filter: TrackedParcelFilter) {
+  const rows = await listTrackedParcels(database, scope, filter);
   const requests = rows.flatMap((row) => {
     const code = correiosCodeOf(row);
     return code === null ? [] : [{ code, handedOverAt: row.shippedAt }];
   });
-  const answers = await lookUpEachCodeOnce(requests, (request) =>
-    trackCode(request.code, request.handedOverAt),
-  );
+  const [answers, events] = await Promise.all([
+    lookUpEachCodeOnce(requests, (request) => trackCode(request.code, request.handedOverAt)),
+    listShipmentEventsFor(
+      database,
+      rows.map((row) => row.shipmentId),
+    ),
+  ]);
+  const stepsByShipment = trackingStepsByShipment(events);
   const now = new Date();
   return rows.map((row) => {
     const code = correiosCodeOf(row);
-    return parcelView(row, code === null ? null : (answers.get(code) ?? null), now);
+    const tracked = code === null ? null : (answers.get(code) ?? null);
+    return parcelView(row, tracked, stepsByShipment.get(row.shipmentId) ?? [], now);
   });
 }
 
@@ -88,7 +102,7 @@ export async function orderTracking(
   tenantId: string,
   orderId: string,
 ): Promise<TrackingSearchResult> {
-  const parcels = await trackedParcelViews(tenantId, { kind: "order", orderId });
+  const parcels = await trackedParcelViews({ tenantId }, { kind: "order", orderId });
   return { kind: "parcels", parcels };
 }
 
@@ -105,11 +119,14 @@ export async function searchTracking(
 ): Promise<TrackingSearchResult> {
   const code = normalizeTrackingInput(query);
   const externalOrderId = query.trim().replace(/^#/, "");
-  const parcels = await trackedParcelViews(tenantId, {
-    kind: "search",
-    trackingCode: code,
-    externalOrderId,
-  });
+  const parcels = await trackedParcelViews(
+    { tenantId },
+    {
+      kind: "search",
+      trackingCode: code,
+      externalOrderId,
+    },
+  );
   if (parcels.length > 0) {
     return { kind: "parcels", parcels };
   }

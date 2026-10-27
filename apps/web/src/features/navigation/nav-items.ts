@@ -2,7 +2,13 @@ import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
 /** Counters shown next to a tab when something there needs attention. */
-export type NavBadge = "failedListings" | "openTickets" | "productReviews" | "supportReplies";
+export type NavBadge =
+  | "failedListings"
+  | "openTickets"
+  | "parcelAlerts"
+  | "productReviews"
+  | "staffParcelAlerts"
+  | "supportReplies";
 
 export interface NavItem {
   label: string;
@@ -20,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
   { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
   { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
-  { label: "Pedidos", to: "/pedidos" },
+  { label: "Pedidos", to: "/pedidos", badge: "parcelAlerts" },
   { label: "Lojas", to: "/lojas" },
   { label: "Financeiro", to: "/financeiro" },
 ];
@@ -28,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
 /** The supplier profile's tabs: its panel replaces every seller tab. */
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
-  { label: "Pedidos", to: "/fornecedor/painel/pedidos" },
+  { label: "Pedidos", to: "/fornecedor/painel/pedidos", badge: "parcelAlerts" },
   { label: "Meus produtos", to: "/fornecedor/painel/produtos" },
   { label: "Importar produtos", to: "/fornecedor/painel/importar" },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
@@ -46,6 +52,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   },
   // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
   { label: "Avaliações", to: "/admin/avaliacoes", permission: "reviews.moderate" },
+  // Every customer's parcels, late and problem ones counted: "cadê meu pedido?" starts here.
+  {
+    label: "Envios",
+    to: "/admin/envios",
+    badge: "staffParcelAlerts",
+    permission: "shipments.view",
+  },
   {
     label: "Chamados",
     to: "/admin/chamados",
@@ -69,6 +82,10 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
   failedListings: (count) =>
     `${count} ${count === 1 ? "publicação com erro" : "publicações com erro"}`,
   openTickets: (count) => `${count} ${count === 1 ? "chamado aberto" : "chamados abertos"}`,
+  parcelAlerts: (count) =>
+    `${count} ${count === 1 ? "pacote atrasado ou com problema" : "pacotes atrasados ou com problema"}`,
+  staffParcelAlerts: (count) =>
+    `${count} ${count === 1 ? "envio atrasado ou com problema" : "envios atrasados ou com problema"}`,
   productReviews: (count) =>
     `${count} ${count === 1 ? "produto esperando análise" : "produtos esperando análise"}`,
   supportReplies: (count) =>

@@ -24,6 +24,9 @@ function isHttps(request: Request): boolean {
   );
 }
 
+/** Pages opened by a secret token in the path: the supplier's order and the buyer's tracking. */
+const SECRET_LINK_PREFIXES = ["/fornecedor/pedido/", "/rastreio/"];
+
 const securityHeadersMiddleware = createMiddleware().server(async ({ next, request }) => {
   const result = await next();
   // Redirect responses have immutable headers, so the headers go on a copy.
@@ -34,7 +37,7 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next, reque
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     if (!response.headers.has(name)) response.headers.set(name, value);
   }
-  if (new URL(request.url).pathname.startsWith("/fornecedor/pedido/")) {
+  if (SECRET_LINK_PREFIXES.some((prefix) => new URL(request.url).pathname.startsWith(prefix))) {
     response.headers.set("cache-control", "no-store");
     response.headers.set("referrer-policy", "no-referrer");
     response.headers.set("x-robots-tag", "noindex, nofollow");

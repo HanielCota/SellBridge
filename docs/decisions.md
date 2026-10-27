@@ -727,3 +727,11 @@ Revendedor, fornecedor e administração ganham o mesmo modelo de relatório (`M
 - **Planilhas**: mesmo formato do export financeiro (`;`, vírgula decimal, BOM, proteção contra fórmula, horário de Brasília) e limite de 20 mil linhas.
 - **Alternativas descartadas**: gerar PDF no servidor (exigiria um navegador headless no deploy) e um job agendado para o fechamento (o mesmo efeito com mais peças).
 - **Revisar se**: o relatório passar a ser enviado por e-mail automático (aí o job no dia 1º passa a valer a pena).
+
+## 2026-10-27: Rastreio por perfil (revendedor, fornecedor, equipe e comprador)
+
+Um cartão de rastreio só (`TrackingParcel`) para todos, com o histórico juntando as etapas do SellBridge e os passos da transportadora; o que cada um pode fazer vem em `actions`. O fornecedor vê só os pacotes dele e nunca o nome da loja do revendedor. A equipe lê todos os clientes em `/admin/envios` com a permissão nova `shipments.view` (atendente, supervisor e admin), só leitura. O comprador recebe `/rastreio/<token>`: o token é um HMAC do id do pacote com `BETTER_AUTH_SECRET`, então pedir o link de novo dá o mesmo link; no banco fica só o SHA-256 (`order_shipments.buyer_token_hash`). A página mostra a loja, a cidade e as etapas com palavras do comprador, nunca o fornecedor nem o endereço. Código corrigido depois do envio vira etapa ("Código corrigido de X para Y"), não mensagem. "Não entregue" e "Devolvido" vindos do marketplace avisam revendedor e fornecedor (`shipment_problem`).
+
+Alternativas descartadas: token aleatório guardado em hash (cada pedido de link invalidaria o anterior que o comprador já tem); tela de rastreio separada por perfil (três telas divergiriam).
+
+Revisar se: o segredo do Better Auth for trocado (todos os links de comprador mudam) ou se ligarmos a API dos Correios/Melhor Envio (os passos aparecem sozinhos pelo `CarrierTrackingProvider`).

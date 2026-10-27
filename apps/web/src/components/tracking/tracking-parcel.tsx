@@ -1,28 +1,23 @@
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { DotTimeline, DotTimelineItem } from "@/components/data/dot-timeline";
-import { TONE_DOT_CLASSES, type StatusTone } from "@/components/data/tone-status";
+import { TONE_DOT_CLASSES } from "@/components/data/tone-status";
 import { cn } from "@/lib/utils";
 import {
   carrierEventsOldestFirst,
-  type CarrierEventKind,
   type CarrierTrackingResult,
 } from "@/features/tracking/carrier-tracking";
+import {
+  CARRIER_EVENT_TONES,
+  parcelHistory,
+  parcelProgress,
+} from "@/features/tracking/parcel-history";
 import type { TrackedParcelView } from "@/features/tracking/tracking-views";
 import {
   PARCEL_HOLDER_LABELS,
   type TrackingExplanation,
 } from "@/features/tracking/tracking-explanation";
-import { trackingLine } from "@/features/fulfillment/tracking-line";
-
-const EVENT_TONES: Record<CarrierEventKind, StatusTone> = {
-  posted: "info",
-  in_transit: "info",
-  out_for_delivery: "info",
-  delivery_failed: "warning",
-  awaiting_pickup: "warning",
-  returning: "danger",
-  delivered: "success",
-};
+import { ParcelCodeBox, ParcelHistoryList, ParcelProgress } from "./parcel-parts";
 
 /** "O que aconteceu com o pedido": who has the parcel and whose step is late, above the events. */
 export function TrackingExplanationBlock({ explanation }: { explanation: TrackingExplanation }) {
@@ -76,7 +71,7 @@ export function CarrierHistory({ result }: { result: CarrierTrackingResult }) {
           {events.map((event) => (
             <DotTimelineItem
               key={`${event.at.toISOString()}-${event.kind}`}
-              dotClassName={TONE_DOT_CLASSES[EVENT_TONES[event.kind]]}
+              dotClassName={TONE_DOT_CLASSES[CARRIER_EVENT_TONES[event.kind]]}
               date={event.at}
             >
               <span className="block text-foreground">{event.description}</span>
@@ -91,55 +86,57 @@ export function CarrierHistory({ result }: { result: CarrierTrackingResult }) {
   );
 }
 
-/** What the carrier part shows when there is no Correios code to read. */
-function UntrackedCode({ parcel }: { parcel: TrackedParcelView }) {
+/** Why the carrier's scans are missing, when they are: shown under the history. */
+function CarrierNote({ parcel }: { parcel: TrackedParcelView }) {
   if (parcel.trackingCode === null) {
+    return null;
+  }
+  if (parcel.carrierTracking === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        A consulta automática funciona com códigos dos Correios.
+        {parcel.trackingUrl === null ? null : " Use o link de rastreio acima."}
+      </p>
+    );
+  }
+  if (parcel.carrierTracking.state === "found") {
     return null;
   }
   return (
     <p className="text-sm text-muted-foreground">
-      A consulta automática funciona com códigos dos Correios.
-      {parcel.trackingUrl === null ? null : " Use o link de rastreio acima."}
+      {CARRIER_STATE_MESSAGES[parcel.carrierTracking.state]}
     </p>
   );
 }
 
-function ParcelCode({ parcel }: { parcel: TrackedParcelView }) {
-  if (parcel.trackingCode === null) {
-    return <p className="text-sm text-muted-foreground">Ainda sem código de rastreio.</p>;
+function ownerLabel(parcel: TrackedParcelView, reader: TrackingReader) {
+  if (parcel.catalogKind === "seller") {
+    return reader === "reseller" ? "Seu envio" : "Estoque do revendedor";
   }
-  return (
-    <p className="text-sm break-all">
-      {trackingLine(parcel.carrier, parcel.trackingCode)}{" "}
-      {parcel.trackingUrl === null ? null : (
-        <a
-          href={parcel.trackingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline"
-        >
-          Abrir link de rastreio
-        </a>
-      )}
-    </p>
-  );
+  return parcel.supplierName;
 }
 
-/** One parcel of an order: whose it is, its code, the explanation and the carrier's steps. */
-export function TrackingParcel({ parcel }: { parcel: TrackedParcelView }) {
-  const owner = parcel.catalogKind === "seller" ? "Seu envio" : parcel.supplierName;
+function carrierEventsOfParcel(parcel: TrackedParcelView) {
+  return parcel.carrierTracking?.state === "found" ? parcel.carrierTracking.events : [];
+}
+
+type TrackingReader = "reseller" | "supplier" | "staff";
+
+/** The order number and whose parcel it is; only the reseller opens the order page. */
+function ParcelHeader({ parcel, reader }: { parcel: TrackedParcelView; reader: TrackingReader }) {
+  const owner = ownerLabel(parcel, reader);
   return (
-    <section
-      className="surface-card space-y-4 rounded-3xl bg-card p-5"
-      aria-label={`Rastreio do pedido ${parcel.externalOrderId}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <div className="min-w-0">
-          <h3 className="font-medium break-all">Pedido {parcel.externalOrderId}</h3>
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+      <div className="min-w-0">
+        <h3 className="font-medium break-all">Pedido {parcel.externalOrderId}</h3>
+        {/* The supplier never gets the reseller's store: it would lead around the reseller. */}
+        {reader === "supplier" ? null : (
           <p className="text-footnote text-muted-foreground">
             {owner} · {parcel.storeName}
           </p>
-        </div>
+        )}
+      </div>
+      {reader === "reseller" ? (
         <Link
           to="/pedidos/$orderId"
           params={{ orderId: parcel.orderId }}
@@ -147,13 +144,55 @@ export function TrackingParcel({ parcel }: { parcel: TrackedParcelView }) {
         >
           Ver pedido
         </Link>
-      </div>
-      <ParcelCode parcel={parcel} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One parcel as everyone reads it (reseller, supplier, staff): whose it is, the explanation, its
+ * steps, its code and one history. `actions` holds what the reader may do. Only the reseller
+ * opens the order page; the supplier reads its parcel under the store it sells for.
+ */
+export function TrackingParcel({
+  parcel,
+  actions,
+  reader = "reseller",
+}: {
+  parcel: TrackedParcelView;
+  actions?: ReactNode;
+  reader?: TrackingReader;
+}) {
+  const progress = parcelProgress(parcel.status);
+  const history = parcelHistory({
+    steps: parcel.steps,
+    carrierEvents: carrierEventsOfParcel(parcel),
+    catalogKind: parcel.catalogKind,
+  });
+  return (
+    <section
+      className="surface-card space-y-5 rounded-3xl bg-card p-5 sm:p-6"
+      aria-label={`Rastreio do pedido ${parcel.externalOrderId}`}
+    >
+      <ParcelHeader parcel={parcel} reader={reader} />
       <TrackingExplanationBlock explanation={parcel.explanation} />
-      {parcel.carrierTracking === null ? (
-        <UntrackedCode parcel={parcel} />
+      {progress === null ? null : <ParcelProgress steps={progress} />}
+      {parcel.trackingCode === null ? (
+        <p className="text-sm text-muted-foreground">Ainda sem código de rastreio.</p>
       ) : (
-        <CarrierHistory result={parcel.carrierTracking} />
+        <ParcelCodeBox
+          carrier={parcel.carrier}
+          code={parcel.trackingCode}
+          url={parcel.trackingUrl}
+        />
+      )}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium">Histórico do envio</h4>
+        <ParcelHistoryList entries={history} />
+        <CarrierNote parcel={parcel} />
+      </div>
+      {actions === undefined ? null : (
+        <div className="flex flex-wrap gap-2 border-t pt-4">{actions}</div>
       )}
     </section>
   );

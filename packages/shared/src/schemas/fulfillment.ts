@@ -50,6 +50,20 @@ export const SHIPMENT_ACTORS = {
   /** The automatic forward (item 21.b), done for the reseller when the order is paid. */
   sellbridge: "SellBridge",
 } as const;
+/**
+ * A tracking code fixed after the parcel was sent is a step everyone must see ("Código corrigido
+ * de X para Y"), never a chat message, even though it keeps the status and carries a note.
+ */
+const TRACKING_CODE_CORRECTION_PREFIX = "Código corrigido de ";
+
+export function trackingCodeCorrectionNote(previous: string, next: string, note: string): string {
+  const correction = `${TRACKING_CODE_CORRECTION_PREFIX}${previous} para ${next}`;
+  return note.trim() === "" ? correction : `${correction} · ${note.trim()}`;
+}
+
+export function isTrackingCodeCorrection(note: string): boolean {
+  return note.startsWith(TRACKING_CODE_CORRECTION_PREFIX);
+}
 /** Who moves a shipment by hand: the reseller in the app, or the supplier through its link. */
 export type ShipmentOperator = Exclude<keyof typeof SHIPMENT_ACTORS, "marketplace" | "sellbridge">;
 /** Why the supplier link stops at dispatch; said by the server and shown on the link alike. */

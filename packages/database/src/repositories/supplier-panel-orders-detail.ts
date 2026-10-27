@@ -42,6 +42,7 @@ export async function getSupplierPanelShipment(
   const {
     supplierTokenHash: _hash,
     supplierTokenExpiresAt: _expiry,
+    buyerTokenHash: _buyerHash,
     tenantId: _tenant,
     ...shipment
   } = row.shipment;

@@ -1,5 +1,6 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
 import type { CarrierTrackingResult } from "./carrier-tracking";
+import type { TrackingStep } from "./parcel-history";
 import type { TrackingExplanation } from "./tracking-explanation";
 
 /** One parcel of the reseller's order as the tracking screen shows it. */
@@ -17,6 +18,8 @@ export interface TrackedParcelView {
   /** Null when there is no code to read, or it is not a Correios code. */
   carrierTracking: CarrierTrackingResult | null;
   explanation: TrackingExplanation;
+  /** SellBridge's steps for this parcel (messages left out), oldest first. */
+  steps: TrackingStep[];
 }
 
 /**

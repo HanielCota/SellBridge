@@ -13,6 +13,7 @@ import {
   StepStatus,
 } from "./order-row-parts";
 import { useQueueRow } from "./queue-row-context";
+import { trackingLine } from "@/features/fulfillment/tracking-line";
 
 /** "Prazo" in the queue; "Atualizado" in the history tabs, where nothing is due. */
 export function DeadlineCell({ row, now }: { row: SupplierOrderRow; now: Date }) {
@@ -67,6 +68,11 @@ function StatusCell({ row }: { row: SupplierOrderRow }) {
         <StepStatus row={row} />
         <DeadlineCell row={row} now={context.now} />
       </div>
+      {row.trackingCode === null ? null : (
+        <p className="text-xs break-all text-muted-foreground">
+          {trackingLine(row.carrier, row.trackingCode)}
+        </p>
+      )}
       <ProblemList row={row} />
     </div>
   );

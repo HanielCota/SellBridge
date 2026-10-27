@@ -21,6 +21,7 @@ import {
 } from "@/features/tracking/order-tracking.queries";
 import type { TrackingSearchResult } from "@/features/tracking/tracking-views";
 import { errorMessage } from "@/lib/errors";
+import { BuyerLinkButton } from "./buyer-link-button";
 import { CarrierHistory, TrackingExplanationBlock, TrackingParcel } from "./tracking-parcel";
 
 const INVALID_CODE_MESSAGE = `Confira o que foi digitado. O código dos Correios tem 2 letras, 9 números e 2 letras, como ${CORREIOS_CODE_EXAMPLE}. O número do pedido tem só números.`;
@@ -171,7 +172,11 @@ function TrackingResult({ result, query }: { result: TrackingSearchResult; query
   return (
     <div className="space-y-4">
       {result.parcels.map((parcel) => (
-        <TrackingParcel key={parcel.shipmentId} parcel={parcel} />
+        <TrackingParcel
+          key={parcel.shipmentId}
+          parcel={parcel}
+          actions={<BuyerLinkButton shipmentId={parcel.shipmentId} />}
+        />
       ))}
     </div>
   );

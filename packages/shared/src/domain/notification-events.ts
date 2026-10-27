@@ -13,6 +13,7 @@ export const NOTIFICATION_EVENTS = [
   "ticket_created",
   "order_message",
   "supplier_conversation",
+  "shipment_problem",
 ] as const;
 export type NotificationEventName = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -82,6 +83,13 @@ export const NOTIFICATION_EVENT_DEFINITIONS: Record<NotificationEventName, Event
     audience: "reseller",
     label: "Conversa entre loja e fornecedor",
     description: "Chegou uma mensagem nova numa conversa entre loja e fornecedor.",
+    defaults: { in_app: true, email: true, push: true },
+  },
+  // Both sides: the reseller answers the buyer, the supplier gets the parcel back or resends it.
+  shipment_problem: {
+    audience: "reseller",
+    label: "Problema na entrega",
+    description: "A transportadora não conseguiu entregar um pacote, ou ele voltou.",
     defaults: { in_app: true, email: true, push: true },
   },
   // The team already sees new tickets in the "Chamados" badge; e-mail is the outside nudge.
@@ -181,6 +189,42 @@ export function shipmentLateContent(late: ShipmentLateNotice): NotificationConte
     ],
     actionLabel: "Ver pedido",
     actionPath: `/pedidos/${late.orderId}`,
+    footnote: FOOTNOTE,
+  };
+}
+
+export interface ShipmentProblemNotice {
+  orderId: string;
+  externalOrderId: string;
+  problem: "not_delivered" | "returned";
+  /** The supplier's notice leads to its panel; the reseller's to the order. */
+  recipient: "reseller" | "supplier";
+}
+
+const SHIPMENT_PROBLEM_HEADINGS: Record<ShipmentProblemNotice["problem"], string> = {
+  not_delivered: "Pacote não entregue",
+  returned: "Pacote devolvido",
+};
+
+export function shipmentProblemContent(notice: ShipmentProblemNotice): NotificationContent {
+  const heading = SHIPMENT_PROBLEM_HEADINGS[notice.problem];
+  const forSupplier = notice.recipient === "supplier";
+  return {
+    subject: `${heading}: pedido ${notice.externalOrderId}`,
+    preview: forSupplier
+      ? "Veja o rastreio no seu painel."
+      : "Avise o comprador e acompanhe o rastreio.",
+    heading,
+    paragraphs: [
+      notice.problem === "not_delivered"
+        ? `A transportadora não conseguiu entregar o pedido ${notice.externalOrderId}.`
+        : `O pedido ${notice.externalOrderId} voltou para o remetente.`,
+      forSupplier
+        ? "Confira o rastreio e combine com o revendedor o que fazer com o pacote."
+        : "Fale com o comprador pelo chat da venda e acompanhe o rastreio.",
+    ],
+    actionLabel: forSupplier ? "Ver no painel" : "Ver pedido",
+    actionPath: forSupplier ? "/fornecedor/painel/pedidos" : `/pedidos/${notice.orderId}`,
     footnote: FOOTNOTE,
   };
 }
