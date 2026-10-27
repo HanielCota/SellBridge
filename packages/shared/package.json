@@ -77,7 +77,8 @@
     "./supplier-panel-home-queue": "./src/domain/supplier-panel-home-queue.ts",
     "./forward-notes": "./src/domain/forward-notes.ts",
     "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
-    "./product-sources": "./src/domain/product-sources.ts"
+    "./product-sources": "./src/domain/product-sources.ts",
+    "./prohibited-products": "./src/domain/prohibited-products.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
