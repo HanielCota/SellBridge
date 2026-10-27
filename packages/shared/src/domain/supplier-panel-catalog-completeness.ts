@@ -4,6 +4,8 @@
  * runs it on every keystroke and the server runs it again before accepting a submission.
  */
 
+import { findProhibitedProduct, prohibitedProductMessage } from "./prohibited-products.ts";
+
 export type CompletenessSeverity = "blocking" | "improvement";
 
 export interface CompletenessIssue {
@@ -89,6 +91,23 @@ function improvementRule(field: string, rule: string, message: string, passes: b
 
 function attributeValue(product: CompletenessProduct, id: string): string {
   return (product.mercadoLivreAttributes[id] ?? "").trim();
+}
+
+/**
+ * Medicines, encapsulated supplements and the other classes the marketplaces refuse. It bars the
+ * submission without weighing on the score: a refusal is not a field left to fill in.
+ */
+function prohibitedIssue(product: CompletenessProduct): CompletenessIssue | null {
+  const match = findProhibitedProduct(`${product.title} ${product.description}`);
+  if (match === null) {
+    return null;
+  }
+  return {
+    field: "title",
+    rule: "prohibited_item",
+    severity: "blocking",
+    message: prohibitedProductMessage(match),
+  };
 }
 
 function blockingRules(
@@ -188,7 +207,11 @@ export function evaluateCompleteness(
     .filter((rule) => rule.passes)
     .reduce((sum, rule) => sum + weightOf(rule), 0);
   const failed = rules.filter((rule) => !rule.passes);
-  const blocking = failed.filter((rule) => rule.severity === "blocking").map(toIssue);
+  const prohibited = prohibitedIssue(product);
+  const blocking = [
+    ...(prohibited === null ? [] : [prohibited]),
+    ...failed.filter((rule) => rule.severity === "blocking").map(toIssue),
+  ];
   return {
     score: Math.floor((passedWeight / totalWeight) * 100),
     blocking,
