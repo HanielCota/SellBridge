@@ -61,8 +61,28 @@ function Change({ current, previous }: { current: Totals; previous: Totals }) {
   );
 }
 
-/** The amount in words; cancelled and returned orders are money that stayed out. */
-function AmountSentence({ current, previous, situation }: SupplierPeriodSummaryProps) {
+/**
+ * "Cancelados e devolvidos": money that stayed out, never sales to receive. No comparison and
+ * no best day, which would cheer the day with most cancellations.
+ */
+function LostSentence({ current }: { current: Totals }) {
+  if (current.orders === 0) {
+    return <>Nenhum pedido cancelado ou devolvido no período.</>;
+  }
+  const orders =
+    current.orders === 1
+      ? "1 pedido cancelado ou devolvido"
+      : `${current.orders} pedidos cancelados ou devolvidos`;
+  return (
+    <>
+      Ficaram de fora <Strong>{sentenceReais(current.receivableCents)}</Strong> no período, em{" "}
+      {orders}.
+    </>
+  );
+}
+
+/** The amount to receive in words, and how it moved against the previous period. */
+function AmountSentence({ current, previous }: Omit<SupplierPeriodSummaryProps, "situation">) {
   if (current.orders === 0) {
     return <>Nenhuma venda no período. </>;
   }
@@ -74,11 +94,9 @@ function AmountSentence({ current, previous, situation }: SupplierPeriodSummaryP
       </>
     );
   }
-  const lead = situation === "lost" ? "Ficaram de fora " : "Você vai receber ";
   return (
     <>
-      {lead}
-      <Strong>{sentenceReais(current.receivableCents)}</Strong> no período
+      Você vai receber <Strong>{sentenceReais(current.receivableCents)}</Strong> no período
       <Change current={current} previous={previous} />{" "}
     </>
   );
@@ -90,6 +108,13 @@ function AmountSentence({ current, previous, situation }: SupplierPeriodSummaryP
  */
 export function SupplierPeriodSummary(props: SupplierPeriodSummaryProps) {
   const { points, bucket, fromDate } = props;
+  if (props.situation === "lost") {
+    return (
+      <p className="max-w-2xl text-lg leading-relaxed text-pretty text-muted-foreground">
+        <LostSentence current={props.current} />
+      </p>
+    );
+  }
   const best = points.length > 1 ? bestPoint(points, (point) => point.receivableCents) : null;
   return (
     <p className="max-w-2xl text-lg leading-relaxed text-pretty text-muted-foreground">
