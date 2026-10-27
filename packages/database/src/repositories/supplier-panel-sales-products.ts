@@ -150,7 +150,10 @@ export interface SupplierSetupState {
   /** Sent for review or already approved: the second step is done. */
   submitted: number;
   approved: number;
-  /** Any paid order of the supplier's products ever (cancelled later still counts). */
+  /**
+   * Any paid order of the supplier's products ever. A cancelled one counts only when its history
+   * shows it was paid first: an order cancelled unpaid was never a sale.
+   */
   hasSales: boolean;
 }
 
@@ -174,7 +177,15 @@ export async function getSupplierSetupState(
         select 1 from order_items i
         join supplier_products sold on sold.id = i.supplier_product_id
         join orders o on o.id = i.order_id and o.tenant_id = i.tenant_id
-        where sold.supplier_id = ${supplierId} and o.status <> 'pending'
+        where sold.supplier_id = ${supplierId}
+          and (
+            o.status in ('paid', 'shipped', 'delivered', 'returned')
+            or (o.status = 'cancelled' and exists (
+              select 1 from order_status_changes c
+              where c.order_id = o.id and c.tenant_id = o.tenant_id
+                and c.status in ('paid', 'shipped', 'delivered')
+            ))
+          )
       ) as has_sales
     from supplier_products p
     where p.supplier_id = ${supplierId}

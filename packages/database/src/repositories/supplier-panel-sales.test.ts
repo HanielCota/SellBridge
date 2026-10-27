@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { FulfillmentStatus, OrderStatus } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders, orderShipments, supplierProducts } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  orderStatusChanges,
+  supplierProducts,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -140,7 +146,7 @@ async function sale(input: {
   lines: [productId: string, quantity: number][];
   parcel?: FulfillmentStatus;
   parcelSupplierId?: string;
-}) {
+}): Promise<string> {
   const [order] = await database
     .insert(orders)
     .values({
@@ -165,7 +171,7 @@ async function sale(input: {
     })),
   );
   if (input.parcel === undefined) {
-    return;
+    return orderId;
   }
   await database.insert(orderShipments).values({
     tenantId: input.tenantId,
@@ -175,6 +181,7 @@ async function sale(input: {
     address: testAddress,
     items: [],
   });
+  return orderId;
 }
 
 function costOf(productId: string): number {
@@ -343,6 +350,36 @@ describe("getSupplierSetupState", () => {
       });
       const state = await getSupplierSetupState(database, fresh.supplierId);
       expect(state).toEqual({ products: 1, submitted: 0, approved: 0, hasSales: false });
+    } finally {
+      await fresh.cleanup();
+    }
+  });
+
+  it("finds no first sale in an order cancelled before it was ever paid", async () => {
+    const fresh = await createTestSupplierProduct(database, {
+      sku: `SALES-UNPAID-${randomUUID()}`,
+      title: "Bolsa",
+      costCents: 3000,
+      suggestedPriceCents: 7000,
+    });
+    try {
+      const orderId = await sale({
+        tenantId: tenants.tenantA,
+        day: 2,
+        status: "cancelled",
+        lines: [[fresh.productId, 1]],
+      });
+      await database.insert(orderStatusChanges).values([
+        { tenantId: tenants.tenantA, orderId, status: "pending" },
+        { tenantId: tenants.tenantA, orderId, status: "cancelled" },
+      ]);
+      expect((await getSupplierSetupState(database, fresh.supplierId)).hasSales).toBe(false);
+
+      // Paid first and cancelled later, it was a sale: the dashboard replaces the first steps.
+      await database
+        .insert(orderStatusChanges)
+        .values({ tenantId: tenants.tenantA, orderId, status: "paid" });
+      expect((await getSupplierSetupState(database, fresh.supplierId)).hasSales).toBe(true);
     } finally {
       await fresh.cleanup();
     }
