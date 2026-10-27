@@ -1,34 +1,13 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
-import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useNavigate } from "@tanstack/react-router";
 import { Hint } from "@/components/ui/hint";
-import { teamHomeFor } from "@/features/auth/team-mode";
+import { teamEntryPage } from "@/features/auth/team-entry-page";
 import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
-import { ADMIN_NAV_ITEMS } from "@/features/navigation/nav-items";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
 import { navTabClassName } from "./nav-tab-parts";
 import { HEADER_ROUND_BUTTON_CLASSES } from "./support-button";
-
-/** Where switching the mode on lands: the first team page the role may open. */
-function firstTeamPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
-  const page = ADMIN_NAV_ITEMS.find(
-    (item) => item.permission === undefined || hasStaffPermission(role, item.permission),
-  );
-  if (page === undefined) {
-    throw new Error(`No team page is open to the role "${role}"`);
-  }
-  return page.to;
-}
-
-/**
- * Where the team's way in lands: the same page signing in opens for agents and supervisors (the
- * ticket queue), else the first team page the role may open.
- */
-export function teamEntryPage(role: string): (typeof ADMIN_NAV_ITEMS)[number]["to"] {
-  return teamHomeFor(role, true) ?? firstTeamPage(role);
-}
 
 function useEnterTeamMode(role: string) {
   const navigate = useNavigate();

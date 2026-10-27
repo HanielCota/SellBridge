@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { teamEntryPage } from "./team-mode-entry";
+import { teamEntryPage } from "./team-entry-page";
 
 // Regression: the header button sent a supervisor to review moderation, while signing in sends
 // supervisors to the ticket queue; the team's way in now lands where their day starts.
