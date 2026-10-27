@@ -78,7 +78,7 @@ test("a store writes to its supplier from Suporte, the supplier answers and the 
   // From the "Suporte" card: store (its supplier comes with it), topic, situation, message.
   await gotoHydrated(resellerPage, "/pedidos");
   await resellerPage.getByRole("button", { name: "Suporte" }).click();
-  await resellerPage.getByRole("link", { name: /Falar com um fornecedor/ }).click();
+  await resellerPage.getByRole("link", { name: /Falar com fornecedor/ }).click();
   await resellerPage.getByRole("button", { name: new RegExp(storeName) }).click();
   await resellerPage.getByRole("button", { name: /^Pedido/ }).click();
   await resellerPage.getByRole("button", { name: /O pedido está atrasado/ }).click();
