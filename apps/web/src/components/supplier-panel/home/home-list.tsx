@@ -21,7 +21,7 @@ function VariantTile({ title, hex, soldOut }: { title: string; hex: string; sold
         "flex size-full items-center justify-center text-lg font-semibold text-foreground",
         soldOut && "opacity-50 grayscale",
       )}
-      style={{ backgroundColor: `color-mix(in oklch, ${hex} 40%, var(--card))` }}
+      style={{ backgroundColor: `color-mix(in srgb, ${hex} 45%, var(--card))` }}
     >
       {title.trim().charAt(0).toUpperCase()}
     </span>
