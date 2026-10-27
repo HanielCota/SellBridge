@@ -4,6 +4,7 @@ import type {
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { PackageIcon } from "@phosphor-icons/react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { SearchInput } from "@/components/data/search-input";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -144,6 +145,8 @@ interface CatalogProductListProps {
   onSearchChange: (change: Partial<CatalogListSearch>) => void;
   onOpenProduct: OpenProduct;
   onCreateProduct: () => void;
+  /** More header actions, before "Cadastrar produto" (the page's "Baixar"). */
+  headerActions?: ReactNode;
 }
 
 const CreateProductIcon = ACTION_ICONS.createProduct.icon;
@@ -184,6 +187,7 @@ export function CatalogProductList({
   onSearchChange,
   onOpenProduct,
   onCreateProduct,
+  headerActions,
 }: CatalogProductListProps) {
   const query = useQuery(supplierPanelProductsQueryOptions(supplierId, search));
   const { term, setTerm } = useUrlSearchQuery({
@@ -196,7 +200,12 @@ export function CatalogProductList({
       <PageHeader
         title="Produtos"
         description="Só os aprovados aparecem para os revendedores."
-        actions={<ProductListActions onCreateProduct={onCreateProduct} />}
+        actions={
+          <>
+            {headerActions}
+            <ProductListActions onCreateProduct={onCreateProduct} />
+          </>
+        }
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-full overflow-x-auto">

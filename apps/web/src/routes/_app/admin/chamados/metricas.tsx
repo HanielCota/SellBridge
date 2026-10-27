@@ -2,6 +2,7 @@ import { supportMetricsSearchSchema } from "@sellbridge/shared/schemas";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { SupportDownloadMenu } from "@/components/admin-report/admin-download-menu";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SupportAreaTabs } from "@/components/support-performance/support-area-tabs";
@@ -113,7 +114,12 @@ function SupportPerformancePage() {
               canReassign={hasStaffPermission(session.user.role, "support.assign_others")}
             />
           ) : (
-            <BoardView report={report} search={search} onChange={updateSearch} />
+            <BoardView
+              report={report}
+              search={search}
+              onChange={updateSearch}
+              download={<SupportDownloadMenu role={session.user.role} />}
+            />
           )}
         </div>
       ) : null}

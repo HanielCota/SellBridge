@@ -13,6 +13,7 @@ import type {
 } from "@sellbridge/shared/schemas";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { PeriodFilters } from "@/components/reports/period-filters";
 import { periodCaption, tenureText } from "@/features/support/performance-format";
@@ -148,13 +149,19 @@ function Overview({ report, search, onChange }: ViewProps) {
   );
 }
 
-/** The team's screen: the summary, the sections and the page-wide filters. */
-export function BoardView({ report, search, onChange }: ViewProps) {
+/** The team's screen: the summary, the three sections and the filters each one needs. */
+export function BoardView({
+  report,
+  search,
+  onChange,
+  download,
+}: ViewProps & { download?: ReactNode }) {
   return (
     <>
       <PerformanceHero
         title="Desempenho do suporte"
         caption={periodCaption(report.period)}
+        action={download}
         story={boardStory(report)}
       />
       <Toolbar report={report} search={search} onChange={onChange} />

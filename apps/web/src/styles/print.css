@@ -25,6 +25,9 @@
     --muted-foreground: #444;
     --border: #ccc;
     --brand-text: #000;
+    /* Dark and light apart enough to read on black-and-white paper. */
+    --chart-brand: #1d6b43;
+    --chart-compare: #b9d3ee;
   }
   .surface-card,
   tr,

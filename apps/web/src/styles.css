@@ -40,6 +40,7 @@
   --color-field: var(--field);
   --color-field-border: var(--field-border);
   --color-chart-brand: var(--chart-brand);
+  --color-chart-compare: var(--chart-compare);
   --color-finance-cost: var(--finance-cost);
   --color-finance-fee: var(--finance-fee);
   --color-finance-refund: var(--finance-refund);
@@ -84,6 +85,8 @@
   --field-border: oklch(0 0 0 / 12%);
   /* Single-series chart color, checked for contrast against each theme's surface. */
   --chart-brand: oklch(0.62 0.16 152);
+  /* The previous period next to the brand series: solid light blue, never a faded gray. */
+  --chart-compare: oklch(0.78 0.08 240);
   /* Finance outflows: cool, desaturated tones that stay distinct without competing with the green. */
   --finance-cost: oklch(0.6 0.07 255);
   --finance-fee: oklch(0.6 0.075 300);
@@ -137,6 +140,7 @@
   --field: oklch(0.245 0.004 260);
   --field-border: oklch(1 0 0 / 8%);
   --chart-brand: oklch(0.76 0.17 150);
+  --chart-compare: oklch(0.58 0.09 245);
   --finance-cost: oklch(0.74 0.065 255);
   --finance-fee: oklch(0.74 0.07 300);
   --finance-refund: oklch(0.76 0.065 350);

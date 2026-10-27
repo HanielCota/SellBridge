@@ -2,6 +2,7 @@ import { supplierOrdersUrlSearchSchema } from "@sellbridge/shared/supplier-panel
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { SupplierOrdersInbox } from "@/components/supplier-panel/orders/supplier-orders-inbox";
+import { SupplierDownloadMenu } from "@/components/supplier-panel/report/supplier-download-menu";
 import { usePanelSupplierId } from "@/features/supplier-panel/use-panel-supplier";
 
 export const Route = createFileRoute("/_app/fornecedor/painel/pedidos")({
@@ -19,6 +20,7 @@ function SupplierOrdersPage() {
       <PageHeader
         title="Pedidos"
         description="Os pedidos dos revendedores, do mais atrasado ao prazo mais próximo."
+        actions={<SupplierDownloadMenu />}
       />
       <SupplierOrdersInbox
         supplierId={supplierId}

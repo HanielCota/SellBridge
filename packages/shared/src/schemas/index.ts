@@ -5,6 +5,7 @@ export * from "./catalog.ts";
 export * from "./region.ts";
 export * from "./stores.ts";
 export * from "./period.ts";
+export * from "./report-period.ts";
 export * from "./orders.ts";
 export * from "./financials.ts";
 export * from "./support.ts";
