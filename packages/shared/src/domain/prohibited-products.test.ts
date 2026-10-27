@@ -32,6 +32,25 @@ describe("findProhibitedProduct", () => {
   it("returns null for empty text", () => {
     expect(findProhibitedProduct("   ")).toBeNull();
   });
+
+  it.each([
+    "Pistola de cola quente 20W",
+    "PISTOLA DE PINTURA ELÉTRICA",
+    "Pistola massageadora corporal",
+    "Pistola de massagem portátil",
+    "Organizador semanal de medicamentos",
+    "Porta-remédios com divisórias",
+  ])("allows the non-restricted tool or storage product %s", (title) => {
+    expect(findProhibitedProduct(title)).toBeNull();
+  });
+
+  it.each([
+    ["Pistola de cola quente e pistola calibre 9mm", "weapons"],
+    ["Organizador de medicamentos. Acompanha antibiótico.", "medicines"],
+    ["Pistola de pintura com spray de pimenta", "weapons"],
+  ])("still finds a restricted item alongside %s", (title, group) => {
+    expect(findProhibitedProduct(title)?.groupId).toBe(group);
+  });
 });
 
 describe("prohibitedProductMessage", () => {

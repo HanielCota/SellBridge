@@ -114,6 +114,13 @@ function escapeForRegExp(term: string): string {
   return term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// These tool and storage names contain ambiguous class words without naming a restricted item.
+// Remove only the named object: another restricted item in the same listing still blocks it.
+const NON_RESTRICTED_PRODUCT_NAMES = [
+  /(?<![\p{L}\p{N}])pistola\s+(?:de\s+)?(?:cola(?:\s+quente)?|pintura|silicone|massagem|massageadora)(?![\p{L}\p{N}])/gu,
+  /(?<![\p{L}\p{N}])(?:organizador(?:a)?(?:\s+(?:semanal|diario|mensal))?|porta)[\s-]+(?:de\s+|para\s+)?(?:medicamentos|remedios)(?![\p{L}\p{N}])/gu,
+];
+
 function mentions(text: string, term: string): boolean {
   const wholeWord = new RegExp(
     `(?<![\\p{L}\\p{N}])${escapeForRegExp(term)}(?![\\p{L}\\p{N}])`,
@@ -131,8 +138,12 @@ export function findProhibitedProduct(text: string): ProhibitedProductMatch | nu
   if (normalized.trim().length === 0) {
     return null;
   }
+  const searchable = NON_RESTRICTED_PRODUCT_NAMES.reduce(
+    (remaining, pattern) => remaining.replace(pattern, " "),
+    normalized,
+  );
   for (const group of PROHIBITED_PRODUCT_GROUPS) {
-    const term = group.terms.find((candidate) => mentions(normalized, candidate));
+    const term = group.terms.find((candidate) => mentions(searchable, candidate));
     if (term !== undefined) {
       return { groupId: group.id, label: group.label, term };
     }
