@@ -33,6 +33,12 @@ export interface SessionUser {
   createdAt: string;
 }
 
+/** One of the account's profiles, as the header lists it (no ids: the slug opens it). */
+export interface AccountProfile {
+  slug: string;
+  kind: ProfileKind;
+}
+
 export interface AppSession {
   user: SessionUser;
   tenantId: string | null;
@@ -45,6 +51,8 @@ export interface AppSession {
    * page's profile.
    */
   profileKind: ProfileKind;
+  /** Every profile of the account, oldest first: admin mode opens the other kind's tabs. */
+  profiles: AccountProfile[];
   /** Set while an admin is using the app as this user ("entrar como cliente"). */
   impersonatedBy: string | null;
   /** When an admin's visit ends on its own (ISO), or null outside one. */
@@ -92,6 +100,7 @@ interface PageProfile {
   profileSlug: string | null;
   foreignProfile: string | null;
   profileKind: ProfileKind;
+  profiles: AccountProfile[];
 }
 
 /** The profile of the page being opened, by the same rules every server call follows. */
@@ -101,17 +110,24 @@ async function resolvePageProfile(
 ): Promise<PageProfile> {
   const requested = requestedProfileOf({ headers: getRequestHeaders(), url: getRequest().url });
   const memberships = await listMemberships(userId);
+  const profiles = memberships.map(({ slug, kind }) => ({ slug, kind }));
   try {
     const { organizationId, kind } = resolveProfileId({ requested, sessionActive, memberships });
     const slug = memberships.find((item) => item.organizationId === organizationId)?.slug ?? null;
-    return { tenantId: organizationId, profileSlug: slug, foreignProfile: null, profileKind: kind };
+    return {
+      tenantId: organizationId,
+      profileSlug: slug,
+      foreignProfile: null,
+      profileKind: kind,
+      profiles,
+    };
   } catch (error) {
     if (!isAppError(error) || error.code !== "FORBIDDEN") {
       throw error;
     }
     const foreignProfile = requested !== null && memberships.length > 0 ? requested : null;
     // No profile of the account is open: the seller screens show the refusal or the sign-up step.
-    return { tenantId: null, profileSlug: null, foreignProfile, profileKind: "seller" };
+    return { tenantId: null, profileSlug: null, foreignProfile, profileKind: "seller", profiles };
   }
 }
 

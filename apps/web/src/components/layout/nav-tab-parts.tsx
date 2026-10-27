@@ -1,5 +1,15 @@
 import type { MouseEvent } from "react";
+import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { cn } from "@/lib/utils";
+
+/** The icon and hint of the function behind a tab's route, if that area has one. */
+export function navTabAction(to: string): ActionIcon | undefined {
+  const name = NAV_TAB_ICONS[to];
+  if (name === undefined) {
+    return undefined;
+  }
+  return ACTION_ICONS[name];
+}
 
 /** A click that opens a new tab leaves this page, and its pill, where they are. */
 export function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void): void {

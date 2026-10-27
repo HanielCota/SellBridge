@@ -1,13 +1,28 @@
 import { expect, test, type Page } from "@playwright/test";
+import { organization, suppliers, user } from "@sellbridge/database/schema";
+import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
-import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import {
+  ADMIN_USER,
+  enableAdminMode,
+  gotoHydrated,
+  SIGN_UP_PASSWORD,
+  signIn,
+  signUp,
+} from "./helpers";
+import { accountId, addSupplierProfile } from "./profile-fixtures";
 import { supplierAccounts } from "./supplier-accounts";
 
 const database = e2eDatabase();
 const accounts = supplierAccounts(database);
+const extraSupplierProfiles: string[] = [];
 
 test.afterAll(async () => {
   await accounts.removeAll();
+  for (const organizationId of extraSupplierProfiles) {
+    await database.delete(suppliers).where(eq(suppliers.organizationId, organizationId));
+    await database.delete(organization).where(eq(organization.id, organizationId));
+  }
   await database.$client.end();
 });
 
@@ -83,6 +98,69 @@ test("admin header keeps the tab capsule clear of the logo and the actions", asy
   await page.getByRole("menuitem", { name: "Pedidos" }).click();
   await expect(page).toHaveURL(/\/pedidos/);
   await expect(nav.getByRole("link", { name: "Chamados" })).toBeVisible();
+});
+
+/**
+ * A fresh admin account with a supplier profile besides its seller one: adding a profile to the
+ * shared admin would change its menus for the specs running beside this one.
+ */
+async function signInAdminWithSupplierProfile(page: Page): Promise<{ slug: string }> {
+  const email = await signUp(page, "Admin Com Marca");
+  await database.update(user).set({ role: "admin" }).where(eq(user.email, email));
+  const supplierProfile = await addSupplierProfile(database, await accountId(database, email));
+  extraSupplierProfiles.push(supplierProfile.id);
+  await page.context().clearCookies();
+  await signIn(page, { email, password: SIGN_UP_PASSWORD });
+  await enableAdminMode(page);
+  return { slug: supplierProfile.slug };
+}
+
+test("admin header gives each profile its own menu and still fits", async ({ page }) => {
+  const supplierProfile = await signInAdminWithSupplierProfile(page);
+  // Two menus and the six team tabs are the widest admin capsule.
+  await expectClearHeader(page);
+  await expectEveryTabVisible(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const nav = page.getByRole("navigation", { name: "Principal" });
+  await nav.getByRole("button", { name: "Revendedor" }).click();
+  await expect(page.getByRole("menuitem", { name: "Visão geral" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Meus produtos" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await nav.getByRole("button", { name: "Fornecedor" }).click();
+  await expect(page.getByRole("menuitem", { name: "Visão geral" })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Início" }).click();
+  await expect(page).toHaveURL(`/fornecedor/painel?perfil=${supplierProfile.slug}`);
+  // On the supplier profile the menus keep their places: Revendedor first, then Fornecedor.
+  const menus = nav.getByRole("button", { name: /^(Revendedor|Fornecedor)/ });
+  await expect(menus).toHaveText([/Revendedor/, /Fornecedor/]);
+});
+
+test("admin phone menu switches between the reseller and the supplier screens", async ({
+  page,
+}) => {
+  const supplierProfile = await signInAdminWithSupplierProfile(page);
+  // 375px is the narrowest phone we support: the switch clipped "Fornecedor" there.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Navegação" });
+  const nav = sheet.getByRole("navigation", { name: "Principal" });
+  const profileSwitch = sheet.getByRole("group", { name: "Perfil" });
+  const clippedWidth = await profileSwitch.evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  );
+  expect(clippedWidth, "both profile options fit the switch").toBeLessThanOrEqual(0);
+  await expect(sheet.getByRole("button", { name: "Revendedor" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(nav.getByRole("link", { name: "Catálogo" })).toBeVisible();
+  // The team's own Fornecedores tab sits under its title, apart from the supplier profile.
+  await expect(nav.getByRole("heading", { name: "Administração" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Fornecedor" }).click();
+  await expect(nav.getByRole("link", { name: "Catálogo" })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Meus produtos" })).toBeVisible();
+  await nav.getByRole("link", { name: "Início" }).click();
+  await expect(page).toHaveURL(`/fornecedor/painel?perfil=${supplierProfile.slug}`);
 });
 
 test("opening a profile page in a new tab leaves the admin pill on the current tab", async ({
