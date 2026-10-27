@@ -59,10 +59,23 @@ describe("store activity", () => {
     expect(activity.get(storeB)).toEqual({
       liveListings: 0,
       failedListings: 0,
+      publishingListings: 0,
       orders: 0,
       revenueCents: 0,
       lastSyncedAt: null,
     });
+  });
+
+  it("counts queued listings apart from the live ones", async () => {
+    const created = await createListingWithTargets(
+      database,
+      tenantB,
+      { supplierProductId: productId, title: "Na fila", description: "", priceCents: 2500 },
+      [storeB],
+    );
+    const activity = await getStoreActivity(database, tenantB, [storeB]);
+    expect(activity.get(storeB)).toMatchObject({ liveListings: 0, publishingListings: 1 });
+    await database.delete(listingTargets).where(eq(listingTargets.id, created.targetIds[0] ?? ""));
   });
 
   it("dates the store's last sync by its most recently synced listing", async () => {
