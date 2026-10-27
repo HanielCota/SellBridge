@@ -1,6 +1,6 @@
 import { SUPPORT_HOURS } from "../support-hours.ts";
 import { DAY_MILLISECONDS } from "../time.ts";
-import type { SupportPeriodDays } from "./types.ts";
+import type { SupportBucket } from "./types.ts";
 
 /*
  * Dates on the Brasília calendar, whatever the server's zone: the day a reply counts for, the
@@ -53,30 +53,23 @@ function mondayOf(day: string): string {
   return shiftDay(day, -weekdayOfDay(day));
 }
 
-export function bucketKind(days: SupportPeriodDays): "day" | "week" {
-  return days === 7 ? "day" : "week";
-}
-
-/** Brasília has kept UTC−3 all year since daylight saving ended in 2019. */
-const BRAZIL_OFFSET = "-03:00";
-
-/**
- * The period on whole Brasília days: "7 dias" is today and the six days before it, from
- * midnight, so no bucket covers half a day. The previous period is the same length before it.
- */
-export function periodBounds(now: Date, days: number): { since: Date; previousSince: Date } {
-  const firstDay = shiftDay(brazilDay(now), -(days - 1));
-  const since = new Date(`${firstDay}T00:00:00${BRAZIL_OFFSET}`);
-  return { since, previousSince: new Date(since.getTime() - days * DAY_MILLISECONDS) };
+/** One bucket key per hour of the Brasília day: "2026-10-25T09". */
+function hourKey(day: string, hour: number): string {
+  return `${day}T${String(hour).padStart(2, "0")}`;
 }
 
 /**
- * Every bucket from `since` to `until`, oldest first. Weeks start on Monday, except the first,
- * which starts on the period's first day, so it never counts days outside the period.
+ * Every bucket from `since` to `until` (exclusive), oldest first. Hours cover one day up to the
+ * current hour (the hours still to come would read as a drop to zero). Weeks start on Monday,
+ * except the first, which starts on the period's first day, so it never counts days outside it.
  */
-export function bucketStarts(since: Date, until: Date, kind: "day" | "week"): string[] {
+export function bucketStarts(since: Date, until: Date, kind: SupportBucket): string[] {
   const first = brazilDay(since);
-  const last = brazilDay(until);
+  const last = brazilDay(new Date(until.getTime() - 1));
+  if (kind === "hour") {
+    const lastHour = brazilDay(until) === first ? brazilWeekdayHour(until).hour : 23;
+    return Array.from({ length: lastHour + 1 }, (_, hour) => hourKey(first, hour));
+  }
   if (kind === "day") {
     const starts: string[] = [];
     for (let day = first; day <= last; day = shiftDay(day, 1)) {
@@ -91,10 +84,12 @@ export function bucketStarts(since: Date, until: Date, kind: "day" | "week"): st
   return [first, ...mondays];
 }
 
-/** The bucket (its first day) a moment falls in: the last start on or before its day. */
+/** The bucket a moment falls in: the last start on or before its day (or its hour). */
 export function bucketOf(date: Date, starts: readonly string[]): string | null {
   const day = brazilDay(date);
-  return starts.findLast((start) => start <= day) ?? null;
+  const isHourly = (starts[0]?.length ?? 0) > day.length;
+  const key = isHourly ? hourKey(day, brazilWeekdayHour(date).hour) : day;
+  return starts.findLast((start) => start <= key) ?? null;
 }
 
 /** Weekday (Monday = 0) and hour of `date` on the Brasília clock. */

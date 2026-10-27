@@ -9,5 +9,6 @@ export {
   PROBATION_DAYS,
 } from "./rules.ts";
 export { subjectKeyOf } from "./subjects.ts";
-export { periodBounds, supportHourColumns } from "./calendar.ts";
-export { buildSupportPerformanceReport } from "./report.ts";
+export { supportHourColumns } from "./calendar.ts";
+export { buildSupportPerformanceReport, type SupportReportPeriod } from "./report.ts";
+export { DRILL_DOWN_SHOWN, SUPPORT_TARGETS } from "./health.ts";

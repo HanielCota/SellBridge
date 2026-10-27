@@ -1,26 +1,12 @@
-import type { SeriesPoint, SupportPerformanceReport } from "@sellbridge/shared/support-performance";
-import { RESPONSE_TARGET_HOURS } from "@sellbridge/shared/ticket-rules";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from "recharts";
+import type {
+  SupportBucket,
+  SupportPerformanceReport,
+} from "@sellbridge/shared/support-performance";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { TooltipCard, TooltipRow, type TooltipProps } from "@/components/reports/chart-tooltip";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { niceScale } from "@/features/reports/chart-view";
-import {
-  bucketLabel,
-  bucketTitle,
-  formatAxisMinutes,
-  formatMinutes,
-} from "@/features/support/performance-format";
+import { bucketLabel, bucketTitle } from "@/features/support/performance-format";
 
 /*
  * The charts of the support performance screen, drawn like the sales dashboard's: a hairline
@@ -28,21 +14,20 @@ import {
  * muted grey for the one it is compared with.
  */
 
-const MAIN = "var(--chart-brand)";
-const SECONDARY = "var(--muted-foreground)";
-const CHART_MARGIN = { left: 0, right: 8, top: 16, bottom: 4 };
-const TOP_RADIUS: [number, number, number, number] = [6, 6, 2, 2];
-const URGENT_TARGET_MINUTES = RESPONSE_TARGET_HOURS.urgent * 60;
+export const MAIN = "var(--chart-brand)";
+export const SECONDARY = "var(--muted-foreground)";
+export const CHART_MARGIN = { left: 0, right: 8, top: 16, bottom: 4 };
 const count = new Intl.NumberFormat("pt-BR");
 
 interface Axes {
   scale: { domain: [number, number]; ticks: number[] };
   formatY: (value: number) => string;
-  bucket: "day" | "week";
+  bucket: SupportBucket;
+  allowDecimals?: boolean;
 }
 
 /** Grid and axes shared by every chart, so switching views never moves the frame. */
-function renderAxes({ scale, formatY, bucket }: Axes) {
+export function renderAxes({ scale, formatY, bucket, allowDecimals = false }: Axes) {
   return [
     <CartesianGrid key="grid" vertical={false} stroke="var(--border)" strokeOpacity={0.6} />,
     <XAxis
@@ -63,145 +48,11 @@ function renderAxes({ scale, formatY, bucket }: Axes) {
       tickMargin={8}
       domain={scale.domain}
       ticks={scale.ticks}
-      allowDecimals={false}
+      allowDecimals={allowDecimals}
       padding={{ top: 0, bottom: 4 }}
       tickFormatter={formatY}
     />,
   ];
-}
-
-const volumeConfig = {
-  opened: { label: "Entraram", color: SECONDARY },
-  resolved: { label: "Resolvidos", color: MAIN },
-} satisfies ChartConfig;
-
-export type VolumeSeries = "both" | "resolved" | "opened";
-
-function VolumeTooltip({
-  active,
-  payload,
-  bucket,
-}: TooltipProps<SeriesPoint> & { bucket: "day" | "week" }) {
-  const point = payload?.[0]?.payload;
-  if (!active || point === undefined) {
-    return null;
-  }
-  return (
-    <TooltipCard title={bucketTitle(point.start, bucket)}>
-      <TooltipRow color={SECONDARY} label="Entraram" value={count.format(point.opened)} />
-      <TooltipRow color={MAIN} label="Resolvidos" value={count.format(point.resolved)} strong />
-    </TooltipCard>
-  );
-}
-
-/** Tickets in against tickets resolved: is the team keeping up? */
-export function VolumeChart({
-  report,
-  series,
-}: {
-  report: SupportPerformanceReport;
-  series: VolumeSeries;
-}) {
-  const values = report.series.flatMap((point) => [point.opened, point.resolved]);
-  const scale = niceScale(values);
-  return (
-    <ChartContainer config={volumeConfig} className="absolute inset-0 aspect-auto size-full">
-      <BarChart data={report.series} margin={CHART_MARGIN} barGap={4}>
-        {renderAxes({ scale, formatY: (value) => count.format(value), bucket: report.bucket })}
-        <ChartTooltip
-          cursor={{ fill: "var(--muted)", fillOpacity: 0.5 }}
-          content={<VolumeTooltip bucket={report.bucket} />}
-        />
-        {series === "resolved" ? null : (
-          <Bar
-            dataKey="opened"
-            fill={SECONDARY}
-            fillOpacity={0.45}
-            radius={TOP_RADIUS}
-            maxBarSize={28}
-            isAnimationActive={false}
-          />
-        )}
-        {series === "opened" ? null : (
-          <Bar
-            dataKey="resolved"
-            fill={MAIN}
-            radius={TOP_RADIUS}
-            maxBarSize={28}
-            isAnimationActive={false}
-          />
-        )}
-      </BarChart>
-    </ChartContainer>
-  );
-}
-
-const responseConfig = {
-  firstResponseMinutes: { label: "Primeira resposta", color: MAIN },
-} satisfies ChartConfig;
-
-function ResponseTooltip({
-  active,
-  payload,
-  bucket,
-}: TooltipProps<SeriesPoint> & { bucket: "day" | "week" }) {
-  const point = payload?.[0]?.payload;
-  if (!active || point === undefined) {
-    return null;
-  }
-  return (
-    <TooltipCard
-      title={bucketTitle(point.start, bucket)}
-      footnote="Metade dos chamados recebeu a primeira resposta em até esse tempo."
-    >
-      <TooltipRow
-        color={MAIN}
-        label="Primeira resposta"
-        value={formatMinutes(point.firstResponseMinutes)}
-        strong
-      />
-    </TooltipCard>
-  );
-}
-
-/** The median first response over the period, against the urgent priority's target. */
-export function ResponseChart({ report }: { report: SupportPerformanceReport }) {
-  const values = report.series.flatMap((point) =>
-    point.firstResponseMinutes === null ? [] : [point.firstResponseMinutes],
-  );
-  const scale = niceScale([...values, URGENT_TARGET_MINUTES]);
-  return (
-    <ChartContainer config={responseConfig} className="absolute inset-0 aspect-auto size-full">
-      <AreaChart data={report.series} margin={CHART_MARGIN}>
-        <defs>
-          <linearGradient id="supportResponse" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={MAIN} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={MAIN} stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        {renderAxes({ scale, formatY: formatAxisMinutes, bucket: report.bucket })}
-        <ReferenceLine
-          y={URGENT_TARGET_MINUTES}
-          stroke="var(--destructive)"
-          strokeOpacity={0.7}
-          strokeDasharray="5 5"
-        />
-        <ChartTooltip
-          cursor={{ stroke: "var(--foreground)", strokeOpacity: 0.35, strokeDasharray: "4 4" }}
-          content={<ResponseTooltip bucket={report.bucket} />}
-        />
-        <Area
-          dataKey="firstResponseMinutes"
-          type="monotone"
-          stroke={MAIN}
-          strokeWidth={2.5}
-          fill="url(#supportResponse)"
-          connectNulls
-          isAnimationActive={false}
-        />
-      </AreaChart>
-    </ChartContainer>
-  );
 }
 
 interface PersonPoint {
@@ -220,7 +71,7 @@ function PersonTooltip({
   payload,
   bucket,
   name,
-}: TooltipProps<PersonPoint> & { bucket: "day" | "week"; name: string }) {
+}: TooltipProps<PersonPoint> & { bucket: SupportBucket; name: string }) {
   const point = payload?.[0]?.payload;
   if (!active || point === undefined) {
     return null;

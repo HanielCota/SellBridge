@@ -65,7 +65,8 @@ interface PeriodFiltersProps<Period extends PeriodChoice> {
   search: Pick<PeriodSearch, "from" | "to" | "store"> & { period: Period };
   /** The periods offered, in order; reports use the fixed presets. */
   presets?: readonly Period[];
-  stores: { id: string; name: string }[];
+  /** The store picker; screens without stores (the support performance) leave it out. */
+  stores?: { id: string; name: string }[];
   resolvedFrom: string;
   resolvedTo: string;
   onChange: (
@@ -102,11 +103,13 @@ export function PeriodFilters<Period extends PeriodChoice>({
             );
           }}
         />
-        <StoreSelect
-          store={search.store}
-          stores={stores}
-          onStoreChange={(store) => onChange({ store })}
-        />
+        {stores === undefined ? null : (
+          <StoreSelect
+            store={search.store}
+            stores={stores}
+            onStoreChange={(store) => onChange({ store })}
+          />
+        )}
       </div>
       {customPeriod ? (
         <CustomRange
@@ -216,7 +219,7 @@ function StoreSelect({
   onStoreChange,
 }: {
   store: PeriodSearch["store"];
-  stores: PeriodFiltersProps<PeriodChoice>["stores"];
+  stores: NonNullable<PeriodFiltersProps<PeriodChoice>["stores"]>;
   onStoreChange: (store: string | undefined) => void;
 }) {
   return (

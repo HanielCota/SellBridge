@@ -189,8 +189,7 @@ async function replyRows(database: Database, since: Date): Promise<TeamReplyRow[
 async function queueRows(database: Database, now: Date): Promise<QueueRow[]> {
   return database
     .select({
-      ticketId: tickets.id,
-      origin: organization.kind,
+      ...subjectColumns,
       // The same rule as the queue: a blocked or removed assignee counts as nobody.
       assigneeId: activeAssigneeIdSql,
       awaitingSince: tickets.awaitingSince,

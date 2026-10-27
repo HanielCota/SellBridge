@@ -22,7 +22,12 @@ export const Route = createFileRoute("/_app/admin/chamados/metricas")({
       throw redirect({ to: "/admin/chamados" });
     }
   },
-  loaderDeps: ({ search }) => ({ days: search.days, origem: search.origem }),
+  loaderDeps: ({ search }) => ({
+    period: search.period,
+    from: search.from,
+    to: search.to,
+    origem: search.origem,
+  }),
   loader: ({ context, deps }) =>
     prefetchOnServer(context.queryClient, supportPerformanceQueryOptions(deps)),
   head: () => ({ meta: [{ title: "Desempenho do suporte | SellBridge" }] }),
@@ -70,7 +75,12 @@ function SupportPerformancePage() {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate({ from: Route.fullPath });
   const query = useQuery(
-    supportPerformanceQueryOptions({ days: search.days, origem: search.origem }),
+    supportPerformanceQueryOptions({
+      period: search.period,
+      from: search.from,
+      to: search.to,
+      origem: search.origem,
+    }),
   );
 
   function updateSearch(patch: SearchPatch) {
@@ -95,7 +105,13 @@ function SupportPerformancePage() {
             <MissingPersonNotice onBack={() => updateSearch({ pessoa: undefined })} />
           ) : null}
           {agent ? (
-            <PersonView report={report} search={search} onChange={updateSearch} agent={agent} />
+            <PersonView
+              report={report}
+              search={search}
+              onChange={updateSearch}
+              agent={agent}
+              canReassign={hasStaffPermission(session.user.role, "support.assign_others")}
+            />
           ) : (
             <BoardView report={report} search={search} onChange={updateSearch} />
           )}
