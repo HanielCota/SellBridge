@@ -13,13 +13,13 @@ import { listMemberships } from "@/lib/server/membership";
 import { staffMiddleware } from "@/lib/server/middleware";
 import { resolveProfileId } from "@/lib/server/tenant-session";
 import { requestedProfileOf } from "@/lib/profile-param";
+import { ADMIN_MODE_COOKIE } from "@/features/auth/admin-mode-cookie";
 
 /**
  * Admin mode is a display preference: it shows the team tools (support inbox, customers) in the
  * interface to anyone on the SellBridge team. Permissions still come from the account role,
  * checked on every request.
  */
-const ADMIN_MODE_COOKIE = "sellbridge-admin-mode";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 export interface SessionUser {

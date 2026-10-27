@@ -717,3 +717,13 @@ A página `/admin/chamados/metricas` passa a se chamar "Desempenho do suporte". 
 - **Amostra mínima de 5**: vale para resolvidos, para cada taxa da pessoa, para o "Melhor resultado" e para "Precisa de treino em". Abaixo disso, não há cor nem julgamento.
 - **Em experiência** marca atendentes e supervisores com menos de 90 dias, contados a partir de `user.createdAt`. Administradores nunca ficam em experiência.
 - O chamado guarda a situação escolhida no formulário guiado (`tickets.situation_id`).
+
+## 2026-10-27: Relatório mensal com gráficos e planilhas por perfil
+
+Revendedor, fornecedor e administração ganham o mesmo modelo de relatório (`MonthlyReport`), com a página que vira PDF pela impressão e planilhas CSV ao lado. O download tradicional do revendedor continua igual no menu "Baixar".
+
+- **Período**: mês (`mes=AAAA-MM`) ou intervalo (`de`/`ate`), em dias inteiros de Brasília. Um intervalo que é um mês inteiro volta para o modo mês. O mês atual é "parcial" e é comparado com os mesmos dias vividos do mês anterior.
+- **Mês fechado não muda**: o primeiro acesso depois que o mês fecha guarda os números em `report_snapshots` (migration 0055). Daí em diante, a tela e o PDF leem o que foi guardado. Não há job no dia 1º: guardar na primeira leitura dá o mesmo resultado sem processar quem nunca abre o relatório. Um snapshot de versão antiga é recalculado na hora e o guardado não é tocado.
+- **Planilhas**: mesmo formato do export financeiro (`;`, vírgula decimal, BOM, proteção contra fórmula, horário de Brasília) e limite de 20 mil linhas.
+- **Alternativas descartadas**: gerar PDF no servidor (exigiria um navegador headless no deploy) e um job agendado para o fechamento (o mesmo efeito com mais peças).
+- **Revisar se**: o relatório passar a ser enviado por e-mail automático (aí o job no dia 1º passa a valer a pena).

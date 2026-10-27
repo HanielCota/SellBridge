@@ -5,6 +5,7 @@ import {
   TICKET_PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
 } from "@sellbridge/shared/schemas";
+import { monthLabel } from "@sellbridge/shared/report-period";
 import { contactKindsLabel, describeAdminEvent } from "@/features/admin/admin-actions";
 import {
   SUPPLIER_FLAG_REASON_LABELS,
@@ -99,8 +100,46 @@ function describeSupport(action: string, details: AuditDetails): string {
   return copy(textDetail(details, "to"), textDetail(details, "from"));
 }
 
+const EXPORT_FILE_LABELS: Readonly<Record<string, string>> = {
+  equipe: "a planilha da equipe",
+  chamados: "a planilha dos chamados",
+  clientes: "a planilha dos clientes",
+  auditoria: "a planilha da auditoria",
+};
+
+/** "2026-10-01" → "01/10/2026". */
+function brazilianDate(isoDate: string): string {
+  return isoDate.split("-").toReversed().join("/");
+}
+
+/** "2026-10" → "Outubro de 2026"; "2026-10-01..2026-10-15" → "01/10/2026 a 15/10/2026". */
+function exportPeriodLabel(period: string | null): string | null {
+  if (period === null) {
+    return null;
+  }
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    return monthLabel(period);
+  }
+  const [from, to] = period.split("..");
+  if (from === undefined || to === undefined) {
+    return period;
+  }
+  return `${brazilianDate(from)} a ${brazilianDate(to)}`;
+}
+
+/** "Baixou a planilha da equipe de Outubro de 2026, sem os nomes". */
+function describeReportExport(details: AuditDetails): string {
+  const file = EXPORT_FILE_LABELS[textDetail(details, "kind") ?? ""] ?? "uma planilha";
+  const period = exportPeriodLabel(textDetail(details, "period"));
+  const withPeriod = period === null ? `Baixou ${file}` : `Baixou ${file} de ${period}`;
+  return details?.["names"] === false ? `${withPeriod}, sem os nomes da equipe` : withPeriod;
+}
+
 /** One line of the audit, in the team's words. */
 export function describeAuditEntry(entry: DescribedEntry): string {
+  if (entry.action === "report.exported") {
+    return describeReportExport(entry.details);
+  }
   if (entry.source === "account") {
     return describeAdminEvent(entry.action, entry.details);
   }

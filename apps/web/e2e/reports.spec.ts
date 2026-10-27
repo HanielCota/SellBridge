@@ -48,7 +48,7 @@ test.describe("dashboard", () => {
     await expect(chart).toBeVisible();
     await page.locator("label", { hasText: /^Lucro$/ }).click();
     await expect(page.getByRole("radio", { name: "Lucro" })).toBeChecked();
-    await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Baixar planilha ou relatório" })).toBeVisible();
     await expect(page.getByText("Vendas por loja").filter({ visible: true })).toBeVisible();
     await expect(page.getByText("Produtos mais vendidos").filter({ visible: true })).toBeVisible();
 
@@ -115,7 +115,7 @@ test.describe("financeiro", () => {
     await gotoHydrated(page, "/financeiro?period=30d");
     await expect(page.getByText("Lucro no período")).toBeVisible();
     await expect(page.getByText(/^Você vendeu R\$/)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Exportar CSV do período" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Baixar planilha ou relatório" })).toBeVisible();
     const chart = page.getByRole("figure", { name: /^Gráfico: receita e lucro/ });
     await chart.locator(".recharts-surface").focus();
     await page.keyboard.press("ArrowRight");
@@ -147,7 +147,9 @@ test.describe("financeiro", () => {
       page.getByLabel("Financeiro por pedido").getByRole("button").first(),
     ).toContainText(/Cancelado|Devolvido/);
 
-    const exportLink = page.getByRole("link", { name: "Exportar CSV do período" });
+    await page.getByRole("button", { name: "Baixar planilha ou relatório" }).click();
+    await expect(page.getByRole("menuitem", { name: /Relatório com gráficos/ })).toBeVisible();
+    const exportLink = page.getByRole("menuitem", { name: /Planilha dos pedidos/ });
     await expect(exportLink).toHaveAttribute("href", /stage=issue/);
     const downloadPromise = page.waitForEvent("download");
     await exportLink.click();

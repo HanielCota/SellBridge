@@ -104,4 +104,23 @@ describe("audit copy", () => {
       "Alteração no chamado",
     );
   });
+
+  it("names the spreadsheet, the period and whether the team was named in an export", () => {
+    expect(
+      describeAuditEntry({
+        ...base,
+        source: "account",
+        action: "report.exported",
+        details: { kind: "equipe", period: "2026-10", names: true },
+      }),
+    ).toBe("Baixou a planilha da equipe de Outubro de 2026");
+    expect(
+      describeAuditEntry({
+        ...base,
+        source: "account",
+        action: "report.exported",
+        details: { kind: "chamados", period: "2026-10-01..2026-10-15", names: false },
+      }),
+    ).toBe("Baixou a planilha dos chamados de 01/10/2026 a 15/10/2026, sem os nomes da equipe");
+  });
 });

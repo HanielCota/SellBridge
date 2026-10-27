@@ -37,6 +37,8 @@ import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/aval
 import { Route as AppAdminClientesRouteRouteImport } from './routes/_app/admin/clientes/route'
 import { Route as AppAdminEquipeRouteImport } from './routes/_app/admin/equipe'
 import { Route as AppAdminProductsRouteImport } from './routes/_app/admin/products'
+import { Route as AppAdminRelatorioRouteImport } from './routes/_app/admin/relatorio'
+import { Route as AppFinanceiroRelatorioRouteImport } from './routes/_app/financeiro_.relatorio'
 import { Route as AppFornecedorPainelRouteRouteImport } from './routes/_app/fornecedor/painel/route'
 import { Route as AppFornecedoresIndexRouteImport } from './routes/_app/fornecedores/index'
 import { Route as AppFornecedoresSupplierIdRouteImport } from './routes/_app/fornecedores/$supplierId'
@@ -78,9 +80,16 @@ import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/forn
 import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fornecedor/painel/pedidos'
 import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
 import { Route as AppFornecedorPainelRegrasRouteImport } from './routes/_app/fornecedor/painel/regras'
+import { Route as AppFornecedorPainelRelatorioRouteImport } from './routes/_app/fornecedor/painel/relatorio'
 import { Route as AppSuporteConversasTicketIdRouteImport } from './routes/_app/suporte/conversas/$ticketId'
 import { Route as AppSuporteFornecedoresIndexRouteImport } from './routes/_app/suporte/fornecedores/index'
 import { Route as AppSuporteFornecedoresNovoRouteImport } from './routes/_app/suporte/fornecedores/novo'
+import { Route as ApiAdminExportarAuditoriaRouteImport } from './routes/api/admin/exportar/auditoria'
+import { Route as ApiAdminExportarChamadosRouteImport } from './routes/api/admin/exportar/chamados'
+import { Route as ApiAdminExportarClientesRouteImport } from './routes/api/admin/exportar/clientes'
+import { Route as ApiAdminExportarEquipeRouteImport } from './routes/api/admin/exportar/equipe'
+import { Route as ApiFornecedorExportarPedidosRouteImport } from './routes/api/fornecedor/exportar/pedidos'
+import { Route as ApiFornecedorExportarProdutosRouteImport } from './routes/api/fornecedor/exportar/produtos'
 import { Route as ApiFornecedorProdutosImagensRouteImport } from './routes/api/fornecedor/produtos/imagens'
 import { Route as ApiOauthMarketplaceCallbackRouteImport } from './routes/api/oauth/$marketplace/callback'
 import { Route as ApiOauthMarketplaceStartRouteImport } from './routes/api/oauth/$marketplace/start'
@@ -244,6 +253,16 @@ const AppAdminProductsRoute = AppAdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
   getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppAdminRelatorioRoute = AppAdminRelatorioRouteImport.update({
+  id: '/relatorio',
+  path: '/relatorio',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppFinanceiroRelatorioRoute = AppFinanceiroRelatorioRouteImport.update({
+  id: '/financeiro_/relatorio',
+  path: '/financeiro/relatorio',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppFornecedorPainelRouteRoute =
   AppFornecedorPainelRouteRouteImport.update({
@@ -463,6 +482,12 @@ const AppFornecedorPainelRegrasRoute =
     path: '/regras',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelRelatorioRoute =
+  AppFornecedorPainelRelatorioRouteImport.update({
+    id: '/relatorio',
+    path: '/relatorio',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppSuporteConversasTicketIdRoute =
   AppSuporteConversasTicketIdRouteImport.update({
     id: '/suporte/conversas/$ticketId',
@@ -480,6 +505,41 @@ const AppSuporteFornecedoresNovoRoute =
     id: '/suporte/fornecedores/novo',
     path: '/suporte/fornecedores/novo',
     getParentRoute: () => AppRouteRoute,
+  } as any)
+const ApiAdminExportarAuditoriaRoute =
+  ApiAdminExportarAuditoriaRouteImport.update({
+    id: '/api/admin/exportar/auditoria',
+    path: '/api/admin/exportar/auditoria',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAdminExportarChamadosRoute =
+  ApiAdminExportarChamadosRouteImport.update({
+    id: '/api/admin/exportar/chamados',
+    path: '/api/admin/exportar/chamados',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAdminExportarClientesRoute =
+  ApiAdminExportarClientesRouteImport.update({
+    id: '/api/admin/exportar/clientes',
+    path: '/api/admin/exportar/clientes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAdminExportarEquipeRoute = ApiAdminExportarEquipeRouteImport.update({
+  id: '/api/admin/exportar/equipe',
+  path: '/api/admin/exportar/equipe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFornecedorExportarPedidosRoute =
+  ApiFornecedorExportarPedidosRouteImport.update({
+    id: '/api/fornecedor/exportar/pedidos',
+    path: '/api/fornecedor/exportar/pedidos',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiFornecedorExportarProdutosRoute =
+  ApiFornecedorExportarProdutosRouteImport.update({
+    id: '/api/fornecedor/exportar/produtos',
+    path: '/api/fornecedor/exportar/produtos',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiFornecedorProdutosImagensRoute =
   ApiFornecedorProdutosImagensRouteImport.update({
@@ -654,6 +714,8 @@ export interface FileRoutesByFullPath {
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
+  '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -690,8 +752,15 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -748,6 +817,8 @@ export interface FileRoutesByTo {
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/admin/equipe': typeof AppAdminEquipeRoute
   '/admin/products': typeof AppAdminProductsRoute
+  '/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/financeiro/relatorio': typeof AppFinanceiroRelatorioRoute
   '/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -784,8 +855,15 @@ export interface FileRoutesByTo {
   '/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -848,6 +926,8 @@ export interface FileRoutesById {
   '/_app/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
   '/_app/admin/equipe': typeof AppAdminEquipeRoute
   '/_app/admin/products': typeof AppAdminProductsRoute
+  '/_app/admin/relatorio': typeof AppAdminRelatorioRoute
+  '/_app/financeiro_/relatorio': typeof AppFinanceiroRelatorioRoute
   '/_app/fornecedores/$supplierId': typeof AppFornecedoresSupplierIdRoute
   '/_app/pedidos/$orderId': typeof AppPedidosOrderIdRoute
   '/_app/publicacoes/nova': typeof AppPublicacoesNovaRoute
@@ -884,8 +964,15 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel/pedidos': typeof AppFornecedorPainelPedidosRoute
   '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/_app/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
+  '/_app/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
   '/_app/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/_app/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
+  '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
+  '/api/admin/exportar/chamados': typeof ApiAdminExportarChamadosRoute
+  '/api/admin/exportar/clientes': typeof ApiAdminExportarClientesRoute
+  '/api/admin/exportar/equipe': typeof ApiAdminExportarEquipeRoute
+  '/api/fornecedor/exportar/pedidos': typeof ApiFornecedorExportarPedidosRoute
+  '/api/fornecedor/exportar/produtos': typeof ApiFornecedorExportarProdutosRoute
   '/api/fornecedor/produtos/imagens': typeof ApiFornecedorProdutosImagensRoute
   '/api/oauth/$marketplace/callback': typeof ApiOauthMarketplaceCallbackRoute
   '/api/oauth/$marketplace/start': typeof ApiOauthMarketplaceStartRoute
@@ -947,6 +1034,8 @@ export interface FileRouteTypes {
     | '/admin/avaliacoes'
     | '/admin/equipe'
     | '/admin/products'
+    | '/admin/relatorio'
+    | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -983,8 +1072,15 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
     | '/fornecedor/painel/regras'
+    | '/fornecedor/painel/relatorio'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1041,6 +1137,8 @@ export interface FileRouteTypes {
     | '/admin/avaliacoes'
     | '/admin/equipe'
     | '/admin/products'
+    | '/admin/relatorio'
+    | '/financeiro/relatorio'
     | '/fornecedores/$supplierId'
     | '/pedidos/$orderId'
     | '/publicacoes/nova'
@@ -1077,8 +1175,15 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/pedidos'
     | '/fornecedor/painel/produtos'
     | '/fornecedor/painel/regras'
+    | '/fornecedor/painel/relatorio'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1140,6 +1245,8 @@ export interface FileRouteTypes {
     | '/_app/admin/avaliacoes'
     | '/_app/admin/equipe'
     | '/_app/admin/products'
+    | '/_app/admin/relatorio'
+    | '/_app/financeiro_/relatorio'
     | '/_app/fornecedores/$supplierId'
     | '/_app/pedidos/$orderId'
     | '/_app/publicacoes/nova'
@@ -1176,8 +1283,15 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel/pedidos'
     | '/_app/fornecedor/painel/produtos'
     | '/_app/fornecedor/painel/regras'
+    | '/_app/fornecedor/painel/relatorio'
     | '/_app/suporte/conversas/$ticketId'
     | '/_app/suporte/fornecedores/novo'
+    | '/api/admin/exportar/auditoria'
+    | '/api/admin/exportar/chamados'
+    | '/api/admin/exportar/clientes'
+    | '/api/admin/exportar/equipe'
+    | '/api/fornecedor/exportar/pedidos'
+    | '/api/fornecedor/exportar/produtos'
     | '/api/fornecedor/produtos/imagens'
     | '/api/oauth/$marketplace/callback'
     | '/api/oauth/$marketplace/start'
@@ -1234,6 +1348,12 @@ export interface RootRouteChildren {
   ApiWebhooksMarketplaceRoute: typeof ApiWebhooksMarketplaceRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
   FornecedorPedidoTokenRoute: typeof FornecedorPedidoTokenRoute
+  ApiAdminExportarAuditoriaRoute: typeof ApiAdminExportarAuditoriaRoute
+  ApiAdminExportarChamadosRoute: typeof ApiAdminExportarChamadosRoute
+  ApiAdminExportarClientesRoute: typeof ApiAdminExportarClientesRoute
+  ApiAdminExportarEquipeRoute: typeof ApiAdminExportarEquipeRoute
+  ApiFornecedorExportarPedidosRoute: typeof ApiFornecedorExportarPedidosRoute
+  ApiFornecedorExportarProdutosRoute: typeof ApiFornecedorExportarProdutosRoute
   ApiFornecedorProdutosImagensRoute: typeof ApiFornecedorProdutosImagensRoute
   ApiOauthMarketplaceCallbackRoute: typeof ApiOauthMarketplaceCallbackRoute
   ApiOauthMarketplaceStartRoute: typeof ApiOauthMarketplaceStartRoute
@@ -1454,6 +1574,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/products'
       preLoaderRoute: typeof AppAdminProductsRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/admin/relatorio': {
+      id: '/_app/admin/relatorio'
+      path: '/relatorio'
+      fullPath: '/admin/relatorio'
+      preLoaderRoute: typeof AppAdminRelatorioRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/financeiro_/relatorio': {
+      id: '/_app/financeiro_/relatorio'
+      path: '/financeiro/relatorio'
+      fullPath: '/financeiro/relatorio'
+      preLoaderRoute: typeof AppFinanceiroRelatorioRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/fornecedor/painel': {
       id: '/_app/fornecedor/painel'
@@ -1742,6 +1876,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelRegrasRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
+    '/_app/fornecedor/painel/relatorio': {
+      id: '/_app/fornecedor/painel/relatorio'
+      path: '/relatorio'
+      fullPath: '/fornecedor/painel/relatorio'
+      preLoaderRoute: typeof AppFornecedorPainelRelatorioRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
     '/_app/suporte/conversas/$ticketId': {
       id: '/_app/suporte/conversas/$ticketId'
       path: '/suporte/conversas/$ticketId'
@@ -1762,6 +1903,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/suporte/fornecedores/novo'
       preLoaderRoute: typeof AppSuporteFornecedoresNovoRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/api/admin/exportar/auditoria': {
+      id: '/api/admin/exportar/auditoria'
+      path: '/api/admin/exportar/auditoria'
+      fullPath: '/api/admin/exportar/auditoria'
+      preLoaderRoute: typeof ApiAdminExportarAuditoriaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/chamados': {
+      id: '/api/admin/exportar/chamados'
+      path: '/api/admin/exportar/chamados'
+      fullPath: '/api/admin/exportar/chamados'
+      preLoaderRoute: typeof ApiAdminExportarChamadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/clientes': {
+      id: '/api/admin/exportar/clientes'
+      path: '/api/admin/exportar/clientes'
+      fullPath: '/api/admin/exportar/clientes'
+      preLoaderRoute: typeof ApiAdminExportarClientesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/exportar/equipe': {
+      id: '/api/admin/exportar/equipe'
+      path: '/api/admin/exportar/equipe'
+      fullPath: '/api/admin/exportar/equipe'
+      preLoaderRoute: typeof ApiAdminExportarEquipeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/exportar/pedidos': {
+      id: '/api/fornecedor/exportar/pedidos'
+      path: '/api/fornecedor/exportar/pedidos'
+      fullPath: '/api/fornecedor/exportar/pedidos'
+      preLoaderRoute: typeof ApiFornecedorExportarPedidosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fornecedor/exportar/produtos': {
+      id: '/api/fornecedor/exportar/produtos'
+      path: '/api/fornecedor/exportar/produtos'
+      fullPath: '/api/fornecedor/exportar/produtos'
+      preLoaderRoute: typeof ApiFornecedorExportarProdutosRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/fornecedor/produtos/imagens': {
       id: '/api/fornecedor/produtos/imagens'
@@ -1962,6 +2145,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminAvaliacoesRoute: typeof AppAdminAvaliacoesRoute
   AppAdminEquipeRoute: typeof AppAdminEquipeRoute
   AppAdminProductsRoute: typeof AppAdminProductsRoute
+  AppAdminRelatorioRoute: typeof AppAdminRelatorioRoute
   AppAdminChamadosTicketIdRoute: typeof AppAdminChamadosTicketIdRoute
   AppAdminChamadosMetricasRoute: typeof AppAdminChamadosMetricasRoute
   AppAdminFornecedoresSupplierIdRoute: typeof AppAdminFornecedoresSupplierIdRoute
@@ -1978,6 +2162,7 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminAvaliacoesRoute: AppAdminAvaliacoesRoute,
   AppAdminEquipeRoute: AppAdminEquipeRoute,
   AppAdminProductsRoute: AppAdminProductsRoute,
+  AppAdminRelatorioRoute: AppAdminRelatorioRoute,
   AppAdminChamadosTicketIdRoute: AppAdminChamadosTicketIdRoute,
   AppAdminChamadosMetricasRoute: AppAdminChamadosMetricasRoute,
   AppAdminFornecedoresSupplierIdRoute: AppAdminFornecedoresSupplierIdRoute,
@@ -2014,6 +2199,7 @@ interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelPedidosRoute: typeof AppFornecedorPainelPedidosRoute
   AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
   AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute
+  AppFornecedorPainelRelatorioRoute: typeof AppFornecedorPainelRelatorioRoute
   AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
 }
 
@@ -2025,6 +2211,7 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
     AppFornecedorPainelPedidosRoute: AppFornecedorPainelPedidosRoute,
     AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
     AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
+    AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
     AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
   }
 
@@ -2046,6 +2233,7 @@ interface AppRouteRouteChildren {
   AppPerfilRoute: typeof AppPerfilRoute
   AppProductsRoute: typeof AppProductsRoute
   AppFornecedorPainelRouteRoute: typeof AppFornecedorPainelRouteRouteWithChildren
+  AppFinanceiroRelatorioRoute: typeof AppFinanceiroRelatorioRoute
   AppPedidosOrderIdRoute: typeof AppPedidosOrderIdRoute
   AppPublicacoesNovaRoute: typeof AppPublicacoesNovaRoute
   AppSuporteTicketIdRoute: typeof AppSuporteTicketIdRoute
@@ -2072,6 +2260,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppPerfilRoute: AppPerfilRoute,
   AppProductsRoute: AppProductsRoute,
   AppFornecedorPainelRouteRoute: AppFornecedorPainelRouteRouteWithChildren,
+  AppFinanceiroRelatorioRoute: AppFinanceiroRelatorioRoute,
   AppPedidosOrderIdRoute: AppPedidosOrderIdRoute,
   AppPublicacoesNovaRoute: AppPublicacoesNovaRoute,
   AppSuporteTicketIdRoute: AppSuporteTicketIdRoute,
@@ -2145,6 +2334,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWebhooksMarketplaceRoute: ApiWebhooksMarketplaceRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
   FornecedorPedidoTokenRoute: FornecedorPedidoTokenRoute,
+  ApiAdminExportarAuditoriaRoute: ApiAdminExportarAuditoriaRoute,
+  ApiAdminExportarChamadosRoute: ApiAdminExportarChamadosRoute,
+  ApiAdminExportarClientesRoute: ApiAdminExportarClientesRoute,
+  ApiAdminExportarEquipeRoute: ApiAdminExportarEquipeRoute,
+  ApiFornecedorExportarPedidosRoute: ApiFornecedorExportarPedidosRoute,
+  ApiFornecedorExportarProdutosRoute: ApiFornecedorExportarProdutosRoute,
   ApiFornecedorProdutosImagensRoute: ApiFornecedorProdutosImagensRoute,
   ApiOauthMarketplaceCallbackRoute: ApiOauthMarketplaceCallbackRoute,
   ApiOauthMarketplaceStartRoute: ApiOauthMarketplaceStartRoute,

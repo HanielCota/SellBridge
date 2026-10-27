@@ -12,6 +12,7 @@ import type {
 } from "@sellbridge/shared/schemas";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { FilterTabs } from "@/components/data/filter-tabs";
 import { Button } from "@/components/ui/button";
 import { periodCaption, tenureText } from "@/features/support/performance-format";
@@ -116,19 +117,27 @@ function Overview({ report, search, onChange }: ViewProps) {
 }
 
 /** The team's screen: the summary, the three sections and the filters each one needs. */
-export function BoardView({ report, search, onChange }: ViewProps) {
+export function BoardView({
+  report,
+  search,
+  onChange,
+  download,
+}: ViewProps & { download?: ReactNode }) {
   return (
     <>
       <PerformanceHero
         title="Desempenho do suporte"
         caption={periodCaption(report.since, report.until)}
         action={
-          <FilterTabs
-            legend="Seção"
-            tabs={SECTION_TABS}
-            value={search.secao}
-            onChange={(secao) => onChange({ secao })}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterTabs
+              legend="Seção"
+              tabs={SECTION_TABS}
+              value={search.secao}
+              onChange={(secao) => onChange({ secao })}
+            />
+            {download}
+          </div>
         }
         story={boardStory(report)}
       />

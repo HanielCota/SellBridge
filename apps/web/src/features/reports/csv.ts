@@ -2,8 +2,8 @@ import type { OrderFinancialRow } from "@sellbridge/database/repositories";
 import { ORDER_STATUS_LABELS, orderStatusSchema } from "@sellbridge/shared/schemas";
 
 /** Excel in pt-BR expects `;` as separator and `,` as decimal mark; the BOM keeps accents. */
-const SEPARATOR = ";";
-const BOM = "﻿";
+export const SEPARATOR = ";";
+export const BOM = "﻿";
 
 const HEADERS = [
   "Data",

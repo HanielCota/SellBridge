@@ -1,6 +1,6 @@
 import type { HealthMetricKey } from "@sellbridge/shared/supplier-panel-health";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ErrorState } from "@/components/feedback/error-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,9 +13,9 @@ interface SupplierPerformanceProps {
   supplierId: string;
   /** The metric to open, e.g. from a link of the home; dispatch otherwise. */
   initialMetric?: HealthMetricKey | undefined;
+  /** The header's actions (the page's "Baixar"). */
+  headerActions?: ReactNode;
 }
-
-const HEADER = <PageHeader title="Desempenho" />;
 
 function PerformanceSkeleton() {
   return (
@@ -33,14 +33,19 @@ function PerformanceSkeleton() {
  * Body of the "Desempenho" page: the overall thermometer next to the public score, every
  * metric against its target, and the orders behind the chosen one, so no number is a mystery.
  */
-export function SupplierPerformance({ supplierId, initialMetric }: SupplierPerformanceProps) {
+export function SupplierPerformance({
+  supplierId,
+  initialMetric,
+  headerActions,
+}: SupplierPerformanceProps) {
+  const header = <PageHeader title="Desempenho" actions={headerActions} />;
   const query = useQuery(supplierPerformanceQueryOptions(supplierId));
   const [metric, setMetric] = useState<HealthMetricKey>(initialMetric ?? "dispatch_on_time");
   // A failed background refresh keeps the numbers already on screen.
   if (query.isError && query.data === undefined) {
     return (
       <div className="space-y-6">
-        {HEADER}
+        {header}
         <ErrorState
           message="Não foi possível carregar o Desempenho, tente de novo."
           onRetry={() => void query.refetch()}
@@ -51,14 +56,14 @@ export function SupplierPerformance({ supplierId, initialMetric }: SupplierPerfo
   if (query.data === undefined) {
     return (
       <div className="space-y-6">
-        {HEADER}
+        {header}
         <PerformanceSkeleton />
       </div>
     );
   }
   return (
     <div className="space-y-6">
-      {HEADER}
+      {header}
       <div className="space-y-4">
         <HealthThermometer health={query.data.health} reputation={query.data.reputation} />
         <div className="grid items-start gap-4 lg:grid-cols-2">

@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { CatalogProductList } from "@/components/supplier-panel/catalog/catalog-product-list";
 import { ProductStepForm } from "@/components/supplier-panel/catalog/product-step-form";
+import { SupplierDownloadMenu } from "@/components/supplier-panel/report/supplier-download-menu";
 import { usePanelSupplierId } from "@/features/supplier-panel/use-panel-supplier";
 
 /** "novo" opens an empty form; a product id opens that product, `field` focuses one field. */
@@ -56,6 +57,7 @@ function SupplierProductsPage() {
       }
       onOpenProduct={(productId, focusField) => openProduct(productId, focusField)}
       onCreateProduct={() => openProduct(NEW_PRODUCT)}
+      headerActions={<SupplierDownloadMenu />}
     />
   );
 }
