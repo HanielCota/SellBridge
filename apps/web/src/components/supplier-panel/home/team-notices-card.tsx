@@ -1,4 +1,4 @@
-import { CheckCircleIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import {
   SUPPLIER_FLAG_LIMIT,
   SUPPLIER_FLAG_LIMIT_WARNING,
@@ -9,7 +9,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BrokenRuleLine } from "@/components/golden-rules/golden-rules-list";
-import { HighlightBadge } from "@/components/suppliers/reputation";
 import { HintedText } from "@/components/ui/hint";
 import { supplierNoticeDatesLine } from "@/features/admin-suppliers/supplier-flag-copy";
 import type { SupplierHomeTeamNotice } from "@/features/supplier-panel/home/home-types";
@@ -63,63 +62,27 @@ function NoticeRow({ notice }: { notice: SupplierHomeTeamNotice }) {
   );
 }
 
-/** With no flag: the account is in good standing, the badge when it has one, and the 5 rules. */
-function GoodStandingCard({ highlighted }: { highlighted: boolean }) {
-  return (
-    <section
-      aria-label="Sua conta"
-      className="surface-card space-y-2 rounded-3xl border border-emerald-500/25 bg-card p-5 sm:p-6"
-    >
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <CheckCircleIcon
-          weight="fill"
-          aria-hidden="true"
-          className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
-        />
-        Nenhuma flag: sua conta está em dia
-      </h2>
-      {highlighted ? <HighlightBadge /> : null}
-      <p className="text-sm text-muted-foreground">
-        Continue seguindo as 5 regras de ouro. Quebrar uma pode gerar uma flag, e{" "}
-        {SUPPLIER_FLAG_LIMIT_WARNING.toLowerCase()}
-      </p>
-      <Link to="/fornecedor/painel/regras" className={LINK_CLASS_NAME}>
-        Ver as 5 regras
-      </Link>
-    </section>
-  );
-}
-
 /**
  * "Avisos da equipe" on the supplier's home (MVP function 6): the flags that count now, in plain
- * words, the golden rule each one breaks and a way to contest each. Without flags it turns into
- * a green "em dia" card; while loading or on an error it shows nothing, so the home never waits
- * on it.
+ * words, the golden rule each one breaks and a way to contest each. Without flags it shows
+ * nothing: the "Sem flags" line in the health section at the top of the list says it in one row.
+ * While loading or on an error it shows nothing too, so the home never waits on it.
  */
-export function TeamNoticesCard({
-  supplierId,
-  active,
-  highlighted,
-}: {
-  supplierId: string;
-  active: boolean;
-  highlighted: boolean;
-}) {
+export function TeamNoticesCard({ supplierId, active }: { supplierId: string; active: boolean }) {
   const query = useQuery(teamNoticesQueryOptions(supplierId));
-  // Loading or failed: nothing, never the green card, which would tell a flagged supplier it has none.
   const notices = query.data;
   if (notices === undefined) {
     return null;
   }
   if (notices.length === 0 && active) {
-    return <GoodStandingCard highlighted={highlighted} />;
+    return null;
   }
   const tone = noticesTone(active);
   const remaining = remainingLine(notices.length, active);
   return (
     <section
       aria-label="Avisos da equipe"
-      className={cn("surface-card space-y-2 rounded-3xl bg-card p-5 sm:p-6", tone.card)}
+      className={cn("surface-card space-y-2 rounded-2xl bg-card p-5", tone.card)}
     >
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold">

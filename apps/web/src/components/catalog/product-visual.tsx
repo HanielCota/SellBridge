@@ -49,6 +49,15 @@ function variantColor(title: string): string | null {
   return suffix && suffix in COLOR_DOTS ? suffix : null;
 }
 
+/** The hex of the title's variant color ("- Verde"), or null when the title names none. */
+export function variantColorHex(title: string): string | null {
+  const color = variantColor(title);
+  if (color === null) {
+    return null;
+  }
+  return COLOR_DOTS[color] ?? null;
+}
+
 /** A bare dot in the thumbnail's corner, or a labeled chip on the larger tile. */
 function VariantColorMark({ color, compact }: { color: string; compact: boolean }) {
   if (compact) {

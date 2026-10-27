@@ -7,6 +7,7 @@ import {
   isSupplierQueueStatus,
   nextSupplierAction,
   queueDeadline,
+  shortCountdownLabel,
   sortQueueByUrgency,
   urgencyFor,
 } from "./supplier-panel-orders.ts";
@@ -150,6 +151,20 @@ describe("compareQueueUrgency", () => {
         { id: "b", deadline: null, forwardedAt: null },
       ),
     ).toBeLessThan(0);
+  });
+});
+
+describe("shortCountdownLabel", () => {
+  const dispatch = { kind: "dispatch" as const, at: forwardedAt };
+
+  it("drops the deadline's noun the group title already says", () => {
+    expect(shortCountdownLabel({ deadline: dispatch, remainingMilliseconds: 80 * MINUTE })).toBe(
+      "Em 1 h 20 min",
+    );
+    expect(shortCountdownLabel({ deadline: dispatch, remainingMilliseconds: -50 * HOUR })).toBe(
+      "Atrasado há 2 d 2 h",
+    );
+    expect(shortCountdownLabel({ deadline: null, remainingMilliseconds: null })).toBe("Sem prazo");
   });
 });
 

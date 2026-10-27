@@ -214,3 +214,17 @@ export function countdownLabel(entry: Pick<QueueEntry, "deadline" | "remainingMi
   }
   return `${noun} em ${durationLabel(entry.remainingMilliseconds)}`;
 }
+
+/**
+ * The countdown without the deadline's noun ("Atrasado há 3 h", "Em 1 h 20 min"), for a list
+ * whose group title already says which deadline it is.
+ */
+export function shortCountdownLabel(entry: Pick<QueueEntry, "deadline" | "remainingMilliseconds">) {
+  if (entry.deadline === null || entry.remainingMilliseconds === null) {
+    return "Sem prazo";
+  }
+  if (entry.remainingMilliseconds <= 0) {
+    return `Atrasado há ${durationLabel(-entry.remainingMilliseconds)}`;
+  }
+  return `Em ${durationLabel(entry.remainingMilliseconds)}`;
+}
