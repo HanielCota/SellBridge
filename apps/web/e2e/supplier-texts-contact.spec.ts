@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { member, suppliers, user } from "@sellbridge/database/schema";
 import { SUPPLIER_TEXT_CONTACT_REFUSED } from "@sellbridge/shared/schemas";
 import { eq } from "drizzle-orm";
-import { gotoHydrated, signUpAsSupplier } from "./helpers";
+import { gotoHydrated, pickBrandNiche, signUpAsSupplier } from "./helpers";
 import { e2eDatabase } from "./database";
 
 /*
@@ -39,9 +39,9 @@ async function brandNameOf(email: string): Promise<string | null> {
 
 async function registerBrand(page: Page, name: string) {
   await page.getByLabel("Nome da marca").fill(name);
-  await page.getByLabel("O que você vende (nicho)").fill("Casa e decoração");
+  await pickBrandNiche(page, "Casa e decoração");
   await page.getByLabel("Cidade de onde você envia").fill("Cunha");
-  await page.getByRole("button", { name: /Cadastrar marca|Salvar dados/ }).click();
+  await page.getByRole("button", { name: /^(Cadastrar marca|Salvar)$/ }).click();
 }
 
 test.afterAll(async () => {

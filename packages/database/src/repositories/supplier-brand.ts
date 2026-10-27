@@ -15,6 +15,7 @@ const brandColumns = {
   description: suppliers.description,
   state: suppliers.state,
   city: suppliers.city,
+  logoUrl: suppliers.logoUrl,
   contactEmail: suppliers.contactEmail,
   acceptWithinHours: suppliers.acceptWithinHours,
   dispatchWithinHours: suppliers.dispatchWithinHours,
@@ -29,6 +30,8 @@ export interface SupplierBrand {
   description: string;
   state: string;
   city: string;
+  /** Set by the team; shown read-only in the brand's catalog preview. */
+  logoUrl: string | null;
   contactEmail: string | null;
   acceptWithinHours: number;
   dispatchWithinHours: number;

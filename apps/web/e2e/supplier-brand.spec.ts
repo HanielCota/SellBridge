@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { member, suppliers, user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { gotoHydrated } from "./helpers";
+import { gotoHydrated, pickBrandNiche } from "./helpers";
 import { e2eDatabase } from "./database";
 import { supplierAccounts } from "./supplier-accounts";
 
@@ -20,7 +20,9 @@ async function brandOf(email: string) {
       city: suppliers.city,
       state: suppliers.state,
       contactEmail: suppliers.contactEmail,
+      niche: suppliers.niche,
       acceptWithinHours: suppliers.acceptWithinHours,
+      dispatchWithinHours: suppliers.dispatchWithinHours,
     })
     .from(user)
     .innerJoin(member, eq(member.userId, user.id))
@@ -41,7 +43,7 @@ test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page 
   await expect(page).toHaveURL(/\/fornecedor\/painel\/marca\?perfil=[a-z0-9-]+$/);
 
   await page.getByLabel("Nome da marca").fill("Olaria Nova");
-  await page.getByLabel("O que você vende (nicho)").fill("Casa e decoração");
+  await pickBrandNiche(page, "Casa e decoração");
   await page.getByLabel("Cidade de onde você envia").fill("Cunha");
   await page.getByRole("button", { name: "Cadastrar marca" }).click();
 
@@ -56,20 +58,60 @@ test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page 
   expect(browserErrors.filter((text) => text.includes("marca está cadastrada"))).toEqual([]);
 });
 
-test("fornecedor edita os dados da marca", async ({ page }) => {
+test("fornecedor edita os dados da marca pela barra de salvar", async ({ page }) => {
   const email = await accounts.signUp(page, "Olaria Editada");
   await page.getByLabel("Nome da marca").fill("Olaria Editada");
-  await page.getByLabel("O que você vende (nicho)").fill("Cozinha");
+  await pickBrandNiche(page, "Cozinha");
   await page.getByLabel("Cidade de onde você envia").fill("Cunha");
   await page.getByRole("button", { name: "Cadastrar marca" }).click();
   await expect(page).toHaveURL(/\/fornecedor\/painel\/produtos/);
 
   await gotoHydrated(page, "/fornecedor/painel/marca");
-  await expect(page.getByRole("heading", { name: "Dados da marca" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Como os revendedores veem sua marca" }),
+  ).toBeVisible();
+  const saveBar = page.getByRole("region", { name: "Alterações não salvas" });
+  await expect(saveBar).toHaveCount(0);
+
   await page.getByLabel("Cidade de onde você envia").fill("Taubaté");
-  await page.getByLabel("Prazo para aceitar (horas)").fill("12");
-  await page.getByRole("button", { name: "Salvar dados" }).click();
+  await expect(page.getByLabel("Prévia no catálogo")).toContainText("Taubaté - SP");
+  const accept = page.getByRole("group", { name: "Para aceitar o pedido" });
+  await accept.getByRole("button", { name: "3 dias" }).click();
+  // Dispatch can't come before accept, so it moves up to 3 days with it.
+  const dispatch = page.getByRole("group", { name: "Para despachar" });
+  await expect(dispatch.getByRole("button", { name: "3 dias" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(dispatch.getByRole("button", { name: "2 dias" })).toHaveCount(0);
+  await saveBar.getByRole("button", { name: "Salvar" }).click();
 
   await expect(page.getByText("Dados da marca salvos")).toBeVisible();
-  expect(await brandOf(email)).toMatchObject({ city: "Taubaté", acceptWithinHours: 12 });
+  await expect(saveBar).toHaveCount(0);
+  expect(await brandOf(email)).toMatchObject({
+    city: "Taubaté",
+    niche: "Cozinha",
+    acceptWithinHours: 72,
+    dispatchWithinHours: 72,
+  });
+});
+
+test("fornecedor descarta alterações e escreve uma categoria fora da lista", async ({ page }) => {
+  const email = await accounts.signUp(page, "Ateliê Prata");
+  await page.getByLabel("Nome da marca").fill("Ateliê Prata");
+  await pickBrandNiche(page, "Outra");
+  await page.getByLabel("Qual categoria?").fill("Semijoias");
+  await page.getByLabel("Cidade de onde você envia").fill("Limeira");
+  await page.getByRole("button", { name: "Cadastrar marca" }).click();
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/produtos/);
+  expect(await brandOf(email)).toMatchObject({ niche: "Semijoias" });
+
+  await gotoHydrated(page, "/fornecedor/painel/marca");
+  await expect(page.getByLabel("Qual categoria?")).toHaveValue("Semijoias");
+  await page.getByLabel("Nome da marca").fill("Outro nome");
+  const saveBar = page.getByRole("region", { name: "Alterações não salvas" });
+  await saveBar.getByRole("button", { name: "Descartar" }).click();
+
+  await expect(page.getByLabel("Nome da marca")).toHaveValue("Ateliê Prata");
+  await expect(saveBar).toHaveCount(0);
 });
