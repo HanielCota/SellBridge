@@ -116,16 +116,17 @@ function parsePublishJob(job: JobContext): { tenantId: string; listingTargetId: 
 async function callMarketplace(attempt: PublishAttempt): Promise<PublishedListing> {
   const { dependencies, row } = attempt;
   const connector = dependencies.connectors[row.store.marketplace];
+  // Read right after this run's claim, so `attempts` is the claim this run holds.
+  const claim = { listingTargetId: row.target.id, attempts: row.target.attempts };
   try {
     return await connector.publishProduct(
       attempt.credentials,
       toPublishProductInput(row, dependencies),
       {
         creationStartedAt: row.target.creationStartedAt,
-        beforeCreate: () => setTargetCreationStarted(dependencies.database, row.target.id, true),
-        creationRejected: () =>
-          setTargetCreationStarted(dependencies.database, row.target.id, false),
-        creationAbsent: () => setTargetCreationStarted(dependencies.database, row.target.id, false),
+        beforeCreate: () => setTargetCreationStarted(dependencies.database, claim, true),
+        creationRejected: () => setTargetCreationStarted(dependencies.database, claim, false),
+        creationAbsent: () => setTargetCreationStarted(dependencies.database, claim, false),
       },
     );
   } catch (error) {

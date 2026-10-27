@@ -442,10 +442,23 @@ export async function markTargetFailed(
   });
 }
 
-/** Persisted before the remote POST; survives a worker crash or a lost response. */
+/**
+ * The claim a publish job holds: `attempts` only grows, so it tells this run apart from a
+ * later one that reclaimed the target after the stalled sweeper and a reprocess.
+ */
+export interface PublicationClaim {
+  readonly listingTargetId: string;
+  readonly attempts: number;
+}
+
+/**
+ * Persisted before the remote POST; survives a worker crash or a lost response. Only the run
+ * holding the current claim may start the creation, so a stale run cannot POST a second
+ * listing next to the run that reclaimed the target (review 2026-10-27).
+ */
 export async function setTargetCreationStarted(
   database: Database,
-  listingTargetId: string,
+  claim: PublicationClaim,
   started: boolean,
 ): Promise<void> {
   const rows = await database
@@ -453,7 +466,8 @@ export async function setTargetCreationStarted(
     .set({ creationStartedAt: started ? new Date() : null })
     .where(
       and(
-        eq(listingTargets.id, listingTargetId),
+        eq(listingTargets.id, claim.listingTargetId),
+        eq(listingTargets.attempts, claim.attempts),
         eq(listingTargets.status, "publishing"),
         started ? eq(listingTargets.pauseRequested, false) : undefined,
       ),

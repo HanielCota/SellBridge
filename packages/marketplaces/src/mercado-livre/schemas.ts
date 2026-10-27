@@ -96,6 +96,9 @@ export const orderSchema = z.object({
 
 export type MercadoLivreOrder = z.infer<typeof orderSchema>;
 
+/** `GET /orders/{id}` with the seller, checked against the store before the order is trusted. */
+export const sellerOrderSchema = orderSchema.extend({ seller: z.object({ id: externalIdSchema }) });
+
 export const ordersSearchSchema = z.object({
   results: z.array(orderSchema),
   paging: z.object({ total: z.number(), offset: z.number(), limit: z.number() }).optional(),

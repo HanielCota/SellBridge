@@ -326,6 +326,7 @@ const rawOrder = {
   date_created: "2026-03-01T10:00:00.000-03:00",
   total_amount: 100,
   buyer: { nickname: "COMPRADOR" },
+  seller: { id: 999 },
   order_items: [
     { item: { id: "MLB1", title: "Camiseta" }, quantity: 2, unit_price: 50, sale_fee: 6 },
   ],
@@ -344,6 +345,17 @@ describe("orders", () => {
       items: [{ externalListingId: "MLB1", quantity: 2, unitPriceCents: 5000 }],
     });
     expect(order.orderedAt.toISOString()).toBe("2026-03-01T13:00:00.000Z");
+  });
+
+  it("refuses an order sold by another seller as final", async () => {
+    const foreignOrder = { ...rawOrder, seller: { id: 123 } };
+    const { ml } = connector({
+      [`GET ${API}/orders/2000003508897196`]: () => json(200, foreignOrder),
+    });
+    await expect(ml.fetchOrder(store, "/orders/2000003508897196")).rejects.toMatchObject({
+      message: "Pedido não pertence à loja conectada",
+      details: { retryable: false },
+    });
   });
 
   it("rejects unknown resources and unexpected payloads", async () => {
