@@ -1,6 +1,7 @@
 import type { LinkProps } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import {
+  CatalogBoxIcon,
   ListingAlertIcon,
   PaymentCardAlertIcon,
   ReviewBubbleIcon,
@@ -17,14 +18,22 @@ export interface AttentionItem {
   title: string;
   description: string;
   to: NonNullable<LinkProps["to"]>;
-  /** Opens the page on the right tab or filter: the reviews item lands on the pending reviews. */
-  search?: { view: "reviews"; review: "pending" };
+  /**
+   * Opens the page on the right tab or filter: the reviews item lands on the pending reviews, an
+   * idle store's item on the catalog of that store's supplier.
+   */
+  search?: { view: "reviews"; review: "pending" } | { store: string };
 }
 
 export interface StoreState {
   id: string;
   name: string;
   status: string;
+  /** Listings live in the store (published or paused). */
+  liveListings: number;
+  failedListings: number;
+  /** Listings queued or on their way to the marketplace. */
+  publishingListings: number;
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -35,6 +44,30 @@ export interface AttentionCounts {
   failedListings: number;
   unreadSupportReplies: number;
   pendingReviews: number;
+}
+
+/**
+ * The store cards' idle rule (connected, nothing live, nothing failing to fix first), plus nothing
+ * on its way: right after a bulk publication the listings are still queued, and the store would be
+ * told to choose products it had just chosen.
+ */
+function isWaitingForProducts(store: StoreState): boolean {
+  const { liveListings, failedListings, publishingListings } = store;
+  const hasListings = liveListings + failedListings + publishingListings > 0;
+  return store.status === "connected" && !hasListings;
+}
+
+/** The catalog shortcut, only for a store with nothing to sell: the hero no longer carries it. */
+function idleStoreItems(stores: readonly StoreState[]): AttentionItem[] {
+  return stores.filter(isWaitingForProducts).map((store) => ({
+    key: `idle-store-${store.id}`,
+    icon: CatalogBoxIcon,
+    tone: "info",
+    title: `Escolha produtos para ${store.name}`,
+    description: "A loja está conectada, mas ainda não tem nada à venda.",
+    to: "/catalogo",
+    search: { store: store.id },
+  }));
 }
 
 /** A plan payment to fix (item 16, N9): right after the stores, it can cost the plan's limits. */
@@ -80,6 +113,7 @@ export function buildAttentionItems(
       to: "/publicacoes",
     });
   }
+  items.push(...idleStoreItems(stores));
   if (unreadSupportReplies > 0) {
     items.push({
       key: "tickets",

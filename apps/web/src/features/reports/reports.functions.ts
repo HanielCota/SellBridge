@@ -1,6 +1,8 @@
 import { isProductSourceSetupComplete } from "@sellbridge/shared/product-sources";
 import {
+  EMPTY_STORE_ACTIVITY,
   findOnboardingProfile,
+  getStoreActivity,
   getSalesByStore,
   getSalesSummary,
   getSalesTimeseries,
@@ -58,6 +60,31 @@ async function loadOnboardingState(
   };
 }
 
+/** The stores with their listing counts, so "Precisa de você" can spot one with nothing to sell. */
+async function loadStoresWithListings(
+  tenantId: string,
+  connectionsPromise: ReturnType<typeof listStoreConnections>,
+) {
+  const connections = await connectionsPromise;
+  const activity = await getStoreActivity(
+    database,
+    tenantId,
+    connections.map((store) => store.id),
+  );
+  return connections.map((store) => {
+    const { liveListings, failedListings, publishingListings } =
+      activity.get(store.id) ?? EMPTY_STORE_ACTIVITY;
+    return {
+      id: store.id,
+      name: store.shopName,
+      status: store.status,
+      liveListings,
+      failedListings,
+      publishingListings,
+    };
+  });
+}
+
 /** Where a new account stands in the setup: holder, supplier, a store, a first publication. */
 export const getSetupProgress = createServerFn({ method: "GET" })
   .middleware([tenantMiddleware])
@@ -96,7 +123,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       period.days > MONTHLY_FROM_DAYS ? getSalesTimeseries(database, scope, "month") : null,
       getSalesByStore(database, scope),
       getTopProducts(database, scope),
-      storesPromise,
+      loadStoresWithListings(context.tenantId, storesPromise),
       loadOnboardingState(context.tenantId, context.userId, storesPromise),
     ]);
     return {
@@ -115,7 +142,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       monthly,
       byStore,
       topProducts,
-      stores: stores.map((store) => ({ id: store.id, name: store.shopName, status: store.status })),
+      stores,
       onboarding,
     };
   });
