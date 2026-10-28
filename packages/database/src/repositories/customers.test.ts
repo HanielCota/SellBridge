@@ -270,4 +270,43 @@ describe("who the customer list holds", () => {
     expect(customers[0]?.tenantId).toBe(profiles.ids[0]);
     expect((await getCustomer(database, accounts.twoProfiles))?.tenantId).toBe(profiles.ids[0]);
   });
+
+  it("filters the account by a supplier that only its newer profile sells", async () => {
+    const newest = profiles.ids[1];
+    if (newest == null) {
+      throw new Error(`expected a second test profile, got ${profiles.ids.length}`);
+    }
+    const catalog = await createTestSupplierProduct(database, {
+      sku: `TWO-${listMarker}`,
+      title: "Produto da segunda loja",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    const store = await upsertStoreConnection(database, {
+      tenantId: newest,
+      marketplace: "mock",
+      externalShopId: `two-${listMarker}`,
+      shopName: "Segunda loja",
+      accessTokenEnc: "enc",
+      refreshTokenEnc: "enc",
+      expiresAt: new Date(Date.now() + DAY),
+    });
+    try {
+      await assignStoreSupplier(database, {
+        tenantId: newest,
+        storeConnectionId: store.id,
+        supplierId: catalog.supplierId,
+      });
+
+      const customers = await listCustomerSignals(database, {
+        search: listMarker,
+        supplierId: catalog.supplierId,
+      });
+
+      expect(customers.map((customer) => customer.id)).toEqual([accounts.twoProfiles]);
+    } finally {
+      await database.delete(storeConnections).where(eq(storeConnections.id, store.id));
+      await catalog.cleanup();
+    }
+  });
 });

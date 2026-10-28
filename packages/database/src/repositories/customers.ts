@@ -147,12 +147,25 @@ function customerColumns(now: Date) {
   };
 }
 
-/** Customers selling `supplierId`: through a shop, or as the supplier picked in onboarding. */
+/**
+ * Customers selling `supplierId` through any seller profile they own: a shop, or the supplier
+ * picked in onboarding. The list shows one profile per account, but the filter looks at all.
+ */
 function customerSupplier(supplierId: string | undefined): SQL | undefined {
   if (supplierId === undefined) {
     return undefined;
   }
-  return sql`(${tenantProfile.starterSupplierId} = ${supplierId} or exists (select 1 from store_connections s where s.tenant_id = ${member.organizationId} and s.status <> 'disconnected' and s.supplier_id = ${supplierId}))`;
+  return sql`exists (
+    select 1 from member m
+    join organization o on o.id = m.organization_id and o.kind = 'seller'
+    left join tenant_profile tp on tp.tenant_id = m.organization_id
+    where m.user_id = ${user.id} and m.role = 'owner'
+      and (tp.starter_supplier_id = ${supplierId} or exists (
+        select 1 from store_connections s
+        where s.tenant_id = m.organization_id and s.status <> 'disconnected'
+          and s.supplier_id = ${supplierId}
+      ))
+  )`;
 }
 
 function customerSearch(search: string | undefined): SQL | undefined {
