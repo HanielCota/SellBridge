@@ -49,6 +49,12 @@ describe("evaluateCompleteness", () => {
     ]);
   });
 
+  it("keeps a complete non-restricted tool eligible for submission", () => {
+    const report = evaluateCompleteness(product({ title: "Pistola de cola quente 20W" }));
+    expect(report.canSubmit).toBe(true);
+    expect(report.blocking).toEqual([]);
+  });
+
   it("lists every blocking rule of an empty draft with its field", () => {
     const report = evaluateCompleteness({
       sku: " ",
