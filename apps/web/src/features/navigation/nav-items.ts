@@ -40,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
   { label: "Pedidos", to: "/fornecedor/painel/pedidos", badge: "supplierOrders" },
+  { label: "Vendas", to: "/fornecedor/painel/vendas" },
   { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages" },
   { label: "Produtos", to: "/fornecedor/painel/produtos", also: ["/fornecedor/painel/importar"] },
   { label: "Desempenho", to: "/fornecedor/painel/desempenho" },

@@ -43,11 +43,11 @@ function currentMonthPeriod(): ReportPeriod {
 }
 
 /**
- * "Baixar" in the header of Pedidos, Produtos and Desempenho: this month's spreadsheets and
- * the report with charts, where another month or a range can be picked.
+ * "Baixar" in the header of Pedidos, Produtos, Desempenho and Vendas: the period's spreadsheets
+ * (this month unless the page picked one) and the report with charts.
  */
-export function SupplierDownloadMenu() {
-  const period = currentMonthPeriod();
+export function SupplierDownloadMenu({ period: chosen }: { period?: ReportPeriod } = {}) {
+  const period = chosen ?? currentMonthPeriod();
   const spreadsheets = useSupplierSpreadsheets(period);
   const navigate = useNavigate();
   const report: DownloadOption = {

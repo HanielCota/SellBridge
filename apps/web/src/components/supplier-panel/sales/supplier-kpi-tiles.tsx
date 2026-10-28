@@ -14,6 +14,8 @@ interface SupplierKpiTilesProps {
   previous: SupplierSalesSummary;
   points: readonly SupplierSalesPoint[];
   situation: SupplierSalesSituation;
+  /** The grid; the home stacks the tiles beside its chart, the Vendas page lays them in a row. */
+  className?: string;
 }
 
 /** A supplier tile: every one leads to the orders, the supplier's detail page. */
@@ -49,11 +51,17 @@ function amountTileName(situation: SupplierSalesSituation) {
  * The reseller dashboard's tiles with the supplier's numbers (item 38): what it receives, the
  * orders, the pieces and the average order. They open the orders, the supplier's detail page.
  */
-export function SupplierKpiTiles({ summary, previous, points, situation }: SupplierKpiTilesProps) {
+export function SupplierKpiTiles({
+  summary,
+  previous,
+  points,
+  situation,
+  className = "grid gap-4 sm:grid-cols-2 xl:grid-cols-1",
+}: SupplierKpiTilesProps) {
   const sold = points.filter((point) => point.orders > 0);
   const labels = supplierAmountLabels(situation);
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+    <div className={className}>
       <KpiTile
         {...amountTileName(situation)}
         figure={<MoneyFigure cents={summary.receivableCents} />}

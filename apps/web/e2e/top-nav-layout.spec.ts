@@ -307,7 +307,8 @@ test("seller header stays clear with a long account name", async ({ page }) => {
   ).toBeVisible();
 });
 
-// With "Mensagens" as a seventh tab, icons from 1280px ran the capsule 89px past its track.
+// With "Mensagens" as a seventh tab, icons from 1280px ran the capsule 89px past its track;
+// "Vendas" makes seven, so the tabs sit a little tighter and the icons still fit from 1440px.
 test("supplier header shows the tab icons from 1440px and stays clear", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
@@ -321,7 +322,7 @@ test("supplier header shows the tab icons from 1440px and stays clear", async ({
     [1920, true],
   ] as const) {
     await page.setViewportSize({ width, height: 900 });
-    for (const label of ["Início", "Pedidos", "Mensagens", "Desempenho", "Marca"]) {
+    for (const label of ["Início", "Pedidos", "Vendas", "Mensagens", "Desempenho", "Marca"]) {
       const icon = nav.getByRole("link", { name: label, exact: true }).locator("svg");
       if (hasIcons) {
         await expect(icon, `${label} icon at ${width}px`).toBeVisible();
