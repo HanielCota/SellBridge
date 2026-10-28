@@ -136,6 +136,12 @@ export async function fillBillingAddress(page: Page) {
 }
 
 /** First onboarding step: full name, a fresh CPF, the phone and the billing address. */
+/** "O que você vende" on the brand page: a catalog category from the list. */
+export async function pickBrandNiche(page: Page, category: string): Promise<void> {
+  await page.getByRole("combobox", { name: "O que você vende" }).click();
+  await page.getByRole("option", { name: category, exact: true }).click();
+}
+
 export async function fillBillingHolder(page: Page, fullName = "Revendedor Teste Silva") {
   await page.getByLabel("Nome completo").fill(fullName);
   await page.getByLabel("CPF").fill(testCpf());

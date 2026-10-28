@@ -7,6 +7,7 @@ import {
   SIGN_UP_PASSWORD,
   enableAdminMode,
   gotoHydrated,
+  pickBrandNiche,
   signIn,
   signUp,
   signUpAsSupplier,
@@ -99,7 +100,7 @@ test("atendente entra no painel do fornecedor pelo chamado e volta ao chamado", 
   // What the supplier asked for help with: registering the brand, with the orders e-mail left
   // as the account's own, which is all the server allows during a visit.
   await agent.page.getByLabel("Nome da marca").fill("Marca ajustada pelo suporte");
-  await agent.page.getByLabel("O que você vende (nicho)").fill("Calçados");
+  await pickBrandNiche(agent.page, "Calçados");
   await agent.page.getByLabel("Cidade de onde você envia").fill("Franca");
   await agent.page.getByRole("button", { name: "Cadastrar marca" }).click();
   await expect(agent.page.getByText("Marca cadastrada")).toBeVisible();

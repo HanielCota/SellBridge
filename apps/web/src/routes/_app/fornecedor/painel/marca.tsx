@@ -9,15 +9,16 @@ export const Route = createFileRoute("/_app/fornecedor/painel/marca")({
 });
 
 function SupplierBrandPage() {
-  const { brand, loginEmail } = Route.useLoaderData();
+  const { brand, loginEmail, categoryNames } = Route.useLoaderData();
   const router = useRouter();
   const navigate = useNavigate();
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="w-full">
       <BrandForm
         key={brand?.id ?? "new"}
         brand={brand}
         loginEmail={loginEmail}
+        categoryNames={categoryNames}
         onSaved={async () => {
           await router.invalidate();
           // A new brand goes on to its first product; an edit stays on the page.
