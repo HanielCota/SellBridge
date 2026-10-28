@@ -109,7 +109,7 @@ describe("tallies", () => {
   });
 
   it("sums the stars", () => {
-    const review = { orderId: "o", externalOrderId: "e", createdAt: FORWARDED_AT };
+    const review = { orderId: "o", externalOrderId: "e", tags: [], createdAt: FORWARDED_AT };
     expect(
       tallyRatings([
         { ...review, rating: 4 },

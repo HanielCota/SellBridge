@@ -2,7 +2,7 @@ import { optionalParameter } from "@sellbridge/shared/schemas";
 import { HEALTH_METRICS } from "@sellbridge/shared/supplier-panel-health";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { SupplierPerformance } from "@/components/supplier-panel/home/supplier-performance";
+import { SupplierPerformance } from "@/components/supplier-panel/performance/supplier-performance";
 import { SupplierDownloadMenu } from "@/components/supplier-panel/report/supplier-download-menu";
 import { usePanelSupplierId } from "@/features/supplier-panel/use-panel-supplier";
 

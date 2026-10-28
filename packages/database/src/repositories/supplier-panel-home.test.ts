@@ -26,6 +26,7 @@ import {
   listSupplierRejectedProducts,
   loadSupplierHealthInput,
 } from "./supplier-panel-home.ts";
+import { listSupplierOrderParcels } from "./supplier-panel-performance.ts";
 
 const database = createTestDatabase();
 const HOUR = 3_600_000;
@@ -157,6 +158,7 @@ describe("loadSupplierHealthInput", () => {
       orderId: onTime.orderId,
       supplierId: supplier.supplierId,
       rating: 2,
+      tags: ["dispatch:bad"],
     });
 
     const input = await loadSupplierHealthInput(database, {
@@ -193,6 +195,45 @@ describe("loadSupplierHealthInput", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.rating).toBe(2);
+    expect(rows[0]?.tags).toEqual(["dispatch:bad"]);
+  });
+});
+
+describe("listSupplierOrderParcels", () => {
+  it("brings the supplier's own parcel of each order with the store it sold on", async () => {
+    const own = await parcel({
+      supplierId: supplier.supplierId,
+      daysAgo: 3,
+      status: "delivered",
+      events: [],
+    });
+    const other = await parcel({
+      supplierId: otherSupplier.supplierId,
+      daysAgo: 3,
+      status: "delivered",
+      events: [],
+    });
+
+    const parcels = await listSupplierOrderParcels(database, {
+      supplierId: supplier.supplierId,
+      orderIds: [own.orderId, other.orderId, own.orderId],
+    });
+
+    expect([...parcels.keys()]).toEqual([own.orderId]);
+    expect(parcels.get(own.orderId)).toMatchObject({
+      shipmentId: own.shipmentId,
+      status: "delivered",
+      marketplace: "mock",
+      items: [],
+    });
+  });
+
+  it("reads nothing for no orders", async () => {
+    const parcels = await listSupplierOrderParcels(database, {
+      supplierId: supplier.supplierId,
+      orderIds: [],
+    });
+    expect(parcels.size).toBe(0);
   });
 });
 

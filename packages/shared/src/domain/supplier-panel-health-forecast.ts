@@ -30,7 +30,8 @@ export function metricValue(definition: HealthMetricDefinition, tally: MetricTal
   if (tally.counted === 0) {
     return null;
   }
-  if (definition.key === "supplier_cancellations") {
+  // Cancellations and returns count the bad events: the share is what went wrong.
+  if (definition.direction === "lower_is_better") {
     return (tally.counted - tally.good) / tally.counted;
   }
   return tally.good / tally.counted;
@@ -101,6 +102,7 @@ const BAD_EVENT_NOUNS: Record<HealthMetricKey, readonly [string, string]> = {
   accept_on_time: ["aceite atrasado", "aceites atrasados"],
   dispatch_on_time: ["despacho atrasado", "despachos atrasados"],
   supplier_cancellations: ["cancelamento seu", "cancelamentos seus"],
+  supplier_returns: ["devolução", "devoluções"],
   average_rating: ["avaliação de 1 estrela", "avaliações de 1 estrela"],
 };
 
@@ -108,6 +110,7 @@ const GOOD_EVENT_NOUNS: Record<HealthMetricKey, readonly [string, string]> = {
   accept_on_time: ["aceite no prazo", "aceites no prazo"],
   dispatch_on_time: ["despacho no prazo", "despachos no prazo"],
   supplier_cancellations: ["pedido enviado sem cancelar", "pedidos enviados sem cancelar"],
+  supplier_returns: ["entrega sem devolução", "entregas sem devolução"],
   average_rating: ["avaliação de 5 estrelas", "avaliações de 5 estrelas"],
 };
 

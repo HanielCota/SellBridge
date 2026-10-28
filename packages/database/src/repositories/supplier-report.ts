@@ -154,6 +154,7 @@ export async function listSupplierReportReviews(
       orderId: supplierReviews.orderId,
       externalOrderId: orders.externalOrderId,
       rating: supplierReviews.rating,
+      tags: supplierReviews.tags,
       comment: supplierReviews.comment,
       createdAt: supplierReviews.createdAt,
     })

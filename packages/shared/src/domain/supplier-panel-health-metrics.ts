@@ -1,7 +1,7 @@
 import { MIN_REVIEWS_FOR_SCORE, OPERATION_METRIC_LIMITS, scoreLevel } from "./supplier-score.ts";
 
 /**
- * The four numbers of the supplier's health thermometer, each with the line it must stay on
+ * The five numbers of the supplier's health thermometer, each with the line it must stay on
  * the right side of. Modelled on Amazon's account health and Mercado Livre's thermometer:
  * green is inside the target, yellow is a warning band, red is where resellers feel it.
  */
@@ -31,10 +31,18 @@ export const DISPATCH_ON_TIME_FLOOR = 0.8;
 export const SUPPLIER_CANCELLATION_TARGET = 0.02;
 export const SUPPLIER_CANCELLATION_LIMIT = OPERATION_METRIC_LIMITS.cancellations;
 
+/**
+ * Delivered parcels the buyer sent back: green up to 2%, red past the line where the public
+ * score starts losing points for returns, the same rule as the cancellations.
+ */
+export const SUPPLIER_RETURN_TARGET = 0.02;
+export const SUPPLIER_RETURN_LIMIT = OPERATION_METRIC_LIMITS.returns;
+
 export const HEALTH_METRICS = [
   "accept_on_time",
   "dispatch_on_time",
   "supplier_cancellations",
+  "supplier_returns",
   "average_rating",
 ] as const;
 export type HealthMetricKey = (typeof HEALTH_METRICS)[number];
@@ -43,6 +51,7 @@ export const HEALTH_METRIC_LABELS: Record<HealthMetricKey, string> = {
   accept_on_time: "Aceite no prazo",
   dispatch_on_time: "Despacho no prazo",
   supplier_cancellations: "Cancelamentos por você",
+  supplier_returns: "Devoluções",
   average_rating: "Nota média",
 };
 
@@ -124,6 +133,14 @@ export const HEALTH_METRIC_DEFINITIONS: Record<HealthMetricKey, HealthMetricDefi
     direction: "lower_is_better",
     target: SUPPLIER_CANCELLATION_TARGET,
     floor: SUPPLIER_CANCELLATION_LIMIT,
+    minSample: MIN_HEALTH_ORDERS,
+    unit: "rate",
+  },
+  supplier_returns: {
+    key: "supplier_returns",
+    direction: "lower_is_better",
+    target: SUPPLIER_RETURN_TARGET,
+    floor: SUPPLIER_RETURN_LIMIT,
     minSample: MIN_HEALTH_ORDERS,
     unit: "rate",
   },

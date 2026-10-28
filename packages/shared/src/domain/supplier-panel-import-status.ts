@@ -13,7 +13,7 @@ export interface ImportedProductStatus {
 /**
  * The review status a row of the supplier's own spreadsheet lands in, by the panel form's rules:
  * a new product goes to review (or stays a draft while something blocks publishing), an existing
- * one follows `statusAfterEdit`. The admin import does not use this: the admin is the reviewer.
+ * one follows `statusAfterEdit`. The admin's import follows it too (decided on 2026-10-25).
  */
 export function supplierImportStatus(input: {
   previous: (EditableProductFields & ImportedProductStatus) | undefined;

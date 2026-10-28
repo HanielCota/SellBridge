@@ -3,6 +3,7 @@ import type {
   HealthLevel,
   HealthMetric,
   HealthMetricDefinition,
+  SupplierHealth,
 } from "@sellbridge/shared/supplier-panel-health";
 
 /** How the thermometer's numbers read: shares with one decimal, stars with one decimal. */
@@ -31,6 +32,7 @@ export function metricHint(metric: HealthMetric): string {
     accept_on_time: `Pedidos aceitos antes do prazo; a meta é ${goal} ou mais`,
     dispatch_on_time: `Pedidos despachados antes do prazo; a meta é ${goal} ou mais`,
     supplier_cancellations: `Pedidos que você cancelou; a meta é até ${goal}`,
+    supplier_returns: `Pedidos entregues que o comprador devolveu; a meta é até ${goal}. Também pesa no seu score público`,
     average_rating: `Média das notas dos revendedores; a meta é ${goal} ou mais`,
   };
   return sentences[metric.key];
@@ -87,4 +89,27 @@ export function healthDelta(metric: HealthMetric): HealthDelta | null {
 export function sampleNote(metric: HealthMetric): string {
   const noun = metric.definition.unit === "stars" ? "avaliações" : "pedidos";
   return `${metric.sample} de ${metric.definition.minSample} ${noun} para medir`;
+}
+
+/** The level's sentence in its color: amber or red only when something is off target. */
+export const LEVEL_TEXT_CLASSES: Record<HealthLevel, string> = {
+  green: "text-foreground",
+  yellow: "text-amber-700 dark:text-amber-300",
+  red: "text-destructive",
+  insufficient: "text-foreground",
+};
+
+/** The account's level in words, so the dot never carries the meaning alone. */
+export function levelSentence(health: SupplierHealth): string {
+  const sentences: Record<Exclude<HealthLevel, "insufficient">, string> = {
+    green: "Desempenho dentro da meta",
+    yellow: "Desempenho com métrica fora da meta",
+    red: "Desempenho em vermelho",
+  };
+  if (health.level !== "insufficient") {
+    return sentences[health.level];
+  }
+  const [first] = health.metrics;
+  const minimum = first?.definition.minSample ?? 0;
+  return `Desempenho conta a partir do ${minimum}º pedido`;
 }

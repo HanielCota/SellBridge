@@ -14,8 +14,13 @@ export interface XlsxSheet {
 
 export const MAX_XLSX_BYTES = 20 * 1024 * 1024;
 const MAX_ENTRY_BYTES = 100 * 1024 * 1024;
+/** Inflated XML read across the whole workbook: sheets listed many times cannot multiply the work. */
+const MAX_WORKBOOK_XML_CHARACTERS = 200 * 1024 * 1024;
+const MAX_SHEETS = 100;
 const MAX_ROWS = 50_000;
 const MAX_COLUMNS = 500;
+/** Cells kept across all sheets, padding included: a few KB of `<c r="SE"/>` rows would hold millions. */
+const MAX_WORKBOOK_CELLS = 5_000_000;
 const END_OF_DIRECTORY_SIGNATURE = 0x06054b50;
 const DIRECTORY_ENTRY_SIGNATURE = 0x02014b50;
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;
@@ -173,22 +178,65 @@ function parseAttributes(tag: string): Map<string, string> {
   return attributes;
 }
 
-/** Matches `<prefix:tag ...>...</prefix:tag>` and self-closing `<tag/>`, with any namespace prefix. */
-function elements(xml: string, tag: string): { attributes: string; body: string }[] {
-  const pattern = new RegExp(
-    `<(?:[\\w.-]+:)?${tag}(\\s[^>]*?)?(?:/>|>([\\s\\S]*?)</(?:[\\w.-]+:)?${tag}>)`,
-    "g",
-  );
-  return Array.from(xml.matchAll(pattern), (match) => ({
-    attributes: match[1] ?? "",
-    body: match[2] ?? "",
-  }));
+interface XmlElement {
+  readonly attributes: string;
+  readonly body: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * `<prefix:tag ...>...</prefix:tag>` and self-closing `<tag/>`, with any namespace prefix, in one
+ * forward pass. A lazy `[\s\S]*?</tag>` regex rescans to the end from every unclosed opener, so a
+ * small upload full of `<row>` held the server for seconds; here each opener looks for its closer
+ * once, and a missing closer is refused.
+ */
+function* scanElements(xml: string, tag: string): Generator<XmlElement> {
+  const opener = new RegExp(`<(?:[\\w.-]+:)?${tag}(\\s[^<>]*?)?(/?)>`, "g");
+  const closer = new RegExp(`</(?:[\\w.-]+:)?${tag}>`, "g");
+  for (let open = opener.exec(xml); open !== null; open = opener.exec(xml)) {
+    const attributes = open[1] ?? "";
+    if (open[2] === "/") {
+      yield { attributes, body: "", start: open.index, end: opener.lastIndex };
+      continue;
+    }
+
+    closer.lastIndex = opener.lastIndex;
+    const close = closer.exec(xml);
+    if (close === null) {
+      throw validationError(
+        `A planilha tem uma tag <${tag}> sem fechamento; salve de novo como .xlsx`,
+      );
+    }
+
+    yield {
+      attributes,
+      body: xml.slice(opener.lastIndex, close.index),
+      start: open.index,
+      end: closer.lastIndex,
+    };
+    opener.lastIndex = closer.lastIndex;
+  }
+}
+
+function elements(xml: string, tag: string): XmlElement[] {
+  return [...scanElements(xml, tag)];
+}
+
+function withoutElements(xml: string, tag: string): string {
+  const kept: string[] = [];
+  let position = 0;
+  for (const element of scanElements(xml, tag)) {
+    kept.push(xml.slice(position, element.start));
+    position = element.end;
+  }
+  kept.push(xml.slice(position));
+  return kept.join("");
 }
 
 /** Text of `<t>` runs, ignoring phonetic hints (`<rPh>`). */
 function richText(xml: string): string {
-  const withoutPhonetics = xml.replace(/<(?:[\w.-]+:)?rPh[\s>][\s\S]*?<\/(?:[\w.-]+:)?rPh>/g, "");
-  return elements(withoutPhonetics, "t")
+  return elements(withoutElements(xml, "rPh"), "t")
     .map((element) => decodeXml(element.body))
     .join("");
 }
@@ -234,9 +282,17 @@ function parseRow(xml: string, shared: readonly string[]): string[] {
   return values;
 }
 
-function parseSheet(xml: string, shared: readonly string[]): string[][] {
+const tooManyCells = () => validationError("A planilha .xlsx tem células demais para importar");
+
+/** Rows of one sheet; `cellsBefore` counts the cells the sheets read earlier already hold. */
+function parseSheet(
+  xml: string,
+  shared: readonly string[],
+  cellsBefore: number,
+): { rows: string[][]; cells: number } {
   const rows: string[][] = [];
-  for (const row of elements(xml, "row")) {
+  let cells = cellsBefore;
+  for (const row of scanElements(xml, "row")) {
     const rowNumber = Number.parseInt(parseAttributes(row.attributes).get("r") ?? "", 10);
     const index = Number.isFinite(rowNumber) && rowNumber > 0 ? rowNumber - 1 : rows.length;
     if (index >= MAX_ROWS) {
@@ -246,9 +302,14 @@ function parseSheet(xml: string, shared: readonly string[]): string[][] {
     while (rows.length < index) {
       rows.push([]);
     }
-    rows[index] = parseRow(row.body, shared);
+    const values = parseRow(row.body, shared);
+    rows[index] = values;
+    cells += values.length;
+    if (cells > MAX_WORKBOOK_CELLS) {
+      throw tooManyCells();
+    }
   }
-  return rows;
+  return { rows, cells };
 }
 
 function resolveTarget(target: string): string {
@@ -293,6 +354,7 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
     readRequiredEntry(bytes, entries, "xl/_rels/workbook.xml.rels"),
     readOptionalEntry(bytes, entries, "xl/sharedStrings.xml"),
   ]);
+  let xmlCharacters = assertWithinXmlBudget(0, workbook, relationships, sharedXml ?? "");
   const shared = elements(sharedXml ?? "", "si").map((item) => richText(item.body));
   const targets = new Map(
     elements(relationships, "Relationship").map((relationship) => {
@@ -300,8 +362,14 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
       return [attributes.get("Id") ?? "", resolveTarget(attributes.get("Target") ?? "")];
     }),
   );
+  const listed = elements(workbook, "sheet");
+  if (listed.length > MAX_SHEETS) {
+    throw validationError(`A planilha aceita no máximo ${MAX_SHEETS} abas`);
+  }
+
   const sheets: XlsxSheet[] = [];
-  for (const sheet of elements(workbook, "sheet")) {
+  let cells = 0;
+  for (const sheet of listed) {
     const attributes = parseAttributes(sheet.attributes);
     const path = targets.get(attributes.get("id") ?? "");
     if (path == null) {
@@ -309,7 +377,19 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
     }
 
     const xml = await readRequiredEntry(bytes, entries, path);
-    sheets.push({ name: attributes.get("name") ?? "", rows: parseSheet(xml, shared) });
+    xmlCharacters = assertWithinXmlBudget(xmlCharacters, xml);
+    const parsed = parseSheet(xml, shared, cells);
+    cells = parsed.cells;
+    sheets.push({ name: attributes.get("name") ?? "", rows: parsed.rows });
   }
   return sheets;
+}
+
+/** Adds the inflated XML just read to the workbook total and refuses it past the budget. */
+function assertWithinXmlBudget(readSoFar: number, ...texts: readonly string[]): number {
+  const total = texts.reduce((sum, text) => sum + text.length, readSoFar);
+  if (total > MAX_WORKBOOK_XML_CHARACTERS) {
+    throw validationError("A planilha .xlsx é grande demais para importar");
+  }
+  return total;
 }
