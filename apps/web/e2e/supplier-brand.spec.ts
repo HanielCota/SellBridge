@@ -31,6 +31,21 @@ async function brandOf(email: string) {
   return row;
 }
 
+test("keeps unsaved new brand fields when leaving is cancelled", async ({ page }) => {
+  await accounts.signUp(page, "Brand registration draft");
+  await page.getByLabel("Nome da marca").fill("Unsaved brand name");
+  const confirmations: string[] = [];
+  page.on("dialog", async (dialog) => {
+    confirmations.push(dialog.message());
+    await dialog.dismiss();
+  });
+  await page.getByRole("button", { name: "Suporte", exact: true }).click();
+  await page.getByRole("link", { name: "Abrir chamado", exact: true }).click();
+  await expect.poll(() => confirmations).toEqual([expect.stringMatching(/alterações não salvas/)]);
+  await expect(page).toHaveURL(/\/fornecedor\/painel\/marca/);
+  await expect(page.getByLabel("Nome da marca")).toHaveValue("Unsaved brand name");
+});
+
 test("fornecedor novo cadastra a marca e segue para os produtos", async ({ page }) => {
   // Regression: a panel page drew for an instant without its brand and threw in the browser.
   const browserErrors: string[] = [];

@@ -39,6 +39,18 @@ describe("dispatchAfterAccept", () => {
 });
 
 describe("deadlineExample", () => {
+  it("moves into the next week when an odd-hour deadline crosses Sunday midnight", () => {
+    expect(deadlineExample(12, 158)).toBe(
+      "Exemplo: pedido encaminhado na segunda às 10h → aceitar até segunda às 22h e despachar até segunda da semana seguinte às 0h.",
+    );
+  });
+
+  it("keeps the week offset of a valid thirty-day deadline", () => {
+    expect(deadlineExample(24, 720)).toBe(
+      "Exemplo: pedido encaminhado na segunda às 10h → aceitar até terça às 10h e despachar até quarta daqui a 4 semanas às 10h.",
+    );
+  });
+
   it("counts both deadlines from Monday at 10h", () => {
     expect(deadlineExample(24, 48)).toBe(
       "Exemplo: pedido encaminhado na segunda às 10h → aceitar até terça às 10h e despachar até quarta às 10h.",

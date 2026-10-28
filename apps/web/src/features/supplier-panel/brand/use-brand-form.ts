@@ -33,7 +33,7 @@ export function useBrandForm({ brand, loginEmail, onSaved }: BrandFormOptions) {
   const [errors, setErrors] = useState<BrandErrors>({});
   // Remounts the fields on discard so local state (the "Outra" niche text) resets too.
   const [resetCount, setResetCount] = useState(0);
-  const isDirty = !isNew && hasBrandChanges(values, saved);
+  const isDirty = hasBrandChanges(values, saved);
   useUnsavedChanges(isDirty);
   const save = useCatalogAction(
     isNew ? createOwnBrandFn : updateOwnBrandFn,

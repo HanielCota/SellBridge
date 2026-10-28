@@ -38,13 +38,22 @@ export function dispatchAfterAccept(acceptHours: number, dispatchHours: number):
   return Math.max(acceptHours, dispatchHours);
 }
 
+function deadlineWeekday(daysAfterMonday: number): string {
+  const weekday = WEEKDAYS[daysAfterMonday % WEEKDAYS.length] ?? WEEKDAYS[0];
+  const weeks = Math.floor(daysAfterMonday / WEEKDAYS.length);
+  if (weeks === 0) {
+    return weekday;
+  }
+  if (weeks === 1) {
+    return `${weekday} da semana seguinte`;
+  }
+  return `${weekday} daqui a ${weeks} semanas`;
+}
+
 function deadlineMoment(hoursAfterMonday10: number): string {
-  const days = Math.floor(hoursAfterMonday10 / HOURS_PER_DAY);
-  const hour = 10 + (hoursAfterMonday10 % HOURS_PER_DAY);
-  const dayIndex = (days + Math.floor(hour / HOURS_PER_DAY)) % WEEKDAYS.length;
-  const weekday = WEEKDAYS[dayIndex] ?? WEEKDAYS[0];
-  const weekLabel = days >= WEEKDAYS.length ? `${weekday} da semana seguinte` : weekday;
-  return `${weekLabel} às ${hour % HOURS_PER_DAY}h`;
+  const elapsedHours = 10 + hoursAfterMonday10;
+  const days = Math.floor(elapsedHours / HOURS_PER_DAY);
+  return `${deadlineWeekday(days)} às ${elapsedHours % HOURS_PER_DAY}h`;
 }
 
 /** A worked example of both deadlines, counted from an order forwarded on Monday at 10h. */
