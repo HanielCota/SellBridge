@@ -70,6 +70,7 @@ function review(rating: number, daysAgo = 5): ReviewHealthRecord {
     orderId: `order-${sequence}`,
     externalOrderId: `ML-${sequence}`,
     rating,
+    tags: [],
     createdAt: new Date(NOW.getTime() - daysAgo * DAY),
   };
 }
@@ -276,8 +277,80 @@ describe("healthDrillDown", () => {
       now: NOW,
     });
     expect(rows).toEqual([
-      { orderId: low.orderId, externalOrderId: low.externalOrderId, at: low.createdAt, rating: 2 },
+      {
+        orderId: low.orderId,
+        externalOrderId: low.externalOrderId,
+        shipmentId: null,
+        at: low.createdAt,
+        rating: 2,
+        lateByMilliseconds: null,
+        tags: [],
+      },
     ]);
+  });
+
+  it("says how long after the deadline each late step happened", () => {
+    const rows = healthDrillDown("accept_on_time", {
+      shipments: [lateAccept()],
+      reviews: [],
+      now: NOW,
+    });
+    // Accepted 30 h after the forward against a 24 h accept time.
+    expect(rows[0]?.lateByMilliseconds).toBe(6 * HOUR);
+  });
+
+  it("counts a step still waiting as late until now", () => {
+    const waiting = openParcel("forwarded", 30);
+    const rows = healthDrillDown("accept_on_time", { shipments: [waiting], reviews: [], now: NOW });
+    expect(rows[0]?.shipmentId).toBe(waiting.shipmentId);
+    expect(rows[0]?.lateByMilliseconds).toBe(6 * HOUR);
+  });
+
+  it("lists the returned parcels", () => {
+    const sentBack = shipment({ status: "returned" });
+    const rows = healthDrillDown("supplier_returns", {
+      shipments: [shipment({ status: "delivered" }), sentBack],
+      reviews: [],
+      now: NOW,
+    });
+    expect(rows.map((row) => row.orderId)).toEqual([sentBack.orderId]);
+    expect(rows[0]?.lateByMilliseconds).toBeNull();
+  });
+});
+
+function delivered(): ShipmentHealthRecord {
+  return shipment({ status: "delivered" });
+}
+
+function returned(): ShipmentHealthRecord {
+  return shipment({ status: "returned" });
+}
+
+describe("supplier returns", () => {
+  it("holds the return line at 2% green and 3% yellow, like the public score", () => {
+    const green = health({ shipments: [...times(49, delivered), returned()] });
+    expect(metricOf(green, "supplier_returns").value).toBe(0.02);
+    expect(metricOf(green, "supplier_returns").level).toBe("green");
+    const yellow = health({ shipments: [...times(97, delivered), ...times(3, returned)] });
+    expect(metricOf(yellow, "supplier_returns").level).toBe("yellow");
+    const red = health({ shipments: [...times(24, delivered), returned()] });
+    expect(metricOf(red, "supplier_returns").level).toBe("red");
+    expect(red.level).toBe("red");
+  });
+
+  it("counts only parcels the buyer received", () => {
+    const result = health({ shipments: [...times(9, delivered), ...times(5, () => shipment())] });
+    expect(metricOf(result, "supplier_returns").sample).toBe(9);
+    expect(metricOf(result, "supplier_returns").level).toBe("insufficient");
+  });
+
+  it("forecasts the returns left before the level drops", () => {
+    const result = health({ shipments: times(20, delivered) });
+    expect(metricOf(result, "supplier_returns").forecast).toEqual({
+      kind: "worsen",
+      events: 1,
+      toLevel: "red",
+    });
   });
 });
 

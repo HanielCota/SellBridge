@@ -46,6 +46,7 @@ export function reviewAt(createdAt: string, rating: number, comment = ""): Suppl
     orderId: `review-${createdAt}`,
     externalOrderId: `MLB-R-${createdAt}`,
     rating,
+    tags: [],
     comment,
     createdAt: new Date(createdAt),
   };

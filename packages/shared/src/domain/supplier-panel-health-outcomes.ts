@@ -23,6 +23,8 @@ export interface ReviewHealthRecord {
   orderId: string;
   externalOrderId: string;
   rating: number;
+  /** The reasons the reseller ticked (`REVIEW_TAGS`); the comment stays with moderation. */
+  tags: readonly string[];
   createdAt: Date;
 }
 
@@ -107,6 +109,19 @@ export function tallyCancellations(records: readonly ShipmentHealthRecord[]): Ra
   );
   const cancelled = settled.filter((record) => record.cancelledBySupplier).length;
   return { good: settled.length - cancelled, counted: settled.length };
+}
+
+/** Parcels that reached the buyer, where a return can still happen or already did. */
+const REACHED_THE_BUYER: ReadonlySet<FulfillmentStatus> = new Set(["delivered", "returned"]);
+
+/**
+ * Returns among the parcels the buyer received. One still on the way may yet be returned, so
+ * only delivered and returned parcels count, like the cancellations count only settled ones.
+ */
+export function tallyReturns(records: readonly ShipmentHealthRecord[]): RateTally {
+  const received = records.filter((record) => REACHED_THE_BUYER.has(record.status));
+  const returned = received.filter((record) => record.status === "returned").length;
+  return { good: received.length - returned, counted: received.length };
 }
 
 /** Star sum and count of the reviews. */
