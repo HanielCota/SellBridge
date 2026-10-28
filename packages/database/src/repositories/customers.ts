@@ -167,7 +167,13 @@ function customerSearch(search: string | undefined): SQL | undefined {
  * An account may own several seller profiles; it is one customer, seen through its oldest one,
  * the profile it opens by default.
  */
-const oldestOwnedSellerProfile = sql`(select m.id from member m join organization o on o.id = m.organization_id where m.user_id = ${user.id} and m.role = 'owner' and o.kind = 'seller' order by m.created_at, m.id limit 1)`;
+const oldestOwnedSellerProfile = sql`(
+  select m.id from member m
+  join organization o on o.id = m.organization_id
+  where m.user_id = ${user.id} and m.role = 'owner' and o.kind = 'seller'
+  order by m.created_at, m.id
+  limit 1
+)`;
 
 function customersQuery(database: Database, now: Date) {
   return database
@@ -183,7 +189,11 @@ function customersQuery(database: Database, now: Date) {
  */
 function resellersOnly(): SQL | undefined {
   const notStaff = notInArray(sql`coalesce(${user.role}, 'user')`, [...STAFF_ROLES]);
-  const ownsSupplierProfile = sql`exists (select 1 from member m join organization o on o.id = m.organization_id where m.user_id = ${user.id} and o.kind = 'supplier')`;
+  const ownsSupplierProfile = sql`exists (
+    select 1 from member m
+    join organization o on o.id = m.organization_id
+    where m.user_id = ${user.id} and o.kind = 'supplier'
+  )`;
   return and(notStaff, or(sql`${member.id} is not null`, sql`not ${ownsSupplierProfile}`));
 }
 

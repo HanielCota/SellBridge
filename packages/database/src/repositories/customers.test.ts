@@ -232,8 +232,8 @@ describe("who the customer list holds", () => {
   beforeAll(async () => {
     profiles = await createTestTenants(database, 4);
     const [oldest, newest, agentProfile, supplierProfile] = profiles.ids;
-    if (!oldest || !newest || !agentProfile || !supplierProfile) {
-      throw new Error("profiles were not created");
+    if (oldest == null || newest == null || agentProfile == null || supplierProfile == null) {
+      throw new Error(`expected 4 test profiles, got ${profiles.ids.length}`);
     }
     await database
       .update(organization)
