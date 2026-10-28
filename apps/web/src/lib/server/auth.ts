@@ -17,6 +17,11 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { z } from "zod";
 import { authAccessControl, authRoles } from "../auth-roles.ts";
 import { ACCOUNT_ACTION_PATHS, assertMayActOnAccount } from "./account-protection.ts";
+import {
+  type AdminAccessAccount,
+  type AdminAccessSteps,
+  settleAdminAccess,
+} from "./admin-promotion.ts";
 import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.ts";
 import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
 import { guardImpersonation, roleOf, startedVisitDetails } from "./impersonation-hook.ts";
@@ -309,18 +314,22 @@ export function isAdminEmail(email: string): boolean {
  * Admin is granted only to an ADMIN_EMAILS address whose ownership is proven: verified by the
  * provider (Google) at sign-up, or later through the verification link or a Google sign-in that
  * links to the account. Otherwise anyone could register an admin address that has not signed up
- * yet. The link is sent on every sign-in of an unproven admin address, sign-up included.
+ * yet. `settleAdminAccess` reads this on every sign-in to decide between link and promotion.
  */
-async function requestAdminVerification(userId: string) {
+async function findAdminAccessAccount(userId: string): Promise<AdminAccessAccount | null> {
   const [user] = await database
     .select({ email: schema.user.email, emailVerified: schema.user.emailVerified })
     .from(schema.user)
     .where(eq(schema.user.id, userId));
-  if (!user || user.emailVerified || !isAdminEmail(user.email)) {
-    return;
+  if (user === undefined) {
+    return null;
   }
+  return { email: user.email, emailVerified: user.emailVerified };
+}
+
+async function sendAdminVerificationEmail(email: string): Promise<void> {
   try {
-    await auth.api.sendVerificationEmail({ body: { email: user.email, callbackURL: "/login" } });
+    await auth.api.sendVerificationEmail({ body: { email, callbackURL: "/login" } });
   } catch (error) {
     logger.error("auth.admin_verification_email_failed", { error });
   }
@@ -332,10 +341,7 @@ async function requestAdminVerification(userId: string) {
  * (`promoteVerifiedOwner`); the owner sets a new password through the reset link, or signs in with
  * Google again.
  */
-async function promoteVerifiedAdmin(user: { id: string; email: string; emailVerified: boolean }) {
-  if (!user.emailVerified || !isAdminEmail(user.email)) {
-    return;
-  }
+async function promoteAdmin(user: { id: string; email: string }): Promise<void> {
   const promotion = await promoteVerifiedOwner(database, user.id);
   if (!promotion.promoted) {
     return;
@@ -352,6 +358,25 @@ async function promoteVerifiedAdmin(user: { id: string; email: string; emailVeri
     logger.error("auth.admin_password_reset_failed", { error });
   }
 }
+
+/** The user row was written and the mailbox is proven: the address on the list becomes admin. */
+async function promoteVerifiedAdmin(user: {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+}): Promise<void> {
+  if (!user.emailVerified || !isAdminEmail(user.email)) {
+    return;
+  }
+  await promoteAdmin({ id: user.id, email: user.email });
+}
+
+const adminAccessSteps: AdminAccessSteps = {
+  findAccount: findAdminAccessAccount,
+  isAdminAddress: isAdminEmail,
+  sendVerificationEmail: sendAdminVerificationEmail,
+  promote: async ({ userId, email }) => promoteAdmin({ id: userId, email }),
+};
 
 export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,
@@ -420,7 +445,7 @@ export const auth = betterAuth({
           return { data: { ...session, activeOrganizationId: organizationId } };
         },
         after: async (session) => {
-          await requestAdminVerification(session.userId);
+          await settleAdminAccess(session.userId, adminAccessSteps);
           await recordSessionStart(session);
         },
       },
