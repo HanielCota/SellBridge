@@ -15,7 +15,7 @@ type ImportedRow = Omit<EditableProductFields, "mercadoLivreAttributes"> & {
 
 /**
  * The supplier's import rows with the review status each one lands in, plus what the upsert's
- * conflict clause must also overwrite; nothing for the admin import (no `reviewAt`). Runs inside
+ * conflict clause must also overwrite; nothing without a `reviewAt`. Runs inside
  * the import transaction, after its locks.
  */
 export async function reviewedImportValues<TProduct extends ImportedRow>(

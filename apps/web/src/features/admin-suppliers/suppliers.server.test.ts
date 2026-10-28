@@ -119,6 +119,17 @@ describe("admin CSV orchestration", () => {
     );
   });
 
+  // Regression: the admin's import approved every row at once, even rows the supplier panel
+  // itself flags as incomplete (581 EnvioVelox products went live with "Corrigir" on them).
+  it("sends the admin's import through review, as the supplier panel's", async () => {
+    const preview = await previewAdminProductCsv({ supplierId, content });
+    await confirmAdminProductCsv({ supplierId, content, previewToken: preview.previewToken });
+    expect(mocks.importProducts).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ reviewAt: expect.any(Date) }),
+    );
+  });
+
   it("rejects content changed since the preview", async () => {
     const preview = await previewAdminProductCsv({ supplierId, content });
     await expect(
