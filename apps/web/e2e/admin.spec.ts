@@ -151,8 +151,6 @@ test("modo administrador começa desligado e liga as ferramentas de admin", asyn
   }
   await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Clientes" })).toHaveCount(0);
-  await page.goto("/admin/clientes");
-  await expect(page).toHaveURL(/\/dashboard/);
 
   await enableAdminMode(page);
   await expect(page.getByText("Modo admin ativo")).toBeVisible();

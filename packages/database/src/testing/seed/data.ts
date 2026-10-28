@@ -224,6 +224,17 @@ export const ADMIN_ACCOUNT = {
   email: "admin@sellbridge.local",
 } as const;
 
+/**
+ * A supplier with a login of its own, so the supplier panel can be opened locally. It runs the
+ * supplier the demo store "Ana Moda" sells, so its panel has orders to show.
+ */
+export const SUPPLIER_ACCOUNT = {
+  name: "Ateliê Divinópolis (fornecedor)",
+  email: "fornecedor@sellbridge.local",
+  slug: "atelie-divinopolis-fornecedor",
+  supplierName: "Ateliê Divinópolis Confecções",
+} as const;
+
 /** A simulated shop; it sells a single supplier, as every shop does. */
 export interface SeedStore {
   readonly externalShopId: string;
