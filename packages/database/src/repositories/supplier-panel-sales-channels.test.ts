@@ -9,6 +9,7 @@ import {
   testStoreInput,
 } from "../testing/fixtures.ts";
 import { upsertStoreConnection } from "./stores.ts";
+import { listSupplierProductSales } from "./supplier-panel-sales-products.ts";
 import {
   countSupplierSellingStores,
   listSupplierIdleProducts,
@@ -27,7 +28,12 @@ let idleProductId = "";
 let emptyProductId = "";
 const stores: Record<string, string> = {};
 
-async function sale(tenantId: string, status: OrderStatus, quantity: number) {
+async function sale(
+  tenantId: string,
+  status: OrderStatus,
+  quantity: number,
+  options: { productId?: string; unitCostCents?: number } = {},
+) {
   const [order] = await database
     .insert(orders)
     .values({
@@ -42,11 +48,11 @@ async function sale(tenantId: string, status: OrderStatus, quantity: number) {
   await database.insert(orderItems).values({
     tenantId,
     orderId: order?.id ?? "",
-    supplierProductId: supplier.productId,
+    supplierProductId: options.productId ?? supplier.productId,
     title: "Título do anúncio do revendedor",
     quantity,
     unitPriceCents: 99_999,
-    unitCostCents: 4000,
+    unitCostCents: options.unitCostCents ?? 4000,
   });
 }
 
@@ -119,5 +125,23 @@ describe("listSupplierIdleProducts", () => {
     expect(ids).not.toContain(supplier.productId);
     expect(ids).not.toContain(emptyProductId);
     expect(idle.find((row) => row.productId === idleProductId)?.availableStock).toBe(12);
+  });
+});
+
+describe("supplier sales page rankings", () => {
+  it("finds high-value and sold-out products outside the leading units result", async () => {
+    const highValue = await product("High-value sold-out product", 0);
+    await sale(tenants.tenantA, "paid", 1, { productId: highValue, unitCostCents: 100_000 });
+
+    const byUnits = await listSupplierProductSales(database, scope(), 1);
+    expect(byUnits.map((row) => row.productId)).toEqual([supplier.productId]);
+
+    const byValue = await listSupplierProductSales(database, scope(), 1, { sortBy: "value" });
+    expect(byValue.map((row) => row.productId)).toEqual([highValue]);
+    expect(byValue[0]?.receivableCents).toBe(100_000);
+
+    const soldOut = await listSupplierProductSales(database, scope(), 1, { soldOutOnly: true });
+    expect(soldOut.map((row) => row.productId)).toEqual([highValue]);
+    expect(soldOut[0]?.availableStock).toBe(0);
   });
 });
