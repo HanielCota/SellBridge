@@ -1,13 +1,15 @@
 import { TERMS_VERSION } from "@sellbridge/shared/terms";
 import type { TokenCipher } from "@sellbridge/shared/token-cipher";
 import { logger } from "@sellbridge/shared/logger";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "../../client.ts";
+import { suppliers } from "../../schema/index.ts";
 import { saveBillingHolder } from "../../repositories/region.ts";
 import { recordTermsAcceptance } from "../../repositories/terms-acceptances.ts";
 import { ensureAccount, type SeededAccount } from "../../seed/accounts.ts";
 import { seedCatalog } from "./catalog.ts";
 import { seedAdminWorkspace, seedCustomers, seedStarterSupplierFromListings } from "./customers.ts";
-import { ADMIN_ACCOUNT, DEMO_ACCOUNT } from "./data.ts";
+import { ADMIN_ACCOUNT, DEMO_ACCOUNT, SUPPLIER_ACCOUNT } from "./data.ts";
 import { ensureExtraProfile } from "./profiles.ts";
 import { createRandom, type Random } from "./random.ts";
 import { seedDemoReviews } from "./reputation.ts";
@@ -72,6 +74,46 @@ async function seedDemo(context: SeedContext): Promise<SeededAccount> {
   return demo;
 }
 
+/** A supplier profile with a login, running one of the seeded suppliers (its panel's data). */
+async function seedSupplierAccount(database: Database, password: string): Promise<void> {
+  const supplierAccount = await ensureAccount(database, {
+    name: SUPPLIER_ACCOUNT.name,
+    email: SUPPLIER_ACCOUNT.email,
+    password,
+    role: "user",
+    organizationSlug: SUPPLIER_ACCOUNT.slug,
+    kind: "supplier",
+  });
+  await recordTermsAcceptance(database, supplierAccount.userId, TERMS_VERSION);
+  // Only a supplier no profile runs yet: a second run finds it already tied to this one.
+  await database
+    .update(suppliers)
+    .set({ organizationId: supplierAccount.tenantId })
+    .where(
+      and(eq(suppliers.name, SUPPLIER_ACCOUNT.supplierName), isNull(suppliers.organizationId)),
+    );
+  await assertSupplierLinked(database, supplierAccount.tenantId);
+  logger.info("seed.supplier_account_ready", { created: supplierAccount.created });
+}
+
+/**
+ * The account opens the panel only when it runs that supplier. A supplier missing from the seed
+ * data is a broken seed; one another profile already runs (a local database where it was
+ * claimed by hand) leaves the account on the brand step, which is said instead of passing quietly.
+ */
+async function assertSupplierLinked(database: Database, tenantId: string): Promise<void> {
+  const [supplier] = await database
+    .select({ organizationId: suppliers.organizationId })
+    .from(suppliers)
+    .where(eq(suppliers.name, SUPPLIER_ACCOUNT.supplierName));
+  if (supplier === undefined) {
+    throw new Error(`Seed supplier "${SUPPLIER_ACCOUNT.supplierName}" is missing from the catalog`);
+  }
+  if (supplier.organizationId !== tenantId) {
+    logger.warn("seed.supplier_account_unlinked", { supplier: SUPPLIER_ACCOUNT.supplierName });
+  }
+}
+
 /** Everything the local environment and the E2E tests expect; idempotent. */
 export async function runSeed(database: Database, options: RunSeedOptions): Promise<void> {
   const context: SeedContext = { ...options, database, random: createRandom(20_261_008) };
@@ -82,6 +124,7 @@ export async function runSeed(database: Database, options: RunSeedOptions): Prom
   const demo = await seedDemo(context);
   await seedAdminWorkspace(context, admin);
   const customers = await seedCustomers(context, options.demoPassword);
+  await seedSupplierAccount(database, options.demoPassword);
   const authors = new Map([[DEMO_ACCOUNT.email, demo], ...customers]);
   const ticketsCreated = await seedSupportTickets(database, authors, admin);
   logger.info("seed.support_ready", { tickets: ticketsCreated });

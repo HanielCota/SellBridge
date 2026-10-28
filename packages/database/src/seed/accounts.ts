@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { and, asc, eq } from "drizzle-orm";
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import type { Database } from "../client.ts";
 import { account, member, organization, user } from "../schema/index.ts";
 
@@ -10,6 +11,8 @@ interface SeedAccountInput {
   password: string;
   role: "user" | "admin";
   organizationSlug: string;
+  /** Seller unless said otherwise, as a sign-up through /cadastro. */
+  kind?: ProfileKind;
 }
 
 export interface SeededAccount {
@@ -80,6 +83,7 @@ export async function ensureAccount(
       id: tenantId,
       name: input.name,
       slug: input.organizationSlug,
+      kind: input.kind ?? "seller",
       createdAt: now,
     });
     await transaction.insert(member).values({

@@ -8,6 +8,8 @@ export interface StaffMember {
   name: string;
   email: string;
   role: string;
+  /** Profile photo; null draws the initials. */
+  image: string | null;
   emailVerified: boolean;
   banned: boolean;
   createdAt: Date;
@@ -23,6 +25,7 @@ export async function listStaffMembers(database: Database): Promise<StaffMember[
       name: user.name,
       email: user.email,
       role: user.role,
+      image: user.image,
       emailVerified: user.emailVerified,
       banned: sql<boolean>`coalesce(${user.banned}, false)`,
       createdAt: user.createdAt,

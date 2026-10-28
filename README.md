@@ -99,6 +99,16 @@ The normal build and worker never load them. Test seeding requires `TEST_DATABAS
 and does not fall back to the normal application's database. Historical simulated connections are
 retired by migration `0054_retire_simulated_stores`; existing records are retained for auditability.
 
+### The two panels
+
+- **Admin** (`/admin/...`): sign in as the bootstrap administrator, open the user menu (avatar, top
+  right) and switch on **"Modo administrador"**, or use the team button in the header/menu.
+  Opening an `/admin/*` link also enables team mode for staff; each page still checks permissions.
+- **Supplier** (`/fornecedor/painel`): the test seed creates `fornecedor@sellbridge.local` (password
+  `SEED_DEMO_PASSWORD`), a supplier profile running Ateliê Divinópolis Confecções; it lands there
+  directly. From the admin side, with "Modo administrador" on: **Fornecedores** → **Entrar como
+  fornecedor** on a supplier that has a login.
+
 ## Managing the supplier catalog
 
 Enable **Modo administrador** in the account menu and open **Fornecedores** (`/admin/fornecedores`). Create a supplier with the state and city it ships from, then manage products and see the stores that sell it on `/admin/fornecedores/$supplierId`. Product search and pagination are stored in the URL.

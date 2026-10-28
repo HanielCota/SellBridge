@@ -2,9 +2,9 @@
 
 Date: 2026-10-27
 
-Baseline: `e8e2f1658ddc259e390c91dc5a847e3d4b76a278` (`main`). Scope: the 16 open pull requests found during this review, their changed server boundaries, database reads and writes, interface flows, migrations, and interactions when combined. Fifteen ready PRs are integrated below; the newly opened draft #142 is reviewed separately.
+Initial baseline: `e8e2f1658ddc259e390c91dc5a847e3d4b76a278` (`main`). The initial review covered 16 open pull requests, their changed server boundaries, database reads and writes, interface flows, migrations, and interactions when combined. The final acceptance pass below extends this to every PR through #145, including the two correction/integration PRs created during this review.
 
-The 15 ready PRs were authored by **Magalhaesz** in this repository. Each original head was merged into `codex/review-open-prs`; its commits and authorship remain in the ancestry. Draft #142 belongs to **GuiSatierf** and remains separate. The original branches were not rewritten, no draft was promoted, and no merge into `main` was performed.
+The first 15 ready PRs were authored by **Magalhaesz** in this repository. Each original head was merged into `codex/review-open-prs`; its commits and authorship remain in the ancestry. Draft #142 belongs to **GuiSatierf** and was initially kept separate. The initial review did not rewrite source branches, promote drafts, or merge into `main`. The product owner subsequently authorized accepting all PRs; the resulting integration is recorded below.
 
 ## Reviewed revisions
 
@@ -44,9 +44,9 @@ The 15 ready PRs were authored by **Magalhaesz** in this repository. Each origin
 5. **Merge compatibility gaps.** Restored the operational queue's photo helpers and tests, supplied the new support queue fields in monthly report fixtures, and combined both versions of shared heading/filter/catalog/support components.
 6. **Outdated browser expectations and layout timing.** The supplier-header test now checks icons hidden below 1440px and visible from 1440px. It waits for the supplier workspace and fonts, then polls for zero clipped width after viewport changes. The support verdict test waits for hydration after a full reload. The original #139 CI had failed the icon and verdict tests; the focused local rerun passed them. The author subsequently pushed the icon expectation fix as `885a4981aca39641a364a6fcf58d89f24e2fb45a` and the hydration fix in #141; both original histories are included. Navigation assertions allow the new default sales filters and scope the supplier product link. The support-bubble overlap fixture isolates its injected control from real dashboard controls.
 
-## Separate draft review: #142
+## Initial draft review: #142
 
-[#142](https://github.com/HanielCota/SellBridge/pull/142), by **GuiSatierf**, was opened during validation and is still a draft. Reviewed head: `06e0e8f1369d0a9061e3f73bb0d46055e0a1e861`. All 24 changed files were inspected, including staff authorization, mode persistence, direct admin navigation, team avatars, and the test-only supplier account. No additional security defect was confirmed in those changed paths. This draft is not part of the validated integration and its browser tests were not run here.
+[#142](https://github.com/HanielCota/SellBridge/pull/142), by **GuiSatierf**, was opened as a draft during validation. Reviewed head: `06e0e8f1369d0a9061e3f73bb0d46055e0a1e861`. All 24 changed files were inspected, including staff authorization, mode persistence, direct admin navigation, team avatars, and the test-only supplier account. No additional security defect was confirmed in those changed paths. This draft was excluded from the first integration; the final acceptance pass includes and validates it.
 
 A `git merge-tree` compatibility probe reports conflicts in `apps/web/src/components/layout/top-nav.tsx` and `apps/web/src/components/layout/support-button.tsx`. Before integrating this draft:
 
@@ -55,7 +55,26 @@ A `git merge-tree` compatibility probe reports conflicts in `apps/web/src/compon
 - Recheck header geometry with the extra team button at all desktop widths, including supplier profiles and admin mode, then run the new team-entry tests with the existing navigation suite.
 - Update the new README sentence saying `/admin/*` sends staff back to the sales dashboard. The same PR now enables team mode on direct staff navigation to an admin page, so that instruction contradicts its implementation.
 
-The draft and its source branch are unchanged. These are concrete integration requirements for the draft's later completion, not claims that its current code is included or runtime-validated.
+These initial integration requirements are resolved in the final acceptance pass. The original commits and source branch remain intact.
+
+## Final acceptance pass
+
+The product owner explicitly authorized accepting every open PR, including #142. PR #143 passed all three GitHub CI checks and was merged into `main` as `d0667d667439b831f28dc0a6426a81374859798e`, which also marked #127–#141 as merged. GitHub merge commits preserve the original history and authorship.
+
+The remaining work is combined on `codex/complete-open-pr-merges`:
+
+| PR                                                        | Reviewed head                              | Author and dependency                                                           |
+| --------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| [#142](https://github.com/HanielCota/SellBridge/pull/142) | `06e0e8f1369d0a9061e3f73bb0d46055e0a1e861` | GuiSatierf; team access, avatars, and supplier test account                     |
+| [#144](https://github.com/HanielCota/SellBridge/pull/144) | `3b1f96e10a52e846ef9a2edfb75f6a23c078add5` | Magalhaesz; product classification; includes the author's updated main baseline |
+| [#145](https://github.com/HanielCota/SellBridge/pull/145) | `59bfa2b282551fa221e91ab402e5ab38cba75857` | HanielCota; correction targeting #144, updated onto its latest head             |
+
+- The team entry is ported into the extracted phone navigation while retaining separate profile menus, messages, supplier order counts, and staff shipment tools. The shared button classes coexist with the revised support card. README instructions now match direct navigation into the team area.
+- An additional browser regression exercises team entry from a supplier profile with a long account name, verifies the header at 1024–1920px, and confirms that both profile menus remain accessible after entering team mode.
+- #145 corrects confirmed false positives in #144: glue/paint/massage tools and medicine organizers were refused as weapons or medicines. Only recognized tool/storage names are excluded; another restricted item in the same listing still blocks submission. Seven new cases fail on the original implementation. After updating onto the author's latest #144 head, all 1,149 shared tests pass, together with lint, shared type checking, formatting, and the no-else check.
+- The #142 integration passes all 3,452 unit/integration tests and its supplier-profile team-entry browser regression. The combined final tree passes all 3,469 unit/integration tests (root 7, shared 1,189, marketplaces 209, database 630, web 1,329, worker 105), format, lint, no-else, workspace type checking, and the production build.
+- The complete browser suite for the combined final tree passes all 257 active scenarios on the first attempt in 11.1 minutes. Seven pre-existing own-catalog tests remain skipped. No failure or retry occurred. The earlier #143 GitHub browser run also passed all 250 active scenarios on its first attempt.
+- Merge order is #145 into #144, then the final integration into `main`, with #142 promoted after validation. No force push, squash, or history rewrite is used.
 
 ## Validation
 

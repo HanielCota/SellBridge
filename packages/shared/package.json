@@ -96,7 +96,8 @@
     "./forward-notes": "./src/domain/forward-notes.ts",
     "./seller-catalog-schemas": "./src/domain/seller-catalog-schemas.ts",
     "./product-sources": "./src/domain/product-sources.ts",
-    "./return-claims": "./src/domain/return-claims.ts"
+    "./return-claims": "./src/domain/return-claims.ts",
+    "./prohibited-products": "./src/domain/prohibited-products.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
