@@ -2,7 +2,6 @@ import {
   countSupplierShipmentsByTab,
   getSupplierPanelProfile,
   getSupplierReputationStats,
-  listSupplierHealthDrillDown,
   listSupplierOutOfStockListed,
   listSupplierProductPhotos,
   listSupplierRejectedProducts,
@@ -21,8 +20,6 @@ import {
 } from "@sellbridge/shared/supplier-panel-home-queue";
 import {
   computeSupplierHealth,
-  type HealthDrillDownRow,
-  type HealthMetricKey,
   type SupplierHealth,
 } from "@sellbridge/shared/supplier-panel-health";
 import {
@@ -42,23 +39,6 @@ async function loadPublicReputation(supplierId: string, now: Date): Promise<Supp
     daysBefore(SCORE_WINDOW_DAYS, now),
   );
   return computeSupplierReputation(stats.get(supplierId) ?? emptyReputationStats());
-}
-
-export interface SupplierPerformance {
-  supplierName: string;
-  health: SupplierHealth;
-  reputation: SupplierReputation;
-}
-
-/** Thermometer and public score of the "Desempenho" page. */
-export async function loadSupplierPerformance(supplierId: string): Promise<SupplierPerformance> {
-  const now = new Date();
-  const [profile, healthInput, reputation] = await Promise.all([
-    getSupplierPanelProfile(database, supplierId),
-    loadSupplierHealthInput(database, { supplierId, now }),
-    loadPublicReputation(supplierId, now),
-  ]);
-  return { supplierName: profile.name, health: computeSupplierHealth(healthInput), reputation };
 }
 
 /** A parcel of the home list, with the main photo of its first item. */
@@ -124,13 +104,4 @@ export async function loadSupplierHome(supplierId: string): Promise<SupplierHome
     health: computeSupplierHealth(healthInput),
     highlighted: reputation.highlighted,
   };
-}
-
-/** The orders of the last 60 days that count against one metric. */
-export async function loadHealthDrillDown(
-  supplierId: string,
-  metric: HealthMetricKey,
-): Promise<HealthDrillDownRow[]> {
-  await getSupplierPanelProfile(database, supplierId);
-  return listSupplierHealthDrillDown(database, { supplierId, metric, now: new Date() });
 }

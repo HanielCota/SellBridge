@@ -116,6 +116,7 @@ export async function listSupplierReviewHealthRecords(
       orderId: supplierReviews.orderId,
       externalOrderId: orders.externalOrderId,
       rating: supplierReviews.rating,
+      tags: supplierReviews.tags,
       createdAt: supplierReviews.createdAt,
     })
     .from(supplierReviews)

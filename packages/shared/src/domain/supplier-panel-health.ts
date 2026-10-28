@@ -1,3 +1,4 @@
+import { lateSinceFor } from "./shipment-delay.ts";
 import { DAY_MILLISECONDS } from "./time.ts";
 import {
   acceptOutcome,
@@ -6,6 +7,7 @@ import {
   tallyCancellations,
   tallyDispatch,
   tallyRatings,
+  tallyReturns,
   type ReviewHealthRecord,
   type ShipmentHealthRecord,
 } from "./supplier-panel-health-outcomes.ts";
@@ -96,7 +98,7 @@ function inWindow(date: Date | null, window: HealthWindow): boolean {
 }
 
 /** Parcels count in the window of their latest forward, reviews in the window they were left. */
-function recordsIn(input: HealthInput, window: HealthWindow) {
+export function recordsIn(input: HealthInput, window: HealthWindow) {
   return {
     shipments: input.shipments.filter((record) => inWindow(record.forwardedAt, window)),
     reviews: input.reviews.filter((review) => inWindow(review.createdAt, window)),
@@ -116,6 +118,9 @@ function tallyFor(
   }
   if (key === "supplier_cancellations") {
     return tallyCancellations(records.shipments);
+  }
+  if (key === "supplier_returns") {
+    return tallyReturns(records.shipments);
   }
   const ratings = tallyRatings(records.reviews);
   return { good: ratings.sum, counted: ratings.count };
@@ -192,19 +197,67 @@ export interface HealthDrillDownRow {
   externalOrderId: string;
   /** When it happened: the forward of a parcel, or the date of a review. */
   at: Date;
+  /** The parcel behind the row; null for a review, whose order may hold several parcels. */
+  shipmentId: string | null;
   /** Stars of a review; null for parcels. */
   rating: number | null;
+  /**
+   * How long after its deadline the accept or the dispatch happened, or has been waiting so
+   * far when it has not happened yet; null for the metrics without a deadline.
+   */
+  lateByMilliseconds: number | null;
+  /** The reasons a review ticked (`REVIEW_TAGS`); empty for parcels. */
+  tags: readonly string[];
 }
 
 /** A review at or below this many stars is what pulls the average down. */
-const LOW_RATING = 3;
+export const LOW_RATING = 3;
 
-function shipmentRow(record: ShipmentHealthRecord): HealthDrillDownRow {
+/** The step and the moment it happened, for the two metrics with a deadline. */
+function deadlineStep(key: HealthMetricKey, record: ShipmentHealthRecord) {
+  if (key === "accept_on_time") {
+    return { lateSince: lateSinceFor(record, "accept_overdue"), doneAt: record.acceptedAt };
+  }
+  if (key === "dispatch_on_time") {
+    return { lateSince: lateSinceFor(record, "dispatch_overdue"), doneAt: record.shippedAt };
+  }
+  return null;
+}
+
+function lateBy(key: HealthMetricKey, record: ShipmentHealthRecord, now: Date): number | null {
+  const step = deadlineStep(key, record);
+  if (step === null || step.lateSince === null) {
+    return null;
+  }
+  const doneAt = step.doneAt ?? now;
+  return Math.max(0, doneAt.getTime() - step.lateSince.getTime());
+}
+
+function shipmentRow(
+  key: HealthMetricKey,
+  record: ShipmentHealthRecord,
+  now: Date,
+): HealthDrillDownRow {
   return {
     orderId: record.orderId,
     externalOrderId: record.externalOrderId,
+    shipmentId: record.shipmentId,
     at: record.forwardedAt ?? new Date(0),
     rating: null,
+    lateByMilliseconds: lateBy(key, record, now),
+    tags: [],
+  };
+}
+
+function reviewRow(review: ReviewHealthRecord): HealthDrillDownRow {
+  return {
+    orderId: review.orderId,
+    externalOrderId: review.externalOrderId,
+    shipmentId: null,
+    at: review.createdAt,
+    rating: review.rating,
+    lateByMilliseconds: null,
+    tags: review.tags,
   };
 }
 
@@ -215,6 +268,9 @@ function isAgainst(key: HealthMetricKey, record: ShipmentHealthRecord, now: Date
   if (key === "dispatch_on_time") {
     return dispatchOutcome(record, now) === "late";
   }
+  if (key === "supplier_returns") {
+    return record.status === "returned";
+  }
   return record.cancelledBySupplier;
 }
 
@@ -223,14 +279,9 @@ export function healthDrillDown(key: HealthMetricKey, input: HealthInput): Healt
   const current = recordsIn(input, healthWindows(input.now).current);
   const rows =
     key === "average_rating"
-      ? current.reviews
-          .filter((review) => review.rating <= LOW_RATING)
-          .map((review) => ({
-            orderId: review.orderId,
-            externalOrderId: review.externalOrderId,
-            at: review.createdAt,
-            rating: review.rating,
-          }))
-      : current.shipments.filter((record) => isAgainst(key, record, input.now)).map(shipmentRow);
+      ? current.reviews.filter((review) => review.rating <= LOW_RATING).map(reviewRow)
+      : current.shipments
+          .filter((record) => isAgainst(key, record, input.now))
+          .map((record) => shipmentRow(key, record, input.now));
   return rows.toSorted((first, second) => second.at.getTime() - first.at.getTime());
 }

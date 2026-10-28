@@ -6,7 +6,6 @@ import {
 } from "@sellbridge/shared/supplier-flags";
 import {
   HEALTH_METRIC_LABELS,
-  type HealthLevel,
   type HealthMetric,
   type SupplierHealth,
 } from "@sellbridge/shared/supplier-panel-health";
@@ -19,29 +18,13 @@ import { Button } from "@/components/ui/button";
 import { HintedText } from "@/components/ui/hint";
 import { teamNoticesQueryOptions } from "@/features/supplier-panel/home/team-notices.queries";
 import { cn } from "@/lib/utils";
-import { formatHealthValue, HEALTH_LEVEL_TONES, metricHint } from "./health-format";
-
-const LEVEL_TEXT_CLASSES: Record<HealthLevel, string> = {
-  green: "text-foreground",
-  yellow: "text-amber-700 dark:text-amber-300",
-  red: "text-destructive",
-  insufficient: "text-foreground",
-};
-
-/** The account's level in words, so the dot never carries the meaning alone. */
-function levelSentence(health: SupplierHealth): string {
-  const sentences: Record<Exclude<HealthLevel, "insufficient">, string> = {
-    green: "Desempenho dentro da meta",
-    yellow: "Desempenho com métrica fora da meta",
-    red: "Desempenho em vermelho",
-  };
-  if (health.level !== "insufficient") {
-    return sentences[health.level];
-  }
-  const [first] = health.metrics;
-  const minimum = first?.definition.minSample ?? 0;
-  return `Desempenho conta a partir do ${minimum}º pedido`;
-}
+import {
+  formatHealthValue,
+  HEALTH_LEVEL_TONES,
+  LEVEL_TEXT_CLASSES,
+  levelSentence,
+  metricHint,
+} from "./health-format";
 
 function SeeButton({ href, label }: { href: string; label: string }) {
   return (
