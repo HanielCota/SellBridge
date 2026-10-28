@@ -745,3 +745,7 @@ Um cartão de rastreio só (`TrackingParcel`) para todos, com o histórico junta
 Alternativas descartadas: token aleatório guardado em hash (cada pedido de link invalidaria o anterior que o comprador já tem); tela de rastreio separada por perfil (três telas divergiriam).
 
 Revisar se: o segredo do Better Auth for trocado (todos os links de comprador mudam) ou se ligarmos a API dos Correios/Melhor Envio (os passos aparecem sozinhos pelo `CarrierTrackingProvider`).
+
+## 2026-10-28: Desempenho do fornecedor no jeito do Início, com devoluções (PR #150)
+
+O Desempenho do fornecedor vira um cartão só, como o Início: a cor da conta ao lado do score público, uma faixa com as cinco métricas e, abaixo, os pedidos da métrica escolhida com foto, loja e atraso. Devoluções entram como quinta métrica: pacotes devolvidos entre os que o comprador recebeu, verde até 2% e vermelho acima de 3%, a linha em que o score público começa a perder pontos (mesma regra dos cancelamentos). Nas notas baixas aparecem os motivos marcados, nunca o comentário, que segue só para a moderação.
