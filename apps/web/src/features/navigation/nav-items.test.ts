@@ -34,10 +34,11 @@ describe("team navigation", () => {
 });
 
 describe("supplier navigation", () => {
-  it("has the six tabs in the order of the day", () => {
+  it("has the seven tabs in the order of the day", () => {
     expect(SUPPLIER_NAV_ITEMS.map((item) => item.label)).toEqual([
       "Início",
       "Pedidos",
+      "Vendas",
       "Mensagens",
       "Produtos",
       "Desempenho",
@@ -52,9 +53,10 @@ describe("supplier navigation", () => {
 });
 
 describe("supplier messages tab", () => {
-  it("puts the stores' messages right after the orders tab, with an unread count", () => {
+  it("puts the stores' messages right after orders and sales, with an unread count", () => {
     const labels = SUPPLIER_NAV_ITEMS.map((item) => item.label);
-    expect(labels.indexOf("Mensagens")).toBe(labels.indexOf("Pedidos") + 1);
+    expect(labels.indexOf("Vendas")).toBe(labels.indexOf("Pedidos") + 1);
+    expect(labels.indexOf("Mensagens")).toBe(labels.indexOf("Vendas") + 1);
     expect(SUPPLIER_NAV_ITEMS).toContainEqual({
       label: "Mensagens",
       to: "/suporte/revendedores",

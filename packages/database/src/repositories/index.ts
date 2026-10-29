@@ -79,6 +79,7 @@ export * from "./supplier-panel-performance.ts";
 export * from "./supplier-panel-sales.ts";
 export * from "./supplier-panel-sales-products.ts";
 export * from "./supplier-panel-sales-export.ts";
+export * from "./supplier-panel-sales-channels.ts";
 export * from "./seller-catalog.ts";
 export * from "./seller-product-admin.ts";
 export * from "./blocked-contacts.ts";

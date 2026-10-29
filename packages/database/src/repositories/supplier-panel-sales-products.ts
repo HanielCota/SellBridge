@@ -31,12 +31,14 @@ const productRowSchema = z.object({
   receivable: count,
 });
 
-/** The products that sold in the scope, most units first. */
+/** Products that sold in the scope; apply the stock filter and ranking before limiting rows. */
 export async function listSupplierProductSales(
   database: Database,
   scope: SupplierSalesScope,
   limit: number,
+  options: { sortBy?: "units" | "value"; soldOutOnly?: boolean } = {},
 ): Promise<SupplierProductSales[]> {
+  const ranking = options.sortBy === "value" ? sql`sold.receivable` : sql`sold.units`;
   const rows = await database.execute(sql`
     with ${supplierLinesCte(scope)},
     sold as (
@@ -54,7 +56,8 @@ export async function listSupplierProductSales(
       sold.receivable
     from sold
     join supplier_products p on p.id = sold.supplier_product_id
-    order by sold.units desc, p.title asc
+    where ${options.soldOutOnly === true ? sql`p.stock - p.reserved_stock <= 0` : sql`true`}
+    order by ${ranking} desc, p.title asc, p.id asc
     limit ${limit}
   `);
   return z

@@ -83,6 +83,7 @@ import { Route as AppFornecedorPainelPedidosRouteImport } from './routes/_app/fo
 import { Route as AppFornecedorPainelProdutosRouteImport } from './routes/_app/fornecedor/painel/produtos'
 import { Route as AppFornecedorPainelRegrasRouteImport } from './routes/_app/fornecedor/painel/regras'
 import { Route as AppFornecedorPainelRelatorioRouteImport } from './routes/_app/fornecedor/painel/relatorio'
+import { Route as AppFornecedorPainelVendasRouteImport } from './routes/_app/fornecedor/painel/vendas'
 import { Route as AppSuporteConversasTicketIdRouteImport } from './routes/_app/suporte/conversas/$ticketId'
 import { Route as AppSuporteFornecedoresIndexRouteImport } from './routes/_app/suporte/fornecedores/index'
 import { Route as AppSuporteFornecedoresNovoRouteImport } from './routes/_app/suporte/fornecedores/novo'
@@ -501,6 +502,12 @@ const AppFornecedorPainelRelatorioRoute =
     path: '/relatorio',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelVendasRoute =
+  AppFornecedorPainelVendasRouteImport.update({
+    id: '/vendas',
+    path: '/vendas',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppSuporteConversasTicketIdRoute =
   AppSuporteConversasTicketIdRouteImport.update({
     id: '/suporte/conversas/$ticketId',
@@ -774,6 +781,7 @@ export interface FileRoutesByFullPath {
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
@@ -880,6 +888,7 @@ export interface FileRoutesByTo {
   '/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
@@ -992,6 +1001,7 @@ export interface FileRoutesById {
   '/_app/fornecedor/painel/produtos': typeof AppFornecedorPainelProdutosRoute
   '/_app/fornecedor/painel/regras': typeof AppFornecedorPainelRegrasRoute
   '/_app/fornecedor/painel/relatorio': typeof AppFornecedorPainelRelatorioRoute
+  '/_app/fornecedor/painel/vendas': typeof AppFornecedorPainelVendasRoute
   '/_app/suporte/conversas/$ticketId': typeof AppSuporteConversasTicketIdRoute
   '/_app/suporte/fornecedores/novo': typeof AppSuporteFornecedoresNovoRoute
   '/api/admin/exportar/auditoria': typeof ApiAdminExportarAuditoriaRoute
@@ -1103,6 +1113,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/produtos'
     | '/fornecedor/painel/regras'
     | '/fornecedor/painel/relatorio'
+    | '/fornecedor/painel/vendas'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
     | '/api/admin/exportar/auditoria'
@@ -1209,6 +1220,7 @@ export interface FileRouteTypes {
     | '/fornecedor/painel/produtos'
     | '/fornecedor/painel/regras'
     | '/fornecedor/painel/relatorio'
+    | '/fornecedor/painel/vendas'
     | '/suporte/conversas/$ticketId'
     | '/suporte/fornecedores/novo'
     | '/api/admin/exportar/auditoria'
@@ -1320,6 +1332,7 @@ export interface FileRouteTypes {
     | '/_app/fornecedor/painel/produtos'
     | '/_app/fornecedor/painel/regras'
     | '/_app/fornecedor/painel/relatorio'
+    | '/_app/fornecedor/painel/vendas'
     | '/_app/suporte/conversas/$ticketId'
     | '/_app/suporte/fornecedores/novo'
     | '/api/admin/exportar/auditoria'
@@ -1936,6 +1949,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelRelatorioRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
+    '/_app/fornecedor/painel/vendas': {
+      id: '/_app/fornecedor/painel/vendas'
+      path: '/vendas'
+      fullPath: '/fornecedor/painel/vendas'
+      preLoaderRoute: typeof AppFornecedorPainelVendasRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
     '/_app/suporte/conversas/$ticketId': {
       id: '/_app/suporte/conversas/$ticketId'
       path: '/suporte/conversas/$ticketId'
@@ -2262,6 +2282,7 @@ interface AppFornecedorPainelRouteRouteChildren {
   AppFornecedorPainelProdutosRoute: typeof AppFornecedorPainelProdutosRoute
   AppFornecedorPainelRegrasRoute: typeof AppFornecedorPainelRegrasRoute
   AppFornecedorPainelRelatorioRoute: typeof AppFornecedorPainelRelatorioRoute
+  AppFornecedorPainelVendasRoute: typeof AppFornecedorPainelVendasRoute
   AppFornecedorPainelIndexRoute: typeof AppFornecedorPainelIndexRoute
 }
 
@@ -2274,6 +2295,7 @@ const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildr
     AppFornecedorPainelProdutosRoute: AppFornecedorPainelProdutosRoute,
     AppFornecedorPainelRegrasRoute: AppFornecedorPainelRegrasRoute,
     AppFornecedorPainelRelatorioRoute: AppFornecedorPainelRelatorioRoute,
+    AppFornecedorPainelVendasRoute: AppFornecedorPainelVendasRoute,
     AppFornecedorPainelIndexRoute: AppFornecedorPainelIndexRoute,
   }
 

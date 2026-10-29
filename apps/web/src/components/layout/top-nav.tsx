@@ -60,6 +60,9 @@ const LAYOUTS = {
     accountName: "hidden sm:block lg:hidden xl:block",
     // Beside the account name the capsule only fits the tab icons from 1440px (touched the logo at 1400).
     tabIcon: "hidden size-4 min-[1440px]:block",
+    // Seven tabs (the supplier's, since "Vendas") with icons ran 12px past the capsule's track
+    // once staff also had the team entry, and the row stops growing at 1440px: tighter tabs fit.
+    crowdedTab: "px-2 text-[0.9375rem] gap-1",
     modeBadge: "hidden",
   },
   dense: {
@@ -74,11 +77,15 @@ const LAYOUTS = {
     // Twelve tabs plus the Revendedor and Fornecedor menus fill the capsule even at 1440px, so
     // the icons stay in the phone sheet and the menus (admin profile menus, approved mockup).
     tabIcon: "hidden",
+    crowdedTab: "px-1.5 min-[1440px]:px-2",
     modeBadge: "flex",
   },
 } as const;
 
 type Layout = (typeof LAYOUTS)[keyof typeof LAYOUTS];
+
+/** From this many tabs the icons wait for a wider screen, so every label still fits. */
+const CROWDED_TAB_COUNT = 7;
 
 function layoutFor(adminMode: boolean): Layout {
   return adminMode ? LAYOUTS.dense : LAYOUTS.regular;
@@ -193,7 +200,7 @@ function DesktopNav({
           isActive={item.to === chosen.value}
           count={item.badge ? counts[item.badge] : 0}
           paintsOwnPill={indicator === null}
-          padding={layout.tab}
+          padding={allItems.length >= CROWDED_TAB_COUNT ? layout.crowdedTab : layout.tab}
           withHint
           iconClassName={layout.tabIcon}
           tabRef={(node) => registerTab([item], node)}
