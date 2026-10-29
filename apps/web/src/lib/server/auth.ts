@@ -25,12 +25,18 @@ import {
 import { ACCOUNT_SECURITY_PATHS, isClosedToBrowsers } from "./auth-route-policy.ts";
 import { recordImpersonatedCall, recordImpersonationEnded } from "./impersonation.ts";
 import { guardImpersonation, roleOf, startedVisitDetails } from "./impersonation-hook.ts";
-import { IMPERSONATION_SECONDS, isImpersonationOver } from "./impersonation-window.ts";
+import {
+  IMPERSONATION_SECONDS,
+  isImpersonationOver,
+  mayKeepVisiting,
+  VISIT_OVER_MESSAGE,
+} from "./impersonation-window.ts";
 import { database } from "./database.ts";
 import { renderActionEmail } from "@sellbridge/shared/email-layout";
 import { environment } from "./environment.ts";
 import { sendEmail } from "./mailer.ts";
 import { findFirstOrganizationId } from "./membership.ts";
+import { findVisitingStaff } from "./visiting-staff.ts";
 import { createProfileForNewUser, isSelfSignUpPath } from "./sign-up-profile.ts";
 import { logger } from "@sellbridge/shared/logger";
 import { teamInviteEmail } from "../../features/admin/team-invite-email.ts";
@@ -152,6 +158,13 @@ const guardAccountRoutes = createAuthMiddleware(async (context) => {
     throw new APIError("UNAUTHORIZED", {
       message: "O acesso como cliente terminou. Volte ao admin.",
     });
+  }
+  if (session.session.impersonatedBy) {
+    // The visit session is the customer's: a team member banned or demoted since keeps it.
+    const visitor = await findVisitingStaff(session.session.impersonatedBy);
+    if (!mayKeepVisiting(visitor)) {
+      throw new APIError("UNAUTHORIZED", { message: VISIT_OVER_MESSAGE });
+    }
   }
   if (isAccountSecurity && session.session.impersonatedBy) {
     throw new APIError("FORBIDDEN", { message: "Indisponível durante o acesso como cliente" });

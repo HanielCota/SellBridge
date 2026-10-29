@@ -103,8 +103,16 @@ export async function requireTenantSession(
   };
 }
 
-/** Ends a visit whose team member was banned, demoted or removed since it started. */
-async function assertVisitorStillAllowed(impersonatedBy: string | null | undefined): Promise<void> {
+/**
+ * Ends a visit whose team member was banned, demoted or removed since it started. Every route
+ * that reads the session on its own calls this next to `assertVisitNotOver`.
+ *
+ * @param impersonatedBy - The session's `impersonatedBy`: the team member behind a visit, if any.
+ * @throws {AppError} With code `UNAUTHORIZED` when that team member may no longer visit.
+ */
+export async function assertVisitorStillAllowed(
+  impersonatedBy: string | null | undefined,
+): Promise<void> {
   if (impersonatedBy == null) {
     return;
   }
