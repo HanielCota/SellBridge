@@ -23,9 +23,15 @@ describe("signInErrorMessage", () => {
     );
   });
 
-  it("does not blame the password when the server or the connection failed", () => {
-    const unreachable = "Não foi possível entrar agora. Confira sua conexão e tente de novo.";
-    expect(signInErrorMessage({ status: 500 })).toBe(unreachable);
-    expect(signInErrorMessage({ status: 0 })).toBe(unreachable);
+  it("does not blame the password when the server failed", () => {
+    expect(signInErrorMessage({ status: 500 })).toBe(
+      "Não foi possível entrar agora. Confira sua conexão e tente de novo.",
+    );
+  });
+
+  it("does not blame the password when the request got no answer", () => {
+    expect(signInErrorMessage({ status: 0 })).toBe(
+      "Não foi possível entrar agora. Confira sua conexão e tente de novo.",
+    );
   });
 });

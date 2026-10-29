@@ -1,9 +1,11 @@
 /** What the sign-in form reads from a failed Better Auth call. */
 export interface SignInFailure {
-  status: number;
-  code?: string | undefined;
+  readonly status: number;
+  readonly code?: string | undefined;
 }
 
+/** A sign-in request that never got an answer (offline, connection dropped). */
+const NO_RESPONSE = 0;
 const TOO_MANY_REQUESTS = 429;
 const FIRST_SERVER_ERROR = 500;
 
@@ -24,7 +26,7 @@ export function signInErrorMessage(failure: SignInFailure): string {
     return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
   }
 
-  if (failure.status === 0 || failure.status >= FIRST_SERVER_ERROR) {
+  if (failure.status === NO_RESPONSE || failure.status >= FIRST_SERVER_ERROR) {
     return "Não foi possível entrar agora. Confira sua conexão e tente de novo.";
   }
 
