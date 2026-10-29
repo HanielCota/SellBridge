@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
-import { recordWebhookEvent } from "@sellbridge/database/repositories";
-import type { MarketplaceOrder, StoreCredentials } from "@sellbridge/marketplaces";
+import { markWebhookProcessed, recordWebhookEvent } from "@sellbridge/database/repositories";
+import {
+  type MarketplaceOrder,
+  marketplaceAuthError,
+  marketplaceError,
+  type StoreCredentials,
+} from "@sellbridge/marketplaces";
 import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +17,7 @@ import {
   createTestTenants,
   createWorkerTestEnvironment,
 } from "../testing/fixtures.ts";
+import { heldEventNote } from "./store-order-catch-up.ts";
 import { createWebhookEventProcessor } from "./webhook-event.ts";
 
 const environment = createWorkerTestEnvironment();
@@ -179,7 +185,7 @@ describe("store order catch-up after a reconnection", () => {
     expect(fetchOrder).not.toHaveBeenCalled();
   });
 
-  it("keeps checking the other held sales when one cannot be read", async () => {
+  it("keeps checking the other held sales when the marketplace refuses one for good", async () => {
     const failingOrderId = `CU-HELD-FAIL-${randomUUID()}`;
     const savedOrderId = `CU-HELD-OK-${randomUUID()}`;
     const failing = await holdSaleEvent(failingOrderId);
@@ -187,7 +193,10 @@ describe("store order catch-up after a reconnection", () => {
     listOrders.mockResolvedValue([]);
     fetchOrder.mockImplementation(async (credentials, resource) => {
       if (resource === failing.resource) {
-        throw new Error("marketplace unavailable");
+        throw marketplaceError("Pedido não encontrado no Mercado Livre", {
+          retryable: false,
+          status: 404,
+        });
       }
       return fetchFromMockMarketplace(credentials, resource);
     });
@@ -195,9 +204,33 @@ describe("store order catch-up after a reconnection", () => {
     await processWebhook(catchUpJob(minutesBefore(failing.receivedAt, 1)));
 
     expect(await ordersOf([failingOrderId])).toHaveLength(0);
-    expect(await noteOf(failing.id)).toBe("Falha ao conferir o evento na reconexão");
+    expect(await noteOf(failing.id)).toBe("Pedido não encontrado no Mercado Livre");
     expect(await ordersOf([savedOrderId])).toHaveLength(1);
     expect(await noteOf(saved.id)).toBeNull();
+  });
+
+  // Regression (review, 29/10/2026): a rate limit or outage while re-checking closed the held
+  // event with a new note, so no retry or later reconnection ever checked it again.
+  it.each([
+    {
+      failure: "an outage",
+      error: marketplaceError("Mercado Livre fora do ar", { retryable: true, status: 503 }),
+    },
+    { failure: "a refused token", error: marketplaceAuthError() },
+  ])("leaves a held sale held and fails the job on $failure", async ({ error }) => {
+    const held = await holdSaleEvent(`CU-HELD-RETRY-${randomUUID()}`);
+    const heldProcessedAt = await processedAtOf(held.id);
+    listOrders.mockResolvedValue([]);
+    fetchOrder.mockRejectedValue(error);
+    vi.setSystemTime(new Date(NOW.getTime() + ONE_MINUTE_IN_MS));
+
+    const catchUp = processWebhook(catchUpJob(minutesBefore(held.receivedAt, 1)));
+
+    await expect(catchUp).rejects.toBe(error);
+    expect(await noteOf(held.id)).toBe(heldEventNote(storeId));
+    expect(await processedAtOf(held.id)).toEqual(heldProcessedAt);
+    // Closed here so a later test's catch-up does not pick this event up again.
+    await markWebhookProcessed(database, held.id);
   });
 });
 
@@ -248,6 +281,14 @@ async function holdSaleEvent(externalOrderId: string) {
     throw new Error(`Webhook event ${recorded.id} not found`);
   }
   return { id: recorded.id, resource, receivedAt: event.receivedAt };
+}
+
+async function processedAtOf(webhookEventId: string) {
+  const event = await database.query.webhookEvents.findFirst({
+    where: eq(schema.webhookEvents.id, webhookEventId),
+    columns: { processedAt: true },
+  });
+  return event?.processedAt;
 }
 
 async function noteOf(webhookEventId: string) {

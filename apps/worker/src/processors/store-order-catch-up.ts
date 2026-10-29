@@ -3,7 +3,11 @@ import {
   findHeldWebhookEvents,
   markWebhookProcessed,
 } from "@sellbridge/database/repositories";
-import type { ConnectorRegistry, StoreCredentials } from "@sellbridge/marketplaces";
+import {
+  type ConnectorRegistry,
+  isFinalMarketplaceAnswer,
+  type StoreCredentials,
+} from "@sellbridge/marketplaces";
 import { userMessageOr } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { StoreOrderCatchUpJob } from "@sellbridge/shared/queues";
@@ -70,7 +74,9 @@ interface HeldEventCheck {
 
 /**
  * Each held event gets one more try with the new token and a new note, so a later reconnection
- * never checks it again. One that fails keeps the reason and does not stop the others.
+ * never checks it again. One the marketplace refuses for good keeps the reason and does not stop
+ * the others; a failure worth retrying (rate limit, outage, token) stops here and fails the job,
+ * leaving that event and the rest held for BullMQ's next attempt.
  */
 async function recheckHeldEvents(
   dependencies: CatchUpDependencies,
@@ -90,7 +96,10 @@ async function recheckHeldEvents(
   return events.length;
 }
 
-/** The event's order saved for the store; the note to keep on the event, or null when it worked. */
+/**
+ * The event's order saved for the store; the note to keep on the event, or null when it worked.
+ * Rethrows a failure that is not the marketplace's final answer, leaving the event untouched.
+ */
 async function recheckHeldEvent(
   dependencies: CatchUpDependencies,
   check: HeldEventCheck,
@@ -107,7 +116,12 @@ async function recheckHeldEvent(
     await saveMarketplaceOrder(dependencies, check.store, order, { webhookEventId: event.id });
     return null;
   } catch (error) {
-    logger.warn("store.held_event_check_failed", { webhookEventId: event.id, error });
-    return userMessageOr(error, "Falha ao conferir o evento na reconexão");
+    if (isFinalMarketplaceAnswer(error)) {
+      logger.warn("store.held_event_check_failed", { webhookEventId: event.id, error });
+      return userMessageOr(error, "Falha ao conferir o evento na reconexão");
+    }
+
+    logger.warn("store.held_event_check_deferred", { webhookEventId: event.id, error });
+    throw error;
   }
 }

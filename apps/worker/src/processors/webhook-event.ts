@@ -11,9 +11,7 @@ import { logger } from "@sellbridge/shared/logger";
 import { storeOrderCatchUpJobSchema, webhookEventJobSchema } from "@sellbridge/shared/queues";
 import {
   type ConnectorRegistry,
-  isMarketplaceAuthError,
-  isMarketplaceError,
-  isRetryableError,
+  isFinalMarketplaceAnswer,
   type MarketplaceId,
 } from "@sellbridge/marketplaces";
 import { UnrecoverableError } from "bullmq";
@@ -190,15 +188,6 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     result: status,
   });
   return status === "created" ? "order_created" : "order_updated";
-}
-
-/**
- * The marketplace answered for good (an order outside what we can store, a resource that no
- * longer exists): retrying, now or from the sweeper, gets the same answer. Auth failures are
- * left to retry, so reconnecting the store still brings the order in.
- */
-function isFinalMarketplaceAnswer(error: unknown): boolean {
-  return isMarketplaceError(error) && !isRetryableError(error) && !isMarketplaceAuthError(error);
 }
 
 async function handleSyncFailure(sync: OrderSync, job: JobContext, error: unknown): Promise<never> {
