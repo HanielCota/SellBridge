@@ -125,10 +125,14 @@ describe("suppliers a seller may see by id", () => {
     expect(seenByA.map((supplier) => supplier.id).toSorted()).toEqual(
       [catalogOfA.id, publicSource.supplierId].toSorted(),
     );
-    // The team's screens still find any supplier by id.
-    expect(
-      (await findStoreSuppliers(database, [catalogOfB.id])).map((supplier) => supplier.id),
-    ).toEqual([catalogOfB.id]);
     await publicSource.cleanup();
+  });
+
+  it("still finds another seller's private catalog for the team's screens", async () => {
+    const catalogOfB = await ensureSellerCatalog(database, tenants.tenantB);
+
+    const found = await findStoreSuppliers(database, [catalogOfB.id]);
+
+    expect(found.map((supplier) => supplier.id)).toEqual([catalogOfB.id]);
   });
 });

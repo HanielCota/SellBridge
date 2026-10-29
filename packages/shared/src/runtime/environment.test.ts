@@ -109,18 +109,26 @@ describe("refusePrivateWebhookUrlsInProduction", () => {
     .superRefine(refusePrivateWebhookUrlsInProduction);
 
   it("refuses the switch in production", () => {
-    expect(() =>
-      parseEnvironment(workerLike, { NODE_ENV: "production", WEBHOOK_ALLOW_PRIVATE_URLS: "true" }),
-    ).toThrow(/WEBHOOK_ALLOW_PRIVATE_URLS/);
+    const variables = { NODE_ENV: "production", WEBHOOK_ALLOW_PRIVATE_URLS: "true" };
+
+    const parse = () => parseEnvironment(workerLike, variables);
+
+    expect(parse).toThrow(/WEBHOOK_ALLOW_PRIVATE_URLS/);
   });
 
-  it("starts production with the switch off and keeps it in development", () => {
-    expect(
-      parseEnvironment(workerLike, { NODE_ENV: "production" }).WEBHOOK_ALLOW_PRIVATE_URLS,
-    ).toBe(false);
-    expect(
-      parseEnvironment(workerLike, { NODE_ENV: "development", WEBHOOK_ALLOW_PRIVATE_URLS: "true" })
-        .WEBHOOK_ALLOW_PRIVATE_URLS,
-    ).toBe(true);
+  it("starts production with the switch off", () => {
+    const variables = { NODE_ENV: "production" };
+
+    const parsed = parseEnvironment(workerLike, variables);
+
+    expect(parsed.WEBHOOK_ALLOW_PRIVATE_URLS).toBe(false);
+  });
+
+  it("keeps the switch on in development", () => {
+    const variables = { NODE_ENV: "development", WEBHOOK_ALLOW_PRIVATE_URLS: "true" };
+
+    const parsed = parseEnvironment(workerLike, variables);
+
+    expect(parsed.WEBHOOK_ALLOW_PRIVATE_URLS).toBe(true);
   });
 });

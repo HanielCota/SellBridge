@@ -30,15 +30,25 @@ describe("assertVisitNotOver", () => {
 });
 
 describe("mayKeepVisiting", () => {
-  it("keeps a visit while the team member may still enter accounts", () => {
-    expect(mayKeepVisiting({ role: "agent", banned: false })).toBe(true);
-    expect(mayKeepVisiting({ role: "admin", banned: false })).toBe(true);
-  });
+  it.each(["agent", "admin"])(
+    "keeps a visit while the team member (%s) may still enter accounts",
+    (role) => {
+      const visitor = { role, banned: false };
 
-  it("ends a visit once the team member is banned, demoted or gone", () => {
-    expect(mayKeepVisiting({ role: "admin", banned: true })).toBe(false);
-    expect(mayKeepVisiting({ role: "user", banned: false })).toBe(false);
-    expect(mayKeepVisiting({ role: null, banned: false })).toBe(false);
-    expect(mayKeepVisiting(null)).toBe(false);
+      const allowed = mayKeepVisiting(visitor);
+
+      expect(allowed).toBe(true);
+    },
+  );
+
+  it.each([
+    { scenario: "banned", visitor: { role: "admin", banned: true } },
+    { scenario: "demoted to a customer", visitor: { role: "user", banned: false } },
+    { scenario: "left without a role", visitor: { role: null, banned: false } },
+    { scenario: "gone", visitor: null },
+  ])("ends a visit once the team member is $scenario", ({ visitor }) => {
+    const allowed = mayKeepVisiting(visitor);
+
+    expect(allowed).toBe(false);
   });
 });

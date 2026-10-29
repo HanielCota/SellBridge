@@ -33,10 +33,14 @@ describe("bodyLimitFor", () => {
 
   // Regression (security audit, 26/10/2026): TanStack Start decodes the path before routing, so
   // "/%5FserverFn/" reached a server function with no cap and the body was parsed whole.
-  it("caps a server function path written with percent-escapes", () => {
-    expect(bodyLimitFor("/%5FserverFn/abc")).toBe(MAX_SERVER_FUNCTION_BODY_BYTES);
-    expect(bodyLimitFor("/%5FserverFn/abc%E0")).toBe(MAX_SERVER_FUNCTION_BODY_BYTES);
-    expect(bodyLimitFor("/api/%61uth/sign-in/email")).toBe(MAX_AUTH_BODY_BYTES);
+  it.each([
+    { path: "/%5FserverFn/abc", limit: MAX_SERVER_FUNCTION_BODY_BYTES },
+    { path: "/%5FserverFn/abc%E0", limit: MAX_SERVER_FUNCTION_BODY_BYTES },
+    { path: "/api/%61uth/sign-in/email", limit: MAX_AUTH_BODY_BYTES },
+  ])("caps $path, a path written with percent-escapes", ({ path, limit }) => {
+    const cap = bodyLimitFor(path);
+
+    expect(cap).toBe(limit);
   });
 });
 

@@ -1,5 +1,5 @@
 import { conflictError, unauthorizedError } from "@sellbridge/shared/errors";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireSellerRequest:
@@ -241,14 +241,29 @@ it("refuses the retired mock callback without exchanging a code", async () => {
 // the reconnection unprocessed, so forged ones piled up for good; they are now closed on arrival
 // and the reconnection reads the store's sales from the marketplace instead.
 describe("reconnecting a store that lost its access", () => {
+  const NOW = new Date("2026-10-26T12:00:00Z");
+  const THREE_DAYS_IN_MS = 3 * 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    // Only Date is faked: the callback reads the current time to pick where the reading starts.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("asks the worker to read its sales since it was first connected, within a month", async () => {
-    const firstConnectedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const firstConnectedAt = new Date(NOW.getTime() - THREE_DAYS_IN_MS);
     mocks.findStoreAwaitingReconnection.mockResolvedValue({
       id: "store-1",
       connectedAt: firstConnectedAt,
     });
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+
     const location = await redirectedTo();
+
     expect(location.searchParams.get("conectada")).toBe("store-1");
     expect(mocks.enqueueStoreOrderCatchUp).toHaveBeenCalledWith({
       storeConnectionId: "store-1",
@@ -258,26 +273,38 @@ describe("reconnecting a store that lost its access", () => {
 
   it("reads nothing for a shop connected for the first time", async () => {
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
+
     await redirectedTo();
+
     expect(mocks.enqueueStoreOrderCatchUp).not.toHaveBeenCalled();
   });
 
   it("keeps the store connected when the request to read its sales fails", async () => {
     mocks.findStoreAwaitingReconnection.mockResolvedValue({
       id: "store-1",
-      connectedAt: new Date(),
+      connectedAt: NOW,
     });
     mocks.upsertStoreConnection.mockResolvedValue({ id: "store-1" });
     mocks.enqueueStoreOrderCatchUp.mockRejectedValue(new Error("Redis fora do ar"));
+
     const location = await redirectedTo();
+
     expect(location.searchParams.get("conectada")).toBe("store-1");
   });
 
-  it("never reads further back than a month, nor before the first connection", () => {
-    const now = new Date("2026-10-26T12:00:00Z");
+  it("never reads further back than a month", () => {
     const longAgo = new Date("2025-01-01T00:00:00Z");
+
+    const since = orderCatchUpSince(longAgo, NOW);
+
+    expect(since).toEqual(new Date("2026-09-26T12:00:00Z"));
+  });
+
+  it("never reads before the store's first connection", () => {
     const lastWeek = new Date("2026-10-19T12:00:00Z");
-    expect(orderCatchUpSince(longAgo, now)).toEqual(new Date("2026-09-26T12:00:00Z"));
-    expect(orderCatchUpSince(lastWeek, now)).toEqual(lastWeek);
+
+    const since = orderCatchUpSince(lastWeek, NOW);
+
+    expect(since).toEqual(lastWeek);
   });
 });

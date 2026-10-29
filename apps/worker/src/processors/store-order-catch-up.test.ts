@@ -1,13 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { schema } from "@sellbridge/database";
 import { recordWebhookEvent } from "@sellbridge/database/repositories";
-import {
-  encodeMockOrderResource,
-  type MarketplaceOrder,
-  type StoreCredentials,
-} from "@sellbridge/marketplaces";
+import type { MarketplaceOrder, StoreCredentials } from "@sellbridge/marketplaces";
+import { encodeMockOrderResource } from "@sellbridge/marketplaces/testing";
 import { eq, inArray } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPublishedTestTarget,
   createTestProduct,
@@ -22,9 +19,10 @@ const { database } = environment;
 const listOrders =
   vi.fn<(credentials: StoreCredentials, since: Date) => Promise<MarketplaceOrder[]>>();
 const mockConnector = environment.connectors.mock;
-const fetchOrder = vi.fn<
-  (credentials: StoreCredentials, resource: string) => Promise<MarketplaceOrder>
->(async (credentials, resource) => mockConnector.fetchOrder(credentials, resource));
+const fetchFromMockMarketplace = async (credentials: StoreCredentials, resource: string) =>
+  mockConnector.fetchOrder(credentials, resource);
+const fetchOrder =
+  vi.fn<(credentials: StoreCredentials, resource: string) => Promise<MarketplaceOrder>>();
 const requestStockSync = vi.fn<() => Promise<void>>();
 const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
 const processWebhook = createWebhookEventProcessor({
@@ -69,13 +67,25 @@ afterAll(async () => {
   await database.$client.end();
 });
 
+/** The test's clock; webhook events still get the database's own receive time. */
+const NOW = new Date("2026-10-24T12:00:00.000Z");
+const ONE_MINUTE_IN_MS = 60_000;
+
 beforeEach(() => {
+  // Only Date is faked, so the database and Redis clients keep their real timers.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
   listOrders.mockReset();
-  fetchOrder.mockClear();
+  fetchOrder.mockReset();
+  fetchOrder.mockImplementation(fetchFromMockMarketplace);
   requestStockSync.mockReset();
   requestStockSync.mockResolvedValue(undefined);
   requestAutoForward.mockReset();
   requestAutoForward.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function sale(externalOrderId: string): MarketplaceOrder {
@@ -85,7 +95,7 @@ function sale(externalOrderId: string): MarketplaceOrder {
     totalCents: 4990,
     marketplaceFeeCents: 700,
     buyerName: "Comprador",
-    orderedAt: new Date(),
+    orderedAt: NOW,
     items: [
       {
         externalListingId: "MOCK-ITEM-CU",
@@ -154,45 +164,96 @@ describe("store order catch-up after a reconnection", () => {
 
   it("checks the sales notified while the store had no access, once", async () => {
     const externalOrderId = `CU-HELD-${randomUUID()}`;
-    const resource = encodeMockOrderResource({
-      ...sale(externalOrderId),
-      orderedAt: new Date().toISOString(),
-    });
-    const recorded = await recordWebhookEvent(database, {
-      marketplace: "mock",
-      externalEventId: randomUUID(),
-      topic: "orders",
-      rawPayload: { shopId, resource },
-      signatureValid: true,
-    });
-    if (recorded.status !== "created") throw new Error("evento não criado");
-    eventIds.push(recorded.id);
-    await database
-      .update(schema.storeConnections)
-      .set({ status: "expired" })
-      .where(eq(schema.storeConnections.id, storeId));
-    expect(
-      await processWebhook({
-        data: { webhookEventId: recorded.id },
-        attemptsMade: 0,
-        maxAttempts: 5,
-      }),
-    ).toBe("awaiting_reconnection");
-    await database
-      .update(schema.storeConnections)
-      .set({ status: "connected" })
-      .where(eq(schema.storeConnections.id, storeId));
+    const held = await holdSaleEvent(externalOrderId);
     listOrders.mockResolvedValue([]);
 
-    await processWebhook(catchUpJob(new Date(Date.now() - 60_000).toISOString()));
+    await processWebhook(catchUpJob(minutesBefore(held.receivedAt, 1)));
+
     expect(await ordersOf([externalOrderId])).toHaveLength(1);
-    const event = await database.query.webhookEvents.findFirst({
-      where: eq(schema.webhookEvents.id, recorded.id),
-    });
-    expect(event?.error).toBeNull();
+    expect(await noteOf(held.id)).toBeNull();
 
     fetchOrder.mockClear();
-    await processWebhook(catchUpJob(new Date(Date.now() - 120_000).toISOString()));
+
+    await processWebhook(catchUpJob(minutesBefore(held.receivedAt, 2)));
+
     expect(fetchOrder).not.toHaveBeenCalled();
   });
+
+  it("keeps checking the other held sales when one cannot be read", async () => {
+    const failingOrderId = `CU-HELD-FAIL-${randomUUID()}`;
+    const savedOrderId = `CU-HELD-OK-${randomUUID()}`;
+    const failing = await holdSaleEvent(failingOrderId);
+    const saved = await holdSaleEvent(savedOrderId);
+    listOrders.mockResolvedValue([]);
+    fetchOrder.mockImplementation(async (credentials, resource) => {
+      if (resource === failing.resource) {
+        throw new Error("marketplace unavailable");
+      }
+      return fetchFromMockMarketplace(credentials, resource);
+    });
+
+    await processWebhook(catchUpJob(minutesBefore(failing.receivedAt, 1)));
+
+    expect(await ordersOf([failingOrderId])).toHaveLength(0);
+    expect(await noteOf(failing.id)).toBe("Falha ao conferir o evento na reconexão");
+    expect(await ordersOf([savedOrderId])).toHaveLength(1);
+    expect(await noteOf(saved.id)).toBeNull();
+  });
 });
+
+function minutesBefore(date: Date, minutes: number): string {
+  return new Date(date.getTime() - minutes * ONE_MINUTE_IN_MS).toISOString();
+}
+
+async function setStoreStatus(status: "connected" | "expired") {
+  await database
+    .update(schema.storeConnections)
+    .set({ status })
+    .where(eq(schema.storeConnections.id, storeId));
+}
+
+/**
+ * A sale notified while the store had no access: the event is closed with the held note and the
+ * store is connected again, ready for the catch-up. Returns the database's receive time.
+ */
+async function holdSaleEvent(externalOrderId: string) {
+  const resource = encodeMockOrderResource({
+    ...sale(externalOrderId),
+    orderedAt: NOW.toISOString(),
+  });
+  const recorded = await recordWebhookEvent(database, {
+    marketplace: "mock",
+    externalEventId: randomUUID(),
+    topic: "orders",
+    rawPayload: { shopId, resource },
+    signatureValid: true,
+  });
+  if (recorded.status !== "created") {
+    throw new Error(`Webhook event not created for order ${externalOrderId}`);
+  }
+  eventIds.push(recorded.id);
+  await setStoreStatus("expired");
+  const outcome = await processWebhook({
+    data: { webhookEventId: recorded.id },
+    attemptsMade: 0,
+    maxAttempts: 5,
+  });
+  await setStoreStatus("connected");
+  expect(outcome).toBe("awaiting_reconnection");
+  const event = await database.query.webhookEvents.findFirst({
+    where: eq(schema.webhookEvents.id, recorded.id),
+    columns: { receivedAt: true },
+  });
+  if (event === undefined) {
+    throw new Error(`Webhook event ${recorded.id} not found`);
+  }
+  return { id: recorded.id, resource, receivedAt: event.receivedAt };
+}
+
+async function noteOf(webhookEventId: string) {
+  const event = await database.query.webhookEvents.findFirst({
+    where: eq(schema.webhookEvents.id, webhookEventId),
+    columns: { error: true },
+  });
+  return event?.error;
+}
