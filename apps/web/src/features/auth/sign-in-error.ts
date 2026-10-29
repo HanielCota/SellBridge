@@ -5,7 +5,7 @@ export interface SignInFailure {
 }
 
 /** A sign-in request that never got an answer (offline, connection dropped). */
-const NO_RESPONSE = 0;
+export const NO_RESPONSE = 0;
 const TOO_MANY_REQUESTS = 429;
 const FIRST_SERVER_ERROR = 500;
 

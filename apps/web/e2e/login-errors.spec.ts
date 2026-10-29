@@ -31,3 +31,20 @@ test("conta bloqueada vê o motivo ao entrar, não 'senha incorreta'", async ({ 
   await expect(page.getByText("E-mail ou senha incorretos.")).toHaveCount(0);
   await context.close();
 });
+
+// Regression (29/10/2026, review of the login messages): a sign-in request that got no answer made
+// the client reject, so the form showed nothing at all.
+test("entrar sem conexão mostra o aviso de conexão", async ({ page }) => {
+  await gotoHydrated(page, "/login");
+  await page.route("**/api/auth/sign-in/email", async (route) =>
+    route.abort("internetdisconnected"),
+  );
+  await page.getByLabel("E-mail").fill("sem-conexao@sellbridge.local");
+  await page.getByLabel("Senha", { exact: true }).fill(SIGN_UP_PASSWORD);
+
+  await page.getByRole("button", { name: "Entrar" }).click();
+
+  await expect(
+    page.getByText("Não foi possível entrar agora. Confira sua conexão e tente de novo."),
+  ).toBeVisible();
+});
