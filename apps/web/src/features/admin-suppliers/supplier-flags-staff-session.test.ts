@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/server/auth", () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock("@/lib/server/membership", () => ({ listMemberships: async () => [] }));
+// None of these sessions is a visit; the lookup is stubbed so the module never reaches the database.
+vi.mock("@/lib/server/visiting-staff", () => ({ findVisitingStaff: async () => null }));
 
 const { requireStaffSession } = await import("@/lib/server/tenant-session");
 
