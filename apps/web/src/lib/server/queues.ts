@@ -1,4 +1,5 @@
 import {
+  enqueueStoreOrderCatchUpJob,
   enqueueWebhookEventJob,
   pingQueueConnection,
   PUBLISH_JOB_OPTIONS,
@@ -8,11 +9,8 @@ import {
   QUEUE_NAMES,
   STOCK_SYNC_JOB_NAME,
   STOCK_SYNC_JOB_OPTIONS,
-  storeOrderCatchUpJobId,
-  storeOrderCatchUpJobSchema,
   type PublishListingJob,
   type StoreOrderCatchUpJob,
-  WEBHOOK_JOB_OPTIONS,
 } from "@sellbridge/shared/queues";
 import { Queue } from "bullmq";
 import { environment } from "./environment.ts";
@@ -62,12 +60,7 @@ export async function enqueueWebhookEvent(webhookEventId: string): Promise<void>
 
 /** A reconnected store's sales, read by the webhook worker (see `storeOrderCatchUpJobSchema`). */
 export async function enqueueStoreOrderCatchUp(job: StoreOrderCatchUpJob): Promise<void> {
-  // Parsed first: a malformed `since` throws here instead of reaching the worker or the job id.
-  const catchUp = storeOrderCatchUpJobSchema.parse(job);
-  await getWebhookQueue().add("order-catch-up", catchUp, {
-    ...WEBHOOK_JOB_OPTIONS,
-    jobId: storeOrderCatchUpJobId(catchUp),
-  });
+  await enqueueStoreOrderCatchUpJob(getWebhookQueue(), job);
 }
 
 let stockPriceSyncQueue: Queue | null = null;

@@ -169,6 +169,35 @@ export async function enqueueWebhookEventJob(
   await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
 }
 
+/** The subset of a BullMQ queue used to enqueue a reconnected store's catch-up. */
+export interface StoreOrderCatchUpQueue extends JobLookup {
+  add(
+    name: string,
+    data: StoreOrderCatchUpJob,
+    options: typeof WEBHOOK_JOB_OPTIONS & { jobId: string },
+  ): Promise<unknown>;
+}
+
+/**
+ * Enqueues a reconnected store's catch-up. A store first connected less than a month ago asks
+ * from the same point on every reconnection, so the id repeats: a finished job with it is removed
+ * first, or BullMQ would silently drop a later reconnection's catch-up (and one that ran out of
+ * attempts could never run again). A waiting or active one already covers the reconnection.
+ *
+ * @throws {ZodError} When the job does not match `storeOrderCatchUpJobSchema`.
+ */
+export async function enqueueStoreOrderCatchUpJob(
+  queue: StoreOrderCatchUpQueue,
+  job: StoreOrderCatchUpJob,
+): Promise<void> {
+  const catchUp = storeOrderCatchUpJobSchema.parse(job);
+  const jobId = storeOrderCatchUpJobId(catchUp);
+  const released = await releaseFinishedJob(queue, jobId);
+  if (released) {
+    await queue.add("order-catch-up", catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
+  }
+}
+
 /** The part of a BullMQ queue a health probe needs: its Redis connection. */
 export interface RedisBackedQueue {
   getBackend(): { client: Promise<{ runCommand(name: string, args: string[]): Promise<unknown> }> };
