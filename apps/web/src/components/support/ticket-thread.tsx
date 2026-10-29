@@ -400,8 +400,8 @@ function MessageItem({
 
 /**
  * `onQuote` turns on the admin action that quotes a message into the reply. Without a
- * `perspective`, the admin view (with `onQuote`) drops the "Suporte" tag, since the headset
- * avatar already tells the sides apart, and every other view reads as the customer.
+ * `perspective`, the admin view (with `onQuote`) reads as the team and every other view as the
+ * customer; both show the "Suporte SellBridge" tag on team replies.
  * The reseller view also passes `events` (shown between the messages), `seenAt` (read receipt
  * under their last message) and `messageFooter` (the "did this solve it?" prompt).
  */
