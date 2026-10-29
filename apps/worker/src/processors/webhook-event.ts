@@ -97,9 +97,9 @@ async function stampStoreWebhook(
 /**
  * No usable store for the event. A store that lost its access (expired, refused token) reads its
  * sales from the marketplace once the reseller reconnects it, and checks these events again once
- * (store-order-catch-up.ts), so the event is closed with the reason, naming the store, right away. Kept open, anyone who knows the app's public id
- * could pile up events that were retried every 5 minutes and never deleted. A shop we never knew
- * is skipped for good.
+ * (store-order-catch-up.ts), so the event is closed with the reason, naming the store, right
+ * away. Kept open, anyone who knows the app's public id could pile up events that were retried
+ * every 5 minutes and never deleted. A shop we never knew is skipped for good.
  */
 async function holdOrSkip(
   dependencies: WebhookDependencies,

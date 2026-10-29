@@ -1,6 +1,9 @@
 import { unauthorizedError } from "@sellbridge/shared/errors";
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 
+/** Shown when an admin's visit to a customer's account ended (time up, or the admin lost access). */
+export const VISIT_OVER_MESSAGE = "O acesso como cliente terminou. Volte ao admin.";
+
 /** How long "Entrar como cliente" lasts before the admin is out of the customer's account. */
 export const IMPERSONATION_SECONDS = 60 * 60;
 
@@ -27,12 +30,12 @@ export function assertVisitNotOver(session: {
   if (!session.impersonatedBy || !isImpersonationOver(new Date(session.createdAt))) {
     return;
   }
-  throw unauthorizedError("O acesso como cliente terminou. Volte ao admin.");
+  throw unauthorizedError(VISIT_OVER_MESSAGE);
 }
 
 export interface VisitingStaff {
-  role: string | null;
-  banned: boolean;
+  readonly role: string | null;
+  readonly banned: boolean;
 }
 
 /**

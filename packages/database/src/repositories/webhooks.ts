@@ -163,7 +163,12 @@ export async function findStoreAwaitingReconnection(
  */
 export async function findHeldWebhookEvents(
   database: Database,
-  held: { marketplace: Marketplace; note: string; receivedAfter: Date; limit: number },
+  held: {
+    readonly marketplace: Marketplace;
+    readonly note: string;
+    readonly receivedAfter: Date;
+    readonly limit: number;
+  },
 ) {
   return database
     .select({
@@ -190,6 +195,13 @@ export async function findConnectedStoreById(database: Database, storeConnection
       eq(storeConnections.id, storeConnectionId),
       eq(storeConnections.status, "connected"),
     ),
+    columns: {
+      id: true,
+      tenantId: true,
+      marketplace: true,
+      externalShopId: true,
+      accessTokenEnc: true,
+    },
   });
   return row ?? null;
 }

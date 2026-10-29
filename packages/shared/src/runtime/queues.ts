@@ -45,9 +45,18 @@ export const storeOrderCatchUpJobSchema = z.object({
 });
 export type StoreOrderCatchUpJob = z.infer<typeof storeOrderCatchUpJobSchema>;
 
-/** One catch-up per reconnection: reconnecting twice from the same point adds nothing. */
+/**
+ * One catch-up per reconnection: reconnecting twice from the same point adds nothing.
+ *
+ * @throws {Error} When `since` is not a readable date, instead of an id ending in `NaN`.
+ */
 export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
-  return `order-catch-up-${job.storeConnectionId}-${Date.parse(job.since)}`;
+  const sinceInMs = Date.parse(job.since);
+  if (Number.isFinite(sinceInMs)) {
+    return `order-catch-up-${job.storeConnectionId}-${sinceInMs}`;
+  }
+
+  throw new Error(`Invalid store order catch-up start date: ${JSON.stringify(job.since)}`);
 }
 
 export const autoForwardJobSchema = z.object({ orderId: z.uuid() });

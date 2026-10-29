@@ -47,6 +47,7 @@ export async function catchUpStoreOrders(
   });
   const since = new Date(job.since);
   const orders = await dependencies.connectors[store.marketplace].listOrders(credentials, since);
+  // Sequential on purpose: every order shares one store token and its marketplace rate limit.
   for (const order of orders) {
     await saveMarketplaceOrder(dependencies, store, order, { storeConnectionId: store.id });
   }
@@ -81,6 +82,7 @@ async function recheckHeldEvents(
     receivedAfter: check.since,
     limit: MAX_HELD_EVENTS_CHECKED,
   });
+  // Sequential on purpose: every check calls the marketplace with the same store token.
   for (const event of events) {
     const note = await recheckHeldEvent(dependencies, check, event);
     await markWebhookProcessed(dependencies.database, event.id, note);

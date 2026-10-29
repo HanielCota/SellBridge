@@ -9,7 +9,7 @@ import {
   type StaffRole,
 } from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
-import { assertVisitNotOver, mayKeepVisiting } from "./impersonation-window.ts";
+import { assertVisitNotOver, mayKeepVisiting, VISIT_OVER_MESSAGE } from "./impersonation-window.ts";
 import { listMemberships, type Membership } from "./membership.ts";
 import { findVisitingStaff } from "./visiting-staff.ts";
 import { assertSellerProfile } from "./supplier-panel-access.ts";
@@ -113,7 +113,7 @@ async function assertVisitorStillAllowed(impersonatedBy: string | null | undefin
     return;
   }
 
-  throw unauthorizedError("O acesso como cliente terminou. Volte ao admin.");
+  throw unauthorizedError(VISIT_OVER_MESSAGE);
 }
 
 /** For HTTP routes (downloads, uploads, OAuth): the profile comes from the header or the URL. */
