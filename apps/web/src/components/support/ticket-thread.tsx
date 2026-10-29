@@ -100,7 +100,7 @@ function ResponderBadge({
   if (!message.isAdmin || message.isInternal || perspective.responderBadge === null) {
     return null;
   }
-  return <TonePill tone="success" label={perspective.responderBadge} />;
+  return <TonePill tone="success" showDot={false} label={perspective.responderBadge} />;
 }
 
 /** The reseller sees their own photo (or initials, as in the top bar); support keeps the headset. */

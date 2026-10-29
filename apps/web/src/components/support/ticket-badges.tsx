@@ -82,8 +82,9 @@ function DeadlineStatus({
       className="inline-flex"
       label={late ? TERM_HINTS.ticketOverdue : TERM_HINTS.ticketDueIn}
     >
-      {appearance === "pill" ? <TonePill tone={tone} label={label} icon={icon} timeBased /> : null}
-      {appearance === "pill" ? null : (
+      {appearance === "pill" ? (
+        <TonePill tone={tone} label={label} icon={icon} timeBased />
+      ) : (
         <span
           className={cn(
             "inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap",

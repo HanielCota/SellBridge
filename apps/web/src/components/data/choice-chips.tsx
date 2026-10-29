@@ -31,7 +31,7 @@ export function ChoiceChips<TValue extends string>({
           aria-pressed={option === value}
           onClick={() => onChange(option)}
           className={cn(
-            "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
             option === value
               ? "border-foreground bg-foreground text-background"
               : "border-border text-foreground hover:bg-foreground/[0.06]",

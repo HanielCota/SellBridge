@@ -44,7 +44,8 @@ export function ToneStatus({
 const TONE_PILL_CLASSES: Record<StatusTone, string> = {
   success: "bg-emerald-600/12 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
   warning: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
-  danger: "bg-destructive/12 text-destructive",
+  // The destructive red on its own tint sits at the 4.5:1 limit for small text; darker in light mode.
+  danger: "bg-destructive/12 text-red-800 dark:text-destructive",
   info: "bg-sky-600/12 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
   muted: "bg-foreground/[0.06] text-muted-foreground",
 };
@@ -66,6 +67,7 @@ export function TonePill({
   icon?: ReactNode;
   /** False for a neutral tag (the customer kind, the topic) that is not a status. */
   showDot?: boolean;
+  /** True for labels that follow the clock ("vence em 40 min"), as in `ToneStatus`. */
   timeBased?: boolean;
 }) {
   return (
