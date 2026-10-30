@@ -1,6 +1,18 @@
 import type { CustomerSignals, CustomerStoreSignal } from "@sellbridge/shared/customer-health";
+import { STAFF_ROLES } from "@sellbridge/shared/staff-access";
 import { daysBefore } from "@sellbridge/shared/time";
-import { and, desc, eq, ilike, ne, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  ilike,
+  ne,
+  notInArray,
+  or,
+  type SQL,
+  type SQLWrapper,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../client.ts";
 import { member, tenantProfile, user } from "../schema/index.ts";
@@ -135,12 +147,25 @@ function customerColumns(now: Date) {
   };
 }
 
-/** Customers selling `supplierId`: through a shop, or as the supplier picked in onboarding. */
+/**
+ * Customers selling `supplierId` through any seller profile they own: a shop, or the supplier
+ * picked in onboarding. The list shows one profile per account, but the filter looks at all.
+ */
 function customerSupplier(supplierId: string | undefined): SQL | undefined {
   if (supplierId === undefined) {
     return undefined;
   }
-  return sql`(${tenantProfile.starterSupplierId} = ${supplierId} or exists (select 1 from store_connections s where s.tenant_id = ${member.organizationId} and s.status <> 'disconnected' and s.supplier_id = ${supplierId}))`;
+  return sql`exists (
+    select 1 from member m
+    join organization o on o.id = m.organization_id and o.kind = 'seller'
+    left join tenant_profile tp on tp.tenant_id = m.organization_id
+    where m.user_id = ${user.id} and m.role = 'owner'
+      and (tp.starter_supplier_id = ${supplierId} or exists (
+        select 1 from store_connections s
+        where s.tenant_id = m.organization_id and s.status <> 'disconnected'
+          and s.supplier_id = ${supplierId}
+      ))
+  )`;
 }
 
 function customerSearch(search: string | undefined): SQL | undefined {
@@ -151,12 +176,38 @@ function customerSearch(search: string | undefined): SQL | undefined {
   return or(ilike(user.name, pattern), ilike(user.email, pattern));
 }
 
+/**
+ * An account may own several seller profiles; it is one customer, seen through its oldest one,
+ * the profile it opens by default.
+ */
+const oldestOwnedSellerProfile = sql`(
+  select m.id from member m
+  join organization o on o.id = m.organization_id
+  where m.user_id = ${user.id} and m.role = 'owner' and o.kind = 'seller'
+  order by m.created_at, m.id
+  limit 1
+)`;
+
 function customersQuery(database: Database, now: Date) {
   return database
     .select(customerColumns(now))
     .from(user)
-    .leftJoin(member, and(eq(member.userId, user.id), eq(member.role, "owner")))
+    .leftJoin(member, eq(member.id, oldestOwnedSellerProfile))
     .leftJoin(tenantProfile, eq(tenantProfile.tenantId, member.organizationId));
+}
+
+/**
+ * Resellers only: not the team, nor an account that only runs supplier profiles. An account still
+ * signing up, with no profile yet, stays: it is a reseller who has not finished.
+ */
+function resellersOnly(): SQL | undefined {
+  const notStaff = notInArray(sql`coalesce(${user.role}, 'user')`, [...STAFF_ROLES]);
+  const ownsSupplierProfile = sql`exists (
+    select 1 from member m
+    join organization o on o.id = m.organization_id
+    where m.user_id = ${user.id} and o.kind = 'supplier'
+  )`;
+  return and(notStaff, or(sql`${member.id} is not null`, sql`not ${ownsSupplierProfile}`));
 }
 
 /**
@@ -169,7 +220,9 @@ export async function listCustomerSignals(
   now: Date = new Date(),
 ): Promise<CustomerSummary[]> {
   return customersQuery(database, now)
-    .where(and(customerSearch(filters.search), customerSupplier(filters.supplierId)))
+    .where(
+      and(resellersOnly(), customerSearch(filters.search), customerSupplier(filters.supplierId)),
+    )
     .orderBy(desc(user.createdAt))
     .limit(MAX_CUSTOMERS_RANKED + 1);
 }

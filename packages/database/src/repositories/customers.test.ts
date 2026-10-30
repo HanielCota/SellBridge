@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { member, orders, session, storeConnections, tickets, user } from "../schema/index.ts";
+import {
+  member,
+  orders,
+  organization,
+  session,
+  storeConnections,
+  tickets,
+  user,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -198,5 +206,107 @@ describe("customers", () => {
   it("returns a single customer and null for unknown ids", async () => {
     expect((await getCustomer(database, userId))?.email).toBe(`cliente-${marker}@sellbridge.test`);
     expect(await getCustomer(database, randomUUID())).toBeNull();
+  });
+});
+
+async function addOwner(accountId: string, organizationId: string, createdAt: Date) {
+  await database
+    .insert(member)
+    .values({ id: randomUUID(), organizationId, userId: accountId, role: "owner", createdAt });
+}
+
+/*
+ * Regression: the list joined each account with every profile it owns, so an account with two
+ * seller profiles came out twice (a duplicate React key on /admin/clientes), and the team and
+ * supplier-only accounts were listed as resellers.
+ */
+describe("who the customer list holds", () => {
+  const listMarker = randomUUID().slice(0, 8);
+  const accounts = {
+    twoProfiles: randomUUID(),
+    agent: randomUUID(),
+    supplierOnly: randomUUID(),
+  };
+  let profiles: Awaited<ReturnType<typeof createTestTenants>>;
+
+  beforeAll(async () => {
+    profiles = await createTestTenants(database, 4);
+    const [oldest, newest, agentProfile, supplierProfile] = profiles.ids;
+    if (oldest == null || newest == null || agentProfile == null || supplierProfile == null) {
+      throw new Error(`expected 4 test profiles, got ${profiles.ids.length}`);
+    }
+    await database
+      .update(organization)
+      .set({ kind: "supplier" })
+      .where(eq(organization.id, supplierProfile));
+    const now = new Date();
+    await database.insert(user).values(
+      [
+        { id: accounts.twoProfiles, role: "user" },
+        { id: accounts.agent, role: "agent" },
+        { id: accounts.supplierOnly, role: "user" },
+      ].map((account) => ({
+        ...account,
+        name: `Conta ${listMarker}`,
+        email: `conta-${account.id}-${listMarker}@sellbridge.test`,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    );
+    await addOwner(accounts.twoProfiles, oldest, new Date(now.getTime() - DAY));
+    await addOwner(accounts.twoProfiles, newest, now);
+    await addOwner(accounts.agent, agentProfile, now);
+    await addOwner(accounts.supplierOnly, supplierProfile, now);
+  });
+
+  afterAll(async () => {
+    await database.delete(user).where(inArray(user.id, Object.values(accounts)));
+    await profiles.cleanup();
+  });
+
+  it("lists an account with two profiles once, through its oldest one", async () => {
+    const customers = await listCustomerSignals(database, { search: listMarker });
+    expect(customers.map((customer) => customer.id)).toEqual([accounts.twoProfiles]);
+    expect(customers[0]?.tenantId).toBe(profiles.ids[0]);
+    expect((await getCustomer(database, accounts.twoProfiles))?.tenantId).toBe(profiles.ids[0]);
+  });
+
+  it("filters the account by a supplier that only its newer profile sells", async () => {
+    const newest = profiles.ids[1];
+    if (newest == null) {
+      throw new Error(`expected a second test profile, got ${profiles.ids.length}`);
+    }
+    const catalog = await createTestSupplierProduct(database, {
+      sku: `TWO-${listMarker}`,
+      title: "Produto da segunda loja",
+      costCents: 1000,
+      suggestedPriceCents: 2000,
+    });
+    const store = await upsertStoreConnection(database, {
+      tenantId: newest,
+      marketplace: "mock",
+      externalShopId: `two-${listMarker}`,
+      shopName: "Segunda loja",
+      accessTokenEnc: "enc",
+      refreshTokenEnc: "enc",
+      expiresAt: new Date(Date.now() + DAY),
+    });
+    try {
+      await assignStoreSupplier(database, {
+        tenantId: newest,
+        storeConnectionId: store.id,
+        supplierId: catalog.supplierId,
+      });
+
+      const customers = await listCustomerSignals(database, {
+        search: listMarker,
+        supplierId: catalog.supplierId,
+      });
+
+      expect(customers.map((customer) => customer.id)).toEqual([accounts.twoProfiles]);
+    } finally {
+      await database.delete(storeConnections).where(eq(storeConnections.id, store.id));
+      await catalog.cleanup();
+    }
   });
 });
