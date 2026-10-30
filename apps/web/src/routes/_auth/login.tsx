@@ -8,6 +8,7 @@ import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { liveFieldBindings, submitHandler } from "@/components/form/form-bindings";
 import { FloatingPasswordField, FloatingTextField } from "@/components/form/floating-field";
 import { InlineFormError } from "@/components/form/inline-form-error";
+import { NO_RESPONSE, signInErrorMessage } from "@/features/auth/sign-in-error";
 import { authClient } from "@/lib/auth-client";
 import { shareMeta } from "@/lib/share-meta";
 
@@ -45,9 +46,16 @@ function useLoginForm() {
     validators: { onSubmit: signInSchema },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
-      const result = await authClient.signIn.email(value);
+      let result: Awaited<ReturnType<typeof authClient.signIn.email>>;
+      try {
+        result = await authClient.signIn.email(value);
+      } catch {
+        // The client rejects instead of returning an error when the request never got an answer.
+        setSubmitError(signInErrorMessage({ status: NO_RESPONSE }));
+        return;
+      }
       if (result.error) {
-        setSubmitError("E-mail ou senha incorretos.");
+        setSubmitError(signInErrorMessage(result.error));
         return;
       }
       await navigate({ to: search.redirect ?? "/dashboard" });
