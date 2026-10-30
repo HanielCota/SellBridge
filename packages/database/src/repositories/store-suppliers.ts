@@ -7,7 +7,7 @@ import {
   catalogSourceRefusal,
   STORE_SUPPLIER_CHANGED_MESSAGE,
 } from "@sellbridge/shared/store-supplier";
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { and, count, eq, inArray, ne, type SQL } from "drizzle-orm";
 import type { Database, DatabaseExecutor } from "../client.ts";
 import {
   listings,
@@ -16,7 +16,7 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
-import { publicSupplier } from "./sql/sellable.ts";
+import { catalogVisibleTo, publicSupplier } from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
 
@@ -216,9 +216,30 @@ export interface StoreSupplier {
   active: boolean;
 }
 
+/** Any supplier by id, private seller catalogs included: the team's screens only. */
 export async function findStoreSuppliers(
   database: Database,
   supplierIds: readonly string[],
+): Promise<StoreSupplier[]> {
+  return selectStoreSuppliers(database, supplierIds);
+}
+
+/**
+ * The suppliers a seller may see by id: public ones and its own private catalog. The stores page
+ * takes one id from the URL, and another seller's private catalog would show that seller's name.
+ */
+export async function findStoreSuppliersVisibleTo(
+  database: Database,
+  tenantId: string,
+  supplierIds: readonly string[],
+): Promise<StoreSupplier[]> {
+  return selectStoreSuppliers(database, supplierIds, catalogVisibleTo(tenantId));
+}
+
+async function selectStoreSuppliers(
+  database: Database,
+  supplierIds: readonly string[],
+  visible?: SQL,
 ): Promise<StoreSupplier[]> {
   if (supplierIds.length === 0) {
     return [];
@@ -234,5 +255,5 @@ export async function findStoreSuppliers(
       active: suppliers.active,
     })
     .from(suppliers)
-    .where(inArray(suppliers.id, [...new Set(supplierIds)]));
+    .where(and(inArray(suppliers.id, [...new Set(supplierIds)]), visible));
 }

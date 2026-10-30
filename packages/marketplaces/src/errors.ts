@@ -48,3 +48,16 @@ export function isRetryableError(value: unknown): boolean {
   }
   return value.details.retryable ?? false;
 }
+
+/**
+ * The marketplace answered for good (an order outside what we can store, a resource that no
+ * longer exists): retrying gets the same answer. Auth failures are not final, so reconnecting
+ * the store still brings the order in.
+ */
+export function isFinalMarketplaceAnswer(value: unknown): boolean {
+  if (isMarketplaceAuthError(value) || isRetryableError(value)) {
+    return false;
+  }
+
+  return isMarketplaceError(value);
+}

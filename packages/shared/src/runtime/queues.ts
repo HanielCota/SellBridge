@@ -34,6 +34,31 @@ export const webhookEventJobSchema = z.object({
   webhookEventId: z.uuid(),
 });
 
+/**
+ * A reconnected store's sales since it lost its access, read from the marketplace. It runs on the
+ * webhook queue: notifications about a store without access are closed on arrival instead of
+ * waiting for the reconnection, so this is how those sales come in.
+ */
+export const storeOrderCatchUpJobSchema = z.object({
+  storeConnectionId: z.uuid(),
+  since: z.iso.datetime(),
+});
+export type StoreOrderCatchUpJob = z.infer<typeof storeOrderCatchUpJobSchema>;
+
+/**
+ * One catch-up per reconnection: reconnecting twice from the same point adds nothing.
+ *
+ * @throws {Error} When `since` is not a readable date, instead of an id ending in `NaN`.
+ */
+export function storeOrderCatchUpJobId(job: StoreOrderCatchUpJob): string {
+  const sinceInMs = Date.parse(job.since);
+  if (Number.isFinite(sinceInMs)) {
+    return `order-catch-up-${job.storeConnectionId}-${sinceInMs}`;
+  }
+
+  throw new Error(`Invalid store order catch-up start date: ${JSON.stringify(job.since)}`);
+}
+
 export const autoForwardJobSchema = z.object({ orderId: z.uuid() });
 
 /**
@@ -142,6 +167,35 @@ export async function enqueueWebhookEventJob(
     return;
   }
   await queue.add("webhook", { webhookEventId }, { ...WEBHOOK_JOB_OPTIONS, jobId: webhookEventId });
+}
+
+/** The subset of a BullMQ queue used to enqueue a reconnected store's catch-up. */
+export interface StoreOrderCatchUpQueue extends JobLookup {
+  add(
+    name: string,
+    data: StoreOrderCatchUpJob,
+    options: typeof WEBHOOK_JOB_OPTIONS & { jobId: string },
+  ): Promise<unknown>;
+}
+
+/**
+ * Enqueues a reconnected store's catch-up. A store first connected less than a month ago asks
+ * from the same point on every reconnection, so the id repeats: a finished job with it is removed
+ * first, or BullMQ would silently drop a later reconnection's catch-up (and one that ran out of
+ * attempts could never run again). A waiting or active one already covers the reconnection.
+ *
+ * @throws {ZodError} When the job does not match `storeOrderCatchUpJobSchema`.
+ */
+export async function enqueueStoreOrderCatchUpJob(
+  queue: StoreOrderCatchUpQueue,
+  job: StoreOrderCatchUpJob,
+): Promise<void> {
+  const catchUp = storeOrderCatchUpJobSchema.parse(job);
+  const jobId = storeOrderCatchUpJobId(catchUp);
+  const released = await releaseFinishedJob(queue, jobId);
+  if (released) {
+    await queue.add("order-catch-up", catchUp, { ...WEBHOOK_JOB_OPTIONS, jobId });
+  }
 }
 
 /** The part of a BullMQ queue a health probe needs: its Redis connection. */

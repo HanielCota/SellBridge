@@ -36,6 +36,10 @@ vi.mock("./membership.ts", () => ({
     { organizationId: "org-3", slug: "fornecedor-3", kind: "supplier" },
   ],
 }));
+// The admin behind the visits below still has the team role.
+vi.mock("./visiting-staff.ts", () => ({
+  findVisitingStaff: async () => ({ role: "admin", banned: false }),
+}));
 vi.mock("@tanstack/react-start/server", () => ({
   getRequestHeaders: () => new Headers(),
   getRequest: () => new Request(mocks.requestUrl.current),

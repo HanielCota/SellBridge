@@ -9,8 +9,9 @@ import {
   type StaffRole,
 } from "@sellbridge/shared/staff-access";
 import { auth } from "./auth.ts";
-import { assertVisitNotOver } from "./impersonation-window.ts";
+import { assertVisitNotOver, mayKeepVisiting, VISIT_OVER_MESSAGE } from "./impersonation-window.ts";
 import { listMemberships, type Membership } from "./membership.ts";
+import { findVisitingStaff } from "./visiting-staff.ts";
 import { assertSellerProfile } from "./supplier-panel-access.ts";
 import { profileHeaderOf, requestedProfileOf } from "../profile-param.ts";
 
@@ -84,6 +85,7 @@ export async function requireTenantSession(
     throw unauthorizedError();
   }
   assertVisitNotOver(session.session);
+  await assertVisitorStillAllowed(session.session.impersonatedBy);
   const profile = resolveProfileId({
     requested: requestedProfile,
     sessionActive: session.session.activeOrganizationId,
@@ -99,6 +101,27 @@ export async function requireTenantSession(
     profileKind: profile.kind,
     impersonatedBy: session.session.impersonatedBy ?? null,
   };
+}
+
+/**
+ * Ends a visit whose team member was banned, demoted or removed since it started. Every route
+ * that reads the session on its own calls this next to `assertVisitNotOver`.
+ *
+ * @param impersonatedBy - The session's `impersonatedBy`: the team member behind a visit, if any.
+ * @throws {AppError} With code `UNAUTHORIZED` when that team member may no longer visit.
+ */
+export async function assertVisitorStillAllowed(
+  impersonatedBy: string | null | undefined,
+): Promise<void> {
+  if (impersonatedBy == null) {
+    return;
+  }
+
+  if (mayKeepVisiting(await findVisitingStaff(impersonatedBy))) {
+    return;
+  }
+
+  throw unauthorizedError(VISIT_OVER_MESSAGE);
 }
 
 /** For HTTP routes (downloads, uploads, OAuth): the profile comes from the header or the URL. */

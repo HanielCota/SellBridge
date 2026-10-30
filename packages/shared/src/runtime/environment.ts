@@ -27,6 +27,30 @@ export const nodeEnvironmentSchema = z
   .enum(["development", "test", "production"])
   .default("development");
 
+/**
+ * WEBHOOK_ALLOW_PRIVATE_URLS turns off the guard that keeps customer webhooks away from internal
+ * addresses. It exists for local development, and .env.example ships it on, so a copied value
+ * must stop production from starting instead of silently opening the internal network.
+ */
+export function refusePrivateWebhookUrlsInProduction(
+  value: { NODE_ENV: string; WEBHOOK_ALLOW_PRIVATE_URLS: boolean },
+  context: z.RefinementCtx,
+): void {
+  if (value.NODE_ENV !== "production") {
+    return;
+  }
+
+  if (!value.WEBHOOK_ALLOW_PRIVATE_URLS) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    path: ["WEBHOOK_ALLOW_PRIVATE_URLS"],
+    message: "é só para desenvolvimento; em produção deixe desligada (false)",
+  });
+}
+
 /** AES-256 key for the store tokens at rest: 32 bytes, base64-encoded. */
 export const tokenEncryptionKeyEnvironmentSchema = z
   .string()

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { storeConnections, webhookEvents } from "../schema/index.ts";
 import type { Marketplace } from "./stores.ts";
@@ -78,8 +78,8 @@ export interface UnprocessedEventCursor {
 /**
  * Valid events still unprocessed and received inside the window, oldest first: their job was
  * lost or ran out of retries. Events older than the window are left for manual inspection.
- * Paged by `after` (received time, then id), so events that stay unprocessed (a store waiting
- * to reconnect) cannot fill every page and keep newer ones from being swept before they age out.
+ * Paged by `after` (received time, then id), so events that stay unprocessed (a marketplace that
+ * keeps failing) cannot fill every page and keep newer ones from being swept before they age out.
  */
 export async function findUnprocessedWebhookEvents(
   database: Database,
@@ -137,8 +137,9 @@ export async function markWebhookFailed(
 }
 
 /**
- * A store of the shop that lost its access (token expired or refused) and can come back:
- * its sales must wait for the reconnection instead of being dropped.
+ * A store of the shop that lost its access (token expired or refused) and can come back: its
+ * sales are read from the marketplace once it reconnects. `connectedAt` is its first connection,
+ * so that reading never reaches sales from before the store was ours.
  */
 export async function findStoreAwaitingReconnection(
   database: Database,
@@ -151,7 +152,56 @@ export async function findStoreAwaitingReconnection(
       eq(storeConnections.externalShopId, externalShopId),
       inArray(storeConnections.status, ["expired", "error"]),
     ),
-    columns: { id: true },
+    columns: { id: true, connectedAt: true },
+  });
+  return row ?? null;
+}
+
+/**
+ * Events closed while their store had no access, newest first: the worker closes them with a
+ * note that names the store, and checks them once more when the store reconnects.
+ */
+export async function findHeldWebhookEvents(
+  database: Database,
+  held: {
+    readonly marketplace: Marketplace;
+    readonly note: string;
+    readonly receivedAfter: Date;
+    readonly limit: number;
+  },
+) {
+  return database
+    .select({
+      id: webhookEvents.id,
+      topic: webhookEvents.topic,
+      rawPayload: webhookEvents.rawPayload,
+    })
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.marketplace, held.marketplace),
+        gte(webhookEvents.receivedAt, held.receivedAfter),
+        eq(webhookEvents.error, held.note),
+      ),
+    )
+    .orderBy(desc(webhookEvents.receivedAt))
+    .limit(held.limit);
+}
+
+/** The store a reconnection catch-up reads from, while it is still connected. */
+export async function findConnectedStoreById(database: Database, storeConnectionId: string) {
+  const row = await database.query.storeConnections.findFirst({
+    where: and(
+      eq(storeConnections.id, storeConnectionId),
+      eq(storeConnections.status, "connected"),
+    ),
+    columns: {
+      id: true,
+      tenantId: true,
+      marketplace: true,
+      externalShopId: true,
+      accessTokenEnc: true,
+    },
   });
   return row ?? null;
 }

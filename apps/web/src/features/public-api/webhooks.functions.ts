@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { assertEmailConfirmed } from "@/lib/server/email-confirmed";
 import { tenantMiddleware } from "@/lib/server/middleware";
 import { createWebhookEndpointInputSchema } from "./webhooks";
 import {
@@ -19,6 +20,7 @@ export const createWebhookEndpointFn = createServerFn({ method: "POST" })
   .middleware([tenantMiddleware])
   .validator(createWebhookEndpointInputSchema)
   .handler(async ({ context, data }) => {
+    await assertEmailConfirmed(context.userId, "cadastrar webhooks");
     return createOrganizationWebhookEndpoint({
       tenantId: context.tenantId,
       actor: { userId: context.userId },

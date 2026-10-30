@@ -1,4 +1,8 @@
 import { unauthorizedError } from "@sellbridge/shared/errors";
+import { hasStaffPermission } from "@sellbridge/shared/staff-access";
+
+/** Shown when an admin's visit to a customer's account ended (time up, or the admin lost access). */
+export const VISIT_OVER_MESSAGE = "O acesso como cliente terminou. Volte ao admin.";
 
 /** How long "Entrar como cliente" lasts before the admin is out of the customer's account. */
 export const IMPERSONATION_SECONDS = 60 * 60;
@@ -26,5 +30,27 @@ export function assertVisitNotOver(session: {
   if (!session.impersonatedBy || !isImpersonationOver(new Date(session.createdAt))) {
     return;
   }
-  throw unauthorizedError("O acesso como cliente terminou. Volte ao admin.");
+  throw unauthorizedError(VISIT_OVER_MESSAGE);
+}
+
+export interface VisitingStaff {
+  readonly role: string | null;
+  readonly banned: boolean;
+}
+
+/**
+ * Whether the team member behind a visit may still be inside the customer's account. The visit
+ * session belongs to the customer, so banning or demoting the team member deletes none of it:
+ * the role and the ban are read again on every request of the visit.
+ */
+export function mayKeepVisiting(visitor: VisitingStaff | null): boolean {
+  if (visitor === null) {
+    return false;
+  }
+
+  if (visitor.banned) {
+    return false;
+  }
+
+  return hasStaffPermission(visitor.role, "customers.impersonate");
 }

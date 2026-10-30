@@ -7,6 +7,7 @@ import { auth } from "@/lib/server/auth";
 import { environment } from "@/lib/server/environment";
 import { assertSameOrigin, handleApi, jsonResponse } from "@/lib/server/http";
 import { assertVisitNotOver } from "@/lib/server/impersonation-window";
+import { assertVisitorStillAllowed } from "@/lib/server/tenant-session";
 import { assertUploadAllowed, avatarUploads } from "@/lib/server/upload-rate-limit";
 import { fileStorage } from "@/lib/server/storage";
 import { AVATAR_URL_PREFIX, avatarPathSchema, avatarStorageKey } from "./avatar-key";
@@ -54,6 +55,7 @@ async function requireSession(headers: Headers) {
     throw unauthorizedError();
   }
   assertVisitNotOver(session.session);
+  await assertVisitorStillAllowed(session.session.impersonatedBy);
   return session;
 }
 
