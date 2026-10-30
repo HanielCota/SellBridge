@@ -120,7 +120,7 @@ function StoreSupplierForm({
           {errorMessage(mutation.error)}
         </p>
       ) : null}
-      <DialogFooter className="sticky -bottom-5 -mx-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
+      <DialogFooter className="sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancelar
         </Button>
@@ -180,7 +180,7 @@ export function NewStoreSupplierDialog({
           </DialogDescription>
         </DialogHeader>
         <SupplierPicker value={picked?.id ?? currentSupplierId} onChange={setPicked} />
-        <DialogFooter className="sticky -bottom-5 -mx-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
+        <DialogFooter className="sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>

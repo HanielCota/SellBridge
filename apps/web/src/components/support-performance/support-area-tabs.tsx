@@ -1,6 +1,6 @@
 import { hasStaffPermission } from "@sellbridge/shared/staff-access";
 import { useNavigate } from "@tanstack/react-router";
-import { FilterTabs } from "@/components/data/filter-tabs";
+import { UnderlineTabs } from "@/components/data/underline-tabs";
 
 type SupportArea = "fila" | "desempenho";
 
@@ -20,7 +20,7 @@ export function SupportAreaTabs({ role, current }: { role: string; current: Supp
     return null;
   }
   return (
-    <FilterTabs
+    <UnderlineTabs
       legend="Área do suporte"
       tabs={AREA_TABS}
       value={current}

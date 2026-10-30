@@ -72,7 +72,7 @@ function InviteForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-5">
+    <form noValidate onSubmit={handleSubmit} className="grid gap-3">
       <FormErrorAlert message={invite.isError ? errorMessage(invite.error) : null} />
       <TextField
         id="invite-name"

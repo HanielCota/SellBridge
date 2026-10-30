@@ -121,7 +121,8 @@ export function ProductPager({
   onPage: (page: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-4">
+    // Wraps on a phone: in one row the buttons ran past the screen.
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <Button variant="outline" disabled={page === 1} onClick={() => onPage(page - 1)}>
         Página anterior
       </Button>

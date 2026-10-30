@@ -3,6 +3,7 @@ import {
   hasStaffPermission,
   STAFF_ROLE_LABELS,
   staffRoleOf,
+  type StaffRole,
 } from "@sellbridge/shared/staff-access";
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -11,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SmartDate } from "@/components/data/smart-date";
-import { ToneStatus, type StatusTone } from "@/components/data/tone-status";
+import { TonePill, ToneStatus, type StatusTone } from "@/components/data/tone-status";
 import { TeamInviteDialog } from "@/components/admin/team-invite-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -51,14 +52,21 @@ function memberState(member: StaffMember): MemberState {
   return member.lastSeenAt === null ? "invited" : "active";
 }
 
+const ROLE_TONES: Record<StaffRole, StatusTone> = {
+  admin: "success",
+  supervisor: "warning",
+  agent: "info",
+};
+
+/** The role as a tag, read at a glance (board 6); its hint still explains what the role may do. */
 function RoleLabel({ role }: { role: string }) {
   const staffRole = staffRoleOf(role);
   if (staffRole === null) {
     return role;
   }
   return (
-    <HintedText label={STAFF_ROLE_HINTS[staffRole]} className="hinted-term">
-      {STAFF_ROLE_LABELS[staffRole]}
+    <HintedText label={STAFF_ROLE_HINTS[staffRole]} className="inline-flex">
+      <TonePill tone={ROLE_TONES[staffRole]} showDot={false} label={STAFF_ROLE_LABELS[staffRole]} />
     </HintedText>
   );
 }

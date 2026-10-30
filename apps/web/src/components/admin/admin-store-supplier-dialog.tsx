@@ -113,7 +113,7 @@ function ChangeForm({
       </DialogHeader>
       <SupplierPicker value={picked?.id ?? target.currentSupplierId} onChange={setPicked} />
       {picked !== null && changed ? <ChangeImpact target={target} supplierId={picked.id} /> : null}
-      <DialogFooter className="sticky -bottom-5 -mx-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
+      <DialogFooter className="sticky -bottom-5 -mx-5 -mb-5 bg-card/90 px-5 py-3 backdrop-blur-xl">
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancelar
         </Button>

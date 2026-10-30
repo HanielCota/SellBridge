@@ -7,7 +7,7 @@ import {
   type TicketStatus,
 } from "@sellbridge/shared/schemas";
 import { RESPONSE_TARGET_HOURS, responseTiming } from "@sellbridge/shared/ticket-rules";
-import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
+import { type StatusTone, TonePill, ToneStatus } from "@/components/data/tone-status";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration } from "@/features/support/response-time";
 import { ticketTopicLabel } from "@/features/support/ticket-audience";
@@ -28,10 +28,13 @@ const DUE_SOON_MILLISECONDS = 60 * 60_000;
 export function TicketPriorityBadge({
   priority,
   focusable = true,
+  appearance = "dot",
 }: {
   priority: TicketPriority;
   /** False inside a linked row (phone inbox), where the row is the focus stop (PR #64 review). */
   focusable?: boolean;
+  /** "pill": the ticket's own header, where the tag also says what it is ("Prioridade alta"). */
+  appearance?: "dot" | "pill";
 }) {
   const label = TICKET_PRIORITY_LABELS[priority];
   return (
@@ -40,7 +43,11 @@ export function TicketPriorityBadge({
       className="inline-flex"
       label={`${label}: responder em até ${RESPONSE_TARGET_HOURS[priority]} h`}
     >
-      <ToneStatus tone={PRIORITY_TONES[priority]} label={label} />
+      {appearance === "pill" ? (
+        <TonePill tone={PRIORITY_TONES[priority]} label={`Prioridade ${label.toLowerCase()}`} />
+      ) : (
+        <ToneStatus tone={PRIORITY_TONES[priority]} label={label} />
+      )}
     </HintedText>
   );
 }
@@ -57,29 +64,38 @@ function DeadlineStatus({
   tone,
   label,
   focusable,
+  appearance,
 }: {
   late: boolean;
   tone: keyof typeof DEADLINE_TEXT;
   label: string;
   focusable: boolean;
+  appearance: "dot" | "pill";
 }) {
   const Icon = late ? ACTION_ICONS.overdue.icon : ACTION_ICONS.deadline.icon;
+  const icon = (
+    <Icon className="size-3.5 shrink-0" weight={late ? "bold" : "regular"} aria-hidden="true" />
+  );
   return (
     <HintedText
       focusable={focusable}
       className="inline-flex"
       label={late ? TERM_HINTS.ticketOverdue : TERM_HINTS.ticketDueIn}
     >
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap",
-          DEADLINE_TEXT[tone],
-        )}
-        suppressHydrationWarning
-      >
-        <Icon className="size-3.5 shrink-0" weight={late ? "bold" : "regular"} aria-hidden="true" />
-        {label}
-      </span>
+      {appearance === "pill" ? (
+        <TonePill tone={tone} label={label} icon={icon} timeBased />
+      ) : (
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 text-footnote font-medium whitespace-nowrap",
+            DEADLINE_TEXT[tone],
+          )}
+          suppressHydrationWarning
+        >
+          {icon}
+          {label}
+        </span>
+      )}
     </HintedText>
   );
 }
@@ -117,6 +133,8 @@ interface TimingProps {
   awaitingSince: Date | null;
   /** False inside a linked row, where the row is the focus stop. */
   focusable?: boolean;
+  /** "pill": the ticket's own header. */
+  appearance?: "dot" | "pill";
 }
 
 /** For the team: how long until the answer is due, or how late it already is. */
@@ -125,6 +143,7 @@ export function ResponseDeadlineBadge({
   priority,
   awaitingSince,
   focusable = true,
+  appearance = "dot",
 }: TimingProps) {
   const now = useNow();
   if (status !== "open") {
@@ -138,6 +157,7 @@ export function ResponseDeadlineBadge({
     return (
       <DeadlineStatus
         focusable={focusable}
+        appearance={appearance}
         late
         tone="danger"
         label={`Atrasado ${formatDuration(timing.lateMilliseconds)}`}
@@ -148,6 +168,7 @@ export function ResponseDeadlineBadge({
   return (
     <DeadlineStatus
       focusable={focusable}
+      appearance={appearance}
       late={false}
       tone={tone}
       label={`Vence em ${formatDuration(timing.remainingMilliseconds, Math.floor)}`}

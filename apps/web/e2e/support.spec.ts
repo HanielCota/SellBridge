@@ -127,7 +127,8 @@ test("revendedor abre chamado com anexo e o admin responde e encerra", async ({ 
   await expect(admin.getByText("Nota interna salva")).toBeVisible();
   const adminHeader = admin
     .getByRole("heading", { name: "O pedido atrasou", exact: true })
-    .locator("..");
+    // The whole header: status and priority tags sit on the row under the title.
+    .locator("../..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
 
   await admin.getByRole("button", { name: "Responder ao cliente" }).click();
@@ -263,7 +264,8 @@ test("“Não” avisa o suporte na hora e “Desfazer” mantém o chamado aber
   await admin.reload({ waitUntil: "networkidle" });
   const adminHeader = admin
     .getByRole("heading", { name: "O pedido atrasou", exact: true })
-    .locator("..");
+    // The whole header: status and priority tags sit on the row under the title.
+    .locator("../..");
   await expect(adminHeader.getByText("Aguardando suporte", { exact: true })).toBeVisible();
   await expect(admin.getByText("O cliente disse que a resposta não resolveu.")).toBeVisible();
 
@@ -329,7 +331,8 @@ test("fornecedor abre chamado sem seletor de pedido e o suporte sabe que é forn
   await expect(row.getByText(/^Fornecedor · /)).toBeVisible();
   await row.getByRole("link").first().click();
   const header = admin.getByRole("heading", { level: 1 }).locator("../..");
-  await expect(header.getByText(/· Fornecedor ·/)).toBeVisible();
+  // The kind of customer is a neutral tag of its own in the header.
+  await expect(header.getByText("Fornecedor", { exact: true })).toBeVisible();
   await expect(header.getByText("Pedido encaminhado", { exact: true })).toBeVisible();
   // The topic picker beside the thread uses the supplier's words too.
   await expect(admin.getByRole("combobox", { name: "Tema do chamado" })).toHaveText(

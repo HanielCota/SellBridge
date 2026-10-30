@@ -18,6 +18,7 @@ import {
   STAFF_PERSPECTIVE,
   type ThreadPerspective,
 } from "@/components/support/thread-perspective";
+import { TonePill } from "@/components/data/tone-status";
 import { UserAvatar } from "@/components/layout/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -81,14 +82,25 @@ function formatDayLabel(date: Date, now: Date = new Date()): string {
   return dayLabelFormatter.format(date);
 }
 
-function authorLabel(message: ThreadMessage, perspective: ThreadPerspective): string {
+function authorLabel(message: ThreadMessage): string {
   if (message.isInternal) {
     return `Nota interna · ${message.authorName}`;
   }
-  if (message.isAdmin && perspective.responderTag !== null) {
-    return `${message.authorName} · ${perspective.responderTag}`;
-  }
   return message.authorName;
+}
+
+/** "Suporte SellBridge" on the team's replies, so they read apart from the customer's at a glance. */
+function ResponderBadge({
+  message,
+  perspective,
+}: {
+  message: ThreadMessage;
+  perspective: ThreadPerspective;
+}) {
+  if (!message.isAdmin || message.isInternal || perspective.responderBadge === null) {
+    return null;
+  }
+  return <TonePill tone="success" showDot={false} label={perspective.responderBadge} />;
 }
 
 /** The reseller sees their own photo (or initials, as in the top bar); support keeps the headset. */
@@ -355,7 +367,8 @@ function MessageItem({
         )}
       >
         <header className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{authorLabel(message, perspective)}</span>
+          <span className="font-medium text-foreground">{authorLabel(message)}</span>
+          <ResponderBadge message={message} perspective={perspective} />
           <time
             dateTime={message.createdAt.toISOString()}
             title={fullFormatter.format(message.createdAt)}
@@ -387,8 +400,8 @@ function MessageItem({
 
 /**
  * `onQuote` turns on the admin action that quotes a message into the reply. Without a
- * `perspective`, the admin view (with `onQuote`) drops the "Suporte" tag, since the headset
- * avatar already tells the sides apart, and every other view reads as the customer.
+ * `perspective`, the admin view (with `onQuote`) reads as the team and every other view as the
+ * customer; both show the "Suporte SellBridge" tag on team replies.
  * The reseller view also passes `events` (shown between the messages), `seenAt` (read receipt
  * under their last message) and `messageFooter` (the "did this solve it?" prompt).
  */

@@ -28,7 +28,7 @@ test.describe("dashboard", () => {
   test("mostra KPIs, gráfico e filtros por período e loja", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
-    await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
     await expect(page.getByText(/comparado com os \d+ dias anteriores/)).toBeVisible();
     // One sentence reads the period: the profit with its margin, then revenue and why.
     const reading = page.getByRole("region", { name: "Resumo do período" });

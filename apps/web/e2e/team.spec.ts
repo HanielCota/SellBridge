@@ -94,3 +94,16 @@ test("recusa convidar o e-mail de uma conta que já existe fora da equipe", asyn
   expect(account?.role).toBe("user");
   await page.close();
 });
+
+// Regression: the footer's -24 px margins overshot the dialog's 20 px padding, so the invite
+// dialog scrolled by 4 px and its content shifted under the pointer.
+test("o convite para a equipe cabe sem barra de rolagem", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await gotoHydrated(page, "/admin/equipe");
+  await page.getByRole("button", { name: "Convidar pessoa" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Convidar para a equipe" });
+  await expect(dialog).toBeVisible();
+  const overflow = await dialog.evaluate((element) => element.scrollHeight - element.clientHeight);
+  expect(overflow).toBe(0);
+});

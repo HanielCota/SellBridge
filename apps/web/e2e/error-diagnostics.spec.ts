@@ -4,7 +4,7 @@ import { errorReportSchema } from "../src/lib/error-diagnostics";
 
 test("records a route failure automatically and keeps page retry usable", async ({ page }) => {
   await signIn(page, DEMO_USER);
-  await expect(page.getByRole("heading", { name: "Painel de vendas" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
   await page.route("**/_serverFn/**", async (route) => {
     await route.abort("failed");
   });

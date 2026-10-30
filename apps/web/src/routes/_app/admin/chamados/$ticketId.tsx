@@ -6,11 +6,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { SmartDate } from "@/components/data/smart-date";
-import {
-  ResponseDeadlineBadge,
-  TicketCategoryLabel,
-  TicketPriorityBadge,
-} from "@/components/support/ticket-badges";
+import { TonePill } from "@/components/data/tone-status";
+import { ResponseDeadlineBadge, TicketPriorityBadge } from "@/components/support/ticket-badges";
 import { TicketStatusBadge } from "@/components/support/ticket-status-badge";
 import { TicketHistory, TicketTriagePanel } from "@/components/support/ticket-triage-panel";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -33,7 +30,11 @@ import {
   staffSetTicketStatus,
 } from "@/features/support/support.functions";
 import { firstName, quoteMessage } from "@/features/support/reply-templates";
-import { REQUESTER_KIND_LABELS, replyTemplatesFor } from "@/features/support/ticket-audience";
+import {
+  REQUESTER_KIND_LABELS,
+  replyTemplatesFor,
+  ticketTopicLabel,
+} from "@/features/support/ticket-audience";
 import { staffTicketQueryOptions } from "@/features/support/support.queries";
 import { messageToMarkRead, useMarkTicketRead } from "@/features/support/use-mark-ticket-read";
 import { NOT_SOLVED_MESSAGE } from "@/features/support/use-ticket-verdict";
@@ -219,23 +220,31 @@ function AdminTicketSidebar({ detail }: { readonly detail: AdminTicketDetail }) 
 
 function AdminTicketHeader({ ticket }: { readonly ticket: AdminTicket }) {
   return (
-    <header className="min-w-0 space-y-1">
+    <header className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="min-w-0 text-2xl font-semibold tracking-tight break-words">
           {customerTicketTitle(ticket.subject)}
         </h1>
-        <TicketStatusBadge status={ticket.status} />
-        <TicketPriorityBadge priority={ticket.priority} />
+      </div>
+      {/* Status, priority and deadline first, as tinted tags; who asks and about what, neutral. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <TicketStatusBadge status={ticket.status} appearance="pill" />
+        <TicketPriorityBadge priority={ticket.priority} appearance="pill" />
         <ResponseDeadlineBadge
           status={ticket.status}
           priority={ticket.priority}
           awaitingSince={ticket.awaitingSince}
+          appearance="pill"
+        />
+        <TonePill tone="muted" showDot={false} label={REQUESTER_KIND_LABELS[ticket.tenantKind]} />
+        <TonePill
+          tone="muted"
+          showDot={false}
+          label={ticketTopicLabel(ticket.category, ticket.tenantKind)}
         />
       </div>
       <p className="text-sm text-muted-foreground">
-        <span className="font-mono">#{ticketCode(ticket.id)}</span> ·{" "}
-        {REQUESTER_KIND_LABELS[ticket.tenantKind]} · {ticket.tenantName} ·{" "}
-        <TicketCategoryLabel category={ticket.category} kind={ticket.tenantKind} /> · aberto{" "}
+        <span className="font-mono">#{ticketCode(ticket.id)}</span> · {ticket.tenantName} · aberto{" "}
         <SmartDate date={ticket.createdAt} />
       </p>
     </header>

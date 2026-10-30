@@ -80,123 +80,44 @@ for (const from of ["/financeiro", "/assinatura"]) {
   });
 }
 
-test("a bolha mostra o texto na chegada e depois fica só o ícone", async ({ page }) => {
-  await signIn(page, DEMO_USER);
-  await gotoHydrated(page, "/dashboard");
-  const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
-  await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
-  // Folds after 10 seconds of real time (the test clock does not reach React's timer).
-  await expect(bubble.getByText("Falar com o suporte")).toBeHidden({ timeout: 15_000 });
-  await expect(bubble).toBeVisible();
-  // Away from the money pages the form starts at step 1.
-  await bubble.click();
-  await expect(page).toHaveURL(/\/suporte\/novo(\?perfil=[^&]+)?$/);
-});
-
-// The expanded bubble covered "Próxima" and "Operar pedido" at the bottom of the screen; a tap
-// meant for them opened support instead.
+/*
+ * Board 4, approved on 2026-10-25: the bubble stays round, its name only for screen readers and
+ * in the hint, and the page ends with room for it, so it never sits over the last control. It
+ * replaces the label that opened on arrival and folded when it covered a button.
+ */
 for (const viewport of [
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
 ]) {
-  test(`a bolha recolhe na hora quando o texto cobre um botão da página (${viewport.width}px)`, async ({
+  test(`a bolha fica só com o ícone e o fim da página passa acima dela (${viewport.width}px)`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport);
     await signIn(page, DEMO_USER);
-    // Only the overlap probe is visible: real dashboard actions can correctly fold the label first.
-    await page.addInitScript(() => {
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync("#main-content > :not(#e2e-covered) { display: none !important; }");
-      document.adoptedStyleSheets = [sheet];
-    });
-    await gotoHydrated(page, "/dashboard");
+    await gotoHydrated(page, "/pedidos?view=reviews");
+    await expect(page.getByRole("button", { name: /Avaliar/ }).first()).toBeVisible();
     const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
-    await expect(bubble.getByText("Falar com o suporte")).toBeVisible();
+    await expect(bubble).toBeVisible();
+    await expect(bubble.getByText("Falar com o suporte")).toHaveCount(0);
 
-    // A page button lands where the label is, as a list that loads late would put it.
-    const box = await bubble.boundingBox();
-    if (box === null) {
-      throw new Error("bolha sem posição");
-    }
-    const placeButton = (spot: { left: number; top: number }) =>
-      page.evaluate(({ left, top }) => {
-        if (document.getElementById("e2e-covered") !== null) {
-          return;
-        }
-        const button = document.createElement("button");
-        button.id = "e2e-covered";
-        button.textContent = "Próxima";
-        button.style.cssText = `position:fixed;left:${left}px;top:${top}px;width:80px;height:40px`;
-        document.getElementById("main-content")?.append(button);
-      }, spot);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const covered = await bubble.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const controls = document.querySelectorAll("#main-content a[href], #main-content button");
+      return Array.from(controls).some((control) => {
+        const area = control.getBoundingClientRect();
+        const hasSize = area.width > 0 && area.height > 0;
+        const across = area.left < box.right && box.left < area.right;
+        const along = area.top < box.bottom && box.top < area.bottom;
+        return hasSize && across && along;
+      });
+    });
+    expect(covered).toBe(false);
 
-    // Placed again if a late client render replaces the page under it.
-    await expect(async () => {
-      await placeButton({ left: box.x + 8, top: box.y + 8 });
-      await expect(bubble.getByText("Falar com o suporte")).toBeHidden({ timeout: 1_000 });
-      await page.getByRole("button", { name: "Próxima" }).click({ trial: true, timeout: 1_000 });
-    }).toPass({ timeout: 5_000 });
+    await bubble.click();
+    await expect(page).toHaveURL(/\/suporte\/novo(\?perfil=[^&]+)?$/);
   });
 }
-
-// A table that scrolls sideways can carry a row's button under the label without the page
-// itself scrolling or changing.
-test("a bolha recolhe quando uma tabela rolada de lado leva um botão para baixo do texto", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signIn(page, DEMO_USER);
-  // The dashboard's own buttons can sit under the label and fold it first; only the strip shows.
-  // An adopted sheet adds no node, so hydration is untouched.
-  await page.addInitScript(() => {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync("#main-content > :not(#e2e-strip) { display: none !important; }");
-    document.adoptedStyleSheets = [sheet];
-  });
-  await gotoHydrated(page, "/dashboard");
-  const bubble = page.getByRole("link", { name: "Falar com o suporte", exact: true });
-  const label = bubble.getByText("Falar com o suporte");
-  await expect(label).toBeVisible();
-  const box = await bubble.boundingBox();
-  if (box === null) {
-    throw new Error("bolha sem posição");
-  }
-
-  // The button starts past the right edge of the screen, inside a strip that scrolls sideways.
-  const placeStrip = (spot: { left: number; top: number }) =>
-    page.evaluate(({ left, top }) => {
-      if (document.getElementById("e2e-strip") !== null) {
-        return;
-      }
-      const strip = document.createElement("div");
-      strip.id = "e2e-strip";
-      strip.style.cssText = `position:fixed;left:${left}px;top:${top}px;width:80px;height:40px;overflow-x:auto`;
-      const row = document.createElement("div");
-      row.style.cssText = "position:relative;width:2000px;height:40px";
-      const button = document.createElement("button");
-      button.textContent = "Operar pedido";
-      button.style.cssText = "position:absolute;left:1000px;top:0;width:80px;height:40px";
-      row.append(button);
-      strip.append(row);
-      document.getElementById("main-content")?.append(strip);
-    }, spot);
-  const strip = page.locator("#e2e-strip");
-
-  await placeStrip({ left: box.x + 8, top: box.y + 8 });
-  await expect(strip).toBeAttached();
-  // Nothing sits under the label yet, so it stays up.
-  await expect(label).toBeVisible();
-
-  // Placed again if a late client render replaces the page under it.
-  await expect(async () => {
-    await placeStrip({ left: box.x + 8, top: box.y + 8 });
-    await strip.evaluate((element) => element.scrollTo({ left: 1000 }), undefined, {
-      timeout: 1_000,
-    });
-    await expect(label).toBeHidden({ timeout: 1_000 });
-  }).toPass({ timeout: 3_000 });
-});
 
 test("volta para Publicações com o filtro de onde o chamado foi aberto", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
