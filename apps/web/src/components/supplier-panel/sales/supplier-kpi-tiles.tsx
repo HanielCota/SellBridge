@@ -25,7 +25,7 @@ function KpiTile(props: Omit<StatTileProps, "link">) {
       {...props}
       link={{
         to: "/fornecedor/painel/pedidos",
-        ariaLabel: `Ver ${props.label.toLowerCase()} nos pedidos`,
+        spokenDestination: `Ver ${props.label.toLowerCase()} nos pedidos`,
       }}
     />
   );

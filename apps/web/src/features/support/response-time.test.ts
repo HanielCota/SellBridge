@@ -6,6 +6,7 @@ import {
   shortSupportHoursText,
   supportHoursText,
   staffResponseStateText,
+  supportButtonLabel,
   unreadRepliesText,
 } from "./response-time";
 
@@ -108,5 +109,20 @@ describe("unreadRepliesText", () => {
   it("counts tickets with the right plural", () => {
     expect(unreadRepliesText(1)).toBe("1 chamado com resposta nova");
     expect(unreadRepliesText(3)).toBe("3 chamados com resposta nova");
+  });
+});
+
+describe("supportButtonLabel", () => {
+  it("is just the name with nothing unread", () => {
+    expect(supportButtonLabel(0)).toBe("Suporte");
+  });
+
+  it("repeats the badge count up to nine", () => {
+    expect(supportButtonLabel(1)).toBe("Suporte: 1 chamado com resposta nova");
+    expect(supportButtonLabel(3)).toBe("Suporte: 3 chamados com resposta nova");
+  });
+
+  it("says 9+ like the badge above nine", () => {
+    expect(supportButtonLabel(32)).toBe("Suporte: 9+ chamados com resposta nova");
   });
 });

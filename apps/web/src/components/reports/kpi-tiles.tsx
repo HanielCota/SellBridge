@@ -10,7 +10,10 @@ function KpiTile(props: Omit<StatTileProps, "link">) {
   return (
     <StatTile
       {...props}
-      link={{ to: "/financeiro", ariaLabel: `Ver ${props.label.toLowerCase()} no financeiro` }}
+      link={{
+        to: "/financeiro",
+        spokenDestination: `Ver ${props.label.toLowerCase()} no financeiro`,
+      }}
     />
   );
 }
