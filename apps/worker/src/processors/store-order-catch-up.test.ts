@@ -33,6 +33,7 @@ const requestStockSync = vi.fn<() => Promise<void>>();
 const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
 const processWebhook = createWebhookEventProcessor({
   ...environment,
+  acquireRateLimit: async () => {},
   connectors: {
     ...environment.connectors,
     mock: { ...environment.connectors.mock, listOrders, fetchOrder },

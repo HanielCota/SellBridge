@@ -16,12 +16,14 @@ import {
 } from "@sellbridge/marketplaces";
 import { UnrecoverableError } from "bullmq";
 import type { JobContext } from "../lib/job-context.ts";
-import { decryptStoreCredentials } from "../lib/store-access.ts";
+import { decryptStoreCredentials, storeRateKey } from "../lib/store-access.ts";
 import { type OrderIntakeDependencies, saveMarketplaceOrder } from "./order-intake.ts";
 import { catchUpStoreOrders, heldEventNote } from "./store-order-catch-up.ts";
 
 export interface WebhookDependencies extends OrderIntakeDependencies {
   connectors: ConnectorRegistry;
+  /** The per-store quota the other store jobs spend too (`storeRateKey`). */
+  acquireRateLimit: (key: string) => Promise<void>;
 }
 
 export type WebhookOutcome =
@@ -173,6 +175,11 @@ async function syncOrder(sync: OrderSync): Promise<WebhookOutcome> {
     externalShopId: store.externalShopId,
     accessTokenEnc: sync.accessTokenEnc,
   });
+  // Notifications are unsigned: a flood of made-up ones must not spend the store's quota faster
+  // than publishing or stock sync may.
+  await dependencies.acquireRateLimit(
+    storeRateKey({ marketplace: sync.marketplace, id: store.id }),
+  );
   const order = await dependencies.connectors[sync.marketplace].fetchOrder(
     credentials,
     sync.resource,

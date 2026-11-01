@@ -136,6 +136,7 @@ function orderWorkers(context: WorkerContext): Worker[] {
     database,
     connectors,
     cipher,
+    acquireRateLimit: context.acquireRateLimit,
     requestStockSync: async () => requestStockSync(context),
     requestAutoForward: async (orderId) => requestAutoForward(context, orderId),
   });
