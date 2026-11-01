@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { log } = vi.hoisted(() => ({
+const { log, alert } = vi.hoisted(() => ({
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+  alert: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
-vi.mock("@sellbridge/shared/logger", () => ({ logger: { error: log } }));
+vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: log, error: alert } }));
 const report = {
   id: "7a43cf86-6686-4b2b-a681-a51993ced5c0",
   occurredAt: "2026-10-12T22:00:00.000Z",
@@ -25,6 +26,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("APP_URL", "https://app.example");
   log.mockClear();
+  alert.mockClear();
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -57,6 +59,25 @@ describe("diagnostic receiver", () => {
       }),
     );
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/alice@example.com|secret/);
+  });
+
+  // Regression (security audit, 31/10/2026): anyone could post a report, and its text went to the
+  // team's alert channel (mentions and phone numbers included) as an error-level log.
+  it("keeps report text out of the alert channel and alerts only on a burst", async () => {
+    const { handleErrorReport } = await import("./error-reports");
+    const forged = { ...report, message: "@everyone ligue 0800 000 0000" };
+
+    for (let index = 0; index < 19; index += 1) {
+      await handleErrorReport(request(forged, "https://app.example", `198.51.100.${index}`));
+    }
+    expect(alert).not.toHaveBeenCalled();
+    await handleErrorReport(request(forged, "https://app.example", "198.51.100.99"));
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith("web.browser_error_burst", {
+      reports: 20,
+      windowMinutes: 5,
+    });
   });
 
   it("rejects cross-origin, non-JSON, invalid and oversized reports without logging", async () => {
