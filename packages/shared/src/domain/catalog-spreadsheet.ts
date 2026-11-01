@@ -92,29 +92,65 @@ function detectKind(headers: readonly string[]): SpreadsheetKind | null {
   );
 }
 
+interface SheetHeader {
+  readonly kind: SpreadsheetKind;
+  readonly index: number;
+  readonly headers: readonly string[];
+}
+
+const isBlankRow = (cells: readonly string[]): boolean => cells.every((cell) => isBlank(cell));
+
 /** Finds the header row among the first rows of a sheet and recognizes its layout. */
-export function detectSpreadsheet(sheet: XlsxSheet, fileName: string): DetectedSpreadsheet | null {
+function findHeader(sheet: XlsxSheet): SheetHeader | null {
   const searchLimit = Math.min(sheet.rows.length, HEADER_SEARCH_ROWS);
-  for (let headerIndex = 0; headerIndex < searchLimit; headerIndex += 1) {
-    const headers = (sheet.rows[headerIndex] ?? []).map(normalizeHeader);
+  for (let index = 0; index < searchLimit; index += 1) {
+    const headers = (sheet.rows[index] ?? []).map(normalizeHeader);
     const kind = detectKind(headers);
-    if (kind == null) {
-      continue;
+    if (kind != null) {
+      return { kind, index, headers };
     }
-
-    const rows = sheet.rows.slice(headerIndex + 1).flatMap((cells, offset) => {
-      if (cells.every((cell) => isBlank(cell))) {
-        return [];
-      }
-
-      const values = new Map(
-        headers.map((header, column) => [header, (cells[column] ?? "").trim()]),
-      );
-      return [{ rowNumber: headerIndex + offset + 2, values }];
-    });
-    return { kind, source: `${fileName} › ${sheet.name}`, headers, rows };
   }
   return null;
+}
+
+/** Recognizes a sheet's layout and reads the rows under its header; null for an unknown sheet. */
+export function detectSpreadsheet(sheet: XlsxSheet, fileName: string): DetectedSpreadsheet | null {
+  const header = findHeader(sheet);
+  if (header == null) {
+    return null;
+  }
+
+  const { kind, index, headers } = header;
+  const rows = sheet.rows.slice(index + 1).flatMap((cells, offset) => {
+    if (isBlankRow(cells)) {
+      return [];
+    }
+
+    const values = new Map(headers.map((name, column) => [name, (cells[column] ?? "").trim()]));
+    return [{ rowNumber: index + offset + 2, values }];
+  });
+  return { kind, source: `${fileName} › ${sheet.name}`, headers, rows };
+}
+
+/**
+ * Products under the header of a supplier catalog sheet, counted without reading them; null for
+ * any other sheet. Detection keeps a header-wide map per row, so a 500-column header over 50
+ * thousand near-empty rows took hundreds of MB before the product limit was checked.
+ */
+export function supplierCatalogRowCount(sheet: XlsxSheet): number | null {
+  const header = findHeader(sheet);
+  if (header?.kind !== "supplier-catalog") {
+    return null;
+  }
+
+  const rows = sheet.rows.slice(header.index + 1);
+  return rows.length - rows.filter(isBlankRow).length;
+}
+
+export function tooManyProductsError() {
+  return validationError(
+    `A importação aceita no máximo ${MAX_PRODUCT_CSV_ROWS} produtos por vez. Divida a planilha do fornecedor`,
+  );
 }
 
 function parseDecimal(text: string): number | null {
@@ -343,9 +379,7 @@ export function buildCatalogImport(input: {
   }
 
   if (lines.length > MAX_PRODUCT_CSV_ROWS) {
-    throw validationError(
-      `A importação aceita no máximo ${MAX_PRODUCT_CSV_ROWS} produtos por vez. Divida a planilha do fornecedor`,
-    );
+    throw tooManyProductsError();
   }
 
   const csv = `${records.join("\r\n")}\r\n`;
