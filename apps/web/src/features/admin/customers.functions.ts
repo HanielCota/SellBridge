@@ -87,12 +87,15 @@ async function requireCustomer(userId: string) {
   return customer;
 }
 
-async function requireCustomerTenant(userId: string): Promise<string> {
-  const customer = await requireCustomer(userId);
-  if (!customer.tenantId) {
+function customerTenant(customer: { tenantId: string | null }): string {
+  if (customer.tenantId == null || customer.tenantId === "") {
     throw notFoundError("Este cliente ainda não tem uma organização");
   }
   return customer.tenantId;
+}
+
+async function requireCustomerTenant(userId: string): Promise<string> {
+  return customerTenant(await requireCustomer(userId));
 }
 
 /**
@@ -421,7 +424,7 @@ export const adminChangeStoreSupplier = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(adminStoreSupplierSchema)
   .handler(async ({ context, data }) => {
-    const tenantId = await requireCustomerTenant(data.userId);
+    const tenantId = customerTenant(await requireManageableCustomer(context.actor, data.userId));
     const impact = await changeStoreSupplier(database, {
       tenantId,
       storeConnectionId: data.storeConnectionId,
@@ -443,7 +446,7 @@ export const adminDisconnectCustomerStore = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator(disconnectCustomerStoreSchema)
   .handler(async ({ context, data }) => {
-    const tenantId = await requireCustomerTenant(data.userId);
+    const tenantId = customerTenant(await requireManageableCustomer(context.actor, data.userId));
     await disconnectStore(database, tenantId, data.storeConnectionId);
     await recordAdminAction(context.userId, data.userId, "store_disconnected", {
       storeConnectionId: data.storeConnectionId,
