@@ -153,6 +153,26 @@ describe("readXlsxSheets", () => {
     });
   });
 
+  // Regression (security audit, 31/10/2026): a long run of letters with no `=` in one tag made the
+  // attribute regex retry from every position, quadratic in the run.
+  it("deve ler um atributo enorme sem travar", { timeout: 1_000 }, async () => {
+    const files = workbookFiles({ deflate: true }).map((file) =>
+      file.name === "xl/_rels/workbook.xml.rels"
+        ? {
+            ...file,
+            content: file.content.replace(
+              "<Relationships>",
+              `<Relationships><Relationship ${"a".repeat(100_000)}/>`,
+            ),
+          }
+        : file,
+    );
+
+    const sheets = await readXlsxSheets(await buildZip(files));
+
+    expect(sheets.map((sheet) => sheet.name)).toEqual(["Produtos", "Outra & mais"]);
+  });
+
   // Regression (security audit, 26/10/2026): `<c r="SE"/>` rows padded to 499 cells each, so a few
   // KB held millions of cells.
   it("deve recusar planilha com células demais", async () => {

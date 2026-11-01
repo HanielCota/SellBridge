@@ -169,11 +169,29 @@ function safeCodePoint(codePoint: number, fallback: string): string {
   return String.fromCodePoint(codePoint);
 }
 
+/**
+ * `name="value"` pairs of an opening tag. The attempt is anchored where the previous token ended and
+ * a failed one skips its whole word: an unanchored search retried every position inside a long run
+ * of letters with no `=`, and a 1 KB upload held the server for minutes.
+ */
 function parseAttributes(tag: string): Map<string, string> {
   const attributes = new Map<string, string>();
-  for (const match of tag.matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+  const pair = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/y;
+  const skipped = /[\w:.-]+|[^\w:.-]/y;
+  let position = 0;
+  while (position < tag.length) {
+    pair.lastIndex = position;
+    const match = pair.exec(tag);
+    if (match === null) {
+      skipped.lastIndex = position;
+      skipped.exec(tag);
+      position = skipped.lastIndex;
+      continue;
+    }
+
     const name = (match[1] ?? "").replace(/^[\w.-]+:/, "");
     attributes.set(name, decodeXml(match[2] ?? match[3] ?? ""));
+    position = pair.lastIndex;
   }
   return attributes;
 }
