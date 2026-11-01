@@ -21,6 +21,8 @@ const MAX_ROWS = 50_000;
 const MAX_COLUMNS = 500;
 /** Cells kept across all sheets, padding included: a few KB of `<c r="SE"/>` rows would hold millions. */
 const MAX_WORKBOOK_CELLS = 5_000_000;
+/** Shared string items read: `<si/>` costs 5 characters, so the XML budget alone allowed 40 million, each read at a cost. */
+const MAX_SHARED_STRINGS = 200_000;
 const END_OF_DIRECTORY_SIGNATURE = 0x06054b50;
 const DIRECTORY_ENTRY_SIGNATURE = 0x02014b50;
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;
@@ -37,6 +39,7 @@ interface ZipEntry {
 }
 
 const invalidWorkbook = () => validationError("Planilha .xlsx inválida ou corrompida");
+const tooLarge = () => validationError("A planilha .xlsx é grande demais para importar");
 
 function findEndOfDirectory(view: DataView): number {
   const lowest = Math.max(0, view.byteLength - END_OF_DIRECTORY_SIZE - MAX_ZIP_COMMENT);
@@ -93,7 +96,7 @@ async function inflate(data: Uint8Array<ArrayBuffer>, limit: number): Promise<Ui
     total += value.byteLength;
     if (total > limit) {
       await reader.cancel();
-      throw validationError("A planilha .xlsx é grande demais para importar");
+      throw tooLarge();
     }
 
     chunks.push(value);
@@ -107,7 +110,15 @@ async function inflate(data: Uint8Array<ArrayBuffer>, limit: number): Promise<Ui
   return output;
 }
 
-async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promise<string> {
+/**
+ * Inflates one entry, refusing it past `limit` bytes. The caller passes what is left of the
+ * workbook budget, so entries are read one at a time and never hold more than the budget at once.
+ */
+async function readEntry(
+  bytes: Uint8Array<ArrayBuffer>,
+  entry: ZipEntry,
+  limit: number,
+): Promise<string> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const header = entry.localHeaderOffset;
   if (header + 30 > bytes.byteLength) {
@@ -118,8 +129,8 @@ async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promi
     throw invalidWorkbook();
   }
 
-  if (entry.uncompressedSize > MAX_ENTRY_BYTES) {
-    throw validationError("A planilha .xlsx é grande demais para importar");
+  if (entry.uncompressedSize > limit) {
+    throw tooLarge();
   }
 
   const start = header + 30 + view.getUint16(header + 26, true) + view.getUint16(header + 28, true);
@@ -130,11 +141,14 @@ async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promi
 
   const decoder = new TextDecoder();
   if (entry.method === STORED) {
+    if (data.byteLength > limit) {
+      throw tooLarge();
+    }
     return decoder.decode(data);
   }
 
   if (entry.method === DEFLATED) {
-    return decoder.decode(await inflate(data, MAX_ENTRY_BYTES));
+    return decoder.decode(await inflate(data, limit));
   }
 
   throw validationError("A planilha .xlsx usa uma compressão não suportada");
@@ -341,20 +355,22 @@ async function readOptionalEntry(
   bytes: Uint8Array<ArrayBuffer>,
   entries: Map<string, ZipEntry>,
   name: string,
+  limit: number,
 ): Promise<string | null> {
   const entry = entries.get(name);
   if (entry == null) {
     return null;
   }
-  return await readEntry(bytes, entry);
+  return await readEntry(bytes, entry, limit);
 }
 
 async function readRequiredEntry(
   bytes: Uint8Array<ArrayBuffer>,
   entries: Map<string, ZipEntry>,
   name: string,
+  limit: number,
 ): Promise<string> {
-  const content = await readOptionalEntry(bytes, entries, name);
+  const content = await readOptionalEntry(bytes, entries, name, limit);
   if (content == null) {
     throw invalidWorkbook();
   }
@@ -367,13 +383,20 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
   }
 
   const entries = readDirectory(bytes);
-  const [workbook, relationships, sharedXml] = await Promise.all([
-    readRequiredEntry(bytes, entries, "xl/workbook.xml"),
-    readRequiredEntry(bytes, entries, "xl/_rels/workbook.xml.rels"),
-    readOptionalEntry(bytes, entries, "xl/sharedStrings.xml"),
-  ]);
-  let xmlCharacters = assertWithinXmlBudget(0, workbook, relationships, sharedXml ?? "");
-  const shared = elements(sharedXml ?? "", "si").map((item) => richText(item.body));
+  const workbook = await readRequiredEntry(bytes, entries, "xl/workbook.xml", entryLimit(0));
+  let xmlCharacters = assertWithinXmlBudget(0, workbook);
+  const relationships = await readRequiredEntry(
+    bytes,
+    entries,
+    "xl/_rels/workbook.xml.rels",
+    entryLimit(xmlCharacters),
+  );
+  xmlCharacters = assertWithinXmlBudget(xmlCharacters, relationships);
+  const sharedXml =
+    (await readOptionalEntry(bytes, entries, "xl/sharedStrings.xml", entryLimit(xmlCharacters))) ??
+    "";
+  xmlCharacters = assertWithinXmlBudget(xmlCharacters, sharedXml);
+  const shared = readSharedStrings(sharedXml);
   const targets = new Map(
     elements(relationships, "Relationship").map((relationship) => {
       const attributes = parseAttributes(relationship.attributes);
@@ -394,7 +417,7 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
       continue;
     }
 
-    const xml = await readRequiredEntry(bytes, entries, path);
+    const xml = await readRequiredEntry(bytes, entries, path, entryLimit(xmlCharacters));
     xmlCharacters = assertWithinXmlBudget(xmlCharacters, xml);
     const parsed = parseSheet(xml, shared, cells);
     cells = parsed.cells;
@@ -403,11 +426,27 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
   return sheets;
 }
 
+/** What the next entry may inflate to: the rest of the workbook budget, at most one entry's cap. */
+function entryLimit(readSoFar: number): number {
+  return Math.min(MAX_ENTRY_BYTES, MAX_WORKBOOK_XML_CHARACTERS - readSoFar);
+}
+
+function readSharedStrings(xml: string): string[] {
+  const shared: string[] = [];
+  for (const item of scanElements(xml, "si")) {
+    if (shared.length === MAX_SHARED_STRINGS) {
+      throw tooManyCells();
+    }
+    shared.push(richText(item.body));
+  }
+  return shared;
+}
+
 /** Adds the inflated XML just read to the workbook total and refuses it past the budget. */
 function assertWithinXmlBudget(readSoFar: number, ...texts: readonly string[]): number {
   const total = texts.reduce((sum, text) => sum + text.length, readSoFar);
   if (total > MAX_WORKBOOK_XML_CHARACTERS) {
-    throw validationError("A planilha .xlsx é grande demais para importar");
+    throw tooLarge();
   }
   return total;
 }

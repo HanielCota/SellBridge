@@ -173,6 +173,20 @@ describe("readXlsxSheets", () => {
     expect(sheets.map((sheet) => sheet.name)).toEqual(["Produtos", "Outra & mais"]);
   });
 
+  // Regression (security audit, 31/10/2026): `<si/>` costs 5 characters, so a few KB of shared
+  // strings became millions of objects that no cell or character budget counted.
+  it("deve recusar tabela de textos com itens demais", async () => {
+    const files = withFirstSheet(firstSheet).map((file) =>
+      file.name === "xl/sharedStrings.xml"
+        ? { ...file, content: `<sst>${"<si/>".repeat(200_001)}</sst>` }
+        : file,
+    );
+
+    await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
+      userMessage: "A planilha .xlsx tem células demais para importar",
+    });
+  });
+
   // Regression (security audit, 26/10/2026): `<c r="SE"/>` rows padded to 499 cells each, so a few
   // KB held millions of cells.
   it("deve recusar planilha com células demais", async () => {
