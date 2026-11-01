@@ -1,5 +1,5 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
-import type { Database } from "../client.ts";
+import type { Database, Transaction } from "../client.ts";
 import { account, session, user } from "../schema/index.ts";
 
 export interface OwnerPromotion {
@@ -7,6 +7,23 @@ export interface OwnerPromotion {
   promoted: boolean;
   /** Whether a password was dropped, so the owner needs the reset link to set a new one. */
   hadPassword: boolean;
+}
+
+/**
+ * A sign-in that read the old password before the promotion committed inserts its session after
+ * the promotion deleted them all, and the role is admin by then. Every real session of the owner
+ * comes from a sign-in method that still exists; one of an account with none is that leftover.
+ */
+async function dropSessionsWithoutSignInMethod(transaction: Transaction, userId: string) {
+  const [method] = await transaction
+    .select({ id: account.id })
+    .from(account)
+    .where(eq(account.userId, userId))
+    .limit(1);
+  if (method !== undefined) {
+    return;
+  }
+  await transaction.delete(session).where(eq(session.userId, userId));
 }
 
 /**
@@ -26,6 +43,7 @@ export async function promoteVerifiedOwner(
       .where(and(eq(user.id, userId), or(isNull(user.role), ne(user.role, "admin"))))
       .returning({ id: user.id });
     if (promoted.length === 0) {
+      await dropSessionsWithoutSignInMethod(transaction, userId);
       return { promoted: false, hadPassword: false };
     }
     const dropped = await transaction
