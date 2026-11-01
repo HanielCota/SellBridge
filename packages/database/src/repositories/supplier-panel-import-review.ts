@@ -1,5 +1,6 @@
 import {
   evaluateCompleteness,
+  isProhibitedProduct,
   requiredAttributesFor,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import type { EditableProductFields } from "@sellbridge/shared/supplier-panel-catalog-status";
@@ -60,7 +61,13 @@ export async function reviewedImportValues<TProduct extends ImportedRow>(
     const blocking = evaluateCompleteness(next, requiredAttributesFor(slug)).blocking.length;
     return {
       ...product,
-      ...supplierImportStatus({ previous, next, blockingIssueCount: blocking, now }),
+      ...supplierImportStatus({
+        previous,
+        next,
+        blockingIssueCount: blocking,
+        prohibited: isProhibitedProduct(next),
+        now,
+      }),
     };
   });
   return {

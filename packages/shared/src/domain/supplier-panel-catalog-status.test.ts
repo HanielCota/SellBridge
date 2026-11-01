@@ -61,7 +61,12 @@ describe("reviewTransition", () => {
 });
 
 function edit(current: ProductReviewStatus, fields: string[]): ProductReviewStatus {
-  return statusAfterEdit({ current, changedFields: fields, blockingIssueCount: 0 });
+  return statusAfterEdit({
+    current,
+    changedFields: fields,
+    blockingIssueCount: 0,
+    prohibited: false,
+  });
 }
 
 describe("statusAfterEdit", () => {
@@ -87,8 +92,26 @@ describe("statusAfterEdit", () => {
   it("keeps a product under review in review, or drops it to draft when something blocks", () => {
     expect(edit("in_review", ["description"])).toBe("in_review");
     expect(
-      statusAfterEdit({ current: "approved", changedFields: ["imageUrls"], blockingIssueCount: 1 }),
+      statusAfterEdit({
+        current: "approved",
+        changedFields: ["imageUrls"],
+        blockingIssueCount: 1,
+        prohibited: false,
+      }),
     ).toBe("draft");
+  });
+
+  // Regression (security audit, 31/10/2026): a description-only edit kept an approved product
+  // approved, skipping the barred-product check that runs on the title and description.
+  it("drops an approved product to draft when its new description names a barred product", () => {
+    const status = statusAfterEdit({
+      current: "approved",
+      changedFields: ["description"],
+      blockingIssueCount: 1,
+      prohibited: true,
+    });
+
+    expect(status).toBe("draft");
   });
 });
 

@@ -6,6 +6,7 @@ import type {
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import {
   evaluateCompleteness,
+  isProhibitedProduct,
   requiredAttributesFor,
 } from "@sellbridge/shared/supplier-panel-catalog-completeness";
 import {
@@ -177,6 +178,7 @@ async function updateDraft(
     current: stored.reviewStatus,
     changedFields: changed,
     blockingIssueCount: blockingCount(values, categorySlug),
+    prohibited: isProhibitedProduct(values),
   });
   const contentReady = evaluateCompleteness(
     values,

@@ -92,12 +92,15 @@ export function reviewTransition(
 /**
  * The status a product moves to when the supplier saves an edit. A rejected product becomes a
  * draft again; an approved one goes back to review when what buyers see first changed, never for
- * stock or cost. A product under review with something blocking falls back to draft.
+ * stock or cost. A product under review with something blocking falls back to draft, and so does
+ * any edited product that now names something the marketplaces refuse.
  */
 export function statusAfterEdit(input: {
   current: ProductReviewStatus;
   changedFields: readonly string[];
   blockingIssueCount: number;
+  /** The edited title or description names a barred product (`isProhibitedProduct`). */
+  prohibited: boolean;
 }): ProductReviewStatus {
   if (input.changedFields.length === 0) {
     return input.current;
@@ -106,6 +109,10 @@ export function statusAfterEdit(input: {
     return "draft";
   }
   if (input.current === "draft") {
+    return "draft";
+  }
+  // A description edit keeps an approved product approved, but never past the barred-product check.
+  if (input.prohibited) {
     return "draft";
   }
   const needsReview =

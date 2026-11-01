@@ -19,6 +19,7 @@ export function supplierImportStatus(input: {
   previous: (EditableProductFields & ImportedProductStatus) | undefined;
   next: EditableProductFields;
   blockingIssueCount: number;
+  prohibited: boolean;
   now: Date;
 }): ImportedProductStatus {
   const { previous } = input;
@@ -30,6 +31,7 @@ export function supplierImportStatus(input: {
     current: previous.reviewStatus,
     changedFields: changedProductFields(previous, input.next),
     blockingIssueCount: input.blockingIssueCount,
+    prohibited: input.prohibited,
   });
   const resubmitted = reviewStatus === "in_review" && previous.reviewStatus !== "in_review";
   return { reviewStatus, submittedAt: resubmitted ? input.now : previous.submittedAt };
