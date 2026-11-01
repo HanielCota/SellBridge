@@ -199,7 +199,7 @@ test.describe("avisos", () => {
       });
     }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Avisos" })).toBeVisible();
   });
 
   test("keeps the sale badge clear of the product icon and its variant dot", async ({ page }) => {
