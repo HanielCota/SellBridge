@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { StoredFile } from "@/lib/server/storage";
 import {
+  DISK_FULL_MESSAGE,
   IMAGE_SPACE_FULL_MESSAGE,
   MAX_SUPPLIER_IMAGE_BYTES,
   MAX_SUPPLIER_IMAGE_FILES,
@@ -10,6 +11,7 @@ import {
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: {
     info: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
+    error: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
     warn: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
   },
 }));
@@ -23,8 +25,10 @@ function photo(name: string, bytes: number, modifiedAt: Date): StoredFile {
   return { key: `product-images/${SUPPLIER}/${name}`, bytes, modifiedAt };
 }
 
+const ROOMY_DISK = { freeBytes: 900 * 1024 ** 3, totalBytes: 1000 * 1024 ** 3 };
+
 /** A supplier folder in memory, with the file names some product links to. */
-function folder(files: StoredFile[], linked: readonly string[] = []) {
+function folder(files: StoredFile[], linked: readonly string[] = [], disk = ROOMY_DISK) {
   const stored = new Map(files.map((file) => [file.key, file]));
   const deleted: string[] = [];
   return {
@@ -36,6 +40,7 @@ function folder(files: StoredFile[], linked: readonly string[] = []) {
           stored.delete(key);
           deleted.push(key);
         },
+        space: async () => disk,
       },
       linkedFileNames: async () => new Set(linked),
       now: () => NOW,
@@ -84,6 +89,19 @@ describe("makeRoomForProductImage", () => {
     await makeRoomForProductImage(dependencies, { supplierId: SUPPLIER, incomingBytes: 1024 });
 
     expect(deleted).toEqual([`product-images/${SUPPLIER}/forgotten.png`]);
+  });
+
+  it("refuses any photo while the shared disk has less than a tenth free", async () => {
+    const almostFull = { freeBytes: 99 * 1024 ** 3, totalBytes: 1000 * 1024 ** 3 };
+    const { dependencies, deleted } = folder([], [], almostFull);
+
+    const making = makeRoomForProductImage(dependencies, {
+      supplierId: SUPPLIER,
+      incomingBytes: 1024,
+    });
+
+    await expect(making).rejects.toMatchObject({ userMessage: DISK_FULL_MESSAGE });
+    expect(deleted).toEqual([]);
   });
 
   it("refuses a photo past the file count, however small", async () => {

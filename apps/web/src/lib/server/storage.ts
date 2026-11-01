@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, statfs, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { validationError } from "@sellbridge/shared/errors";
 import { environment } from "./environment.ts";
@@ -21,6 +21,8 @@ export interface FileStorage {
   delete(key: string): Promise<void>;
   /** The files directly inside the folder `prefix`; a missing folder has none. */
   list(prefix: string): Promise<StoredFile[]>;
+  /** Free and total bytes of the disk every upload shares. */
+  space(): Promise<{ freeBytes: number; totalBytes: number }>;
 }
 
 /** Files measured at once when listing a folder: thousands of photos never open thousands of handles. */
@@ -87,6 +89,12 @@ function createLocalFileStorage(rootDirectory: string): FileStorage {
         files.push(...measured);
       }
       return files;
+    },
+    async space() {
+      // The folder only appears with the first file written; measuring it before would fail.
+      await mkdir(root, { recursive: true });
+      const disk = await statfs(root);
+      return { freeBytes: disk.bavail * disk.bsize, totalBytes: disk.blocks * disk.bsize };
     },
   };
 }
