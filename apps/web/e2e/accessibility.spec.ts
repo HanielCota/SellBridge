@@ -47,6 +47,40 @@ for (const theme of ["dark", "light"] as const) {
   });
 }
 
+/**
+ * axe 4.13 ships "label-content-name-mismatch" as experimental (off by default; 4.14 turns it on),
+ * so it is run by name: a button or link named by aria-label must say the text it shows, or voice
+ * control users cannot click it by what they read. The demo seed has more than nine unread
+ * support replies, so the support badge shows "9+". Every page is checked before failing, so one
+ * run lists every mismatch.
+ */
+async function nameMismatches(page: Page, paths: readonly string[]): Promise<string[]> {
+  const found: string[] = [];
+  for (const path of paths) {
+    await gotoHydrated(page, path);
+    const results = await new AxeBuilder({ page })
+      .withRules(["label-content-name-mismatch"])
+      .analyze();
+    for (const node of results.violations.flatMap((violation) => violation.nodes)) {
+      found.push(`${path}: ${node.html.slice(0, 160)}`);
+    }
+  }
+  return found;
+}
+
+test("nomes acessíveis contêm o texto que aparece na tela", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  await signIn(page, DEMO_USER);
+  expect(await nameMismatches(page, APP_PAGES)).toEqual([]);
+
+  const context = await browser.newContext();
+  const admin = await context.newPage();
+  await signIn(admin, ADMIN_USER);
+  await enableAdminMode(admin);
+  expect(await nameMismatches(admin, TEAM_PAGES)).toEqual([]);
+  await context.close();
+});
+
 for (const theme of ["dark", "light"] as const) {
   test(`páginas da equipe sem problemas de acessibilidade no tema ${theme === "dark" ? "escuro" : "claro"}`, async ({
     page,

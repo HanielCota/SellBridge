@@ -11,9 +11,10 @@ import { Hint } from "@/components/ui/hint";
 import {
   outOfHoursNotice,
   shortSupportHoursText,
-  unreadRepliesText,
+  supportButtonLabel,
 } from "@/features/support/response-time";
 import { useNow } from "@/hooks/use-now";
+import { badgeCount } from "@/lib/badge-count";
 import { cn } from "@/lib/utils";
 
 const SupportIcon = ACTION_ICONS.support.icon;
@@ -80,7 +81,7 @@ export function SupportButton({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Hint label={ACTION_ICONS.support.hint} openOnTap={false}>
         <Popover.Trigger
-          aria-label={unread > 0 ? `Suporte: ${unreadRepliesText(unread)}` : "Suporte"}
+          aria-label={supportButtonLabel(unread)}
           className={
             className ??
             cn(
@@ -94,9 +95,10 @@ export function SupportButton({
           <span className="hidden text-sm font-medium xl:inline" aria-hidden="true">
             Suporte
           </span>
+          {/* Keeps "Suporte" and the badge apart as words, so the name check reads "Suporte 9+". */}{" "}
           {unread > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
-              {unread > 9 ? "9+" : unread}
+              {badgeCount(unread)}
             </span>
           ) : null}
         </Popover.Trigger>

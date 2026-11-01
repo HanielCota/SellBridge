@@ -10,8 +10,8 @@ const SeeAllIcon = ACTION_ICONS.seeAll.icon;
 export interface StatTileLink {
   to: NonNullable<LinkProps["to"]>;
   search?: LinkProps["search"];
-  /** What a screen reader hears: where the tile leads. */
-  ariaLabel: string;
+  /** Heard before the tile's figures: where the tile leads ("Ver receita no financeiro"). */
+  spokenDestination: string;
 }
 
 export interface StatTileProps {
@@ -83,12 +83,13 @@ export function StatTile(props: StatTileProps) {
       <Link
         to={link.to}
         {...(link.search === undefined ? {} : { search: link.search })}
-        aria-label={link.ariaLabel}
         className={cn(
           "group surface-interactive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
           TILE_CLASSES,
         )}
       >
+        {/* Named by its content, not an aria-label, so the name also carries the figures shown. */}
+        <span className="sr-only">{link.spokenDestination}: </span>
         <TileBody {...props} />
       </Link>
     </Hint>

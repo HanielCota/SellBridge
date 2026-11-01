@@ -271,7 +271,6 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Menu do usuário"
         onPointerDown={() => {
           openedWithPointer.current = true;
         }}
@@ -283,6 +282,8 @@ export function UserMenu({
           className,
         )}
       >
+        {/* Named by its content, not an aria-label, so the name contains the visible name and role. */}
+        <span className="sr-only">Menu do usuário: </span>
         {children}
         <MenuCaret />
       </DropdownMenuTrigger>

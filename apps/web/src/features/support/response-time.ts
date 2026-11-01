@@ -1,5 +1,6 @@
 import type { TicketStatus } from "@sellbridge/shared/schemas";
 import { isWithinSupportHours, SUPPORT_HOURS } from "@sellbridge/shared/support-hours";
+import { badgeCount } from "@/lib/badge-count";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -111,4 +112,18 @@ export function supportHoursText(now: Date): string {
 /** "1 chamado com resposta nova", "3 chamados com resposta nova": counts tickets, not messages. */
 export function unreadRepliesText(tickets: number): string {
   return tickets === 1 ? "1 chamado com resposta nova" : `${tickets} chamados com resposta nova`;
+}
+
+/**
+ * The support button's accessible name. It repeats the badge as shown ("9+" above nine), so the
+ * name contains the visible text and someone using voice control can say what they see.
+ */
+export function supportButtonLabel(unread: number): string {
+  if (unread === 0) {
+    return "Suporte";
+  }
+  if (unread === 1) {
+    return `Suporte: ${unreadRepliesText(1)}`;
+  }
+  return `Suporte: ${badgeCount(unread)} chamados com resposta nova`;
 }

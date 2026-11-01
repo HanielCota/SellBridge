@@ -253,7 +253,7 @@ test.describe("avisos", () => {
   test("conta nova não tem avisos", async ({ page }) => {
     await signUp(page, "Revendedor Sem Avisos");
     await gotoHydrated(page, "/onboarding");
-    await page.getByRole("button", { name: "Avisos" }).click();
+    await page.getByRole("button", { name: "Avisos", exact: true }).click();
     await expect(page.getByText(/Nada novo por aqui/)).toBeVisible();
   });
 });

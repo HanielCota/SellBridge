@@ -263,6 +263,7 @@ export function ListingMenu({
   onEditPrice: () => void;
 }) {
   const state = listingRunState(row);
+  const stateLabel = RUN_STATE_LABEL[listingNamedState(row)];
   return (
     <DropdownMenu>
       <Hint label={CONTROL_HINTS.listingActions} openOnTap={false}>
@@ -271,12 +272,13 @@ export function ListingMenu({
           <Button
             variant="ghost"
             size="sm"
-            aria-label={`Ações de ${row.title}`}
+            // The name repeats the state word shown on the button, so it matches what is read.
+            aria-label={`Ações de ${row.title}: ${stateLabel}`}
             className="absolute top-3 right-3 h-8 gap-1.5 rounded-full bg-background pr-2 pl-2.5 text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-foreground/15 aria-expanded:bg-background"
           >
             <span aria-hidden="true" className={cn("size-2 rounded-full", RUN_STATE_DOT[state])} />
             <span aria-hidden="true" className={RUN_STATE_TEXT[state]}>
-              {RUN_STATE_LABEL[listingNamedState(row)]}
+              {stateLabel}
             </span>
             <DotsThreeIcon weight="bold" className="size-5" aria-hidden="true" />
           </Button>
