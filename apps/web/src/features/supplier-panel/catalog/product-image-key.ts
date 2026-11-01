@@ -22,8 +22,13 @@ export const productImagePathSchema = z.object({
 });
 export type ProductImagePath = z.infer<typeof productImagePathSchema>;
 
+/** The storage folder that holds every photo a supplier sent. */
+export function productImageFolder(supplierId: string): string {
+  return `product-images/${supplierId}`;
+}
+
 export function productImageStorageKey(path: ProductImagePath): string {
-  return `product-images/${path.supplierId}/${path.fileName}`;
+  return `${productImageFolder(path.supplierId)}/${path.fileName}`;
 }
 
 export function productImageUrl(applicationUrl: string, supplierId: string, fileName: string) {

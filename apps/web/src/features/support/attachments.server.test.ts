@@ -6,6 +6,7 @@ function fakeStorage() {
     put: vi.fn<(key: string, bytes: Uint8Array) => Promise<void>>(),
     get: vi.fn<(key: string) => Promise<Uint8Array | null>>(),
     delete: vi.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
+    list: vi.fn<(prefix: string) => Promise<[]>>().mockResolvedValue([]),
   };
 }
 
