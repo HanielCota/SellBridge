@@ -50,9 +50,15 @@ async function readProductImage(request: Request) {
   return { supplierId: supplierId.data, bytes, type };
 }
 
+/** "https://…/imagens/<supplier>/<file>.png?v=1" → "<file>.png". */
+function fileNameOfLink(link: string): string {
+  const path = link.split(/[?#]/)[0] ?? "";
+  return path.split("/").at(-1) ?? "";
+}
+
 async function linkedFileNames(supplierId: string): Promise<ReadonlySet<string>> {
   const links = await listProductImageLinks(database, `${PRODUCT_IMAGE_PATH}/${supplierId}/`);
-  return new Set(links.map((link) => link.split(/[?#]/)[0]?.split("/").at(-1) ?? ""));
+  return new Set(links.map((link) => fileNameOfLink(link)));
 }
 
 /**

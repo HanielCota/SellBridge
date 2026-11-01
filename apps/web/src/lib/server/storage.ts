@@ -7,6 +7,7 @@ import { environment } from "./environment.ts";
  * Storage for user files. Development uses the local disk; production can swap in an
  * S3/R2 implementation behind the same interface (see docs/decisions.md).
  */
+/** A file in storage with its size in bytes and when it was last written. */
 export interface StoredFile {
   readonly key: string;
   readonly bytes: number;

@@ -147,6 +147,7 @@ export function supplierCatalogRowCount(sheet: XlsxSheet): number | null {
   return rows.length - rows.filter(isBlankRow).length;
 }
 
+/** The refusal of an import past the product limit, the same wherever the limit is checked. */
 export function tooManyProductsError() {
   return validationError(
     `A importação aceita no máximo ${MAX_PRODUCT_CSV_ROWS} produtos por vez. Divida a planilha do fornecedor`,

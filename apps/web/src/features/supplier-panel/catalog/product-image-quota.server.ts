@@ -64,7 +64,11 @@ export async function makeRoomForProductImage(
   const kept: StoredFile[] = [];
   const stale: StoredFile[] = [];
   for (const file of files) {
-    (isKept(file) ? kept : stale).push(file);
+    if (isKept(file)) {
+      kept.push(file);
+      continue;
+    }
+    stale.push(file);
   }
   await deleteAll(dependencies.storage, stale);
   logger.info("supplier_panel.unlinked_images_removed", {
