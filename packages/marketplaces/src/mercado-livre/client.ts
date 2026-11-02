@@ -1,4 +1,5 @@
 import type { AppError } from "@sellbridge/shared/errors";
+import { logger } from "@sellbridge/shared/logger";
 import type { z } from "zod";
 import { marketplaceAuthError, marketplaceError } from "../errors.ts";
 import { fetchWithRetry, isIdempotentMethod, type FetchLike, type RetryOptions } from "../http.ts";
@@ -41,6 +42,27 @@ export function credentials(config: MercadoLivreConfig): {
   return { clientId: config.clientId, clientSecret: config.clientSecret };
 }
 
+/** Longest marketplace text kept in one log entry. */
+const LOGGED_TEXT_LENGTH = 500;
+
+function forLog(text: string | undefined): string | undefined {
+  return text?.replace(/\s+/g, " ").slice(0, LOGGED_TEXT_LENGTH);
+}
+
+/** The screen only names the code; the marketplace's own words stay here for support. */
+function logRefusal(raw: unknown, status: number): void {
+  const body = errorBodySchema.safeParse(raw);
+  logger.warn("mercado_livre.refused", {
+    status,
+    error: forLog(body.success ? body.data.error : undefined),
+    message: forLog(body.success ? body.data.message : undefined),
+    causes: blockingCauses(raw).map((cause) => ({
+      code: forLog(cause.code),
+      message: forLog(cause.message),
+    })),
+  });
+}
+
 /**
  * A 5xx on a POST/PATCH (creating an item, rotating a single-use refresh token) does not say
  * whether it took effect, so it is reported as permanent instead of letting a job repeat it.
@@ -52,6 +74,7 @@ async function readError(response: Response, isIdempotent: boolean): Promise<App
     return marketplaceAuthError();
   }
   const retryable = response.status === 429 || (isIdempotent && response.status >= 500);
+  logRefusal(raw, response.status);
   return marketplaceError(explainMercadoLivreError(raw, response.status), {
     retryable,
     status: response.status,

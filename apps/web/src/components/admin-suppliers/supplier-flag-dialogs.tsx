@@ -216,7 +216,7 @@ function applyLabel(isPending: boolean, deactivates: boolean): string {
   if (isPending) {
     return "Aplicando…";
   }
-  return deactivates ? "Aplicar e desligar" : "Aplicar flag";
+  return deactivates ? "Aplicar e desligar" : "Aplicar advertência";
 }
 
 /** "Aplicar flag": a reason and a note the supplier reads; it counts for 90 days. */
@@ -235,10 +235,10 @@ export function ApplyFlagDialog({
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent className="grid-cols-[minmax(0,1fr)] gap-5 rounded-[1.75rem] p-5 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Aplicar flag</DialogTitle>
+          <DialogTitle>Aplicar advertência</DialogTitle>
           <DialogDescription>
             O fornecedor vê o motivo e a observação no painel por 90 dias e pode contestar pelo
-            suporte. Na 3ª flag ativa a conta dele é desligada, depois da sua confirmação.
+            suporte. Na 3ª advertência ativa a conta dele é desligada, depois da sua confirmação.
           </DialogDescription>
         </DialogHeader>
         {open ? (
@@ -261,7 +261,7 @@ function useRevokeFlag(supplierId: string, flagId: string | null, onClose: () =>
   const revoke = useFlagMutation(
     supplierId,
     teamRevokeSupplierFlag,
-    () => "Flag retirada.",
+    () => "Advertência retirada.",
     clearAndClose,
   );
   const close = () => {
@@ -301,9 +301,9 @@ export function RevokeFlagDialog({
     <ConfirmDialog
       open={flagId !== null}
       onOpenChange={(open) => (open ? undefined : close())}
-      title="Retirar flag?"
-      description="A flag deixa de contar na hora e some do painel do fornecedor. Ele não vê esta observação."
-      confirmLabel="Retirar flag"
+      title="Retirar advertência?"
+      description="A advertência deixa de contar na hora e some do painel do fornecedor. Ele não vê esta observação."
+      confirmLabel="Retirar advertência"
       pendingLabel="Retirando…"
       destructive
       isPending={revoke.isPending}

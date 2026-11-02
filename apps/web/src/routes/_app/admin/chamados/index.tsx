@@ -122,7 +122,7 @@ const columns = columnHelper.columns([
       info.getValue() ?? <span className="text-muted-foreground">Sem responsável</span>,
   }),
   columnHelper.accessor("status", {
-    header: "Status",
+    header: "Situação",
     cell: (info) => {
       const ticket = info.row.original;
       // A supplier conversation waits for the supplier: no team deadline applies to it.

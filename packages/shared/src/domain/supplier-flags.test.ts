@@ -73,7 +73,7 @@ describe("supplier flag counter", () => {
   });
 
   it("tells the supplier the 3rd flag turns the account off", () => {
-    expect(SUPPLIER_FLAG_LIMIT_WARNING).toBe("Na 3ª flag a conta é desligada.");
+    expect(SUPPLIER_FLAG_LIMIT_WARNING).toBe("Na 3ª advertência a conta é desligada.");
   });
 });
 
@@ -93,9 +93,11 @@ describe("three strikes", () => {
   });
 
   it("never counts past 3 when warning about a reactivated supplier", () => {
-    expect(deactivatingFlagNotice(2)).toBe("Esta é a flag 3 de 3: o fornecedor será desligado");
+    expect(deactivatingFlagNotice(2)).toBe(
+      "Esta é a advertência 3 de 3: o fornecedor será desligado",
+    );
     expect(deactivatingFlagNotice(3)).toBe(
-      "O fornecedor foi reativado com 3 flags ativas: esta flag o desliga de novo",
+      "O fornecedor foi reativado com 3 advertências ativas: esta advertência o desliga de novo",
     );
   });
 });

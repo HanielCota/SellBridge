@@ -1,7 +1,11 @@
+import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
 import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
 import { serverErrorLogging } from "@/lib/server/error-logging";
 import { tabProfileHeaders } from "@/lib/tab-profile";
 import { bodyLimitFor, declaresMoreThan, payloadTooLarge } from "@/lib/server/request-body-limit";
+
+// This module loads on the server and in the browser, so both validate with Portuguese messages.
+installPortugueseZodMessages();
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 

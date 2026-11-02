@@ -140,8 +140,8 @@ function CsvInstructions({ categories }: { categories: { name: string; slug: str
       </p>
       <p className="text-sm text-muted-foreground">
         CSV: use custo em reais (12,90 ou 12.90), categoria pelo identificador abaixo e imagens
-        separadas por |. Ativo aceita sim ou nao; vazio mantém o status atual. Sem preço sugerido, o
-        valor atual é mantido; novos produtos usam acréscimo de 50% e final ,90.
+        separadas por |. Ativo aceita sim ou nao; vazio mantém a situação atual. Sem preço sugerido,
+        o valor atual é mantido; novos produtos usam acréscimo de 50% e final ,90.
       </p>
       <p className="text-sm text-muted-foreground">
         Para o Mercado Livre, preencha marca, modelo e gtin (código de barras com 8, 12, 13 ou 14

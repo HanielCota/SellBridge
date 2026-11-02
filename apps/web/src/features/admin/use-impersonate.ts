@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
+import { authErrorMessage } from "@/lib/auth-error-message";
 import { rememberReturnPath } from "./impersonation-return";
 
 /**
@@ -17,7 +18,7 @@ export function useImpersonate() {
     const result = await authClient.admin.impersonateUser({ userId });
     if (result.error) {
       setPendingUserId(null);
-      toast.error(result.error.message ?? "Não foi possível entrar como este cliente.");
+      toast.error(authErrorMessage(result.error, "Não foi possível entrar como este cliente."));
       return;
     }
     window.location.assign(path);

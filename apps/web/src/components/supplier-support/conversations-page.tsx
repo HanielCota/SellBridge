@@ -47,7 +47,7 @@ function NoConversations({ kind, isFiltered }: { kind: ProfileKind; isFiltered: 
       <EmptyState
         icon={ChatsCircleIcon}
         title="Nenhuma conversa encontrada"
-        description="Ajuste a busca ou o status."
+        description="Ajuste a busca ou a situação."
       />
     );
   }

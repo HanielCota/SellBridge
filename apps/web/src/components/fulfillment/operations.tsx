@@ -55,7 +55,7 @@ type OperationRowData = Awaited<
 
 const STAGE_OPTIONS: { value: Search["stage"]; label: string }[] = [
   { value: "all", label: "Todas as etapas" },
-  { value: "unforwarded", label: "Paid orders to prepare" },
+  { value: "unforwarded", label: "Pagos a encaminhar" },
   ...FULFILLMENT_STATUSES.map((status) => ({ value: status, label: FULFILLMENT_LABELS[status] })),
 ];
 

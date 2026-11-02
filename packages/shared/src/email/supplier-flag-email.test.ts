@@ -16,9 +16,9 @@ describe("supplierFlagEmail", () => {
       },
       APP_URL,
     );
-    expect(email.subject).toBe("Nova flag na sua conta: Erro em pedido");
-    expect(email.text).toContain("Flags ativas: 1 de 3 em 90 dias.");
-    expect(email.text).toContain("Na 3ª flag a conta é desligada.");
+    expect(email.subject).toBe("Nova advertência na sua conta: Erro em pedido");
+    expect(email.text).toContain("Advertências ativas: 1 de 3 em 90 dias.");
+    expect(email.text).toContain("Na 3ª advertência a conta é desligada.");
     expect(email.text).toContain(PANEL_URL);
   });
 
@@ -33,7 +33,7 @@ describe("supplierFlagEmail", () => {
       },
       APP_URL,
     );
-    expect(email.text).toContain("Falta 1 flag para a conta ser desligada.");
+    expect(email.text).toContain("Falta 1 advertência para a conta ser desligada.");
   });
 
   it("says the account is off, and that orders already received still go out", () => {
@@ -63,9 +63,9 @@ describe("supplierFlagEmail", () => {
       },
       APP_URL,
     );
-    expect(email.subject).toBe("Nova flag na sua conta: Erro em pedido");
+    expect(email.subject).toBe("Nova advertência na sua conta: Erro em pedido");
     expect(email.text).toContain("Sua conta continua desligada.");
-    expect(email.text).not.toContain("Falta 1 flag");
+    expect(email.text).not.toContain("Falta 1 advertência");
     expect(email.text).not.toContain("a conta é desligada");
   });
 });

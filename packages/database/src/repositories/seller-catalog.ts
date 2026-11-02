@@ -117,7 +117,7 @@ async function lockSellerCatalog(database: DatabaseExecutor, tenantId: string) {
     .from(suppliers)
     .where(and(eq(suppliers.catalogKind, "seller"), eq(suppliers.ownerTenantId, tenantId)))
     .for("update");
-  if (source === undefined) throw notFoundError("Seller catalog not found");
+  if (source === undefined) throw notFoundError("Seu catálogo próprio não foi encontrado.");
   return source;
 }
 

@@ -31,10 +31,12 @@ function HowFlagsWork({ supplierId }: { supplierId: string }) {
         Quando uma regra é quebrada
       </h2>
       <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-        <li>A equipe pode aplicar uma flag e conta no painel o motivo e a regra quebrada.</li>
-        <li>Cada flag vale 90 dias e depois some sozinha.</li>
+        <li>
+          A equipe pode aplicar uma advertência e conta no painel o motivo e a regra quebrada.
+        </li>
+        <li>Cada advertência vale 90 dias e depois some sozinha.</li>
         <li>{SUPPLIER_FLAG_LIMIT_WARNING} Seus produtos saem do catálogo.</li>
-        <li>Não concorda com uma flag? Fale com o suporte e conte o que aconteceu.</li>
+        <li>Não concorda com uma advertência? Fale com o suporte e conte o que aconteceu.</li>
       </ul>
       <OwnFlagCount supplierId={supplierId} />
       <Link

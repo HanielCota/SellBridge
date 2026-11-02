@@ -150,7 +150,9 @@ function FlagsBlock({
             )}
           />
         )}
-        <h2 className="flex-1 text-subhead font-semibold">{clear ? "Sem flags" : "Flags"}</h2>
+        <h2 className="flex-1 text-subhead font-semibold">
+          {clear ? "Sem advertências" : "Advertências"}
+        </h2>
         <Button size="sm" variant="outline" asChild>
           <Link to="/fornecedor/painel/regras">
             Ver as 5 regras

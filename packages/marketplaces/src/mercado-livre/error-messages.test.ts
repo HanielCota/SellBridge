@@ -48,21 +48,26 @@ describe("explainMercadoLivreError", () => {
     );
   });
 
-  it("keeps the marketplace's own words for a code it does not know", () => {
+  // Decided on 2026-10-25: the screen speaks only Portuguese; the marketplace's own words go to
+  // the log, and the code lets support find them.
+  it("names an unknown code for support instead of quoting the marketplace", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.unknownCode, 400)).toBe(
-      "O Mercado Livre recusou o anúncio: Something new went wrong with this item. " +
-        "Revise o anúncio e tente de novo.",
+      "O Mercado Livre recusou o anúncio por um motivo que ainda não sabemos explicar. " +
+        "Fale com o suporte e informe o código item.something.new.",
     );
   });
 
-  it("cuts a long unknown message so the card stays readable", () => {
-    const long = {
+  it("leaves out a code that is not a plain identifier and never shows the message", () => {
+    const odd = {
       ...ERROR_FIXTURES.unknownCode,
-      cause: [{ ...ERROR_FIXTURES.unknownCode.cause[0], message: "x".repeat(1_500) }],
+      cause: [
+        { ...ERROR_FIXTURES.unknownCode.cause[0], code: "<b>x</b>", message: "x".repeat(50) },
+      ],
     };
-    const explained = explainMercadoLivreError(long, 400);
-    expect(explained.length).toBeLessThan(400);
-    expect(explained).toContain("…. Revise o anúncio e tente de novo.");
+    expect(explainMercadoLivreError(odd, 400)).toBe(
+      "O Mercado Livre recusou o anúncio por um motivo que ainda não sabemos explicar. " +
+        "Fale com o suporte.",
+    );
   });
 
   it("asks for a plain-text description", () => {
@@ -72,10 +77,13 @@ describe("explainMercadoLivreError", () => {
     );
   });
 
-  it("keeps today's message when the body has no cause", () => {
+  it("gives the status and code, in Portuguese, when the body has no cause", () => {
     expect(explainMercadoLivreError(ERROR_FIXTURES.withoutCause, 400)).toBe(
-      "Mercado Livre recusou a operação: attribute BRAND is required",
+      "O Mercado Livre respondeu com erro 400 (código bad_request). " +
+        "Tente de novo; se continuar, fale com o suporte.",
     );
-    expect(explainMercadoLivreError("not json", 502)).toBe("Mercado Livre respondeu com erro 502");
+    expect(explainMercadoLivreError("not json", 502)).toBe(
+      "O Mercado Livre respondeu com erro 502. Tente de novo; se continuar, fale com o suporte.",
+    );
   });
 });

@@ -38,7 +38,7 @@ describe("noticeSupplierFlag", () => {
     await noticeSupplierFlag(input);
     const [email] = mocks.send.mock.calls[0] ?? [];
     expect(email?.to).toBe("contato@fornecedor.com.br");
-    expect(email?.subject).toBe("Nova flag na sua conta: Erro em pedido");
+    expect(email?.subject).toBe("Nova advertência na sua conta: Erro em pedido");
     expect(email?.text).toContain("https://app.sellbridge.test/fornecedor/painel");
   });
 

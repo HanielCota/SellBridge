@@ -62,12 +62,12 @@ test.describe("avaliação de fornecedores", () => {
     await expect(reviewed.getByText("Sua nota: 4 de 5")).toBeVisible();
   });
 
-  test("mostra o score no card e na página do fornecedor", async ({ page }) => {
+  test("mostra a nota no card e na página do fornecedor", async ({ page }) => {
     await gotoHydrated(page, "/fornecedores?sort=reputation");
     await expect(page.getByText(/^Reputação: /).first()).toBeAttached();
     await page.getByRole("link", { name: "Franca Calçados Direto da Fábrica" }).click();
     const panel = page.getByRole("region", { name: "Reputação do fornecedor" });
-    await expect(panel.getByText(/Score do fornecedor · últimos 90 dias/)).toBeVisible();
+    await expect(panel.getByText(/Nota do fornecedor · últimos 90 dias/)).toBeVisible();
     await expect(panel.getByText("Taxa de cancelamento")).toBeVisible();
   });
 });

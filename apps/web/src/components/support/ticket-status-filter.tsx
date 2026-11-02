@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const ALL_STATUSES = "__all__";
 
 /**
- * "Todos os status" plus one option per ticket status; undefined means no filter. `labels`: the
+ * "Todas as situações" plus one option per ticket status; undefined means no filter. `labels`: the
  * team's words by default; customer screens pass their own, as their badges do.
  */
 export function TicketStatusFilter({
@@ -39,7 +39,7 @@ export function TicketStatusFilter({
         <SelectValue>{value ? labels[value] : "Todos os status"}</SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL_STATUSES}>Todos os status</SelectItem>
+        <SelectItem value={ALL_STATUSES}>Todas as situações</SelectItem>
         {TICKET_STATUSES.map((status) => (
           <SelectItem key={status} value={status}>
             {labels[status]}

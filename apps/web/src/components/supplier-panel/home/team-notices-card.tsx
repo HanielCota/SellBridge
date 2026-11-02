@@ -17,7 +17,7 @@ import { teamNoticesQueryOptions } from "@/features/supplier-panel/home/team-not
 import { cn } from "@/lib/utils";
 
 const COUNTER_HINT =
-  "Quantas flags valem agora. Cada flag vale 90 dias e depois some sozinha. Na 3ª flag a conta é desligada.";
+  "Quantas advertências valem agora. Cada advertência vale 90 dias e depois some sozinha. Na 3ª advertência a conta é desligada.";
 
 const LINK_CLASS_NAME =
   "inline-block text-sm font-medium text-brand-text underline-offset-4 hover:underline";
@@ -36,7 +36,7 @@ function remainingLine(count: number, active: boolean): string | null {
     return "A conta está desligada.";
   }
   if (SUPPLIER_FLAG_LIMIT - count === 1) {
-    return "Falta 1 flag para a conta ser desligada.";
+    return "Falta 1 advertência para a conta ser desligada.";
   }
   return null;
 }
@@ -56,7 +56,7 @@ function NoticeRow({ notice }: { notice: SupplierHomeTeamNotice }) {
       )}
       <p className="text-footnote text-muted-foreground">{supplierNoticeDatesLine(notice)}</p>
       <Link to="/suporte/novo" search={contestTicketSearch(notice)} className={LINK_CLASS_NAME}>
-        Contestar esta flag
+        Contestar esta advertência
       </Link>
     </li>
   );
@@ -65,7 +65,7 @@ function NoticeRow({ notice }: { notice: SupplierHomeTeamNotice }) {
 /**
  * "Avisos da equipe" on the supplier's home (MVP function 6): the flags that count now, in plain
  * words, the golden rule each one breaks and a way to contest each. Without flags it shows
- * nothing: the "Sem flags" line in the health section at the top of the list says it in one row.
+ * nothing: the "Sem advertências" line in the health section at the top of the list says it in one row.
  * While loading or on an error it shows nothing too, so the home never waits on it.
  */
 export function TeamNoticesCard({ supplierId, active }: { supplierId: string; active: boolean }) {

@@ -26,17 +26,17 @@ function standingWarning(input: SupplierFlagEmailInput): string {
     return "Sua conta continua desligada.";
   }
   if (SUPPLIER_FLAG_LIMIT - input.activeCount === 1) {
-    return "Falta 1 flag para a conta ser desligada.";
+    return "Falta 1 advertência para a conta ser desligada.";
   }
-  return `Na ${SUPPLIER_FLAG_LIMIT}ª flag a conta é desligada.`;
+  return `Na ${SUPPLIER_FLAG_LIMIT}ª advertência a conta é desligada.`;
 }
 
 function flagParagraphs(input: SupplierFlagEmailInput): string[] {
   const reason = SUPPLIER_FLAG_REASON_LABELS[input.reason];
-  const counter = `Flags ativas: ${supplierFlagCountLabel(input.activeCount)}.`;
+  const counter = `Advertências ativas: ${supplierFlagCountLabel(input.activeCount)}.`;
   const warning = standingWarning(input);
   return [
-    `A equipe SellBridge registrou uma flag na sua conta: ${reason}.`,
+    `A equipe SellBridge registrou uma advertência na sua conta: ${reason}.`,
     `${counter} ${warning}`,
   ];
 }
@@ -66,9 +66,9 @@ export function supplierFlagEmail(input: SupplierFlagEmailInput, appUrl: string)
   }
   return renderActionEmail(
     {
-      subject: `Nova flag na sua conta: ${SUPPLIER_FLAG_REASON_LABELS[input.reason]}`,
+      subject: `Nova advertência na sua conta: ${SUPPLIER_FLAG_REASON_LABELS[input.reason]}`,
       preview: "Veja o motivo e a observação da equipe no painel.",
-      heading: "Você recebeu uma flag",
+      heading: "Você recebeu uma advertência",
       paragraphs: [...flagParagraphs(input), "Veja o motivo e a observação da equipe no painel."],
       actionLabel: "Ver no painel",
       actionUrl: input.panelUrl,

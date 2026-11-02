@@ -63,7 +63,7 @@ export function submitTransition(
   if (current !== "draft") {
     return {
       allowed: false,
-      message: `Só um rascunho pode ser enviado para análise (status atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
+      message: `Só um rascunho pode ser enviado para análise (situação atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
     };
   }
   if (blockingIssueCount > 0) {
@@ -83,7 +83,7 @@ export function reviewTransition(
   if (current !== "in_review") {
     return {
       allowed: false,
-      message: `Só um produto em análise pode ser avaliado (status atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
+      message: `Só um produto em análise pode ser avaliado (situação atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
     };
   }
   return { allowed: true, next: decision === "approve" ? "approved" : "rejected" };

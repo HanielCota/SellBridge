@@ -51,14 +51,14 @@ describe("SupplierFlagsPanel", () => {
     const markup = render(false);
     expect(markup).toContain("Erro em pedido");
     expect(markup).toContain("Cor trocada no pedido 1234");
-    expect(markup).not.toContain("Aplicar flag");
-    expect(markup).not.toContain("Retirar flag");
+    expect(markup).not.toContain("Aplicar advertência");
+    expect(markup).not.toContain("Retirar advertência");
   });
 
   it("gives a supervisor or an admin the apply and revoke buttons", () => {
     const markup = render(true);
-    expect(markup).toContain("Aplicar flag");
-    expect(markup).toContain("Retirar flag");
+    expect(markup).toContain("Aplicar advertência");
+    expect(markup).toContain("Retirar advertência");
   });
 
   it("says a supplier with 3 active flags is out, or back in by an admin's hand", () => {
@@ -66,7 +66,9 @@ describe("SupplierFlagsPanel", () => {
       ...activeFlag,
       id: `${activeFlag.id}${suffix}`,
     }));
-    expect(render(false, flags, false)).toContain("Fornecedor desligado: chegou a 3 flags ativas");
+    expect(render(false, flags, false)).toContain(
+      "Fornecedor desligado: chegou a 3 advertências ativas",
+    );
     expect(render(false, flags, true)).toContain("foi reativado");
     expect(render(false)).not.toContain("Fornecedor desligado");
   });

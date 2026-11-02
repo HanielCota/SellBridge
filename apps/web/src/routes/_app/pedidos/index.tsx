@@ -237,7 +237,7 @@ const EMPTY_MESSAGES: Record<OrderReviewSearch["review"], { title: string; descr
     },
     done: {
       title: "Você ainda não avaliou pedidos",
-      description: "Avalie os pedidos entregues para formar o score dos fornecedores.",
+      description: "Avalie os pedidos entregues para formar a nota dos fornecedores.",
     },
     all: {
       title: "Nenhum pedido ainda",

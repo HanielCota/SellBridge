@@ -97,13 +97,42 @@ export const FULFILLMENT_NEXT: Record<FulfillmentStatus, FulfillmentStatus | nul
   not_delivered: null,
   returned: null,
 };
+/** Message for a text past its limit, the way the forms say it ("até 1.000 caracteres"). */
+function upTo(subject: string, maximum: number): string {
+  return `${subject} pode ter até ${maximum.toLocaleString("pt-BR")} caracteres`;
+}
+
 export const deliveryAddressSchema = z.object({
-  recipient: freeText().trim().min(2).max(120).superRefine(refuseContactDetails),
-  street: freeText().trim().min(2).max(200).superRefine(refuseContactDetails),
-  number: freeText().trim().min(1).max(30).superRefine(refuseContactDetails),
-  complement: freeText().trim().max(150).superRefine(refuseContactDetails).default(""),
-  neighborhood: freeText().trim().min(2).max(100).superRefine(refuseContactDetails),
-  city: freeText().trim().min(2).max(100).superRefine(refuseContactDetails),
+  recipient: freeText()
+    .trim()
+    .min(2, "Informe o nome de quem recebe")
+    .max(120, upTo("O nome de quem recebe", 120))
+    .superRefine(refuseContactDetails),
+  street: freeText()
+    .trim()
+    .min(2, "Informe a rua")
+    .max(200, upTo("A rua", 200))
+    .superRefine(refuseContactDetails),
+  number: freeText()
+    .trim()
+    .min(1, "Informe o número (ou s/n)")
+    .max(30, upTo("O número", 30))
+    .superRefine(refuseContactDetails),
+  complement: freeText()
+    .trim()
+    .max(150, upTo("O complemento", 150))
+    .superRefine(refuseContactDetails)
+    .default(""),
+  neighborhood: freeText()
+    .trim()
+    .min(2, "Informe o bairro")
+    .max(100, upTo("O bairro", 100))
+    .superRefine(refuseContactDetails),
+  city: freeText()
+    .trim()
+    .min(2, "Informe a cidade")
+    .max(100, upTo("A cidade", 100))
+    .superRefine(refuseContactDetails),
   state: freeText()
     .trim()
     .regex(/^[A-Z]{2}$/, "Informe a UF com duas letras"),
@@ -115,16 +144,24 @@ export type DeliveryAddress = z.infer<typeof deliveryAddressSchema>;
 export const forwardOrderSchema = z.object({
   orderId: z.uuid(),
   address: deliveryAddressSchema,
-  notes: freeText().trim().max(1000).superRefine(refuseContactDetails).default(""),
+  notes: freeText()
+    .trim()
+    .max(1000, upTo("As instruções", 1000))
+    .superRefine(refuseContactDetails)
+    .default(""),
 });
 export const shipmentUpdateSchema = z
   .object({
     shipmentId: z.uuid(),
     status: z.enum(FULFILLMENT_STATUSES),
-    carrier: freeText().trim().max(100).superRefine(refuseContactDetails).default(""),
+    carrier: freeText()
+      .trim()
+      .max(100, upTo("A transportadora", 100))
+      .superRefine(refuseContactDetails)
+      .default(""),
     trackingCode: freeText()
       .trim()
-      .max(100)
+      .max(100, upTo("O código de rastreio", 100))
       .regex(/^[A-Za-z0-9 .-]*$/, "Use só letras, números, pontos e hífens no código de rastreio")
       .superRefine(refuseContactDetails)
       .default(""),
@@ -132,7 +169,7 @@ export const shipmentUpdateSchema = z
       .union([
         z.literal(""),
         z
-          .url()
+          .url("Informe o endereço completo do rastreio, começando com https://")
           .max(2048, "Use um endereço de até 2048 caracteres")
           .refine(
             (value) => URL.canParse(value) && new URL(value).protocol === "https:",
@@ -143,7 +180,7 @@ export const shipmentUpdateSchema = z
       .default(""),
     note: freeText()
       .trim()
-      .max(1000)
+      .max(1000, upTo("O texto", 1000))
       .superRefine(refuseContactDetails)
       // Only the server writes that step (with the code it replaced); typed, it would fake one.
       .refine(

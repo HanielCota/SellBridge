@@ -5,7 +5,8 @@ import { errorBodySchema } from "./schemas.ts";
 /**
  * Mercado Livre's refusals in the reseller's words: what happened, then what to do. The codes
  * are the ones of the official "Validações" table (developers.mercadolivre.com.br/pt_br/validacoes,
- * read on 2026-10-15); a code it does not list keeps the marketplace's own message.
+ * read on 2026-10-15). A code it does not list gets a Portuguese message naming the code for
+ * support; the marketplace's own words only go to the log (`client.ts`), decided on 2026-10-25.
  */
 
 const causeSchema = z.object({
@@ -21,12 +22,15 @@ type MercadoLivreCause = z.infer<typeof causeSchema>;
 /** How many blocking errors one message names: more would bury the first under the rest. */
 const SHOWN_ERRORS = 2;
 
-/** The marketplace's own words for an unknown code, cut so the listing card stays readable. */
-const QUOTED_LENGTH = 300;
+/** A marketplace code shown to the reseller: a plain identifier, never free text. */
+const SUPPORT_CODE = /^[\w.-]{1,80}$/;
 
-function quoted(words: string): string {
-  const trimmed = words.replace(/\.$/, "");
-  return trimmed.length <= QUOTED_LENGTH ? trimmed : `${trimmed.slice(0, QUOTED_LENGTH - 1)}…`;
+/** The marketplace code, when it is a plain identifier worth repeating to support; else null. */
+function codeForSupport(code: string | undefined): string | null {
+  if (code === undefined || !SUPPORT_CODE.test(code)) {
+    return null;
+  }
+  return code;
 }
 
 const AGAIN = "e publique de novo.";
@@ -98,8 +102,13 @@ function explainCause(cause: MercadoLivreCause): string {
   if (explain !== undefined) {
     return explain(cause);
   }
-  const words = quoted(cause.message ?? cause.code ?? "erro sem detalhe");
-  return `O Mercado Livre recusou o anúncio: ${words}. Revise o anúncio e tente de novo.`;
+  const unexplained =
+    "O Mercado Livre recusou o anúncio por um motivo que ainda não sabemos explicar.";
+  const code = codeForSupport(cause.code);
+  if (code === null) {
+    return `${unexplained} Fale com o suporte.`;
+  }
+  return `${unexplained} Fale com o suporte e informe o código ${code}.`;
 }
 
 /** The blocking causes of a refusal: warnings are informative and never reach the reseller. */
@@ -122,8 +131,7 @@ export function explainMercadoLivreError(body: unknown, status: number): string 
     return blocking.slice(0, SHOWN_ERRORS).map(explainCause).join(" ");
   }
   const parsed = errorBodySchema.safeParse(body);
-  const detail = parsed.success ? (parsed.data.message ?? parsed.data.error ?? "") : "";
-  return detail
-    ? `Mercado Livre recusou a operação: ${detail}`
-    : `Mercado Livre respondeu com erro ${status}`;
+  const code = codeForSupport(parsed.success ? parsed.data.error : undefined);
+  const named = code === null ? "" : ` (código ${code})`;
+  return `O Mercado Livre respondeu com erro ${status}${named}. Tente de novo; se continuar, fale com o suporte.`;
 }

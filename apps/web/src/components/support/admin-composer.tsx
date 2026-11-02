@@ -180,7 +180,7 @@ function SendOptionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Status após enviar
+          Situação após enviar
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={state.statusAfter}

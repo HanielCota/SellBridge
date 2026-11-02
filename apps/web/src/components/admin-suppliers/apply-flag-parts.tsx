@@ -26,9 +26,9 @@ export function BrokenRuleHint({ reason }: { reason: SupplierFlagReason | "" }) 
 
 export function appliedMessage(result: AppliedSupplierFlag): string {
   if (result.supplierDeactivated) {
-    return "Flag aplicada. O fornecedor foi desligado e os anúncios dele foram pausados.";
+    return "Advertência aplicada. O fornecedor foi desligado e os anúncios dele foram pausados.";
   }
-  return "Flag aplicada.";
+  return "Advertência aplicada.";
 }
 
 const CONFIRM_ERROR_ID = "flag-confirm-deactivation-error";
@@ -64,7 +64,7 @@ export function DeactivationConfirm({
             className="mt-0.5"
           />
           <label htmlFor="flag-confirm-deactivation" className="text-sm text-foreground">
-            Confirmo: aplicar a flag e desligar o fornecedor
+            Confirmo: aplicar a advertência e desligar o fornecedor
           </label>
         </div>
         {error === undefined ? null : (

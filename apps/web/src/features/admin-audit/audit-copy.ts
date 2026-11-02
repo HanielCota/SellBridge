@@ -26,8 +26,8 @@ const CATALOG_COPY: Readonly<Record<string, string>> = {
   "product.updated": "Editou o produto",
   "product.activated": "Ativou o produto",
   "product.deactivated": "Desativou o produto",
-  "supplier.flag_applied": "Aplicou uma flag ao fornecedor",
-  "supplier.flag_revoked": "Retirou uma flag do fornecedor",
+  "supplier.flag_applied": "Aplicou uma advertência ao fornecedor",
+  "supplier.flag_revoked": "Retirou uma advertência do fornecedor",
 };
 
 const STATUS_LABELS: Readonly<Record<string, string>> = TICKET_STATUS_LABELS;
@@ -48,13 +48,13 @@ function plural(count: number, one: string, other: string): string {
   return `${count} ${count === 1 ? one : other}`;
 }
 
-/** "Aplicou uma flag ao fornecedor: Erro em pedido" (MVP function 6). */
+/** "Aplicou uma advertência ao fornecedor: Erro em pedido" (MVP function 6). */
 function describeFlagApplied(details: AuditDetails): string {
   const reason = SUPPLIER_FLAG_REASONS.find((known) => known === textDetail(details, "reason"));
   if (reason === undefined) {
-    return "Aplicou uma flag ao fornecedor";
+    return "Aplicou uma advertência ao fornecedor";
   }
-  return `Aplicou uma flag ao fornecedor: ${SUPPLIER_FLAG_REASON_LABELS[reason]}`;
+  return `Aplicou uma advertência ao fornecedor: ${SUPPLIER_FLAG_REASON_LABELS[reason]}`;
 }
 
 function describeCatalog(action: string, details: AuditDetails): string {
@@ -62,7 +62,7 @@ function describeCatalog(action: string, details: AuditDetails): string {
     return describeFlagApplied(details);
   }
   if (action === "supplier.deactivated" && textDetail(details, "cause") === "third_flag") {
-    return "Desativou o fornecedor na 3ª flag";
+    return "Desativou o fornecedor na 3ª advertência";
   }
   if (action === "contact_blocked") {
     return `Tentou enviar ${contactKindsLabel(details)} no pedido (bloqueado)`;
@@ -83,7 +83,7 @@ function labelOf(labels: Readonly<Record<string, string>>, value: string | null)
 }
 
 const SUPPORT_COPY: Readonly<Record<string, (to: string | null, from: string | null) => string>> = {
-  "ticket.status_changed": (to) => `Mudou o status para ${labelOf(STATUS_LABELS, to)}`,
+  "ticket.status_changed": (to) => `Mudou a situação para ${labelOf(STATUS_LABELS, to)}`,
   "ticket.priority_changed": (to) => `Mudou a prioridade para ${labelOf(PRIORITY_LABELS, to)}`,
   "ticket.category_changed": (to) => `Mudou o tema para ${labelOf(CATEGORY_LABELS, to)}`,
   "ticket.assigned": (to) => (to === null ? "Tirou o responsável" : "Definiu o responsável"),

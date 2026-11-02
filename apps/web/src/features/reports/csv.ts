@@ -10,7 +10,7 @@ const HEADERS = [
   "Pedido",
   "Loja",
   "Comprador",
-  "Status",
+  "Situação",
   "Itens",
   "Receita",
   "Custo do fornecedor",
