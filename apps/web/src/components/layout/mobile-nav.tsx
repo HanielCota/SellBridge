@@ -11,6 +11,7 @@ import {
   hasProfileSwitch,
   NavList,
   ProfileSwitch,
+  shownMenu,
   type AppNavigation,
 } from "./nav-list";
 import { TeamDivider, type BadgeCounts } from "./nav-tab";
@@ -45,7 +46,13 @@ export function MobileNav({
     setIsOpen(open);
   };
   const close = () => setIsOpen(false);
-  const list = { navigation, shownKind, pathname, counts, onNavigate: close };
+  const account = { user, adminMode, profileKind, supportReplies: counts.supportReplies };
+  const list = {
+    navigation,
+    shown: shownMenu(navigation, shownKind, pathname),
+    counts,
+    onNavigate: close,
+  };
   return (
     <Sheet open={isOpen} onOpenChange={openSheet}>
       <MenuTrigger />
@@ -68,12 +75,7 @@ export function MobileNav({
           <AccountNavList {...list} />
         </nav>
         <div className="mt-4 border-t border-border pt-3">
-          <AccountChip
-            user={user}
-            supportReplies={counts.supportReplies}
-            adminMode={adminMode}
-            profileKind={profileKind}
-          />
+          <AccountChip {...account} />
         </div>
       </SheetContent>
     </Sheet>

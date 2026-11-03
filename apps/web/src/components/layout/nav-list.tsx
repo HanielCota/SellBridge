@@ -25,11 +25,19 @@ export interface AppNavigation {
   teamItems: readonly NavItem[];
 }
 
+/** What both lists show, worked out once per menu so they always light the same item. */
+export interface ShownMenu {
+  /** The profile whose items show; differs from the tab's own while an admin peeks at the other. */
+  kind: ProfileKind;
+  items: readonly NavItem[];
+  /** The profile its links open (`?perfil=`); null keeps the tab's own. */
+  slug: string | null;
+  activeTo: NavItem["to"] | null;
+}
+
 interface ListProps {
   navigation: AppNavigation;
-  /** The profile whose items show; differs from the tab's own while an admin peeks at the other. */
-  shownKind: ProfileKind;
-  pathname: string;
+  shown: ShownMenu;
   counts: BadgeCounts;
   onNavigate?: (() => void) | undefined;
   /** The sidebar shrunk to its icons: headings give way to hairlines. */
@@ -38,17 +46,22 @@ interface ListProps {
   withHint?: boolean;
 }
 
-function shownSection(navigation: AppNavigation, shownKind: ProfileKind) {
-  const section = navigation.profileSections.find((candidate) => candidate.kind === shownKind);
-  return { items: section?.items ?? navigation.profileItems, slug: section?.slug ?? null };
-}
-
-/** The one item to light across the whole menu: the longest matching route wins. */
-function activeItem(navigation: AppNavigation, shownKind: ProfileKind, pathname: string) {
-  const shown = shownSection(navigation, shownKind);
+/**
+ * The shown profile's items and the one item to light across the whole menu (the longest
+ * matching route wins), for the work list and the foot alike.
+ */
+export function shownMenu(
+  navigation: AppNavigation,
+  kind: ProfileKind,
+  pathname: string,
+): ShownMenu {
+  const section = navigation.profileSections.find((candidate) => candidate.kind === kind);
+  const items = section?.items ?? navigation.profileItems;
+  const slug = section?.slug ?? null;
   // Items of a profile peeked at belong to another tab, so none of them is the page open here.
-  const profileItems = shown.slug === null ? [...shown.items, ...ACCOUNT_NAV_ITEMS[shownKind]] : [];
-  return activeNavItemTo([...profileItems, ...navigation.teamItems], pathname);
+  const profileItems = slug === null ? [...items, ...ACCOUNT_NAV_ITEMS[kind]] : [];
+  const activeTo = activeNavItemTo([...profileItems, ...navigation.teamItems], pathname);
+  return { kind, items, slug, activeTo };
 }
 
 /** Whether the admin can open both profiles, so the menu offers the switch between them. */
@@ -157,16 +170,13 @@ function ItemGroups({
 /** The work items: the shown profile's, then the team's under "Administração". */
 export function NavList({
   navigation,
-  shownKind,
-  pathname,
+  shown,
   counts,
   onNavigate,
   collapsed = false,
   withHint = false,
 }: ListProps) {
-  const shown = shownSection(navigation, shownKind);
-  const activeTo = activeItem(navigation, shownKind, pathname);
-  const shared = { activeTo, counts, onNavigate, collapsed, withHint };
+  const shared = { activeTo: shown.activeTo, counts, onNavigate, collapsed, withHint };
   return (
     <>
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
@@ -186,27 +196,23 @@ export function NavList({
  * support link where support opens as a card (the sidebar).
  */
 export function AccountNavList({
-  navigation,
-  shownKind,
-  pathname,
+  shown,
   counts,
   onNavigate,
   collapsed = false,
   withHint = false,
   supportPanel = null,
-}: ListProps & { supportPanel?: ReactNode }) {
-  const shown = shownSection(navigation, shownKind);
-  const activeTo = activeItem(navigation, shownKind, pathname);
+}: Omit<ListProps, "navigation"> & { supportPanel?: ReactNode }) {
   return (
     <div className="grid gap-1">
-      {ACCOUNT_NAV_ITEMS[shownKind].map((item) =>
+      {ACCOUNT_NAV_ITEMS[shown.kind].map((item) =>
         item.to === SUPPORT_NAV_ITEM.to && supportPanel !== null ? (
           <Fragment key={item.to}>{supportPanel}</Fragment>
         ) : (
           <NavTab
             key={item.to}
             item={item}
-            isActive={shown.slug === null && item.to === activeTo}
+            isActive={shown.slug === null && item.to === shown.activeTo}
             count={item.badge && shown.slug === null ? counts[item.badge] : 0}
             profileSlug={shown.slug}
             onNavigate={onNavigate}

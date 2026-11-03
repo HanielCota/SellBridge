@@ -14,7 +14,7 @@ import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-r
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/features/auth/session.functions";
 import { AccountChip } from "./account-chip";
-import { AccountNavList, NavList, ProfileSwitch } from "./nav-list";
+import { AccountNavList, NavList, ProfileSwitch, shownMenu } from "./nav-list";
 import { SupportButton } from "./support-button";
 import type { AppNavigationState } from "./use-app-navigation";
 
@@ -160,8 +160,7 @@ export function SideNav({
   const account = { user, adminMode, profileKind, supportReplies: state.counts.supportReplies };
   const list = {
     navigation: state.navigation,
-    shownKind,
-    pathname: state.pathname,
+    shown: shownMenu(state.navigation, shownKind, state.pathname),
     counts: state.counts,
     collapsed,
     withHint: true,
