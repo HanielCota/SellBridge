@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { member, organization, ticketEvents, tickets, user } from "../schema/index.ts";
-import { createTestDatabase, createTestTenantPair, createTestUsers } from "../testing/fixtures.ts";
+import {
+  createTestDatabase,
+  createTestTenantPair,
+  createTestTenants,
+  createTestUsers,
+} from "../testing/fixtures.ts";
 import { findImpersonationTarget } from "./impersonation-target.ts";
 import { createTicket } from "./support-create.ts";
 
@@ -107,6 +112,26 @@ describe("findImpersonationTarget", () => {
   it("counts a ticket the customer reopened by writing again", async () => {
     const { ticketId } = await reopenedTicket(owner);
     expect((await findImpersonationTarget(database, owner)).openTicketId).toBe(ticketId);
+  });
+
+  // Regression (security audit, 31/10/2026): a reseller's open conversation with their supplier
+  // let any agent visit the account, though the team never handles those conversations.
+  it("ignores a conversation with the supplier, which the team does not answer", async () => {
+    const reseller = await createTestTenants(database, 1);
+    const resellerUsers = await createTestUsers(database, 1);
+    const [tenantId = "", resellerId = ""] = [reseller.ids[0], resellerUsers.ids[0]];
+    await join(tenantId, resellerId);
+    const { ticketId } = await openTicket(tenantId, resellerId);
+    await database
+      .update(tickets)
+      .set({ audience: "supplier", supplierTopic: "order" })
+      .where(eq(tickets.id, ticketId));
+
+    const target = await findImpersonationTarget(database, resellerId);
+
+    expect(target.openTicketId).toBeNull();
+    await resellerUsers.cleanup();
+    await reseller.cleanup();
   });
 
   it("knows nothing about an account without a profile", async () => {

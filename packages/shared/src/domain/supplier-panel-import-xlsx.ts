@@ -185,13 +185,23 @@ function readRow(rowXml: string, shared: readonly string[]): string[] {
   return cells;
 }
 
+function firstElementAttributes(xml: string, name: string): string {
+  for (const element of xmlElements(xml, name)) {
+    return element.attributes;
+  }
+  return "";
+}
+
+/**
+ * The linear scanner, not a `[^>]*` regex: that one ran past every later `<sheet` to the end of
+ * the entry and retried from each, so a few KB of unclosed openers held the server.
+ */
 function firstSheetPath(bytes: Uint8Array, entries: ReadonlyMap<string, ZipEntry>): string {
   const workbook = readZipText(bytes, entries, "xl/workbook.xml") ?? "";
   const relations = readZipText(bytes, entries, "xl/_rels/workbook.xml.rels") ?? "";
-  const sheet = /<(?:\w+:)?sheet\b([^>]*)\/?>/.exec(workbook)?.[1] ?? "";
-  const relationId = attribute(sheet, "r:id");
-  const relation = [...relations.matchAll(/<(?:\w+:)?Relationship\b([^>]*)\/?>/g)]
-    .map((match) => match[1] ?? "")
+  const relationId = attribute(firstElementAttributes(workbook, "sheet"), "r:id");
+  const relation = [...xmlElements(relations, "Relationship")]
+    .map((element) => element.attributes)
     .find((attributes) => attribute(attributes, "Id") === relationId);
   const target = relation === undefined ? null : attribute(relation, "Target");
   if (target === null) {

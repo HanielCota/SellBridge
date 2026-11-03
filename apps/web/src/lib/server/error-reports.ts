@@ -8,10 +8,15 @@ const WINDOW_MILLISECONDS = 60_000;
 const PER_CLIENT = 30;
 /** Every client together per minute, so made-up addresses cannot write the log without end. */
 const TOTAL = 600;
+/** Browser errors within `BURST_WINDOW_MILLISECONDS` that alert the team: a burst means a broken page. */
+const BURST_THRESHOLD = 20;
+const BURST_WINDOW_MILLISECONDS = 5 * 60_000;
 
 let windowStarted = 0;
 let received = 0;
 let byClient = new Map<string, number>();
+let burstStarted = 0;
+let burstReports = 0;
 
 /**
  * The variables this receiver reads, validated on their own and leniently: it must keep working
@@ -65,6 +70,24 @@ function admit(request: Request, now: number): boolean {
   return true;
 }
 
+/**
+ * Anyone can post a report, so its text never reaches the alert channel (error level is what
+ * alerts): the channel only hears that reports piled up, once per window.
+ */
+function countBrowserError(now: number): void {
+  if (now - burstStarted >= BURST_WINDOW_MILLISECONDS) {
+    burstStarted = now;
+    burstReports = 0;
+  }
+  burstReports += 1;
+  if (burstReports === BURST_THRESHOLD) {
+    logger.error("web.browser_error_burst", {
+      reports: burstReports,
+      windowMinutes: BURST_WINDOW_MILLISECONDS / 60_000,
+    });
+  }
+}
+
 function response(status: number): Response {
   return new Response(null, { status, headers: { "cache-control": "no-store" } });
 }
@@ -95,12 +118,13 @@ export async function handleErrorReport(request: Request): Promise<Response> {
     const body = Buffer.concat(chunks).toString("utf8");
     const parsed = errorReportSchema.safeParse(JSON.parse(body));
     if (!parsed.success) return response(400);
-    logger.error("web.route_error", {
+    logger.warn("web.route_error", {
       ...parsed.data,
       message: redactDiagnostic(parsed.data.message),
       source: "browser",
       serverBuildId: import.meta.env.VITE_BUILD_ID ?? "development",
     });
+    countBrowserError(Date.now());
     return response(204);
   } catch {
     return response(400);

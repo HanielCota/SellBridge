@@ -186,6 +186,14 @@ describe("normalizeImportFile xlsx", () => {
     expect(() => normalizeImportFile(sheet)).toThrow(/sem fechamento/);
   });
 
+  // Regression (security audit, 31/10/2026): the first-sheet lookup ran from every unclosed
+  // `<sheet` to the end of workbook.xml.
+  it("looks up the first sheet without stalling on unclosed sheet tags", { timeout: 1_000 }, () => {
+    const workbook = buildZip([{ name: "xl/workbook.xml", content: "<sheet".repeat(50_000) }]);
+    expect(workbook.byteLength).toBeLessThan(4 * 1024);
+    expect(() => normalizeImportFile(workbook)).toThrow(/não tem aba com dados/);
+  });
+
   it("refuses a damaged spreadsheet with a message that says what to do", () => {
     const damaged = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
     expect(() => normalizeImportFile(damaged)).toThrow(/salve de novo como .xlsx ou CSV/);

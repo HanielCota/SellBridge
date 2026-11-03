@@ -1,7 +1,10 @@
-import { readXlsxSheets } from "../runtime/xlsx-reader.ts";
+import { readXlsxSheets, type XlsxSheet } from "../runtime/xlsx-reader.ts";
+import { MAX_PRODUCT_CSV_ROWS } from "../schemas/admin-suppliers.ts";
 import {
   buildCatalogImport,
   detectSpreadsheet,
+  supplierCatalogRowCount,
+  tooManyProductsError,
   type CatalogCategory,
   type CatalogImport,
 } from "./catalog-spreadsheet.ts";
@@ -21,11 +24,25 @@ export async function readSupplierCatalogFile(
     return null;
   }
   const sheets = await readXlsxSheets(new Uint8Array(bytes));
-  const catalogs = sheets
-    .flatMap((sheet) => detectSpreadsheet(sheet, fileName) ?? [])
-    .filter((sheet) => sheet.kind === "supplier-catalog");
-  if (catalogs.length === 0) {
+  const catalogSheets: XlsxSheet[] = [];
+  let productCount = 0;
+  for (const sheet of sheets) {
+    const rowCount = supplierCatalogRowCount(sheet);
+    if (rowCount == null) {
+      continue;
+    }
+
+    productCount += rowCount;
+    if (productCount > MAX_PRODUCT_CSV_ROWS) {
+      throw tooManyProductsError();
+    }
+
+    catalogSheets.push(sheet);
+  }
+  if (catalogSheets.length === 0) {
     return null;
   }
+
+  const catalogs = catalogSheets.flatMap((sheet) => detectSpreadsheet(sheet, fileName) ?? []);
   return buildCatalogImport({ sheets: catalogs, categories: await loadCategories() });
 }

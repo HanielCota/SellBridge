@@ -62,6 +62,16 @@ describe("promoteVerifiedOwner", () => {
     expect(await database.select().from(session).where(eq(session.userId, ownerId))).toEqual([]);
   });
 
+  // Regression (security audit, 31/10/2026): a sign-in that read the password before the promotion
+  // committed kept the session it inserted afterwards, already with the admin role.
+  it("drops a session left by a sign-in that raced the promotion", async () => {
+    await addSession(ownerId);
+
+    await promoteVerifiedOwner(database, ownerId);
+
+    expect(await database.select().from(session).where(eq(session.userId, ownerId))).toEqual([]);
+  });
+
   it("changes nothing for an account that already is an admin", async () => {
     await addSignIn(ownerId, "google");
     await expect(promoteVerifiedOwner(database, ownerId)).resolves.toEqual({
@@ -69,6 +79,16 @@ describe("promoteVerifiedOwner", () => {
       hadPassword: false,
     });
     expect(await database.select().from(account).where(eq(account.userId, ownerId))).toHaveLength(
+      1,
+    );
+  });
+
+  it("keeps the session of an owner who signed in again with a method of their own", async () => {
+    await addSession(ownerId);
+
+    await promoteVerifiedOwner(database, ownerId);
+
+    expect(await database.select().from(session).where(eq(session.userId, ownerId))).toHaveLength(
       1,
     );
   });

@@ -8,7 +8,11 @@ import {
 } from "@sellbridge/shared/catalog-spreadsheet";
 import { AppError, isAppError, validationError } from "@sellbridge/shared/errors";
 import { MAX_PRODUCT_CSV_BYTES } from "@sellbridge/shared/schemas";
-import { MAX_XLSX_BYTES, readXlsxSheets } from "@sellbridge/shared/xlsx-reader";
+import {
+  BROWSER_MAX_SHARED_STRINGS,
+  MAX_XLSX_BYTES,
+  readXlsxSheets,
+} from "@sellbridge/shared/xlsx-reader";
 import { useState } from "react";
 import { errorMessage } from "@/lib/errors";
 import { adminConfirmProductCsv, adminPreviewProductCsv } from "./suppliers.functions";
@@ -32,7 +36,9 @@ async function detectFile(file: File): Promise<DetectedSpreadsheet[]> {
     throw validationError(`A planilha ${file.name} deve ter no máximo 20 MiB`);
   }
 
-  const sheets = await readXlsxSheets(new Uint8Array(await file.arrayBuffer()));
+  const sheets = await readXlsxSheets(new Uint8Array(await file.arrayBuffer()), {
+    maxSharedStrings: BROWSER_MAX_SHARED_STRINGS,
+  });
   const detected = sheets.flatMap((sheet) => detectSpreadsheet(sheet, file.name) ?? []);
   if (detected.length === 0) {
     throw validationError(

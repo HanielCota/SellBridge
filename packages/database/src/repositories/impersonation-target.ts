@@ -3,11 +3,12 @@ import { STAFF_ROLES } from "@sellbridge/shared/staff-access";
 import { and, asc, desc, eq, inArray, ne, notExists, or } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { member, organization, ticketEvents, tickets, user } from "../schema/index.ts";
+import { platformTicketSql } from "./support-audience.ts";
 
 export interface ImpersonationTarget {
   /**
-   * The latest ticket not closed of the account or of a profile it belongs to, leaving out
-   * tickets the team reopened after they were closed.
+   * The latest ticket for the team not closed of the account or of a profile it belongs to,
+   * leaving out tickets the team reopened after they were closed.
    */
   openTicketId: string | null;
   /** The kind of the account's first profile: a supplier visit opens on the supplier panel. */
@@ -37,6 +38,8 @@ async function latestOpenTicketId(database: Database, userId: string): Promise<s
     .from(tickets)
     .where(
       and(
+        // A conversation with the supplier is not a request for the team: it opens no door.
+        platformTicketSql,
         ne(tickets.status, "closed"),
         or(eq(tickets.createdById, userId), inArray(tickets.tenantId, profiles)),
         notExists(reopenedByTeam),

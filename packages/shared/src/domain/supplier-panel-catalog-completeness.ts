@@ -93,12 +93,23 @@ function attributeValue(product: CompletenessProduct, id: string): string {
   return (product.mercadoLivreAttributes[id] ?? "").trim();
 }
 
+function prohibitedMatch(product: Pick<CompletenessProduct, "title" | "description">) {
+  return findProhibitedProduct(`${product.title} ${product.description}`);
+}
+
+/** Whether the title or description names a product the marketplaces refuse. */
+export function isProhibitedProduct(
+  product: Pick<CompletenessProduct, "title" | "description">,
+): boolean {
+  return prohibitedMatch(product) !== null;
+}
+
 /**
  * Medicines, encapsulated supplements and the other classes the marketplaces refuse. It bars the
  * submission without weighing on the score: a refusal is not a field left to fill in.
  */
 function prohibitedIssue(product: CompletenessProduct): CompletenessIssue | null {
-  const match = findProhibitedProduct(`${product.title} ${product.description}`);
+  const match = prohibitedMatch(product);
   if (match === null) {
     return null;
   }

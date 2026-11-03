@@ -21,6 +21,13 @@ const MAX_ROWS = 50_000;
 const MAX_COLUMNS = 500;
 /** Cells kept across all sheets, padding included: a few KB of `<c r="SE"/>` rows would hold millions. */
 const MAX_WORKBOOK_CELLS = 5_000_000;
+/** Shared string items read: `<si/>` costs 5 characters, so the XML budget alone allowed 40 million, each read at a cost. */
+const MAX_SHARED_STRINGS = 200_000;
+/**
+ * The shared-string cap for a workbook read in the admin's browser: there a large file only slows
+ * the admin's own tab, and a listing export of 20 MiB can hold more unique texts than the server cap.
+ */
+export const BROWSER_MAX_SHARED_STRINGS = MAX_WORKBOOK_CELLS;
 const END_OF_DIRECTORY_SIGNATURE = 0x06054b50;
 const DIRECTORY_ENTRY_SIGNATURE = 0x02014b50;
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;
@@ -37,6 +44,7 @@ interface ZipEntry {
 }
 
 const invalidWorkbook = () => validationError("Planilha .xlsx inválida ou corrompida");
+const tooLarge = () => validationError("A planilha .xlsx é grande demais para importar");
 
 function findEndOfDirectory(view: DataView): number {
   const lowest = Math.max(0, view.byteLength - END_OF_DIRECTORY_SIZE - MAX_ZIP_COMMENT);
@@ -93,7 +101,7 @@ async function inflate(data: Uint8Array<ArrayBuffer>, limit: number): Promise<Ui
     total += value.byteLength;
     if (total > limit) {
       await reader.cancel();
-      throw validationError("A planilha .xlsx é grande demais para importar");
+      throw tooLarge();
     }
 
     chunks.push(value);
@@ -107,7 +115,15 @@ async function inflate(data: Uint8Array<ArrayBuffer>, limit: number): Promise<Ui
   return output;
 }
 
-async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promise<string> {
+/**
+ * Inflates one entry, refusing it past `limit` bytes. The caller passes what is left of the
+ * workbook budget, so entries are read one at a time and never hold more than the budget at once.
+ */
+async function readEntry(
+  bytes: Uint8Array<ArrayBuffer>,
+  entry: ZipEntry,
+  limit: number,
+): Promise<string> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const header = entry.localHeaderOffset;
   if (header + 30 > bytes.byteLength) {
@@ -118,8 +134,8 @@ async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promi
     throw invalidWorkbook();
   }
 
-  if (entry.uncompressedSize > MAX_ENTRY_BYTES) {
-    throw validationError("A planilha .xlsx é grande demais para importar");
+  if (entry.uncompressedSize > limit) {
+    throw tooLarge();
   }
 
   const start = header + 30 + view.getUint16(header + 26, true) + view.getUint16(header + 28, true);
@@ -130,11 +146,14 @@ async function readEntry(bytes: Uint8Array<ArrayBuffer>, entry: ZipEntry): Promi
 
   const decoder = new TextDecoder();
   if (entry.method === STORED) {
+    if (data.byteLength > limit) {
+      throw tooLarge();
+    }
     return decoder.decode(data);
   }
 
   if (entry.method === DEFLATED) {
-    return decoder.decode(await inflate(data, MAX_ENTRY_BYTES));
+    return decoder.decode(await inflate(data, limit));
   }
 
   throw validationError("A planilha .xlsx usa uma compressão não suportada");
@@ -169,11 +188,29 @@ function safeCodePoint(codePoint: number, fallback: string): string {
   return String.fromCodePoint(codePoint);
 }
 
+/**
+ * `name="value"` pairs of an opening tag. The attempt is anchored where the previous token ended and
+ * a failed one skips its whole word: an unanchored search retried every position inside a long run
+ * of letters with no `=`, and a 1 KB upload held the server for minutes.
+ */
 function parseAttributes(tag: string): Map<string, string> {
   const attributes = new Map<string, string>();
-  for (const match of tag.matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+  const pair = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/y;
+  const skipped = /[\w:.-]+|[^\w:.-]/y;
+  let position = 0;
+  while (position < tag.length) {
+    pair.lastIndex = position;
+    const match = pair.exec(tag);
+    if (match === null) {
+      skipped.lastIndex = position;
+      skipped.exec(tag);
+      position = skipped.lastIndex;
+      continue;
+    }
+
     const name = (match[1] ?? "").replace(/^[\w.-]+:/, "");
     attributes.set(name, decodeXml(match[2] ?? match[3] ?? ""));
+    position = pair.lastIndex;
   }
   return attributes;
 }
@@ -323,39 +360,58 @@ async function readOptionalEntry(
   bytes: Uint8Array<ArrayBuffer>,
   entries: Map<string, ZipEntry>,
   name: string,
+  limit: number,
 ): Promise<string | null> {
   const entry = entries.get(name);
   if (entry == null) {
     return null;
   }
-  return await readEntry(bytes, entry);
+  return await readEntry(bytes, entry, limit);
 }
 
 async function readRequiredEntry(
   bytes: Uint8Array<ArrayBuffer>,
   entries: Map<string, ZipEntry>,
   name: string,
+  limit: number,
 ): Promise<string> {
-  const content = await readOptionalEntry(bytes, entries, name);
+  const content = await readOptionalEntry(bytes, entries, name, limit);
   if (content == null) {
     throw invalidWorkbook();
   }
   return content;
 }
 
-export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<XlsxSheet[]> {
+/**
+ * Cell text of every sheet in the workbook.
+ *
+ * @param options.maxSharedStrings - Shared strings accepted; the server default unless the reader
+ * runs in the browser.
+ * @throws {AppError} VALIDATION when the file is not a readable .xlsx or passes a size limit.
+ */
+export async function readXlsxSheets(
+  bytes: Uint8Array<ArrayBuffer>,
+  options: { readonly maxSharedStrings?: number } = {},
+): Promise<XlsxSheet[]> {
   if (bytes.byteLength > MAX_XLSX_BYTES) {
     throw validationError("A planilha .xlsx deve ter no máximo 20 MiB");
   }
 
   const entries = readDirectory(bytes);
-  const [workbook, relationships, sharedXml] = await Promise.all([
-    readRequiredEntry(bytes, entries, "xl/workbook.xml"),
-    readRequiredEntry(bytes, entries, "xl/_rels/workbook.xml.rels"),
-    readOptionalEntry(bytes, entries, "xl/sharedStrings.xml"),
-  ]);
-  let xmlCharacters = assertWithinXmlBudget(0, workbook, relationships, sharedXml ?? "");
-  const shared = elements(sharedXml ?? "", "si").map((item) => richText(item.body));
+  const workbook = await readRequiredEntry(bytes, entries, "xl/workbook.xml", entryLimit(0));
+  let xmlCharacters = workbook.length;
+  const relationships = await readRequiredEntry(
+    bytes,
+    entries,
+    "xl/_rels/workbook.xml.rels",
+    entryLimit(xmlCharacters),
+  );
+  xmlCharacters += relationships.length;
+  const sharedXml =
+    (await readOptionalEntry(bytes, entries, "xl/sharedStrings.xml", entryLimit(xmlCharacters))) ??
+    "";
+  xmlCharacters += sharedXml.length;
+  const shared = readSharedStrings(sharedXml, options.maxSharedStrings ?? MAX_SHARED_STRINGS);
   const targets = new Map(
     elements(relationships, "Relationship").map((relationship) => {
       const attributes = parseAttributes(relationship.attributes);
@@ -376,8 +432,8 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
       continue;
     }
 
-    const xml = await readRequiredEntry(bytes, entries, path);
-    xmlCharacters = assertWithinXmlBudget(xmlCharacters, xml);
+    const xml = await readRequiredEntry(bytes, entries, path, entryLimit(xmlCharacters));
+    xmlCharacters += xml.length;
     const parsed = parseSheet(xml, shared, cells);
     cells = parsed.cells;
     sheets.push({ name: attributes.get("name") ?? "", rows: parsed.rows });
@@ -385,11 +441,21 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
   return sheets;
 }
 
-/** Adds the inflated XML just read to the workbook total and refuses it past the budget. */
-function assertWithinXmlBudget(readSoFar: number, ...texts: readonly string[]): number {
-  const total = texts.reduce((sum, text) => sum + text.length, readSoFar);
-  if (total > MAX_WORKBOOK_XML_CHARACTERS) {
-    throw validationError("A planilha .xlsx é grande demais para importar");
+/**
+ * What the next entry may inflate to: the rest of the workbook budget, at most one entry's cap.
+ * This is where the budget is enforced: decoding never yields more characters than bytes.
+ */
+function entryLimit(readSoFar: number): number {
+  return Math.min(MAX_ENTRY_BYTES, MAX_WORKBOOK_XML_CHARACTERS - readSoFar);
+}
+
+function readSharedStrings(xml: string, maxSharedStrings: number): string[] {
+  const shared: string[] = [];
+  for (const item of scanElements(xml, "si")) {
+    if (shared.length === maxSharedStrings) {
+      throw tooManyCells();
+    }
+    shared.push(richText(item.body));
   }
-  return total;
+  return shared;
 }

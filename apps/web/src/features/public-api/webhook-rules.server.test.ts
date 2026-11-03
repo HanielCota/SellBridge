@@ -31,6 +31,10 @@ describe("webhook endpoint rules", () => {
     "https://[::ffff:10.0.0.1]/hooks",
     "https://postgres/hooks",
     "https://redis:6379/hooks",
+    // Regression (security audit, 31/10/2026): a trailing dot slipped internal names past the rule.
+    "https://redis./hooks",
+    "https://db.internal./hooks",
+    "https://localhost./hooks",
   ])("refuses %s in production", (url) => {
     expect(() => assertAcceptableWebhookUrl(url, false)).toThrow(
       expect.objectContaining({ code: "VALIDATION" }),

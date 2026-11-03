@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { assertPanelSupplier } from "@sellbridge/database/repositories";
+import { assertPanelSupplier, listProductImageLinks } from "@sellbridge/database/repositories";
 import { validationError } from "@sellbridge/shared/errors";
 import { readFormDataWithin } from "@sellbridge/shared/http-body";
 import { logger } from "@sellbridge/shared/logger";
@@ -14,12 +14,14 @@ import { assertUploadAllowed, productImageUploads } from "@/lib/server/upload-ra
 import { fileStorage } from "@/lib/server/storage";
 import {
   MAX_PRODUCT_IMAGE_BYTES,
+  PRODUCT_IMAGE_PATH,
   PRODUCT_IMAGE_TYPES,
   productImagePathSchema,
   productImageStorageKey,
   productImageUrl,
 } from "./product-image-key";
 import { checkProductImageBytes } from "./product-image-check";
+import { makeRoomForProductImage } from "./product-image-quota.server";
 
 const TOO_LARGE = "A imagem deve ter no máximo 5 MB";
 const supplierIdSchema = z.uuid("Fornecedor inválido");
@@ -48,6 +50,17 @@ async function readProductImage(request: Request) {
   return { supplierId: supplierId.data, bytes, type };
 }
 
+/** "https://…/imagens/<supplier>/<file>.png?v=1" → "<file>.png". */
+function fileNameOfLink(link: string): string {
+  const path = link.split(/[?#]/)[0] ?? "";
+  return path.split("/").at(-1) ?? "";
+}
+
+async function linkedFileNames(supplierId: string): Promise<ReadonlySet<string>> {
+  const links = await listProductImageLinks(database, `${PRODUCT_IMAGE_PATH}/${supplierId}/`);
+  return new Set(links.map((link) => fileNameOfLink(link)));
+}
+
 /**
  * POST /api/fornecedor/produtos/imagens: multipart "supplierId" and "file"; answers the
  * public link of the stored photo. Same access as the panel functions: the supplier profile
@@ -61,6 +74,10 @@ export function handleUploadProductImage(request: Request) {
     const { supplierId, bytes, type } = await readProductImage(request);
     assertSupplierPanelAccess(await resolveSupplierPanelViewer(session), supplierId);
     await assertPanelSupplier(database, supplierId);
+    await makeRoomForProductImage(
+      { storage: fileStorage, linkedFileNames, now: () => new Date() },
+      { supplierId, incomingBytes: bytes.byteLength },
+    );
     const fileName = `${randomUUID()}.${PRODUCT_IMAGE_TYPES[type]}`;
     await fileStorage.put(productImageStorageKey({ supplierId, fileName }), bytes);
     logger.info("supplier_panel.product_image_uploaded", { supplierId, bytes: bytes.byteLength });

@@ -1,7 +1,15 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
 import { user } from "@sellbridge/database/schema";
 import { eq } from "drizzle-orm";
-import { ADMIN_USER, enableAdminMode, gotoHydrated, signIn, signUp } from "./helpers";
+import {
+  ADMIN_USER,
+  completeOnboarding,
+  enableAdminMode,
+  gotoHydrated,
+  signIn,
+  signUp,
+  waitForHydration,
+} from "./helpers";
 import { e2eDatabase } from "./database";
 
 const database = e2eDatabase();
@@ -93,4 +101,42 @@ test("admin comum não mexe na conta do dono nem da equipe", async ({ browser })
   await ownerPage.getByRole("option", { name: "Revendedor" }).click();
   await expect(ownerPage.getByText("Papel atualizado")).toBeVisible();
   expect(await accountOf(admin.email)).toMatchObject({ role: "user" });
+});
+
+// Regression (security audit, 31/10/2026): the shop actions skipped the team-account rule, so any
+// admin could disconnect a shop of another team member.
+test("admin comum não desconecta a loja de alguém da equipe", async ({ browser }) => {
+  test.setTimeout(150_000);
+  const memberContext = await browser.newContext();
+  const memberPage = await memberContext.newPage();
+  const email = await signUp(memberPage, "Atendente Com Loja");
+  await completeOnboarding(memberPage, "BH Beauty Distribuidora");
+  await memberPage.getByRole("link", { name: "Conectar Mercado Livre" }).click();
+  await waitForHydration(memberPage);
+  await memberPage.getByLabel("Nome da loja").fill("Loja da Atendente");
+  await memberPage.getByRole("button", { name: "Autorizar acesso" }).click();
+  await expect(
+    memberPage.getByText('Loja "Loja da Atendente" conectada').filter({ visible: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await memberContext.close();
+  const [member] = await database
+    .update(user)
+    .set({ role: "agent" })
+    .where(eq(user.email, email))
+    .returning({ id: user.id });
+  if (!member) throw new Error("conta de teste não criada");
+  const admin = await teamMember(browser, "Admin Sem Dono", "admin");
+  const page = await browser.newPage();
+  await signIn(page, { email: admin.email, password: PASSWORD });
+  await enableAdminMode(page);
+
+  await gotoHydrated(page, `/admin/clientes/${member.id}`);
+  await page.getByRole("button", { name: "Desconectar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Desconectar" }).click();
+
+  await expect(
+    page.getByText("Só um dono da plataforma altera contas da equipe").filter({ visible: true }),
+  ).toBeVisible();
+  await gotoHydrated(page, `/admin/clientes/${member.id}`);
+  await expect(page.getByText("Loja da Atendente")).toBeVisible();
 });

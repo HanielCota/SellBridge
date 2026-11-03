@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_XLSX_BYTES, readXlsxSheets } from "./xlsx-reader.ts";
+import { BROWSER_MAX_SHARED_STRINGS, MAX_XLSX_BYTES, readXlsxSheets } from "./xlsx-reader.ts";
 
 interface ZipFile {
   name: string;
@@ -151,6 +151,56 @@ describe("readXlsxSheets", () => {
     await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
       userMessage: "A planilha aceita no máximo 100 abas",
     });
+  });
+
+  // Regression (security audit, 31/10/2026): a long run of letters with no `=` in one tag made the
+  // attribute regex retry from every position, quadratic in the run.
+  it("deve ler um atributo enorme sem travar", { timeout: 1_000 }, async () => {
+    const files = workbookFiles({ deflate: true }).map((file) =>
+      file.name === "xl/_rels/workbook.xml.rels"
+        ? {
+            ...file,
+            content: file.content.replace(
+              "<Relationships>",
+              `<Relationships><Relationship ${"a".repeat(100_000)}/>`,
+            ),
+          }
+        : file,
+    );
+
+    const sheets = await readXlsxSheets(await buildZip(files));
+
+    expect(sheets.map((sheet) => sheet.name)).toEqual(["Produtos", "Outra & mais"]);
+  });
+
+  // Regression (security audit, 31/10/2026): `<si/>` costs 5 characters, so a few KB of shared
+  // strings became millions of objects that no cell or character budget counted.
+  it("deve recusar tabela de textos com itens demais", async () => {
+    const files = withFirstSheet(firstSheet).map((file) =>
+      file.name === "xl/sharedStrings.xml"
+        ? { ...file, content: `<sst>${"<si/>".repeat(200_001)}</sst>` }
+        : file,
+    );
+
+    await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
+      userMessage: "A planilha .xlsx tem células demais para importar",
+    });
+  });
+
+  // Regression (code review, 03/11/2026): the server cap also refused a valid Shopee export the
+  // admin reads in the browser.
+  it("deve aceitar mais itens na tabela de textos quando a leitura é no navegador", async () => {
+    const files = withFirstSheet(firstSheet).map((file) =>
+      file.name === "xl/sharedStrings.xml"
+        ? { ...file, content: `<sst>${"<si/>".repeat(200_001)}</sst>` }
+        : file,
+    );
+
+    const sheets = await readXlsxSheets(await buildZip(files), {
+      maxSharedStrings: BROWSER_MAX_SHARED_STRINGS,
+    });
+
+    expect(sheets[0]?.name).toBe("Produtos");
   });
 
   // Regression (security audit, 26/10/2026): `<c r="SE"/>` rows padded to 499 cells each, so a few

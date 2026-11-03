@@ -19,8 +19,10 @@ const environment = createWorkerTestEnvironment();
 const { database } = environment;
 const requestStockSync = vi.fn<() => Promise<void>>();
 const requestAutoForward = vi.fn<(orderId: string) => Promise<void>>();
+const acquireRateLimit = vi.fn<(key: string) => Promise<void>>();
 const processWebhook = createWebhookEventProcessor({
   ...environment,
+  acquireRateLimit,
   requestStockSync,
   requestAutoForward,
 });
@@ -78,6 +80,8 @@ beforeEach(() => {
   requestStockSync.mockResolvedValue(undefined);
   requestAutoForward.mockReset();
   requestAutoForward.mockResolvedValue(undefined);
+  acquireRateLimit.mockReset();
+  acquireRateLimit.mockResolvedValue(undefined);
 });
 
 const orderResource = (
@@ -120,6 +124,20 @@ describe("webhook-event processor", () => {
       .from(schema.orderItems)
       .where(eq(schema.orderItems.tenantId, tenantId));
     expect(rows).toEqual([{ cost: 2000, target: targetId }]);
+  });
+
+  // Regression (security audit, 31/10/2026): each unsigned notification for a connected store made
+  // a marketplace call with no per-store limit, unlike publishing and stock sync.
+  it("spends the store's rate limit before asking the marketplace for the order", async () => {
+    const eventId = await recordEvent({ shopId, resource: orderResource() });
+
+    await processWebhook(job(eventId));
+
+    const [store] = await database
+      .select({ id: schema.storeConnections.id })
+      .from(schema.storeConnections)
+      .where(eq(schema.storeConnections.externalShopId, shopId));
+    expect(acquireRateLimit).toHaveBeenCalledWith(`mock:${store?.id}`);
   });
 
   it("stores the address sent with the order encrypted, and keeps it on a later update", async () => {
