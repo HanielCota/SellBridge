@@ -186,6 +186,22 @@ test("on a phone the shipments list turns into cards that fit", async ({ page })
   expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
 });
 
+test("long reseller and supplier names never widen the phone shipments page", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/admin/envios");
+  const names = page.getByRole("list", { name: "Envios" }).locator("li p").first();
+  await expect(names).toBeVisible();
+
+  // The line never wraps (it ends in "…"); on CI such names made the column 17px wider.
+  await names.evaluate((element) => {
+    element.replaceChildren("Revendedora Devolução Comprida · Calçados Franca Devolução Comprida");
+  });
+
+  expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
+});
+
 test("the support performance page uses the usual title and fits its narrow bars", async ({
   page,
 }) => {

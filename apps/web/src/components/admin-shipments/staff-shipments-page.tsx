@@ -296,7 +296,7 @@ export function StaffShipmentsPage({
           />
         </div>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <ShipmentsTable
           search={search}
           onSelect={(shipment) => onSearchChange({ shipment })}
