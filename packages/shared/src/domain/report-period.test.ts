@@ -35,6 +35,11 @@ describe("resolveReportPeriod", () => {
     });
   });
 
+  it("cuts the month before at the current time of day, not at the end of today", () => {
+    const period = resolveReportPeriod({}, NOW);
+    expect(period.previous.to.toISOString()).toBe("2026-09-27T13:00:00.000Z");
+  });
+
   it("closes a past month and compares it with the whole month before", () => {
     const period = resolveReportPeriod({ mes: "2026-09" }, NOW);
     expect(period).toMatchObject({ status: "closed", toDate: "2026-09-30", days: 30 });

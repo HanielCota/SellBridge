@@ -81,16 +81,20 @@ function clampMonth(month: string | undefined, currentMonth: string): string {
   return month;
 }
 
-/** The previous month cut to as many days as the current one has lived, so both compare fairly. */
-function previousOfMonth(month: string, livedMilliseconds: number) {
+/**
+ * The previous month cut to as many days as the current one has lived, so both compare fairly.
+ * The label counts today as a day, while the sales stop at the current time of day: cut at the
+ * end of today, every morning read as a fall (the day before had a whole day of sales).
+ */
+function previousOfMonth(month: string, livedDaysMilliseconds: number, livedMilliseconds: number) {
   const previousMonth = shiftMonth(month, -1);
   const whole = monthRange(previousMonth);
-  const to = new Date(Math.min(whole.to.getTime(), whole.from.getTime() + livedMilliseconds));
+  const end = whole.to.getTime();
   return {
     from: whole.from,
-    to,
+    to: new Date(Math.min(end, whole.from.getTime() + livedMilliseconds)),
     fromDate: toIsoDate(whole.from),
-    toDate: lastDayBefore(to),
+    toDate: lastDayBefore(new Date(Math.min(end, whole.from.getTime() + livedDaysMilliseconds))),
     month: previousMonth,
   };
 }
@@ -110,7 +114,10 @@ function resolveMonth(month: string, now: Date): ReportPeriod {
     fromDate: toIsoDate(whole.from),
     toDate: lastDayBefore(to),
     days: Math.round(lived / DAY_MILLISECONDS),
-    previous: previousOfMonth(month, status === "partial" ? lived : Number.POSITIVE_INFINITY),
+    previous:
+      status === "partial"
+        ? previousOfMonth(month, lived, now.getTime() - whole.from.getTime())
+        : previousOfMonth(month, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY),
   };
 }
 
