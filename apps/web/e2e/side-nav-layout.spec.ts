@@ -249,7 +249,8 @@ test("the account and support sit at the foot of the menu, the header keeps sear
   const header = page.locator("header").first();
   const aside = page.getByRole("complementary", { name: "Menu lateral" });
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
-  await expect(header.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
+  // The demo account may have unread notices, which turn the name into "Avisos: N novos".
+  await expect(header.getByRole("button", { name: /^Avisos/ })).toBeVisible();
   await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
   await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
 
