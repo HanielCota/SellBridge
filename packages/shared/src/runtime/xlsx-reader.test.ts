@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_XLSX_BYTES, readXlsxSheets } from "./xlsx-reader.ts";
+import { BROWSER_MAX_SHARED_STRINGS, MAX_XLSX_BYTES, readXlsxSheets } from "./xlsx-reader.ts";
 
 interface ZipFile {
   name: string;
@@ -185,6 +185,22 @@ describe("readXlsxSheets", () => {
     await expect(readXlsxSheets(await buildZip(files))).rejects.toMatchObject({
       userMessage: "A planilha .xlsx tem células demais para importar",
     });
+  });
+
+  // Regression (code review, 03/11/2026): the server cap also refused a valid Shopee export the
+  // admin reads in the browser.
+  it("deve aceitar mais itens na tabela de textos quando a leitura é no navegador", async () => {
+    const files = withFirstSheet(firstSheet).map((file) =>
+      file.name === "xl/sharedStrings.xml"
+        ? { ...file, content: `<sst>${"<si/>".repeat(200_001)}</sst>` }
+        : file,
+    );
+
+    const sheets = await readXlsxSheets(await buildZip(files), {
+      maxSharedStrings: BROWSER_MAX_SHARED_STRINGS,
+    });
+
+    expect(sheets[0]?.name).toBe("Produtos");
   });
 
   // Regression (security audit, 26/10/2026): `<c r="SE"/>` rows padded to 499 cells each, so a few

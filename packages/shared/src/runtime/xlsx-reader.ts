@@ -23,6 +23,11 @@ const MAX_COLUMNS = 500;
 const MAX_WORKBOOK_CELLS = 5_000_000;
 /** Shared string items read: `<si/>` costs 5 characters, so the XML budget alone allowed 40 million, each read at a cost. */
 const MAX_SHARED_STRINGS = 200_000;
+/**
+ * The shared-string cap for a workbook read in the admin's browser: there a large file only slows
+ * the admin's own tab, and a listing export of 20 MiB can hold more unique texts than the server cap.
+ */
+export const BROWSER_MAX_SHARED_STRINGS = MAX_WORKBOOK_CELLS;
 const END_OF_DIRECTORY_SIGNATURE = 0x06054b50;
 const DIRECTORY_ENTRY_SIGNATURE = 0x02014b50;
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;
@@ -377,7 +382,17 @@ async function readRequiredEntry(
   return content;
 }
 
-export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<XlsxSheet[]> {
+/**
+ * Cell text of every sheet in the workbook.
+ *
+ * @param options.maxSharedStrings - Shared strings accepted; the server default unless the reader
+ * runs in the browser.
+ * @throws {AppError} VALIDATION when the file is not a readable .xlsx or passes a size limit.
+ */
+export async function readXlsxSheets(
+  bytes: Uint8Array<ArrayBuffer>,
+  options: { readonly maxSharedStrings?: number } = {},
+): Promise<XlsxSheet[]> {
   if (bytes.byteLength > MAX_XLSX_BYTES) {
     throw validationError("A planilha .xlsx deve ter no máximo 20 MiB");
   }
@@ -396,7 +411,7 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
     (await readOptionalEntry(bytes, entries, "xl/sharedStrings.xml", entryLimit(xmlCharacters))) ??
     "";
   xmlCharacters += sharedXml.length;
-  const shared = readSharedStrings(sharedXml);
+  const shared = readSharedStrings(sharedXml, options.maxSharedStrings ?? MAX_SHARED_STRINGS);
   const targets = new Map(
     elements(relationships, "Relationship").map((relationship) => {
       const attributes = parseAttributes(relationship.attributes);
@@ -434,10 +449,10 @@ function entryLimit(readSoFar: number): number {
   return Math.min(MAX_ENTRY_BYTES, MAX_WORKBOOK_XML_CHARACTERS - readSoFar);
 }
 
-function readSharedStrings(xml: string): string[] {
+function readSharedStrings(xml: string, maxSharedStrings: number): string[] {
   const shared: string[] = [];
   for (const item of scanElements(xml, "si")) {
-    if (shared.length === MAX_SHARED_STRINGS) {
+    if (shared.length === maxSharedStrings) {
       throw tooManyCells();
     }
     shared.push(richText(item.body));
