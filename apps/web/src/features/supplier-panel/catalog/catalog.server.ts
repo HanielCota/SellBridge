@@ -6,6 +6,7 @@ import {
   rejectSupplierPanelProduct,
   reserveShortItems,
   saveSupplierPanelDraft,
+  setAdminSupplierProductActive,
   submitSupplierPanelProduct,
 } from "@sellbridge/database/repositories";
 import { AppError, hasErrorCode, isAppError } from "@sellbridge/shared/errors";
@@ -15,6 +16,7 @@ import type {
   CatalogProductRef,
   CatalogRejectInput,
   CatalogSaveDraftInput,
+  CatalogSetActiveInput,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
@@ -104,6 +106,19 @@ export async function writePanelApproval(ref: CatalogProductRef, reviewerId: str
   );
   await propagateApprovedChange(product.id);
   return product;
+}
+
+/**
+ * The same switch the team and the spreadsheet's "ativo" column use: off sale pauses the
+ * resellers' live listings, and the sync sends their zero stock right away.
+ */
+export async function writePanelActive(input: CatalogSetActiveInput) {
+  const { product, pausedTargets } = await panelWrite(
+    "supplier_panel.active_save_failed",
+    async () => await setAdminSupplierProductActive(database, input),
+  );
+  await requestStockSync("supplier_panel.catalog_sync_deferred");
+  return { id: product.id, active: product.active, pausedTargets };
 }
 
 export async function writePanelRejection(input: CatalogRejectInput, reviewerId: string) {

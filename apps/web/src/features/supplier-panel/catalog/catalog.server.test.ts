@@ -2,14 +2,16 @@ import type {
   approveSupplierPanelProduct,
   reserveShortItems,
   saveSupplierPanelDraft,
+  setAdminSupplierProductActive,
 } from "@sellbridge/database/repositories";
-import { conflictError } from "@sellbridge/shared/errors";
+import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn<typeof saveSupplierPanelDraft>(),
   approve: vi.fn<typeof approveSupplierPanelProduct>(),
   reserveShort: vi.fn<typeof reserveShortItems>(),
+  setActive: vi.fn<typeof setAdminSupplierProductActive>(),
   enqueue: vi.fn<() => Promise<void>>(),
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -17,11 +19,12 @@ vi.mock("@sellbridge/database/repositories", () => ({
   saveSupplierPanelDraft: mocks.save,
   approveSupplierPanelProduct: mocks.approve,
   reserveShortItems: mocks.reserveShort,
+  setAdminSupplierProductActive: mocks.setActive,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.log, error: mocks.log } }));
-import { writePanelApproval, writePanelDraft } from "./catalog.server";
+import { writePanelActive, writePanelApproval, writePanelDraft } from "./catalog.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
 const productId = "e937a566-b7bc-4305-b3c0-448e7133fcfe";
@@ -110,5 +113,29 @@ describe("writePanelApproval", () => {
       productId,
       error: expect.any(Error),
     });
+  });
+});
+
+describe("writePanelActive", () => {
+  it("takes the supplier's own product off sale and asks the worker to sync", async () => {
+    mocks.setActive.mockResolvedValue({
+      product: { ...stored("approved"), active: false },
+      pausedTargets: 2,
+    });
+
+    const result = await writePanelActive({ supplierId, productId, active: false });
+
+    expect(mocks.setActive).toHaveBeenCalledWith({}, { supplierId, productId, active: false });
+    expect(result).toEqual({ id: productId, active: false, pausedTargets: 2 });
+    expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes a product of another supplier through as not found", async () => {
+    mocks.setActive.mockRejectedValue(notFoundError("Produto não encontrado neste fornecedor"));
+
+    await expect(writePanelActive({ supplierId, productId, active: false })).rejects.toMatchObject({
+      message: "Produto não encontrado neste fornecedor",
+    });
+    expect(mocks.enqueue).not.toHaveBeenCalled();
   });
 });

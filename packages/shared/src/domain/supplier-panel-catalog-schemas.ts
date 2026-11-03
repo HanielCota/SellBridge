@@ -70,3 +70,7 @@ export const catalogRejectSchema = catalogProductRefSchema.extend({
   reasons: rejectionReasonsSchema,
 });
 export type CatalogRejectInput = z.infer<typeof catalogRejectSchema>;
+
+/** Takes a product off sale (`active: false`) or puts it back. */
+export const catalogSetActiveSchema = catalogProductRefSchema.extend({ active: z.boolean() });
+export type CatalogSetActiveInput = z.infer<typeof catalogSetActiveSchema>;

@@ -6,7 +6,8 @@ import { Money } from "@/components/data/money";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
 import { Button } from "@/components/ui/button";
-import { CompletenessBadge, ReviewStatus } from "./review-status";
+import { ProductSaleToggle, ProductStatus } from "./product-sale-toggle";
+import { CompletenessBadge } from "./review-status";
 import { SortableHeader, type CatalogSort } from "./sortable-header";
 import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { Hint, HintedText } from "@/components/ui/hint";
@@ -50,6 +51,21 @@ function ProductAction({
         Corrigir
       </Button>
     </Hint>
+  );
+}
+
+function ProductActions({
+  product,
+  onOpen,
+}: {
+  product: SupplierPanelProduct;
+  onOpen: OpenProduct;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <ProductAction product={product} onOpen={onOpen} />
+      <ProductSaleToggle product={product} />
+    </div>
   );
 }
 
@@ -127,7 +143,7 @@ function catalogColumns(
     }),
     columnHelper.accessor("reviewStatus", {
       header: "Situação",
-      cell: (information) => <ReviewStatus status={information.getValue()} />,
+      cell: (information) => <ProductStatus product={information.row.original} />,
     }),
     columnHelper.display({
       id: "completeness",
@@ -154,7 +170,7 @@ function catalogColumns(
     columnHelper.display({
       id: "actions",
       header: () => <span className="sr-only">Ações</span>,
-      cell: (information) => <ProductAction product={information.row.original} onOpen={onOpen} />,
+      cell: (information) => <ProductActions product={information.row.original} onOpen={onOpen} />,
     }),
   ]);
 }
@@ -177,13 +193,13 @@ function MobileProductRow({
         <RejectionLine product={product} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ReviewStatus status={product.reviewStatus} />
+        <ProductStatus product={product} />
         <CompletenessBadge
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
         />
       </div>
-      <ProductAction product={product} onOpen={onOpen} />
+      <ProductActions product={product} onOpen={onOpen} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   catalogProductRefSchema,
   catalogRejectSchema,
   catalogSaveDraftSchema,
+  catalogSetActiveSchema,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -12,6 +13,7 @@ import { adminMiddleware, supplierPanelMiddleware } from "@/lib/server/middlewar
 import {
   loadPanelProductForm,
   loadPanelProducts,
+  writePanelActive,
   writePanelApproval,
   writePanelDraft,
   writePanelRejection,
@@ -48,6 +50,17 @@ export const supplierPanelSubmitProduct = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertSupplierAcceptsProducts(data.supplierId);
     return await writePanelSubmission(data);
+  });
+
+/** A switched-off supplier can still take products off sale, but not put them back. */
+export const supplierPanelSetProductActive = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(catalogSetActiveSchema)
+  .handler(async ({ data }) => {
+    if (data.active) {
+      await assertSupplierAcceptsProducts(data.supplierId);
+    }
+    return await writePanelActive(data);
   });
 
 /** The platform's review of a submitted product: always admin-only, and audited. */
