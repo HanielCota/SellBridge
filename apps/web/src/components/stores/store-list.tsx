@@ -221,10 +221,11 @@ function StoreFigures({ store }: { store: StoreWithActivity }) {
   const { activity } = store;
   return (
     <>
-      {/* An idle store's zeros are filler, not figures: they step back behind its button. */}
+      {/* An idle store's zeros are filler, not figures: they step back behind its button. On a
+          phone the figures take the whole row: under the name, "Publicações" broke in two. */}
       <dl
         className={cn(
-          "col-span-2 row-start-2 grid grid-cols-3 gap-3 pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
+          "col-span-2 row-start-2 grid grid-cols-3 gap-3 sm:pl-20 md:col-span-3 md:col-start-2 md:row-start-1 md:grid-cols-subgrid md:gap-x-4 md:pl-0",
           isIdle(store) && "[&_dd]:font-medium [&_dd]:text-muted-foreground",
         )}
       >

@@ -38,3 +38,15 @@ test("the monthly report table scrolls inside its card, not the whole phone page
 
   expect(await sidewaysScroll(page)).toBe(0);
 });
+
+test("on a phone the store figures keep their labels whole", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/lojas");
+  const label = page.locator("main dt", { hasText: /^Publicações$/ }).first();
+  await expect(label).toBeVisible();
+
+  // One line of text-xs: "Publicaçõe/s" made it two.
+  const box = await label.boundingBox();
+  expect(box?.height ?? 0).toBeLessThan(20);
+});
