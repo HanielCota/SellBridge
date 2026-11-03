@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
 import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
 import { supplierPanelSetProductActive } from "@/features/supplier-panel/catalog/catalog.functions";
-import { supplierPanelCatalogKey } from "@/features/supplier-panel/catalog/catalog.queries";
 import { errorMessage } from "@/lib/errors";
 import { ReviewStatus } from "./review-status";
 
@@ -33,9 +32,8 @@ function useSetActive(product: SupplierPanelProduct, onDone: () => void) {
     onSuccess: async (result) => {
       onDone();
       toast.success(catalogStatusMessage("Produto", result));
-      await queryClient.invalidateQueries({
-        queryKey: supplierPanelCatalogKey(product.supplierId),
-      });
+      // The whole panel: the home's catalog figures count only products on sale.
+      await queryClient.invalidateQueries({ queryKey: ["supplier-panel", product.supplierId] });
     },
     onError: (error) => toast.error(errorMessage(error)),
   });

@@ -23,7 +23,9 @@ vi.mock("@sellbridge/database/repositories", () => ({
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
-vi.mock("@sellbridge/shared/logger", () => ({ logger: { warn: mocks.log, error: mocks.log } }));
+vi.mock("@sellbridge/shared/logger", () => ({
+  logger: { info: mocks.log, warn: mocks.log, error: mocks.log },
+}));
 import { writePanelActive, writePanelApproval, writePanelDraft } from "./catalog.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
@@ -128,6 +130,12 @@ describe("writePanelActive", () => {
     expect(mocks.setActive).toHaveBeenCalledWith({}, { supplierId, productId, active: false });
     expect(result).toEqual({ id: productId, active: false, pausedTargets: 2 });
     expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+    expect(mocks.log).toHaveBeenCalledWith("supplier_panel.product_active_changed", {
+      supplierId,
+      productId,
+      active: false,
+      pausedTargets: 2,
+    });
   });
 
   it("passes a product of another supplier through as not found", async () => {

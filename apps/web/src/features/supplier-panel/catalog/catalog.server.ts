@@ -117,6 +117,13 @@ export async function writePanelActive(input: CatalogSetActiveInput) {
     "supplier_panel.active_save_failed",
     async () => await setAdminSupplierProductActive(database, input),
   );
+  // The catalog audit records team actions only, so the supplier's switch is traced here.
+  logger.info("supplier_panel.product_active_changed", {
+    supplierId: input.supplierId,
+    productId: product.id,
+    active: product.active,
+    pausedTargets,
+  });
   await requestStockSync("supplier_panel.catalog_sync_deferred");
   return { id: product.id, active: product.active, pausedTargets };
 }
