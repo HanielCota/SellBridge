@@ -384,18 +384,18 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
 
   const entries = readDirectory(bytes);
   const workbook = await readRequiredEntry(bytes, entries, "xl/workbook.xml", entryLimit(0));
-  let xmlCharacters = assertWithinXmlBudget(0, workbook);
+  let xmlCharacters = workbook.length;
   const relationships = await readRequiredEntry(
     bytes,
     entries,
     "xl/_rels/workbook.xml.rels",
     entryLimit(xmlCharacters),
   );
-  xmlCharacters = assertWithinXmlBudget(xmlCharacters, relationships);
+  xmlCharacters += relationships.length;
   const sharedXml =
     (await readOptionalEntry(bytes, entries, "xl/sharedStrings.xml", entryLimit(xmlCharacters))) ??
     "";
-  xmlCharacters = assertWithinXmlBudget(xmlCharacters, sharedXml);
+  xmlCharacters += sharedXml.length;
   const shared = readSharedStrings(sharedXml);
   const targets = new Map(
     elements(relationships, "Relationship").map((relationship) => {
@@ -418,7 +418,7 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
     }
 
     const xml = await readRequiredEntry(bytes, entries, path, entryLimit(xmlCharacters));
-    xmlCharacters = assertWithinXmlBudget(xmlCharacters, xml);
+    xmlCharacters += xml.length;
     const parsed = parseSheet(xml, shared, cells);
     cells = parsed.cells;
     sheets.push({ name: attributes.get("name") ?? "", rows: parsed.rows });
@@ -426,7 +426,10 @@ export async function readXlsxSheets(bytes: Uint8Array<ArrayBuffer>): Promise<Xl
   return sheets;
 }
 
-/** What the next entry may inflate to: the rest of the workbook budget, at most one entry's cap. */
+/**
+ * What the next entry may inflate to: the rest of the workbook budget, at most one entry's cap.
+ * This is where the budget is enforced: decoding never yields more characters than bytes.
+ */
 function entryLimit(readSoFar: number): number {
   return Math.min(MAX_ENTRY_BYTES, MAX_WORKBOOK_XML_CHARACTERS - readSoFar);
 }
@@ -440,13 +443,4 @@ function readSharedStrings(xml: string): string[] {
     shared.push(richText(item.body));
   }
   return shared;
-}
-
-/** Adds the inflated XML just read to the workbook total and refuses it past the budget. */
-function assertWithinXmlBudget(readSoFar: number, ...texts: readonly string[]): number {
-  const total = texts.reduce((sum, text) => sum + text.length, readSoFar);
-  if (total > MAX_WORKBOOK_XML_CHARACTERS) {
-    throw tooLarge();
-  }
-  return total;
 }
