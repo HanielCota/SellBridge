@@ -14,6 +14,31 @@ export type SupplierCatalogProduct = Awaited<
   ReturnType<typeof getSupplierCatalog>
 >["products"]["items"][number];
 
+/**
+ * Cost and suggested price, each whole on one line: on a phone's narrow card "R$ 119,90" broke
+ * in two. When both do not fit side by side, the suggested price wraps below the cost.
+ */
+function ProductPrices({
+  costCents,
+  suggestedPriceCents,
+}: {
+  costCents: number;
+  suggestedPriceCents: number;
+}) {
+  return (
+    <dl className="mt-auto flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
+      <div className="space-y-0.5">
+        <dt className="text-xs text-muted-foreground">Custo</dt>
+        <dd className="font-semibold whitespace-nowrap tabular-nums">{formatCents(costCents)}</dd>
+      </div>
+      <div className="ml-auto space-y-0.5 text-right">
+        <dt className="text-xs text-muted-foreground">Preço sugerido</dt>
+        <dd className="whitespace-nowrap tabular-nums">{formatCents(suggestedPriceCents)}</dd>
+      </div>
+    </dl>
+  );
+}
+
 /** One product of a supplier's catalog: cost against suggested price, and a publish shortcut. */
 export function SupplierProductCard({
   product,
@@ -38,12 +63,10 @@ export function SupplierProductCard({
           </p>
           <h3 className="line-clamp-2 text-sm font-medium">{product.title}</h3>
         </div>
-        <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
-          <dt className="text-xs text-muted-foreground">Custo</dt>
-          <dt className="text-right text-xs text-muted-foreground">Preço sugerido</dt>
-          <dd className="font-semibold tabular-nums">{formatCents(product.costCents)}</dd>
-          <dd className="text-right tabular-nums">{formatCents(product.suggestedPriceCents)}</dd>
-        </dl>
+        <ProductPrices
+          costCents={product.costCents}
+          suggestedPriceCents={product.suggestedPriceCents}
+        />
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           {/* As tall as the publish button, so sold-out cards keep the price row level. */}
           <span className="flex min-h-8 items-center">

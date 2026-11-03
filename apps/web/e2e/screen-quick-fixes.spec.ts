@@ -73,3 +73,20 @@ test("the new store's supplier name never breaks with a hyphen", async ({ page }
   // "forne-cedor": the browser hyphenated it in the narrow column.
   expect(await name.evaluate((element) => getComputedStyle(element).hyphens)).not.toBe("auto");
 });
+
+test("a supplier's product card keeps each price on one line on a small phone", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/fornecedores");
+  await page.locator("main a[href^='/fornecedores/']").first().click();
+  // The smallest phones in use: the narrowest cards, where "R$ 119,90" broke in two.
+  await page.setViewportSize({ width: 320, height: 640 });
+  const prices = page.locator("main dd").filter({ hasText: /^R\$/ });
+  await expect(prices.first()).toBeVisible();
+
+  const tallest = await prices.evaluateAll((elements) =>
+    Math.max(...elements.map((element) => element.getBoundingClientRect().height)),
+  );
+  expect(tallest).toBeLessThan(28);
+});
