@@ -8,11 +8,14 @@ export interface ScrollEdges {
 
 const NO_HIDDEN_CONTENT: ScrollEdges = { start: false, end: false };
 
-/** Whether content hides past each side; one pixel of rounding does not count. */
+/** Browsers report fractional scroll positions: this much past an edge still counts as at it. */
+const ROUNDING_PIXELS = 1;
+
+/** Whether content hides past each side. */
 export function hiddenEdgesOf(scrollLeft: number, clientWidth: number, scrollWidth: number) {
   return {
-    start: scrollLeft > 1,
-    end: scrollLeft + clientWidth < scrollWidth - 1,
+    start: scrollLeft > ROUNDING_PIXELS,
+    end: scrollLeft + clientWidth < scrollWidth - ROUNDING_PIXELS,
   } satisfies ScrollEdges;
 }
 

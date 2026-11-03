@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { startsWithLetter } from "@/lib/initials";
 /** Up to two initials from the meaningful words of a supplier name ("Casa do Pão" → "CP"). */
 function supplierInitials(name: string): string {
-  const words = name.split(/\s+/).filter((word) => word.length > 2 && /^\p{L}/u.test(word));
+  const words = name.split(/\s+/).filter((word) => word.length > 2 && startsWithLetter(word));
   const initials = words
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase())

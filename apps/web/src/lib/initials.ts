@@ -1,9 +1,10 @@
-/** Words that start with a letter: a "(fornecedor)" or "-" in a name is no initial. */
+/** Whether a word can give an initial: "(fornecedor)" or "-" in a name cannot. */
+export function startsWithLetter(word: string): boolean {
+  return /^\p{L}/u.test(word);
+}
+
 function letterWords(name: string): string[] {
-  return name
-    .trim()
-    .split(/\s+/)
-    .filter((word) => /^\p{L}/u.test(word));
+  return name.trim().split(/\s+/).filter(startsWithLetter);
 }
 
 /** First and last initials ("Ana Maria Souza" → "AS"), for avatars without a photo. */
