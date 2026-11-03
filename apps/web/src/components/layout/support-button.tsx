@@ -16,6 +16,7 @@ import {
 import { useNow } from "@/hooks/use-now";
 import { badgeCount } from "@/lib/badge-count";
 import { cn } from "@/lib/utils";
+import { navTabClassName } from "./nav-tab-parts";
 
 const SupportIcon = ACTION_ICONS.support.icon;
 
@@ -62,51 +63,71 @@ function SupportActions({ kind, onNavigate }: { kind: ProfileKind; onNavigate: (
   );
 }
 
+/** The row's icon, word and unread count; shrunk, the count sits on the icon's corner. */
+function SupportTriggerContent({ unread, collapsed }: { unread: number; collapsed: boolean }) {
+  return (
+    <>
+      <SupportIcon className="size-5 shrink-0" aria-hidden="true" />
+      <span
+        className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate text-left"}
+        aria-hidden="true"
+      >
+        Suporte
+      </span>
+      {/* Keeps "Suporte" and the badge apart as words, so the name check reads "Suporte 9+". */}{" "}
+      {unread > 0 ? (
+        <span
+          className={cn(
+            "flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums",
+            collapsed && "absolute -top-1 -right-1 scale-90",
+          )}
+        >
+          {badgeCount(unread)}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 /**
- * Help one tap away from every page: open a ticket, or jump back into one. The badge counts
- * tickets with a support reply you have not read yet.
+ * Help one click away from every page, at the foot of the sidebar: open a ticket, or jump back
+ * into one. The badge counts tickets with a support reply you have not read yet.
  */
 export function SupportButton({
   unread,
   profileKind,
-  className,
+  collapsed,
 }: {
   unread: number;
   profileKind: ProfileKind;
-  className?: string;
+  /** The sidebar shrunk to its icons: the word stays for screen readers. */
+  collapsed: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Hint label={ACTION_ICONS.support.hint} openOnTap={false}>
+      <Hint label={collapsed ? "Suporte" : ACTION_ICONS.support.hint} openOnTap={false}>
         <Popover.Trigger
           aria-label={supportButtonLabel(unread)}
-          className={
-            className ??
-            cn(
-              HEADER_ROUND_BUTTON_CLASSES,
-              "text-muted-foreground transition-[color,scale] hover:text-foreground xl:pr-4 xl:pl-3.5",
-            )
-          }
+          className={cn(
+            navTabClassName({
+              isActive: false,
+              paintsOwnPill: true,
+              padding: collapsed ? "px-0" : "px-4",
+            }),
+            "w-full data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground",
+            collapsed && "justify-center",
+          )}
         >
-          <SupportIcon className="size-5" aria-hidden="true" />
-          {/* The word only fits beside the centred tab capsule from xl up; below it the icon stands alone. */}
-          <span className="hidden text-sm font-medium xl:inline" aria-hidden="true">
-            Suporte
-          </span>
-          {/* Keeps "Suporte" and the badge apart as words, so the name check reads "Suporte 9+". */}{" "}
-          {unread > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-primary-foreground tabular-nums">
-              {badgeCount(unread)}
-            </span>
-          ) : null}
+          <SupportTriggerContent unread={unread} collapsed={collapsed} />
         </Popover.Trigger>
       </Hint>
       <Popover.Portal>
         <Popover.Content
+          side="right"
           align="end"
-          sideOffset={10}
+          sideOffset={12}
           aria-labelledby="support-panel-title"
           className="z-50 w-[min(22rem,calc(100vw-2rem))] space-y-2 rounded-2xl bg-popover p-2 text-popover-foreground shadow-xl shadow-black/15 ring-1 ring-border outline-none"
         >

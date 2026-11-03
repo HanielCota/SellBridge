@@ -52,7 +52,9 @@ test("fornecedor com marca abre o próprio painel com os dados carregados", asyn
     .getByRole("link", { name: "Produtos", exact: true })
     .click();
   await expect(page.getByRole("heading", { name: "Produtos" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Importar planilha" })).toBeVisible();
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Importar planilha" }),
+  ).toBeVisible();
 });
 
 for (const mobile of [false, true]) {
