@@ -89,6 +89,24 @@ test("on a phone the sold-out sash steps aside instead of hiding under the state
   await expect(visibleSash).toHaveCount(0);
 });
 
+test("a narrow desktop card drops the sold-out sash too", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoHydrated(page, "/publicacoes");
+  const card = page
+    .locator("main article")
+    .filter({ hasText: "Sem estoque no fornecedor" })
+    .first();
+  await expect(card).toBeVisible();
+
+  // Four columns beside the menu make cards this narrow on a desktop.
+  await card.evaluate((element) => {
+    element.style.setProperty("width", "250px");
+  });
+
+  await expect(card.locator("span:visible", { hasText: /^Esgotado$/ })).toHaveCount(0);
+});
+
 test("the new store's supplier name never breaks with a hyphen", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize(PHONE);
