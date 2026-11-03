@@ -49,6 +49,7 @@ function activeItem(navigation: AppNavigation, shownKind: ProfileKind, pathname:
   return activeNavItemTo([...profileItems, ...navigation.teamItems], pathname);
 }
 
+/** Whether the admin can open both profiles, so the menu offers the switch between them. */
 export function hasProfileSwitch(navigation: AppNavigation): boolean {
   return navigation.profileSections.length > 1;
 }

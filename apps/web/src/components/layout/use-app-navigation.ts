@@ -55,13 +55,21 @@ function navigationFor(
 ): AppNavigation {
   const sections = adminProfileSections(profileKind, profiles);
   const profileItems = sections.find(isCurrentSection)?.items ?? NAV_ITEMS;
-  if (!adminMode) {
-    return { profileItems, profileSections: [], teamItems: [] };
+  if (adminMode) {
+    const teamItems = ADMIN_NAV_ITEMS.filter(
+      (item) => item.permission === undefined || hasStaffPermission(user.role, item.permission),
+    );
+    return { profileItems, profileSections: sections, teamItems };
   }
-  const teamItems = ADMIN_NAV_ITEMS.filter(
-    (item) => !item.permission || hasStaffPermission(user.role, item.permission),
-  );
-  return { profileItems, profileSections: sections, teamItems };
+  return { profileItems, profileSections: [], teamItems: [] };
+}
+
+/** The team role while its mode is off, so the menu offers the way in; null otherwise. */
+function teamModeRoleOf(role: string, adminMode: boolean): string | null {
+  if (adminMode) {
+    return null;
+  }
+  return isStaffRole(role) ? role : null;
 }
 
 export interface AppNavigationState {
@@ -95,6 +103,6 @@ export function useAppNavigation({
     navigation: navigationFor(user, adminMode, profileKind, profiles),
     counts,
     pathname,
-    teamModeRole: isStaffRole(user.role) && !adminMode ? user.role : null,
+    teamModeRole: teamModeRoleOf(user.role, adminMode),
   };
 }
