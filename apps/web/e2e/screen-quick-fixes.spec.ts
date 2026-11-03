@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
+import { e2eDatabase } from "./database";
 import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
+import { giveTestBrand, supplierAccounts } from "./supplier-accounts";
 
 /*
  * Regressions from the screen sweep of 03/11/2026: pages that scrolled sideways on a phone,
@@ -7,6 +9,13 @@ import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./
  */
 
 const PHONE = { width: 375, height: 812 };
+const database = e2eDatabase();
+const accounts = supplierAccounts(database);
+
+test.afterAll(async () => {
+  await accounts.removeAll();
+  await database.$client.end();
+});
 
 /** The month before today's, in Brazil, as the report's `mes` param ("2026-10"). */
 function previousMonth(): string {
@@ -171,4 +180,17 @@ test("the support performance page uses the usual title and fits its narrow bars
   expect(fit.width).toBeLessThan(576);
   expect(fit.cut).toBe(0);
   expect(fit.dates).toBe(5);
+});
+
+test("the supplier's order tabs fade at the edge that hides more tabs", async ({ page }) => {
+  const email = await accounts.signUp(page, "Quick Fix Tabs Supplier");
+  await giveTestBrand(database, email, "Quick Fix Tabs Supplier");
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/fornecedor/painel/pedidos");
+  const tabs = page.getByRole("group", { name: "Etapa dos pedidos" });
+  await expect(tabs).toBeVisible();
+
+  await expect
+    .poll(() => tabs.evaluate((element) => getComputedStyle(element).maskImage))
+    .toContain("linear-gradient");
 });

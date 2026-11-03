@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useActiveIndicator } from "@/components/data/use-active-indicator";
+import { scrollEdgeMask, useScrollEdges } from "@/components/data/use-scroll-edges";
 import {
   TRACK_CLASSES,
   TRACK_FALLBACK_PILL_CLASSES,
@@ -51,12 +52,15 @@ export function FilterTabs<TValue>({
   const containerRef = useRef<HTMLFieldSetElement>(null);
   const tabRefs = useRef(new Map<TValue, HTMLElement>());
   const indicator = useActiveIndicator(chosen.value, containerRef, tabRefs);
+  // On a phone the track scrolls sideways; the fade shows there are more tabs past the edge.
+  const mask = scrollEdgeMask(useScrollEdges(containerRef));
   // Off until the first pick, so the pill lands in place on load instead of sliding in.
   const [canAnimate, setCanAnimate] = useState(false);
   return (
     <fieldset
       ref={containerRef}
       className={cn(TRACK_CLASSES, "inline-flex w-fit max-w-full min-w-0")}
+      style={mask === undefined ? undefined : { maskImage: mask }}
     >
       <legend className="sr-only">{legend}</legend>
       {indicator ? <TrackPill box={indicator} canAnimate={canAnimate} /> : null}
