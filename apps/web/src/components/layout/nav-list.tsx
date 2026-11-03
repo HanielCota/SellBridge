@@ -126,9 +126,10 @@ function ItemGroups({
   collapsed: boolean;
   withHint: boolean;
 }) {
-  return navGroups(items).map((group) => (
+  // A heading can come back later in the list, so the key carries the group's position too.
+  return navGroups(items).map((group, index) => (
     <div
-      key={group.heading ?? group.items[0]?.to}
+      key={`${index}-${group.heading ?? ""}`}
       role={group.heading === null ? undefined : "group"}
       aria-label={group.heading ?? undefined}
       className="grid gap-1"
@@ -171,7 +172,8 @@ export function NavList({
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
       {navigation.teamItems.length === 0 ? null : (
         <>
-          <GroupHeading heading="Administração" collapsed={collapsed} asHeading />
+          {/* Shrunk, the first team group's hairline already sets the team apart. */}
+          {collapsed ? null : <GroupHeading heading="Administração" collapsed={false} asHeading />}
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
       )}
