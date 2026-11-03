@@ -290,7 +290,7 @@ function SupplierCard({ supplier }: { supplier: SupplierWithReputation }) {
             <Badge variant="secondary">{supplier.niche}</Badge>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <PackageIcon className="size-3.5" aria-hidden="true" />
-              {supplier.productCount} produtos
+              {supplier.productCount} {supplier.productCount === 1 ? "produto" : "produtos"}
             </span>
           </div>
         </div>

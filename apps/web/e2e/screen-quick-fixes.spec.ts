@@ -90,3 +90,11 @@ test("a supplier's product card keeps each price on one line on a small phone", 
   );
   expect(tallest).toBeLessThan(28);
 });
+
+test("the suppliers list says 1 produto, never 1 produtos", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await gotoHydrated(page, "/fornecedores");
+  await expect(page.getByText(/^\d+ produtos?$/).first()).toBeVisible();
+
+  await expect(page.getByText("1 produtos", { exact: true })).toHaveCount(0);
+});
