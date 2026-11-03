@@ -36,6 +36,20 @@ async function sidewaysScroll(page: Page): Promise<number> {
   );
 }
 
+/** The elements that reach past the page's right edge, so a failure names what pushed it. */
+async function elementsPastTheEdge(page: Page): Promise<string> {
+  const elements = await page.evaluate(() => {
+    const edge = document.documentElement.clientWidth;
+    return [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => element.getBoundingClientRect().right > edge)
+      .map((element) => {
+        const right = element.getBoundingClientRect().right.toFixed(2);
+        return `${element.tagName.toLowerCase()}.${element.className} (right ${right}px)`;
+      });
+  });
+  return `Past the page's edge: ${elements.join("; ")}`;
+}
+
 /** How many pixels a placeholder runs past its input's text box. */
 async function placeholderOverflow(page: Page, placeholder: string): Promise<number> {
   return page.getByPlaceholder(placeholder).evaluate((input: HTMLInputElement) => {
@@ -62,7 +76,7 @@ test("the monthly report table scrolls inside its card, not the whole phone page
   await gotoHydrated(page, `/financeiro/relatorio?mes=${previousMonth()}`);
   await expect(page.getByRole("heading", { name: "Indicadores" })).toBeVisible();
 
-  expect(await sidewaysScroll(page)).toBe(0);
+  expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
 });
 
 test("on a phone the store figures keep their labels whole", async ({ page }) => {
@@ -169,7 +183,7 @@ test("on a phone the shipments list turns into cards that fit", async ({ page })
 
   await expect(cards).toBeVisible();
   await expect(page.getByRole("table")).toBeHidden();
-  expect(await sidewaysScroll(page)).toBe(0);
+  expect(await sidewaysScroll(page), await elementsPastTheEdge(page)).toBe(0);
 });
 
 test("the support performance page uses the usual title and fits its narrow bars", async ({
