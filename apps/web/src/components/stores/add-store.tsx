@@ -113,7 +113,7 @@ function SupplierRow({
       </MarkSlot>
       <span className="min-w-0 flex-1">
         <span className="block text-footnote text-muted-foreground">A nova loja vende</span>
-        <span className="line-clamp-2 block font-medium break-words hyphens-auto">
+        <span className="line-clamp-2 block font-medium break-words">
           {supplier === null ? "Nenhum fornecedor escolhido" : supplier.name}
         </span>
         {supplier === null ? null : (

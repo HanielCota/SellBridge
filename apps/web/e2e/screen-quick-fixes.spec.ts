@@ -50,3 +50,14 @@ test("on a phone the store figures keep their labels whole", async ({ page }) =>
   const box = await label.boundingBox();
   expect(box?.height ?? 0).toBeLessThan(20);
 });
+
+test("the new store's supplier name never breaks with a hyphen", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/lojas");
+  const name = page.getByText("Nenhum fornecedor escolhido");
+  await expect(name).toBeVisible();
+
+  // "forne-cedor": the browser hyphenated it in the narrow column.
+  expect(await name.evaluate((element) => getComputedStyle(element).hyphens)).not.toBe("auto");
+});
