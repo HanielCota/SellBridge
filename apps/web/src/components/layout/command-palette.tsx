@@ -265,7 +265,7 @@ export function CommandPalette() {
                   aria-label="Buscar no SellBridge"
                   value={term}
                   onValueChange={setTerm}
-                  placeholder="Buscar produtos, publicações, pedidos ou páginas"
+                  placeholder="Produto, publicação ou pedido"
                   className="h-14 flex-1 bg-transparent text-body outline-none sm:text-subhead placeholder:text-muted-foreground"
                 />
               </div>

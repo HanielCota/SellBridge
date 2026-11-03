@@ -149,7 +149,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();
 
-    const search = page.getByPlaceholder("Qual nicho ou produto você quer vender?");
+    const search = page.getByPlaceholder("Buscar nicho ou produto");
     await search.fill("vestido");
     await expect(page).toHaveURL(/query=vestido/);
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
@@ -228,7 +228,7 @@ test.describe("fornecedores e catálogo", () => {
     await expect(page.getByRole("link", { name: "Ateliê Divinópolis Confecções" })).toBeVisible();
     await expect(page.getByRole("link", { name: "BH Beauty Distribuidora" })).toHaveCount(0);
 
-    await page.getByPlaceholder("Qual nicho ou produto você quer vender?").fill("zzz-inexistente");
+    await page.getByPlaceholder("Buscar nicho ou produto").fill("zzz-inexistente");
     await expect(page.getByText("Nenhum fornecedor encontrado")).toBeVisible();
     await page.getByRole("button", { name: "Limpar filtros" }).click();
     await expect(page.getByRole("link", { name: "Rio Pet Atacado" })).toBeVisible();

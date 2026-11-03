@@ -72,7 +72,7 @@ function SupplierFilters() {
       <div className="flex flex-col gap-3 lg:flex-row">
         <SearchInput
           label="Buscar por nicho ou produto"
-          placeholder="Qual nicho ou produto você quer vender?"
+          placeholder="Buscar nicho ou produto"
           className="flex-1"
           value={term}
           onValueChange={setTerm}
@@ -290,7 +290,7 @@ function SupplierCard({ supplier }: { supplier: SupplierWithReputation }) {
             <Badge variant="secondary">{supplier.niche}</Badge>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <PackageIcon className="size-3.5" aria-hidden="true" />
-              {supplier.productCount} produtos
+              {supplier.productCount} {supplier.productCount === 1 ? "produto" : "produtos"}
             </span>
           </div>
         </div>

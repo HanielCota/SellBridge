@@ -279,7 +279,7 @@ export function ListingCard({
       aria-label={row.title}
       onClick={handleCardClick}
       className={cn(
-        "group surface-card flex w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-card select-none",
+        "group surface-card @container flex w-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-card select-none",
         selected && "ring-2 ring-brand",
       )}
     >

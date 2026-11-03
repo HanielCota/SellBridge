@@ -62,11 +62,14 @@ function PlanPrice({
 function PlanAction({
   planId,
   isCurrent,
+  comingSoon,
   canSelect,
   onSelect,
 }: {
   planId: BillingPlanId;
   isCurrent: boolean;
+  /** No price yet ("Em breve"): a grey, dead "Selecionar plano" read as broken. */
+  comingSoon: boolean;
   canSelect: boolean;
   onSelect: (planId: Exclude<BillingPlanId, "free">) => void;
 }) {
@@ -74,6 +77,13 @@ function PlanAction({
     return (
       <p className="text-sm text-muted-foreground">
         {isCurrent ? "Plano atual" : "Disponível após o encerramento da assinatura"}
+      </p>
+    );
+  }
+  if (comingSoon) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {isCurrent ? "Plano atual" : "Disponível quando a cobrança for ativada"}
       </p>
     );
   }
@@ -150,6 +160,7 @@ function PlanChoices() {
               <PlanAction
                 planId={plan.id}
                 isCurrent={data.effectivePlan.id === plan.id}
+                comingSoon={price?.priceCents === undefined}
                 canSelect={data.enabled && data.canManage && !action.isPending}
                 onSelect={(planId) => action.mutate(planId)}
               />

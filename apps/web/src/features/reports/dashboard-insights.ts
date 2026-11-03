@@ -127,7 +127,9 @@ export function trendOf(current: number | null, previous: number | null): Trend 
   if (change === null) {
     return null;
   }
-  if (change === 0) {
+  // The badge shows whole percents: a −0,3% reads "0%", and a red down arrow beside it would
+  // announce a fall that is not there.
+  if (Math.round(Math.abs(change)) === 0) {
     return { direction: "flat", percent: 0, isOffScale: false };
   }
   const percent = Math.abs(change);

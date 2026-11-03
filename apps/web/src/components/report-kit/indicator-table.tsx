@@ -109,7 +109,9 @@ function GroupRow({ label, note }: { label: string; note: string | null }) {
 export function IndicatorTable({ rows }: { rows: readonly ReportIndicatorRow[] }) {
   return (
     <ReportCard title="Indicadores" note="Cada taxa diz sobre o quê foi calculada.">
-      <div className="-mx-5 overflow-x-auto px-5">
+      {/* Relative so the cells' screen-reader texts (absolute) stay inside the scroller: without
+          it they escaped it and the whole phone page scrolled sideways. */}
+      <div className="relative -mx-5 overflow-x-auto px-5">
         <table className="w-full min-w-[40rem] text-sm tabular-nums">
           <caption className="sr-only">Indicadores do período com meta e comparação</caption>
           <thead>

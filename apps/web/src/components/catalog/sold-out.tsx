@@ -3,6 +3,9 @@ import { cn } from "@/lib/utils";
 /**
  * Diagonal sash across the photo's top-right corner. `corner` hugs the corner (the catalog card
  * has nothing there); `clearOfMenu` runs further in, below the listing card's actions button.
+ * On a narrow card (a phone's two columns, or four beside the menu) that button's state pill
+ * covers the sash ("sgotado"), so there it steps aside: the struck price and the red footer
+ * already say the product is sold out. The card is the container that decides.
  */
 export function SoldOutRibbon({ placement = "corner" }: { placement?: "corner" | "clearOfMenu" }) {
   return (
@@ -10,7 +13,8 @@ export function SoldOutRibbon({ placement = "corner" }: { placement?: "corner" |
       className={cn(
         "pointer-events-none absolute bg-red-600 py-1 text-center text-xs font-semibold text-white",
         placement === "corner" && "top-5 -right-11 w-40 rotate-[35deg]",
-        placement === "clearOfMenu" && "top-[46px] -right-[54px] w-56 rotate-45",
+        placement === "clearOfMenu" &&
+          "top-[46px] -right-[54px] w-56 rotate-45 @max-[17rem]:hidden",
       )}
     >
       Esgotado

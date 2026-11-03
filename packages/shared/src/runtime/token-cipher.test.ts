@@ -22,19 +22,25 @@ describe("createTokenCipher", () => {
     const parts = cipher.encrypt("token").split(".");
     const data = parts[3] ?? "";
     const tampered = [...parts.slice(0, 3), `${data.slice(0, -2)}AA`].join(".");
-    expect(() => cipher.decrypt(tampered)).toThrow("Não foi possível descriptografar");
+    expect(() => cipher.decrypt(tampered)).toThrow("Conecte a loja de novo");
   });
 
   it("rejects values from another key", () => {
     const encrypted = createTokenCipher(key).encrypt("token");
     const otherKey = randomBytes(32).toString("base64");
-    expect(() => createTokenCipher(otherKey).decrypt(encrypted)).toThrow(
-      "Não foi possível descriptografar",
-    );
+    expect(() => createTokenCipher(otherKey).decrypt(encrypted)).toThrow("Conecte a loja de novo");
   });
 
   it("rejects malformed input", () => {
-    expect(() => createTokenCipher(key).decrypt("not-encrypted")).toThrow("formato inválido");
+    expect(() => createTokenCipher(key).decrypt("not-encrypted")).toThrow(
+      expect.objectContaining({ details: { issues: ["malformed ciphertext"] } }),
+    );
+  });
+
+  it("tells the store owner to reconnect, never the technical reason", () => {
+    expect(() => createTokenCipher(key).decrypt("not-encrypted")).toThrow(
+      "A conexão com a loja caiu. Conecte a loja de novo.",
+    );
   });
 
   it("requires a 32-byte key", () => {

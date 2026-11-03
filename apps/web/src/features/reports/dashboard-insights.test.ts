@@ -78,6 +78,11 @@ describe("trends and averages", () => {
     expect(trendOf(120, 100)).toEqual({ direction: "up", percent: 20, isOffScale: false });
     expect(trendOf(80, 100)).toEqual({ direction: "down", percent: 20, isOffScale: false });
     expect(trendOf(100, 100)).toEqual({ direction: "flat", percent: 0, isOffScale: false });
+    // −0,3% shows as "0%": it must not read as a fall.
+    expect(trendOf(997, 1000)).toEqual({ direction: "flat", percent: 0, isOffScale: false });
+    // −0,5% and +0,5% both show "1%": the same size of move gets the same arrow.
+    expect(trendOf(995, 1000)?.direction).toBe("down");
+    expect(trendOf(1005, 1000)?.direction).toBe("up");
     expect(trendOf(13_288, 100)?.isOffScale).toBe(true);
     expect(trendOf(100, 0)).toBeNull();
     expect(trendOf(null, 100)).toBeNull();

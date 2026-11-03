@@ -31,8 +31,9 @@ import { cn } from "@/lib/utils";
 const SeeAllIcon = ACTION_ICONS.seeAll.icon;
 const count = new Intl.NumberFormat("pt-BR");
 const BARS_SHOWN = 10;
-// Ten bars with their value inside do not fit a phone; it shows the latest ones.
-const BARS_ON_PHONE = 5;
+// Ten bars with their value inside need about 36rem: in a narrower box (a phone, or half the
+// page beside the menu) the dates read "25/1" and the "100%" touch, so it shows the latest ones.
+const BARS_WHEN_NARROW = 5;
 
 const LEVEL_TEXT: Record<HealthLevel, string> = {
   off_target: "text-destructive",
@@ -66,20 +67,20 @@ function WeeklyBar({
   point,
   ceiling,
   title,
-  phoneHidden,
+  hiddenWhenNarrow,
 }: {
   metric: SupportHealthMetric;
   point: { start: string; value: number | null };
   ceiling: number;
   title: string;
-  phoneHidden: boolean;
+  hiddenWhenNarrow: boolean;
 }) {
   const met = point.value !== null && bucketMetTarget(metric.key, point.value, metric.target);
   return (
     <div
       className={cn(
         "flex h-full min-w-0 flex-1 flex-col items-center justify-end",
-        phoneHidden && "max-sm:hidden",
+        hiddenWhenNarrow && "@max-xl:hidden",
       )}
     >
       <span
@@ -117,7 +118,7 @@ function WeeklyBars({
   return (
     <figure
       aria-label={`${HEALTH_METRIC_LABELS[metric.key]} por período, com a meta`}
-      className="min-w-0 space-y-2"
+      className="@container min-w-0 space-y-2"
     >
       <div className="relative flex h-44 items-end gap-2 pr-16 shadow-[inset_0_-1px_0_var(--border)]">
         <span
@@ -138,7 +139,7 @@ function WeeklyBars({
             point={point}
             ceiling={ceiling}
             title={bucketTitle(point.start, report.bucket)}
-            phoneHidden={index < points.length - BARS_ON_PHONE}
+            hiddenWhenNarrow={index < points.length - BARS_WHEN_NARROW}
           />
         ))}
       </div>
@@ -148,7 +149,7 @@ function WeeklyBars({
             key={point.start}
             className={cn(
               "min-w-0 flex-1 text-center text-xs text-muted-foreground tabular-nums",
-              index < points.length - BARS_ON_PHONE && "max-sm:hidden",
+              index < points.length - BARS_WHEN_NARROW && "@max-xl:hidden",
             )}
           >
             {bucketLabel(point.start, report.bucket)}

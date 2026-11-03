@@ -5,6 +5,11 @@ const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const VERSION = "v1";
+/**
+ * What the store owner reads when a saved token cannot be read: the worker stores this message on
+ * the store, and /lojas shows it. The technical reason stays in the error's issues, for the logs.
+ */
+const UNREADABLE_TOKEN_MESSAGE = "A conexão com a loja caiu. Conecte a loja de novo.";
 
 function parseKey(base64Key: string): Buffer {
   const key = Buffer.from(base64Key, "base64");
@@ -39,7 +44,7 @@ export function createTokenCipher(base64Key: string): TokenCipher {
   function decrypt(ciphertext: string): string {
     const [version, ivPart, tagPart, dataPart] = ciphertext.split(".");
     if (version !== VERSION || !ivPart || !tagPart || dataPart === undefined) {
-      throw validationError("Token criptografado em formato inválido");
+      throw validationError(UNREADABLE_TOKEN_MESSAGE, ["malformed ciphertext"]);
     }
     try {
       const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivPart, "base64url"), {
@@ -51,7 +56,7 @@ export function createTokenCipher(base64Key: string): TokenCipher {
         decipher.final(),
       ]).toString("utf8");
     } catch (error) {
-      throw validationError("Não foi possível descriptografar o token", [String(error)]);
+      throw validationError(UNREADABLE_TOKEN_MESSAGE, [String(error)]);
     }
   }
 
