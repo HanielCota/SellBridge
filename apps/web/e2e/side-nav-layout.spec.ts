@@ -268,3 +268,19 @@ test("the account and support sit at the foot of the menu, the header keeps sear
     .click();
   await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
 });
+
+// Regression: beside the sidebar, long ticket subjects kept to one line and pushed Situação and
+// Atualizado out of the table at 1366px.
+test("the admin ticket table keeps every column in view beside the sidebar", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/admin/chamados");
+  const table = page.getByRole("main").getByRole("table");
+  await expect(table.getByRole("columnheader", { name: "Atualizado" })).toBeVisible();
+  const hiddenWidth = await table.evaluate((element) => {
+    const box = element.parentElement ?? element;
+    return box.scrollWidth - box.clientWidth;
+  });
+  expect(hiddenWidth).toBeLessThanOrEqual(0);
+});
