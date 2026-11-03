@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { MouseEvent } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 import { Hint } from "@/components/ui/hint";
 import { BADGE_DESCRIPTIONS, type NavBadge, type NavItem } from "@/features/navigation/nav-items";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,13 @@ export function NavTab({
   /** Another profile of the account (`?perfil=`); null stays on the tab's profile. */
   profileSlug?: string | null;
 }) {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  // The team's list is longer than the window: the open page's item scrolls into sight.
+  useEffect(() => {
+    if (isActive) {
+      linkRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [isActive]);
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   const action = navTabAction(item.to);
   const TabIcon = action?.icon;
@@ -47,6 +54,7 @@ export function NavTab({
   ) : null;
   const link = (
     <Link
+      ref={linkRef}
       to={item.to}
       {...(profileSlug === null ? {} : { search: { perfil: profileSlug } })}
       aria-current={isActive ? "page" : undefined}
