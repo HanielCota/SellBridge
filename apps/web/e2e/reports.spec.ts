@@ -262,7 +262,7 @@ test.describe("busca global", () => {
   test("Ctrl+K opens the selected order directly in operations", async ({ page }) => {
     await signIn(page, DEMO_USER);
     await gotoHydrated(page, "/dashboard");
-    const input = page.getByPlaceholder(/Buscar produtos, publicações, pedidos/);
+    const input = page.getByPlaceholder("Buscar produto, pedido ou página");
     // The root marks hydration before the header's shortcut listener may be attached, so a
     // press that lands too early is retried instead of failing the run.
     // Ctrl+K toggles the palette, so it is pressed again only while the input is still hidden.

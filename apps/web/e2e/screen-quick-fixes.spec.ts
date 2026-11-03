@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
+import { ADMIN_USER, DEMO_USER, enableAdminMode, gotoHydrated, signIn } from "./helpers";
 
 /*
  * Regressions from the screen sweep of 03/11/2026: pages that scrolled sideways on a phone,
@@ -25,6 +25,23 @@ async function sidewaysScroll(page: Page): Promise<number> {
   return page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
+}
+
+/** How many pixels a placeholder runs past its input's text box. */
+async function placeholderOverflow(page: Page, placeholder: string): Promise<number> {
+  return page.getByPlaceholder(placeholder).evaluate((input: HTMLInputElement) => {
+    const style = getComputedStyle(input);
+    const context = document.createElement("canvas").getContext("2d");
+    if (context === null) {
+      throw new Error("No 2D canvas to measure the placeholder");
+    }
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const room =
+      input.clientWidth -
+      Number.parseFloat(style.paddingLeft) -
+      Number.parseFloat(style.paddingRight);
+    return context.measureText(input.placeholder).width - room;
+  });
 }
 
 test("the monthly report table scrolls inside its card, not the whole phone page", async ({
@@ -97,4 +114,21 @@ test("the suppliers list says 1 produto, never 1 produtos", async ({ page }) => 
   await expect(page.getByText(/^\d+ produtos?$/).first()).toBeVisible();
 
   await expect(page.getByText("1 produtos", { exact: true })).toHaveCount(0);
+});
+
+test("the supplier search hint fits a phone", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/fornecedores");
+
+  expect(await placeholderOverflow(page, "Buscar nicho ou produto")).toBeLessThanOrEqual(0);
+});
+
+test("the ticket search hint fits a phone", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await enableAdminMode(page);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/admin/chamados");
+  expect(await placeholderOverflow(page, "Assunto, revendedor ou e-mail")).toBeLessThanOrEqual(0);
 });

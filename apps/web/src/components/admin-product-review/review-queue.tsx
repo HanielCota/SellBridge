@@ -200,7 +200,7 @@ export function ReviewQueue({ search, onSearch, onPageChange }: ReviewQueueProps
       />
       <SearchInput
         label="Buscar produtos em análise"
-        placeholder="Buscar por título, código ou fornecedor"
+        placeholder="Título, código ou fornecedor"
         value={term}
         onValueChange={setTerm}
       />

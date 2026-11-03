@@ -72,7 +72,7 @@ function SupplierFilters() {
       <div className="flex flex-col gap-3 lg:flex-row">
         <SearchInput
           label="Buscar por nicho ou produto"
-          placeholder="Qual nicho ou produto você quer vender?"
+          placeholder="Buscar nicho ou produto"
           className="flex-1"
           value={term}
           onValueChange={setTerm}

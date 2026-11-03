@@ -319,7 +319,7 @@ function StaffTicketFilters({
     <div className="grid gap-3 sm:grid-cols-3 lg:flex">
       <SearchInput
         label="Buscar chamados"
-        placeholder="Buscar por assunto, revendedor ou e-mail"
+        placeholder="Assunto, revendedor ou e-mail"
         className="sm:col-span-3 lg:flex-1"
         value={term}
         onValueChange={setTerm}
