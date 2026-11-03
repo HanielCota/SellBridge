@@ -98,6 +98,46 @@ function ShipmentRow({
   );
 }
 
+/** One shipment as a card on phones, where four columns squeeze words apart (like Chamados). */
+function MobileShipmentRow({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: StaffShipmentRow;
+  selected: boolean;
+  onSelect: (shipmentId: string) => void;
+}) {
+  return (
+    <li className={cn("space-y-1.5 p-4", selected && "bg-muted/50")}>
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          className="min-w-0 text-left font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline"
+          aria-pressed={selected}
+          onClick={() => onSelect(row.shipmentId)}
+        >
+          Pedido {row.externalOrderId}
+        </button>
+        <ToneStatus
+          tone={FULFILLMENT_TONES[row.status]}
+          label={shipmentStatusLabel(row.status, row.catalogKind)}
+        />
+      </div>
+      {row.delay === null ? null : (
+        <ToneStatus tone="warning" label={SHIPMENT_DELAY_LABELS[row.delay]} />
+      )}
+      <p className="truncate text-xs text-muted-foreground">
+        {row.sellerName} ·{" "}
+        {row.catalogKind === "seller" ? "Estoque do revendedor" : row.supplierName}
+      </p>
+      <p className="text-xs [overflow-wrap:anywhere] text-muted-foreground">
+        {row.trackingCode === null ? "Sem código" : trackingLine(row.carrier, row.trackingCode)}
+      </p>
+    </li>
+  );
+}
+
 function ShipmentsTable({
   search,
   onSelect,
@@ -154,7 +194,17 @@ function ShipmentsTableBody({
 }) {
   return (
     <div className="surface-card overflow-x-auto rounded-3xl bg-card">
-      <Table className="table-fixed">
+      <ul aria-label="Envios" className="divide-y divide-border md:hidden">
+        {rows.map((row) => (
+          <MobileShipmentRow
+            key={row.shipmentId}
+            row={row}
+            selected={row.shipmentId === selectedId}
+            onSelect={onSelect}
+          />
+        ))}
+      </ul>
+      <Table className="table-fixed max-md:hidden">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[24%]">Pedido</TableHead>

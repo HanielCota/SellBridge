@@ -132,3 +132,15 @@ test("the ticket search hint fits a phone", async ({ page }) => {
   await gotoHydrated(page, "/admin/chamados");
   expect(await placeholderOverflow(page, "Assunto, revendedor ou e-mail")).toBeLessThanOrEqual(0);
 });
+
+test("on a phone the shipments list turns into cards that fit", async ({ page }) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/admin/envios");
+  const cards = page.getByRole("list", { name: "Envios" });
+
+  await expect(cards).toBeVisible();
+  await expect(page.getByRole("table")).toBeHidden();
+  expect(await sidewaysScroll(page)).toBe(0);
+});
