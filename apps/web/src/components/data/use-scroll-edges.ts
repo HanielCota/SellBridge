@@ -48,10 +48,14 @@ export function useScrollEdges(scrollerRef: RefObject<HTMLElement | null>): Scro
         previous.start === next.start && previous.end === next.end ? previous : next,
       );
     };
-    // The observer reports once on start, so the first measure needs no separate call.
+    // The observer reports once on start, so the first measure needs no separate call. The
+    // children too: a count that loads later widens a tab, not the track already at full width.
     const observer = new ResizeObserver(measure);
     if (scroller !== null) {
       observer.observe(scroller);
+      for (const child of scroller.children) {
+        observer.observe(child);
+      }
       scroller.addEventListener("scroll", measure, { passive: true });
     }
     return () => {

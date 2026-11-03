@@ -213,6 +213,28 @@ test("the supplier's order tabs fade at the edge that hides more tabs", async ({
     .toContain("linear-gradient");
 });
 
+test("the tabs fade again once a tab grows past the track's end", async ({ page }) => {
+  const email = await accounts.signUp(page, "Quick Fix Growing Tabs");
+  await giveTestBrand(database, email, "Quick Fix Growing Tabs");
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/fornecedor/painel/pedidos");
+  const tabs = page.getByRole("group", { name: "Etapa dos pedidos" });
+  const fadedSides = () =>
+    tabs.evaluate(
+      (element) =>
+        getComputedStyle(element).maskImage.match(/transparent|rgba\(0, 0, 0, 0\)/g)?.length ?? 0,
+    );
+  await tabs.evaluate((element) => element.scrollTo({ left: element.scrollWidth }));
+  await expect.poll(fadedSides).toBe(1);
+
+  // A count arriving late widens a tab: the track keeps its full width and does not scroll.
+  await tabs.evaluate((element) => {
+    element.querySelector("button:last-of-type")?.append(` ${"x".repeat(40)}`);
+  });
+
+  await expect.poll(fadedSides).toBe(2);
+});
+
 test("the 404 page's way back stands out in dark mode", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("sellbridge-theme", "dark"));
   await gotoHydrated(page, "/nao-existe");
