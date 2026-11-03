@@ -102,7 +102,8 @@ function CollapseButton({ mode, onToggle }: { mode: SidebarMode; onToggle: () =>
     <Hint label={label} openOnTap={false}>
       <button
         type="button"
-        aria-label={label}
+        // Expanded, the visible words name the button (a name must contain what is on screen).
+        aria-label={collapsed ? label : undefined}
         aria-expanded={mode === "expanded"}
         onClick={onToggle}
         className={cn(

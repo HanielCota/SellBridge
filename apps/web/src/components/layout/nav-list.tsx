@@ -82,12 +82,30 @@ export function ProfileSwitch({
   );
 }
 
-function GroupHeading({ heading, collapsed }: { heading: string; collapsed: boolean }) {
+/**
+ * The label over a run of items. Only "Administração" is a heading: the groups are named for
+ * screen readers by their `role="group"`, so "Lojas" never doubles the page's own title.
+ */
+function GroupHeading({
+  heading,
+  collapsed,
+  asHeading = false,
+}: {
+  heading: string;
+  collapsed: boolean;
+  asHeading?: boolean;
+}) {
   if (collapsed) {
     return <TeamDivider vertical={false} />;
   }
+  const className = "px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground";
+  if (asHeading) {
+    return <h2 className={className}>{heading}</h2>;
+  }
   return (
-    <h2 className="px-4 pt-3 pb-1 text-caption font-medium text-muted-foreground">{heading}</h2>
+    <p aria-hidden="true" className={className}>
+      {heading}
+    </p>
   );
 }
 
@@ -109,7 +127,12 @@ function ItemGroups({
   withHint: boolean;
 }) {
   return navGroups(items).map((group) => (
-    <div key={group.heading ?? group.items[0]?.to} className="grid gap-1">
+    <div
+      key={group.heading ?? group.items[0]?.to}
+      role={group.heading === null ? undefined : "group"}
+      aria-label={group.heading ?? undefined}
+      className="grid gap-1"
+    >
       {group.heading === null ? null : (
         <GroupHeading heading={group.heading} collapsed={collapsed} />
       )}
@@ -148,7 +171,7 @@ export function NavList({
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
       {navigation.teamItems.length === 0 ? null : (
         <>
-          <GroupHeading heading="Administração" collapsed={collapsed} />
+          <GroupHeading heading="Administração" collapsed={collapsed} asHeading />
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
       )}

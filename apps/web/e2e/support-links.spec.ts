@@ -130,10 +130,10 @@ test("volta para Publicações com o filtro de onde o chamado foi aberto", async
   await page.getByRole("menuitem", { name: "Falar com o suporte" }).click();
   await expect(page).toHaveURL(/\/suporte\/novo\?categoria=listing/);
 
-  // The form spans the page like the navigation bar: its left edge lines up with the logo.
-  const logo = await page.getByRole("link", { name: "SellBridge, visão geral" }).boundingBox();
+  // The form spans the page's content column: its left edge lines up with the column's.
+  const content = await page.locator("main").boundingBox();
   const form = await page.locator("form").boundingBox();
-  expect(Math.abs((form?.x ?? 0) - (logo?.x ?? 0))).toBeLessThan(40);
+  expect(Math.abs((form?.x ?? 0) - (content?.x ?? 0))).toBeLessThan(40);
   expect(form?.width ?? 0).toBeGreaterThan(1100);
 
   await page.getByRole("main").getByRole("link", { name: "Publicações", exact: true }).click();

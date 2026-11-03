@@ -78,8 +78,9 @@ test("the admin sidebar lists every team page under its heading and the page sti
   await enableAdminMode(page);
   await expectPageFits(page);
   const nav = sidebar(page);
-  for (const heading of ["Administração", "Contas", "Atendimento", "Moderação", "Equipe"]) {
-    await expect(nav.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toBeVisible();
+  for (const group of ["Contas", "Atendimento", "Moderação", "Equipe"]) {
+    await expect(nav.getByRole("group", { name: group, exact: true })).toBeAttached();
   }
   // Pages that before only had a link inside another page or in the account menu.
   for (const label of ["Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
@@ -214,7 +215,7 @@ test("the sidebar shrinks to its icons and remembers it after a reload", async (
   const catalogWidth = async () => (await catalog.boundingBox())?.width ?? 0;
   await expect.poll(catalogWidth).toBeGreaterThan(150);
 
-  await aside.getByRole("button", { name: "Recolher o menu lateral" }).click();
+  await aside.getByRole("button", { name: "Recolher menu" }).click();
   // The label stays for screen readers; only the icon takes room.
   await expect.poll(catalogWidth).toBeLessThan(64);
   await expect(catalog.locator("svg")).toBeVisible();
