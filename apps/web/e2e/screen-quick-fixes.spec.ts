@@ -194,3 +194,32 @@ test("the supplier's order tabs fade at the edge that hides more tabs", async ({
     .poll(() => tabs.evaluate((element) => getComputedStyle(element).maskImage))
     .toContain("linear-gradient");
 });
+
+test("the 404 page's way back stands out in dark mode", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("sellbridge-theme", "dark"));
+  await gotoHydrated(page, "/nao-existe");
+  const button = page.getByRole("link", { name: "Voltar ao início" });
+  await expect(button).toBeVisible();
+
+  // Contrast between the button and the page: the outline button sat at about 1.1:1.
+  const contrast = await button.evaluate((element) => {
+    const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    if (context === null) {
+      throw new Error("No 2D canvas to read the colors");
+    }
+    const luminance = (color: string) => {
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      const [red = 0, green = 0, blue = 0] = context.getImageData(0, 0, 1, 1).data;
+      const linear = [red, green, blue].map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+    };
+    const buttonLight = luminance(getComputedStyle(element).backgroundColor);
+    const pageLight = luminance(getComputedStyle(document.body).backgroundColor);
+    return (Math.max(buttonLight, pageLight) + 0.05) / (Math.min(buttonLight, pageLight) + 0.05);
+  });
+  expect(contrast).toBeGreaterThan(3);
+});
