@@ -157,6 +157,7 @@ export function SideNav({
   const { mode, toggle } = useSidebarMode();
   const collapsed = mode === "collapsed";
   const [shownKind, setShownKind] = useState<ProfileKind>(profileKind);
+  const account = { user, adminMode, profileKind, supportReplies: state.counts.supportReplies };
   const list = {
     navigation: state.navigation,
     shownKind,
@@ -167,6 +168,7 @@ export function SideNav({
   };
   return (
     <aside
+      aria-label="Menu lateral"
       className={cn(
         "sticky top-0 hidden h-svh shrink-0 flex-col gap-4 border-r border-border bg-card py-5 lg:flex",
         collapsed ? "w-20 px-3" : "w-64 px-4",
@@ -191,13 +193,7 @@ export function SideNav({
         }
       />
       <div className="grid gap-1">
-        <AccountChip
-          user={user}
-          supportReplies={state.counts.supportReplies}
-          adminMode={adminMode}
-          profileKind={profileKind}
-          collapsed={collapsed}
-        />
+        <AccountChip {...account} collapsed={collapsed} />
         <CollapseButton mode={mode} onToggle={toggle} />
       </div>
     </aside>

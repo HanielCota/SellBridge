@@ -33,7 +33,8 @@ export function AccountChip({
       side="top"
       compact={collapsed}
       className={cn(
-        "w-full rounded-2xl p-1.5 hover:bg-foreground/[0.06] data-[state=open]:bg-foreground/[0.06]",
+        // min-w-0: a grid item keeps its content width, so a long brand name ran past the sidebar.
+        "w-full min-w-0 rounded-2xl p-1.5 hover:bg-foreground/[0.06] data-[state=open]:bg-foreground/[0.06]",
         collapsed && "justify-center",
       )}
     >

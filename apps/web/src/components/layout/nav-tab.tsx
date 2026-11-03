@@ -19,6 +19,17 @@ function tabHint(
   return withHint ? hint : undefined;
 }
 
+/** The team's list is longer than the window: the open page's item scrolls into sight. */
+function useScrolledIntoSightWhenActive(isActive: boolean) {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (isActive) {
+      linkRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [isActive]);
+  return linkRef;
+}
+
 export function NavTab({
   item,
   isActive,
@@ -39,18 +50,17 @@ export function NavTab({
   /** Another profile of the account (`?perfil=`); null stays on the tab's profile. */
   profileSlug?: string | null;
 }) {
-  const linkRef = useRef<HTMLAnchorElement>(null);
-  // The team's list is longer than the window: the open page's item scrolls into sight.
-  useEffect(() => {
-    if (isActive) {
-      linkRef.current?.scrollIntoView({ block: "nearest" });
-    }
-  }, [isActive]);
+  const linkRef = useScrolledIntoSightWhenActive(isActive);
   const description = item.badge && count > 0 ? BADGE_DESCRIPTIONS[item.badge](count) : null;
   const action = navTabAction(item.to);
   const TabIcon = action?.icon;
   const badge = description ? (
-    <TabBadge isError={item.badge === "failedListings"} count={count} description={description} />
+    <TabBadge
+      isError={item.badge === "failedListings"}
+      count={count}
+      description={description}
+      onActive={isActive}
+    />
   ) : null;
   const link = (
     <Link

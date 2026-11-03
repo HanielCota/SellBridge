@@ -31,7 +31,9 @@ test.afterAll(async () => {
 const DESKTOP_WIDTHS = [1024, 1280, 1366, 1440, 1920] as const;
 
 function sidebar(page: Page) {
-  return page.getByRole("complementary").getByRole("navigation", { name: "Principal" });
+  return page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("navigation", { name: "Principal" });
 }
 
 /** The page never scrolls sideways and the account button stays inside the window. */
@@ -121,14 +123,16 @@ test("staff can enter team mode from the supplier profile", async ({ page }) => 
   await expect(page).toHaveURL(/\/admin\/products/);
   await expect(page.getByText("Modo admin ativo")).toBeVisible();
   await expect(
-    page.getByRole("complementary").getByRole("button", { name: "Fornecedor" }),
+    page
+      .getByRole("complementary", { name: "Menu lateral" })
+      .getByRole("button", { name: "Fornecedor" }),
   ).toBeVisible();
 });
 
 test("the admin sidebar switches between the reseller and the supplier items", async ({ page }) => {
   const supplierProfile = await signInAdminWithSupplierProfile(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const aside = page.getByRole("complementary");
+  const aside = page.getByRole("complementary", { name: "Menu lateral" });
   const nav = sidebar(page);
   await expect(aside.getByRole("button", { name: "Revendedor" })).toHaveAttribute(
     "aria-pressed",
@@ -193,6 +197,15 @@ test("the supplier sidebar has the spreadsheet import as an item of its own", as
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
   await expectPageFits(page);
+  // Regression: a long brand name pushed the account out of the sidebar, over the page.
+  const aside = await page.getByRole("complementary", { name: "Menu lateral" }).boundingBox();
+  const account = await page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("button", { name: /Menu do usuário/ })
+    .boundingBox();
+  expect((account?.x ?? 0) + (account?.width ?? 0)).toBeLessThanOrEqual(
+    (aside?.x ?? 0) + (aside?.width ?? 0),
+  );
   const nav = sidebar(page);
   await nav.getByRole("link", { name: "Importar planilha" }).click();
   await expect(page).toHaveURL(/\/fornecedor\/painel\/importar/);
@@ -210,7 +223,7 @@ test("the sidebar shrinks to its icons and remembers it after a reload", async (
   await signIn(page, ADMIN_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
-  const aside = page.getByRole("complementary");
+  const aside = page.getByRole("complementary", { name: "Menu lateral" });
   const catalog = sidebar(page).getByRole("link", { name: "Catálogo" });
   const catalogWidth = async () => (await catalog.boundingBox())?.width ?? 0;
   await expect.poll(catalogWidth).toBeGreaterThan(150);
@@ -234,7 +247,7 @@ test("the account and support sit at the foot of the menu, the header keeps sear
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
   const header = page.locator("header").first();
-  const aside = page.getByRole("complementary");
+  const aside = page.getByRole("complementary", { name: "Menu lateral" });
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
   await expect(header.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
   await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
