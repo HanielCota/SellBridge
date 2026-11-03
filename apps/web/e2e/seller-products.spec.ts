@@ -70,7 +70,7 @@ test.skip("seller can start a product from the dashboard and read Portuguese pro
     page.getByRole("listbox", { name: "Resultados da busca", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("region", { name: /^Notificações/ })).toHaveCount(1);
-  await page.getByPlaceholder("Buscar produto, pedido ou página").fill("cadastro");
+  await page.getByPlaceholder("Produto, publicação ou pedido").fill("cadastro");
   await page.getByRole("option", { name: "Meu cadastro", exact: true }).click();
   await expect(page).toHaveURL(/\/onboarding/);
 });
