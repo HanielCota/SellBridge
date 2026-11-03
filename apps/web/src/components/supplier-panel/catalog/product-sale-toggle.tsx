@@ -2,25 +2,13 @@ import type { SupplierPanelProduct } from "@sellbridge/database/repositories";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ToneStatus } from "@/components/data/tone-status";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { CONTROL_HINTS } from "@/components/icons/action-icons";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/hint";
-import { catalogStatusMessage } from "@/features/admin-suppliers/catalog-status";
 import { supplierPanelSetProductActive } from "@/features/supplier-panel/catalog/catalog.functions";
+import { saleSwitchMessage } from "@/features/supplier-panel/catalog/sale-switch-message";
 import { errorMessage } from "@/lib/errors";
-import { ReviewStatus } from "./review-status";
-
-/** The review status, plus "Desativado" while the product is off sale. */
-export function ProductStatus({ product }: { product: SupplierPanelProduct }) {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-      <ReviewStatus status={product.reviewStatus} />
-      {product.active ? null : <ToneStatus tone="muted" label="Desativado" />}
-    </span>
-  );
-}
 
 function useSetActive(product: SupplierPanelProduct, onDone: () => void) {
   const queryClient = useQueryClient();
@@ -31,7 +19,7 @@ function useSetActive(product: SupplierPanelProduct, onDone: () => void) {
       }),
     onSuccess: async (result) => {
       onDone();
-      toast.success(catalogStatusMessage("Produto", result));
+      toast.success(saleSwitchMessage(result));
       // The whole panel: the home's catalog figures count only products on sale.
       await queryClient.invalidateQueries({ queryKey: ["supplier-panel", product.supplierId] });
     },
