@@ -43,9 +43,8 @@ export function PerformanceHero({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className={cn("space-y-2", back && "space-y-3")}>
           {back}
-          <h1 className="text-[40px] leading-none font-semibold tracking-tight text-balance sm:text-[56px]">
-            {title}
-          </h1>
+          {/* The size of every other page's title (PageHeader): at 56px it shouted over them. */}
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
           <p className="text-sm text-muted-foreground">{caption}</p>
         </div>
         {action}

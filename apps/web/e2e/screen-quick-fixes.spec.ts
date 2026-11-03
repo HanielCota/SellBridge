@@ -144,3 +144,31 @@ test("on a phone the shipments list turns into cards that fit", async ({ page })
   await expect(page.getByRole("table")).toBeHidden();
   expect(await sidewaysScroll(page)).toBe(0);
 });
+
+test("the support performance page uses the usual title and fits its narrow bars", async ({
+  page,
+}) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await gotoHydrated(page, "/admin/chamados/metricas");
+  const title = page.getByRole("heading", { name: "Desempenho do suporte", level: 1 });
+  await expect(title).toBeVisible();
+
+  expect(await title.evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
+  // Beside the menu this box is about 440px: ten bars read "25/1" and their "100%" touched.
+  const bars = page.getByRole("figure", { name: /por período, com a meta$/ });
+  const fit = await bars.evaluate((figure) => {
+    const shown = [...figure.querySelectorAll<HTMLElement>("span.tabular-nums")].filter(
+      (span) => span.offsetParent !== null,
+    );
+    return {
+      width: figure.getBoundingClientRect().width,
+      cut: shown.filter((span) => span.scrollWidth > span.clientWidth).length,
+      dates: shown.filter((span) => span.title === "").length,
+    };
+  });
+  expect(fit.width).toBeLessThan(576);
+  expect(fit.cut).toBe(0);
+  expect(fit.dates).toBe(5);
+});
