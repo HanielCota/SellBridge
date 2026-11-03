@@ -51,6 +51,18 @@ test("on a phone the store figures keep their labels whole", async ({ page }) =>
   expect(box?.height ?? 0).toBeLessThan(20);
 });
 
+test("on a phone the sold-out sash steps aside instead of hiding under the state pill", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize(PHONE);
+  await gotoHydrated(page, "/publicacoes");
+  await expect(page.getByText("Sem estoque no fornecedor").first()).toBeVisible();
+
+  const visibleSash = page.locator("main article span:visible", { hasText: /^Esgotado$/ });
+  await expect(visibleSash).toHaveCount(0);
+});
+
 test("the new store's supplier name never breaks with a hyphen", async ({ page }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize(PHONE);
