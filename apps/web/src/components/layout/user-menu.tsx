@@ -1,10 +1,9 @@
 import { useTeamModeSwitch } from "@/features/auth/use-team-mode-switch";
 import { unreadRepliesText } from "@/features/support/response-time";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
-import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import {
   CaretDownIcon,
-  ClockCounterClockwiseIcon,
   CreditCardIcon,
   type Icon,
   IdentificationCardIcon,
@@ -210,25 +209,9 @@ function AccountLinks({
   );
 }
 
-/**
- * The team's switch and, in admin mode, the page the header has no room for: the audit log
- * (admins). Review moderation is a team tab of its own. Nothing for a customer.
- */
+/** The team's switch; the team's pages, the audit log included, are in the menu. Nothing for a customer. */
 function TeamItems({ role, adminMode }: { role: string; adminMode: boolean }) {
-  return (
-    <>
-      {isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null}
-      {adminMode && hasStaffPermission(role, "audit.view") ? (
-        // Item 28.b: the admin-mode header has no room for another tab, so it lives here.
-        <DropdownMenuItem asChild className={MENU_ROW}>
-          <Link to="/admin/auditoria">
-            <ClockCounterClockwiseIcon aria-hidden="true" />
-            Auditoria
-          </Link>
-        </DropdownMenuItem>
-      ) : null}
-    </>
-  );
+  return isStaffRole(role) ? <AdminModeItem enabled={adminMode} role={role} /> : null;
 }
 
 interface UserMenuProps {
