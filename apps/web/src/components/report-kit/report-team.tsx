@@ -89,7 +89,8 @@ const HEADERS = [
 
 function TeamTable({ rows, showNames }: { rows: readonly ReportTeamRow[]; showNames: boolean }) {
   return (
-    <div className="-mx-5 overflow-x-auto px-5">
+    // Relative keeps the cells' screen-reader texts inside the scroller (see IndicatorTable).
+    <div className="relative -mx-5 overflow-x-auto px-5">
       <table className="w-full min-w-[46rem] text-sm tabular-nums">
         <caption className="sr-only">Produção da equipe no período</caption>
         <thead>
