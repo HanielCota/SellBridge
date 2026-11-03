@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { e2eDatabase } from "./database";
 import {
   ADMIN_USER,
+  DEMO_USER,
   enableAdminMode,
   gotoHydrated,
   SIGN_UP_PASSWORD,
@@ -223,4 +224,33 @@ test("the sidebar shrinks to its icons and remembers it after a reload", async (
 
   await aside.getByRole("button", { name: "Abrir o menu lateral" }).click();
   await expect.poll(catalogWidth).toBeGreaterThan(150);
+});
+
+test("the account and support sit at the foot of the menu, the header keeps search and bell", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const header = page.locator("header").first();
+  const aside = page.getByRole("complementary");
+  await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Avisos", exact: true })).toBeVisible();
+  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
+
+  await aside.getByRole("button", { name: /^Suporte/ }).click();
+  await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await aside.getByRole("button", { name: /Menu do usuário/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Navegação" })
+    .getByRole("button", { name: /Menu do usuário/ })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
 });

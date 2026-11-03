@@ -3,7 +3,9 @@ import { useState } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import type { SessionUser } from "@/features/auth/session.functions";
 import { cn } from "@/lib/utils";
+import { AccountChip } from "./account-chip";
 import {
   AccountNavList,
   hasProfileSwitch,
@@ -19,12 +21,16 @@ const MenuIcon = ACTION_ICONS.menu.icon;
 /** The menu on phones and tablets, opened from the header; the sidebar takes over from `lg`. */
 export function MobileNav({
   navigation,
+  user,
+  adminMode,
   profileKind,
   pathname,
   counts,
   teamModeRole,
 }: {
   navigation: AppNavigation;
+  user: SessionUser;
+  adminMode: boolean;
   profileKind: ProfileKind;
   pathname: string;
   counts: BadgeCounts;
@@ -61,6 +67,14 @@ export function MobileNav({
           <TeamDivider vertical={false} />
           <AccountNavList {...list} />
         </nav>
+        <div className="mt-4 border-t border-border pt-3">
+          <AccountChip
+            user={user}
+            supportReplies={counts.supportReplies}
+            adminMode={adminMode}
+            profileKind={profileKind}
+          />
+        </div>
       </SheetContent>
     </Sheet>
   );

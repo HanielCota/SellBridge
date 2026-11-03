@@ -1,12 +1,21 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import { cn } from "@/lib/utils";
+import type { SessionUser } from "@/features/auth/session.functions";
+import { AccountChip } from "./account-chip";
 import { AccountNavList, NavList, ProfileSwitch } from "./nav-list";
+import { SupportButton } from "./support-button";
 import type { AppNavigationState } from "./use-app-navigation";
 
 const CollapseIcon = ACTION_ICONS.collapseSidebar.icon;
@@ -108,15 +117,40 @@ function CollapseButton({ mode, onToggle }: { mode: SidebarMode; onToggle: () =>
   );
 }
 
+/** The work items, then support and the account's pages pinned to the foot. */
+function SideNavLinks({
+  list,
+  supportPanel,
+}: {
+  list: ComponentProps<typeof NavList>;
+  supportPanel: ReactNode;
+}) {
+  return (
+    <nav
+      aria-label="Principal"
+      className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1 [scrollbar-width:thin]"
+    >
+      <NavList {...list} />
+      <div className="mt-auto border-t border-border pt-3">
+        <AccountNavList {...list} supportPanel={supportPanel} />
+      </div>
+    </nav>
+  );
+}
+
 /**
  * The desktop menu, fixed on the left from `lg`: every page in groups, with the account's own
  * pages at the foot. Below `lg` the same list opens from the header's menu button.
  */
 export function SideNav({
   state,
+  user,
+  adminMode,
   profileKind,
 }: {
   state: AppNavigationState;
+  user: SessionUser;
+  adminMode: boolean;
   profileKind: ProfileKind;
 }) {
   const { mode, toggle } = useSidebarMode();
@@ -145,16 +179,26 @@ export function SideNav({
           onChange={setShownKind}
         />
       )}
-      <nav
-        aria-label="Principal"
-        className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1 [scrollbar-width:thin]"
-      >
-        <NavList {...list} />
-        <div className="mt-auto border-t border-border pt-3">
-          <AccountNavList {...list} />
-        </div>
-      </nav>
-      <CollapseButton mode={mode} onToggle={toggle} />
+      <SideNavLinks
+        list={list}
+        supportPanel={
+          <SupportButton
+            unread={state.counts.supportReplies}
+            profileKind={profileKind}
+            collapsed={collapsed}
+          />
+        }
+      />
+      <div className="grid gap-1">
+        <AccountChip
+          user={user}
+          supportReplies={state.counts.supportReplies}
+          adminMode={adminMode}
+          profileKind={profileKind}
+          collapsed={collapsed}
+        />
+        <CollapseButton mode={mode} onToggle={toggle} />
+      </div>
     </aside>
   );
 }

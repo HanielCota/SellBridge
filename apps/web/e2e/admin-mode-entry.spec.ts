@@ -29,8 +29,9 @@ test("no computador, o botão do topo liga o modo e abre a área de admin", asyn
 });
 
 test("no celular, o primeiro item do menu liga o modo e abre a área de admin", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
   await startWithAdminModeOff(page);
+  // On phones the account sits inside the menu sheet, so the mode is switched off on desktop first.
+  await page.setViewportSize({ width: 375, height: 812 });
   await page.getByRole("button", { name: "Abrir menu" }).click();
   const navigation = page.getByRole("navigation", { name: "Principal" });
   await navigation.getByRole("button", { name: "Modo administrador" }).click();

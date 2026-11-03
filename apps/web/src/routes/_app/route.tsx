@@ -132,7 +132,12 @@ function AppLayout() {
         />
       ) : null}
       <div className="lg:flex">
-        <SideNav state={navigation} profileKind={session.profileKind} />
+        <SideNav
+          state={navigation}
+          user={session.user}
+          adminMode={session.adminMode}
+          profileKind={session.profileKind}
+        />
         <div className="min-w-0 flex-1">
           <TopNav
             user={session.user}

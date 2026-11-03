@@ -1,10 +1,12 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { Fragment, type ReactNode } from "react";
 import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { SegmentedControl } from "@/components/data/segmented-control";
 import {
   ACCOUNT_NAV_ITEMS,
   activeNavItemTo,
   navGroups,
+  SUPPORT_NAV_ITEM,
   type NavItem,
 } from "@/features/navigation/nav-items";
 import { PROFILE_LABELS, type ProfileSection } from "@/features/navigation/profile-sections";
@@ -154,7 +156,10 @@ export function NavList({
   );
 }
 
-/** The foot of the menu: support and the account's own pages. */
+/**
+ * The foot of the menu: support and the account's own pages. `supportPanel` stands in for the
+ * support link where support opens as a card (the sidebar).
+ */
 export function AccountNavList({
   navigation,
   shownKind,
@@ -163,23 +168,28 @@ export function AccountNavList({
   onNavigate,
   collapsed = false,
   withHint = false,
-}: ListProps) {
+  supportPanel = null,
+}: ListProps & { supportPanel?: ReactNode }) {
   const shown = shownSection(navigation, shownKind);
   const activeTo = activeItem(navigation, shownKind, pathname);
   return (
     <div className="grid gap-1">
-      {ACCOUNT_NAV_ITEMS[shownKind].map((item) => (
-        <NavTab
-          key={item.to}
-          item={item}
-          isActive={shown.slug === null && item.to === activeTo}
-          count={item.badge && shown.slug === null ? counts[item.badge] : 0}
-          profileSlug={shown.slug}
-          onNavigate={onNavigate}
-          collapsed={collapsed}
-          withHint={withHint}
-        />
-      ))}
+      {ACCOUNT_NAV_ITEMS[shownKind].map((item) =>
+        item.to === SUPPORT_NAV_ITEM.to && supportPanel !== null ? (
+          <Fragment key={item.to}>{supportPanel}</Fragment>
+        ) : (
+          <NavTab
+            key={item.to}
+            item={item}
+            isActive={shown.slug === null && item.to === activeTo}
+            count={item.badge && shown.slug === null ? counts[item.badge] : 0}
+            profileSlug={shown.slug}
+            onNavigate={onNavigate}
+            collapsed={collapsed}
+            withHint={withHint}
+          />
+        ),
+      )}
     </div>
   );
 }
