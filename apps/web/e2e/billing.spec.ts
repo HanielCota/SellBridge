@@ -11,10 +11,9 @@ test("shows plans and keeps checkout unavailable until billing is configured", a
   await expect(page.getByRole("heading", { name: "Planos e assinatura" })).toBeVisible();
   await expect(page.getByText("Seu plano: Gratuito")).toBeVisible();
   await expect(page.getByText("0 de 2 lojas · 0 de 25 anúncios")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Selecionar plano" })).toHaveCount(2);
-  for (const button of await page.getByRole("button", { name: "Selecionar plano" }).all()) {
-    await expect(button).toBeDisabled();
-  }
+  // Plans without a price say when they open instead of showing a dead, grey button.
+  await expect(page.getByRole("button", { name: "Selecionar plano" })).toHaveCount(0);
+  await expect(page.getByText("Disponível quando a cobrança for ativada")).toHaveCount(2);
   await page.goto("/assinatura?retorno=sucesso");
   await expect(page.getByText("Seu plano: Gratuito")).toBeVisible();
   await expect(page.getByText(/Pagamento enviado/)).toBeVisible();
