@@ -224,6 +224,8 @@ test("the tabs fade again once a tab grows past the track's end", async ({ page 
       (element) =>
         getComputedStyle(element).maskImage.match(/transparent|rgba\(0, 0, 0, 0\)/g)?.length ?? 0,
     );
+  // The counts load after the page and widen every tab: scrolled before them, the end moves.
+  await expect(tabs.locator("button span.tabular-nums").first()).toBeVisible();
   await tabs.evaluate((element) => element.scrollTo({ left: element.scrollWidth }));
   await expect.poll(fadedSides).toBe(1);
 
