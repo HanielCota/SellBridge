@@ -284,3 +284,32 @@ test("the admin ticket table keeps every column in view beside the sidebar", asy
   });
   expect(hiddenWidth).toBeLessThanOrEqual(0);
 });
+
+// Regression: when the browser refused to store the choice, the button reread storage and the
+// sidebar never shrank.
+test("the sidebar still shrinks when the browser refuses to store the choice", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original: unknown = Object.getOwnPropertyDescriptor(Storage.prototype, "setItem")?.value;
+    if (typeof original !== "function") {
+      throw new Error("Storage.setItem not found");
+    }
+    Storage.prototype.setItem = function refuseSidebarChoice(key: string, value: string) {
+      if (key === "sellbridge-sidebar-collapsed") {
+        throw new DOMException("Storage refused", "QuotaExceededError");
+      }
+      Reflect.apply(original, this, [key, value]);
+    };
+  });
+  await signIn(page, ADMIN_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const catalog = sidebar(page).getByRole("link", { name: "Catálogo" });
+  const catalogWidth = async () => (await catalog.boundingBox())?.width ?? 0;
+
+  await page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByRole("button", { name: "Recolher menu" })
+    .click();
+
+  await expect.poll(catalogWidth).toBeLessThan(64);
+});

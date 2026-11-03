@@ -35,7 +35,16 @@ function subscribe(onChange: () => void): () => void {
 
 type SidebarMode = "expanded" | "collapsed";
 
+/**
+ * The choice kept in memory when the browser refuses to store it (private mode, full storage):
+ * reading storage again would undo the click, and the button would seem to do nothing.
+ */
+let unsavedMode: SidebarMode | null = null;
+
 function readMode(): SidebarMode {
+  if (unsavedMode !== null) {
+    return unsavedMode;
+  }
   try {
     return localStorage.getItem(COLLAPSED_STORAGE_KEY) === "on" ? "collapsed" : "expanded";
   } catch {
@@ -59,8 +68,10 @@ function writeMode(mode: SidebarMode): void {
 function saveMode(mode: SidebarMode): void {
   try {
     writeMode(mode);
+    unsavedMode = null;
   } catch {
-    // Storage may be unavailable (private mode); the choice lasts until the page reloads.
+    // Storage refused the choice: it lives in memory until the page reloads.
+    unsavedMode = mode;
   }
   window.dispatchEvent(new Event(COLLAPSED_EVENT));
 }
