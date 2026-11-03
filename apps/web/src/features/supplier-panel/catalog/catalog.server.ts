@@ -1,6 +1,7 @@
 import { loadProductCategories } from "@/lib/server/reference-data";
 import {
   approveSupplierPanelProduct,
+  deleteUnsoldSupplierPanelProduct,
   getSupplierPanelProduct,
   listSupplierPanelProducts,
   rejectSupplierPanelProduct,
@@ -126,6 +127,19 @@ export async function writePanelActive(input: CatalogSetActiveInput) {
   });
   await requestStockSync("supplier_panel.catalog_sync_deferred");
   return { id: product.id, active: product.active, pausedTargets };
+}
+
+/** Only a product no reseller published or sold; anything else is refused with a conflict. */
+export async function writePanelDeletion(ref: CatalogProductRef) {
+  await panelWrite(
+    "supplier_panel.delete_failed",
+    async () => await deleteUnsoldSupplierPanelProduct(database, ref),
+  );
+  logger.info("supplier_panel.product_deleted", {
+    supplierId: ref.supplierId,
+    productId: ref.productId,
+  });
+  return { id: ref.productId };
 }
 
 export async function writePanelRejection(input: CatalogRejectInput, reviewerId: string) {

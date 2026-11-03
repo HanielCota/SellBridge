@@ -1,5 +1,6 @@
 import type {
   approveSupplierPanelProduct,
+  deleteUnsoldSupplierPanelProduct,
   reserveShortItems,
   saveSupplierPanelDraft,
   setAdminSupplierProductActive,
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   approve: vi.fn<typeof approveSupplierPanelProduct>(),
   reserveShort: vi.fn<typeof reserveShortItems>(),
   setActive: vi.fn<typeof setAdminSupplierProductActive>(),
+  remove: vi.fn<typeof deleteUnsoldSupplierPanelProduct>(),
   enqueue: vi.fn<() => Promise<void>>(),
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -20,13 +22,19 @@ vi.mock("@sellbridge/database/repositories", () => ({
   approveSupplierPanelProduct: mocks.approve,
   reserveShortItems: mocks.reserveShort,
   setAdminSupplierProductActive: mocks.setActive,
+  deleteUnsoldSupplierPanelProduct: mocks.remove,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
 vi.mock("@sellbridge/shared/logger", () => ({
   logger: { info: mocks.log, warn: mocks.log, error: mocks.log },
 }));
-import { writePanelActive, writePanelApproval, writePanelDraft } from "./catalog.server";
+import {
+  writePanelActive,
+  writePanelApproval,
+  writePanelDeletion,
+  writePanelDraft,
+} from "./catalog.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
 const productId = "e937a566-b7bc-4305-b3c0-448e7133fcfe";
@@ -145,5 +153,29 @@ describe("writePanelActive", () => {
       message: "Produto não encontrado neste fornecedor",
     });
     expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("writePanelDeletion", () => {
+  it("deletes the supplier's own unsold product and traces it", async () => {
+    mocks.remove.mockResolvedValue();
+
+    const result = await writePanelDeletion({ supplierId, productId });
+
+    expect(mocks.remove).toHaveBeenCalledWith({}, { supplierId, productId });
+    expect(result).toEqual({ id: productId });
+    expect(mocks.log).toHaveBeenCalledWith("supplier_panel.product_deleted", {
+      supplierId,
+      productId,
+    });
+  });
+
+  it("passes the refusal of a published or sold product through unchanged", async () => {
+    mocks.remove.mockRejectedValue(conflictError("Este produto já foi publicado"));
+
+    await expect(writePanelDeletion({ supplierId, productId })).rejects.toMatchObject({
+      message: "Este produto já foi publicado",
+    });
+    expect(mocks.log).not.toHaveBeenCalledWith("supplier_panel.product_deleted", expect.anything());
   });
 });

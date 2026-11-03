@@ -22,6 +22,7 @@ import type { Database, DatabaseExecutor } from "../client.ts";
 import { categories, supplierProducts, suppliers } from "../schema/index.ts";
 import {
   getSupplierPanelProduct,
+  neverListedNorSold,
   type SupplierPanelProduct,
   type SupplierPanelProductRow,
 } from "./supplier-panel-catalog.ts";
@@ -314,4 +315,33 @@ export async function rejectSupplierPanelProduct(
     throw validationError("Informe pelo menos um motivo da reprovação (recebido: nenhum)");
   }
   return await decideReview(database, { ...input, decision: "reject" }, now);
+}
+
+/** What the supplier reads when a product was already published or sold. */
+export const PRODUCT_IN_USE_MESSAGE =
+  "Este produto já foi publicado por um revendedor ou vendido: desative em vez de excluir.";
+
+/**
+ * Deletes one of the supplier's products that no reseller ever published or sold. A product with
+ * a listing or an order item is refused (it only goes off sale), so no listing or sale history
+ * is left pointing nowhere.
+ *
+ * @throws {AppError} NOT_FOUND when the product is not this supplier's; CONFLICT when it was
+ * already published or sold.
+ */
+export async function deleteUnsoldSupplierPanelProduct(
+  database: Database,
+  ref: CatalogProductRef,
+): Promise<void> {
+  await database.transaction(async (transaction) => {
+    await lockSupplier(transaction, ref.supplierId);
+    await lockExistingProduct(transaction, ref);
+    const deleted = await transaction
+      .delete(supplierProducts)
+      .where(and(eq(supplierProducts.id, ref.productId), neverListedNorSold))
+      .returning({ id: supplierProducts.id });
+    if (deleted.length === 0) {
+      throw conflictError(PRODUCT_IN_USE_MESSAGE);
+    }
+  });
 }

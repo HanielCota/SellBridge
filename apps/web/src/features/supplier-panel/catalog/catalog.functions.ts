@@ -15,6 +15,7 @@ import {
   loadPanelProducts,
   writePanelActive,
   writePanelApproval,
+  writePanelDeletion,
   writePanelDraft,
   writePanelRejection,
   writePanelSubmission,
@@ -62,6 +63,12 @@ export const supplierPanelSetProductActive = createServerFn({ method: "POST" })
     }
     return await writePanelActive(data);
   });
+
+/** Deleting stays open to a switched-off supplier: it only removes what nobody sold. */
+export const supplierPanelDeleteProduct = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(catalogProductRefSchema)
+  .handler(async ({ data }) => await writePanelDeletion(data));
 
 /** The platform's review of a submitted product: always admin-only, and audited. */
 export const adminApprovePanelProduct = createServerFn({ method: "POST" })

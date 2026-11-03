@@ -14,9 +14,9 @@ import {
   PRODUCT_REVIEW_STATUSES,
   type ProductReviewStatus,
 } from "@sellbridge/shared/supplier-panel-catalog-status";
-import { and, asc, count, desc, eq, type AnyColumn } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql, type AnyColumn } from "drizzle-orm";
 import type { DatabaseExecutor } from "../client.ts";
-import { categories, supplierProducts, suppliers } from "../schema/index.ts";
+import { categories, listings, orderItems, supplierProducts, suppliers } from "../schema/index.ts";
 import { matchesEveryWord } from "./sql/search-pattern.ts";
 
 export type SupplierPanelProductRow = typeof supplierProducts.$inferSelect;
@@ -27,6 +27,17 @@ export interface SupplierPanelProduct extends SupplierPanelProductRow {
   categorySlug: string | null;
   completeness: CompletenessReport;
 }
+
+/** A row of the panel list: `deletable` while no reseller ever published or sold it. */
+export interface SupplierPanelListProduct extends SupplierPanelProduct {
+  deletable: boolean;
+}
+
+/**
+ * No listing and no order item points at the product: deleting it leaves no reseller listing
+ * or sale history behind. Everything else can only go off sale.
+ */
+export const neverListedNorSold = sql<boolean>`not exists (select 1 from ${listings} where ${listings.supplierProductId} = ${supplierProducts.id}) and not exists (select 1 from ${orderItems} where ${orderItems.supplierProductId} = ${supplierProducts.id})`;
 
 export type SupplierPanelStatusCounts = Record<ProductReviewStatus | "all", number>;
 
@@ -117,7 +128,7 @@ export async function listSupplierPanelProducts(
   const order = input.direction === "asc" ? asc : desc;
   const [rows, counts] = await Promise.all([
     database
-      .select(panelProductColumns)
+      .select({ ...panelProductColumns, deletable: neverListedNorSold })
       .from(supplierProducts)
       .leftJoin(categories, eq(categories.id, supplierProducts.categoryId))
       .where(condition)
@@ -128,7 +139,14 @@ export async function listSupplierPanelProducts(
   ]);
   const pagination = { page: input.page, pageSize: input.pageSize };
   return {
-    ...toPaginated(rows.map(withPanelCompleteness), counts[input.status], pagination),
+    ...toPaginated(
+      rows.map((row): SupplierPanelListProduct => ({
+        ...withPanelCompleteness(row),
+        deletable: row.deletable,
+      })),
+      counts[input.status],
+      pagination,
+    ),
     counts,
   };
 }
