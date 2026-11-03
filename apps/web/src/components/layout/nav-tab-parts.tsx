@@ -1,4 +1,3 @@
-import type { MouseEvent } from "react";
 import { ACTION_ICONS, NAV_TAB_ICONS, type ActionIcon } from "@/components/icons/action-icons";
 import { cn } from "@/lib/utils";
 
@@ -9,14 +8,6 @@ export function navTabAction(to: string): ActionIcon | undefined {
     return undefined;
   }
   return ACTION_ICONS[name];
-}
-
-/** A click that opens a new tab leaves this page, and its pill, where they are. */
-export function chooseOnPlainClick(event: MouseEvent<HTMLAnchorElement>, choose: () => void): void {
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) {
-    return;
-  }
-  choose();
 }
 
 /** Shared look of a header tab, whether it is a link or the profile menu's trigger. */
@@ -39,15 +30,25 @@ export function navTabClassName({
   );
 }
 
+function badgeColors({ isError, onActive }: { isError: boolean; onActive: boolean }): string {
+  if (onActive) {
+    return "bg-background text-foreground";
+  }
+  return isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text";
+}
+
 /** Count beside a tab label; screen readers hear what it counts instead of the bare number. */
 export function TabBadge({
   isError,
   count,
   description,
+  onActive = false,
 }: {
   isError: boolean;
   count: number;
   description: string;
+  /** On the lit item's dark pill, the brand green on black was nearly invisible. */
+  onActive?: boolean;
 }) {
   return (
     <>
@@ -55,7 +56,7 @@ export function TabBadge({
         aria-hidden="true"
         className={cn(
           "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
-          isError ? "bg-destructive/15 text-destructive" : "bg-brand/20 text-brand-text",
+          badgeColors({ isError, onActive }),
         )}
       >
         {count}

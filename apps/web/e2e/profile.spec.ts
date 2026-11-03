@@ -16,16 +16,22 @@ test("adiciona, mostra e remove a foto de perfil", async ({ page }) => {
   await page.getByLabel("Escolher foto de perfil").setInputFiles(AVATAR_FIXTURE);
   await expect(page.getByText("Foto de perfil atualizada")).toBeVisible();
 
-  const headerPhoto = page.getByRole("banner").locator("img[src^='/api/perfil/foto/']");
-  await expect(headerPhoto).toBeVisible();
-  const source = await headerPhoto.getAttribute("src");
+  const accountPhoto = page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .locator("img[src^='/api/perfil/foto/']");
+  await expect(accountPhoto).toBeVisible();
+  const source = await accountPhoto.getAttribute("src");
   const photo = await page.request.get(source ?? "");
   expect(photo.status()).toBe(200);
   expect(photo.headers()["content-type"]).toBe("image/webp");
 
   await page.getByRole("button", { name: "Remover" }).click();
   await expect(page.getByText("Foto de perfil removida")).toBeVisible();
-  await expect(page.getByRole("banner").locator("img[src^='/api/perfil/foto/']")).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("complementary", { name: "Menu lateral" })
+      .locator("img[src^='/api/perfil/foto/']"),
+  ).toHaveCount(0);
   expect((await page.request.get(source ?? "")).status()).toBe(404);
 });
 
@@ -58,11 +64,14 @@ test("recusa arquivo que não é imagem e esconde fotos de quem não está logad
   await anonymous.dispose();
 });
 
-test("o avatar do topo abre o menu da conta", async ({ page }) => {
+test("a conta no pé do menu abre o menu da conta", async ({ page }) => {
   await signUp(page, "Revendedor Menu Avatar");
   await expect(page).toHaveURL(/\/onboarding/);
   await gotoHydrated(page, "/onboarding");
-  await page.getByRole("banner").getByText("Revendedor Menu Avatar").click();
+  await page
+    .getByRole("complementary", { name: "Menu lateral" })
+    .getByText("Revendedor Menu Avatar")
+    .click();
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Meu perfil" }).click();

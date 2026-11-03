@@ -80,7 +80,9 @@ const columns = columnHelper.columns([
     cell: (info) => {
       const ticket = info.row.original;
       return (
-        <div className="space-y-0.5">
+        // Cells keep one line by default; a long subject (order numbers and all) wraps instead
+        // of pushing Situação and Atualizado out of the table beside the sidebar.
+        <div className="min-w-56 space-y-0.5 whitespace-normal">
           <Link
             to="/admin/chamados/$ticketId"
             params={{ ticketId: ticket.id }}

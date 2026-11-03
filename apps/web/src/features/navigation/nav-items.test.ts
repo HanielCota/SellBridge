@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCOUNT_NAV_ITEMS,
   activeNavItemTo,
   ADMIN_NAV_ITEMS,
+  navGroups,
   NAV_ITEMS,
   SUPPLIER_NAV_ITEMS,
   SUPPORT_NAV_ITEM,
@@ -34,21 +36,80 @@ describe("team navigation", () => {
 });
 
 describe("supplier navigation", () => {
-  it("has the seven tabs in the order of the day", () => {
+  it("has the items in the order of the day", () => {
     expect(SUPPLIER_NAV_ITEMS.map((item) => item.label)).toEqual([
       "Início",
       "Pedidos",
       "Vendas",
       "Mensagens",
       "Produtos",
+      "Importar planilha",
       "Desempenho",
-      "Marca",
+      "Regras de ouro",
     ]);
   });
 
-  it("keeps the spreadsheet import under the products tab", () => {
-    const products = SUPPLIER_NAV_ITEMS.find((item) => item.label === "Produtos");
-    expect(products?.also).toContain("/fornecedor/painel/importar");
+  // A supplier looked for the spreadsheet import in the menu and did not find it.
+  it("gives the spreadsheet import an item of its own in the menu", () => {
+    expect(SUPPLIER_NAV_ITEMS).toContainEqual(
+      expect.objectContaining({ label: "Importar planilha", to: "/fornecedor/painel/importar" }),
+    );
+    expect(activeNavItemTo(SUPPLIER_NAV_ITEMS, "/fornecedor/painel/importar")).toBe(
+      "/fornecedor/painel/importar",
+    );
+  });
+
+  it("keeps the brand at the foot of the menu, with support and the profile", () => {
+    expect(ACCOUNT_NAV_ITEMS.supplier.map((item) => item.label)).toEqual([
+      "Marca",
+      "Suporte",
+      "Meu perfil",
+    ]);
+  });
+});
+
+describe("menu groups", () => {
+  it("splits the reseller's items under their headings, in order", () => {
+    expect(
+      navGroups(NAV_ITEMS).map((group) => [group.heading, group.items.map((item) => item.label)]),
+    ).toEqual([
+      [null, ["Visão geral"]],
+      ["Vender", ["Catálogo", "Publicações", "Pedidos"]],
+      ["Dinheiro", ["Financeiro"]],
+      ["Lojas", ["Lojas", "Integrações"]],
+    ]);
+  });
+
+  it("returns no group for no items", () => {
+    expect(navGroups([])).toEqual([]);
+  });
+
+  it("starts a new group when a heading comes back after another one", () => {
+    const groups = navGroups([
+      { label: "A", to: "/dashboard", group: "Um" },
+      { label: "B", to: "/catalogo", group: "Dois" },
+      { label: "C", to: "/lojas", group: "Um" },
+    ]);
+
+    expect(groups.map((group) => group.heading)).toEqual(["Um", "Dois", "Um"]);
+  });
+});
+
+describe("team pages that only had a link inside another page", () => {
+  it("lights the support metrics, not the tickets, on the metrics page", () => {
+    expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/chamados/metricas")).toBe(
+      "/admin/chamados/metricas",
+    );
+    expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/chamados/ticket-1")).toBe("/admin/chamados");
+  });
+
+  it("lights the product review, not the suppliers, on the review queue", () => {
+    expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/fornecedores/analise/product-1")).toBe(
+      "/admin/fornecedores/analise",
+    );
+    expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/fornecedores/supplier-1")).toBe(
+      "/admin/fornecedores",
+    );
   });
 });
 
@@ -61,6 +122,7 @@ describe("supplier messages tab", () => {
       label: "Mensagens",
       to: "/suporte/revendedores",
       badge: "storeMessages",
+      group: "Vendas",
     });
   });
 

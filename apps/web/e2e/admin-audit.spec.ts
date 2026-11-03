@@ -60,9 +60,11 @@ test("a desativação de um produto aparece na auditoria do admin", async ({ pag
     .click();
   await expect(page.getByRole("row", { name: new RegExp(PRODUCT) })).toContainText("Desativado");
 
-  // Reached from the account menu, as the header has no room for another team tab.
-  await page.getByRole("button", { name: "Menu do usuário" }).click();
-  await page.getByRole("menuitem", { name: "Auditoria" }).click();
+  // An item of the team's part of the menu, under Equipe.
+  await page
+    .getByRole("navigation", { name: "Principal" })
+    .getByRole("link", { name: "Auditoria" })
+    .click();
   await expect(page.getByRole("heading", { name: "Auditoria", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
@@ -83,8 +85,11 @@ test("só o admin abre a auditoria: atendente e revendedor ficam de fora", async
   await enableAdminMode(agent.page);
   await agent.page.goto("/admin/auditoria");
   await expect(agent.page).toHaveURL(/\/admin\/chamados/);
-  await agent.page.getByRole("button", { name: "Menu do usuário" }).click();
-  await expect(agent.page.getByRole("menuitem", { name: "Auditoria" })).toHaveCount(0);
+  await expect(
+    agent.page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: "Auditoria" }),
+  ).toHaveCount(0);
   await agent.context.close();
 
   const resellerContext = await browser.newContext({ locale: "pt-BR" });

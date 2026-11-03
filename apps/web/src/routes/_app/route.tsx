@@ -6,7 +6,9 @@ import {
   retainSearchParams,
   useRouterState,
 } from "@tanstack/react-router";
+import { SideNav } from "@/components/layout/side-nav";
 import { TopNav } from "@/components/layout/top-nav";
+import { useAppNavigation } from "@/components/layout/use-app-navigation";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { SupportLauncher } from "@/components/support/support-launcher";
 import { SetupStrip } from "@/components/onboarding/setup-guide";
@@ -115,6 +117,12 @@ function SupportChatLauncher({ adminMode }: { adminMode: boolean }) {
 
 function AppLayout() {
   const { session } = Route.useRouteContext();
+  const navigation = useAppNavigation({
+    user: session.user,
+    adminMode: session.adminMode,
+    profileKind: session.profileKind,
+    profiles: session.profiles,
+  });
   return (
     <div className="min-h-svh bg-background">
       {session.impersonatedBy ? (
@@ -123,20 +131,30 @@ function AppLayout() {
           endsAt={session.impersonationEndsAt}
         />
       ) : null}
-      <TopNav
-        user={session.user}
-        adminMode={session.adminMode}
-        profileKind={session.profileKind}
-        profiles={session.profiles}
-      />
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
-      >
-        {session.profileKind === "seller" ? <SetupReminder /> : null}
-        <Outlet />
-      </main>
+      <div className="lg:flex">
+        <SideNav
+          state={navigation}
+          user={session.user}
+          adminMode={session.adminMode}
+          profileKind={session.profileKind}
+        />
+        <div className="min-w-0 flex-1">
+          <TopNav
+            user={session.user}
+            adminMode={session.adminMode}
+            profileKind={session.profileKind}
+            state={navigation}
+          />
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-32"
+          >
+            {session.profileKind === "seller" ? <SetupReminder /> : null}
+            <Outlet />
+          </main>
+        </div>
+      </div>
       <SupportChatLauncher adminMode={session.adminMode} />
     </div>
   );

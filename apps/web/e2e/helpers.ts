@@ -50,7 +50,10 @@ export async function signIn(page: Page, credentials: { email: string; password:
 export async function acceptTermsIfAsked(page: Page): Promise<void> {
   // Settle on the terms page or a page of the app before deciding (client-side redirects).
   const terms = page.getByRole("heading", { name: "Antes de continuar" });
-  const app = page.getByRole("button", { name: "Menu do usuário" });
+  // On phones the account sits inside the menu sheet; its button is what the header shows.
+  const app = page
+    .getByRole("button", { name: "Menu do usuário" })
+    .or(page.getByRole("button", { name: "Abrir menu", exact: true }));
   await expect(terms.or(app).first()).toBeVisible();
   if (!(await terms.isVisible())) {
     return;

@@ -1,3 +1,4 @@
+import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import type { StaffPermission } from "@sellbridge/shared/staff-access";
 import type { LinkProps } from "@tanstack/react-router";
 
@@ -22,67 +23,139 @@ export interface NavItem {
   permission?: StaffPermission;
   /** Active only on this exact path (a home tab whose sections are tabs of their own). */
   exact?: boolean;
+  /** The sidebar heading the item sits under; items without one open the list. */
+  group?: string;
+}
+
+/** Items in a row under the same sidebar heading; `heading` is null for the ungrouped start. */
+export interface NavGroup {
+  heading: string | null;
+  items: NavItem[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão geral", to: "/dashboard" },
-  { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"] },
-  { label: "Publicações", to: "/publicacoes", badge: "failedListings" },
-  { label: "Pedidos", to: "/pedidos", badge: "parcelAlerts" },
-  { label: "Lojas", to: "/lojas" },
-  { label: "Financeiro", to: "/financeiro" },
+  { label: "Catálogo", to: "/catalogo", also: ["/fornecedores"], group: "Vender" },
+  { label: "Publicações", to: "/publicacoes", badge: "failedListings", group: "Vender" },
+  { label: "Pedidos", to: "/pedidos", badge: "parcelAlerts", group: "Vender" },
+  { label: "Financeiro", to: "/financeiro", group: "Dinheiro" },
+  { label: "Lojas", to: "/lojas", group: "Lojas" },
+  // The marketplace connections sat only in the account menu, where resellers did not find them.
+  { label: "Integrações", to: "/integracoes", group: "Lojas" },
 ];
 
 /**
- * The supplier profile's tabs, in the order of the day (item 38): the overview, the orders, the
- * products (the spreadsheet import is a button there), then what is opened now and then.
+ * The supplier profile's items, in the order of the day (item 38): the overview, the orders, then
+ * the catalog. The spreadsheet import is an item of its own: as a button inside Produtos, a
+ * supplier looked for it in the menu and did not find it.
  */
 export const SUPPLIER_NAV_ITEMS: NavItem[] = [
   { label: "Início", to: "/fornecedor/painel", exact: true },
-  { label: "Pedidos", to: "/fornecedor/painel/pedidos", badge: "supplierOrders" },
-  { label: "Vendas", to: "/fornecedor/painel/vendas" },
-  { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages" },
-  { label: "Produtos", to: "/fornecedor/painel/produtos", also: ["/fornecedor/painel/importar"] },
-  { label: "Desempenho", to: "/fornecedor/painel/desempenho" },
-  { label: "Marca", to: "/fornecedor/painel/marca" },
+  {
+    label: "Pedidos",
+    to: "/fornecedor/painel/pedidos",
+    badge: "supplierOrders",
+    group: "Vendas",
+  },
+  { label: "Vendas", to: "/fornecedor/painel/vendas", group: "Vendas" },
+  { label: "Mensagens", to: "/suporte/revendedores", badge: "storeMessages", group: "Vendas" },
+  { label: "Produtos", to: "/fornecedor/painel/produtos", group: "Catálogo" },
+  { label: "Importar planilha", to: "/fornecedor/painel/importar", group: "Catálogo" },
+  { label: "Desempenho", to: "/fornecedor/painel/desempenho", group: "Catálogo" },
+  { label: "Regras de ouro", to: "/fornecedor/painel/regras", group: "Catálogo" },
 ];
 
+/**
+ * The team's items. Contas comes first because switching team mode on lands on the first page
+ * the role may open (`teamEntryPage`), and for admins that stays the product management.
+ */
 export const ADMIN_NAV_ITEMS: NavItem[] = [
-  { label: "Produtos", to: "/admin/products", permission: "customers.manage" },
-  { label: "Clientes", to: "/admin/clientes", permission: "customers.manage" },
+  {
+    label: "Gestão de produtos",
+    to: "/admin/products",
+    permission: "customers.manage",
+    group: "Contas",
+  },
+  { label: "Clientes", to: "/admin/clientes", permission: "customers.manage", group: "Contas" },
   {
     label: "Fornecedores",
     to: "/admin/fornecedores",
+    permission: "customers.manage",
+    group: "Contas",
+  },
+  // Only admins review products; customers.manage is an admin-only permission.
+  {
+    label: "Análise de produtos",
+    to: "/admin/fornecedores/analise",
     badge: "productReviews",
     permission: "customers.manage",
-  },
-  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
-  { label: "Avaliações", to: "/admin/avaliacoes", permission: "reviews.moderate" },
-  // Every customer's parcels, late and problem ones counted: "cadê meu pedido?" starts here.
-  {
-    label: "Envios",
-    to: "/admin/envios",
-    badge: "staffParcelAlerts",
-    permission: "shipments.view",
+    group: "Contas",
   },
   {
     label: "Chamados",
     to: "/admin/chamados",
     badge: "openTickets",
     permission: "support.answer",
+    group: "Atendimento",
   },
-  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage" },
+  {
+    label: "Desempenho do suporte",
+    to: "/admin/chamados/metricas",
+    permission: "support.metrics",
+    group: "Atendimento",
+  },
+  // Every customer's parcels, late and problem ones counted: "cadê meu pedido?" starts here.
+  {
+    label: "Envios",
+    to: "/admin/envios",
+    badge: "staffParcelAlerts",
+    permission: "shipments.view",
+    group: "Atendimento",
+  },
+  // Review comments sit next to the suppliers they talk about, for moderation (admin, supervisor).
+  {
+    label: "Avaliações",
+    to: "/admin/avaliacoes",
+    permission: "reviews.moderate",
+    group: "Moderação",
+  },
+  { label: "Equipe", to: "/admin/equipe", permission: "customers.manage", group: "Equipe" },
+  { label: "Auditoria", to: "/admin/auditoria", permission: "audit.view", group: "Equipe" },
 ];
 
-/**
- * On phones the support button leaves the crowded header and lives in the menu sheet instead
- * (from `sm` up it sits next to the bell).
- */
+/** Support sits at the foot of the menu for every profile, under its own pages. */
 export const SUPPORT_NAV_ITEM: NavItem = {
   label: "Suporte",
   to: "/suporte",
   badge: "supportReplies",
 };
+
+const PROFILE_PAGE_ITEM: NavItem = { label: "Meu perfil", to: "/perfil" };
+
+/** The foot of the menu: the account's own pages, apart from the day-to-day work above. */
+export const ACCOUNT_NAV_ITEMS: Readonly<Record<ProfileKind, readonly NavItem[]>> = {
+  seller: [SUPPORT_NAV_ITEM, { label: "Assinatura", to: "/assinatura" }, PROFILE_PAGE_ITEM],
+  supplier: [
+    { label: "Marca", to: "/fornecedor/painel/marca" },
+    SUPPORT_NAV_ITEM,
+    PROFILE_PAGE_ITEM,
+  ],
+};
+
+/** Splits the items into runs under the same heading, keeping their order. */
+export function navGroups(items: readonly NavItem[]): NavGroup[] {
+  const groups: NavGroup[] = [];
+  for (const item of items) {
+    const heading = item.group ?? null;
+    const last = groups.at(-1);
+    if (last !== undefined && last.heading === heading) {
+      last.items.push(item);
+      continue;
+    }
+    groups.push({ heading, items: [item] });
+  }
+  return groups;
+}
 
 export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
   failedListings: (count) =>
