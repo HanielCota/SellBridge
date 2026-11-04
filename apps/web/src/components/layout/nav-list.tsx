@@ -42,6 +42,8 @@ interface ListProps {
   onNavigate?: (() => void) | undefined;
   /** The sidebar shrunk to its icons: headings give way to hairlines. */
   collapsed?: boolean;
+  /** The team's pages under "Administração"; the desktop shows them in the header instead. */
+  withTeam?: boolean;
   /** Desktop items explain their section on hover. */
   withHint?: boolean;
 }
@@ -145,7 +147,7 @@ function ItemGroups({
       key={`${index}-${group.heading ?? ""}`}
       role={group.heading === null ? undefined : "group"}
       aria-label={group.heading ?? undefined}
-      className="grid gap-1"
+      className="grid grid-cols-1 gap-1"
     >
       {group.heading === null ? null : (
         <GroupHeading heading={group.heading} collapsed={collapsed} />
@@ -175,18 +177,19 @@ export function NavList({
   onNavigate,
   collapsed = false,
   withHint = false,
+  withTeam = true,
 }: ListProps) {
   const shared = { activeTo: shown.activeTo, counts, onNavigate, collapsed, withHint };
   return (
     <>
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
-      {navigation.teamItems.length === 0 ? null : (
+      {withTeam && navigation.teamItems.length > 0 ? (
         <>
           {/* Shrunk, the first team group's hairline already sets the team apart. */}
           {collapsed ? null : <GroupHeading heading="Administração" collapsed={false} asHeading />}
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
-      )}
+      ) : null}
     </>
   );
 }
@@ -204,7 +207,7 @@ export function AccountNavList({
   supportPanel = null,
 }: Omit<ListProps, "navigation"> & { supportPanel?: ReactNode }) {
   return (
-    <div className="grid gap-1">
+    <div className="grid grid-cols-1 gap-1">
       {ACCOUNT_NAV_ITEMS[shown.kind].map((item) =>
         item.to === SUPPORT_NAV_ITEM.to && supportPanel !== null ? (
           <Fragment key={item.to}>{supportPanel}</Fragment>

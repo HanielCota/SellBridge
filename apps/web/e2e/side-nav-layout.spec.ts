@@ -36,6 +36,16 @@ function sidebar(page: Page) {
     .getByRole("navigation", { name: "Principal" });
 }
 
+/** In team mode, from `lg`, the team's pages sit in a strip under the header. */
+function adminStrip(page: Page) {
+  return page.getByRole("navigation", { name: "Administração" });
+}
+
+/** How far a menu's content runs past its own box sideways (a sideways scrollbar when > 0). */
+async function sidewaysOverflow(menu: ReturnType<Page["getByRole"]>): Promise<number> {
+  return await menu.evaluate((element) => element.scrollWidth - element.clientWidth);
+}
+
 /** The page never scrolls sideways and the account button stays inside the window. */
 async function expectPageFits(page: Page) {
   for (const width of DESKTOP_WIDTHS) {
@@ -46,6 +56,11 @@ async function expectPageFits(page: Page) {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, `no sideways scroll at ${width}px`).toBeLessThanOrEqual(0);
+    // Regression: in team mode, long items with counts ("Desempenho do suporte 2") made the
+    // sidebar itself scroll sideways and cut the labels.
+    expect(await sidewaysOverflow(sidebar(page)), `sidebar fits at ${width}px`).toBeLessThanOrEqual(
+      0,
+    );
     const account = await page.getByRole("button", { name: /Menu do usuário/ }).boundingBox();
     expect(account, `account at ${width}px`).not.toBeNull();
     expect(
@@ -73,30 +88,82 @@ async function signInAdminWithSupplierProfile(
   return { slug: supplierProfile.slug };
 }
 
-test("the admin sidebar lists every team page under its heading and the page still fits", async ({
+test("the team's pages sit in the header strip, the sidebar keeps the profile's, and it fits", async ({
   page,
 }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await expectPageFits(page);
   const nav = sidebar(page);
-  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toBeVisible();
-  for (const group of ["Contas", "Atendimento", "Moderação", "Equipe"]) {
-    await expect(nav.getByRole("group", { name: group, exact: true })).toBeAttached();
-  }
+  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toHaveCount(0);
   // Pages that before only had a link inside another page or in the account menu.
-  for (const label of ["Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
-    await expect(nav.getByRole("link", { name: label })).toBeAttached();
+  for (const label of ["Clientes", "Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
+    await expect(adminStrip(page).getByRole("link", { name: label })).toBeAttached();
+    await expect(nav.getByRole("link", { name: label })).toHaveCount(0);
   }
   await nav.getByRole("link", { name: "Visão geral" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
+});
+
+/*
+ * Regression: the chosen item faded its pill to white while its white hover text faded to dark,
+ * so in the dark theme it flashed white on white after a click (longer on a slow page).
+ */
+test("a menu item changes its colors at once on hover and click, with no fade", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const item = sidebar(page).getByRole("link", { name: "Lojas" });
+  await item.evaluate((element) => {
+    const faded: string[] = [];
+    element.setAttribute("data-faded", "");
+    element.addEventListener("transitionrun", (event) => {
+      if (event instanceof TransitionEvent) {
+        faded.push(event.propertyName);
+        element.setAttribute("data-faded", faded.join(","));
+      }
+    });
+  });
+
+  await item.hover();
+  await item.click();
+  await expect(item).toHaveAttribute("aria-current", "page");
+  await page.waitForTimeout(400);
+
+  const faded = await item.getAttribute("data-faded");
+  expect(faded ?? "").not.toMatch(/color/);
+});
+
+/*
+ * Regression: the menu's groups sized their column to the widest one-line label, so a long label
+ * (the team's "Desempenho do suporte 2", or a sidebar narrowed by Windows' scrollbar) pushed the
+ * items past the sidebar, cut them and made it scroll sideways.
+ */
+test("a long menu label is cut short instead of widening the sidebar", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const nav = sidebar(page);
+
+  await nav.getByRole("link", { name: "Publicações" }).evaluate((link) => {
+    const label = [...link.querySelectorAll("span")].find(
+      (span) => span.textContent === "Publicações",
+    );
+    if (label !== undefined) {
+      label.textContent = "Publicações com um nome bem mais comprido que o menu";
+    }
+  });
+
+  expect(await sidewaysOverflow(nav)).toBeLessThanOrEqual(0);
 });
 
 test("a team page under another one lights only its own item", async ({ page }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, "/admin/chamados/metricas");
-  const nav = sidebar(page);
+  const nav = adminStrip(page);
   await expect(nav.getByRole("link", { name: "Desempenho do suporte" })).toHaveAttribute(
     "aria-current",
     "page",
@@ -121,7 +188,7 @@ test("staff can enter team mode from the supplier profile", async ({ page }) => 
   await expectPageFits(page);
   await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/products/);
-  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+  await expect(adminStrip(page)).toBeVisible();
   await expect(
     page
       .getByRole("complementary", { name: "Menu lateral" })
@@ -170,6 +237,10 @@ test("admin phone menu switches between the reseller and the supplier screens", 
   await expect(nav.getByRole("link", { name: "Catálogo" })).toBeVisible();
   // The team's own Fornecedores item sits under its title, apart from the supplier profile.
   await expect(nav.getByRole("heading", { name: "Administração" })).toBeVisible();
+  expect(
+    await sidewaysOverflow(nav),
+    "the phone menu does not scroll sideways",
+  ).toBeLessThanOrEqual(0);
   await sheet.getByRole("button", { name: "Fornecedor" }).click();
   await expect(nav.getByRole("link", { name: "Catálogo" })).toHaveCount(0);
   await expect(nav.locator('a[href^="/fornecedor/painel/produtos"]')).toHaveText("Produtos");
@@ -196,16 +267,9 @@ test("the seller page fits with a long account name", async ({ page }) => {
 test("the supplier sidebar has the spreadsheet import as an item of its own", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
+  // A long brand name once pushed the account out of the sidebar; the account now sits in the
+  // header, and expectPageFits keeps it inside the window at every width.
   await expectPageFits(page);
-  // Regression: a long brand name pushed the account out of the sidebar, over the page.
-  const aside = await page.getByRole("complementary", { name: "Menu lateral" }).boundingBox();
-  const account = await page
-    .getByRole("complementary", { name: "Menu lateral" })
-    .getByRole("button", { name: /Menu do usuário/ })
-    .boundingBox();
-  expect((account?.x ?? 0) + (account?.width ?? 0)).toBeLessThanOrEqual(
-    (aside?.x ?? 0) + (aside?.width ?? 0),
-  );
   const nav = sidebar(page);
   await nav.getByRole("link", { name: "Importar planilha" }).click();
   await expect(page).toHaveURL(/\/fornecedor\/painel\/importar/);
@@ -240,7 +304,7 @@ test("the sidebar shrinks to its icons and remembers it after a reload", async (
   await expect.poll(catalogWidth).toBeGreaterThan(150);
 });
 
-test("the account and support sit at the foot of the menu, the header keeps search and bell", async ({
+test("support sits at the foot of the menu, the header keeps search, bell and account", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
@@ -251,13 +315,13 @@ test("the account and support sit at the foot of the menu, the header keeps sear
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
   // The demo account may have unread notices, which turn the name into "Avisos: N novos".
   await expect(header.getByRole("button", { name: /^Avisos/ })).toBeVisible();
-  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  await expect(aside.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
   await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
 
   await aside.getByRole("button", { name: /^Suporte/ }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await aside.getByRole("button", { name: /Menu do usuário/ }).click();
+  await header.getByRole("button", { name: /Menu do usuário/ }).click();
   await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
   await page.keyboard.press("Escape");
 
