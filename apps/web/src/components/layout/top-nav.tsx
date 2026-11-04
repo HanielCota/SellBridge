@@ -1,17 +1,15 @@
-import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { Link } from "@tanstack/react-router";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { AccountChip } from "./account-chip";
 import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { TeamModeButton } from "./team-mode-entry";
-import { UserAvatar } from "./user-avatar";
-import { UserMenu } from "./user-menu";
 import type { AppNavigationState } from "./use-app-navigation";
 
 /** The logo where the sidebar is closed away; from `lg` the sidebar shows it. */
@@ -38,27 +36,14 @@ interface TopNavProps {
 function HeaderAccount({ user, adminMode, profileKind, state }: TopNavProps) {
   return (
     <div className="hidden lg:block">
-      <UserMenu
+      <AccountChip
         user={user}
         supportReplies={state.counts.supportReplies}
         adminMode={adminMode}
         profileKind={profileKind}
-        compact
-        className="rounded-full p-0.5 hover:bg-foreground/[0.06] data-[state=open]:bg-foreground/[0.06]"
-      >
-        <span className="relative shrink-0">
-          <UserAvatar name={user.name} image={user.image} />
-          {adminMode ? (
-            <span
-              aria-hidden="true"
-              className="absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full bg-brand text-primary-foreground ring-2 ring-background"
-            >
-              <ShieldCheckIcon className="size-3" weight="bold" />
-            </span>
-          ) : null}
-        </span>
-        <span className="sr-only">{user.name}</span>
-      </UserMenu>
+        collapsed
+        side="bottom"
+      />
     </div>
   );
 }
