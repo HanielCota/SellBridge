@@ -105,6 +105,25 @@ test("the team's pages sit in the header strip, the sidebar keeps the profile's,
   await expect(page).toHaveURL(/\/dashboard/);
 });
 
+/*
+ * Regression: the chosen item faded its pill to white while its white hover text faded to dark,
+ * so in the dark theme it flashed white on white after a click (longer on a slow page).
+ */
+test("a clicked menu item turns its colors at once, never fading through white on white", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const item = sidebar(page).getByRole("link", { name: "Lojas" });
+  await item.click();
+  await expect(item).toHaveAttribute("aria-current", "page");
+
+  const fades = await item.evaluate((element) => getComputedStyle(element).transitionProperty);
+
+  expect(fades).not.toMatch(/color/);
+});
+
 test("a team page under another one lights only its own item", async ({ page }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
