@@ -26,7 +26,7 @@ function TextFields({ values, onChange, reservedStock }: FieldsProps & { reserve
   return (
     <>
       {FIELDS.map(({ key, label }) => (
-        <div key={key} className={key === "title" ? "sm:col-span-2" : ""}>
+        <div key={key} className={key === "title" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
           <Label htmlFor={`seller-${key}`}>{label}</Label>
           <Input
             id={`seller-${key}`}
@@ -68,12 +68,12 @@ function ProductAttributes({
       </summary>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {attributes.map((id) => (
-          <div key={id}>
+          <div key={id} className="grid gap-2">
             <Label htmlFor={`seller-attribute-${id}`}>
               {required.find((item) => item.id === id)?.label ??
                 COMMON_ATTRIBUTES.find((item) => item.id === id)?.label ??
                 id}
-              {required.some((item) => item.id === id) ? "(obrigatório)" : ""}
+              {required.some((item) => item.id === id) ? " (obrigatório)" : ""}
             </Label>
             <Input
               id={`seller-attribute-${id}`}
@@ -99,7 +99,7 @@ export function ProductFields({
   return (
     <div className="grid gap-5 sm:grid-cols-2">
       <TextFields values={values} onChange={onChange} reservedStock={reservedStock} />
-      <div>
+      <div className="grid gap-2">
         <Label htmlFor="seller-category">Categoria</Label>
         <select
           id="seller-category"
@@ -115,7 +115,7 @@ export function ProductFields({
           ))}
         </select>
       </div>
-      <div className="sm:col-span-2">
+      <div className="grid gap-2 sm:col-span-2">
         <Label htmlFor="seller-description">Descrição</Label>
         <Textarea
           id="seller-description"

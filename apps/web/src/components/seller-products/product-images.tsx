@@ -79,7 +79,7 @@ function ImageLink({
   return (
     <>
       <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="grid min-w-0 flex-1 gap-2">
           <Label htmlFor="seller-image-url">Endereço da imagem</Label>
           <Input
             id="seller-image-url"
