@@ -27,7 +27,7 @@ export function AdminTabsBar({
     <nav
       ref={containerRef}
       aria-label="Administração"
-      className="hidden w-fit max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-card p-1.5 [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden"
+      className="hidden w-full min-w-0 items-center gap-1 overflow-x-auto rounded-full bg-card p-2 [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden"
       style={mask === undefined ? undefined : { maskImage: mask }}
     >
       {items.map((item) => (

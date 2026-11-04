@@ -30,18 +30,12 @@ function useScrolledIntoSightWhenActive(isActive: boolean) {
   return linkRef;
 }
 
-function tabPadding(collapsed: boolean, inline: boolean): string {
-  if (collapsed) {
-    return "px-0";
-  }
-  return inline ? "px-3" : "px-4";
-}
-
 function linkClassName(isActive: boolean, collapsed: boolean, inline: boolean): string {
   return cn(
-    navTabClassName({ isActive, paintsOwnPill: true, padding: tabPadding(collapsed, inline) }),
+    navTabClassName({ isActive, paintsOwnPill: true, padding: collapsed ? "px-0" : "px-4" }),
     collapsed && "justify-center",
-    inline && "shrink-0 text-[0.9375rem]",
+    // In the strip each tab grows to share the row, so wide screens get room between them.
+    inline && "h-11 shrink-0 grow justify-center text-[0.9375rem]",
   );
 }
 
