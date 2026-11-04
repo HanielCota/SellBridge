@@ -20,12 +20,29 @@ async function startWithAdminModeOff(page: Page) {
  */
 test("no computador, o botão do topo liga o modo e abre a área de admin", async ({ page }) => {
   await startWithAdminModeOff(page);
-  await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
+  const toggle = page.getByRole("button", { name: "Modo administrador", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
   await expect(page).toHaveURL(/\/admin\//);
   await expect(page.getByRole("navigation", { name: "Administração" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Modo administrador", exact: true })).toHaveCount(
-    0,
-  );
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+});
+
+/*
+ * The header button only turned the mode on: turning it off meant finding the switch inside the
+ * account menu again.
+ */
+test("no computador, o mesmo botão do topo desliga o modo e volta ao painel", async ({ page }) => {
+  await startWithAdminModeOff(page);
+  const toggle = page.getByRole("button", { name: "Modo administrador", exact: true });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+  await toggle.click();
+
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("navigation", { name: "Administração" })).toHaveCount(0);
 });
 
 test("no celular, o primeiro item do menu liga o modo e abre a área de admin", async ({ page }) => {

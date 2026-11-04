@@ -26,24 +26,32 @@ function useEnterTeamMode(role: string) {
     }
   }
 
-  return { name, enter };
+  return { name, enter, leave: async () => await switchTeamMode(false) };
 }
 
 /**
- * The team's way in, beside the bell: before it, the tools sat behind a switch inside the
- * account menu. It leaves once the mode is on; the account chip then says so.
+ * The team mode's switch, beside the bell: before it, the tools sat behind a switch inside the
+ * account menu. Off, it turns the mode on and opens the team's area; on, it reads as pressed
+ * and turns the mode off (a team page then goes back to the seller's home).
  */
-export function TeamModeButton({ role }: { role: string }) {
-  const { name, enter } = useEnterTeamMode(role);
+export function TeamModeButton({ role, active }: { role: string; active: boolean }) {
+  const { name, enter, leave } = useEnterTeamMode(role);
   return (
-    <Hint label="Liga o modo e abre a área da equipe" openOnTap={false}>
+    <Hint
+      label={active ? "Desliga o modo e volta ao painel" : "Liga o modo e abre a área da equipe"}
+      openOnTap={false}
+    >
       <button
         type="button"
         aria-label={name}
-        onClick={() => void enter()}
+        aria-pressed={active}
+        onClick={() => void (active ? leave() : enter())}
         className={cn(
           HEADER_ROUND_BUTTON_CLASSES,
-          "text-foreground ring-1 ring-border transition-[background-color,scale] hover:bg-foreground/[0.06] min-[1366px]:pr-4 min-[1366px]:pl-3.5",
+          "transition-[background-color,scale] min-[1366px]:pr-4 min-[1366px]:pl-3.5",
+          active
+            ? "bg-brand text-primary-foreground hover:bg-brand/90"
+            : "text-foreground ring-1 ring-border hover:bg-foreground/[0.06]",
         )}
       >
         <ShieldCheckIcon className="size-5" weight="fill" aria-hidden="true" />

@@ -1,5 +1,6 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { Link } from "@tanstack/react-router";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
@@ -69,6 +70,7 @@ function HeaderAccount({ user, adminMode, profileKind, state }: TopNavProps) {
  */
 export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
+  const staffRole = isStaffRole(user.role) ? user.role : null;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
@@ -86,9 +88,9 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier ? null : <CommandPalette />}
           {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
-          {state.teamModeRole === null ? null : (
+          {staffRole === null ? null : (
             <div className="hidden sm:block">
-              <TeamModeButton role={state.teamModeRole} />
+              <TeamModeButton role={staffRole} active={adminMode} />
             </div>
           )}
           <NotificationBell />
