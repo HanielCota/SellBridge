@@ -400,6 +400,13 @@
       "when": 1793118076615,
       "tag": "0056_buyer_tracking_link",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793815365778,
+      "tag": "0057_publish_queued_products",
+      "breakpoints": true
     }
   ]
 }
