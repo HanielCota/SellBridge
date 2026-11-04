@@ -232,16 +232,9 @@ test("the seller page fits with a long account name", async ({ page }) => {
 test("the supplier sidebar has the spreadsheet import as an item of its own", async ({ page }) => {
   await accounts.signUp(page, "Supplier with a deliberately long brand display name");
   await expect(page.getByRole("link", { name: "SellBridge, painel do fornecedor" })).toBeVisible();
+  // A long brand name once pushed the account out of the sidebar; the account now sits in the
+  // header, and expectPageFits keeps it inside the window at every width.
   await expectPageFits(page);
-  // Regression: a long brand name pushed the account out of the sidebar, over the page.
-  const aside = await page.getByRole("complementary", { name: "Menu lateral" }).boundingBox();
-  const account = await page
-    .getByRole("complementary", { name: "Menu lateral" })
-    .getByRole("button", { name: /Menu do usuário/ })
-    .boundingBox();
-  expect((account?.x ?? 0) + (account?.width ?? 0)).toBeLessThanOrEqual(
-    (aside?.x ?? 0) + (aside?.width ?? 0),
-  );
   const nav = sidebar(page);
   await nav.getByRole("link", { name: "Importar planilha" }).click();
   await expect(page).toHaveURL(/\/fornecedor\/painel\/importar/);
