@@ -3,7 +3,6 @@ import { hasStaffPermission, isStaffRole } from "@sellbridge/shared/staff-access
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import type { AccountProfile, SessionUser } from "@/features/auth/session.functions";
-import { reviewQueueCountQueryOptions } from "@/features/admin-product-review/review.queries";
 import { staffShipmentCountsQueryOptions } from "@/features/admin-shipments/shipments.queries";
 import {
   attentionCountsQueryOptions,
@@ -15,28 +14,23 @@ import { myUnreadConversationsQueryOptions } from "@/features/supplier-support/s
 import type { AppNavigation } from "./nav-list";
 import type { BadgeCounts } from "./nav-tab";
 
-/** `canReview`: only role admin reviews supplier products (the queue's server functions check it). */
 function useNavCounts({
   isAdmin,
-  canReview,
   canSeeShipments,
   isSupplier,
 }: {
   isAdmin: boolean;
-  canReview: boolean;
   canSeeShipments: boolean;
   isSupplier: boolean;
 }): BadgeCounts {
   const attention = useQuery(attentionCountsQueryOptions());
   const openTickets = useQuery({ ...openTicketCountQueryOptions(), enabled: isAdmin });
-  const productReviews = useQuery({ ...reviewQueueCountQueryOptions(), enabled: canReview });
   const storeMessages = useQuery({ ...myUnreadConversationsQueryOptions(), enabled: isSupplier });
   const shipments = useQuery({ ...staffShipmentCountsQueryOptions(), enabled: canSeeShipments });
   return {
     failedListings: attention.data?.failedListings ?? 0,
     openTickets: isAdmin ? (openTickets.data ?? 0) : 0,
     parcelAlerts: attention.data?.parcelAlerts ?? 0,
-    productReviews: canReview ? (productReviews.data ?? 0) : 0,
     staffParcelAlerts: canSeeShipments
       ? (shipments.data?.late ?? 0) + (shipments.data?.problem ?? 0)
       : 0,
@@ -95,7 +89,6 @@ export function useAppNavigation({
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const counts = useNavCounts({
     isAdmin: adminMode,
-    canReview: adminMode && user.role === "admin",
     canSeeShipments: adminMode && hasStaffPermission(user.role, "shipments.view"),
     isSupplier: profileKind === "supplier",
   });

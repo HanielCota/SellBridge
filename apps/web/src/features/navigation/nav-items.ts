@@ -9,7 +9,6 @@ export type NavBadge =
   | "failedListings"
   | "openTickets"
   | "parcelAlerts"
-  | "productReviews"
   | "staffParcelAlerts"
   | "supportReplies";
 
@@ -80,14 +79,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     label: "Fornecedores",
     to: "/admin/fornecedores",
-    permission: "customers.manage",
-    group: "Contas",
-  },
-  // Only admins review products; customers.manage is an admin-only permission.
-  {
-    label: "Análise de produtos",
-    to: "/admin/fornecedores/analise",
-    badge: "productReviews",
     permission: "customers.manage",
     group: "Contas",
   },
@@ -165,8 +156,6 @@ export const BADGE_DESCRIPTIONS: Record<NavBadge, (count: number) => string> = {
     `${count} ${count === 1 ? "pacote atrasado ou com problema" : "pacotes atrasados ou com problema"}`,
   staffParcelAlerts: (count) =>
     `${count} ${count === 1 ? "envio atrasado ou com problema" : "envios atrasados ou com problema"}`,
-  productReviews: (count) =>
-    `${count} ${count === 1 ? "produto esperando análise" : "produtos esperando análise"}`,
   storeMessages: (count) =>
     `${count} ${count === 1 ? "conversa de loja sem ler" : "conversas de lojas sem ler"}`,
   supportReplies: (count) =>
