@@ -120,8 +120,10 @@ test("a menu item changes its colors at once on hover and click, with no fade", 
     const faded: string[] = [];
     element.setAttribute("data-faded", "");
     element.addEventListener("transitionrun", (event) => {
-      faded.push(event.propertyName);
-      element.setAttribute("data-faded", faded.join(","));
+      if (event instanceof TransitionEvent) {
+        faded.push(event.propertyName);
+        element.setAttribute("data-faded", faded.join(","));
+      }
     });
   });
 
