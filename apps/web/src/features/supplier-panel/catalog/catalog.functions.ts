@@ -3,6 +3,7 @@ import {
   catalogProductRefSchema,
   catalogRejectSchema,
   catalogSaveDraftSchema,
+  catalogSetActiveSchema,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -12,7 +13,9 @@ import { adminMiddleware, supplierPanelMiddleware } from "@/lib/server/middlewar
 import {
   loadPanelProductForm,
   loadPanelProducts,
+  writePanelActive,
   writePanelApproval,
+  writePanelDeletion,
   writePanelDraft,
   writePanelRejection,
   writePanelSubmission,
@@ -49,6 +52,23 @@ export const supplierPanelSubmitProduct = createServerFn({ method: "POST" })
     await assertSupplierAcceptsProducts(data.supplierId);
     return await writePanelSubmission(data);
   });
+
+/** A switched-off supplier can still take products off sale, but not put them back. */
+export const supplierPanelSetProductActive = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(catalogSetActiveSchema)
+  .handler(async ({ data }) => {
+    if (data.active) {
+      await assertSupplierAcceptsProducts(data.supplierId);
+    }
+    return await writePanelActive(data);
+  });
+
+/** Deleting stays open to a switched-off supplier: it only removes what nobody sold. */
+export const supplierPanelDeleteProduct = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(catalogProductRefSchema)
+  .handler(async ({ data }) => await writePanelDeletion(data));
 
 /** The platform's review of a submitted product: always admin-only, and audited. */
 export const adminApprovePanelProduct = createServerFn({ method: "POST" })

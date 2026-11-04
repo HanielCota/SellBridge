@@ -1,11 +1,13 @@
 import { loadProductCategories } from "@/lib/server/reference-data";
 import {
   approveSupplierPanelProduct,
+  deleteUnsoldSupplierPanelProduct,
   getSupplierPanelProduct,
   listSupplierPanelProducts,
   rejectSupplierPanelProduct,
   reserveShortItems,
   saveSupplierPanelDraft,
+  setAdminSupplierProductActive,
   submitSupplierPanelProduct,
 } from "@sellbridge/database/repositories";
 import { AppError, hasErrorCode, isAppError } from "@sellbridge/shared/errors";
@@ -15,6 +17,7 @@ import type {
   CatalogProductRef,
   CatalogRejectInput,
   CatalogSaveDraftInput,
+  CatalogSetActiveInput,
 } from "@sellbridge/shared/supplier-panel-catalog-schemas";
 import { database } from "@/lib/server/database";
 import { requestStockSync } from "@/lib/server/stock-sync";
@@ -104,6 +107,39 @@ export async function writePanelApproval(ref: CatalogProductRef, reviewerId: str
   );
   await propagateApprovedChange(product.id);
   return product;
+}
+
+/**
+ * The same switch the team and the spreadsheet's "ativo" column use: off sale pauses the
+ * resellers' live listings, and the sync sends their zero stock right away.
+ */
+export async function writePanelActive(input: CatalogSetActiveInput) {
+  const { product, pausedTargets } = await panelWrite(
+    "supplier_panel.active_save_failed",
+    async () => await setAdminSupplierProductActive(database, input),
+  );
+  // The catalog audit records team actions only, so the supplier's switch is traced here.
+  logger.info("supplier_panel.product_active_changed", {
+    supplierId: input.supplierId,
+    productId: product.id,
+    active: product.active,
+    pausedTargets,
+  });
+  await requestStockSync("supplier_panel.catalog_sync_deferred");
+  return { id: product.id, active: product.active, pausedTargets };
+}
+
+/** Only a product no reseller published or sold; anything else is refused with a conflict. */
+export async function writePanelDeletion(ref: CatalogProductRef) {
+  await panelWrite(
+    "supplier_panel.delete_failed",
+    async () => await deleteUnsoldSupplierPanelProduct(database, ref),
+  );
+  logger.info("supplier_panel.product_deleted", {
+    supplierId: ref.supplierId,
+    productId: ref.productId,
+  });
+  return { id: ref.productId };
 }
 
 export async function writePanelRejection(input: CatalogRejectInput, reviewerId: string) {

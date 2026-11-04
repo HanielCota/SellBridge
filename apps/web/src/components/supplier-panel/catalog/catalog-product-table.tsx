@@ -1,4 +1,7 @@
-import type { SupplierPanelProduct } from "@sellbridge/database/repositories";
+import type {
+  SupplierPanelListProduct,
+  SupplierPanelProduct,
+} from "@sellbridge/database/repositories";
 import { formatCents } from "@sellbridge/shared/money";
 import { WarningCircleIcon } from "@phosphor-icons/react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
@@ -6,13 +9,15 @@ import { Money } from "@/components/data/money";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
 import { Button } from "@/components/ui/button";
-import { CompletenessBadge, ReviewStatus } from "./review-status";
+import { ProductDeleteButton } from "./product-delete-button";
+import { ProductSaleToggle } from "./product-sale-toggle";
+import { CompletenessBadge, ProductStatus } from "./review-status";
 import { SortableHeader, type CatalogSort } from "./sortable-header";
 import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { Hint, HintedText } from "@/components/ui/hint";
 
 export interface CatalogPage {
-  items: SupplierPanelProduct[];
+  items: SupplierPanelListProduct[];
   page: number;
   totalPages: number;
   total: number;
@@ -50,6 +55,22 @@ function ProductAction({
         Corrigir
       </Button>
     </Hint>
+  );
+}
+
+function ProductActions({
+  product,
+  onOpen,
+}: {
+  product: SupplierPanelListProduct;
+  onOpen: OpenProduct;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <ProductAction product={product} onOpen={onOpen} />
+      <ProductSaleToggle product={product} />
+      <ProductDeleteButton product={product} />
+    </div>
   );
 }
 
@@ -102,7 +123,7 @@ function ProductCell({ product, onOpen }: { product: SupplierPanelProduct; onOpe
   );
 }
 
-const columnHelper = createServerColumnHelper<SupplierPanelProduct>();
+const columnHelper = createServerColumnHelper<SupplierPanelListProduct>();
 
 function catalogColumns(
   sort: CatalogSort,
@@ -127,7 +148,7 @@ function catalogColumns(
     }),
     columnHelper.accessor("reviewStatus", {
       header: "Situação",
-      cell: (information) => <ReviewStatus status={information.getValue()} />,
+      cell: (information) => <ProductStatus product={information.row.original} />,
     }),
     columnHelper.display({
       id: "completeness",
@@ -154,7 +175,7 @@ function catalogColumns(
     columnHelper.display({
       id: "actions",
       header: () => <span className="sr-only">Ações</span>,
-      cell: (information) => <ProductAction product={information.row.original} onOpen={onOpen} />,
+      cell: (information) => <ProductActions product={information.row.original} onOpen={onOpen} />,
     }),
   ]);
 }
@@ -163,7 +184,7 @@ function MobileProductRow({
   product,
   onOpen,
 }: {
-  product: SupplierPanelProduct;
+  product: SupplierPanelListProduct;
   onOpen: OpenProduct;
 }) {
   return (
@@ -177,13 +198,13 @@ function MobileProductRow({
         <RejectionLine product={product} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ReviewStatus status={product.reviewStatus} />
+        <ProductStatus product={product} />
         <CompletenessBadge
           score={product.completeness.score}
           blocking={product.completeness.blocking.length}
         />
       </div>
-      <ProductAction product={product} onOpen={onOpen} />
+      <ProductActions product={product} onOpen={onOpen} />
     </div>
   );
 }

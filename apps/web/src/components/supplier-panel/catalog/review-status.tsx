@@ -1,3 +1,4 @@
+import type { SupplierPanelProduct } from "@sellbridge/database/repositories";
 import {
   PRODUCT_REVIEW_STATUS_LABELS,
   type ProductReviewStatus,
@@ -16,6 +17,16 @@ const REVIEW_TONES: Readonly<Record<ProductReviewStatus, StatusTone>> = {
 
 export function ReviewStatus({ status }: { status: ProductReviewStatus }) {
   return <ToneStatus tone={REVIEW_TONES[status]} label={PRODUCT_REVIEW_STATUS_LABELS[status]} />;
+}
+
+/** The review status, plus "Desativado" while the product is off sale. */
+export function ProductStatus({ product }: { product: SupplierPanelProduct }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+      <ReviewStatus status={product.reviewStatus} />
+      {product.active ? null : <ToneStatus tone="muted" label="Desativado" />}
+    </span>
+  );
 }
 
 /** Score tiers: what blocks publishing reads red even at a high score. */
