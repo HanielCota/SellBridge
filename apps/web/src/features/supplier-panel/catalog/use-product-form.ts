@@ -104,7 +104,7 @@ function useSubmitProduct(
     mutationFn: async () => await supplierPanelSubmitProduct({ data: { supplierId, productId } }),
     onSuccess: async (submitted) => {
       onSaved(submitted);
-      toast.success("Produto enviado para análise");
+      toast.success("Produto publicado: já aparece para os revendedores");
       await queryClient.invalidateQueries({ queryKey: supplierPanelCatalogKey(supplierId) });
     },
   });

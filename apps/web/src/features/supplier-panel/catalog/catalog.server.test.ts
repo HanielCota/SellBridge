@@ -4,6 +4,7 @@ import type {
   reserveShortItems,
   saveSupplierPanelDraft,
   setAdminSupplierProductActive,
+  submitSupplierPanelProduct,
 } from "@sellbridge/database/repositories";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   reserveShort: vi.fn<typeof reserveShortItems>(),
   setActive: vi.fn<typeof setAdminSupplierProductActive>(),
   remove: vi.fn<typeof deleteUnsoldSupplierPanelProduct>(),
+  submit: vi.fn<typeof submitSupplierPanelProduct>(),
   enqueue: vi.fn<() => Promise<void>>(),
   log: vi.fn<(event: string, fields: Record<string, unknown>) => void>(),
 }));
@@ -23,6 +25,7 @@ vi.mock("@sellbridge/database/repositories", () => ({
   reserveShortItems: mocks.reserveShort,
   setAdminSupplierProductActive: mocks.setActive,
   deleteUnsoldSupplierPanelProduct: mocks.remove,
+  submitSupplierPanelProduct: mocks.submit,
 }));
 vi.mock("@/lib/server/database", () => ({ database: {} }));
 vi.mock("@/lib/server/queues", () => ({ enqueueStockPriceSync: mocks.enqueue }));
@@ -34,6 +37,7 @@ import {
   writePanelApproval,
   writePanelDeletion,
   writePanelDraft,
+  writePanelSubmission,
 } from "./catalog.server";
 
 const supplierId = "b90fe97c-fd21-4ce8-ab70-908f233c7038";
@@ -177,5 +181,17 @@ describe("writePanelDeletion", () => {
       message: "Este produto já foi publicado",
     });
     expect(mocks.log).not.toHaveBeenCalledWith("supplier_panel.product_deleted", expect.anything());
+  });
+});
+
+describe("writePanelSubmission", () => {
+  it("puts a published product on the resellers' listings right away", async () => {
+    mocks.submit.mockResolvedValue(stored("approved"));
+
+    const product = await writePanelSubmission({ supplierId, productId });
+
+    expect(product.reviewStatus).toBe("approved");
+    expect(mocks.reserveShort).toHaveBeenCalledWith({}, [productId]);
+    expect(mocks.enqueue).toHaveBeenCalledTimes(1);
   });
 });

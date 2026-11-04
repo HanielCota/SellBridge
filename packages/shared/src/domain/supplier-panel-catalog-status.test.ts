@@ -27,24 +27,24 @@ const BASE: EditableProductFields = {
 };
 
 describe("submitTransition", () => {
-  it("sends a draft with nothing blocking to review", () => {
-    expect(submitTransition("draft", 0)).toEqual({ allowed: true, next: "in_review" });
+  it("puts a draft with nothing blocking on sale at once, with no team review", () => {
+    expect(submitTransition("draft", 0)).toEqual({ allowed: true, next: "approved" });
   });
 
   it("refuses a draft with blocking issues and says how many", () => {
     expect(submitTransition("draft", 1)).toEqual({
       allowed: false,
-      message: "Corrija 1 pendência que impede publicar antes de enviar",
+      message: "Corrija 1 pendência que impede publicar",
     });
     expect(submitTransition("draft", 3)).toMatchObject({
-      message: "Corrija 3 pendências que impedem publicar antes de enviar",
+      message: "Corrija 3 pendências que impedem publicar",
     });
   });
 
   it("refuses anything that is not a draft", () => {
     expect(submitTransition("rejected", 0)).toEqual({
       allowed: false,
-      message: "Só um rascunho pode ser enviado para análise (situação atual: Reprovado)",
+      message: "Só um rascunho pode ser publicado (situação atual: Reprovado)",
     });
   });
 });
@@ -79,18 +79,18 @@ describe("statusAfterEdit", () => {
     expect(edit("draft", ["title"])).toBe("draft");
   });
 
-  it("sends an approved product back to review when title, images or category change", () => {
-    expect(edit("approved", ["title"])).toBe("in_review");
-    expect(edit("approved", ["imageUrls"])).toBe("in_review");
-    expect(edit("approved", ["categoryId", "stock"])).toBe("in_review");
+  it("keeps an approved product approved when title, images or category change", () => {
+    expect(edit("approved", ["title"])).toBe("approved");
+    expect(edit("approved", ["imageUrls"])).toBe("approved");
+    expect(edit("approved", ["categoryId", "stock"])).toBe("approved");
   });
 
   it("keeps an approved product approved when only stock or cost change", () => {
     expect(edit("approved", ["stock", "costCents"])).toBe("approved");
   });
 
-  it("keeps a product under review in review, or drops it to draft when something blocks", () => {
-    expect(edit("in_review", ["description"])).toBe("in_review");
+  it("approves a product left in the old review queue on edit, or drops it to draft when something blocks", () => {
+    expect(edit("in_review", ["description"])).toBe("approved");
     expect(
       statusAfterEdit({
         current: "approved",

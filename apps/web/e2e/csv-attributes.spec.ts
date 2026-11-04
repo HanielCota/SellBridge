@@ -51,8 +51,8 @@ async function importProductWithAttributes(page: Page) {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, `/admin/fornecedores/${supplierId}`);
-  // Complete (category and photo): since 2026-10-25 the admin's import goes through review too,
-  // and only a complete product reaches the review queue instead of staying a draft.
+  // Complete (category and photo): since 2026-11-04 a complete imported product goes on sale at
+  // once, with no team review; an incomplete one would stay a draft.
   const csv = [
     "sku;titulo;descricao;custo;estoque;categoria;imagens;marca;modelo;gtin;peso_g;altura_cm;largura_cm;comprimento_cm",
     `${SKU};${TITLE};Escova de cerdas macias para cabelos finos;19,90;8;beleza;https://imagens.sellbridge.test/escova.jpg;Escova Bela;EB-10;7891234567895;350;6;12;25`,
@@ -67,19 +67,11 @@ async function importProductWithAttributes(page: Page) {
   await page.getByRole("button", { name: "Confirmar importação" }).click();
   // Other specs may leave listings the import pauses: the sentence then goes on after the counts.
   await expect(page.getByText(/^Importação concluída: 1 criados e 0 atualizados/)).toBeVisible();
-  await approveImportedProduct(page);
-}
-
-/** The imported product waits in the review queue until the admin approves it. */
-async function approveImportedProduct(page: Page) {
   const [product] = await database
-    .select({ id: supplierProducts.id, reviewStatus: supplierProducts.reviewStatus })
+    .select({ reviewStatus: supplierProducts.reviewStatus })
     .from(supplierProducts)
     .where(and(eq(supplierProducts.supplierId, supplierId), eq(supplierProducts.sku, SKU)));
-  expect(product?.reviewStatus).toBe("in_review");
-  await gotoHydrated(page, `/admin/fornecedores/analise/${product?.id ?? ""}`);
-  await page.getByRole("button", { name: /^Aprovar/ }).click();
-  await expect(page.getByText("Produto aprovado")).toBeVisible();
+  expect(product?.reviewStatus).toBe("approved");
 }
 
 async function connectMockStore(page: Page, shopName: string) {
