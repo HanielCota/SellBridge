@@ -109,19 +109,52 @@ test("the team's pages sit in the header strip, the sidebar keeps the profile's,
  * Regression: the chosen item faded its pill to white while its white hover text faded to dark,
  * so in the dark theme it flashed white on white after a click (longer on a slow page).
  */
-test("a clicked menu item turns its colors at once, never fading through white on white", async ({
+test("a menu item changes its colors at once on hover and click, with no fade", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
   await page.setViewportSize({ width: 1366, height: 900 });
   await gotoHydrated(page, "/dashboard");
   const item = sidebar(page).getByRole("link", { name: "Lojas" });
+  await item.evaluate((element) => {
+    const faded: string[] = [];
+    element.setAttribute("data-faded", "");
+    element.addEventListener("transitionrun", (event) => {
+      faded.push(event.propertyName);
+      element.setAttribute("data-faded", faded.join(","));
+    });
+  });
+
+  await item.hover();
   await item.click();
   await expect(item).toHaveAttribute("aria-current", "page");
+  await page.waitForTimeout(400);
 
-  const fades = await item.evaluate((element) => getComputedStyle(element).transitionProperty);
+  const faded = await item.getAttribute("data-faded");
+  expect(faded ?? "").not.toMatch(/color/);
+});
 
-  expect(fades).not.toMatch(/color/);
+/*
+ * Regression: the menu's groups sized their column to the widest one-line label, so a long label
+ * (the team's "Desempenho do suporte 2", or a sidebar narrowed by Windows' scrollbar) pushed the
+ * items past the sidebar, cut them and made it scroll sideways.
+ */
+test("a long menu label is cut short instead of widening the sidebar", async ({ page }) => {
+  await signIn(page, DEMO_USER);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await gotoHydrated(page, "/dashboard");
+  const nav = sidebar(page);
+
+  await nav.getByRole("link", { name: "Publicações" }).evaluate((link) => {
+    const label = [...link.querySelectorAll("span")].find(
+      (span) => span.textContent === "Publicações",
+    );
+    if (label !== undefined) {
+      label.textContent = "Publicações com um nome bem mais comprido que o menu";
+    }
+  });
+
+  expect(await sidewaysOverflow(nav)).toBeLessThanOrEqual(0);
 });
 
 test("a team page under another one lights only its own item", async ({ page }) => {
