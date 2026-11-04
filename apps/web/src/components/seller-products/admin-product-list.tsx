@@ -4,6 +4,7 @@ import {
   adminProductListSearchSchema,
   type adminListCatalogProductsFn,
 } from "@/features/seller-products/products.functions";
+import { ProductVisual } from "@/components/catalog/product-visual";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,14 +70,27 @@ export function AdminProductCards({
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map((row) => (
         <li key={row.product.id} className="surface-card space-y-3 rounded-2xl bg-card p-5">
-          <h2 className="font-semibold">{row.product.title || "Rascunho sem título"}</h2>
-          <p>
-            {row.ownerName ?? row.sourceName} ·{" "}
-            {row.origin === "seller" ? "Produto próprio do revendedor" : "Catálogo de fornecedores"}
-          </p>
-          <p>
-            {row.product.sku} · {productStatus(row.product, row.origin)}
-          </p>
+          <div className="flex items-start gap-3">
+            <ProductVisual
+              imageUrl={row.product.imageUrls[0] ?? null}
+              title={row.product.title}
+              categoryName={null}
+              compact
+              className="size-14 shrink-0 rounded-xl"
+            />
+            <div className="min-w-0 space-y-1">
+              <h2 className="font-semibold">{row.product.title || "Rascunho sem título"}</h2>
+              <p>
+                {row.ownerName ?? row.sourceName} ·{" "}
+                {row.origin === "seller"
+                  ? "Produto próprio do revendedor"
+                  : "Catálogo de fornecedores"}
+              </p>
+              <p>
+                {row.product.sku} · {productStatus(row.product, row.origin)}
+              </p>
+            </div>
+          </div>
           {row.tenantId === null ? (
             <Button asChild variant="outline">
               <Link to="/admin/fornecedores/$supplierId" params={{ supplierId: row.sourceId }}>

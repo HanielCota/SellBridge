@@ -8,6 +8,7 @@ import { createServerColumnHelper, DataTable } from "@/components/data/data-tabl
 import { Money } from "@/components/data/money";
 import { PaginationBar } from "@/components/data/pagination-bar";
 import { SmartDate } from "@/components/data/smart-date";
+import { ProductVisual } from "@/components/catalog/product-visual";
 import { Button } from "@/components/ui/button";
 import { ProductDeleteButton } from "./product-delete-button";
 import { ProductSaleToggle } from "./product-sale-toggle";
@@ -107,7 +108,35 @@ function RejectionLine({ product }: { product: SupplierPanelProduct }) {
 /** The name opens the product too, on the field to fix: the obvious place to click. */
 function ProductCell({ product, onOpen }: { product: SupplierPanelProduct; onOpen: OpenProduct }) {
   return (
-    <div className="max-w-[20rem] min-w-[12rem] space-y-0.5 whitespace-normal">
+    <div className="flex max-w-[23rem] min-w-[14.5rem] items-start gap-3 whitespace-normal">
+      <ProductThumbnail product={product} />
+      <ProductCellText product={product} onOpen={onOpen} />
+    </div>
+  );
+}
+
+/** The cover photo, or the category's icon on a neutral tile while there is none. */
+function ProductThumbnail({ product }: { product: SupplierPanelProduct }) {
+  return (
+    <ProductVisual
+      imageUrl={product.imageUrls[0] ?? null}
+      title={product.title}
+      categoryName={product.categoryName}
+      compact
+      className="size-9 shrink-0 rounded-lg"
+    />
+  );
+}
+
+function ProductCellText({
+  product,
+  onOpen,
+}: {
+  product: SupplierPanelProduct;
+  onOpen: OpenProduct;
+}) {
+  return (
+    <div className="min-w-0 space-y-0.5">
       <button
         type="button"
         onClick={() => onOpen(product.id, fieldToFix(product))}
@@ -189,13 +218,16 @@ function MobileProductRow({
 }) {
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
-        <p className="font-medium">{product.title || "Sem título"}</p>
-        <p className="text-footnote text-muted-foreground">
-          <span className="font-mono">{product.sku}</span>, {formatCents(product.costCents)},{" "}
-          {product.stock} un.
-        </p>
-        <RejectionLine product={product} />
+      <div className="flex items-start gap-3">
+        <ProductThumbnail product={product} />
+        <div className="min-w-0 space-y-1">
+          <p className="font-medium">{product.title || "Sem título"}</p>
+          <p className="text-footnote text-muted-foreground">
+            <span className="font-mono">{product.sku}</span>, {formatCents(product.costCents)},{" "}
+            {product.stock} un.
+          </p>
+          <RejectionLine product={product} />
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <ProductStatus product={product} />
