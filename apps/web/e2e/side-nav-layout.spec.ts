@@ -36,6 +36,11 @@ function sidebar(page: Page) {
     .getByRole("navigation", { name: "Principal" });
 }
 
+/** How far a menu's content runs past its own box sideways (a sideways scrollbar when > 0). */
+async function sidewaysOverflow(menu: ReturnType<Page["getByRole"]>): Promise<number> {
+  return await menu.evaluate((element) => element.scrollWidth - element.clientWidth);
+}
+
 /** The page never scrolls sideways and the account button stays inside the window. */
 async function expectPageFits(page: Page) {
   for (const width of DESKTOP_WIDTHS) {
@@ -46,6 +51,11 @@ async function expectPageFits(page: Page) {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, `no sideways scroll at ${width}px`).toBeLessThanOrEqual(0);
+    // Regression: in team mode, long items with counts ("Desempenho do suporte 2") made the
+    // sidebar itself scroll sideways and cut the labels.
+    expect(await sidewaysOverflow(sidebar(page)), `sidebar fits at ${width}px`).toBeLessThanOrEqual(
+      0,
+    );
     const account = await page.getByRole("button", { name: /Menu do usuário/ }).boundingBox();
     expect(account, `account at ${width}px`).not.toBeNull();
     expect(
@@ -170,6 +180,10 @@ test("admin phone menu switches between the reseller and the supplier screens", 
   await expect(nav.getByRole("link", { name: "Catálogo" })).toBeVisible();
   // The team's own Fornecedores item sits under its title, apart from the supplier profile.
   await expect(nav.getByRole("heading", { name: "Administração" })).toBeVisible();
+  expect(
+    await sidewaysOverflow(nav),
+    "the phone menu does not scroll sideways",
+  ).toBeLessThanOrEqual(0);
   await sheet.getByRole("button", { name: "Fornecedor" }).click();
   await expect(nav.getByRole("link", { name: "Catálogo" })).toHaveCount(0);
   await expect(nav.locator('a[href^="/fornecedor/painel/produtos"]')).toHaveText("Produtos");

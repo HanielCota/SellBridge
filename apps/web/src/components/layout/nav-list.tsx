@@ -145,7 +145,7 @@ function ItemGroups({
       key={`${index}-${group.heading ?? ""}`}
       role={group.heading === null ? undefined : "group"}
       aria-label={group.heading ?? undefined}
-      className="grid gap-1"
+      className="grid grid-cols-1 gap-1"
     >
       {group.heading === null ? null : (
         <GroupHeading heading={group.heading} collapsed={collapsed} />
@@ -204,7 +204,7 @@ export function AccountNavList({
   supportPanel = null,
 }: Omit<ListProps, "navigation"> & { supportPanel?: ReactNode }) {
   return (
-    <div className="grid gap-1">
+    <div className="grid grid-cols-1 gap-1">
       {ACCOUNT_NAV_ITEMS[shown.kind].map((item) =>
         item.to === SUPPORT_NAV_ITEM.to && supportPanel !== null ? (
           <Fragment key={item.to}>{supportPanel}</Fragment>

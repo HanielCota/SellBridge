@@ -140,7 +140,7 @@ function SideNavLinks({
   return (
     <nav
       aria-label="Principal"
-      className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1 [scrollbar-width:thin]"
+      className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto px-1 [scrollbar-width:thin]"
     >
       <NavList {...list} />
       <div className="mt-auto border-t border-border pt-3">
