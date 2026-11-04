@@ -22,3 +22,23 @@ test("no celular, a gestão de produtos cabe na tela", async ({ page }) => {
     .boundingBox();
   expect(search?.width ?? 0).toBeGreaterThan(300);
 });
+
+/*
+ * Regression: the filters' labels sat glued to their boxes ("Buscar produto…" touched the
+ * search box), as the fields had no gap between label and input.
+ */
+test("os filtros da gestão de produtos deixam espaço entre o título e o campo", async ({
+  page,
+}) => {
+  await signIn(page, ADMIN_USER);
+  await enableAdminMode(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await gotoHydrated(page, "/admin/products");
+
+  for (const name of ["Buscar produto, código, cliente ou fornecedor", "Origem do produto"]) {
+    const label = await page.locator("label", { hasText: name }).boundingBox();
+    const field = await page.getByLabel(name).boundingBox();
+    const gap = (field?.y ?? 0) - ((label?.y ?? 0) + (label?.height ?? 0));
+    expect(gap, `space under "${name}"`).toBeGreaterThanOrEqual(6);
+  }
+});
