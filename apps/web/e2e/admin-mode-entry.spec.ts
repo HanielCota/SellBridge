@@ -22,7 +22,7 @@ test("no computador, o botão do topo liga o modo e abre a área de admin", asyn
   await startWithAdminModeOff(page);
   await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\//);
-  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Administração" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Modo administrador", exact: true })).toHaveCount(
     0,
   );
@@ -52,5 +52,5 @@ test("um link da área de admin abre a tela e liga o modo", async ({ page }) => 
   await page.goto("/admin/clientes");
   await expect(page).toHaveURL(/\/admin\/clientes/);
   await expect(page.getByRole("heading", { name: "Clientes" })).toBeVisible();
-  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Administração" })).toBeVisible();
 });

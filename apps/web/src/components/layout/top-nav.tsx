@@ -1,12 +1,16 @@
+import { ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
 import { Link } from "@tanstack/react-router";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
 import { TeamModeButton } from "./team-mode-entry";
+import { UserAvatar } from "./user-avatar";
+import { UserMenu } from "./user-menu";
 import type { AppNavigationState } from "./use-app-navigation";
 
 /** The logo where the sidebar is closed away; from `lg` the sidebar shows it. */
@@ -29,9 +33,39 @@ interface TopNavProps {
   readonly state: AppNavigationState;
 }
 
+/** The account's photo right of the bell from `lg`; on phones the account sits in the menu sheet. */
+function HeaderAccount({ user, adminMode, profileKind, state }: TopNavProps) {
+  return (
+    <div className="hidden lg:block">
+      <UserMenu
+        user={user}
+        supportReplies={state.counts.supportReplies}
+        adminMode={adminMode}
+        profileKind={profileKind}
+        compact
+        className="rounded-full p-0.5 hover:bg-foreground/[0.06] data-[state=open]:bg-foreground/[0.06]"
+      >
+        <span className="relative shrink-0">
+          <UserAvatar name={user.name} image={user.image} />
+          {adminMode ? (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full bg-brand text-primary-foreground ring-2 ring-background"
+            >
+              <ShieldCheckIcon className="size-3" weight="bold" />
+            </span>
+          ) : null}
+        </span>
+        <span className="sr-only">{user.name}</span>
+      </UserMenu>
+    </div>
+  );
+}
+
 /**
- * App header over the page: the menu button and logo below `lg` (the sidebar holds both, support
- * and the account from there), then search, the team's way in and the bell.
+ * App header over the page: the menu button and logo below `lg` (the sidebar holds both and
+ * support from there), then search, the team's way in, the bell and the account. In team mode
+ * the team's pages follow as a strip under it.
  */
 export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
@@ -58,8 +92,23 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
             </div>
           )}
           <NotificationBell />
+          <HeaderAccount
+            user={user}
+            adminMode={adminMode}
+            profileKind={profileKind}
+            state={state}
+          />
         </div>
       </div>
+      {adminMode ? (
+        <div className="mx-auto hidden max-w-[1440px] px-4 pb-3 md:px-8 lg:block">
+          <AdminTabsBar
+            items={state.navigation.teamItems}
+            pathname={state.pathname}
+            counts={state.counts}
+          />
+        </div>
+      ) : null}
     </header>
   );
 }

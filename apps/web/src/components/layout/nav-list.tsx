@@ -42,6 +42,8 @@ interface ListProps {
   onNavigate?: (() => void) | undefined;
   /** The sidebar shrunk to its icons: headings give way to hairlines. */
   collapsed?: boolean;
+  /** The team's pages under "Administração"; the desktop shows them in the header instead. */
+  withTeam?: boolean;
   /** Desktop items explain their section on hover. */
   withHint?: boolean;
 }
@@ -175,18 +177,19 @@ export function NavList({
   onNavigate,
   collapsed = false,
   withHint = false,
+  withTeam = true,
 }: ListProps) {
   const shared = { activeTo: shown.activeTo, counts, onNavigate, collapsed, withHint };
   return (
     <>
       <ItemGroups items={shown.items} profileSlug={shown.slug} {...shared} />
-      {navigation.teamItems.length === 0 ? null : (
+      {withTeam && navigation.teamItems.length > 0 ? (
         <>
           {/* Shrunk, the first team group's hairline already sets the team apart. */}
           {collapsed ? null : <GroupHeading heading="Administração" collapsed={false} asHeading />}
           <ItemGroups items={navigation.teamItems} profileSlug={null} {...shared} />
         </>
-      )}
+      ) : null}
     </>
   );
 }

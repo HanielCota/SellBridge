@@ -36,6 +36,11 @@ function sidebar(page: Page) {
     .getByRole("navigation", { name: "Principal" });
 }
 
+/** In team mode, from `lg`, the team's pages sit in a strip under the header. */
+function adminStrip(page: Page) {
+  return page.getByRole("navigation", { name: "Administração" });
+}
+
 /** How far a menu's content runs past its own box sideways (a sideways scrollbar when > 0). */
 async function sidewaysOverflow(menu: ReturnType<Page["getByRole"]>): Promise<number> {
   return await menu.evaluate((element) => element.scrollWidth - element.clientWidth);
@@ -83,20 +88,18 @@ async function signInAdminWithSupplierProfile(
   return { slug: supplierProfile.slug };
 }
 
-test("the admin sidebar lists every team page under its heading and the page still fits", async ({
+test("the team's pages sit in the header strip, the sidebar keeps the profile's, and it fits", async ({
   page,
 }) => {
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await expectPageFits(page);
   const nav = sidebar(page);
-  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toBeVisible();
-  for (const group of ["Contas", "Atendimento", "Moderação", "Equipe"]) {
-    await expect(nav.getByRole("group", { name: group, exact: true })).toBeAttached();
-  }
+  await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toHaveCount(0);
   // Pages that before only had a link inside another page or in the account menu.
-  for (const label of ["Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
-    await expect(nav.getByRole("link", { name: label })).toBeAttached();
+  for (const label of ["Clientes", "Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
+    await expect(adminStrip(page).getByRole("link", { name: label })).toBeAttached();
+    await expect(nav.getByRole("link", { name: label })).toHaveCount(0);
   }
   await nav.getByRole("link", { name: "Visão geral" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
@@ -106,7 +109,7 @@ test("a team page under another one lights only its own item", async ({ page }) 
   await signIn(page, ADMIN_USER);
   await enableAdminMode(page);
   await gotoHydrated(page, "/admin/chamados/metricas");
-  const nav = sidebar(page);
+  const nav = adminStrip(page);
   await expect(nav.getByRole("link", { name: "Desempenho do suporte" })).toHaveAttribute(
     "aria-current",
     "page",
@@ -131,7 +134,7 @@ test("staff can enter team mode from the supplier profile", async ({ page }) => 
   await expectPageFits(page);
   await page.getByRole("button", { name: "Modo administrador", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/products/);
-  await expect(page.getByText("Modo admin ativo")).toBeVisible();
+  await expect(adminStrip(page)).toBeVisible();
   await expect(
     page
       .getByRole("complementary", { name: "Menu lateral" })
@@ -254,7 +257,7 @@ test("the sidebar shrinks to its icons and remembers it after a reload", async (
   await expect.poll(catalogWidth).toBeGreaterThan(150);
 });
 
-test("the account and support sit at the foot of the menu, the header keeps search and bell", async ({
+test("support sits at the foot of the menu, the header keeps search, bell and account", async ({
   page,
 }) => {
   await signIn(page, DEMO_USER);
@@ -265,13 +268,13 @@ test("the account and support sit at the foot of the menu, the header keeps sear
   await expect(header.getByRole("button", { name: /^Buscar/ })).toBeVisible();
   // The demo account may have unread notices, which turn the name into "Avisos: N novos".
   await expect(header.getByRole("button", { name: /^Avisos/ })).toBeVisible();
-  await expect(header.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
+  await expect(aside.getByRole("button", { name: /Menu do usuário/ })).toHaveCount(0);
   await expect(header.getByRole("button", { name: /^Suporte/ })).toHaveCount(0);
 
   await aside.getByRole("button", { name: /^Suporte/ }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Abrir chamado" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await aside.getByRole("button", { name: /Menu do usuário/ }).click();
+  await header.getByRole("button", { name: /Menu do usuário/ }).click();
   await expect(page.getByRole("menuitem", { name: "Sair" })).toBeVisible();
   await page.keyboard.press("Escape");
 
