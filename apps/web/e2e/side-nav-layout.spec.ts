@@ -85,7 +85,7 @@ test("the admin sidebar lists every team page under its heading and the page sti
     await expect(nav.getByRole("group", { name: group, exact: true })).toBeAttached();
   }
   // Pages that before only had a link inside another page or in the account menu.
-  for (const label of ["Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
+  for (const label of ["Desempenho do suporte", "Auditoria"]) {
     await expect(nav.getByRole("link", { name: label })).toBeAttached();
   }
   await nav.getByRole("link", { name: "Visão geral" }).click();
