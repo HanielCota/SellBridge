@@ -1,9 +1,12 @@
 import type { FetchLike } from "../http.ts";
 import { describe, expect, it, vi } from "vitest";
 import { SHIPMENT_LEAD_TIME, shipmentBase } from "./fixtures/shipments.ts";
+import { hasMarketplaceCause } from "../errors.ts";
 import {
   getMercadoLivreLabel,
+  getMercadoLivreLabels,
   getMercadoLivreShipping,
+  LABEL_NOT_READY_CAUSE,
   readMercadoLivreShippingAddress,
 } from "./shipping.ts";
 const store = { externalShopId: "99", accessToken: "test-token" };
@@ -184,6 +187,57 @@ describe("Mercado Livre shipping", () => {
       expect(request).toHaveBeenCalledTimes(3);
     },
   );
+  it("marks a label the marketplace has not released yet, so it can be retried later", async () => {
+    const { config } = setup({ status: "pending" });
+
+    const failure = await getMercadoLivreLabel(config, store, "55").catch(
+      (error: unknown) => error,
+    );
+
+    expect(hasMarketplaceCause(failure, LABEL_NOT_READY_CAUSE)).toBe(true);
+  });
+  it("prints the printable orders of a batch in one PDF and reports the others", async () => {
+    // The orders are looked up in parallel: each answer follows the address asked.
+    const answers: Record<string, () => Response> = {
+      "/orders/55": () => Response.json(order),
+      "/orders/56": () => Response.json(order),
+      "/orders/55/shipments": () => Response.json([{ id: 123, type: "forward" }]),
+      "/orders/56/shipments": () => Response.json([{ id: 124, type: "forward" }]),
+      "/shipments/123": () => Response.json(shipment),
+      "/shipments/124": () => Response.json({ ...shipment, id: 124, status: "pending" }),
+      "/shipment_labels": () => new Response("%PDF-1.4 both"),
+    };
+    const request = vi.fn<FetchLike>(async (url) => {
+      const answer = answers[new URL(url).pathname];
+      if (answer === undefined) {
+        throw new Error(`Unexpected request ${url}`);
+      }
+      return answer();
+    });
+    const config = {
+      clientId: "c",
+      clientSecret: "s",
+      fetchImplementation: request,
+      retry: { retries: 0 },
+    };
+
+    const batch = await getMercadoLivreLabels(config, store, ["55", "56"]);
+
+    expect(batch.printedOrderIds).toEqual(["55"]);
+    expect(batch.refused.map((refusal) => refusal.orderId)).toEqual(["56"]);
+    expect(hasMarketplaceCause(batch.refused[0]?.error, LABEL_NOT_READY_CAUSE)).toBe(true);
+    expect(request.mock.calls.at(-1)?.[0]).toBe(
+      "https://api.mercadolibre.com/shipment_labels?shipment_ids=123&response_type=pdf",
+    );
+  });
+  it("asks for no PDF when no order of the batch can print", async () => {
+    const { request, config } = setup({ status: "pending" });
+
+    const batch = await getMercadoLivreLabels(config, store, ["55"]);
+
+    expect(batch.pdf).toBeNull();
+    expect(request).toHaveBeenCalledTimes(3);
+  });
   it("rejects an order of another seller and does not request its address", async () => {
     const { request, config } = setup();
     request.mockReset().mockResolvedValueOnce(Response.json({ seller: { id: 100 } }));

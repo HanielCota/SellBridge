@@ -61,3 +61,12 @@ export function isFinalMarketplaceAnswer(value: unknown): boolean {
 
   return isMarketplaceError(value);
 }
+
+/** Whether a marketplace refusal carries this cause code (see `marketplaceError`'s `causes`). */
+export function hasMarketplaceCause(value: unknown, cause: string): boolean {
+  if (!isMarketplaceError(value)) {
+    return false;
+  }
+  const causes: unknown = Reflect.get(value.details, "causes");
+  return Array.isArray(causes) && causes.includes(cause);
+}

@@ -6,4 +6,10 @@ export * from "./http.ts";
 export * from "./registry.ts";
 export { createMercadoLivreConnector } from "./mercado-livre/mercado-livre-connector.ts";
 export { mapMercadoLivreOrder } from "./mercado-livre/orders.ts";
-export { getMercadoLivreShipping, getMercadoLivreLabel } from "./mercado-livre/shipping.ts";
+export {
+  getMercadoLivreLabel,
+  getMercadoLivreLabels,
+  getMercadoLivreShipping,
+  LABEL_NOT_READY_CAUSE,
+  type MercadoLivreLabelBatch,
+} from "./mercado-livre/shipping.ts";
