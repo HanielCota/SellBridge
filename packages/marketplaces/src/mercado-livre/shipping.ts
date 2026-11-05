@@ -207,12 +207,19 @@ export async function readMercadoLivreShippingAddress(
   const { shipping } = await loadSaleShipment(config, store, orderId);
   return shippingAddressReading(shipping.address);
 }
-export async function getMercadoLivreLabel(
-  config: MercadoLivreConfig,
-  store: StoreCredentials,
-  orderId: string,
-) {
-  const { shipping } = await loadSaleShipment(config, store, orderId);
+/** Why Mercado Livre refused a label that may print later: it has not released it yet. */
+export const LABEL_NOT_READY_CAUSE = "label_not_ready";
+
+/** Labels per `/shipment_labels` call, Mercado Livre's limit for `shipment_ids`. */
+const MAX_LABELS_PER_REQUEST = 50;
+
+/** Sale shipments read at once while gathering a batch, so a store is not flooded. */
+const LABEL_LOOKUP_CONCURRENCY = 5;
+
+type SaleShipping = Awaited<ReturnType<typeof loadSaleShipment>>["shipping"];
+
+/** Throws unless the sale shipment's label can be printed now. */
+function assertLabelPrintable(shipping: SaleShipping): void {
   const allowed = ["drop_off", "xd_drop_off", "cross_docking", "self_service"];
   if (shipping.mode !== "me2" || !allowed.includes(shipping.logisticType))
     throw marketplaceError("Este tipo de envio não permite emitir etiqueta de postagem", {
@@ -224,10 +231,20 @@ export async function getMercadoLivreLabel(
   )
     throw marketplaceError("A etiqueta ainda não está disponível para impressão no Mercado Livre", {
       retryable: false,
+      causes: [LABEL_NOT_READY_CAUSE],
     });
+}
+
+/** One PDF with the labels of these sale shipments, all of the same store. */
+async function fetchLabelPdf(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  shipmentIds: readonly string[],
+): Promise<Uint8Array<ArrayBuffer>> {
+  const ids = shipmentIds.map((id) => encodeURIComponent(id)).join(",");
   const response = await fetchWithRetry(
     config.fetchImplementation ?? fetch,
-    `https://api.mercadolibre.com/shipment_labels?shipment_ids=${encodeURIComponent(shipping.shipmentId)}&response_type=pdf`,
+    `https://api.mercadolibre.com/shipment_labels?shipment_ids=${ids}&response_type=pdf`,
     { headers: { authorization: `Bearer ${store.accessToken}` } },
     // A label is a PDF of up to 10 MB. The 30s deadline is per attempt: a caller signal shared by
     // every attempt fired in the middle of the second one and read as "cancelled".
@@ -244,6 +261,85 @@ export async function getMercadoLivreLabel(
       retryable: false,
     });
   return bytes;
+}
+
+export async function getMercadoLivreLabel(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderId: string,
+): Promise<{ pdf: Uint8Array<ArrayBuffer>; shipmentId: string }> {
+  const { shipping } = await loadSaleShipment(config, store, orderId);
+  assertLabelPrintable(shipping);
+  const pdf = await fetchLabelPdf(config, store, [shipping.shipmentId]);
+  return { pdf, shipmentId: shipping.shipmentId };
+}
+
+/** An order whose label came, with the marketplace's shipment id its barcode carries. */
+export interface PrintedLabel {
+  orderId: string;
+  shipmentId: string;
+}
+
+/** What a batch of labels of one store gave: one PDF for the printable orders, and the rest. */
+export interface MercadoLivreLabelBatch {
+  pdf: Uint8Array<ArrayBuffer> | null;
+  printed: PrintedLabel[];
+  refused: { orderId: string; error: unknown }[];
+}
+
+type LabelLookup =
+  | { kind: "printable"; orderId: string; shipmentId: string }
+  | { kind: "refused"; orderId: string; error: unknown };
+
+/** The sale shipment of one order of a batch, or why its label cannot print. */
+async function printableShipment(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderId: string,
+): Promise<LabelLookup> {
+  try {
+    const { shipping } = await loadSaleShipment(config, store, orderId);
+    assertLabelPrintable(shipping);
+    return { kind: "printable", orderId, shipmentId: shipping.shipmentId };
+  } catch (error) {
+    return { kind: "refused", orderId, error };
+  }
+}
+
+/**
+ * The labels of several orders of one store in a single PDF, as Mercado Livre prints them
+ * together. An order whose label cannot print is reported, never fails the others.
+ */
+export async function getMercadoLivreLabels(
+  config: MercadoLivreConfig,
+  store: StoreCredentials,
+  orderIds: readonly string[],
+): Promise<MercadoLivreLabelBatch> {
+  if (orderIds.length > MAX_LABELS_PER_REQUEST)
+    throw marketplaceError(`Imprima até ${MAX_LABELS_PER_REQUEST} etiquetas por vez`, {
+      retryable: false,
+    });
+  const lookups: LabelLookup[] = [];
+  for (let start = 0; start < orderIds.length; start += LABEL_LOOKUP_CONCURRENCY) {
+    const chunk = orderIds.slice(start, start + LABEL_LOOKUP_CONCURRENCY);
+    lookups.push(
+      ...(await Promise.all(chunk.map((orderId) => printableShipment(config, store, orderId)))),
+    );
+  }
+  const printable = lookups.flatMap((lookup) => (lookup.kind === "printable" ? [lookup] : []));
+  const refused = lookups.flatMap((lookup) =>
+    lookup.kind === "refused" ? [{ orderId: lookup.orderId, error: lookup.error }] : [],
+  );
+  if (printable.length === 0) {
+    return { pdf: null, printed: [], refused };
+  }
+  const pdf = await fetchLabelPdf(
+    config,
+    store,
+    printable.map((lookup) => lookup.shipmentId),
+  );
+  const printed = printable.map(({ orderId, shipmentId }) => ({ orderId, shipmentId }));
+  return { pdf, printed, refused };
 }
 
 function parseDeliveryAddress(raw: z.infer<typeof shippingSchema>) {

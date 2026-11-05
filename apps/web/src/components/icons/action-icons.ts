@@ -328,7 +328,7 @@ export const CONTROL_HINTS = {
   listingActions: "Editar preço, pausar e outras ações deste anúncio",
   publishFromCatalog: "Escolher produtos no Catálogo para colocar à venda",
   orderStage: "Mostrar só os pedidos que estão numa etapa do envio",
-  batchAccept: "Marque para aceitar vários pedidos de uma vez",
+  batchAccept: "Marque para aceitar ou imprimir as etiquetas de vários pedidos de uma vez",
   viewOrder: "Ver os dados, o histórico e os documentos do pedido",
   rateSupplier: "Dar uma nota ao fornecedor por este pedido; ajuda outros revendedores",
   editReview: "Mudar a nota ou o comentário que você deu",

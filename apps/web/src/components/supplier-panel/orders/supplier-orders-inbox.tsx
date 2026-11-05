@@ -8,7 +8,11 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BatchAcceptReport } from "@/features/supplier-panel/orders/batch-accept";
-import { supplierShipmentsQueryOptions } from "@/features/supplier-panel/orders/orders.queries";
+import type { BatchLabelsReport } from "@/features/supplier-panel/orders/batch-labels";
+import {
+  shipmentFiltersOf,
+  supplierShipmentsQueryOptions,
+} from "@/features/supplier-panel/orders/orders.queries";
 import {
   type SupplierOrderRow,
   type SupplierOrdersPage,
@@ -18,12 +22,20 @@ import { toggled, withAll } from "@/features/supplier-panel/orders/selection";
 import { useNow } from "@/hooks/use-now";
 import { errorMessage } from "@/lib/errors";
 import { BatchAcceptBar, BatchAcceptResult } from "./batch-accept-bar";
+import { BatchLabelsResult } from "./batch-labels-result";
 import { OrderFilters } from "./order-filters";
 import { OrderQueueTable, type QueueRowContext } from "./order-queue-table";
 import { ShipmentPanelDialog } from "./shipment-panel-dialog";
 
-/** Tabs where parcels wait for the accept, so the batch checkboxes show. */
-const SELECTABLE_TABS: ReadonlySet<SupplierOrderTab> = new Set(["todo", "forwarded", "problem"]);
+/** Tabs with parcels to accept or labels to print, so the batch checkboxes show. */
+const SELECTABLE_TABS: ReadonlySet<SupplierOrderTab> = new Set([
+  "todo",
+  "forwarded",
+  "accepted",
+  "picking",
+  "ready",
+  "problem",
+]);
 
 function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boolean }) {
   if (searching) {
@@ -31,7 +43,7 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
       <EmptyState
         icon={MagnifyingGlassIcon}
         title="Nenhum pedido encontrado"
-        description="Confira o número ou SKU, ou procure em outra aba."
+        description="Confira a busca e os filtros, ou procure em outra aba."
       />
     );
   }
@@ -57,6 +69,17 @@ function EmptyOrders({ tab, searching }: { tab: SupplierOrderTab; searching: boo
   );
 }
 
+/** Whether anything narrows the list besides the tab, so an empty list says to check it. */
+function isFiltered(search: SupplierOrdersUrlSearch): boolean {
+  return (
+    (search.query ?? "") !== "" ||
+    search.period !== "all" ||
+    search.channel !== undefined ||
+    search.store !== undefined ||
+    search.label !== undefined
+  );
+}
+
 /** The orders picked for a batch accept; updates read the latest state, so quick clicks add up. */
 function useSelection() {
   const [selected, setSelected] = useState<ReadonlyMap<string, SupplierOrderRow>>(new Map());
@@ -69,7 +92,38 @@ function useSelection() {
   };
 }
 
-type BatchOutcome = { report: BatchAcceptReport; orderNumbers: ReadonlyMap<string, string> };
+type BatchOutcome =
+  | { kind: "accept"; report: BatchAcceptReport; orderNumbers: ReadonlyMap<string, string> }
+  | { kind: "labels"; report: BatchLabelsReport; orderNumbers: ReadonlyMap<string, string> };
+
+/** What the last batch did, above the list until it is closed. */
+function BatchOutcomeAlert({
+  outcome,
+  onDismiss,
+}: {
+  outcome: BatchOutcome | null;
+  onDismiss: () => void;
+}) {
+  if (outcome === null) {
+    return null;
+  }
+  if (outcome.kind === "labels") {
+    return (
+      <BatchLabelsResult
+        report={outcome.report}
+        orderNumbers={outcome.orderNumbers}
+        onDismiss={onDismiss}
+      />
+    );
+  }
+  return (
+    <BatchAcceptResult
+      report={outcome.report}
+      orderNumbers={outcome.orderNumbers}
+      onDismiss={onDismiss}
+    />
+  );
+}
 
 /** What each row reads and does: the clock, the batch selection, the one-click step, the panel. */
 function useQueueContext(input: {
@@ -116,9 +170,8 @@ export function SupplierOrdersInbox({
   const context = useQueueContext({ supplierId, tab: search.tab, selection, onOpen: setOpened });
   const query = useQuery(
     supplierShipmentsQueryOptions({
-      supplierId,
+      ...shipmentFiltersOf(supplierId, search),
       tab: search.tab,
-      query: search.query ?? "",
       page: search.page,
     }),
   );
@@ -129,17 +182,11 @@ export function SupplierOrdersInbox({
   return (
     <section className="space-y-4" aria-label="Pedidos">
       <OrderFilters supplierId={supplierId} search={search} onChange={changeSearch} />
-      {outcome === null ? null : (
-        <BatchAcceptResult
-          report={outcome.report}
-          orderNumbers={outcome.orderNumbers}
-          onDismiss={() => setOutcome(null)}
-        />
-      )}
+      <BatchOutcomeAlert outcome={outcome} onDismiss={() => setOutcome(null)} />
       <OrdersBody
         query={query}
         tab={search.tab}
-        searching={(search.query ?? "") !== ""}
+        searching={isFiltered(search)}
         context={context}
         onPageChange={(page) => changeSearch({ page })}
       />
@@ -149,7 +196,11 @@ export function SupplierOrdersInbox({
         onClear={selection.clear}
         onDone={(report, orderNumbers) => {
           selection.clear();
-          setOutcome({ report, orderNumbers });
+          setOutcome({ kind: "accept", report, orderNumbers });
+        }}
+        onLabelsDone={(report, orderNumbers) => {
+          selection.clear();
+          setOutcome({ kind: "labels", report, orderNumbers });
         }}
       />
       <ShipmentPanelDialog

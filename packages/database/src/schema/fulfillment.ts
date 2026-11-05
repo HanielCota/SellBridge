@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -49,6 +50,15 @@ export const orderShipments = pgTable(
     dispatchDeadlineAt: timestamp({ withTimezone: true }),
     /** Last time the marketplace's tracking was read; the periodic job reads the oldest first. */
     trackedAt: timestamp({ withTimezone: true }),
+    /**
+     * The marketplace label, as this system emitted it: the last time, how many times, and since
+     * when the marketplace has said it is not released yet (cleared once it prints).
+     */
+    labelPrintedAt: timestamp({ withTimezone: true }),
+    labelPrintCount: integer().notNull().default(0),
+    labelWaitingSince: timestamp({ withTimezone: true }),
+    /** The marketplace's own shipment id, read when its label is emitted: its label barcode. */
+    marketplaceShipmentId: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { isBatchSelectable } from "@/components/supplier-panel/orders/order-row-parts";
+import { isBatchAcceptable } from "@/components/supplier-panel/orders/order-row-parts";
 import { errorMessage } from "@/lib/errors";
 import type { BatchAcceptReport } from "../orders/batch-accept";
 import { useAdvanceShipment, useBatchAccept } from "../orders/use-order-actions";
@@ -36,7 +36,7 @@ export function useHomeActions(supplierId: string) {
     advance.mutate(input);
   };
   const acceptAll = (rows: readonly SupplierHomeOrderRow[]) => {
-    const shipmentIds = rows.filter((row) => isBatchSelectable(row)).map((row) => row.id);
+    const shipmentIds = rows.filter((row) => isBatchAcceptable(row)).map((row) => row.id);
     batch.mutate(shipmentIds, {
       onSuccess: announceBatch,
       onError: (error) => toast.error(errorMessage(error)),

@@ -1,13 +1,19 @@
 import { FULFILLMENT_LABELS } from "@sellbridge/shared/schemas";
 import {
+  SUPPLIER_LABEL_STATE_LABELS,
+  type SupplierLabelState,
+} from "@sellbridge/shared/supplier-order-labels";
+import {
   SUPPLIER_ORDER_PROBLEM_HINTS,
   SUPPLIER_ORDER_PROBLEM_LABELS,
 } from "@sellbridge/shared/supplier-panel-orders-tabs";
-import { ToneStatus } from "@/components/data/tone-status";
+import { type StatusTone, ToneStatus } from "@/components/data/tone-status";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isShippingBlocked } from "@/features/fulfillment/shipping-block";
 import { FULFILLMENT_TONES } from "@/features/fulfillment/shipment-timeline";
+import { displayBuyerName } from "@/features/orders/buyer-name";
+import { formatAbsoluteTime } from "@/lib/relative-time";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { CONTROL_HINTS, SUPPLIER_NEXT_STEP_HINTS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
@@ -26,7 +32,7 @@ export function itemsSummary(items: SupplierOrderRow["items"]): string {
   return `${head} e mais ${rest.length} ${rest.length === 1 ? "item" : "itens"}`;
 }
 
-/** The order number, the items and where it goes: the row's main text. */
+/** The order number, who sold and bought it, the items and where it goes: the row's main text. */
 export function OrderSummary({
   row,
   onOpen,
@@ -43,6 +49,9 @@ export function OrderSummary({
       >
         Pedido {row.externalOrderId}
       </button>
+      <p className="truncate text-footnote">
+        {row.shopName} · {displayBuyerName(row.buyerName)}
+      </p>
       <p className="truncate text-footnote text-muted-foreground">{itemsSummary(row.items)}</p>
       <p className="text-caption text-muted-foreground">
         {row.destinationCity}, {row.destinationState}
@@ -53,6 +62,36 @@ export function OrderSummary({
 
 export function StepStatus({ row }: { row: SupplierOrderRow }) {
   return <ToneStatus tone={FULFILLMENT_TONES[row.status]} label={FULFILLMENT_LABELS[row.status]} />;
+}
+
+const LABEL_TONES: Record<SupplierLabelState, StatusTone> = {
+  waiting: "info",
+  pending: "warning",
+  late: "danger",
+  printed: "success",
+};
+
+/** The marketplace label's state; a printed one says when it was last emitted. */
+export function LabelStatus({
+  state,
+  printedAt,
+}: {
+  state: SupplierLabelState | null;
+  printedAt: Date | null;
+}) {
+  if (state === null) {
+    return null;
+  }
+  const when = state === "printed" && printedAt !== null ? ` ${formatAbsoluteTime(printedAt)}` : "";
+  // A line of its own: on a phone the row's action button follows it.
+  return (
+    <div>
+      <ToneStatus
+        tone={LABEL_TONES[state]}
+        label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`}
+      />
+    </div>
+  );
 }
 
 /** Each problem with what to do about it, never a bare red mark. */
@@ -124,9 +163,19 @@ export function RowAction({
   );
 }
 
-/** Only parcels waiting for the accept can join a batch. */
-export function isBatchSelectable(row: SupplierOrderRow): boolean {
+/** Only parcels waiting for the accept can join a batch accept. */
+export function isBatchAcceptable(row: SupplierOrderRow): boolean {
   return row.status === "forwarded" && !isShippingBlocked(row.orderStatus);
+}
+
+/** Parcels whose marketplace label can still be emitted can join a batch print. */
+export function isLabelPrintable(row: SupplierOrderRow): boolean {
+  return row.labelState !== null && !isShippingBlocked(row.orderStatus);
+}
+
+/** A row with any batch action: accept, or print its label. */
+export function isBatchSelectable(row: SupplierOrderRow): boolean {
+  return isBatchAcceptable(row) || isLabelPrintable(row);
 }
 
 export function RowCheckbox({

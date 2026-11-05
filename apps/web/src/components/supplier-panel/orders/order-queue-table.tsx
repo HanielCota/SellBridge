@@ -1,7 +1,14 @@
 import { DataTable } from "@/components/data/data-table";
 import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-order-actions";
 import { DeadlineCell, queueColumnsFor } from "./order-queue-columns";
-import { OrderSummary, ProblemList, RowAction, RowCheckbox, StepStatus } from "./order-row-parts";
+import {
+  LabelStatus,
+  OrderSummary,
+  ProblemList,
+  RowAction,
+  RowCheckbox,
+  StepStatus,
+} from "./order-row-parts";
 import { type QueueRowContext, QueueRowContextValue, useQueueRow } from "./queue-row-context";
 
 export type { QueueRowContext } from "./queue-row-context";
@@ -26,6 +33,7 @@ function MobileQueueRow({ row }: { row: SupplierOrderRow }) {
           <StepStatus row={row} />
           <DeadlineCell row={row} now={context.now} />
         </div>
+        <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
         <ProblemList row={row} />
         <RowAction
           row={row}
