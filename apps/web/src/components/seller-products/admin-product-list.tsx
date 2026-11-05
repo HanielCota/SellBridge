@@ -4,6 +4,7 @@ import {
   adminProductListSearchSchema,
   type adminListCatalogProductsFn,
 } from "@/features/seller-products/products.functions";
+import { ProductVisual } from "@/components/catalog/product-visual";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,7 @@ export function AdminProductsToolbar({
   return (
     <div className="flex flex-wrap items-end gap-4">
       {/* On a phone each field takes its own row: side by side the search shrank to a sliver. */}
-      <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+      <div className="grid min-w-0 basis-full gap-2 sm:basis-auto sm:flex-1">
         <Label htmlFor="admin-product-search">Buscar produto, código, cliente ou fornecedor</Label>
         <Input
           id="admin-product-search"
@@ -30,7 +31,7 @@ export function AdminProductsToolbar({
           onChange={(event) => onChange({ query: event.target.value || undefined, page: 1 })}
         />
       </div>
-      <div className="w-full sm:w-auto">
+      <div className="grid w-full gap-2 sm:w-auto">
         <Label htmlFor="admin-product-origin">Origem do produto</Label>
         <select
           id="admin-product-origin"
@@ -69,14 +70,27 @@ export function AdminProductCards({
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map((row) => (
         <li key={row.product.id} className="surface-card space-y-3 rounded-2xl bg-card p-5">
-          <h2 className="font-semibold">{row.product.title || "Rascunho sem título"}</h2>
-          <p>
-            {row.ownerName ?? row.sourceName} ·{" "}
-            {row.origin === "seller" ? "Produto próprio do revendedor" : "Catálogo de fornecedores"}
-          </p>
-          <p>
-            {row.product.sku} · {productStatus(row.product, row.origin)}
-          </p>
+          <div className="flex items-start gap-3">
+            <ProductVisual
+              imageUrl={row.product.imageUrls[0] ?? null}
+              title={row.product.title}
+              categoryName={null}
+              compact
+              className="size-14 shrink-0 rounded-xl"
+            />
+            <div className="min-w-0 space-y-1">
+              <h2 className="font-semibold">{row.product.title || "Rascunho sem título"}</h2>
+              <p>
+                {row.ownerName ?? row.sourceName} ·{" "}
+                {row.origin === "seller"
+                  ? "Produto próprio do revendedor"
+                  : "Catálogo de fornecedores"}
+              </p>
+              <p>
+                {row.product.sku} · {productStatus(row.product, row.origin)}
+              </p>
+            </div>
+          </div>
           {row.tenantId === null ? (
             <Button asChild variant="outline">
               <Link to="/admin/fornecedores/$supplierId" params={{ supplierId: row.sourceId }}>

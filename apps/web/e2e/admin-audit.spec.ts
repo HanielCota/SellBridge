@@ -60,9 +60,9 @@ test("a desativação de um produto aparece na auditoria do admin", async ({ pag
     .click();
   await expect(page.getByRole("row", { name: new RegExp(PRODUCT) })).toContainText("Desativado");
 
-  // An item of the team's part of the menu, under Equipe.
+  // A tab of the team's strip under the header.
   await page
-    .getByRole("navigation", { name: "Principal" })
+    .getByRole("navigation", { name: "Administração" })
     .getByRole("link", { name: "Auditoria" })
     .click();
   await expect(page.getByRole("heading", { name: "Auditoria", level: 1 })).toBeVisible();
@@ -85,11 +85,10 @@ test("só o admin abre a auditoria: atendente e revendedor ficam de fora", async
   await enableAdminMode(agent.page);
   await agent.page.goto("/admin/auditoria");
   await expect(agent.page).toHaveURL(/\/admin\/chamados/);
-  await expect(
-    agent.page
-      .getByRole("navigation", { name: "Principal" })
-      .getByRole("link", { name: "Auditoria" }),
-  ).toHaveCount(0);
+  // The strip is there with the agent's own tabs, so the missing Auditoria tab means something.
+  const teamTabs = agent.page.getByRole("navigation", { name: "Administração" });
+  await expect(teamTabs.getByRole("link", { name: /^Chamados/ })).toBeVisible();
+  await expect(teamTabs.getByRole("link", { name: "Auditoria" })).toHaveCount(0);
   await agent.context.close();
 
   const resellerContext = await browser.newContext({ locale: "pt-BR" });

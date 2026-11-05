@@ -33,7 +33,7 @@ function CustomerControls({ form, action, settled }: ControlsProps) {
     <>
       <PublishCatalogLink form={form} settled={settled} />
       <div className="flex flex-wrap items-end gap-3">
-        <div>
+        <div className="grid gap-2">
           <Label htmlFor="duplicate-sku">Código do produto duplicado (SKU)</Label>
           <Input
             id="duplicate-sku"

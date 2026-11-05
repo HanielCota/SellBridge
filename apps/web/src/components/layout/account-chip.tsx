@@ -8,8 +8,8 @@ import { UserAvatar } from "./user-avatar";
 import { UserMenu } from "./user-menu";
 
 /**
- * The account at the foot of the menu: photo, name and role (or the team mode), opening the
- * account pages, the theme and signing out. Shrunk to the photo, a shield still shows the mode.
+ * The account: photo, name and role (or the team mode), opening the account pages, the theme
+ * and signing out. Shrunk to the photo (the header), a shield still shows the mode.
  */
 export function AccountChip({
   user,
@@ -17,12 +17,15 @@ export function AccountChip({
   adminMode,
   profileKind,
   collapsed = false,
+  side = "top",
 }: {
   user: SessionUser;
   supportReplies: number;
   adminMode: boolean;
   profileKind: ProfileKind;
   collapsed?: boolean;
+  /** Where the menu opens: above from the phone sheet's foot, below from the header. */
+  side?: "top" | "bottom";
 }) {
   return (
     <UserMenu
@@ -30,7 +33,7 @@ export function AccountChip({
       supportReplies={supportReplies}
       adminMode={adminMode}
       profileKind={profileKind}
-      side="top"
+      side={side}
       compact={collapsed}
       className={cn(
         // min-w-0: a grid item keeps its content width, so a long brand name ran past the sidebar.

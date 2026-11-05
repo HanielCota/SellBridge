@@ -21,7 +21,9 @@ export function navTabClassName({
   padding: string;
 }): string {
   return cn(
-    "relative flex h-10 items-center gap-2 rounded-full text-base whitespace-nowrap transition-[background-color,color,scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
+    // Only the press scales smoothly. Fading the lit pill in crossed white text over a whitening
+    // pill: for a moment the chosen item read white on white in the dark theme.
+    "relative flex h-10 items-center gap-2 rounded-full text-base whitespace-nowrap transition-[scale] duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.96] active:duration-100 motion-reduce:active:scale-100",
     isActive
       ? "font-medium text-background"
       : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",

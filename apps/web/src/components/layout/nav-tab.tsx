@@ -30,6 +30,22 @@ function useScrolledIntoSightWhenActive(isActive: boolean) {
   return linkRef;
 }
 
+function linkClassName(isActive: boolean, collapsed: boolean, inline: boolean): string {
+  return cn(
+    navTabClassName({ isActive, paintsOwnPill: true, padding: collapsed ? "px-0" : "px-4" }),
+    collapsed && "justify-center",
+    // In the strip each tab grows to share the row, so wide screens get room between them.
+    inline && "h-11 shrink-0 grow justify-center text-[0.9375rem]",
+  );
+}
+
+function labelClassName(collapsed: boolean, inline: boolean): string {
+  if (collapsed) {
+    return "sr-only";
+  }
+  return inline ? "whitespace-nowrap" : "min-w-0 flex-1 truncate";
+}
+
 export function NavTab({
   item,
   isActive,
@@ -37,6 +53,7 @@ export function NavTab({
   onNavigate,
   withHint = false,
   collapsed = false,
+  inline = false,
   profileSlug = null,
 }: {
   item: NavItem;
@@ -47,6 +64,8 @@ export function NavTab({
   withHint?: boolean;
   /** The sidebar shrunk to its icons: the label stays for screen readers and the hint. */
   collapsed?: boolean;
+  /** A tab in a row (the admin strip): no icon and the whole label, so the row sets its width. */
+  inline?: boolean;
   /** Another profile of the account (`?perfil=`); null stays on the tab's profile. */
   profileSlug?: string | null;
 }) {
@@ -70,13 +89,12 @@ export function NavTab({
       aria-current={isActive ? "page" : undefined}
       activeOptions={{ exact: !isActive }}
       onClick={onNavigate}
-      className={cn(
-        navTabClassName({ isActive, paintsOwnPill: true, padding: collapsed ? "px-0" : "px-4" }),
-        collapsed && "justify-center",
-      )}
+      className={linkClassName(isActive, collapsed, inline)}
     >
-      {TabIcon ? <TabIcon className="size-5 shrink-0" aria-hidden="true" /> : null}
-      <span className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate"}>{item.label}</span>
+      {TabIcon === undefined || inline ? null : (
+        <TabIcon className="size-5 shrink-0" aria-hidden="true" />
+      )}
+      <span className={labelClassName(collapsed, inline)}>{item.label}</span>
       {collapsed && badge !== null ? (
         <span className="absolute -top-1 -right-1 scale-90">{badge}</span>
       ) : (

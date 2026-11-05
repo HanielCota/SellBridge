@@ -12,8 +12,6 @@ import { ACTION_ICONS } from "@/components/icons/action-icons";
 import { Hint } from "@/components/ui/hint";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import { cn } from "@/lib/utils";
-import type { SessionUser } from "@/features/auth/session.functions";
-import { AccountChip } from "./account-chip";
 import { AccountNavList, NavList, ProfileSwitch, shownMenu } from "./nav-list";
 import { SupportButton } from "./support-button";
 import type { AppNavigationState } from "./use-app-navigation";
@@ -140,7 +138,7 @@ function SideNavLinks({
   return (
     <nav
       aria-label="Principal"
-      className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1 [scrollbar-width:thin]"
+      className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto px-1 [scrollbar-width:thin]"
     >
       <NavList {...list} />
       <div className="mt-auto border-t border-border pt-3">
@@ -151,30 +149,28 @@ function SideNavLinks({
 }
 
 /**
- * The desktop menu, fixed on the left from `lg`: every page in groups, with the account's own
- * pages at the foot. Below `lg` the same list opens from the header's menu button.
+ * The desktop menu, fixed on the left from `lg`: the profile's pages in groups, with the
+ * account's own pages at the foot. The team's pages and the account menu sit in the header.
+ * Below `lg` the full list opens from the header's menu button.
  */
 export function SideNav({
   state,
-  user,
-  adminMode,
   profileKind,
 }: {
   state: AppNavigationState;
-  user: SessionUser;
-  adminMode: boolean;
   profileKind: ProfileKind;
 }) {
   const { mode, toggle } = useSidebarMode();
   const collapsed = mode === "collapsed";
   const [shownKind, setShownKind] = useState<ProfileKind>(profileKind);
-  const account = { user, adminMode, profileKind, supportReplies: state.counts.supportReplies };
   const list = {
     navigation: state.navigation,
     shown: shownMenu(state.navigation, shownKind, state.pathname),
     counts: state.counts,
     collapsed,
     withHint: true,
+    // From `lg` the team's pages sit in the header strip (AdminTabsBar).
+    withTeam: false,
   };
   return (
     <aside
@@ -202,10 +198,7 @@ export function SideNav({
           />
         }
       />
-      <div className="grid gap-1">
-        <AccountChip {...account} collapsed={collapsed} />
-        <CollapseButton mode={mode} onToggle={toggle} />
-      </div>
+      <CollapseButton mode={mode} onToggle={toggle} />
     </aside>
   );
 }

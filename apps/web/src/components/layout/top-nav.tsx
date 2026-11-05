@@ -1,8 +1,11 @@
 import type { ProfileKind } from "@sellbridge/shared/profile-kind";
+import { isStaffRole } from "@sellbridge/shared/staff-access";
 import { Link } from "@tanstack/react-router";
 import { BrandIcon } from "@/components/brand/brand-logo";
 import { SELLER_HOME_PATH, SUPPLIER_PANEL_PATH } from "@/features/auth/profile-routes";
 import type { SessionUser } from "@/features/auth/session.functions";
+import { AccountChip } from "./account-chip";
+import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
 import { NotificationBell } from "./notification-bell";
@@ -29,12 +32,30 @@ interface TopNavProps {
   readonly state: AppNavigationState;
 }
 
+/** The account's photo right of the bell from `lg`; on phones the account sits in the menu sheet. */
+function HeaderAccount({ user, adminMode, profileKind, state }: TopNavProps) {
+  return (
+    <div className="hidden lg:block">
+      <AccountChip
+        user={user}
+        supportReplies={state.counts.supportReplies}
+        adminMode={adminMode}
+        profileKind={profileKind}
+        collapsed
+        side="bottom"
+      />
+    </div>
+  );
+}
+
 /**
- * App header over the page: the menu button and logo below `lg` (the sidebar holds both, support
- * and the account from there), then search, the team's way in and the bell.
+ * App header over the page: the menu button and logo below `lg` (the sidebar holds both and
+ * support from there), then search, the team's way in, the bell and the account. In team mode
+ * the team's pages follow as a strip under it.
  */
 export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
   const isSupplier = profileKind === "supplier";
+  const staffRole = isStaffRole(user.role) ? user.role : null;
   return (
     <header className="sticky top-0 z-30 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-4 md:px-8">
@@ -52,14 +73,29 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier ? null : <CommandPalette />}
           {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
-          {state.teamModeRole === null ? null : (
+          {staffRole === null ? null : (
             <div className="hidden sm:block">
-              <TeamModeButton role={state.teamModeRole} />
+              <TeamModeButton role={staffRole} active={adminMode} />
             </div>
           )}
           <NotificationBell />
+          <HeaderAccount
+            user={user}
+            adminMode={adminMode}
+            profileKind={profileKind}
+            state={state}
+          />
         </div>
       </div>
+      {adminMode ? (
+        <div className="mx-auto hidden max-w-[1440px] px-4 pb-3 md:px-8 lg:block">
+          <AdminTabsBar
+            items={state.navigation.teamItems}
+            pathname={state.pathname}
+            counts={state.counts}
+          />
+        </div>
+      ) : null}
     </header>
   );
 }

@@ -235,10 +235,10 @@ test("o admin lê o comentário; o atendente é recusado e o supervisor lê, no 
   await reseller.close();
 });
 
-/** The team's "Avaliações" tab in the header, next to Fornecedores and Chamados. */
+/** The team's "Avaliações" tab in the strip under the header, next to Fornecedores and Chamados. */
 function reviewsTab(page: Page) {
   return page
-    .getByRole("navigation", { name: "Principal" })
+    .getByRole("navigation", { name: "Administração" })
     .getByRole("link", { name: "Avaliações", exact: true });
 }
 
