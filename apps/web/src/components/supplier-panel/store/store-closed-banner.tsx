@@ -10,7 +10,11 @@ import { useStoreOpen } from "@/features/supplier-panel/store/use-store-open";
 export function StoreClosedBanner({ supplierId }: { supplierId: string }) {
   const storeOpen = useStoreOpen(supplierId);
   return (
-    <Alert className="rounded-3xl border-amber-300 bg-amber-50 p-5 text-amber-950 sm:p-6 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
+    // A standing state, not news: "note" keeps screen readers from announcing it on every page.
+    <Alert
+      role="note"
+      className="rounded-3xl border-amber-300 bg-amber-50 p-5 text-amber-950 sm:p-6 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100"
+    >
       <StorefrontIcon aria-hidden="true" />
       <AlertTitle className="text-base font-semibold">Sua loja está fechada para vendas</AlertTitle>
       <AlertDescription className="space-y-3 text-amber-900 dark:text-amber-200">
