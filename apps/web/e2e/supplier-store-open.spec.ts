@@ -25,7 +25,7 @@ test("o fornecedor fecha a loja, vê o aviso em outra página e reabre com um cl
   await expect(dialog).toContainText("o estoque volta sozinho");
   await dialog.getByRole("button", { name: "Fechar loja" }).click();
 
-  const banner = page.getByRole("alert").filter({ hasText: "Sua loja está fechada para vendas" });
+  const banner = page.getByRole("note").filter({ hasText: "Sua loja está fechada para vendas" });
   await expect(banner).toBeVisible();
   await expect(storeSwitch).not.toBeChecked();
 
