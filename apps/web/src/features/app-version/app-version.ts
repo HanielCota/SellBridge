@@ -1,7 +1,10 @@
 import { z } from "zod";
 
-/** The build this page loaded, baked in by Vite (the deploy's commit). */
-export const PAGE_BUILD_ID: string = import.meta.env.VITE_BUILD_ID ?? "development";
+/**
+ * The build this bundle came from, baked in by Vite (the deploy's commit). The server answers
+ * it on `/api/version` and an open page compares it with its own.
+ */
+export const BUILD_ID: string = import.meta.env.VITE_BUILD_ID ?? "development";
 
 /** How often an open page asks which build the server runs. */
 export const VERSION_CHECK_INTERVAL_IN_MS = 5 * 60 * 1000;

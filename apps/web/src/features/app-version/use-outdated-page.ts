@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   isOutdatedPage,
-  PAGE_BUILD_ID,
+  BUILD_ID,
   servedBuildId,
   VERSION_CHECK_INTERVAL_IN_MS,
   VERSION_CHECK_TIMEOUT_IN_MS,
@@ -27,11 +27,9 @@ export function useOutdatedPage(): boolean {
     queryKey: ["app-version"],
     queryFn: fetchServedBuildId,
     refetchInterval: (current) =>
-      isOutdatedPage(PAGE_BUILD_ID, current.state.data ?? null)
-        ? false
-        : VERSION_CHECK_INTERVAL_IN_MS,
+      isOutdatedPage(BUILD_ID, current.state.data ?? null) ? false : VERSION_CHECK_INTERVAL_IN_MS,
     refetchOnWindowFocus: "always",
     retry: false,
   });
-  return isOutdatedPage(PAGE_BUILD_ID, query.data ?? null);
+  return isOutdatedPage(BUILD_ID, query.data ?? null);
 }
