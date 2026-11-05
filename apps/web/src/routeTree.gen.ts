@@ -32,6 +32,7 @@ import { Route as AuthEsqueciSenhaRouteImport } from './routes/_auth/esqueci-sen
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRedefinirSenhaRouteImport } from './routes/_auth/redefinir-senha'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as RastreioTokenRouteImport } from './routes/rastreio/$token'
 import { Route as AppAdminAuditoriaRouteImport } from './routes/_app/admin/auditoria'
 import { Route as AppAdminAvaliacoesRouteImport } from './routes/_app/admin/avaliacoes'
@@ -232,6 +233,11 @@ const AuthRedefinirSenhaRoute = AuthRedefinirSenhaRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVersionRoute = ApiVersionRouteImport.update({
+  id: '/api/version',
+  path: '/api/version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RastreioTokenRoute = RastreioTokenRouteImport.update({
@@ -741,6 +747,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
@@ -851,6 +858,7 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/admin/auditoria': typeof AppAdminAuditoriaRoute
   '/admin/avaliacoes': typeof AppAdminAvaliacoesRoute
@@ -963,6 +971,7 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/redefinir-senha': typeof AuthRedefinirSenhaRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/version': typeof ApiVersionRoute
   '/rastreio/$token': typeof RastreioTokenRoute
   '/_app/admin/clientes': typeof AppAdminClientesRouteRouteWithChildren
   '/_app/fornecedor/painel': typeof AppFornecedorPainelRouteRouteWithChildren
@@ -1076,6 +1085,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/api/health'
+    | '/api/version'
     | '/rastreio/$token'
     | '/admin/clientes'
     | '/fornecedor/painel'
@@ -1186,6 +1196,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/api/health'
+    | '/api/version'
     | '/rastreio/$token'
     | '/admin/auditoria'
     | '/admin/avaliacoes'
@@ -1297,6 +1308,7 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/redefinir-senha'
     | '/api/health'
+    | '/api/version'
     | '/rastreio/$token'
     | '/_app/admin/clientes'
     | '/_app/fornecedor/painel'
@@ -1396,6 +1408,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   TermosRoute: typeof TermosRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiVersionRoute: typeof ApiVersionRoute
   RastreioTokenRoute: typeof RastreioTokenRoute
   ApiAdminProductImagesRoute: typeof ApiAdminProductImagesRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -1603,6 +1616,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/version': {
+      id: '/api/version'
+      path: '/api/version'
+      fullPath: '/api/version'
+      preLoaderRoute: typeof ApiVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rastreio/$token': {
@@ -2425,6 +2445,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   TermosRoute: TermosRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiVersionRoute: ApiVersionRoute,
   RastreioTokenRoute: RastreioTokenRoute,
   ApiAdminProductImagesRoute: ApiAdminProductImagesRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
