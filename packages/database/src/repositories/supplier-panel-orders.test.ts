@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { compareQueueUrgency } from "@sellbridge/shared/supplier-panel-orders";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { orderItems, orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
+import {
+  orderItems,
+  orders,
+  orderShipments,
+  shipmentEvents,
+  storeConnections,
+  suppliers,
+} from "../schema/index.ts";
 import {
   createTestDatabase,
   createTestSupplierProduct,
@@ -14,12 +21,15 @@ import {
 import { noteSupplierEmailFailed } from "./auto-forward.ts";
 import { forwardOrder } from "./fulfillment.ts";
 import { saveBillingHolder } from "./region.ts";
+import { recordLabelsPrinted, recordLabelsWaiting } from "./shipment-labels.ts";
 import { upsertStoreConnection } from "./stores.ts";
 import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
 import { queueDueAt } from "./supplier-panel-orders-sql.ts";
+import { findSupplierShipmentsByCode } from "./supplier-panel-scan.ts";
 import {
   countSupplierShipmentsByTab,
   listSupplierHomeShipments,
+  listSupplierResellerStores,
   listSupplierShipments,
 } from "./supplier-panel-orders.ts";
 
@@ -31,18 +41,26 @@ let otherSupplier: Awaited<ReturnType<typeof createTestSupplierProduct>>;
 const storeIds: Record<string, string> = {};
 
 async function forwardedShipment(
-  options: { tenantId?: string; productId?: string; hoursAgo?: number; status?: string } = {},
+  options: {
+    tenantId?: string;
+    productId?: string;
+    hoursAgo?: number;
+    storeId?: string;
+    buyerName?: string;
+    orderedAt?: Date;
+  } = {},
 ) {
   const tenantId = options.tenantId ?? tenants.tenantA;
   const [order] = await database
     .insert(orders)
     .values({
       tenantId,
-      storeConnectionId: storeIds[tenantId] ?? "",
+      storeConnectionId: options.storeId ?? storeIds[tenantId] ?? "",
       externalOrderId: `PED-${randomUUID().slice(0, 8)}`,
       status: "paid",
       totalCents: 5000,
-      orderedAt: new Date(),
+      buyerName: options.buyerName ?? null,
+      orderedAt: options.orderedAt ?? new Date(),
     })
     .returning();
   if (order === undefined) throw new Error("No order");
@@ -361,5 +379,199 @@ describe("listSupplierHomeShipments", () => {
     expect(rows.every((row) => row.orderStatus === "paid")).toBe(true);
     const other = await listSupplierHomeShipments(database, otherSupplier.supplierId, 5);
     expect(other.some((row) => rows.some((own) => own.id === row.id))).toBe(false);
+  });
+});
+
+describe("finding a parcel", () => {
+  it("finds it by the buyer's name, the reseller's store or the tracking code", async () => {
+    const buyer = `Comprador ${randomUUID().slice(0, 6)}`;
+    // A store of its own, so the search by store name finds this parcel alone.
+    const ownStore = await upsertStoreConnection(
+      database,
+      testStoreInput(tenants.tenantA, randomUUID()),
+    );
+    const { shipmentId } = await forwardedShipment({ buyerName: buyer, storeId: ownStore.id });
+    await database
+      .update(orderShipments)
+      .set({ trackingCode: `BR${shipmentId.slice(0, 8)}` })
+      .where(eq(orderShipments.id, shipmentId));
+    const [store] = await database
+      .select({ shopName: storeConnections.shopName })
+      .from(storeConnections)
+      .where(eq(storeConnections.id, ownStore.id));
+    const search = (query: string) =>
+      listSupplierShipments(database, {
+        supplierId: supplier.supplierId,
+        tab: "todo",
+        query,
+        page: 1,
+      });
+
+    const byBuyer = await search(buyer.toLowerCase());
+    const byStore = await search(store?.shopName ?? "missing");
+    const byTracking = await search(`br${shipmentId.slice(0, 8)}`);
+
+    expect(byBuyer.items.map((item) => item.id)).toEqual([shipmentId]);
+    expect(byBuyer.items[0]).toMatchObject({ buyerName: buyer, shopName: store?.shopName });
+    expect(byStore.items.map((item) => item.id)).toEqual([shipmentId]);
+    expect(byTracking.items.map((item) => item.id)).toEqual([shipmentId]);
+  });
+
+  it("keeps only the sales of the period asked for", async () => {
+    const old = await forwardedShipment({ orderedAt: new Date("2026-01-10T12:00:00Z") });
+
+    const recent = await listSupplierShipments(database, {
+      supplierId: supplier.supplierId,
+      tab: "todo",
+      query: old.order.externalOrderId,
+      page: 1,
+      orderedFrom: new Date("2026-02-01T03:00:00Z"),
+    });
+
+    expect(recent.items).toHaveLength(0);
+  });
+
+  it("lists the reseller stores the supplier has parcels from, never another supplier's", async () => {
+    const stores = await listSupplierResellerStores(database, otherSupplier.supplierId);
+
+    expect(stores.map((store) => store.id)).toEqual([storeIds[tenants.tenantA]]);
+  });
+});
+
+async function labelRow(
+  shipment: { shipmentId: string; order: { externalOrderId: string } },
+  label?: "pending" | "printed" | "waiting",
+) {
+  const result = await listSupplierShipments(database, {
+    supplierId: supplier.supplierId,
+    tab: "todo",
+    query: shipment.order.externalOrderId,
+    page: 1,
+    channel: "mercado_livre",
+    label,
+  });
+  return result.items.find((item) => item.id === shipment.shipmentId);
+}
+
+describe("label records", () => {
+  let mercadoLivreStore = "";
+
+  beforeAll(async () => {
+    mercadoLivreStore = (
+      await upsertStoreConnection(database, {
+        ...testStoreInput(tenants.tenantA, randomUUID()),
+        marketplace: "mercado_livre",
+      })
+    ).id;
+  });
+
+  it("says pending until the label is emitted, then printed with how many times", async () => {
+    const parcel = await forwardedShipment({ storeId: mercadoLivreStore });
+    await setStatus(parcel.shipmentId, "accepted");
+    const before = await labelRow(parcel, "pending");
+
+    await recordLabelsPrinted(database, [parcel.order.id]);
+    await recordLabelsPrinted(database, [parcel.order.id]);
+    const after = await labelRow(parcel, "printed");
+
+    expect(before?.labelState).toBe("pending");
+    expect(after).toMatchObject({ labelState: "printed", labelPrintCount: 2 });
+    expect(await labelRow(parcel, "pending")).toBeUndefined();
+  });
+
+  it("says waiting while the marketplace holds the label, and printed once it prints", async () => {
+    const parcel = await forwardedShipment({ storeId: mercadoLivreStore });
+    await recordLabelsWaiting(database, [parcel.order.id]);
+    const waiting = await labelRow(parcel, "waiting");
+
+    await recordLabelsPrinted(database, [parcel.order.id]);
+    await recordLabelsWaiting(database, [parcel.order.id]);
+    const printed = await labelRow(parcel);
+
+    expect(waiting?.labelState).toBe("waiting");
+    expect(printed).toMatchObject({ labelState: "printed", labelWaitingSince: null });
+  });
+
+  it("gives no label state to a channel without marketplace labels", async () => {
+    const { order } = await forwardedShipment();
+
+    const result = await listSupplierShipments(database, {
+      supplierId: supplier.supplierId,
+      tab: "todo",
+      query: order.externalOrderId,
+      page: 1,
+    });
+
+    expect(result.items[0]?.labelState).toBeNull();
+  });
+
+  it("shows the store, the buyer, what the supplier receives and the label in the detail", async () => {
+    const { shipmentId, order } = await forwardedShipment({
+      storeId: mercadoLivreStore,
+      buyerName: "Paula Ribeiro",
+    });
+    await recordLabelsPrinted(database, [order.id]);
+
+    const detail = await getSupplierPanelShipment(database, {
+      supplierId: supplier.supplierId,
+      shipmentId,
+    });
+
+    expect(detail).toMatchObject({
+      buyerName: "Paula Ribeiro",
+      receivableCents: 1000,
+      labelState: "printed",
+      labelPrintCount: 1,
+    });
+    expect(detail.shopName).toMatch(/^Loja /);
+  });
+});
+
+describe("findSupplierShipmentsByCode", () => {
+  it("finds an open parcel by its order number or its tracking code, typed with noise", async () => {
+    const { shipmentId, order } = await forwardedShipment();
+    await setStatus(shipmentId, "ready");
+    await database
+      .update(orderShipments)
+      .set({ trackingCode: `SC${shipmentId.slice(0, 6).toUpperCase()}BR` })
+      .where(eq(orderShipments.id, shipmentId));
+
+    const byOrder = await findSupplierShipmentsByCode(
+      database,
+      supplier.supplierId,
+      ` ${order.externalOrderId.toLowerCase()} `,
+    );
+    const byCode = await findSupplierShipmentsByCode(
+      database,
+      supplier.supplierId,
+      `sc-${shipmentId.slice(0, 6)} br`,
+    );
+
+    expect(byOrder.map((row) => row.id)).toEqual([shipmentId]);
+    expect(byCode.map((row) => row.id)).toEqual([shipmentId]);
+  });
+
+  it("never finds another supplier's parcel nor one that already left", async () => {
+    const foreign = await forwardedShipment({ productId: otherSupplier.productId });
+    const sent = await forwardedShipment();
+    await setStatus(sent.shipmentId, "shipped");
+
+    const other = await findSupplierShipmentsByCode(
+      database,
+      supplier.supplierId,
+      foreign.order.externalOrderId,
+    );
+    const left = await findSupplierShipmentsByCode(
+      database,
+      supplier.supplierId,
+      sent.order.externalOrderId,
+    );
+
+    expect(other).toEqual([]);
+    expect(left).toEqual([]);
+  });
+
+  it("finds nothing for an empty scan", async () => {
+    expect(await findSupplierShipmentsByCode(database, supplier.supplierId, "   ")).toEqual([]);
   });
 });

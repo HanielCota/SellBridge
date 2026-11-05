@@ -1,8 +1,33 @@
-import { SHIPMENT_ACTORS } from "@sellbridge/shared/schemas";
+import { SHIPMENT_ACTORS, type Marketplace } from "@sellbridge/shared/schemas";
+import {
+  LABEL_MARKETPLACE,
+  LABEL_STATUSES,
+  type SupplierLabelState,
+} from "@sellbridge/shared/supplier-order-labels";
 import { SUPPLIER_QUEUE_STATUSES } from "@sellbridge/shared/supplier-panel-orders";
 import { BLOCKED_ORDER_STATUSES } from "@sellbridge/shared/supplier-panel-orders-tabs";
-import { and, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
-import { orders, orderShipments, shipmentEvents, suppliers } from "../schema/index.ts";
+import {
+  and,
+  eq,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  not,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
+import {
+  orders,
+  orderShipments,
+  shipmentEvents,
+  storeConnections,
+  suppliers,
+} from "../schema/index.ts";
 import { latestForwardedAt } from "./shipment-timing.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
 
@@ -65,7 +90,10 @@ export function problemFilter(now: Date): SQL | undefined {
   );
 }
 
-/** Order number or any SKU of the parcel, anywhere in the text. */
+/**
+ * Order number, tracking code, buyer, reseller store or any SKU of the parcel, anywhere in the
+ * text: whatever the supplier has at hand when a reseller or a buyer asks about a parcel.
+ */
 export function searchFilter(query: string): SQL | undefined {
   if (query === "") {
     return undefined;
@@ -73,7 +101,54 @@ export function searchFilter(query: string): SQL | undefined {
   const pattern = containsPattern(query);
   return or(
     ilike(orders.externalOrderId, pattern),
+    ilike(orderShipments.trackingCode, pattern),
+    ilike(orders.buyerName, pattern),
+    ilike(storeConnections.shopName, pattern),
     sql`exists (select 1 from jsonb_array_elements(${orderShipments.items}) as item where item->>'sku' ilike ${pattern})`,
+  );
+}
+
+/** SQL twin of `supplierLabelState` (shared/domain/supplier-order-labels.ts). */
+export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefined {
+  const hasLabel = and(
+    eq(storeConnections.marketplace, LABEL_MARKETPLACE),
+    inArray(orderShipments.status, [...LABEL_STATUSES]),
+  );
+  if (state === "printed") {
+    return and(hasLabel, gt(orderShipments.labelPrintCount, 0));
+  }
+  const neverPrinted = and(hasLabel, eq(orderShipments.labelPrintCount, 0));
+  if (state === "waiting") {
+    return and(neverPrinted, isNotNull(orderShipments.labelWaitingSince));
+  }
+  const released = and(neverPrinted, isNull(orderShipments.labelWaitingSince));
+  if (state === "late") {
+    return and(released, overdueAt(now));
+  }
+  return and(released, not(overdueAt(now)));
+}
+
+/** The list filters besides the tab: search, sale date, channel, reseller store and label. */
+export interface SupplierShipmentFilters {
+  query: string;
+  /** Inclusive start of the sale date. */
+  orderedFrom?: Date | undefined;
+  /** Exclusive end of the sale date. */
+  orderedTo?: Date | undefined;
+  channel?: Marketplace | undefined;
+  /** The reseller's store connection. */
+  store?: string | undefined;
+  label?: SupplierLabelState | undefined;
+}
+
+export function shipmentFilters(filters: SupplierShipmentFilters, now: Date): SQL | undefined {
+  return and(
+    searchFilter(filters.query),
+    filters.orderedFrom === undefined ? undefined : gte(orders.orderedAt, filters.orderedFrom),
+    filters.orderedTo === undefined ? undefined : lt(orders.orderedAt, filters.orderedTo),
+    filters.channel === undefined ? undefined : eq(storeConnections.marketplace, filters.channel),
+    filters.store === undefined ? undefined : eq(orders.storeConnectionId, filters.store),
+    filters.label === undefined ? undefined : labelFilter(filters.label, now),
   );
 }
 

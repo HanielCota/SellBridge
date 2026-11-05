@@ -32,7 +32,7 @@ function trackedParcelScope(scope: TrackedParcelScope): SQL | undefined {
 }
 
 /** Spaces, dots and dashes are typing noise in a code: compared without them, in capitals. */
-const normalizedTrackingCode = sql`upper(regexp_replace(${orderShipments.trackingCode}, '[[:space:].-]', '', 'g'))`;
+export const normalizedTrackingCode = sql`upper(regexp_replace(${orderShipments.trackingCode}, '[[:space:].-]', '', 'g'))`;
 
 function trackedParcelCondition(filter: TrackedParcelFilter): SQL | undefined {
   if (filter.kind === "order") {

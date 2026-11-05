@@ -1,4 +1,5 @@
 import type { FulfillmentStatus } from "@sellbridge/shared/schemas";
+import { supplierLabelState } from "@sellbridge/shared/supplier-order-labels";
 import { describeQueueEntry } from "@sellbridge/shared/supplier-panel-orders";
 import {
   isQueueTab,
@@ -15,16 +16,16 @@ import {
   emailFailed,
   problemFilter,
   queueDueAt,
-  searchFilter,
+  shipmentFilters,
   supplierScope,
+  type SupplierShipmentFilters,
 } from "./supplier-panel-orders-sql.ts";
 
 export const SUPPLIER_ORDERS_PAGE_SIZE = 25;
 
-export interface SupplierShipmentsQuery {
+export interface SupplierShipmentsQuery extends SupplierShipmentFilters {
   supplierId: string;
   tab: SupplierOrderTab;
-  query: string;
   page: number;
 }
 
@@ -36,9 +37,11 @@ function tabFilter(tab: SupplierOrderTab, now: Date): SQL | undefined {
 }
 
 /**
- * What the supplier sees of a parcel in the list: the order number, the items, where it goes
- * (city and state only) and its timing. No buyer name, no street, no reseller or price data:
- * the full address shows only in the parcel's panel, as on the supplier link.
+ * What the supplier sees of a parcel in the list: the order number, the reseller's store, the
+ * buyer's name, the items, where it goes (city and state only), its timing and its label. No
+ * street, no buyer contact, no reseller price: the full address shows only in the parcel's
+ * panel, as on the supplier link. The store and buyer names show so the supplier can find a
+ * parcel when either one asks about it (the buyer's name is printed on the label anyway).
  */
 const rowColumns = {
   id: orderShipments.id,
@@ -47,6 +50,8 @@ const rowColumns = {
   externalOrderId: orders.externalOrderId,
   orderStatus: orders.status,
   marketplace: storeConnections.marketplace,
+  shopName: storeConnections.shopName,
+  buyerName: orders.buyerName,
   items: orderShipments.items,
   destinationCity: sql<string>`${orderShipments.address}->>'city'`,
   destinationState: sql<string>`${orderShipments.address}->>'state'`,
@@ -55,6 +60,9 @@ const rowColumns = {
   dispatchDeadlineAt: orderShipments.dispatchDeadlineAt,
   estimatedDeliveryAt: orderShipments.estimatedDeliveryAt,
   updatedAt: orderShipments.updatedAt,
+  labelPrintedAt: orderShipments.labelPrintedAt,
+  labelPrintCount: orderShipments.labelPrintCount,
+  labelWaitingSince: orderShipments.labelWaitingSince,
   emailFailed,
   ...supplierTimingColumns,
 };
@@ -90,7 +98,8 @@ function presentRow(row: ShipmentRow, now: Date) {
     orderStatus: row.orderStatus,
   });
   const items = row.items.map(({ title, sku, quantity }) => ({ title, sku, quantity }));
-  return { ...row, items, ...entry, problems };
+  const labelState = supplierLabelState({ ...row, overdue: entry.urgency === "overdue" });
+  return { ...row, items, ...entry, problems, labelState };
 }
 export type SupplierShipmentRow = ReturnType<typeof presentRow>;
 
@@ -100,6 +109,7 @@ async function countMatching(database: Database, filter: SQL | undefined) {
     .from(orderShipments)
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
     .where(filter);
   return row?.total ?? 0;
 }
@@ -116,7 +126,7 @@ export async function listSupplierShipments(
   const filter = and(
     supplierScope(input.supplierId),
     tabFilter(input.tab, now),
-    searchFilter(input.query),
+    shipmentFilters(input, now),
   );
   const total = await countMatching(database, filter);
   const totalPages = Math.ceil(total / SUPPLIER_ORDERS_PAGE_SIZE);
@@ -157,10 +167,10 @@ function countColumn(filter: SQL | undefined) {
   return sql<number>`(count(*) filter (where ${filter ?? sql`true`}))::int`;
 }
 
-/** How many parcels each tab holds, with the same search applied, in one read. */
+/** How many parcels each tab holds, with the same filters applied, in one read. */
 export async function countSupplierShipmentsByTab(
   database: Database,
-  input: { supplierId: string; query: string },
+  input: SupplierShipmentFilters & { supplierId: string },
   now: Date = new Date(),
 ): Promise<Record<SupplierOrderTab, number>> {
   const columns = Object.fromEntries(
@@ -171,7 +181,8 @@ export async function countSupplierShipmentsByTab(
     .from(orderShipments)
     .innerJoin(suppliers, eq(suppliers.id, orderShipments.supplierId))
     .innerJoin(orders, eq(orders.id, orderShipments.orderId))
-    .where(and(supplierScope(input.supplierId), searchFilter(input.query)));
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .where(and(supplierScope(input.supplierId), shipmentFilters(input, now)));
   return tabCounts(row);
 }
 
@@ -205,4 +216,18 @@ export async function supplierOwnedShipments(
     .where(
       and(eq(orderShipments.supplierId, supplierId), inArray(orderShipments.id, [...shipmentIds])),
     );
+}
+
+/** The reseller stores this supplier has parcels from, for the store filter, by name. */
+export async function listSupplierResellerStores(
+  database: Database,
+  supplierId: string,
+): Promise<{ id: string; name: string }[]> {
+  return database
+    .selectDistinct({ id: storeConnections.id, name: storeConnections.shopName })
+    .from(orderShipments)
+    .innerJoin(orders, eq(orders.id, orderShipments.orderId))
+    .innerJoin(storeConnections, eq(storeConnections.id, orders.storeConnectionId))
+    .where(eq(orderShipments.supplierId, supplierId))
+    .orderBy(asc(storeConnections.shopName), asc(storeConnections.id));
 }
