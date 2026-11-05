@@ -55,7 +55,7 @@ export function importDoneSummary(
   return [
     changes.length === 0 ? "Nenhum produto mudou." : `${changes.join(" e ")}.`,
     result.created > 0
-      ? "Os novos passam pela análise antes de aparecer para os revendedores."
+      ? "Os novos completos já aparecem para os revendedores; os com pendência ficam como rascunho."
       : null,
     result.synchronizationQueued
       ? "Estoque enviado aos marketplaces."

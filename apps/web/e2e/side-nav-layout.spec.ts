@@ -97,7 +97,7 @@ test("the team's pages sit in the header strip, the sidebar keeps the profile's,
   const nav = sidebar(page);
   await expect(nav.getByRole("heading", { name: "Administração", exact: true })).toHaveCount(0);
   // Pages that before only had a link inside another page or in the account menu.
-  for (const label of ["Clientes", "Desempenho do suporte", "Análise de produtos", "Auditoria"]) {
+  for (const label of ["Clientes", "Desempenho do suporte", "Auditoria"]) {
     await expect(adminStrip(page).getByRole("link", { name: label })).toBeAttached();
     await expect(nav.getByRole("link", { name: label })).toHaveCount(0);
   }

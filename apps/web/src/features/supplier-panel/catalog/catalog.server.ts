@@ -93,11 +93,14 @@ export async function writePanelDraft(input: CatalogSaveDraftInput) {
   return result;
 }
 
+/** Publishing approves at once (no team review), so the product reaches resellers right away. */
 export async function writePanelSubmission(ref: CatalogProductRef) {
-  return await panelWrite(
+  const product = await panelWrite(
     "supplier_panel.submit_failed",
     async () => await submitSupplierPanelProduct(database, ref),
   );
+  await propagateApprovedChange(product.id);
+  return product;
 }
 
 export async function writePanelApproval(ref: CatalogProductRef, reviewerId: string) {

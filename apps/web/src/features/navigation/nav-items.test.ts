@@ -103,9 +103,12 @@ describe("team pages that only had a link inside another page", () => {
     expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/chamados/ticket-1")).toBe("/admin/chamados");
   });
 
-  it("lights the product review, not the suppliers, on the review queue", () => {
+  // Since 2026-11-04 products need no team review: the old queue left the menu, so a link into
+  // it lights Fornecedores, the page it lives under.
+  it("lights the suppliers on the old review queue, which left the menu", () => {
+    expect(ADMIN_NAV_ITEMS.map((item) => item.label)).not.toContain("Análise de produtos");
     expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/fornecedores/analise/product-1")).toBe(
-      "/admin/fornecedores/analise",
+      "/admin/fornecedores",
     );
     expect(activeNavItemTo(ADMIN_NAV_ITEMS, "/admin/fornecedores/supplier-1")).toBe(
       "/admin/fornecedores",

@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 /**
- * Review lifecycle of a supplier's product in the supplier panel. Only `approved` products reach
- * the resellers' catalog; rows created before the panel existed were backfilled as approved.
+ * Lifecycle of a supplier's product in the supplier panel. Only `approved` products reach the
+ * resellers' catalog. Since 2026-11-04 a product with nothing blocking publishing is approved as
+ * soon as it is published, with no team review; `in_review` and `rejected` remain for rows saved
+ * before that (and the team can still reject or switch a product off afterwards).
  */
 export const PRODUCT_REVIEW_STATUSES = ["draft", "in_review", "approved", "rejected"] as const;
 export type ProductReviewStatus = (typeof PRODUCT_REVIEW_STATUSES)[number];
@@ -55,7 +57,7 @@ export type TransitionResult =
   | { readonly allowed: true; readonly next: ProductReviewStatus }
   | { readonly allowed: false; readonly message: string };
 
-/** Draft → in review, only with nothing that blocks publishing. */
+/** Draft → approved (on sale), only with nothing that blocks publishing. */
 export function submitTransition(
   current: ProductReviewStatus,
   blockingIssueCount: number,
@@ -63,16 +65,16 @@ export function submitTransition(
   if (current !== "draft") {
     return {
       allowed: false,
-      message: `Só um rascunho pode ser enviado para análise (situação atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
+      message: `Só um rascunho pode ser publicado (situação atual: ${PRODUCT_REVIEW_STATUS_LABELS[current]})`,
     };
   }
   if (blockingIssueCount > 0) {
     return {
       allowed: false,
-      message: `Corrija ${blockingIssueCount} ${blockingIssueCount === 1 ? "pendência que impede" : "pendências que impedem"} publicar antes de enviar`,
+      message: `Corrija ${blockingIssueCount} ${blockingIssueCount === 1 ? "pendência que impede" : "pendências que impedem"} publicar`,
     };
   }
-  return { allowed: true, next: "in_review" };
+  return { allowed: true, next: "approved" };
 }
 
 /** In review → approved or rejected; the reviewer decides only on products waiting for them. */
@@ -91,9 +93,9 @@ export function reviewTransition(
 
 /**
  * The status a product moves to when the supplier saves an edit. A rejected product becomes a
- * draft again; an approved one goes back to review when what buyers see first changed, never for
- * stock or cost. A product under review with something blocking falls back to draft, and so does
- * any edited product that now names something the marketplaces refuse.
+ * draft again. An approved product (or one still waiting from the old review queue) stays or
+ * becomes approved, unless what buyers see first changed into something that blocks publishing,
+ * which drops it to draft; so does any edit that now names something the marketplaces refuse.
  */
 export function statusAfterEdit(input: {
   current: ProductReviewStatus;
@@ -121,7 +123,7 @@ export function statusAfterEdit(input: {
   if (!needsReview) {
     return input.current;
   }
-  return input.blockingIssueCount > 0 ? "draft" : "in_review";
+  return input.blockingIssueCount > 0 ? "draft" : "approved";
 }
 
 /** The product fields a supplier edits, compared to tell which ones a save changed. */

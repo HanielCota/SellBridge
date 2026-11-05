@@ -42,9 +42,7 @@ export function FieldReason({ field, reasons }: { field: string; reasons: Reason
       >
         <CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
         <div className="space-y-0.5">
-          <p className="font-medium text-foreground">
-            Alterado. Envie para análise quando terminar.
-          </p>
+          <p className="font-medium text-foreground">Alterado. Publique quando terminar.</p>
           <ReasonMessages reasons={entry.reasons} />
         </div>
       </div>

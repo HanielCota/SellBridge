@@ -12,10 +12,10 @@ import { CONTROL_HINTS, TERM_HINTS } from "@/components/icons/action-icons";
 import { DisabledHint, HintedText } from "@/components/ui/hint";
 
 const STATUS_NOTES: Readonly<Record<ProductReviewStatus, string>> = {
-  draft: "Envie para análise quando estiver pronto.",
-  in_review: "As edições feitas agora entram nesta análise.",
-  approved: "Mudar título, imagens ou categoria pede nova análise.",
-  rejected: "Corrija os campos marcados e envie de novo.",
+  draft: "Publique quando estiver pronto: o produto aparece para os revendedores na hora.",
+  in_review: "Ao salvar uma edição, o produto já fica à venda.",
+  approved: "À venda para os revendedores. As edições valem na hora.",
+  rejected: "Corrija os campos marcados e publique de novo.",
 };
 
 function SummaryRow({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -54,7 +54,7 @@ function SubmitForReview({
       <FormErrorAlert message={submitError} />
       {blockingCount > 0 ? (
         <p className="text-sm text-destructive">
-          Corrija os itens em “Impede publicar” para enviar.
+          Corrija os itens em “Impede publicar” antes de publicar.
         </p>
       ) : null}
       <DisabledHint
@@ -72,7 +72,7 @@ function SubmitForReview({
           ) : (
             <PaperPlaneTiltIcon aria-hidden="true" />
           )}
-          {isSubmitting ? "Enviando…" : "Enviar para análise"}
+          {isSubmitting ? "Publicando…" : "Publicar"}
         </Button>
       </DisabledHint>
     </form>

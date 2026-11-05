@@ -30,9 +30,9 @@ const STEPS: readonly SupplierStep[] = [
   },
   {
     key: "review",
-    title: "Envie para análise",
+    title: "Publique os produtos",
     description:
-      "A equipe do SellBridge confere os dados antes de liberar o produto aos revendedores.",
+      "Com tudo preenchido, o produto aparece na hora para os revendedores do SellBridge.",
     done: (setup) => setup.submitted > 0,
     link: { to: "/fornecedor/painel/produtos" },
     cta: "Ver rascunhos",
@@ -42,7 +42,7 @@ const STEPS: readonly SupplierStep[] = [
     key: "sale",
     title: "Espere os revendedores publicarem",
     description:
-      "Com o produto aprovado, os revendedores colocam à venda e os pedidos chegam aqui.",
+      "Com o produto publicado, os revendedores colocam à venda e os pedidos chegam aqui.",
     done: (setup) => setup.hasSales,
     link: { to: "/fornecedor/painel/marca" },
     cta: "Completar minha marca",

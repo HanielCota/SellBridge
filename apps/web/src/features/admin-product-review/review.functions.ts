@@ -1,8 +1,4 @@
-import {
-  countProductsAwaitingReview,
-  getProductForReview,
-  listProductsAwaitingReview,
-} from "@sellbridge/database/repositories";
+import { getProductForReview, listProductsAwaitingReview } from "@sellbridge/database/repositories";
 import {
   reviewProductInputSchema,
   reviewQueueSearchSchema,
@@ -24,8 +20,3 @@ export const adminGetReviewProduct = createServerFn({ method: "GET" })
   .middleware([adminMiddleware])
   .validator(reviewProductInputSchema)
   .handler(async ({ data }) => await getProductForReview(database, data.productId));
-
-/** Products waiting for review: the badge on the admin's Fornecedores tab. */
-export const adminCountReviewQueue = createServerFn({ method: "GET" })
-  .middleware([adminMiddleware])
-  .handler(async () => await countProductsAwaitingReview(database));

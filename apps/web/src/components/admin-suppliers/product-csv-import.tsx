@@ -1,7 +1,6 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { findSourceLine, SPREADSHEET_KIND_LABEL } from "@sellbridge/shared/catalog-spreadsheet";
 import { PRODUCT_CSV_TEMPLATE, type ProductCsvError } from "@sellbridge/shared/product-csv";
-import { Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { createServerColumnHelper, DataTable } from "@/components/data/data-table";
 import { SectionCard } from "@/components/layout/section-card";
@@ -256,11 +255,7 @@ export function ProductCsvImport({
               {importer.apply.data.pausedTargets > 0
                 ? ` · ${pausedListingsLabel(importer.apply.data.pausedTargets)}`
                 : null}
-              . Produtos novos ou alterados passam pela{" "}
-              <Link to="/admin/fornecedores/analise" className="font-medium underline">
-                análise
-              </Link>{" "}
-              antes de aparecer para os revendedores.
+              . Os completos já aparecem para os revendedores; os com pendência ficam como rascunho.
             </AlertDescription>
           </Alert>
         ) : null}

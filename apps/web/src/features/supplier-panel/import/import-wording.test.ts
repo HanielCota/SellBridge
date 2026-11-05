@@ -28,13 +28,13 @@ describe("importDoneSummary", () => {
 
   it("agrees every count with its noun in the singular", () => {
     expect(importDoneSummary({ ...base, created: 1, pausedTargets: 1 }, 1)).toBe(
-      "1 produto novo. Os novos passam pela análise antes de aparecer para os revendedores. Estoque enviado aos marketplaces. 1 anúncio pausado sem estoque. 1 linha com erro ficou de fora; corrija e envie de novo.",
+      "1 produto novo. Os novos completos já aparecem para os revendedores; os com pendência ficam como rascunho. Estoque enviado aos marketplaces. 1 anúncio pausado sem estoque. 1 linha com erro ficou de fora; corrija e envie de novo.",
     );
   });
 
   it("uses the plural and leaves out what is zero", () => {
     expect(importDoneSummary({ ...base, created: 2, updated: 3 }, 0)).toBe(
-      "2 produtos novos e 3 atualizados. Os novos passam pela análise antes de aparecer para os revendedores. Estoque enviado aos marketplaces.",
+      "2 produtos novos e 3 atualizados. Os novos completos já aparecem para os revendedores; os com pendência ficam como rascunho. Estoque enviado aos marketplaces.",
     );
     expect(
       importDoneSummary({ ...base, updated: 1, synchronizationQueued: false, pausedTargets: 2 }, 4),

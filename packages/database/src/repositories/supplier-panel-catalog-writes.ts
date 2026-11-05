@@ -193,10 +193,10 @@ async function updateDraft(
       : stored.reviewStatus === "approved" && contentReady
         ? "approved"
         : "draft";
-  const resubmitted = next === "in_review" && stored.reviewStatus !== "in_review";
+  const published = next === "approved" && stored.reviewStatus !== "approved";
   await transaction
     .update(supplierProducts)
-    .set({ ...values, reviewStatus: next, ...(resubmitted ? { submittedAt: now } : {}) })
+    .set({ ...values, reviewStatus: next, ...(published ? { submittedAt: now } : {}) })
     .where(eq(supplierProducts.id, stored.id));
 }
 
@@ -243,7 +243,7 @@ export async function saveSupplierPanelDraft(
   });
 }
 
-/** Draft → in review, refused while anything blocks publishing. */
+/** Draft → approved (on sale at once, no team review), refused while anything blocks publishing. */
 export async function submitSupplierPanelProduct(
   database: Database,
   ref: CatalogProductRef,

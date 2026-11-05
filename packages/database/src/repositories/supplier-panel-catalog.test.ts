@@ -46,10 +46,15 @@ function readyValues(sku: string): CatalogDraftValues {
   };
 }
 
-async function readyInReview(sku: string) {
+/** A complete product still waiting in the review queue that publishing replaced on 2026-11-04. */
+async function legacyInReview(sku: string) {
   const productId = randomUUID();
   await saveSupplierPanelDraft(database, { supplierId, productId, values: readyValues(sku) });
-  return await submitSupplierPanelProduct(database, { supplierId, productId });
+  await database
+    .update(supplierProducts)
+    .set({ reviewStatus: "in_review", submittedAt: new Date() })
+    .where(eq(supplierProducts.id, productId));
+  return await getSupplierPanelProduct(database, { supplierId, productId });
 }
 
 async function caught(promise: Promise<unknown>): Promise<unknown> {
@@ -269,7 +274,7 @@ describe("review flow", () => {
     );
     expect(String(refused)).toContain(SUPPLIER_TEXT_CONTACT_REFUSED);
 
-    const submitted = await readyInReview("CONTACT-2");
+    const submitted = await legacyInReview("CONTACT-2");
     await database
       .update(supplierProducts)
       .set({ mercadoLivreAttributes: { BRAND: "insta: atelie.moda" } })
@@ -298,10 +303,23 @@ describe("review flow", () => {
     expect(String(error)).toContain("Corrija 1 pendência");
   });
 
-  it("approves a product under review and clears it for resellers", async () => {
-    const submitted = await readyInReview("FLOW-1");
+  it("puts a complete draft on sale as soon as it is published, with no team review", async () => {
+    const productId = randomUUID();
+    await saveSupplierPanelDraft(database, {
+      supplierId,
+      productId,
+      values: readyValues("FLOW-0"),
+    });
+
+    const published = await submitSupplierPanelProduct(database, { supplierId, productId });
+
+    expect(published.reviewStatus).toBe("approved");
+    expect(published.submittedAt).not.toBeNull();
+  });
+
+  it("still lets the team approve a product left in the old review queue", async () => {
+    const submitted = await legacyInReview("FLOW-1");
     expect(submitted.reviewStatus).toBe("in_review");
-    expect(submitted.submittedAt).not.toBeNull();
     const approved = await approveSupplierPanelProduct(database, {
       supplierId,
       productId: submitted.id,
@@ -323,7 +341,7 @@ describe("review flow", () => {
   });
 
   it("keeps rejection reasons and turns the product back into a draft on edit", async () => {
-    const submitted = await readyInReview("FLOW-2");
+    const submitted = await legacyInReview("FLOW-2");
     const reasons = [{ field: "imageUrls", rule: "image_quality", message: "Imagem desfocada" }];
     await expectAppError(
       rejectSupplierPanelProduct(database, {
@@ -350,8 +368,8 @@ describe("review flow", () => {
     expect(edited).toMatchObject({ reviewStatus: "draft", rejectionReasons: reasons });
   });
 
-  it("sends an approved product back to review on a title change, not on a stock change", async () => {
-    const submitted = await readyInReview("FLOW-3");
+  it("keeps an approved product on sale on a title or stock change", async () => {
+    const submitted = await legacyInReview("FLOW-3");
     const approved = await approveSupplierPanelProduct(database, {
       supplierId,
       productId: submitted.id,
@@ -375,7 +393,7 @@ describe("review flow", () => {
         title: "Camiseta nova - Branca",
       },
     });
-    expect(retitled.reviewStatus).toBe("in_review");
+    expect(retitled.reviewStatus).toBe("approved");
   });
 });
 

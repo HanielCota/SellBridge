@@ -14,7 +14,7 @@ function SupplierImportPage() {
     <div className="space-y-6">
       <PageHeader
         title="Importar planilha"
-        description="Cadastre ou atualize muitos produtos de uma vez. Cada um passa pela análise antes de aparecer para os revendedores."
+        description="Cadastre ou atualize muitos produtos de uma vez. Os completos aparecem na hora para os revendedores."
       />
       <SupplierProductImport supplierId={supplierId} />
     </div>

@@ -9,7 +9,6 @@ import {
   approveSupplierPanelProduct,
   rejectSupplierPanelProduct,
   saveSupplierPanelDraft,
-  submitSupplierPanelProduct,
 } from "./supplier-panel-catalog-writes.ts";
 import {
   countProductsAwaitingReview,
@@ -40,6 +39,7 @@ function readyValues(sku: string): CatalogDraftValues {
   };
 }
 
+/** A product left in the review queue that publishing replaced on 2026-11-04. */
 async function submitted(sku: string, submittedAt: Date, owner = supplierId) {
   const productId = randomUUID();
   await saveSupplierPanelDraft(database, {
@@ -47,7 +47,10 @@ async function submitted(sku: string, submittedAt: Date, owner = supplierId) {
     productId,
     values: readyValues(sku),
   });
-  await submitSupplierPanelProduct(database, { supplierId: owner, productId }, submittedAt);
+  await database
+    .update(supplierProducts)
+    .set({ reviewStatus: "in_review", submittedAt })
+    .where(eq(supplierProducts.id, productId));
   return productId;
 }
 

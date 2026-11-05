@@ -58,7 +58,7 @@ afterAll(async () => {
 });
 
 describe("supplier spreadsheet import review", () => {
-  it("sends new products to review, or keeps them as drafts when something blocks publishing", async () => {
+  it("puts new complete products on sale, or keeps them as drafts when something blocks publishing", async () => {
     const ready = `REV-READY-${randomUUID().slice(0, 6)}`;
     const blocked = `REV-BLOCK-${randomUUID().slice(0, 6)}`;
     await importCsv(
@@ -68,11 +68,11 @@ describe("supplier spreadsheet import review", () => {
       ],
       REVIEWED_AT,
     );
-    expect(await statusOf(ready)).toEqual({ status: "in_review", submittedAt: REVIEWED_AT });
+    expect(await statusOf(ready)).toEqual({ status: "approved", submittedAt: REVIEWED_AT });
     expect(await statusOf(blocked)).toEqual({ status: "draft", submittedAt: null });
   });
 
-  it("sends an approved product back to review only when what buyers see changes", async () => {
+  it("keeps an approved product on sale when what buyers see changes", async () => {
     const sku = `REV-LIVE-${randomUUID().slice(0, 6)}`;
     const image = "https://imagens.test/bebedouro.jpg";
     await importCsv([`${sku};Bebedouro fonte para gatos;45,90;25;${image}`]);
@@ -82,7 +82,7 @@ describe("supplier spreadsheet import review", () => {
     expect((await statusOf(sku))?.status).toBe("approved");
 
     await importCsv([`${sku};Bebedouro fonte gatos 2 litros;47,00;30;${image}`], REVIEWED_AT);
-    expect(await statusOf(sku)).toEqual({ status: "in_review", submittedAt: REVIEWED_AT });
+    expect((await statusOf(sku))?.status).toBe("approved");
   });
 
   it("keeps the admin import approving what it writes", async () => {

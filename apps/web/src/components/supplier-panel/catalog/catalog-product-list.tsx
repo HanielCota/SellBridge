@@ -34,7 +34,6 @@ const STATUS_TABS: readonly { value: CatalogStatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "rejected", label: "Reprovados" },
   { value: "draft", label: "Rascunhos" },
-  { value: "in_review", label: "Em análise" },
   { value: "approved", label: "Aprovados" },
 ];
 
