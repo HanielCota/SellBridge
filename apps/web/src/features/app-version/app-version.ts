@@ -9,7 +9,15 @@ export const VERSION_CHECK_INTERVAL_IN_MS = 5 * 60 * 1000;
 /** A version check that hangs is dropped: the next one comes in a few minutes anyway. */
 export const VERSION_CHECK_TIMEOUT_IN_MS = 10_000;
 
-const servedVersionSchema = z.object({ buildId: z.string().regex(/^[\w.-]{1,100}$/) });
+/** A deploy's build id is a commit hash or a UUID; anything longer is not one. */
+const MAX_BUILD_ID_LENGTH = 100;
+
+const servedVersionSchema = z.object({
+  buildId: z
+    .string()
+    .max(MAX_BUILD_ID_LENGTH)
+    .regex(/^[\w.-]+$/),
+});
 
 /**
  * The build id in the server's `/api/version` answer, or null when the answer is not one (a

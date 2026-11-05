@@ -6,11 +6,14 @@ describe("servedBuildId", () => {
     expect(servedBuildId({ buildId: "384aa7cec5b7" })).toBe("384aa7cec5b7");
   });
 
-  it("ignores an answer that is not a version (an error page or an empty body)", () => {
-    expect(servedBuildId(null)).toBeNull();
-    expect(servedBuildId("<html>502</html>")).toBeNull();
-    expect(servedBuildId({})).toBeNull();
-    expect(servedBuildId({ buildId: "" })).toBeNull();
+  it.each([
+    ["an empty body", null],
+    ["a proxy error page", "<html>502</html>"],
+    ["an object without a build id", {}],
+    ["an empty build id", { buildId: "" }],
+    ["a build id longer than a deploy makes", { buildId: "a".repeat(101) }],
+  ])("ignores an answer that is not a version: %s", (_case, body) => {
+    expect(servedBuildId(body)).toBeNull();
   });
 
   it("refuses a build id with characters a deploy never produces", () => {
