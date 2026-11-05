@@ -12,4 +12,6 @@ const storeOpenInputSchema = z.object({
 export const setStoreOpenFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(storeOpenInputSchema)
-  .handler(async ({ data }) => await writeStoreOpen(data));
+  .handler(
+    async ({ data, context }) => await writeStoreOpen({ ...data, actor: context.viewer.kind }),
+  );
