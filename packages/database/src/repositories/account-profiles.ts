@@ -37,6 +37,8 @@ export interface ProfileSupplier {
   name: string;
   /** False once the team switched the supplier off (e.g. on its 3rd flag). */
   active: boolean;
+  /** When the supplier closed the store for sales; null while it is open. */
+  salesClosedAt: Date | null;
 }
 
 /** The supplier a supplier profile runs, or null while the profile has not set up its brand. */
@@ -45,7 +47,12 @@ export async function findSupplierOfProfile(
   organizationId: string,
 ): Promise<ProfileSupplier | null> {
   const [found] = await database
-    .select({ id: suppliers.id, name: suppliers.name, active: suppliers.active })
+    .select({
+      id: suppliers.id,
+      name: suppliers.name,
+      active: suppliers.active,
+      salesClosedAt: suppliers.salesClosedAt,
+    })
     .from(suppliers)
     .where(eq(suppliers.organizationId, organizationId));
   return found ?? null;

@@ -17,7 +17,12 @@ import {
   suppliers,
 } from "../schema/index.ts";
 import { isCountedOrder } from "./sql/counted-orders.ts";
-import { listingCoversCostColumn, listingSellable, productListableColumn } from "./sql/sellable.ts";
+import {
+  listingCoversCostColumn,
+  listingSellable,
+  productListableColumn,
+  supplierOpenColumn,
+} from "./sql/sellable.ts";
 import { countPendingReviews } from "./supplier-reviews.ts";
 import { shipmentLateEvents, type ShipmentLateEvent } from "./shipment-timing.ts";
 import {
@@ -315,6 +320,7 @@ async function listingUnavailableEvents(
       at: lastChange,
       productActive: productListableColumn(),
       supplierActive: suppliers.active,
+      supplierOpen: supplierOpenColumn(),
       priceCoversCost: listingCoversCostColumn(),
     })
     .from(listings)
@@ -329,10 +335,17 @@ async function listingUnavailableEvents(
     )
     .orderBy(desc(lastChange))
     .limit(PER_KIND);
-  return rows.flatMap(({ productActive, supplierActive, priceCoversCost, ...row }) => {
-    const reason = unavailableReason({ productActive, supplierActive, priceCoversCost });
-    return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
-  });
+  return rows.flatMap(
+    ({ productActive, supplierActive, supplierOpen, priceCoversCost, ...row }) => {
+      const reason = unavailableReason({
+        productActive,
+        supplierActive,
+        supplierOpen,
+        priceCoversCost,
+      });
+      return reason === null ? [] : [{ ...row, reason, kind: "listing_unavailable" as const }];
+    },
+  );
 }
 
 async function listingErrorEvents(

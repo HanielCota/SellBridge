@@ -11,6 +11,7 @@ import {
 const available: CatalogAvailability = {
   productActive: true,
   supplierActive: true,
+  supplierOpen: true,
   priceCoversCost: true,
 };
 
@@ -21,6 +22,18 @@ describe("unavailableReason", () => {
 
   it("names the supplier first, since reactivating the product alone would not help", () => {
     expect(unavailableReason({ ...available, supplierActive: false, productActive: false })).toBe(
+      "supplier_inactive",
+    );
+  });
+
+  it("reports a supplier that closed the store for sales", () => {
+    expect(unavailableReason({ ...available, supplierOpen: false, productActive: false })).toBe(
+      "supplier_closed",
+    );
+  });
+
+  it("names a supplier the team switched off before a closed store, which reopening would not fix", () => {
+    expect(unavailableReason({ ...available, supplierActive: false, supplierOpen: false })).toBe(
       "supplier_inactive",
     );
   });
@@ -41,15 +54,17 @@ describe("unavailableReason", () => {
 });
 
 describe("unavailableMessage", () => {
-  it.each(["supplier_inactive", "product_inactive", "cost_above_price"] as const)(
-    "explains %s and what the reseller can do",
-    (reason) => {
-      const message = unavailableMessage(reason);
-      expect(message).toMatch(/^[A-ZÀ-Ú]/);
-      expect(message).toMatch(/\.$/);
-      expect(message.split(". ").length).toBeGreaterThanOrEqual(2);
-    },
-  );
+  it.each([
+    "supplier_inactive",
+    "supplier_closed",
+    "product_inactive",
+    "cost_above_price",
+  ] as const)("explains %s and what the reseller can do", (reason) => {
+    const message = unavailableMessage(reason);
+    expect(message).toMatch(/^[A-ZÀ-Ú]/);
+    expect(message).toMatch(/\.$/);
+    expect(message.split(". ").length).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe("unavailable listing wording", () => {
@@ -68,6 +83,13 @@ describe("unavailable listing wording", () => {
     );
   });
 
+  it("tells the reseller a closed store comes back by itself", () => {
+    expect(unavailableListingLabel("supplier_closed")).toBe("Fornecedor em pausa");
+    expect(unavailableListingMessage("supplier_closed")).toBe(
+      "O fornecedor fechou a loja por um tempo. O estoque volta sozinho quando ele reabrir.",
+    );
+  });
+
   it("tells the cost change and the fix in two short sentences", () => {
     expect(unavailableListingMessage("cost_above_price")).toBe(
       "O fornecedor subiu o custo. Aumente o preço para voltar a vender.",
@@ -77,12 +99,14 @@ describe("unavailable listing wording", () => {
 
 describe("unavailableBellLine", () => {
   // The bell shows one line of detail; past ~48 characters it is cut and the fix is lost.
-  it.each(["supplier_inactive", "product_inactive", "cost_above_price"] as const)(
-    "fits %s in one line of the bell",
-    (reason) => {
-      expect(unavailableBellLine(reason).length).toBeLessThanOrEqual(48);
-    },
-  );
+  it.each([
+    "supplier_inactive",
+    "supplier_closed",
+    "product_inactive",
+    "cost_above_price",
+  ] as const)("fits %s in one line of the bell", (reason) => {
+    expect(unavailableBellLine(reason).length).toBeLessThanOrEqual(48);
+  });
 
   it("puts the fix in the line when the reseller can make it", () => {
     expect(unavailableBellLine("cost_above_price")).toBe(

@@ -22,6 +22,7 @@ import { getListingOverview, listListingOverview } from "./listing-overview.ts";
 import { getTargetForPublishing } from "./listings.ts";
 import { listNotificationEvents } from "./notifications.ts";
 import { upsertStoreConnection } from "./stores.ts";
+import { setSupplierStoreOpen } from "./supplier-store-open.ts";
 
 const database = createTestDatabase();
 let tenants: Awaited<ReturnType<typeof createTestTenants>>;
@@ -261,6 +262,27 @@ describe("what the reseller sees", () => {
     const row = await getListingOverview(database, first.tenantId, listingId);
 
     expect(row.unavailable).toBe("supplier_inactive");
+  });
+
+  it("tells the listing card and the bell that the supplier closed the store, until it opens", async () => {
+    const supplierId = await newSupplier();
+    const product = await publishedProduct(supplierId);
+    const listingId = await listingIdOf(product.targets.get(first.tenantId) ?? "");
+    const now = new Date("2026-11-05T15:00:00Z");
+    await setSupplierStoreOpen(database, { supplierId, open: false, now });
+
+    const closed = await getListingOverview(database, first.tenantId, listingId);
+
+    expect(closed.unavailable).toBe("supplier_closed");
+    expect(await unavailableInBell(first.tenantId, listingId)).toEqual([
+      expect.objectContaining({ reason: "supplier_closed" }),
+    ]);
+    // Closing pauses nothing: the listing keeps its place and only its stock goes to zero.
+    expect(await statusesOf(product.targets)).toEqual(["published", "published"]);
+
+    await setSupplierStoreOpen(database, { supplierId, open: true, now });
+    expect((await getListingOverview(database, first.tenantId, listingId)).unavailable).toBeNull();
+    expect(await unavailableInBell(first.tenantId, listingId)).toEqual([]);
   });
 
   it("warns each affected reseller in the bell, nobody else, until the product is back", async () => {

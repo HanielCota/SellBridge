@@ -28,6 +28,7 @@ import {
   listingCoversCostColumn,
   listingSellableByProduct,
   productListableColumn,
+  supplierOpenColumn,
 } from "./sql/sellable.ts";
 
 type ListingTargetStatus = (typeof listingTargets.$inferSelect)["status"];
@@ -181,6 +182,7 @@ async function pageOfListingIds(
 export const availabilityColumns = {
   productActive: productListableColumn(),
   supplierActive: suppliers.active,
+  supplierOpen: supplierOpenColumn(),
   priceCoversCost: listingCoversCostColumn(),
 };
 
@@ -304,8 +306,13 @@ async function loadOverviewRows(
     if (!found) {
       return [];
     }
-    const { productActive, supplierActive, priceCoversCost, ...detail } = found;
-    const unavailable = unavailableReason({ productActive, supplierActive, priceCoversCost });
+    const { productActive, supplierActive, supplierOpen, priceCoversCost, ...detail } = found;
+    const unavailable = unavailableReason({
+      productActive,
+      supplierActive,
+      supplierOpen,
+      priceCoversCost,
+    });
     const stores = statuses.filter((row) => row.listingId === id);
     const updatedAt = new Date(Math.max(...stores.map((row) => row.updatedAt.getTime())));
     const dailySales = dailySeries(sales.filter((row) => row.listingId === id));

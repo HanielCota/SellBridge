@@ -26,13 +26,23 @@ export function productListableColumn(): SQL<boolean> {
   return sql<boolean>`${productListable()}`.mapWith(Boolean);
 }
 
+/** The supplier keeps the store open for sales. Needs `suppliers` in the FROM clause. */
+function supplierOpen(): SQL {
+  return sql`(${suppliers.salesClosedAt} is null)`;
+}
+
+/** `supplierOpen` as a column, for `CatalogAvailability.supplierOpen`. */
+export function supplierOpenColumn(): SQL<boolean> {
+  return sql<boolean>`${supplierOpen()}`.mapWith(Boolean);
+}
+
 /**
  * Mirrors `unavailableReason` (shared/domain/catalog-availability.ts) being null: a listable
- * product of an active supplier. Where the reseller lives plays no part. Needs
- * `supplier_products` and `suppliers` in the FROM clause.
+ * product of an active supplier whose store is open. Where the reseller lives plays no part.
+ * Needs `supplier_products` and `suppliers` in the FROM clause.
  */
 export function sellableOnMarketplace(): SQL {
-  return sql`(${productListable()} and ${suppliers.active})`;
+  return sql`(${productListable()} and ${suppliers.active} and ${supplierOpen()})`;
 }
 
 /**

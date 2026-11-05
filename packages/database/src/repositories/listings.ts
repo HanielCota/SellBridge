@@ -8,6 +8,7 @@ import type { Database, DatabaseExecutor, Transaction } from "../client.ts";
 import { hasActiveTargets } from "./active-targets.ts";
 import { recordApiEvent } from "./api-events.ts";
 import { containsPattern } from "./sql/search-pattern.ts";
+import { supplierOpenColumn } from "./sql/sellable.ts";
 import {
   listings,
   listingTargets,
@@ -233,6 +234,7 @@ export async function getTargetForPublishing(
       product: supplierProducts,
       store: storeConnections,
       supplierActive: suppliers.active,
+      supplierOpen: supplierOpenColumn(),
       source: { catalogKind: suppliers.catalogKind, ownerTenantId: suppliers.ownerTenantId },
     })
     .from(listingTargets)
@@ -245,7 +247,7 @@ export async function getTargetForPublishing(
   if (!row) {
     throw notFoundError("Publicação não encontrada");
   }
-  const { supplierActive, ...target } = row;
+  const { supplierActive, supplierOpen, ...target } = row;
   return {
     ...target,
     // A product back in review or rejected in the supplier panel is not published (0039).
@@ -257,6 +259,7 @@ export async function getTargetForPublishing(
         row.listing.tenantId === tenantId &&
         (row.source.catalogKind === "supplier" || row.source.ownerTenantId === tenantId),
       supplierActive,
+      supplierOpen,
       priceCoversCost: row.listing.priceCents > row.product.costCents,
     },
   };
