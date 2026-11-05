@@ -47,6 +47,7 @@ describe("supplierShipmentsSearchSchema", () => {
       supplierId,
       tab: "todo",
       query: "",
+      period: "all",
       page: 1,
     });
   });
@@ -75,9 +76,14 @@ describe("batchAcceptSchema", () => {
 
 describe("supplierOrdersUrlSearchSchema", () => {
   it("falls back on a tampered address instead of failing the page", () => {
-    expect(supplierOrdersUrlSearchSchema.parse({ tab: "nope", page: "-3" })).toEqual({
+    expect(
+      supplierOrdersUrlSearchSchema.parse({ tab: "nope", page: "-3", label: "x", channel: "y" }),
+    ).toEqual({
       tab: "todo",
       query: undefined,
+      period: "all",
+      label: undefined,
+      channel: undefined,
       page: 1,
     });
   });
