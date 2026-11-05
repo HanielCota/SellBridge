@@ -5,11 +5,15 @@ const NOTICE = { name: "Atualizar para a nova versão do SellBridge" } as const;
 
 test("sem versão nova, o topo não mostra aviso", async ({ page }) => {
   await signIn(page, DEMO_USER);
+  const versionAnswer = page.waitForResponse("**/api/version");
   await gotoHydrated(page, "/publicacoes");
 
-  // The page asked the real server, which runs the page's own build.
+  // The page asked the real server, which runs the page's own build, and got its answer.
+  expect((await versionAnswer).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: "Publicações" })).toBeVisible();
-  await expect(page.getByRole("button", NOTICE)).toHaveCount(0);
+  // A retrying "count is 0" would pass before React renders the answer: give it time, then look once.
+  await page.waitForTimeout(1500);
+  expect(await page.getByRole("button", NOTICE).count()).toBe(0);
 });
 
 test("com versão nova no servidor, o topo avisa e só recarrega quando a pessoa clica", async ({
