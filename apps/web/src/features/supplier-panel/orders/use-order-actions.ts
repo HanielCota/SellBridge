@@ -2,7 +2,11 @@ import { FULFILLMENT_LABELS, type FulfillmentStatus } from "@sellbridge/shared/s
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errors";
-import { acceptSupplierShipmentsFn, updateSupplierPanelShipmentFn } from "./orders.functions";
+import {
+  acceptSupplierShipmentsFn,
+  printSupplierLabelsFn,
+  updateSupplierPanelShipmentFn,
+} from "./orders.functions";
 import { attentionCountsQueryOptions } from "@/features/navigation/navigation.queries";
 import { supplierOrdersKey } from "./orders.queries";
 
@@ -69,6 +73,16 @@ export function useBatchAccept(supplierId: string) {
   return useMutation({
     mutationFn: async (shipmentIds: string[]) =>
       await acceptSupplierShipmentsFn({ data: { supplierId, shipmentIds } }),
+    onSettled: async () => await refresh(),
+  });
+}
+
+/** Emits the marketplace labels of several parcels, one PDF per reseller store. */
+export function useBatchLabels(supplierId: string) {
+  const refresh = useRefreshOrders(supplierId);
+  return useMutation({
+    mutationFn: async (shipmentIds: string[]) =>
+      await printSupplierLabelsFn({ data: { supplierId, shipmentIds } }),
     onSettled: async () => await refresh(),
   });
 }

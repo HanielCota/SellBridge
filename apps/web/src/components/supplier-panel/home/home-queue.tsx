@@ -12,7 +12,7 @@ import type {
 import { useHomeActions } from "@/features/supplier-panel/home/use-home-actions";
 import { useTabProfileLink } from "@/lib/tab-profile";
 import { useNow } from "@/hooks/use-now";
-import { isBatchSelectable } from "../orders/order-row-parts";
+import { isBatchAcceptable } from "../orders/order-row-parts";
 import { ShipmentPanelDialog } from "../orders/shipment-panel-dialog";
 import { HomeCatalogRow } from "./home-catalog-rows";
 import { HomeHealthSection } from "./home-health-section";
@@ -85,7 +85,7 @@ function OrderGroup({
     return null;
   }
   // The batch only covers what the list shows, so it is offered when the list shows them all.
-  const batchable = rows.filter((row) => isBatchSelectable(row)).length;
+  const batchable = rows.filter((row) => isBatchAcceptable(row)).length;
   const batch =
     acceptAll !== undefined && total === rows.length && batchable > 1 ? acceptAll : null;
   return (

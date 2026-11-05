@@ -1,13 +1,16 @@
 import {
   countSupplierShipmentsByTab,
   getSupplierPanelShipment,
+  listSupplierResellerStores,
   listSupplierShipments,
   supplierOwnedShipments,
 } from "@sellbridge/database/repositories";
+import { resolvePeriod } from "@sellbridge/shared/period-range";
 import { logger } from "@sellbridge/shared/logger";
 import type { shipmentUpdateSchema } from "@sellbridge/shared/schemas";
 import type {
   BatchAcceptInput,
+  SupplierShipmentCountsSearch,
   SupplierShipmentsSearch,
 } from "@sellbridge/shared/supplier-panel-orders-schema";
 import type { z } from "zod";
@@ -22,12 +25,23 @@ import { conflictError } from "@sellbridge/shared/errors";
  * `updateShipment` as the supplier link, credited to the supplier.
  */
 
-export async function loadSupplierShipments(search: SupplierShipmentsSearch) {
-  return await listSupplierShipments(database, search);
+/** The list filters with the period as dates: "Tudo" has none, the rest are Brazil days. */
+function withSaleDates<TSearch extends SupplierShipmentCountsSearch>(search: TSearch) {
+  const { period, from, to, ...filters } = search;
+  const range = period === "all" ? null : resolvePeriod({ period, from, to }, new Date());
+  return { ...filters, orderedFrom: range?.from, orderedTo: range?.to };
 }
 
-export async function loadSupplierShipmentCounts(input: { supplierId: string; query: string }) {
-  return await countSupplierShipmentsByTab(database, input);
+export async function loadSupplierShipments(search: SupplierShipmentsSearch) {
+  return await listSupplierShipments(database, withSaleDates(search));
+}
+
+export async function loadSupplierShipmentCounts(input: SupplierShipmentCountsSearch) {
+  return await countSupplierShipmentsByTab(database, withSaleDates(input));
+}
+
+export async function loadSupplierResellerStores(supplierId: string) {
+  return await listSupplierResellerStores(database, supplierId);
 }
 
 export async function loadSupplierShipment(input: { supplierId: string; shipmentId: string }) {

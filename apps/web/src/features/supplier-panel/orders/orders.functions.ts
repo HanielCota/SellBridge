@@ -1,17 +1,22 @@
 import { shipmentUpdateSchema } from "@sellbridge/shared/schemas";
 import {
   batchAcceptSchema,
+  batchLabelsSchema,
   supplierIdSchema,
   supplierShipmentCountsSchema,
   supplierShipmentDetailSchema,
+  supplierScanSchema,
   supplierShipmentsSearchSchema,
 } from "@sellbridge/shared/supplier-panel-orders-schema";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { blockedContactLogging } from "@/lib/server/blocked-contact-logging";
 import { supplierPanelMiddleware } from "@/lib/server/middleware";
+import { printSupplierLabels } from "./batch-labels.server";
+import { scanSupplierShipment } from "./scan.server";
 import {
   acceptSupplierShipments,
+  loadSupplierResellerStores,
   loadSupplierShipment,
   loadSupplierShipmentCounts,
   loadSupplierShipments,
@@ -48,3 +53,18 @@ export const acceptSupplierShipmentsFn = createServerFn({ method: "POST" })
   .middleware([supplierPanelMiddleware])
   .validator(batchAcceptSchema)
   .handler(async ({ data }) => await acceptSupplierShipments(data));
+
+export const printSupplierLabelsFn = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(batchLabelsSchema)
+  .handler(async ({ data }) => await printSupplierLabels(data));
+
+export const listSupplierResellerStoresFn = createServerFn({ method: "GET" })
+  .middleware([supplierPanelMiddleware])
+  .validator(z.object({ supplierId: supplierIdSchema }))
+  .handler(async ({ data }) => await loadSupplierResellerStores(data.supplierId));
+
+export const scanSupplierShipmentFn = createServerFn({ method: "POST" })
+  .middleware([supplierPanelMiddleware])
+  .validator(supplierScanSchema)
+  .handler(async ({ data }) => await scanSupplierShipment(data));

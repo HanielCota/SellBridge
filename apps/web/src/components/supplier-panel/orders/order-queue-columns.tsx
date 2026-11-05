@@ -6,6 +6,7 @@ import type { SupplierOrderRow } from "@/features/supplier-panel/orders/use-orde
 import { CountdownBadge } from "./countdown-badge";
 import {
   isBatchSelectable,
+  LabelStatus,
   OrderSummary,
   ProblemList,
   RowAction,
@@ -68,6 +69,7 @@ function StatusCell({ row }: { row: SupplierOrderRow }) {
         <StepStatus row={row} />
         <DeadlineCell row={row} now={context.now} />
       </div>
+      <LabelStatus state={row.labelState} printedAt={row.labelPrintedAt} />
       {row.trackingCode === null ? null : (
         <p className="text-xs break-all text-muted-foreground">
           {trackingLine(row.carrier, row.trackingCode)}

@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getSupplierShipment } from "@sellbridge/database/repositories";
+import {
+  getSupplierShipment,
+  recordLabelsPrinted,
+  recordLabelsWaiting,
+} from "@sellbridge/database/repositories";
+import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketplaces";
 import { conflictError, isAppError, validationError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import { supplierTokenSchema } from "@sellbridge/shared/schemas";
@@ -53,11 +58,27 @@ async function labelTenant(request: Request, orderId: string) {
   }
   throw validationError("Abra a etiqueta pelo botão da página do pedido.");
 }
+/**
+ * The label of an order allowed to see it, recorded on its parcel: emitted, or not released by
+ * the marketplace yet. The supplier's list reads these records as the label's state.
+ */
+async function recordedLabel(tenantId: string, orderId: string): Promise<Uint8Array<ArrayBuffer>> {
+  try {
+    const pdf = await loadMarketplaceLabel(tenantId, orderId);
+    await recordLabelsPrinted(database, [orderId]);
+    return pdf;
+  } catch (error) {
+    if (hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)) {
+      await recordLabelsWaiting(database, [orderId]);
+    }
+    throw error;
+  }
+}
 async function handleLabel(request: Request, orderId: string) {
   try {
     const validOrderId = z.uuid().parse(orderId);
     const tenantId = await labelTenant(request, validOrderId);
-    const pdf = await loadMarketplaceLabel(tenantId, validOrderId);
+    const pdf = await recordedLabel(tenantId, validOrderId);
     return new Response(pdf, {
       headers: {
         "content-type": "application/pdf",
