@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { SUPPLIER_BRAND_PATH } from "@/features/auth/profile-routes";
 import { SupplierOffBanner } from "@/components/supplier-panel/supplier-off-banner";
+import { StoreClosedBanner } from "@/components/supplier-panel/store/store-closed-banner";
 import { getOwnSupplierFn } from "@/features/supplier-panel/panel.functions";
 
 export const Route = createFileRoute("/_app/fornecedor/painel")({
@@ -31,6 +32,15 @@ function SupplierPanelLayout() {
     return (
       <div className="space-y-6">
         <SupplierOffBanner />
+        <Outlet />
+      </div>
+    );
+  }
+  // A store the supplier closed (holidays, no stock): only a switched-off account outranks it.
+  if (supplier !== null && supplier.salesClosedAt !== null) {
+    return (
+      <div className="space-y-6">
+        <StoreClosedBanner supplierId={supplier.id} />
         <Outlet />
       </div>
     );
