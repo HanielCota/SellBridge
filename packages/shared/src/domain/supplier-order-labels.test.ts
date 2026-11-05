@@ -25,7 +25,13 @@ describe("supplierLabelState", () => {
   it("says waiting while the marketplace has not released the label", () => {
     const waiting = { ...record, labelWaitingSince: new Date("2026-11-04T12:00:00Z") };
 
-    expect(supplierLabelState({ ...waiting, overdue: true })).toBe("waiting");
+    expect(supplierLabelState(waiting)).toBe("waiting");
+  });
+
+  it("says late once the dispatch time is over, even if the marketplace was holding it", () => {
+    const waiting = { ...record, labelWaitingSince: new Date("2026-11-04T12:00:00Z") };
+
+    expect(supplierLabelState({ ...waiting, overdue: true })).toBe("late");
   });
 
   it("has no label state for other channels", () => {

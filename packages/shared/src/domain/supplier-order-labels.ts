@@ -3,9 +3,10 @@ import type { FulfillmentStatus } from "../schemas/fulfillment.ts";
 /**
  * Where a parcel's marketplace label stands for the supplier, from the label records kept on the
  * parcel. Only Mercado Livre hands out labels; other channels ship with the supplier's own.
- * - `waiting`: the marketplace said it has not released the label yet;
+ * - `waiting`: the marketplace said it has not released the label yet, within the dispatch time;
  * - `pending`: never emitted, still within the dispatch time;
- * - `late`: never emitted and the dispatch time is over;
+ * - `late`: never emitted and the dispatch time is over, released or not: past the time the
+ *   supplier must act (try again, or talk to the reseller), so a stale "waiting" never hides it;
  * - `printed`: emitted at least once.
  */
 export const SUPPLIER_LABEL_STATES = ["waiting", "pending", "late", "printed"] as const;
@@ -47,9 +48,8 @@ export function supplierLabelState(record: LabelRecord): SupplierLabelState | nu
   if (record.labelPrintCount > 0) {
     return "printed";
   }
-  // The marketplace holding the label is not the supplier's delay: it is said first.
-  if (record.labelWaitingSince !== null) {
-    return "waiting";
+  if (record.overdue) {
+    return "late";
   }
-  return record.overdue ? "late" : "pending";
+  return record.labelWaitingSince === null ? "pending" : "waiting";
 }

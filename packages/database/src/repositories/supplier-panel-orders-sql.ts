@@ -118,14 +118,14 @@ export function labelFilter(state: SupplierLabelState, now: Date): SQL | undefin
     return and(hasLabel, gt(orderShipments.labelPrintCount, 0));
   }
   const neverPrinted = and(hasLabel, eq(orderShipments.labelPrintCount, 0));
-  if (state === "waiting") {
-    return and(neverPrinted, isNotNull(orderShipments.labelWaitingSince));
-  }
-  const released = and(neverPrinted, isNull(orderShipments.labelWaitingSince));
   if (state === "late") {
-    return and(released, overdueAt(now));
+    return and(neverPrinted, overdueAt(now));
   }
-  return and(released, not(overdueAt(now)));
+  const inTime = and(neverPrinted, not(overdueAt(now)));
+  if (state === "waiting") {
+    return and(inTime, isNotNull(orderShipments.labelWaitingSince));
+  }
+  return and(inTime, isNull(orderShipments.labelWaitingSince));
 }
 
 /** The list filters besides the tab: search, sale date, channel, reseller store and label. */
