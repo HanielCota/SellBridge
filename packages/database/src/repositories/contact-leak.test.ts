@@ -22,6 +22,7 @@ import { getSupplierPanelShipment } from "./supplier-panel-orders-detail.ts";
  * The user's rule: a supplier must never get a way to reach the reseller outside SellBridge.
  * A reseller with a known phone, e-mail, CPF and legal name forwards an order; nothing the
  * supplier side reads (link, panel list and detail, the new-order e-mail) may carry any of them.
+ * The store's name stays out of the link and the e-mail; the panel shows it (see `leaksIn`).
  */
 const database = createTestDatabase();
 const stamp = randomUUID().slice(0, 8);
@@ -97,8 +98,12 @@ async function paidOrder(): Promise<string> {
   return order.id;
 }
 
-/** Every way the reseller's contact could be written in a response. */
-function leaksIn(response: unknown): string[] {
+/**
+ * Every way the reseller's contact could be written in a response. The store's name counts too,
+ * except where the product owner chose to show it (05/11/2026): the supplier panel's orders, so
+ * the supplier can find and filter a reseller's parcels, as the Mensagens tab already shows it.
+ */
+function leaksIn(response: unknown, options: { storeNameShown?: boolean } = {}): string[] {
   const text = JSON.stringify(response).toLowerCase();
   // Digits alone, so "(11) 98765-0123" or "123.456.789-09" in a response is still caught.
   const digits = text.replace(/\D/g, "");
@@ -106,7 +111,7 @@ function leaksIn(response: unknown): string[] {
     RESELLER.email.toLowerCase(),
     RESELLER.fullName.toLowerCase(),
     RESELLER.companyName.toLowerCase(),
-    RESELLER.shopName.toLowerCase(),
+    ...(options.storeNameShown === true ? [] : [RESELLER.shopName.toLowerCase()]),
   ];
   const numbers = [RESELLER.phone, RESELLER.phone.slice(2), RESELLER.cpf, RESELLER.cnpj];
   return [
@@ -156,12 +161,15 @@ describe("what the supplier side reads about a reseller", () => {
       query: "",
       page: 1,
     });
+    const home = await listSupplierHomeShipments(database, supplierId, 10);
+    const detail = await getSupplierPanelShipment(database, { supplierId, shipmentId });
+    const shown = { storeNameShown: true };
+
     expect(list.items.map((item) => item.id)).toContain(shipmentId);
-    expect(leaksIn(list)).toEqual([]);
-    expect(leaksIn(await listSupplierHomeShipments(database, supplierId, 10))).toEqual([]);
-    expect(leaksIn(await getSupplierPanelShipment(database, { supplierId, shipmentId }))).toEqual(
-      [],
-    );
+    expect(leaksIn(list, shown)).toEqual([]);
+    expect(leaksIn(home, shown)).toEqual([]);
+    expect(leaksIn(detail, shown)).toEqual([]);
+    expect(detail.shopName).toBe(RESELLER.shopName);
   });
 
   it("keeps it out of the new-order e-mail", async () => {
