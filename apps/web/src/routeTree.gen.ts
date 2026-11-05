@@ -76,6 +76,7 @@ import { Route as AppAdminClientesUserIdRouteImport } from './routes/_app/admin/
 import { Route as AppAdminFornecedoresIndexRouteImport } from './routes/_app/admin/fornecedores/index'
 import { Route as AppAdminFornecedoresSupplierIdRouteImport } from './routes/_app/admin/fornecedores/$supplierId'
 import { Route as AppFornecedorPainelIndexRouteImport } from './routes/_app/fornecedor/painel/index'
+import { Route as AppFornecedorPainelConferirRouteImport } from './routes/_app/fornecedor/painel/conferir'
 import { Route as AppFornecedorPainelDesempenhoRouteImport } from './routes/_app/fornecedor/painel/desempenho'
 import { Route as AppFornecedorPainelImportarRouteImport } from './routes/_app/fornecedor/painel/importar'
 import { Route as AppFornecedorPainelMarcaRouteImport } from './routes/_app/fornecedor/painel/marca'
@@ -460,6 +461,12 @@ const AppFornecedorPainelIndexRoute =
     path: '/',
     getParentRoute: () => AppFornecedorPainelRouteRoute,
   } as any)
+const AppFornecedorPainelConferirRoute =
+  AppFornecedorPainelConferirRouteImport.update({
+    id: '/conferir',
+    path: '/conferir',
+    getParentRoute: () => AppFornecedorPainelRouteRoute,
+  } as any)
 const AppFornecedorPainelDesempenhoRoute =
   AppFornecedorPainelDesempenhoRouteImport.update({
     id: '/desempenho',
@@ -774,6 +781,7 @@ export interface FileRoutesByFullPath {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
@@ -881,6 +889,7 @@ export interface FileRoutesByTo {
   '/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
@@ -994,6 +1003,7 @@ export interface FileRoutesById {
   '/_app/admin/chamados/metricas': typeof AppAdminChamadosMetricasRoute
   '/_app/admin/clientes/$userId': typeof AppAdminClientesUserIdRoute
   '/_app/admin/fornecedores/$supplierId': typeof AppAdminFornecedoresSupplierIdRoute
+  '/_app/fornecedor/painel/conferir': typeof AppFornecedorPainelConferirRoute
   '/_app/fornecedor/painel/desempenho': typeof AppFornecedorPainelDesempenhoRoute
   '/_app/fornecedor/painel/importar': typeof AppFornecedorPainelImportarRoute
   '/_app/fornecedor/painel/marca': typeof AppFornecedorPainelMarcaRoute
@@ -1106,6 +1116,7 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
     | '/fornecedor/painel/marca'
@@ -1213,6 +1224,7 @@ export interface FileRouteTypes {
     | '/admin/chamados/metricas'
     | '/admin/clientes/$userId'
     | '/admin/fornecedores/$supplierId'
+    | '/fornecedor/painel/conferir'
     | '/fornecedor/painel/desempenho'
     | '/fornecedor/painel/importar'
     | '/fornecedor/painel/marca'
@@ -1325,6 +1337,7 @@ export interface FileRouteTypes {
     | '/_app/admin/chamados/metricas'
     | '/_app/admin/clientes/$userId'
     | '/_app/admin/fornecedores/$supplierId'
+    | '/_app/fornecedor/painel/conferir'
     | '/_app/fornecedor/painel/desempenho'
     | '/_app/fornecedor/painel/importar'
     | '/_app/fornecedor/painel/marca'
@@ -1900,6 +1913,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFornecedorPainelIndexRouteImport
       parentRoute: typeof AppFornecedorPainelRouteRoute
     }
+    '/_app/fornecedor/painel/conferir': {
+      id: '/_app/fornecedor/painel/conferir'
+      path: '/conferir'
+      fullPath: '/fornecedor/painel/conferir'
+      preLoaderRoute: typeof AppFornecedorPainelConferirRouteImport
+      parentRoute: typeof AppFornecedorPainelRouteRoute
+    }
     '/_app/fornecedor/painel/desempenho': {
       id: '/_app/fornecedor/painel/desempenho'
       path: '/desempenho'
@@ -2275,6 +2295,7 @@ const AppFornecedoresRouteRouteWithChildren =
   AppFornecedoresRouteRoute._addFileChildren(AppFornecedoresRouteRouteChildren)
 
 interface AppFornecedorPainelRouteRouteChildren {
+  AppFornecedorPainelConferirRoute: typeof AppFornecedorPainelConferirRoute
   AppFornecedorPainelDesempenhoRoute: typeof AppFornecedorPainelDesempenhoRoute
   AppFornecedorPainelImportarRoute: typeof AppFornecedorPainelImportarRoute
   AppFornecedorPainelMarcaRoute: typeof AppFornecedorPainelMarcaRoute
@@ -2288,6 +2309,7 @@ interface AppFornecedorPainelRouteRouteChildren {
 
 const AppFornecedorPainelRouteRouteChildren: AppFornecedorPainelRouteRouteChildren =
   {
+    AppFornecedorPainelConferirRoute: AppFornecedorPainelConferirRoute,
     AppFornecedorPainelDesempenhoRoute: AppFornecedorPainelDesempenhoRoute,
     AppFornecedorPainelImportarRoute: AppFornecedorPainelImportarRoute,
     AppFornecedorPainelMarcaRoute: AppFornecedorPainelMarcaRoute,
