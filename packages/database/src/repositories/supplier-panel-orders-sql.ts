@@ -141,6 +141,7 @@ export interface SupplierShipmentFilters {
   label?: SupplierLabelState | undefined;
 }
 
+/** All the list filters as one condition; a filter left out narrows nothing. */
 export function shipmentFilters(filters: SupplierShipmentFilters, now: Date): SQL | undefined {
   return and(
     searchFilter(filters.query),

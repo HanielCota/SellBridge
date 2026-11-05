@@ -122,7 +122,14 @@ export async function loadMarketplaceLabels(
     first.access.store,
     allowed.map((check) => check.access.externalOrderId),
   );
-  const internal = (externalOrderId: string) => orderIdByExternal.get(externalOrderId) ?? "";
+  // Mercado Livre answers with the ids it was asked for: any other id is a bug, never skipped.
+  const internal = (externalOrderId: string) => {
+    const orderId = orderIdByExternal.get(externalOrderId);
+    if (orderId === undefined) {
+      throw new Error(`Label batch answered for an order it was not asked for: ${externalOrderId}`);
+    }
+    return orderId;
+  };
   return {
     pdf: batch.pdf,
     printedOrderIds: batch.printedOrderIds.map(internal),

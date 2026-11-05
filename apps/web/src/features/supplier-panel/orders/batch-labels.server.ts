@@ -38,7 +38,14 @@ async function printStoreLabels(
     return { file: null, results: [] };
   }
   const shipmentIdByOrder = new Map(group.map((candidate) => [candidate.orderId, candidate.id]));
-  const shipmentOf = (orderId: string) => shipmentIdByOrder.get(orderId) ?? orderId;
+  // The batch answers for the orders of this group only: any other id is a bug, never skipped.
+  const shipmentOf = (orderId: string) => {
+    const shipmentId = shipmentIdByOrder.get(orderId);
+    if (shipmentId === undefined) {
+      throw new Error(`Label batch answered for an order outside the group: ${orderId}`);
+    }
+    return shipmentId;
+  };
   try {
     const batch = await loadMarketplaceLabels(
       first.tenantId,
