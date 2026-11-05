@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  type BuildStamp,
   isOutdatedPage,
-  BUILD_ID,
-  servedBuildId,
+  PAGE_BUILD,
+  servedBuild,
   VERSION_CHECK_INTERVAL_IN_MS,
   VERSION_CHECK_TIMEOUT_IN_MS,
 } from "./app-version";
 
-async function fetchServedBuildId(): Promise<string | null> {
+const VERSION_QUERY_KEY = ["app-version"] as const;
+
+async function fetchServedBuild(): Promise<BuildStamp | null> {
   const response = await fetch("/api/version", {
     cache: "no-store",
     signal: AbortSignal.timeout(VERSION_CHECK_TIMEOUT_IN_MS),
@@ -15,7 +18,7 @@ async function fetchServedBuildId(): Promise<string | null> {
   if (!response.ok) {
     return null;
   }
-  return servedBuildId(await response.json());
+  return servedBuild(await response.json());
 }
 
 /**
@@ -24,13 +27,14 @@ async function fetchServedBuildId(): Promise<string | null> {
  */
 export function useOutdatedPage(): boolean {
   const query = useQuery({
-    queryKey: ["app-version"],
-    queryFn: fetchServedBuildId,
+    queryKey: VERSION_QUERY_KEY,
+    queryFn: fetchServedBuild,
     refetchInterval: (current) =>
-      isOutdatedPage(BUILD_ID, current.state.data ?? null) ? false : VERSION_CHECK_INTERVAL_IN_MS,
+      isOutdatedPage(PAGE_BUILD, current.state.data ?? null) ? false : VERSION_CHECK_INTERVAL_IN_MS,
     // A plain true keeps the app's staleTime, so switching tabs back and forth asks once.
-    refetchOnWindowFocus: (current) => !isOutdatedPage(BUILD_ID, current.state.data ?? null),
+    refetchOnWindowFocus: (current) => !isOutdatedPage(PAGE_BUILD, current.state.data ?? null),
     retry: false,
   });
-  return isOutdatedPage(BUILD_ID, query.data ?? null);
+
+  return isOutdatedPage(PAGE_BUILD, query.data ?? null);
 }

@@ -44,6 +44,9 @@ export default defineConfig({
     "import.meta.env.VITE_BUILD_ID": JSON.stringify(
       process.env.VITE_BUILD_ID ?? process.env.SOURCE_COMMIT ?? "development",
     ),
+    // One value for the browser and the server bundles: open pages tell a newer deploy apart
+    // from an older server still answering during a rolling deploy.
+    "import.meta.env.VITE_BUILT_AT": JSON.stringify(new Date().toISOString()),
     "import.meta.env.VITE_OCR_MODEL_DIRECTORY": JSON.stringify(`/${OCR_MODEL_DIRECTORY}`),
   },
   server: {

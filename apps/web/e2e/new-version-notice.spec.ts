@@ -3,6 +3,9 @@ import { DEMO_USER, gotoHydrated, signIn } from "./helpers";
 
 const NOTICE = { name: "Atualizar para a nova versão do SellBridge" } as const;
 
+/** A deploy made after the page's build. */
+const NEWER_BUILD = { buildId: "versao-nova-e2e", builtAt: "2999-01-01T00:00:00.000Z" };
+
 test("sem versão nova, o topo não mostra aviso", async ({ page }) => {
   await signIn(page, DEMO_USER);
   const versionAnswer = page.waitForResponse("**/api/version");
@@ -20,9 +23,7 @@ test("com versão nova no servidor, o topo avisa e só recarrega quando a pessoa
   page,
 }) => {
   await signIn(page, DEMO_USER);
-  await page.route("**/api/version", (route) =>
-    route.fulfill({ json: { buildId: "versao-nova-e2e" } }),
-  );
+  await page.route("**/api/version", (route) => route.fulfill({ json: NEWER_BUILD }));
   await gotoHydrated(page, "/publicacoes");
 
   const notice = page.getByRole("button", NOTICE);
