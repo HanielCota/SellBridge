@@ -470,8 +470,12 @@ describe("label records", () => {
     await setStatus(parcel.shipmentId, "accepted");
     const before = await labelRow(parcel, "pending");
 
-    await recordLabelsPrinted(database, [parcel.order.id]);
-    await recordLabelsPrinted(database, [parcel.order.id]);
+    await recordLabelsPrinted(database, [
+      { orderId: parcel.order.id, marketplaceShipmentId: "4400" },
+    ]);
+    await recordLabelsPrinted(database, [
+      { orderId: parcel.order.id, marketplaceShipmentId: "4400" },
+    ]);
     const after = await labelRow(parcel, "printed");
 
     expect(before?.labelState).toBe("pending");
@@ -484,7 +488,9 @@ describe("label records", () => {
     await recordLabelsWaiting(database, [parcel.order.id]);
     const waiting = await labelRow(parcel, "waiting");
 
-    await recordLabelsPrinted(database, [parcel.order.id]);
+    await recordLabelsPrinted(database, [
+      { orderId: parcel.order.id, marketplaceShipmentId: "4400" },
+    ]);
     await recordLabelsWaiting(database, [parcel.order.id]);
     const printed = await labelRow(parcel);
 
@@ -510,7 +516,7 @@ describe("label records", () => {
       storeId: mercadoLivreStore,
       buyerName: "Paula Ribeiro",
     });
-    await recordLabelsPrinted(database, [order.id]);
+    await recordLabelsPrinted(database, [{ orderId: order.id, marketplaceShipmentId: "4400" }]);
 
     const detail = await getSupplierPanelShipment(database, {
       supplierId: supplier.supplierId,
@@ -569,6 +575,21 @@ describe("findSupplierShipmentsByCode", () => {
 
     expect(other).toEqual([]);
     expect(left).toEqual([]);
+  });
+
+  it("finds a parcel by the marketplace shipment id its label barcode carries", async () => {
+    const { shipmentId, order } = await forwardedShipment();
+    await setStatus(shipmentId, "accepted");
+    const marketplaceShipmentId = String(Date.now());
+    await recordLabelsPrinted(database, [{ orderId: order.id, marketplaceShipmentId }]);
+
+    const found = await findSupplierShipmentsByCode(
+      database,
+      supplier.supplierId,
+      marketplaceShipmentId,
+    );
+
+    expect(found.map((row) => row.id)).toEqual([shipmentId]);
   });
 
   it("finds nothing for an empty scan", async () => {

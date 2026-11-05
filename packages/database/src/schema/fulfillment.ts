@@ -57,6 +57,8 @@ export const orderShipments = pgTable(
     labelPrintedAt: timestamp({ withTimezone: true }),
     labelPrintCount: integer().notNull().default(0),
     labelWaitingSince: timestamp({ withTimezone: true }),
+    /** The marketplace's own shipment id, read when its label is emitted: its label barcode. */
+    marketplaceShipmentId: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

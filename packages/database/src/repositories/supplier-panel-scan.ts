@@ -7,8 +7,8 @@ import { normalizedTrackingCode } from "./shipment-tracking.ts";
 const SCANNABLE_STATUSES = ["forwarded", "accepted", "picking", "ready"] as const;
 
 /**
- * The supplier's open parcels whose order number or tracking code is the scanned text: what a
- * barcode reader types on the label or the identification sheet. At most two come back, enough
+ * The supplier's open parcels whose order number, tracking code or marketplace shipment id is
+ * the scanned text: what a barcode reader types from the label. At most two come back, enough
  * to tell a unique match from an ambiguous one.
  */
 export async function findSupplierShipmentsByCode(
@@ -22,6 +22,8 @@ export async function findSupplierShipmentsByCode(
   }
   const byOrderNumber = sql`upper(${orders.externalOrderId}) = upper(${typed})`;
   const byTrackingCode = sql`${normalizedTrackingCode} = upper(regexp_replace(${typed}, '[[:space:].-]', '', 'g'))`;
+  // The Mercado Livre label's barcode is its shipment id, kept when the label was emitted.
+  const byMarketplaceShipment = eq(orderShipments.marketplaceShipmentId, typed);
   return database
     .select({
       id: orderShipments.id,
@@ -37,7 +39,7 @@ export async function findSupplierShipmentsByCode(
       and(
         eq(orderShipments.supplierId, supplierId),
         inArray(orderShipments.status, [...SCANNABLE_STATUSES]),
-        or(byOrderNumber, byTrackingCode),
+        or(byOrderNumber, byTrackingCode, byMarketplaceShipment),
       ),
     )
     .limit(2);

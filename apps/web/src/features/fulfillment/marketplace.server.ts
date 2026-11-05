@@ -3,6 +3,7 @@ import {
   getMercadoLivreLabel,
   getMercadoLivreLabels,
   getMercadoLivreShipping,
+  type PrintedLabel,
 } from "@sellbridge/marketplaces";
 import { conflictError, notFoundError } from "@sellbridge/shared/errors";
 import { orders, orderShipments, storeConnections } from "@sellbridge/database/schema";
@@ -75,7 +76,7 @@ export async function loadMarketplaceLabel(tenantId: string, orderId: string) {
 /** What a batch of one store's labels gave, in this system's order ids. */
 export interface StoreLabelBatch {
   pdf: Uint8Array<ArrayBuffer> | null;
-  printedOrderIds: string[];
+  printed: PrintedLabel[];
   refused: { orderId: string; error: unknown }[];
 }
 
@@ -108,7 +109,7 @@ export async function loadMarketplaceLabels(
   );
   const [first] = allowed;
   if (first === undefined) {
-    return { pdf: null, printedOrderIds: [], refused };
+    return { pdf: null, printed: [], refused };
   }
   if (
     allowed.some((check) => check.access.store.externalShopId !== first.access.store.externalShopId)
@@ -132,7 +133,7 @@ export async function loadMarketplaceLabels(
   };
   return {
     pdf: batch.pdf,
-    printedOrderIds: batch.printedOrderIds.map(internal),
+    printed: batch.printed.map((label) => ({ ...label, orderId: internal(label.orderId) })),
     refused: [
       ...refused,
       ...batch.refused.map((item) => ({ orderId: internal(item.orderId), error: item.error })),

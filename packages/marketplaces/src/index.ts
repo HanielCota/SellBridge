@@ -12,4 +12,5 @@ export {
   getMercadoLivreShipping,
   LABEL_NOT_READY_CAUSE,
   type MercadoLivreLabelBatch,
+  type PrintedLabel,
 } from "./mercado-livre/shipping.ts";

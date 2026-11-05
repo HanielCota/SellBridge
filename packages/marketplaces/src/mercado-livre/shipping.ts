@@ -267,16 +267,23 @@ export async function getMercadoLivreLabel(
   config: MercadoLivreConfig,
   store: StoreCredentials,
   orderId: string,
-) {
+): Promise<{ pdf: Uint8Array<ArrayBuffer>; shipmentId: string }> {
   const { shipping } = await loadSaleShipment(config, store, orderId);
   assertLabelPrintable(shipping);
-  return fetchLabelPdf(config, store, [shipping.shipmentId]);
+  const pdf = await fetchLabelPdf(config, store, [shipping.shipmentId]);
+  return { pdf, shipmentId: shipping.shipmentId };
+}
+
+/** An order whose label came, with the marketplace's shipment id its barcode carries. */
+export interface PrintedLabel {
+  orderId: string;
+  shipmentId: string;
 }
 
 /** What a batch of labels of one store gave: one PDF for the printable orders, and the rest. */
 export interface MercadoLivreLabelBatch {
   pdf: Uint8Array<ArrayBuffer> | null;
-  printedOrderIds: string[];
+  printed: PrintedLabel[];
   refused: { orderId: string; error: unknown }[];
 }
 
@@ -324,14 +331,15 @@ export async function getMercadoLivreLabels(
     lookup.kind === "refused" ? [{ orderId: lookup.orderId, error: lookup.error }] : [],
   );
   if (printable.length === 0) {
-    return { pdf: null, printedOrderIds: [], refused };
+    return { pdf: null, printed: [], refused };
   }
   const pdf = await fetchLabelPdf(
     config,
     store,
     printable.map((lookup) => lookup.shipmentId),
   );
-  return { pdf, printedOrderIds: printable.map((lookup) => lookup.orderId), refused };
+  const printed = printable.map(({ orderId, shipmentId }) => ({ orderId, shipmentId }));
+  return { pdf, printed, refused };
 }
 
 function parseDeliveryAddress(raw: z.infer<typeof shippingSchema>) {

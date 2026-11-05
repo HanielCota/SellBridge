@@ -171,8 +171,9 @@ describe("Mercado Livre shipping", () => {
   it("gets the official PDF only for printable shipments", async () => {
     const { request, config } = setup();
     request.mockResolvedValueOnce(new Response("%PDF-1.4 test"));
-    const pdf = await getMercadoLivreLabel(config, store, "55");
-    expect(new TextDecoder().decode(pdf)).toBe("%PDF-1.4 test");
+    const label = await getMercadoLivreLabel(config, store, "55");
+    expect(new TextDecoder().decode(label.pdf)).toBe("%PDF-1.4 test");
+    expect(label.shipmentId).toBe("123");
     expect(request.mock.calls[3]?.[0]).toBe(
       "https://api.mercadolibre.com/shipment_labels?shipment_ids=123&response_type=pdf",
     );
@@ -223,7 +224,7 @@ describe("Mercado Livre shipping", () => {
 
     const batch = await getMercadoLivreLabels(config, store, ["55", "56"]);
 
-    expect(batch.printedOrderIds).toEqual(["55"]);
+    expect(batch.printed).toEqual([{ orderId: "55", shipmentId: "123" }]);
     expect(batch.refused.map((refusal) => refusal.orderId)).toEqual(["56"]);
     expect(hasMarketplaceCause(batch.refused[0]?.error, LABEL_NOT_READY_CAUSE)).toBe(true);
     expect(request.mock.calls.at(-1)?.[0]).toBe(

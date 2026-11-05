@@ -15,6 +15,7 @@ import { database } from "@/lib/server/database";
 import { requireSellerRequest } from "@/lib/server/tenant-session";
 import { labelErrorPage } from "@/features/fulfillment/label-error-page";
 import { loadMarketplaceLabel } from "@/features/fulfillment/marketplace.server";
+import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
 import { panelLabelIds, panelLabelShipmentId } from "@/lib/server/panel-label-access";
 import { hasTokenInUrl, readLabelForm, tokenOf } from "@/lib/server/supplier-link-token";
 
@@ -64,12 +65,15 @@ async function labelTenant(request: Request, orderId: string) {
  */
 async function recordedLabel(tenantId: string, orderId: string): Promise<Uint8Array<ArrayBuffer>> {
   try {
-    const pdf = await loadMarketplaceLabel(tenantId, orderId);
-    await recordLabelsPrinted(database, [orderId]);
-    return pdf;
+    const label = await loadMarketplaceLabel(tenantId, orderId);
+    await keepLabelRecord(
+      async () =>
+        await recordLabelsPrinted(database, [{ orderId, marketplaceShipmentId: label.shipmentId }]),
+    );
+    return label.pdf;
   } catch (error) {
     if (hasMarketplaceCause(error, LABEL_NOT_READY_CAUSE)) {
-      await recordLabelsWaiting(database, [orderId]);
+      await keepLabelRecord(async () => await recordLabelsWaiting(database, [orderId]));
     }
     throw error;
   }

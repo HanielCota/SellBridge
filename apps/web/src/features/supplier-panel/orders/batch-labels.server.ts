@@ -7,7 +7,11 @@ import { hasMarketplaceCause, LABEL_NOT_READY_CAUSE } from "@sellbridge/marketpl
 import { isAppError } from "@sellbridge/shared/errors";
 import { logger } from "@sellbridge/shared/logger";
 import type { BatchLabelsInput } from "@sellbridge/shared/supplier-panel-orders-schema";
-import { loadMarketplaceLabels } from "@/features/fulfillment/marketplace.server";
+import { keepLabelRecord } from "@/features/fulfillment/label-records.server";
+import {
+  loadMarketplaceLabels,
+  type StoreLabelBatch,
+} from "@/features/fulfillment/marketplace.server";
 import { database } from "@/lib/server/database";
 import {
   type BatchLabelsReport,
@@ -26,6 +30,21 @@ function refusalReason(supplierId: string, error: unknown): string {
   }
   logger.error("supplier_panel.batch_label_failed", { supplierId, error });
   return UNEXPECTED_FAILURE;
+}
+
+/** Keeps what the marketplace said of each order: label emitted, or not released yet. */
+async function recordBatch(batch: StoreLabelBatch): Promise<void> {
+  const notReady = batch.refused
+    .filter((item) => hasMarketplaceCause(item.error, LABEL_NOT_READY_CAUSE))
+    .map((item) => item.orderId);
+  const printed = batch.printed.map((label) => ({
+    orderId: label.orderId,
+    marketplaceShipmentId: label.shipmentId,
+  }));
+  await Promise.all([
+    keepLabelRecord(async () => await recordLabelsPrinted(database, printed)),
+    keepLabelRecord(async () => await recordLabelsWaiting(database, notReady)),
+  ]);
 }
 
 /** One reseller store's labels: its PDF, each parcel's result, and the label records kept. */
@@ -51,16 +70,10 @@ async function printStoreLabels(
       first.tenantId,
       group.map((candidate) => candidate.orderId),
     );
-    const notReady = batch.refused
-      .filter((item) => hasMarketplaceCause(item.error, LABEL_NOT_READY_CAUSE))
-      .map((item) => item.orderId);
-    await Promise.all([
-      recordLabelsPrinted(database, batch.printedOrderIds),
-      recordLabelsWaiting(database, notReady),
-    ]);
+    await recordBatch(batch);
     const results: LabelItemResult[] = [
-      ...batch.printedOrderIds.map((orderId) => ({
-        shipmentId: shipmentOf(orderId),
+      ...batch.printed.map((label) => ({
+        shipmentId: shipmentOf(label.orderId),
         printed: true as const,
       })),
       ...batch.refused.map((item) => ({
@@ -74,7 +87,7 @@ async function printStoreLabels(
         ? null
         : {
             storeName: first.shopName,
-            labelCount: batch.printedOrderIds.length,
+            labelCount: batch.printed.length,
             pdfBase64: Buffer.from(batch.pdf).toString("base64"),
           };
     return { file, results };

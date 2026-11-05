@@ -2,26 +2,39 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client.ts";
 import { orders, orderShipments, storeConnections } from "../schema/index.ts";
 
+/** An order whose marketplace label was emitted, with the shipment id its barcode carries. */
+export interface PrintedLabelRecord {
+  orderId: string;
+  marketplaceShipmentId: string;
+}
+
 /**
  * Records that the marketplace label of these orders was emitted now: the count goes up, the
- * time is kept, and a "not released yet" mark clears. Read back as `supplierLabelState`.
+ * time and the marketplace's shipment id are kept (the barcode check reads it), and a "not
+ * released yet" mark clears. Read back as `supplierLabelState`.
  */
 export async function recordLabelsPrinted(
   database: Database,
-  orderIds: readonly string[],
+  labels: readonly PrintedLabelRecord[],
   now: Date = new Date(),
 ): Promise<void> {
-  if (orderIds.length === 0) {
+  if (labels.length === 0) {
     return;
   }
-  await database
-    .update(orderShipments)
-    .set({
-      labelPrintedAt: now,
-      labelPrintCount: sql`${orderShipments.labelPrintCount} + 1`,
-      labelWaitingSince: null,
-    })
-    .where(inArray(orderShipments.orderId, [...orderIds]));
+  await database.transaction(async (transaction) => {
+    // One order after the other: each one keeps its own marketplace shipment id.
+    for (const label of labels) {
+      await transaction
+        .update(orderShipments)
+        .set({
+          labelPrintedAt: now,
+          labelPrintCount: sql`${orderShipments.labelPrintCount} + 1`,
+          labelWaitingSince: null,
+          marketplaceShipmentId: label.marketplaceShipmentId,
+        })
+        .where(eq(orderShipments.orderId, label.orderId));
+    }
+  });
 }
 
 /**
