@@ -15,13 +15,13 @@ import { supplierOrdersKey } from "@/features/supplier-panel/orders/orders.queri
 import { errorMessage } from "@/lib/errors";
 
 const MODE_LABELS: Record<SupplierScanMode, string> = {
-  picking: "Separação → pronto para envio",
-  dispatch: "Despacho → enviado",
+  picking: "Separação",
+  dispatch: "Despacho",
 };
 
 const MODE_HINTS: Record<SupplierScanMode, string> = {
-  picking: 'Cada pacote lido fica "Pronto para envio".',
-  dispatch: 'Cada pacote lido fica "Enviado", com o rastreio que já tem.',
+  picking: 'Separação: cada pacote lido fica "Pronto para envio".',
+  dispatch: 'Despacho: cada pacote lido fica "Enviado", com o rastreio que já tem.',
 };
 
 /** Reads kept on screen: a busy afternoon of packing, without the page growing forever. */

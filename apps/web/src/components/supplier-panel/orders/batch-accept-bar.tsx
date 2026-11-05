@@ -111,7 +111,17 @@ function PrintLabelsButton({
       disabled={labels.isPending}
       onClick={print}
     >
-      {labels.isPending ? "Gerando…" : `Imprimir etiquetas (${printable.length})`}
+      {labels.isPending ? (
+        "Gerando…"
+      ) : (
+        // On a phone the short word keeps the bar inside the screen; the name stays whole.
+        <span aria-label={`Imprimir etiquetas (${printable.length})`}>
+          <span aria-hidden="true" className="sm:hidden">{`Etiquetas (${printable.length})`}</span>
+          <span aria-hidden="true" className="hidden sm:inline">
+            {`Imprimir etiquetas (${printable.length})`}
+          </span>
+        </span>
+      )}
     </Button>
   );
 }

@@ -128,7 +128,7 @@ test("o fornecedor acha o pedido pelo cliente, vê o que recebe e confere com o 
   const log = page.getByRole("list", { name: "Pacotes lidos" });
   await expect(log).toContainText(`Pedido ${order.externalOrderId}: Pronto para envio.`);
 
-  await page.getByText("Despacho → enviado").click();
+  await page.getByText("Despacho", { exact: true }).click();
   // The reader may type the code with spaces or dashes; it still finds the parcel.
   await field.fill(`${TRACKING.slice(0, 5)}-${TRACKING.slice(5)}`);
   await field.press("Enter");

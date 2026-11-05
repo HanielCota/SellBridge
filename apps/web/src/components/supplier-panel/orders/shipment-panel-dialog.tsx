@@ -60,7 +60,7 @@ function OrderFacts({ shipment }: { shipment: PanelShipment }) {
       </dl>
       {shipment.labelState === null ? null : (
         <div className="space-y-1">
-          <LabelStatus state={shipment.labelState} printedAt={shipment.labelPrintedAt} />
+          <LabelStatus state={shipment.labelState} printedAt={null} />
           {history === null ? null : (
             <p className="text-footnote text-muted-foreground">{history}</p>
           )}

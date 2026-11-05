@@ -83,8 +83,14 @@ export function LabelStatus({
     return null;
   }
   const when = state === "printed" && printedAt !== null ? ` ${formatAbsoluteTime(printedAt)}` : "";
+  // A line of its own: on a phone the row's action button follows it.
   return (
-    <ToneStatus tone={LABEL_TONES[state]} label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`} />
+    <div>
+      <ToneStatus
+        tone={LABEL_TONES[state]}
+        label={`${SUPPLIER_LABEL_STATE_LABELS[state]}${when}`}
+      />
+    </div>
   );
 }
 
