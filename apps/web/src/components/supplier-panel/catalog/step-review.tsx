@@ -54,7 +54,7 @@ function SubmitForReview({
       <FormErrorAlert message={submitError} />
       {blockingCount > 0 ? (
         <p className="text-sm text-destructive">
-          Corrija os itens em “Impede publicar” para enviar.
+          Corrija os itens em “Impede publicar” antes de publicar.
         </p>
       ) : null}
       <DisabledHint
