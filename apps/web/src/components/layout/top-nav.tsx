@@ -8,6 +8,7 @@ import { AccountChip } from "./account-chip";
 import { AdminTabsBar } from "./admin-tabs-bar";
 import { MobileNav } from "./mobile-nav";
 import { CommandPalette } from "./command-palette";
+import { NewVersionNotice } from "./new-version-notice";
 import { NotificationBell } from "./notification-bell";
 import { TeamModeButton } from "./team-mode-entry";
 import type { AppNavigationState } from "./use-app-navigation";
@@ -70,6 +71,7 @@ export function TopNav({ user, adminMode, profileKind, state }: TopNavProps) {
         />
         <HomeLink isSupplier={isSupplier} />
         <div className="ml-auto flex items-center gap-2">
+          <NewVersionNotice />
           {/* The search looks through the seller's orders, listings and stores. */}
           {isSupplier ? null : <CommandPalette />}
           {/* On phones the way in is the first row of the menu sheet: the header has no room. */}
