@@ -15,6 +15,9 @@ export const VERSION_CHECK_INTERVAL_IN_MS = 5 * 60 * 1000;
 /** A version check that hangs is dropped: the next one comes in a few minutes anyway. */
 export const VERSION_CHECK_TIMEOUT_IN_MS = 10_000;
 
+/** Window event that asks an open page to check the server's build right away. */
+export const VERSION_CHECK_REQUEST_EVENT = "sellbridge:version-check";
+
 /** A deploy's build id is a commit hash or a UUID; anything longer is not one. */
 const MAX_BUILD_ID_LENGTH = 100;
 
@@ -50,4 +53,9 @@ export function isOutdatedPage(page: BuildStamp, served: BuildStamp | null): boo
     return false;
   }
   return Date.parse(served.builtAt) > Date.parse(page.builtAt);
+}
+
+/** Asks the open page to check the server's build now, for example after a server call failed. */
+export function requestVersionCheck(): void {
+  window.dispatchEvent(new Event(VERSION_CHECK_REQUEST_EVENT));
 }

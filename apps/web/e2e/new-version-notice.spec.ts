@@ -40,3 +40,22 @@ test("com versão nova no servidor, o topo avisa e só recarrega quando a pessoa
   await page.waitForLoadState("load");
   await expect.poll(async () => page.evaluate(() => "versionNoticeMarker" in window)).toBe(false);
 });
+
+test("uma chamada ao servidor que falha confere a versão na hora, sem esperar a próxima checagem", async ({
+  page,
+}) => {
+  await signIn(page, DEMO_USER);
+  const firstAnswer = page.waitForResponse("**/api/version");
+  await gotoHydrated(page, "/publicacoes");
+  await firstAnswer;
+  // From now on the server runs a newer deploy that no longer knows this page's functions.
+  await page.route("**/api/version", (route) => route.fulfill({ json: NEWER_BUILD }));
+  await page.route("**/_serverFn/**", (route) =>
+    route.fulfill({ status: 500, body: "Server function info not found" }),
+  );
+
+  await page.getByRole("link", { name: "Lojas", exact: true }).click();
+
+  // The next timed check is minutes away and the tab never lost focus: only the failure asks.
+  await expect(page.getByRole("button", NOTICE)).toBeVisible({ timeout: 10_000 });
+});

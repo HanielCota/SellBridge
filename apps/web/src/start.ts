@@ -1,5 +1,6 @@
 import { installPortugueseZodMessages } from "@sellbridge/shared/zod-messages";
 import { createCsrfMiddleware, createMiddleware, createStart } from "@tanstack/react-start";
+import { requestVersionCheck } from "@/features/app-version/app-version";
 import { serverErrorLogging } from "@/lib/server/error-logging";
 import { tabProfileHeaders } from "@/lib/tab-profile";
 import { bodyLimitFor, declaresMoreThan, payloadTooLarge } from "@/lib/server/request-body-limit";
@@ -72,8 +73,23 @@ const tabProfileMiddleware = createMiddleware({ type: "function" }).client(async
   next({ headers: tabProfileHeaders() }),
 );
 
+/**
+ * A failed server call may come from a page older than the server (a function the new deploy no
+ * longer has), so the page checks the server's build at once instead of at the next poll.
+ */
+const versionCheckOnFailureMiddleware = createMiddleware({ type: "function" }).client(
+  async ({ next }) => {
+    try {
+      return await next();
+    } catch (error) {
+      requestVersionCheck();
+      throw error;
+    }
+  },
+);
+
 export const startInstance = createStart(() => ({
-  functionMiddleware: [tabProfileMiddleware, serverErrorLogging],
+  functionMiddleware: [tabProfileMiddleware, versionCheckOnFailureMiddleware, serverErrorLogging],
   requestMiddleware: [
     bodyLimitMiddleware,
     createCsrfMiddleware({ filter: (context) => context.handlerType === "serverFn" }),
