@@ -8,11 +8,14 @@ import {
   supplierProducts,
   suppliers,
 } from "../schema/index.ts";
-import { sellableOnMarketplace } from "./sql/sellable.ts";
+import { sellableBySupplier } from "./sql/sellable.ts";
 import { targetMatchesStoreSupplier } from "./sql/store-supplier-match.ts";
 import { shareLockProductSource } from "./lock-product-source.ts";
 
-/** Source/product locks serialize completion with archiving, blocking and deactivation. */
+/**
+ * Source/product locks serialize completion with archiving, blocking and deactivation. A store
+ * the supplier closed does not keep a finished publication off: its stock just syncs at zero.
+ */
 export async function publicationMayGoLive(transaction: Transaction, targetId: string) {
   const [product] = await transaction
     .select({ id: listings.supplierProductId })
@@ -23,7 +26,7 @@ export async function publicationMayGoLive(transaction: Transaction, targetId: s
   await shareLockProductSource(transaction, product.id);
   const [row] = await transaction
     .select({
-      mayPublish: sql<boolean>`(${sellableOnMarketplace()} and ${targetMatchesStoreSupplier()}
+      mayPublish: sql<boolean>`(${sellableBySupplier()} and ${targetMatchesStoreSupplier()}
       and ${storeConnections.status} = 'connected')`.mapWith(Boolean),
     })
     .from(listingTargets)

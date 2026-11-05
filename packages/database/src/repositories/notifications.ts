@@ -304,7 +304,8 @@ async function stockShortageEvents(
 
 /**
  * Listings the supplier keeps off the marketplaces, dated by their last status change (the
- * pause, when the admin turned the product off). Gone once the product can be sold again.
+ * pause, when the admin turned the product off) or by when the supplier closed the store, which
+ * changes no listing. Gone once the product can be sold again.
  */
 async function listingUnavailableEvents(
   database: Database,
@@ -313,11 +314,15 @@ async function listingUnavailableEvents(
   const lastChange = sql<Date>`(select max(${listingTargets.updatedAt}) from ${listingTargets}
     where ${listingTargets.listingId} = ${listings.id}
       and ${listingTargets.status} in ('published', 'paused'))`.mapWith(listingTargets.updatedAt);
+  // Greatest ignores the null of an open store.
+  const changedAt = sql<Date>`greatest(${lastChange}, ${suppliers.salesClosedAt})`.mapWith(
+    listingTargets.updatedAt,
+  );
   const rows = await database
     .select({
       entityId: listings.id,
       listingTitle: listings.title,
-      at: lastChange,
+      at: changedAt,
       productActive: productListableColumn(),
       supplierActive: suppliers.active,
       supplierOpen: supplierOpenColumn(),
@@ -333,7 +338,7 @@ async function listingUnavailableEvents(
         sql`${lastChange} is not null`,
       ),
     )
-    .orderBy(desc(lastChange))
+    .orderBy(desc(changedAt))
     .limit(PER_KIND);
   return rows.flatMap(
     ({ productActive, supplierActive, supplierOpen, priceCoversCost, ...row }) => {

@@ -42,7 +42,17 @@ export function supplierOpenColumn(): SQL<boolean> {
  * Needs `supplier_products` and `suppliers` in the FROM clause.
  */
 export function sellableOnMarketplace(): SQL {
-  return sql`(${productListable()} and ${suppliers.active} and ${supplierOpen()})`;
+  return sql`(${sellableBySupplier()} and ${supplierOpen()})`;
+}
+
+/**
+ * `sellableOnMarketplace` without the store check: a listable product of an active supplier.
+ * A closed store only holds the stock at zero, so a publication that finishes meanwhile still
+ * goes live and gets its stock back when the store opens. Needs `supplier_products` and
+ * `suppliers` in the FROM clause.
+ */
+export function sellableBySupplier(): SQL {
+  return sql`(${productListable()} and ${suppliers.active})`;
 }
 
 /**
