@@ -28,7 +28,8 @@ export function useOutdatedPage(): boolean {
     queryFn: fetchServedBuildId,
     refetchInterval: (current) =>
       isOutdatedPage(BUILD_ID, current.state.data ?? null) ? false : VERSION_CHECK_INTERVAL_IN_MS,
-    refetchOnWindowFocus: "always",
+    // A plain true keeps the app's staleTime, so switching tabs back and forth asks once.
+    refetchOnWindowFocus: (current) => !isOutdatedPage(BUILD_ID, current.state.data ?? null),
     retry: false,
   });
   return isOutdatedPage(BUILD_ID, query.data ?? null);
