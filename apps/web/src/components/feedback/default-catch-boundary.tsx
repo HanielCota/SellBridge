@@ -1,6 +1,7 @@
 import { ErrorComponent, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { WarningIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { NewVersionNotice } from "@/components/layout/new-version-notice";
 import { useEffect, useState } from "react";
 import { reportRouteError } from "@/lib/report-route-error";
 
@@ -36,6 +37,8 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
       {reportId ? (
         <p className="text-xs text-muted-foreground">Erro registrado. Referência: {reportId}</p>
       ) : null}
+      {/* A page older than the server fails here first: the reload is the real way out. */}
+      <NewVersionNotice />
       <Button onClick={() => void router.invalidate()}>Tentar novamente</Button>
     </div>
   );
