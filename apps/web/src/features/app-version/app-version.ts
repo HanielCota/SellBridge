@@ -57,5 +57,10 @@ export function isOutdatedPage(page: BuildStamp, served: BuildStamp | null): boo
 
 /** Asks the open page to check the server's build now, for example after a server call failed. */
 export function requestVersionCheck(): void {
+  // The client middleware also runs for server calls made during a server render, where there is
+  // no page to check and touching `window` would replace the call's own error.
+  if (typeof window === "undefined") {
+    return;
+  }
   window.dispatchEvent(new Event(VERSION_CHECK_REQUEST_EVENT));
 }

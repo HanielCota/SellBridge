@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { isOutdatedPage, servedBuild } from "./app-version";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  isOutdatedPage,
+  requestVersionCheck,
+  servedBuild,
+  VERSION_CHECK_REQUEST_EVENT,
+} from "./app-version";
 
 const PAGE = { buildId: "page-build", builtAt: "2026-11-05T12:00:00.000Z" };
 
@@ -49,5 +54,28 @@ describe("isOutdatedPage", () => {
 
   it("stays quiet when the server answer could not be read", () => {
     expect(isOutdatedPage(PAGE, null)).toBe(false);
+  });
+});
+
+describe("requestVersionCheck", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does nothing during a server render, where there is no page", () => {
+    expect(typeof window).toBe("undefined");
+
+    expect(() => requestVersionCheck()).not.toThrow();
+  });
+
+  it("asks the open page to check the server's build", () => {
+    const page = new EventTarget();
+    const listener = vi.fn<() => void>();
+    page.addEventListener(VERSION_CHECK_REQUEST_EVENT, listener);
+    vi.stubGlobal("window", page);
+
+    requestVersionCheck();
+
+    expect(listener).toHaveBeenCalledOnce();
   });
 });
