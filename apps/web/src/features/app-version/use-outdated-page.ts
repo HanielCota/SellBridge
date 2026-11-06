@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import {
   type BuildStamp,
@@ -10,7 +10,7 @@ import {
   VERSION_CHECK_TIMEOUT_IN_MS,
 } from "./app-version";
 
-const VERSION_QUERY_KEY = ["app-version"] as const;
+export const VERSION_QUERY_KEY = ["app-version"] as const;
 
 async function fetchServedBuild(): Promise<BuildStamp | null> {
   const response = await fetch("/api/version", {
@@ -21,6 +21,15 @@ async function fetchServedBuild(): Promise<BuildStamp | null> {
     return null;
   }
   return servedBuild(await response.json());
+}
+
+/**
+ * Checks the server's build now. A check already on its way answers for every failure that comes
+ * in meanwhile: a page left behind by a deploy sees several server calls fail at once, and each
+ * one must not start (and drop) its own request.
+ */
+export async function checkServedBuildNow(queryClient: QueryClient): Promise<void> {
+  await queryClient.refetchQueries({ queryKey: VERSION_QUERY_KEY }, { cancelRefetch: false });
 }
 
 /**
@@ -44,7 +53,7 @@ export function useOutdatedPage(): boolean {
     // A failed server call is the first sign of a deploy: the old page may call a function the
     // new server no longer has, so ask at once instead of waiting for the next check.
     const checkNow = () => {
-      void queryClient.refetchQueries({ queryKey: VERSION_QUERY_KEY });
+      void checkServedBuildNow(queryClient);
     };
     window.addEventListener(VERSION_CHECK_REQUEST_EVENT, checkNow);
     return () => window.removeEventListener(VERSION_CHECK_REQUEST_EVENT, checkNow);
